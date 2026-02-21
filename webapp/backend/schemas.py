@@ -1839,8 +1839,10 @@ class DocumentCreate(BaseModel):
     title: str = Field("Untitled Document", max_length=255)
     doc_type: str = Field(..., pattern="^(worksheet|lesson_plan)$")
     page_layout: Optional[dict] = None
+    content: Optional[dict] = None
     tags: Optional[List[str]] = None
     folder_id: Optional[int] = None
+    is_template: bool = False
 
 
 class DocumentUpdate(BaseModel):
@@ -1849,6 +1851,7 @@ class DocumentUpdate(BaseModel):
     content: Optional[dict] = None
     page_layout: Optional[dict] = None
     is_archived: Optional[bool] = None
+    is_template: Optional[bool] = None
     tags: Optional[List[str]] = None
     folder_id: Optional[int] = None
 
@@ -1865,6 +1868,7 @@ class DocumentResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_archived: bool = False
+    is_template: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None
@@ -1886,6 +1890,7 @@ class DocumentListItem(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_archived: bool = False
+    is_template: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None

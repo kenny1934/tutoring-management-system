@@ -127,6 +127,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "created_at": doc.created_at,
         "updated_at": doc.updated_at,
         "is_archived": doc.is_archived,
+        "is_template": doc.is_template,
         "locked_by": doc.locked_by if _is_lock_active(doc) else None,
         "locked_by_name": doc.locker.tutor_name if _is_lock_active(doc) and doc.locker else "",
         "lock_expires_at": doc.lock_expires_at if _is_lock_active(doc) else None,
@@ -153,6 +154,7 @@ async def list_documents(
     doc_type: Optional[str] = Query(None, pattern="^(worksheet|lesson_plan)$"),
     search: Optional[str] = Query(None),
     include_archived: bool = Query(False),
+    is_template: Optional[bool] = Query(None),
     sort_by: str = Query("updated_at", pattern="^(updated_at|created_at|title)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
@@ -167,6 +169,11 @@ async def list_documents(
 
     if not include_archived:
         query = query.filter(Document.is_archived == False)
+    # Filter by is_template: explicit true/false, or default to excluding templates
+    if is_template is not None:
+        query = query.filter(Document.is_template == is_template)
+    else:
+        query = query.filter(Document.is_template == False)
     if doc_type:
         query = query.filter(Document.doc_type == doc_type)
     if search:
@@ -191,6 +198,7 @@ async def list_all_tags(
     docs = db.query(Document.tags).filter(
         Document.tags.isnot(None),
         Document.is_archived == False,
+        Document.is_template == False,
     ).all()
     all_tags = set()
     for (tags,) in docs:
@@ -223,10 +231,11 @@ async def create_document(
     doc = Document(
         title=(data.title.strip() or "Untitled Document"),
         doc_type=data.doc_type,
-        content={"type": "doc", "content": [{"type": "paragraph"}]},
+        content=data.content if data.content else {"type": "doc", "content": [{"type": "paragraph"}]},
         page_layout=data.page_layout,
         tags=data.tags or [],
         folder_id=data.folder_id,
+        is_template=data.is_template,
         created_by=current_user.id,
         created_at=now,
         updated_at=now,
@@ -272,6 +281,8 @@ async def update_document(
         flag_modified(doc, "page_layout")
     if data.is_archived is not None:
         doc.is_archived = data.is_archived
+    if data.is_template is not None:
+        doc.is_template = data.is_template
     if data.tags is not None:
         doc.tags = data.tags
         flag_modified(doc, "tags")
@@ -348,6 +359,7 @@ async def duplicate_document(
         page_layout=source.page_layout,
         tags=list(source.tags) if source.tags else [],
         folder_id=source.folder_id,
+        is_template=False,
         created_by=current_user.id,
         created_at=now,
         updated_at=now,
@@ -612,6 +624,7 @@ def _folder_to_response(folder: DocumentFolder, db: Session) -> dict:
     doc_count = db.query(Document).filter(
         Document.folder_id == folder.id,
         Document.is_archived == False,
+        Document.is_template == False,
     ).count()
     return {
         "id": folder.id,

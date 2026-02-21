@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -31,35 +31,11 @@ const SORT_OPTIONS = [
   { label: "Title Z\u2013A", sort_by: "title", sort_order: "desc" },
 ] as const;
 
-const MATH_CONCEPT_TEMPLATE: DocumentMetadata = {
-  margins: { top: 12.7, left: 12.7, right: 12.7, bottom: 12.7 },
-  footer: {
-    enabled: true,
-    left: "",
-    center: "",
-    right: "{title}_p.{page}",
-    imageUrl: "https://storage.googleapis.com/csm-inbox-images/documents/d2d6a5fa-45fc-4a75-af14-cb159c0f0ef2.jpg",
-    imagePosition: "left",
-    fontSize: 9,
-    fontFamily: "'Times New Roman', Times, serif",
-    fontFamilyCjk: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif",
-  },
-  watermark: {
-    enabled: true,
-    type: "image",
-    imageUrl: "https://storage.googleapis.com/csm-inbox-images/documents/98d3f9ac-8a2b-4b55-9a7b-14a8c2d55cd3.jpg",
-    imageSize: 95,
-    opacity: 0.5,
-  },
-  bodyFontFamily: "'Times New Roman', Times, serif",
-  bodyFontFamilyCjk: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif",
-  bodyFontSize: 12,
-};
-
 export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
   const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState<"documents" | "templates">("documents");
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -116,17 +92,20 @@ export default function DocumentsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  const isTemplatesTab = activeTab === "templates";
+
   const { data: firstPage, isLoading, mutate } = useSWR(
-    ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order, activeTag, activeFolderId],
+    ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab],
     () => documentsAPI.list({
       doc_type: filterType === "all" ? undefined : filterType,
       search: debouncedSearch || undefined,
       include_archived: showArchived || undefined,
+      is_template: isTemplatesTab,
       sort_by: sort.sort_by,
       sort_order: sort.sort_order,
       limit: PAGE_SIZE,
-      tag: activeTag || undefined,
-      folder_id: activeFolderId ?? undefined,
+      tag: isTemplatesTab ? undefined : (activeTag || undefined),
+      folder_id: isTemplatesTab ? undefined : (activeFolderId ?? undefined),
     }),
     {
       revalidateOnFocus: false,
@@ -134,17 +113,17 @@ export default function DocumentsPage() {
     }
   );
 
-  // Reset extra pages when filters/sort change
+  // Reset extra pages when filters/sort/tab change
   useEffect(() => {
     setExtraDocs([]);
     setHasMore(true);
-  }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId]);
+  }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
 
   const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
 
   // Ref to hold current filter params so loadMore doesn't recreate on every state change
-  const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs });
-  filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs };
+  const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab });
+  filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -155,12 +134,13 @@ export default function DocumentsPage() {
         doc_type: f.filterType === "all" ? undefined : f.filterType,
         search: f.debouncedSearch || undefined,
         include_archived: f.showArchived || undefined,
+        is_template: f.isTemplatesTab,
         sort_by: f.sort.sort_by,
         sort_order: f.sort.sort_order,
         limit: PAGE_SIZE,
         offset: (f.firstPage?.length ?? 0) + f.extraDocs.length,
-        tag: f.activeTag || undefined,
-        folder_id: f.activeFolderId ?? undefined,
+        tag: f.isTemplatesTab ? undefined : (f.activeTag || undefined),
+        folder_id: f.isTemplatesTab ? undefined : (f.activeFolderId ?? undefined),
       });
       setExtraDocs((prev) => [...prev, ...next]);
       setHasMore(next.length === PAGE_SIZE);
@@ -171,12 +151,13 @@ export default function DocumentsPage() {
 
   const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
 
-  const handleCreate = useCallback(async (docType: DocType, template?: DocumentMetadata) => {
+  const handleCreate = useCallback(async (docType: DocType, templateDoc?: Document) => {
     try {
       const doc = await documentsAPI.create({
         title: "Untitled Document",
         doc_type: docType,
-        ...(template ? { page_layout: template } : {}),
+        ...(templateDoc?.page_layout ? { page_layout: templateDoc.page_layout } : {}),
+        ...(templateDoc?.content ? { content: templateDoc.content } : {}),
         ...(activeFolderId ? { folder_id: activeFolderId } : {}),
       });
       setShowCreateModal(false);
@@ -186,6 +167,38 @@ export default function DocumentsPage() {
       showToast((err as Error).message, "error");
     }
   }, [router, showToast, activeFolderId]);
+
+  const handleCreateTemplate = useCallback(async () => {
+    try {
+      const doc = await documentsAPI.create({
+        title: "Untitled Template",
+        doc_type: "worksheet",
+        is_template: true,
+      });
+      router.push(`/documents/${doc.id}`);
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+  }, [router, showToast]);
+
+  const handleSaveAsTemplate = useCallback(async (id: number) => {
+    try {
+      const source = await documentsAPI.get(id);
+      await documentsAPI.create({
+        title: `${source.title} (Template)`,
+        doc_type: source.doc_type,
+        ...(source.page_layout ? { page_layout: source.page_layout } : {}),
+        ...(source.content ? { content: source.content } : {}),
+        is_template: true,
+      });
+      showToast("Template created", "success");
+      setActiveTab("templates");
+      mutate();
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+    setMenuOpenId(null);
+  }, [showToast, mutate]);
 
   const handleArchive = useCallback(async (id: number) => {
     try {
@@ -319,50 +332,54 @@ export default function DocumentsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-1 min-h-0">
-        {/* Sidebar — desktop */}
-        <FolderSidebar
-          folders={folders}
-          allTags={allTags}
-          activeFolderId={activeFolderId}
-          activeTag={activeTag}
-          onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
-          onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
-          onCreateFolder={handleCreateFolder}
-          onRenameFolder={handleRenameFolder}
-          onDeleteFolder={handleDeleteFolder}
-          totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
-        />
+        {/* Sidebar — desktop (hidden on templates tab) */}
+        {!isTemplatesTab && (
+          <FolderSidebar
+            folders={folders}
+            allTags={allTags}
+            activeFolderId={activeFolderId}
+            activeTag={activeTag}
+            onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
+            onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
+          />
+        )}
 
-        {/* Mobile drawer backdrop + sidebar — always mounted, animated */}
-        <div
-          className={cn(
-            "fixed inset-0 z-40 md:hidden transition-opacity duration-200",
-            mobileDrawerOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-          onClick={() => setMobileDrawerOpen(false)}
-        >
-          <div className="absolute inset-0 bg-black/40" />
+        {/* Mobile drawer backdrop + sidebar — always mounted, animated (hidden on templates tab) */}
+        {!isTemplatesTab && (
           <div
             className={cn(
-              "absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto transition-transform duration-200 ease-out",
-              mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+              "fixed inset-0 z-40 md:hidden transition-opacity duration-200",
+              mobileDrawerOpen ? "opacity-100" : "opacity-0 pointer-events-none"
             )}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setMobileDrawerOpen(false)}
           >
-            <FolderSidebar
-              folders={folders}
-              allTags={allTags}
-              activeFolderId={activeFolderId}
-              activeTag={activeTag}
-              onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
-              onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
-              onCreateFolder={handleCreateFolder}
-              onRenameFolder={handleRenameFolder}
-              onDeleteFolder={handleDeleteFolder}
-              mobile
-            />
+            <div className="absolute inset-0 bg-black/40" />
+            <div
+              className={cn(
+                "absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto transition-transform duration-200 ease-out",
+                mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FolderSidebar
+                folders={folders}
+                allTags={allTags}
+                activeFolderId={activeFolderId}
+                activeTag={activeTag}
+                onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
+                onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
+                onCreateFolder={handleCreateFolder}
+                onRenameFolder={handleRenameFolder}
+                onDeleteFolder={handleDeleteFolder}
+                mobile
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -379,43 +396,85 @@ export default function DocumentsPage() {
                     Beta
                   </span>
                 </h1>
-                {activeFolder && (
+                {!isTemplatesTab && activeFolder && (
                   <span className="sm:hidden text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 ml-1">
                     / <FolderOpen className="w-3 h-3" /> {activeFolder.name}
                   </span>
                 )}
                 <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {activeFolder
+                  {isTemplatesTab
+                    ? "Reusable templates for new documents"
+                    : activeFolder
                     ? <span className="flex items-center gap-1"><FolderOpen className="w-3.5 h-3.5" />{activeFolder.name}</span>
                     : "Create and edit worksheets, exams, and lesson plans"}
                 </p>
               </div>
             </div>
+            {isTemplatesTab ? (
+              <button
+                onClick={handleCreateTemplate}
+                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Template</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Document</span>
+              </button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-3">
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+              onClick={() => setActiveTab("documents")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                activeTab === "documents"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
+              )}
             >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">New Document</span>
+              <FileText className="w-3.5 h-3.5" />
+              Documents
+            </button>
+            <button
+              onClick={() => setActiveTab("templates")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                activeTab === "templates"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
+              )}
+            >
+              <Stamp className="w-3.5 h-3.5" />
+              Templates
             </button>
           </div>
 
           {/* Filters */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-[20rem]">
-            <button
-              onClick={() => setMobileDrawerOpen(true)}
-              className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border border-gray-200 dark:border-gray-700/30 shrink-0"
-              title="Folders & Tags"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              Folders
-            </button>
+            {!isTemplatesTab && (
+              <button
+                onClick={() => setMobileDrawerOpen(true)}
+                className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border border-gray-200 dark:border-gray-700/30 shrink-0"
+                title="Folders & Tags"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                Folders
+              </button>
+            )}
             <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search documents..."
+              placeholder={isTemplatesTab ? "Search templates..." : "Search documents..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={cn("w-full pl-9 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40", search ? "pr-8" : "pr-3")}
@@ -503,7 +562,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Active filter indicators */}
-          {(activeTag || activeFolderId) && (
+          {!isTemplatesTab && (activeTag || activeFolderId) && (
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {activeFolderId && activeFolder && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f]">
@@ -558,14 +617,16 @@ export default function DocumentsPage() {
           )
         ) : !documents?.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-700 dark:text-gray-400">
-            <FileText className="w-12 h-12 mb-3 opacity-40" />
+            {isTemplatesTab ? <Stamp className="w-12 h-12 mb-3 opacity-40" /> : <FileText className="w-12 h-12 mb-3 opacity-40" />}
             <p className="text-lg font-medium">
-              {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId ? "No matching documents" : "No documents yet"}
+              {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
+                ? isTemplatesTab ? "No matching templates" : "No matching documents"
+                : isTemplatesTab ? "No templates yet" : "No documents yet"}
             </p>
             <p className="text-sm mt-1">
               {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
                 ? "Try adjusting your search or filters"
-                : "Create your first document to get started"}
+                : isTemplatesTab ? "Create your first template to get started" : "Create your first document to get started"}
             </p>
           </div>
         ) : viewMode === "grid" ? (
@@ -586,13 +647,22 @@ export default function DocumentsPage() {
                 >
                   {/* Type badge */}
                   <div className="flex items-center justify-between mb-3">
-                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
-                      <Icon className="w-3 h-3" />
-                      {typeInfo?.label}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
+                        <Icon className="w-3 h-3" />
+                        {typeInfo?.label}
+                      </span>
+                      {doc.is_template && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                          <Stamp className="w-2.5 h-2.5" />
+                          Template
+                        </span>
+                      )}
+                    </div>
                     <DocContextMenu
                       doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                       onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
+                      onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
                       folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                       onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                     />
@@ -675,6 +745,7 @@ export default function DocumentsPage() {
                       <DocContextMenu
                         doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                         onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
+                        onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
                         folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                         onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                       />
@@ -683,6 +754,9 @@ export default function DocumentsPage() {
                   {/* Mobile meta row — type badge + timestamp below title */}
                   <span className="flex sm:hidden items-center gap-2 w-full pl-6 text-xs text-gray-500 dark:text-gray-400">
                     <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", typeInfo?.color)}>{typeInfo?.label}</span>
+                    {doc.is_template && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Template</span>
+                    )}
                     <span>{formatTimeAgo(doc.updated_at)}</span>
                   </span>
                   {/* Desktop: author + timestamp + menu */}
@@ -692,6 +766,7 @@ export default function DocumentsPage() {
                     <DocContextMenu
                       doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                       onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
+                      onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
                       folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                       onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                     />
@@ -719,94 +794,19 @@ export default function DocumentsPage() {
         {!isLoading && documents && documents.length > 0 && (
           <p className="text-center text-xs text-gray-600 dark:text-gray-400 mt-3">
             <span className="bg-white/80 dark:bg-[#1a1a1a]/60 backdrop-blur-sm rounded-full px-3 py-1">
-              Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
+              Showing {documents.length} {isTemplatesTab ? "template" : "document"}{documents.length !== 1 ? "s" : ""}
             </span>
           </p>
         )}
 
         {/* Create Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}>
-            <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
-              style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {createStep.step === "type" ? (
-                <>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose a document type:</p>
-                  <div className="flex flex-col gap-3">
-                    {(Object.entries(DOC_TYPE_LABELS) as [DocType, typeof DOC_TYPE_LABELS[DocType]][]).map(([type, info]) => {
-                      const Icon = info.icon;
-                      return (
-                        <button
-                          key={type}
-                          onClick={() => setCreateStep({ step: "template", docType: type })}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
-                        >
-                          <div className={cn("p-2 rounded-lg", info.color)}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{info.label}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {type === "worksheet" ? "Exercises, exams, practice sheets" : "Teaching guides and outlines"}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Template</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Start with a blank page or a pre-configured template:
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <button
-                      onClick={() => handleCreate(createStep.docType)}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
-                    >
-                      <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => handleCreate(createStep.docType, MATH_CONCEPT_TEMPLATE)}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
-                    >
-                      <div className="p-2 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">MathConcept</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Watermark, branded footer, narrow margins</p>
-                      </div>
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setCreateStep({ step: "type" })}
-                    className="w-full mt-4 py-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
-                  >
-                    Back
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
-                className="w-full mt-2 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+          <CreateDocumentModal
+            createStep={createStep}
+            setCreateStep={setCreateStep}
+            onClose={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
+            onCreate={handleCreate}
+          />
         )}
 
         {/* Tag Popover */}
@@ -940,7 +940,7 @@ function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onClose }: {
 }
 
 /* Context menu (3-dot) shared between grid and list views */
-function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, folders, onMoveToFolder, onEditTags }: {
+function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, onSaveAsTemplate, folders, onMoveToFolder, onEditTags }: {
   doc: Document;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
@@ -948,6 +948,7 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
   onArchive: (id: number) => void;
   onUnarchive: (id: number) => void;
   onPermanentDelete: (id: number) => void;
+  onSaveAsTemplate?: (id: number) => void;
   folders: DocumentFolder[];
   onMoveToFolder: (folderId: number | null) => void;
   onEditTags: () => void;
@@ -978,6 +979,15 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
             <Tag className="w-3.5 h-3.5" />
             Edit Tags
           </button>
+          {onSaveAsTemplate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            >
+              <Stamp className="w-3.5 h-3.5" />
+              Save as Template
+            </button>
+          )}
           {folders.length > 0 && (
             <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
           )}
@@ -1010,6 +1020,129 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
         </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* Create document modal with dynamic template picker */
+function CreateDocumentModal({ createStep, setCreateStep, onClose, onCreate }: {
+  createStep: { step: "type" } | { step: "template"; docType: DocType };
+  setCreateStep: (step: { step: "type" } | { step: "template"; docType: DocType }) => void;
+  onClose: () => void;
+  onCreate: (docType: DocType, templateDoc?: Document) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const { data: templates, isLoading: loadingTemplates } = useSWR(
+    createStep.step === "template" ? ["templates-for-picker"] : null,
+    () => documentsAPI.list({ is_template: true, limit: 50 }),
+    { revalidateOnFocus: false }
+  );
+
+  const handlePickTemplate = useCallback(async (docType: DocType, tplId: number) => {
+    setCreating(true);
+    try {
+      const fullDoc = await documentsAPI.get(tplId);
+      onCreate(docType, fullDoc);
+    } catch {
+      onCreate(docType);
+    }
+  }, [onCreate]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
+        style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {createStep.step === "type" ? (
+          <>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose a document type:</p>
+            <div className="flex flex-col gap-3">
+              {(Object.entries(DOC_TYPE_LABELS) as [DocType, typeof DOC_TYPE_LABELS[DocType]][]).map(([type, info]) => {
+                const Icon = info.icon;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setCreateStep({ step: "template", docType: type })}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
+                  >
+                    <div className={cn("p-2 rounded-lg", info.color)}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{info.label}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {type === "worksheet" ? "Exercises, exams, practice sheets" : "Teaching guides and outlines"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Template</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Start with a blank page or pick a template:
+            </p>
+            <div className="flex flex-col gap-3 max-h-80 overflow-y-auto">
+              <button
+                onClick={() => onCreate(createStep.docType)}
+                className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
+              >
+                <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
+                </div>
+              </button>
+              {loadingTemplates ? (
+                <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                  <div className="h-4 w-24 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+                </div>
+              ) : templates && templates.length > 0 ? (
+                templates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    disabled={creating}
+                    onClick={() => handlePickTemplate(createStep.docType, tpl.id)}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
+                  >
+                    <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                      <Stamp className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{tpl.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {DOC_TYPE_LABELS[tpl.doc_type as DocType]?.label ?? tpl.doc_type}
+                        {tpl.page_layout ? " · Custom layout" : ""}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              ) : null}
+            </div>
+            <button
+              onClick={() => setCreateStep({ step: "type" })}
+              className="w-full mt-4 py-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
+            >
+              Back
+            </button>
+          </>
+        )}
+        <button
+          onClick={onClose}
+          className="w-full mt-2 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
