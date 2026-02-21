@@ -90,7 +90,7 @@ export default function DocumentsPage() {
   // Paginated fetch: SWR loads first page, "Load more" appends
   const [extraDocs, setExtraDocs] = useState<Document[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [moreExhausted, setMoreExhausted] = useState(false);
 
   const isTemplatesTab = activeTab === "templates";
 
@@ -107,19 +107,17 @@ export default function DocumentsPage() {
       tag: isTemplatesTab ? undefined : (activeTag || undefined),
       folder_id: isTemplatesTab ? undefined : (activeFolderId ?? undefined),
     }),
-    {
-      revalidateOnFocus: false,
-      onSuccess: (data) => { setHasMore(data.length === PAGE_SIZE); },
-    }
+    { revalidateOnFocus: false }
   );
 
   // Reset extra pages when filters/sort/tab change
   useEffect(() => {
     setExtraDocs([]);
-    setHasMore(true);
+    setMoreExhausted(false);
   }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
 
   const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
+  const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
   // Ref to hold current filter params so loadMore doesn't recreate on every state change
   const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab });
@@ -143,7 +141,7 @@ export default function DocumentsPage() {
         folder_id: f.isTemplatesTab ? undefined : (f.activeFolderId ?? undefined),
       });
       setExtraDocs((prev) => [...prev, ...next]);
-      setHasMore(next.length === PAGE_SIZE);
+      if (next.length < PAGE_SIZE) setMoreExhausted(true);
     } finally {
       setLoadingMore(false);
     }
