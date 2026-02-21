@@ -109,7 +109,7 @@ export default function FloatingDropdown({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60]" onClick={onClose} />
+      <div className="fixed inset-0 z-[60]" onClick={(e) => { e.stopPropagation(); onClose(); }} />
       <div ref={dropdownRef} style={style} className={cn(className)}>
         {children}
       </div>
