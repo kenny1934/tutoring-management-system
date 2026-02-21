@@ -39,6 +39,8 @@ interface FolderSidebarProps {
   totalDocCount?: number;
   /** When true, always show (skip hidden md:flex). Used inside mobile drawer. */
   mobile?: boolean;
+  /** When true, collapse to zero width (smooth transition). */
+  hidden?: boolean;
 }
 
 /* ── Build tree from flat list ─────────────────────────── */
@@ -276,6 +278,7 @@ export default function FolderSidebar({
   onDeleteFolder,
   totalDocCount,
   mobile,
+  hidden,
 }: FolderSidebarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -318,6 +321,7 @@ export default function FolderSidebar({
 
   /* Single container — width animates on collapse/expand */
   const isCollapsed = collapsed && !mobile;
+  const isHidden = hidden && !mobile;
 
   return (
     <div
@@ -325,13 +329,14 @@ export default function FolderSidebar({
         mobile
           ? "flex w-full"
           : cn(
-              "hidden md:flex border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 transition-[width] duration-200 ease-out",
-              !isCollapsed && "w-56 lg:w-60"
+              "hidden md:flex transition-[width] duration-200 ease-out",
+              !isHidden && "border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40",
+              !isCollapsed && !isHidden && "w-56 lg:w-60"
             ),
         "flex-col shrink-0 bg-white/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
-        !isCollapsed && !mobile && "overflow-y-auto"
+        !isCollapsed && !isHidden && !mobile && "overflow-y-auto"
       )}
-      style={!mobile && isCollapsed ? { width: 40 } : undefined}
+      style={!mobile ? (isHidden ? { width: 0 } : isCollapsed ? { width: 40 } : undefined) : undefined}
     >
       {/* Collapsed icon strip */}
       {isCollapsed && (
