@@ -1161,25 +1161,26 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
 
         </div>
-        {/* Tag strip below title */}
-        <div className="px-3 sm:px-4 pb-1.5">
-          <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
-        </div>
-        {/* Author / editor metadata */}
-        <div className="px-3 sm:px-4 pb-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
-          <span>{doc.created_by_name}</span>
-          {doc.is_template && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-medium">
-              <Stamp className="w-2.5 h-2.5" />
-              Template
-            </span>
-          )}
-          {doc.updated_by_name && doc.updated_by !== doc.created_by && (
-            <span>· Edited by {doc.updated_by_name}</span>
-          )}
-          {doc.updated_at && (
-            <span>· {formatTimeAgo(doc.updated_at)}</span>
-          )}
+        {/* Tag strip + metadata */}
+        <div className="px-3 sm:px-4 pb-1.5 flex flex-col sm:flex-row sm:items-center gap-1">
+          <div className="flex-1 min-w-0">
+            <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
+            <span>{doc.created_by_name}</span>
+            {doc.is_template && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-medium">
+                <Stamp className="w-2.5 h-2.5" />
+                Template
+              </span>
+            )}
+            {doc.updated_by_name && doc.updated_by !== doc.created_by && (
+              <span>· Edited by {doc.updated_by_name}</span>
+            )}
+            {doc.updated_at && (
+              <span>· {formatTimeAgo(doc.updated_at)}</span>
+            )}
+          </div>
         </div>
       </div>
 
