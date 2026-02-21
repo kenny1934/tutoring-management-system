@@ -6,11 +6,13 @@ import type { DocumentMetadata } from "@/types";
 import {
   measureNodeHeights,
   calculateBreakPositions,
-  createPageBreakElement,
+  calculateChromePositions,
+  calculatePageEndPadding,
+  createPrintPageBreak,
   estimateHFHeightPx,
   type PaginationConfig,
   type PageBreakInfo,
-  type PaginationResult,
+  type PageChromePosition,
 } from "./pagination-utils";
 
 // ─── Plugin key ──────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             decorationSet: DecorationSet.empty,
             breaks: [] as PageBreakInfo[],
             lastPageRemainingPx: 0,
+            chromePositions: [] as PageChromePosition[],
             metadata: extensionThis.options.metadata as DocumentMetadata | null,
             docTitle: extensionThis.options.docTitle as string,
             needsRecalc: true, // initial calculation needed
@@ -60,6 +63,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
               decorationSet: meta.decorationSet as DecorationSet,
               breaks: meta.breaks as PageBreakInfo[],
               lastPageRemainingPx: meta.lastPageRemainingPx as number,
+              chromePositions: meta.chromePositions as PageChromePosition[],
               metadata: value.metadata,
               docTitle: value.docTitle,
               needsRecalc: false,
@@ -84,6 +88,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
                 : value.decorationSet,
               breaks: value.breaks,
               lastPageRemainingPx: value.lastPageRemainingPx,
+              chromePositions: value.chromePositions,
               metadata,
               docTitle,
               needsRecalc: true,
@@ -98,7 +103,6 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
       view(editorView) {
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         let isRecalculating = false;
-        let recalcCooldown = false;
 
         const recalculate = (view: EditorView) => {
           if (isRecalculating) return;
@@ -110,10 +114,9 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
             const { metadata, docTitle } = pluginState;
 
-            // Save scroll position BEFORE measurement. The pagination-measuring
-            // class hides decorations (display:none), collapsing the DOM height.
-            // getBoundingClientRect forces a layout reflow during which the browser
-            // may clamp scrollTop to the shorter document. We restore it after.
+            // Save scroll position. The pagination-measuring class zeroes out
+            // Node Decoration padding, shrinking the DOM height. The browser
+            // may clamp scrollTop during getBoundingClientRect's forced reflow.
             const scrollEl = view.dom.closest('.document-page-scroll-container') as HTMLElement | null;
             const savedScrollTop = scrollEl?.scrollTop ?? 0;
 
@@ -123,7 +126,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             const savedZoom = pageEl?.style.zoom ?? "";
             if (pageEl) pageEl.style.zoom = "1";
 
-            // Measure block heights (toggles pagination-measuring class)
+            // Measure block heights (toggles pagination-measuring class to zero out padding)
             const blocks = measureNodeHeights(view);
 
             // Measure actual rendered header/footer heights from the DOM
@@ -135,7 +138,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             // Restore zoom
             if (pageEl) pageEl.style.zoom = savedZoom;
 
-            // Restore scroll position after measurement (before calculations/dispatch)
+            // Restore scroll position after measurement
             if (scrollEl) scrollEl.scrollTop = savedScrollTop;
 
             const config: PaginationConfig = {
@@ -156,22 +159,15 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             const breaksChanged = result.breaks.length !== oldBreaks.length
               || result.breaks.some((b, i) => b.pos !== oldBreaks[i].pos);
 
-            // DecorationSet.map() can silently drop widget decorations when content
-            // near a widget position is deleted (WidgetType.map returns null).
-            // Verify the mapped decorationSet still has the right number of decorations
-            // before reusing it — otherwise fall through to full recreation.
-            const existingDecorations = pluginState.decorationSet.find(0, view.state.doc.content.size);
-            const decorationsIntact = existingDecorations.length === result.breaks.length
-              && existingDecorations.every((d, i) => d.from === result.breaks[i].pos);
-
-            if (!breaksChanged && decorationsIntact) {
-              // Breaks unchanged — dispatch spacer update (reuse existing decorations).
-              // This keeps lastPageRemainingPx current for the LastPageFooter spacer,
-              // and clears needsRecalc to stop continuous re-scheduling.
+            if (!breaksChanged) {
+              // Breaks unchanged — dispatch state update to keep lastPageRemainingPx
+              // and chromePositions current, and clear needsRecalc.
+              const chromePositions = calculateChromePositions(result.breaks, config);
               const tr = view.state.tr.setMeta(paginationPluginKey, {
                 __decorationUpdate: true,
                 breaks: result.breaks,
                 lastPageRemainingPx: result.lastPageRemainingPx,
+                chromePositions,
                 decorationSet: pluginState.decorationSet, // reuse — no DOM churn
               });
               tr.setMeta("addToHistory", false);
@@ -180,13 +176,24 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             }
 
             // Breaks changed — full decoration recreation
-            // Create Widget Decorations
-            // Include header/footer metadata in key so ProseMirror replaces DOM on metadata changes
-            const hfKey = JSON.stringify({ h: metadata?.header, f: metadata?.footer, t: docTitle });
             const totalPages = result.breaks.length + 1;
-            const decorations: Decoration[] = result.breaks.map((brk) => {
-              const element = createPageBreakElement({
-                remainingPx: brk.remainingPx,
+            const hfKey = JSON.stringify({ h: metadata?.header, f: metadata?.footer, t: docTitle });
+            const decorations: Decoration[] = [];
+
+            for (const brk of result.breaks) {
+              // 1. Node Decoration: padding-bottom on the last block of the ending page
+              //    This creates space for footer, page gap, and next page header.
+              const paddingPx = calculatePageEndPadding(brk.remainingPx, config);
+              decorations.push(
+                Decoration.node(brk.decoFrom, brk.decoTo, {
+                  style: `padding-bottom: ${paddingPx}px`,
+                  class: "page-end",
+                })
+              );
+
+              // 2. Print-only Widget Decoration: contains footer, break-trigger, header
+              //    Hidden on screen (display:none), shown only in print CSS.
+              const printElement = createPrintPageBreak({
                 pageNumber: brk.pageNumber,
                 nextPageNumber: brk.pageNumber + 1,
                 totalPages,
@@ -194,31 +201,29 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
                 metadata,
                 isExplicitBreak: brk.isExplicitBreak,
               });
-
-              return Decoration.widget(brk.pos, element, {
-                side: -1,
-                key: `pb-${brk.pos}-${brk.pageNumber}-${hfKey}`,
-              });
-            });
+              decorations.push(
+                Decoration.widget(brk.pos, printElement, {
+                  side: -1,
+                  key: `print-pb-${brk.pos}-${brk.pageNumber}-${hfKey}`,
+                })
+              );
+            }
 
             const decorationSet = DecorationSet.create(view.state.doc, decorations);
+            const chromePositions = calculateChromePositions(result.breaks, config);
 
-            // Dispatch transaction with updated decorations
+            // Dispatch transaction with updated decorations and chrome positions
             const tr = view.state.tr.setMeta(paginationPluginKey, {
               __decorationUpdate: true,
               breaks: result.breaks,
               lastPageRemainingPx: result.lastPageRemainingPx,
+              chromePositions,
               decorationSet,
             });
             tr.setMeta("addToHistory", false);
             // Only scroll to cursor when break positions change (new page created/removed).
-            // When only the spacer height changed, keep viewport stable.
             if (breaksChanged) tr.scrollIntoView();
             view.dispatch(tr);
-
-            // Cooldown: ignore ResizeObserver events caused by our own decoration changes
-            recalcCooldown = true;
-            setTimeout(() => { recalcCooldown = false; }, 500);
           } finally {
             isRecalculating = false;
           }
@@ -230,10 +235,11 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
         };
 
         // ResizeObserver: detect external layout changes (font loading, CSS changes)
-        // that don't trigger docChanged or metadata updates. The cooldown prevents
-        // infinite loops from our own decoration changes resizing the editor.
+        // that don't trigger docChanged or metadata updates.
+        // Node Decorations (padding changes) don't inject new DOM elements, so
+        // the ResizeObserver won't trigger infinite loops — no cooldown needed.
         const resizeObserver = new ResizeObserver(() => {
-          if (isRecalculating || recalcCooldown) return;
+          if (isRecalculating) return;
           scheduleRecalc(editorView);
         });
         resizeObserver.observe(editorView.dom);

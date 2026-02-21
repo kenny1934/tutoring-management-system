@@ -87,7 +87,9 @@ export interface BlockMeasurement {
 
 /**
  * Measure top-level block heights in the editor.
- * Adds `pagination-measuring` class to hide existing decorations during measurement.
+ * Adds `pagination-measuring` class to temporarily zero out Node Decoration
+ * padding during measurement (CSS rule `.pagination-measuring .page-end`
+ * overrides padding-bottom to 0).
  */
 export function measureNodeHeights(view: EditorView): BlockMeasurement[] {
   const editorDom = view.dom;
@@ -121,8 +123,6 @@ export function measureNodeHeights(view: EditorView): BlockMeasurement[] {
     // margins in the layout — we're measuring actual rendered positions.
     const height = rect.bottom - prevBottom;
     // Capture margin-bottom: getBoundingClientRect() returns border-box (excludes margin).
-    // When a decoration widget sits between blocks, it prevents margin collapse,
-    // so the trailing margin becomes real space we must account for in the spacer.
     const marginBottom = parseFloat(window.getComputedStyle(dom).marginBottom) || 0;
 
     measurements.push({
@@ -153,6 +153,10 @@ export interface PageBreakInfo {
   isExplicitBreak?: boolean;
   /** Size of the explicit pageBreak node (used to place decoration after it) */
   nodeSize?: number;
+  /** Start position of the node that receives the page-end Node Decoration (padding-bottom) */
+  decoFrom: number;
+  /** End position of the node that receives the page-end Node Decoration */
+  decoTo: number;
 }
 
 export interface PaginationConfig {
@@ -171,7 +175,8 @@ export interface PaginationResult {
 
 /**
  * Calculate page break positions from block measurements.
- * Returns break positions with spacer heights and page numbers.
+ * Returns break positions with spacer heights, page numbers, and
+ * Node Decoration targets (decoFrom/decoTo).
  */
 export function calculateBreakPositions(
   blocks: BlockMeasurement[],
@@ -184,9 +189,7 @@ export function calculateBreakPositions(
   const marginBottomPx = convertMmToPx(margins.bottom);
 
   // Content area = page height - margins - header - footer
-  // Subtract 5px safety margin to absorb sub-pixel differences between
-  // decoration and React header/footer rendering, plus collapsed margin gaps
-  // on page 1. Even 0.1px overflow causes Chrome to auto-break before footer.
+  // Subtract 5px safety margin to absorb sub-pixel differences
   const contentAreaPx = totalPageHeightPx - marginTopPx - marginBottomPx - headerHeightPx - footerHeightPx - 5;
 
   if (contentAreaPx <= 0) return { breaks: [], lastPageRemainingPx: 0, contentAreaPx: 0 };
@@ -194,24 +197,25 @@ export function calculateBreakPositions(
   const breaks: PageBreakInfo[] = [];
   let accumulated = 0;
   let currentPage = 1;
-  // Track trailing margin of the last content block on each page.
-  // During measurement, decorations are hidden so adjacent block margins collapse.
-  // But in actual layout (and print), the decoration widget sits between blocks,
-  // preventing collapse — the last block's margin-bottom becomes real space
-  // that must be subtracted from the spacer.
   let lastBlockMarginBottom = 0;
+  // Track the last content block on the current page for Node Decoration targeting
+  let lastContentBlock: BlockMeasurement | null = null;
 
   for (const block of blocks) {
     if (block.isPageBreak) {
+      // Explicit break: the pageBreak node itself receives the padding-bottom
       breaks.push({
         pos: block.pos + block.nodeSize,
         remainingPx: contentAreaPx - accumulated - lastBlockMarginBottom,
         pageNumber: currentPage,
         isExplicitBreak: true,
         nodeSize: block.nodeSize,
+        decoFrom: block.pos,
+        decoTo: block.pos + block.nodeSize,
       });
       accumulated = 0;
       lastBlockMarginBottom = 0;
+      lastContentBlock = null;
       currentPage++;
       continue;
     }
@@ -219,17 +223,23 @@ export function calculateBreakPositions(
     if (block.height === 0) continue;
 
     if (accumulated + block.height > contentAreaPx && accumulated > 0) {
+      // Automatic break: last content block on the page receives the padding-bottom
+      const target = lastContentBlock!;
       breaks.push({
         pos: block.pos,
         remainingPx: contentAreaPx - accumulated - lastBlockMarginBottom,
         pageNumber: currentPage,
+        decoFrom: target.pos,
+        decoTo: target.pos + target.nodeSize,
       });
       accumulated = block.height;
       lastBlockMarginBottom = block.marginBottom;
+      lastContentBlock = block;
       currentPage++;
     } else {
       accumulated += block.height;
       lastBlockMarginBottom = block.marginBottom;
+      lastContentBlock = block;
     }
   }
 
@@ -241,10 +251,88 @@ export function calculateBreakPositions(
   };
 }
 
-// ─── Decoration DOM creation ────────────────────────────────────────
+// ─── Chrome position calculation ─────────────────────────────────────
 
-export interface DecorationDOMConfig {
-  remainingPx: number;
+export interface PageChromePosition {
+  pageNumber: number;
+  /** Y offset for the footer of this page (relative to editor content top) */
+  footerTopPx: number;
+  /** Y offset for the page gap after this page */
+  gapTopPx: number;
+  /** Y offset for the header of the next page */
+  headerTopPx: number;
+  /** Y offset for the watermark center of the next page */
+  watermarkCenterPx: number;
+}
+
+/**
+ * Calculate Y-pixel positions for page chrome (headers, footers, gaps, watermarks)
+ * relative to the editor content area top.
+ *
+ * These positions are consumed by the React PageChromeOverlay component to render
+ * absolutely-positioned page chrome elements.
+ *
+ * The calculation is straightforward: each page takes exactly `contentAreaPx` of
+ * content space (padding-bottom fills the remainder), followed by footer, margin,
+ * gap, margin, and header. This creates a regular stride pattern.
+ */
+export function calculateChromePositions(
+  breaks: PageBreakInfo[],
+  config: PaginationConfig,
+): PageChromePosition[] {
+  if (breaks.length === 0) return [];
+
+  const { margins, headerHeightPx, footerHeightPx } = config;
+  const marginTopPx = convertMmToPx(margins.top);
+  const marginBottomPx = convertMmToPx(margins.bottom);
+  const contentAreaPx = convertMmToPx(A4_HEIGHT_MM) - marginTopPx - marginBottomPx - headerHeightPx - footerHeightPx - 5;
+
+  if (contentAreaPx <= 0) return [];
+
+  // Chrome height between pages: footer + bottom margin + gap + top margin + header
+  const chromeH = footerHeightPx + marginBottomPx + PAGE_GAP_PX + marginTopPx + headerHeightPx;
+  // Total stride per page: content area + chrome
+  const pageStride = contentAreaPx + chromeH;
+
+  return breaks.map((brk, i) => {
+    // Offset: the first-page header is in normal flow above the editor content,
+    // but the overlay is absolutely positioned from the .document-page content-box top.
+    // All positions must be offset by the first-page header height.
+    // Footer starts at the end of page (i+1)'s content area.
+    // Footer of page N: headerH + N*contentAreaPx + (N-1)*chromeH
+    const footerTopPx = marginTopPx + headerHeightPx + (i + 1) * contentAreaPx + i * chromeH;
+    const gapTopPx = footerTopPx + footerHeightPx + marginBottomPx;
+    const headerTopPx = gapTopPx + PAGE_GAP_PX + marginTopPx;
+    const watermarkCenterPx = headerTopPx + headerHeightPx + contentAreaPx / 2;
+
+    return {
+      pageNumber: brk.pageNumber,
+      footerTopPx,
+      gapTopPx,
+      headerTopPx,
+      watermarkCenterPx,
+    };
+  });
+}
+
+/**
+ * Calculate the total padding-bottom to apply to the last block on a page.
+ * This padding creates space for: remaining content area + footer + bottom margin +
+ * page gap + top margin + header of next page.
+ */
+export function calculatePageEndPadding(
+  remainingPx: number,
+  config: PaginationConfig,
+): number {
+  const { margins, headerHeightPx, footerHeightPx } = config;
+  const marginTopPx = convertMmToPx(margins.top);
+  const marginBottomPx = convertMmToPx(margins.bottom);
+  return Math.max(0, remainingPx) + footerHeightPx + marginBottomPx + PAGE_GAP_PX + marginTopPx + headerHeightPx;
+}
+
+// ─── Print-only Widget Decoration DOM ────────────────────────────────
+
+export interface PrintBreakConfig {
   pageNumber: number;
   nextPageNumber: number;
   totalPages: number;
@@ -253,6 +341,56 @@ export interface DecorationDOMConfig {
   /** If true, skip the break-trigger div (the explicit pageBreak node handles it) */
   isExplicitBreak?: boolean;
 }
+
+/**
+ * Create a minimal DOM element for print-only Widget Decorations.
+ * These are hidden on screen (display:none) and shown only in print CSS.
+ * Contains: footer of ending page, break-after:page trigger, header of next page.
+ * No spacer, no gap, no watermark (those are handled by Node Decorations + React overlay on screen).
+ */
+export function createPrintPageBreak(config: PrintBreakConfig): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "print-page-break not-prose";
+  wrapper.contentEditable = "false";
+
+  // 1. Footer of current (ending) page
+  const footer = document.createElement("div");
+  footer.className = "page-footer-content";
+  if (config.metadata?.footer?.enabled) {
+    const fSize = config.metadata.footer.fontSize ?? 9;
+    const fFont = buildHFontFamily(config.metadata.footer.fontFamily, config.metadata.footer.fontFamilyCjk);
+    const fFontCss = fFont ? `font-family:${fFont};` : "";
+    footer.style.cssText = `padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
+    const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber, config.totalPages);
+    footer.appendChild(footerContent);
+  }
+  wrapper.appendChild(footer);
+
+  // 2. Page break trigger (skipped for explicit pageBreak nodes — they already have break-after:page)
+  if (!config.isExplicitBreak) {
+    const trigger = document.createElement("div");
+    trigger.className = "page-break-trigger";
+    trigger.style.cssText = "break-after:page;height:0;overflow:hidden;";
+    wrapper.appendChild(trigger);
+  }
+
+  // 3. Header of next page
+  const header = document.createElement("div");
+  header.className = "page-header-content";
+  if (config.metadata?.header?.enabled) {
+    const hSize = config.metadata.header.fontSize ?? 9;
+    const hFont = buildHFontFamily(config.metadata.header.fontFamily, config.metadata.header.fontFamilyCjk);
+    const hFontCss = hFont ? `font-family:${hFont};` : "";
+    header.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
+    const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber, config.totalPages);
+    header.appendChild(headerContent);
+  }
+  wrapper.appendChild(header);
+
+  return wrapper;
+}
+
+// ─── DOM helper for print header/footer content ─────────────────────
 
 function createHFContent(
   section: DocumentHeaderFooter | undefined,
@@ -308,106 +446,6 @@ function createHFContent(
   });
 
   return container;
-}
-
-/**
- * Create the full DOM element for a page-break Widget Decoration.
- *
- * Structure:
- *   <div.page-break-decoration contenteditable="false">
- *     <div.page-bottom-spacer style="height:{remaining}px">
- *     <div.page-footer-content>  (footer of ending page)
- *     <div.page-break-trigger style="break-after:page;height:0">
- *     <div.page-gap print:hidden> (gray gap between pages in editor)
- *     <div.page-header-content>  (header of starting page)
- *     <div style="height:0;overflow:visible"> (watermark wrapper)
- *       <img|span>                             (watermark, absolutely positioned)
- *   </div>
- */
-export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "page-break-decoration not-prose";
-  wrapper.contentEditable = "false";
-
-  // 1. Bottom spacer — fills remaining space to push footer to page bottom
-  const spacer = document.createElement("div");
-  spacer.className = "page-bottom-spacer";
-  spacer.style.height = `${Math.max(0, config.remainingPx)}px`;
-  wrapper.appendChild(spacer);
-
-  // 2. Footer of current (ending) page — only styled when footer section is enabled
-  const footer = document.createElement("div");
-  footer.className = "page-footer-content";
-  if (config.metadata?.footer?.enabled) {
-    const fSize = config.metadata.footer.fontSize ?? 9;
-    const fFont = buildHFontFamily(config.metadata.footer.fontFamily, config.metadata.footer.fontFamilyCjk);
-    const fFontCss = fFont ? `font-family:${fFont};` : "";
-    footer.style.cssText = `padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
-    const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber, config.totalPages);
-    footer.appendChild(footerContent);
-  }
-  wrapper.appendChild(footer);
-
-  // 3. Page break trigger — Chrome breaks HERE (skipped for explicit pageBreak nodes)
-  if (!config.isExplicitBreak) {
-    const trigger = document.createElement("div");
-    trigger.className = "page-break-trigger";
-    trigger.style.cssText = "break-after:page;height:0;overflow:hidden;";
-    wrapper.appendChild(trigger);
-  }
-
-  // 4. Gap between pages (hidden in print — margins provide visual page margins)
-  const gap = document.createElement("div");
-  gap.className = "page-gap";
-  const bottomMarginPx = convertMmToPx(config.metadata?.margins?.bottom ?? 25.4);
-  const topMarginPx = convertMmToPx(config.metadata?.margins?.top ?? 25.4);
-  gap.style.cssText = `height:${PAGE_GAP_PX}px;margin-top:${bottomMarginPx}px;margin-bottom:${topMarginPx}px;`;
-  wrapper.appendChild(gap);
-
-  // 5. Header of next page — only styled when header section is enabled
-  const header = document.createElement("div");
-  header.className = "page-header-content";
-  if (config.metadata?.header?.enabled) {
-    const hSize = config.metadata.header.fontSize ?? 9;
-    const hFont = buildHFontFamily(config.metadata.header.fontFamily, config.metadata.header.fontFamilyCjk);
-    const hFontCss = hFont ? `font-family:${hFont};` : "";
-    header.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
-    const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber, config.totalPages);
-    header.appendChild(headerContent);
-  }
-  wrapper.appendChild(header);
-
-  // 6. Watermark for next page — centered approximately at page midpoint
-  if (config.metadata?.watermark?.enabled) {
-    const wm = config.metadata.watermark;
-    const topMm = config.metadata?.margins?.top ?? 25.4;
-    const centerOffsetMm = A4_HEIGHT_MM / 2 - topMm;
-
-    const wmWrapper = document.createElement("div");
-    wmWrapper.className = "page-watermark-overlay";
-    wmWrapper.style.cssText = "position:relative;height:0;overflow:visible;pointer-events:none;";
-
-    if (wm.type === "text" && wm.text) {
-      const span = document.createElement("span");
-      span.textContent = wm.text;
-      span.style.cssText = `position:absolute;top:${centerOffsetMm}mm;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:80px;font-weight:bold;color:#000;white-space:nowrap;user-select:none;opacity:${wm.opacity};pointer-events:none;`;
-      wmWrapper.appendChild(span);
-    } else if (wm.type === "image" && wm.imageUrl) {
-      const img = document.createElement("img");
-      img.src = wm.imageUrl;
-      img.alt = "";
-      const size = wm.imageSize ?? 60;
-      const maxW = A4_WIDTH_MM * size / 100;
-      const maxH = A4_HEIGHT_MM * size / 100;
-      img.className = "decoration-watermark-img";
-      img.style.cssText = `position:absolute;top:${centerOffsetMm}mm;left:50%;transform:translate(-50%,-50%);max-width:${maxW}mm;max-height:${maxH}mm;user-select:none;opacity:${wm.opacity};pointer-events:none;`;
-      wmWrapper.appendChild(img);
-    }
-
-    wrapper.appendChild(wmWrapper);
-  }
-
-  return wrapper;
 }
 
 // ─── Header/Footer height estimation ────────────────────────────────

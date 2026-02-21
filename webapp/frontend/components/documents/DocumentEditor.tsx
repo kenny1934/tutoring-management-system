@@ -96,6 +96,9 @@ import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import type { Document, DocumentMetadata } from "@/types";
 import { PageHeader } from "@/components/documents/PageHeader";
 import { PageFooter } from "@/components/documents/PageFooter";
+import { Watermark } from "@/components/documents/Watermark";
+import { PageChromeOverlay } from "@/components/documents/PageChromeOverlay";
+import { usePaginationState } from "@/lib/hooks/usePaginationState";
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -674,6 +677,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     editorInstanceRef.current = editor;
   }, [editor]);
 
+  // Pagination state for the React page chrome overlay
+  const paginationState = usePaginationState(editor);
+
   // Link popover callbacks (must be after useEditor)
   const openLinkPopover = useCallback(() => {
     if (!editor) return;
@@ -742,7 +748,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       const target = e.target as HTMLElement;
       // Skip images inside pagination decorations to avoid infinite recalculation loop
       if (!(target instanceof HTMLImageElement)) return;
-      if (target.closest(".page-break-decoration")) return;
+      if (target.closest(".print-page-break") || target.closest(".page-chrome-overlay")) return;
       const { tr } = editor.state;
       tr.setMeta(paginationPluginKey, { __forceRecalc: true });
       tr.setMeta("addToHistory", false);
@@ -1884,37 +1890,29 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
                 } as React.CSSProperties}
               >
-                {/* Watermark on first page */}
+                {/* Watermarks for all pages — rendered outside overlay to avoid stacking context */}
                 {docMetadata?.watermark?.enabled && (
-                  docMetadata.watermark.type === "text" && docMetadata.watermark.text ? (
-                    <span
-                      className="document-watermark"
-                      style={{
-                        position: "absolute", top: "148.5mm", left: "50%",
-                        transform: "translate(-50%, -50%) rotate(-45deg)",
-                        pointerEvents: "none", zIndex: 0,
-                        fontSize: "80px", fontWeight: "bold", color: "#000",
-                        whiteSpace: "nowrap", userSelect: "none",
-                        opacity: docMetadata.watermark.opacity,
-                      }}
-                    >
-                      {docMetadata.watermark.text}
-                    </span>
-                  ) : docMetadata.watermark.type === "image" && docMetadata.watermark.imageUrl ? (
-                    <img
-                      src={docMetadata.watermark.imageUrl}
-                      alt=""
-                      className="document-watermark-image"
-                      style={{
-                        position: "absolute", top: "148.5mm", left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        pointerEvents: "none", zIndex: 0,
-                        maxWidth: `${docMetadata.watermark.imageSize ?? 60}%`, maxHeight: `${docMetadata.watermark.imageSize ?? 60}%`, userSelect: "none",
-                        opacity: docMetadata.watermark.opacity,
-                      }}
-                    />
-                  ) : null
+                  <>
+                    <Watermark config={docMetadata.watermark} />
+                    {paginationState.chromePositions
+                      .filter(c => c.pageNumber < paginationState.totalPages)
+                      .map(c => (
+                        <Watermark
+                          key={`wm-${c.pageNumber}`}
+                          config={docMetadata.watermark}
+                          topPosition={`${c.watermarkCenterPx}px`}
+                        />
+                      ))}
+                  </>
                 )}
+
+                {/* Page chrome overlay: headers, footers, gaps, watermarks for intermediate pages */}
+                <PageChromeOverlay
+                  chromePositions={paginationState.chromePositions}
+                  totalPages={paginationState.totalPages}
+                  metadata={docMetadata}
+                  docTitle={title}
+                />
 
                 {/* First-page header (React component) */}
                 <div className="first-page-header">
@@ -1927,7 +1925,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                 />
                 <EditorBubbleMenu editor={editor} />
 
-                {/* Last-page footer (React component) — pagination decorations handle intermediate footers */}
+                {/* Last-page footer (React component) — padding from Node Decorations handles intermediate pages */}
                 <div className="last-page-footer">
                   <LastPageFooter
                     section={docMetadata?.footer}
