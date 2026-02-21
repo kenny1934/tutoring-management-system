@@ -413,9 +413,9 @@ export default function DocumentsPage() {
             {isTemplatesTab ? (
               <button
                 onClick={handleCreateTemplate}
-                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm"
               >
-                <Plus className="w-4 h-4" />
+                <Stamp className="w-4 h-4" />
                 <span className="hidden sm:inline">New Template</span>
               </button>
             ) : (
@@ -430,7 +430,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-3">
+          <div className="flex gap-1 w-fit bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-3">
             <button
               onClick={() => setActiveTab("documents")}
               className={cn(
@@ -448,7 +448,7 @@ export default function DocumentsPage() {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                 activeTab === "templates"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-purple-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
               )}
             >
@@ -639,10 +639,12 @@ export default function DocumentsPage() {
                   key={doc.id}
                   onClick={() => router.push(`/documents/${doc.id}`)}
                   className={cn(
-                    "relative group bg-white dark:bg-[#1a1a1a] border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all",
+                    "relative group border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all",
                     doc.is_archived
-                      ? "border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 opacity-60"
-                      : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
+                      ? "bg-white dark:bg-[#1a1a1a] border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 opacity-60"
+                      : doc.is_template
+                      ? "bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/50"
+                      : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
                   )}
                 >
                   {/* Type badge */}
@@ -653,8 +655,8 @@ export default function DocumentsPage() {
                         {typeInfo?.label}
                       </span>
                       {doc.is_template && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                          <Stamp className="w-2.5 h-2.5" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                          <Stamp className="w-3 h-3" />
                           Template
                         </span>
                       )}
@@ -720,7 +722,8 @@ export default function DocumentsPage() {
                   onClick={() => router.push(`/documents/${doc.id}`)}
                   className={cn(
                     "group flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
-                    doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]"
+                    doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]",
+                    doc.is_template && !doc.is_archived && "border-l-2 border-l-purple-400 dark:border-l-purple-600 bg-purple-50/30 dark:bg-purple-950/10"
                   )}
                 >
                   {/* Type badge — desktop only */}
@@ -732,6 +735,12 @@ export default function DocumentsPage() {
                   <span className="flex-1 min-w-0 flex items-center gap-2">
                     <span className="sm:hidden shrink-0"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
+                    {doc.is_template && (
+                      <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0">
+                        <Stamp className="w-2.5 h-2.5" />
+                        Template
+                      </span>
+                    )}
                     {doc.locked_by && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 shrink-0" title={`Locked by ${doc.locked_by_name}`}>
                         <Lock className="w-3 h-3" />
@@ -1135,8 +1144,8 @@ function CreateDocumentModal({ createStep, setCreateStep, onClose, onCreate }: {
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{tpl.title}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {DOC_TYPE_LABELS[tpl.doc_type as DocType]?.label ?? tpl.doc_type}
-                        {tpl.page_layout ? " · Custom layout" : ""}
+                        {tpl.created_by_name ? `by ${tpl.created_by_name}` : DOC_TYPE_LABELS[tpl.doc_type as DocType]?.label ?? tpl.doc_type}
+                        {tpl.updated_at ? ` · ${formatTimeAgo(tpl.updated_at)}` : ""}
                       </p>
                     </div>
                   </button>
