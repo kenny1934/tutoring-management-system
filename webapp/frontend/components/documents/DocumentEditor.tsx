@@ -82,6 +82,7 @@ import {
   Paintbrush,
   WrapText,
   History,
+  Stamp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
@@ -94,6 +95,7 @@ import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
 import { VersionHistoryPanel } from "@/components/documents/VersionHistoryPanel";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import type { Document, DocumentMetadata } from "@/types";
+import { formatTimeAgo } from "@/lib/formatters";
 import { PageHeader } from "@/components/documents/PageHeader";
 import { PageFooter } from "@/components/documents/PageFooter";
 import { Watermark } from "@/components/documents/Watermark";
@@ -1162,6 +1164,22 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         {/* Tag strip below title */}
         <div className="px-3 sm:px-4 pb-1.5">
           <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
+        </div>
+        {/* Author / editor metadata */}
+        <div className="px-3 sm:px-4 pb-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
+          <span>{doc.created_by_name}</span>
+          {doc.is_template && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-medium">
+              <Stamp className="w-2.5 h-2.5" />
+              Template
+            </span>
+          )}
+          {doc.updated_by_name && doc.updated_by !== doc.created_by && (
+            <span>· Edited by {doc.updated_by_name}</span>
+          )}
+          {doc.updated_at && (
+            <span>· {formatTimeAgo(doc.updated_at)}</span>
+          )}
         </div>
       </div>
 
