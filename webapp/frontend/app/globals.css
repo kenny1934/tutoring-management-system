@@ -2318,7 +2318,6 @@ html {
 .document-editor-content .tiptap {
   outline: none;
   display: flow-root; /* BFC: contain child margins — prevents margin collapse through edges */
-  min-height: calc(297mm - 50.8mm); /* A4 height minus top+bottom margins */
 }
 
 .document-editor-content .tiptap p {
