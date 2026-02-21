@@ -81,15 +81,19 @@ import {
   SplitSquareHorizontal,
   Paintbrush,
   WrapText,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { documentsAPI } from "@/lib/document-api";
+import { documentsAPI, versionsAPI } from "@/lib/document-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
+import { VersionHistoryPanel } from "@/components/documents/VersionHistoryPanel";
+import { DiffView } from "@/components/documents/DiffView";
+import { computeDocumentDiff, type DiffSegment } from "@/lib/document-diff";
 import type { Document, DocumentMetadata } from "@/types";
 import { PageHeader } from "@/components/documents/PageHeader";
 import { PageFooter } from "@/components/documents/PageFooter";
@@ -392,6 +396,13 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [pageLayoutOpen, setPageLayoutOpen] = useState(false);
   const [docMetadata, setDocMetadata] = useState<DocumentMetadata | null>(doc.page_layout ?? null);
 
+  // Version history state
+  const [versionPanelOpen, setVersionPanelOpen] = useState(false);
+  const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
+  const [previewVersionNumber, setPreviewVersionNumber] = useState<number | null>(null);
+  const [diffSegments, setDiffSegments] = useState<DiffSegment[] | null>(null);
+  const previewContentRef = useRef<{ content: Record<string, unknown> | null; title: string } | null>(null);
+
   const handleMetadataSave = useCallback(async (metadata: DocumentMetadata) => {
     setDocMetadata(metadata);
     try {
@@ -401,6 +412,58 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       setSaveState("error");
     }
   }, [doc.id]);
+
+  // Version diff preview — compute diff between current and selected version
+  const handleVersionPreview = useCallback(async (versionId: number) => {
+    const ed = editorInstanceRef.current;
+    if (!ed) return;
+    try {
+      const ver = await versionsAPI.get(doc.id, versionId);
+      // Store current content on first preview
+      if (!previewContentRef.current) {
+        previewContentRef.current = {
+          content: ed.getJSON() as Record<string, unknown>,
+          title: title,
+        };
+      }
+      const currentContent = previewContentRef.current.content || { type: "doc", content: [] };
+      const versionContent = (ver.content || { type: "doc", content: [] }) as Record<string, unknown>;
+      const segments = computeDocumentDiff(versionContent, currentContent);
+      setDiffSegments(segments);
+      setPreviewVersionId(versionId);
+      setPreviewVersionNumber(ver.version_number);
+    } catch {
+      showToast("Failed to load version", "error");
+    }
+  }, [doc.id, title, showToast]);
+
+  const exitVersionPreview = useCallback(() => {
+    setDiffSegments(null);
+    setPreviewVersionId(null);
+    setPreviewVersionNumber(null);
+    previewContentRef.current = null;
+  }, []);
+
+  const handleVersionRestore = useCallback(async (versionId: number) => {
+    try {
+      const updated = await versionsAPI.restore(doc.id, versionId);
+      const ed = editorInstanceRef.current;
+      if (ed) {
+        ed.commands.setContent(updated.content || { type: "doc", content: [{ type: "paragraph" }] });
+      }
+      setDiffSegments(null);
+      setPreviewVersionId(null);
+      setPreviewVersionNumber(null);
+      previewContentRef.current = null;
+      if (updated.title) setTitle(updated.title);
+      if (updated.page_layout) setDocMetadata(updated.page_layout as DocumentMetadata);
+      setSaveState("saved");
+      showToast("Version restored", "success");
+      onUpdate();
+    } catch {
+      showToast("Failed to restore version", "error");
+    }
+  }, [doc.id, showToast, onUpdate]);
 
   // Close all dropdown menus
   const closeAllMenus = useCallback(() => {
@@ -1018,6 +1081,15 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /><span className="hidden sm:inline"> Error saving</span></>}
           </button>
         )}
+
+        <button
+          onClick={() => setVersionPanelOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          title="Version history"
+        >
+          <History className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">History</span>
+        </button>
 
         <button
           onClick={() => !isReadOnly && setPageLayoutOpen(true)}
@@ -1704,6 +1776,37 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       )}
 
+      {/* Version diff banner */}
+      {previewVersionId !== null && (
+        <div className="flex items-center justify-between px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 print:hidden">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Comparing with v{previewVersionNumber}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="inline-block w-3 h-3 rounded-sm bg-green-200 dark:bg-green-800" />
+              <span className="text-gray-500 dark:text-gray-400">Added</span>
+              <span className="inline-block w-3 h-3 rounded-sm bg-red-200 dark:bg-red-800 ml-1.5" />
+              <span className="text-gray-500 dark:text-gray-400">Removed</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleVersionRestore(previewVersionId)}
+              className="px-3 py-1 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors"
+            >
+              Restore this version
+            </button>
+            <button
+              onClick={exitVersionPreview}
+              className="px-3 py-1 text-xs font-medium rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            >
+              Exit diff
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Editor area — paginated A4 view */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
         <div className="py-8 px-4 print:p-0 print:m-0">
@@ -1763,13 +1866,19 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} totalPages={totalPages} />
             </div>
 
-            <EditorContent
-              editor={editor}
-              className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
-            />
-
-            {/* Floating formatting toolbar on text selection */}
-            <EditorBubbleMenu editor={editor} />
+            {diffSegments !== null ? (
+              <div className={cn("document-editor-content prose prose-sm max-w-none py-2", !paperMode && "prose-invert")}>
+                <DiffView segments={diffSegments} />
+              </div>
+            ) : (
+              <>
+                <EditorContent
+                  editor={editor}
+                  className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
+                />
+                <EditorBubbleMenu editor={editor} />
+              </>
+            )}
 
             {/* Last-page footer (React component) — pagination decorations handle intermediate footers */}
             <div className="last-page-footer">
@@ -1951,6 +2060,15 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           </div>
         </div>
       )}
+
+      {/* Version history panel */}
+      <VersionHistoryPanel
+        docId={doc.id}
+        isOpen={versionPanelOpen}
+        onClose={() => setVersionPanelOpen(false)}
+        onPreview={handleVersionPreview}
+        onRestore={handleVersionRestore}
+      />
     </div>
   );
 }

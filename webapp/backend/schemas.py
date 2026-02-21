@@ -1921,6 +1921,38 @@ class FolderResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ============================================
+# Document Version Schemas
+# ============================================
+
+class DocumentVersionResponse(BaseModel):
+    """Version summary for list view (no content)."""
+    id: int
+    document_id: int
+    version_number: int
+    title: str
+    created_by: int
+    created_by_name: str = ""
+    created_at: Optional[datetime] = None
+    version_type: str
+    label: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentVersionDetailResponse(DocumentVersionResponse):
+    """Full version with content for preview."""
+    content: Optional[dict] = None
+    page_layout: Optional[dict] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CreateCheckpointRequest(BaseModel):
+    """Create a manual checkpoint."""
+    label: Optional[str] = Field(None, max_length=255)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
