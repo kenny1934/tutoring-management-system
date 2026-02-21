@@ -128,10 +128,13 @@ async def google_callback(
         google_picture = user_info.get("picture")
         if google_picture and tutor.profile_picture != google_picture:
             try:
+                logger.info("Updating profile picture for %s (old=%s, new=%s)", google_email, tutor.profile_picture[:50] if tutor.profile_picture else None, google_picture[:50])
                 tutor.profile_picture = google_picture
+                db.flush()
                 db.commit()
+                logger.info("Profile picture updated successfully for %s", google_email)
             except Exception as pic_err:
-                logger.warning("Failed to update profile picture for %s: %s", google_email, pic_err)
+                logger.error("Failed to update profile picture for %s: %s", google_email, pic_err, exc_info=True)
                 db.rollback()
 
         # Create JWT token (sub must be a string per JWT spec)
