@@ -12,12 +12,15 @@ from sqlalchemy import desc, asc, func as sa_func
 from typing import List, Optional
 from database import get_db
 from constants import hk_now
-from models import Document, DocumentFolder, Tutor
+from models import Document, DocumentFolder, DocumentVersion, Tutor
 from schemas import (
     DocumentCreate,
     DocumentUpdate,
     DocumentResponse,
     DocumentListItem,
+    DocumentVersionResponse,
+    DocumentVersionDetailResponse,
+    CreateCheckpointRequest,
     FolderCreate,
     FolderUpdate,
     FolderResponse,
@@ -29,6 +32,82 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 LOCK_DURATION = timedelta(minutes=5)
+VERSION_GAP_MINUTES = 10
+MAX_VERSIONS_PER_DOC = 100
+
+
+def _next_version_number(db: Session, document_id: int) -> int:
+    """Get the next version number for a document."""
+    max_num = db.query(sa_func.max(DocumentVersion.version_number)).filter(
+        DocumentVersion.document_id == document_id
+    ).scalar()
+    return (max_num or 0) + 1
+
+
+def _create_version_snapshot(db: Session, doc: Document, user_id: int, version_type: str, label: str | None = None) -> DocumentVersion:
+    """Create a version snapshot of the document's current state."""
+    ver = DocumentVersion(
+        document_id=doc.id,
+        version_number=_next_version_number(db, doc.id),
+        title=doc.title,
+        content=doc.content,
+        page_layout=doc.page_layout,
+        created_by=user_id,
+        created_at=hk_now(),
+        version_type=version_type,
+        label=label,
+    )
+    db.add(ver)
+    doc.last_version_at = ver.created_at
+    return ver
+
+
+def _maybe_create_auto_version(db: Session, doc: Document, user_id: int, version_type: str = "auto") -> DocumentVersion | None:
+    """Create an auto version if enough time has passed since the last one."""
+    now = hk_now()
+    if doc.last_version_at and (now - doc.last_version_at).total_seconds() < VERSION_GAP_MINUTES * 60:
+        return None
+    # Only snapshot if document has content
+    if not doc.content:
+        return None
+    ver = _create_version_snapshot(db, doc, user_id, version_type)
+    _prune_old_versions(db, doc.id)
+    return ver
+
+
+def _prune_old_versions(db: Session, document_id: int) -> None:
+    """Delete oldest auto versions if total exceeds MAX_VERSIONS_PER_DOC."""
+    total = db.query(DocumentVersion).filter(DocumentVersion.document_id == document_id).count()
+    if total <= MAX_VERSIONS_PER_DOC:
+        return
+    excess = total - MAX_VERSIONS_PER_DOC
+    # Delete oldest auto versions first
+    oldest_auto = db.query(DocumentVersion.id).filter(
+        DocumentVersion.document_id == document_id,
+        DocumentVersion.version_type == "auto",
+    ).order_by(DocumentVersion.created_at.asc()).limit(excess).all()
+    if oldest_auto:
+        ids_to_delete = [row[0] for row in oldest_auto]
+        db.query(DocumentVersion).filter(DocumentVersion.id.in_(ids_to_delete)).delete(synchronize_session=False)
+
+
+def _version_to_response(ver: DocumentVersion, include_content: bool = False) -> dict:
+    """Convert a DocumentVersion ORM object to response dict."""
+    data = {
+        "id": ver.id,
+        "document_id": ver.document_id,
+        "version_number": ver.version_number,
+        "title": ver.title,
+        "created_by": ver.created_by,
+        "created_by_name": ver.creator.tutor_name if ver.creator else "Unknown",
+        "created_at": ver.created_at,
+        "version_type": ver.version_type,
+        "label": ver.label,
+    }
+    if include_content:
+        data["content"] = ver.content
+        data["page_layout"] = ver.page_layout
+    return data
 
 
 def _is_lock_active(doc: Document) -> bool:
@@ -180,6 +259,10 @@ async def update_document(
     if _is_lock_active(doc) and doc.locked_by != current_user.id and not is_admin:
         raise HTTPException(status_code=409, detail=f"Document is locked by {doc.locker.tutor_name if doc.locker else 'another user'}")
 
+    # Auto-version: snapshot current state if content is changing and enough time has passed
+    if data.content is not None:
+        _maybe_create_auto_version(db, doc, current_user.id)
+
     if data.title is not None:
         doc.title = data.title.strip() or "Untitled Document"
     if data.content is not None:
@@ -315,6 +398,11 @@ async def lock_document(
         locker_name = doc.locker.tutor_name if doc.locker else "another user"
         raise HTTPException(status_code=409, detail=f"Document is locked by {locker_name}")
 
+    # New lock acquisition (not just a refresh) → session_start version
+    is_new_lock = not _is_lock_active(doc) or doc.locked_by != current_user.id
+    if is_new_lock and doc.content:
+        _maybe_create_auto_version(db, doc, current_user.id, version_type="session_start")
+
     # Acquire or refresh lock
     doc.locked_by = current_user.id
     doc.lock_expires_at = now + LOCK_DURATION
@@ -367,6 +455,154 @@ async def unlock_document(
     doc.lock_expires_at = None
     db.commit()
     return {"message": "Lock released"}
+
+
+# ─── Document Versions ───────────────────────────────────────────────
+
+@router.get("/documents/{doc_id}/versions", response_model=List[DocumentVersionResponse])
+async def list_versions(
+    doc_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """List version history for a document (newest first)."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    versions = db.query(DocumentVersion).options(
+        joinedload(DocumentVersion.creator)
+    ).filter(
+        DocumentVersion.document_id == doc_id
+    ).order_by(
+        DocumentVersion.created_at.desc()
+    ).offset(offset).limit(limit).all()
+
+    return [_version_to_response(v) for v in versions]
+
+
+@router.get("/documents/{doc_id}/versions/{ver_id}", response_model=DocumentVersionDetailResponse)
+async def get_version(
+    doc_id: int,
+    ver_id: int,
+    _: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """Get a single version with full content (for preview)."""
+    ver = db.query(DocumentVersion).options(
+        joinedload(DocumentVersion.creator)
+    ).filter(
+        DocumentVersion.id == ver_id,
+        DocumentVersion.document_id == doc_id,
+    ).first()
+    if not ver:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return _version_to_response(ver, include_content=True)
+
+
+@router.post("/documents/{doc_id}/versions", response_model=DocumentVersionResponse)
+async def create_checkpoint(
+    doc_id: int,
+    data: CreateCheckpointRequest = CreateCheckpointRequest(),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a manual checkpoint of the current document state."""
+    doc = _doc_query(db).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only create checkpoints for your own documents")
+
+    if not doc.content:
+        raise HTTPException(status_code=400, detail="Cannot create checkpoint for empty document")
+
+    ver = _create_version_snapshot(db, doc, current_user.id, "manual", label=data.label)
+    _prune_old_versions(db, doc_id)
+    db.commit()
+    db.refresh(ver)
+    ver = db.query(DocumentVersion).options(
+        joinedload(DocumentVersion.creator)
+    ).filter(DocumentVersion.id == ver.id).first()
+    return _version_to_response(ver)
+
+
+@router.post("/documents/{doc_id}/versions/{ver_id}/restore", response_model=DocumentResponse)
+async def restore_version(
+    doc_id: int,
+    ver_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Restore a document to a previous version. Snapshots current state first."""
+    doc = _doc_query(db).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only restore your own documents")
+
+    # Lock check
+    if _is_lock_active(doc) and doc.locked_by != current_user.id and not is_admin:
+        raise HTTPException(status_code=409, detail="Document is locked by another user")
+
+    ver = db.query(DocumentVersion).filter(
+        DocumentVersion.id == ver_id,
+        DocumentVersion.document_id == doc_id,
+    ).first()
+    if not ver:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Snapshot current state before restoring
+    if doc.content:
+        _create_version_snapshot(db, doc, current_user.id, "auto", label="Before restore")
+
+    # Apply version content
+    doc.title = ver.title
+    doc.content = ver.content
+    doc.page_layout = ver.page_layout
+    flag_modified(doc, "page_layout")
+    doc.updated_at = hk_now()
+    _prune_old_versions(db, doc_id)
+    db.commit()
+    db.refresh(doc)
+    return _doc_to_response(doc)
+
+
+@router.delete("/documents/{doc_id}/versions/{ver_id}")
+async def delete_version(
+    doc_id: int,
+    ver_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a single version."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only delete versions of your own documents")
+
+    ver = db.query(DocumentVersion).filter(
+        DocumentVersion.id == ver_id,
+        DocumentVersion.document_id == doc_id,
+    ).first()
+    if not ver:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    db.delete(ver)
+    db.commit()
+    return {"message": "Version deleted"}
 
 
 # ─── Document Folders ────────────────────────────────────────────────
