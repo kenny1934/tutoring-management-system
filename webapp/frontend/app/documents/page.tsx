@@ -330,21 +330,20 @@ export default function DocumentsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-1 min-h-0">
-        {/* Sidebar — desktop (hidden on templates tab) */}
-        {!isTemplatesTab && (
-          <FolderSidebar
-            folders={folders}
-            allTags={allTags}
-            activeFolderId={activeFolderId}
-            activeTag={activeTag}
-            onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
-            onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
-            onCreateFolder={handleCreateFolder}
-            onRenameFolder={handleRenameFolder}
-            onDeleteFolder={handleDeleteFolder}
-            totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
-          />
-        )}
+        {/* Sidebar — desktop (collapses smoothly on templates tab) */}
+        <FolderSidebar
+          hidden={isTemplatesTab}
+          folders={folders}
+          allTags={allTags}
+          activeFolderId={activeFolderId}
+          activeTag={activeTag}
+          onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
+          onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
+        />
 
         {/* Mobile drawer backdrop + sidebar — always mounted, animated (hidden on templates tab) */}
         {!isTemplatesTab && (
