@@ -806,11 +806,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/10 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full px-3 pr-8 py-2 text-sm rounded-lg border border-foreground/15 bg-[#f0e8dc] dark:bg-[#231d14] text-foreground shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23888%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] focus:outline-none focus:ring-2 focus:ring-primary/30"
                   suppressHydrationWarning
                 >
                   {locations.map((location) => (
-                    <option key={location} value={location} className="bg-background text-foreground">{location}</option>
+                    <option key={location} value={location} className="bg-[#f0e8dc] dark:bg-[#231d14] text-foreground">{location}</option>
                   ))}
                 </select>
               </div>
