@@ -33,6 +33,7 @@ import type {
   OverdueEnrollment,
   UncheckedAttendanceReminder,
   UncheckedAttendanceCount,
+  AgedPendingMakeupsCount,
   Message,
   MessageThread,
   MessageCreate,
@@ -708,6 +709,12 @@ export const sessionsAPI = {
     if (tutorId) params.append("tutor_id", tutorId.toString());
     const query = params.toString();
     return fetchAPI<UncheckedAttendanceCount>(`/sessions/unchecked-attendance/count${query ? `?${query}` : ""}`);
+  },
+
+  getAgedPendingMakeupsCount: (tutorId: number) => {
+    return fetchAPI<AgedPendingMakeupsCount>(
+      `/sessions/aged-pending-makeups/count?tutor_id=${tutorId}`
+    );
   },
 };
 

@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -92,6 +92,9 @@ import { proposalSlotsToSessions, createSessionProposalMap, type ProposedSession
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 
+// Stable empty array to avoid new references on each render when SWR returns undefined
+const EMPTY_PROPOSALS: MakeupProposal[] = [];
+
 // Pending make-up statuses for special filter
 const PENDING_MAKEUP_STATUSES = [
   "Rescheduled - Pending Make-up",
@@ -153,6 +156,7 @@ export default function SessionsPage() {
   const [specialFilter, setSpecialFilter] = useState(() => {
     return searchParams.get('filter') || "";
   });
+  const [makeupSort, setMakeupSort] = useState<"most" | "least">("most");
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const param = searchParams.get('view');
@@ -271,13 +275,13 @@ export default function SessionsPage() {
   }, [selectedDate, viewMode, specialFilter]);
 
   // Fetch proposals where PROPOSED SLOTS are in the date range (for ghost session display)
-  const { data: proposalsForSlots = [] } = useProposalsInDateRange(
+  const { data: proposalsForSlots = EMPTY_PROPOSALS } = useProposalsInDateRange(
     proposalDateRange.from,
     proposalDateRange.to
   );
 
   // Fetch proposals where ORIGINAL SESSION is in the date range (for indicator badge on original sessions)
-  const { data: proposalsForOriginals = [] } = useProposalsForOriginalSessions(
+  const { data: proposalsForOriginals = EMPTY_PROPOSALS } = useProposalsForOriginalSessions(
     proposalDateRange.from,
     proposalDateRange.to
   );
@@ -583,31 +587,52 @@ export default function SessionsPage() {
     });
   }, [sessions, selectedDate, proposedSessions]);
 
-  // Group sessions by student for pending-makeups view
-  const groupedByStudent = useMemo(() => {
+  // Compute days old and urgency tier for a session
+  const getSessionUrgency = useCallback((session: Session) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rootDate = session.root_original_session_date
+      ? new Date(session.root_original_session_date + 'T00:00:00')
+      : new Date(session.session_date + 'T00:00:00');
+    const daysOld = Math.floor((today.getTime() - rootDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.max(0, 60 - daysOld);
+    const tier: 'critical' | 'warning' | 'ok' =
+      daysOld >= 45 ? 'critical' : daysOld >= 30 ? 'warning' : 'ok';
+    return { daysOld, daysRemaining, tier };
+  }, []);
+
+  // Group sessions by urgency tier for pending-makeups view
+  const groupedByUrgencyTier = useMemo(() => {
     if (specialFilter !== "pending-makeups") return null;
 
-    const groups: Record<string, Session[]> = {};
+    const tiers: Record<'critical' | 'warning' | 'ok', Session[]> = {
+      critical: [],
+      warning: [],
+      ok: [],
+    };
+
     sessions.forEach(session => {
-      const key = `${session.student_id}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(session);
+      const { tier } = getSessionUrgency(session);
+      tiers[tier].push(session);
     });
 
-    // Sort sessions within each student by date ascending
-    Object.values(groups).forEach(studentSessions => {
-      studentSessions.sort((a, b) =>
-        new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
-      );
-    });
+    // Sort sessions within each tier based on makeupSort
+    const sortFn = (a: Session, b: Session) => {
+      const dateA = a.root_original_session_date || a.session_date;
+      const dateB = b.root_original_session_date || b.session_date;
+      return makeupSort === 'most'
+        ? dateA.localeCompare(dateB)   // ascending = most urgent first
+        : dateB.localeCompare(dateA);  // descending = least urgent first
+    };
 
-    // Sort groups by school_student_id
-    return Object.entries(groups).sort(([, a], [, b]) => {
-      const idA = a[0]?.school_student_id || '';
-      const idB = b[0]?.school_student_id || '';
-      return idA.localeCompare(idB);
-    });
-  }, [sessions, specialFilter]);
+    Object.values(tiers).forEach(arr => arr.sort(sortFn));
+
+    const result: Array<[string, Session[]]> = [];
+    if (tiers.critical.length > 0) result.push(['critical', tiers.critical]);
+    if (tiers.warning.length > 0) result.push(['warning', tiers.warning]);
+    if (tiers.ok.length > 0) result.push(['ok', tiers.ok]);
+    return result;
+  }, [sessions, specialFilter, makeupSort, getSessionUrgency]);
 
   // Filter and sort tutors by selected location
   const filteredTutors = useMemo(() => {
@@ -621,13 +646,13 @@ export default function SessionsPage() {
 
   // Bulk selection computations - use grouped order to match visual display
   const allSessionIds = useMemo(() => {
-    // For pending-makeups view, use groupedByStudent order
-    if (groupedByStudent) {
-      return groupedByStudent.flatMap(([_, studentSessions]) => studentSessions.map(s => s.id));
+    // For pending-makeups view, use groupedByUrgencyTier order
+    if (groupedByUrgencyTier) {
+      return groupedByUrgencyTier.flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
     }
     // For normal view, use groupedSessions order (by time slot)
     return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
-  }, [groupedSessions, groupedByStudent]);
+  }, [groupedSessions, groupedByUrgencyTier]);
 
   const selectedSessions = useMemo(() =>
     sessions.filter(s => selectedIds.has(s.id)),
@@ -1251,17 +1276,17 @@ export default function SessionsPage() {
     }
   }, [viewMode, loading, groupedSessions, collapsedSlots]);
 
-  // Mark visible student groups as "seen" for pending-makeups view
+  // Mark visible urgency tier groups as "seen" for pending-makeups view
   useEffect(() => {
-    if (groupedByStudent && !loading) {
-      groupedByStudent.forEach(([studentId]) => {
-        const studentKey = `student-${studentId}`;
-        if (!collapsedSlots.has(studentKey)) {
-          seenSlotsRef.current.add(studentKey);
+    if (groupedByUrgencyTier && !loading) {
+      groupedByUrgencyTier.forEach(([tier]) => {
+        const tierKey = `tier-${tier}`;
+        if (!collapsedSlots.has(tierKey)) {
+          seenSlotsRef.current.add(tierKey);
         }
       });
     }
-  }, [groupedByStudent, loading, collapsedSlots]);
+  }, [groupedByUrgencyTier, loading, collapsedSlots]);
 
   if (loading) {
     return (
@@ -1692,15 +1717,25 @@ export default function SessionsPage() {
                 <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
                   <RefreshCw className="h-4 w-4" />
                   <span className="font-medium">Pending Make-ups</span>
-                  <span className="text-amber-600 dark:text-amber-400">(last 60 days)</span>
+                  <span className="text-amber-600 dark:text-amber-400">({sessions.length} total)</span>
                 </div>
-                <button
-                  onClick={() => setSpecialFilter("")}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Clear
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Sort toggle */}
+                  <button
+                    onClick={() => setMakeupSort(prev => prev === 'most' ? 'least' : 'most')}
+                    className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#1a1a1a] text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                  >
+                    <ArrowUpDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    {makeupSort === 'most' ? 'Most urgent' : 'Least urgent'}
+                  </button>
+                  <button
+                    onClick={() => setSpecialFilter("")}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1814,7 +1849,7 @@ export default function SessionsPage() {
             )}
 
             {/* List view content */}
-            {(groupedByStudent ? groupedByStudent.length === 0 : groupedSessions.length === 0) ? (
+            {(groupedByUrgencyTier ? groupedByUrgencyTier.length === 0 : groupedSessions.length === 0) ? (
               <div className="flex justify-center py-12">
                 <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
                   <div className="text-center">
@@ -1828,42 +1863,62 @@ export default function SessionsPage() {
                   </div>
                 </StickyNote>
               </div>
-            ) : groupedByStudent ? (
-              /* Pending Make-ups View: Grouped by Student */
+            ) : groupedByUrgencyTier ? (
+              /* Pending Make-ups View: Grouped by Urgency Tier */
               <>
-                {groupedByStudent.map(([studentId, studentSessions], groupIndex) => {
-                  const firstSession = studentSessions[0];
-                  const studentKey = `student-${studentId}`;
-                  const isCollapsed = collapsedSlots.has(studentKey);
+                {groupedByUrgencyTier.map(([tier, tierSessions], groupIndex) => {
+                  const tierKey = `tier-${tier}`;
+                  const isCollapsed = collapsedSlots.has(tierKey);
+                  const tierConfig = {
+                    critical: {
+                      label: 'Critical (45+ days)',
+                      icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
+                      borderColor: 'border-red-500 dark:border-red-600',
+                      bgColor: 'bg-red-500 dark:bg-red-600',
+                      badgeBg: 'bg-red-100 dark:bg-red-900',
+                      badgeText: 'text-red-900 dark:text-red-100',
+                      badgeBorder: 'border-red-500 dark:border-red-600',
+                    },
+                    warning: {
+                      label: 'Warning (30-44 days)',
+                      icon: <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
+                      borderColor: 'border-orange-500 dark:border-orange-600',
+                      bgColor: 'bg-orange-500 dark:bg-orange-600',
+                      badgeBg: 'bg-orange-100 dark:bg-orange-900',
+                      badgeText: 'text-orange-900 dark:text-orange-100',
+                      badgeBorder: 'border-orange-500 dark:border-orange-600',
+                    },
+                    ok: {
+                      label: 'OK (0-29 days)',
+                      icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
+                      borderColor: 'border-gray-400 dark:border-gray-500',
+                      bgColor: 'bg-gray-400 dark:bg-gray-500',
+                      badgeBg: 'bg-gray-100 dark:bg-gray-800',
+                      badgeText: 'text-gray-900 dark:text-gray-100',
+                      badgeBorder: 'border-gray-400 dark:border-gray-500',
+                    },
+                  }[tier as 'critical' | 'warning' | 'ok'];
                   return (
-                    <React.Fragment key={studentKey}>
-                      {/* Student Header */}
+                    <React.Fragment key={tierKey}>
+                      {/* Tier Header */}
                       <div className="sticky z-20 mb-4" style={{ top: timeSlotStickyTop }}>
                         <div
-                          onClick={() => toggleSlot(studentKey)}
+                          onClick={() => toggleSlot(tierKey)}
                           className={cn(
-                            "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                            "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                            tierConfig.borderColor,
                             !isMobile && "paper-texture"
                           )}
                           style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
-                                {selectedLocation === "All Locations" && firstSession.location && `${firstSession.location}-`}{firstSession.school_student_id}
-                              </span>
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
-                                {firstSession.student_name}
+                              <div className={cn("p-2 rounded-full", tierConfig.bgColor)}>
+                                {tierConfig.icon}
+                              </div>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+                                {tierConfig.label}
                               </h3>
-                              {firstSession.grade && (
-                                <span
-                                  className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
-                                  style={{ backgroundColor: getGradeColor(firstSession.grade, firstSession.lang_stream) }}
-                                >{firstSession.grade}{firstSession.lang_stream || ''}</span>
-                              )}
-                              {firstSession.school && (
-                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline flex-shrink-0">{firstSession.school}</span>
-                              )}
                               <motion.div
                                 animate={{ rotate: isCollapsed ? -90 : 0 }}
                                 transition={{ duration: 0.2 }}
@@ -1872,14 +1927,14 @@ export default function SessionsPage() {
                                 <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                               </motion.div>
                             </div>
-                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm flex-shrink-0">
-                              {studentSessions.length} pending
+                            <div className={cn("px-3 py-1 rounded-full border-2 font-bold text-xs sm:text-sm flex-shrink-0", tierConfig.badgeBg, tierConfig.badgeText, tierConfig.badgeBorder)}>
+                              {tierSessions.length} session{tierSessions.length !== 1 ? 's' : ''}
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Session Cards for this student */}
+                      {/* Session Cards for this tier */}
                       <AnimatePresence initial={false}>
                         {!isCollapsed && (
                           <motion.div
@@ -1890,7 +1945,7 @@ export default function SessionsPage() {
                             className="overflow-hidden"
                           >
                             <div className="space-y-3 ml-0 sm:ml-4 p-1">
-                              {studentSessions.map((session, sessionIndex) => {
+                              {tierSessions.map((session, sessionIndex) => {
                                 const displayStatus = getDisplayStatus(session);
                                 const statusConfig = getSessionStatusConfig(displayStatus);
                                 const StatusIcon = statusConfig.Icon;
@@ -1901,14 +1956,19 @@ export default function SessionsPage() {
                                   day: 'numeric'
                                 });
                                 const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
+                                const urgency = getSessionUrgency(session);
+                                const urgencyBadgeConfig = {
+                                  critical: { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-700' },
+                                  warning: { bg: 'bg-orange-100 dark:bg-orange-900/40', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
+                                  ok: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-300 dark:border-gray-600' },
+                                }[urgency.tier];
                                 return (
                                   <motion.div
                                     key={session.id}
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
                                     transition={{
-                                      // Skip stagger delay on re-expand
-                                      delay: isMobile || seenSlotsRef.current.has(studentKey) ? 0 : groupIndex * 0.05 + sessionIndex * 0.03,
+                                      delay: isMobile || seenSlotsRef.current.has(tierKey) ? 0 : groupIndex * 0.05 + sessionIndex * 0.03,
                                       duration: 0.35,
                                       ease: [0.38, 1.21, 0.22, 1.00]
                                     }}
@@ -1953,17 +2013,47 @@ export default function SessionsPage() {
                                     <div className="flex-1 p-3 sm:p-4 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="space-y-1.5 flex-1 min-w-0">
-                                          {/* Date + Time Slot */}
+                                          {/* Student name + badges */}
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                              {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
+                                            </span>
+                                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                                              {session.student_name}
+                                            </span>
+                                            {session.grade && (
+                                              <span
+                                                className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
+                                                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+                                              >{session.grade}{session.lang_stream || ''}</span>
+                                            )}
+                                          </div>
+
+                                          {/* Date + Time Slot + Urgency badge */}
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-sm font-semibold text-[#a0704b] dark:text-[#cd853f]">
-                                              {dateStr}
+                                              {session.root_original_session_date && session.root_original_session_date !== session.session_date ? (
+                                                <>
+                                                  {new Date(session.root_original_session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                  <span className="text-gray-400 dark:text-gray-500 mx-1">&rarr;</span>
+                                                  {dateStr}
+                                                </>
+                                              ) : dateStr}
                                             </span>
                                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                               {session.time_slot}
                                             </span>
-                                            {session.exam_revision_slot_id && (
-                                              <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" /></span>
-                                            )}
+                                            {/* Urgency badge */}
+                                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0", urgencyBadgeConfig.bg, urgencyBadgeConfig.text, urgencyBadgeConfig.border)}>
+                                              {urgency.daysOld}d old
+                                            </span>
+                                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded flex-shrink-0",
+                                              urgency.daysRemaining <= 0 ? "bg-red-200 dark:bg-red-900/60 text-red-800 dark:text-red-200 font-bold" :
+                                              urgency.daysRemaining <= 15 ? "text-red-600 dark:text-red-400" :
+                                              "text-gray-500 dark:text-gray-400"
+                                            )}>
+                                              {urgency.daysRemaining <= 0 ? 'Overdue' : `${urgency.daysRemaining}d left`}
+                                            </span>
                                             {session.extension_request_id && (
                                               <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" /></span>
                                             )}
