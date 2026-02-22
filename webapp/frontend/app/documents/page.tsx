@@ -767,7 +767,7 @@ export default function DocumentsPage() {
             })}
           </div>
         ) : (
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl">
+          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl overflow-hidden">
             {/* List header */}
             <div className="hidden sm:flex items-center gap-4 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf5ef] dark:bg-[#1f1a14] rounded-t-xl text-[10px] font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
               <span className="w-24">Type</span>
