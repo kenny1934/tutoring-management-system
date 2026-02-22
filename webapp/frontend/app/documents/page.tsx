@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -15,6 +15,7 @@ import { getTagColor } from "@/lib/tag-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
+import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
 
 const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
@@ -51,6 +52,10 @@ export default function DocumentsPage() {
     }
     return "grid";
   });
+  const [previewEnabled, setPreviewEnabled] = useState<boolean>(() =>
+    typeof window !== "undefined" && localStorage.getItem("doc-preview-enabled") === "true"
+  );
+  const [previewDocId, setPreviewDocId] = useState<number | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
   // Tag & folder filters
@@ -88,6 +93,20 @@ export default function DocumentsPage() {
     localStorage.setItem("doc-view-mode", mode);
   }, []);
 
+  const togglePreview = useCallback((enabled: boolean) => {
+    setPreviewEnabled(enabled);
+    localStorage.setItem("doc-preview-enabled", String(enabled));
+    if (!enabled) setPreviewDocId(null);
+  }, []);
+
+  const handleDocClick = useCallback((docId: number) => {
+    if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
+      setPreviewDocId(docId);
+    } else {
+      router.push(`/documents/${docId}`);
+    }
+  }, [previewEnabled, router]);
+
   // Paginated fetch: SWR loads first page, "Load more" appends
   const [extraDocs, setExtraDocs] = useState<Document[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -122,11 +141,31 @@ export default function DocumentsPage() {
     }
   }, [mutate]);
 
-  // Reset extra pages when filters/sort/tab change
+  // Reset extra pages and preview when filters/sort/tab change
   useEffect(() => {
     setExtraDocs([]);
     setMoreExhausted(false);
+    setPreviewDocId(null);
   }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
+
+  // Keyboard shortcuts for preview pane
+  useEffect(() => {
+    if (!previewEnabled || previewDocId === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
+        router.push(`/documents/${previewDocId}`);
+      }
+      if (e.key === "Escape") {
+        setPreviewDocId(null);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [previewEnabled, previewDocId, router]);
 
   const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
@@ -392,7 +431,7 @@ export default function DocumentsPage() {
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="max-w-6xl mx-auto">
+          <div className={cn("mx-auto", previewEnabled ? "max-w-[56rem]" : "max-w-6xl")}>
         {/* Header + Filters card */}
         <div className="relative z-20 bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 sm:py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
           <div className="flex items-center justify-between mb-2 sm:mb-4 flex-wrap gap-3">
@@ -568,6 +607,20 @@ export default function DocumentsPage() {
               <ListIcon className="w-3.5 h-3.5" />
             </button>
           </div>
+          {/* Preview panel toggle — desktop only */}
+          <button
+            onClick={() => togglePreview(!previewEnabled)}
+            className={cn(
+              "hidden lg:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              previewEnabled
+                ? "bg-[#f5ede3] dark:bg-[#2d2618] border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5"
+            )}
+            title={previewEnabled ? "Hide preview panel" : "Show preview panel"}
+            aria-label={previewEnabled ? "Hide preview panel" : "Show preview panel"}
+          >
+            <PanelRight className="w-3.5 h-3.5" />
+          </button>
           </div>
 
           {/* Active filter indicators */}
@@ -594,7 +647,7 @@ export default function DocumentsPage() {
         {/* Document list */}
         {isLoading ? (
           viewMode === "grid" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", previewEnabled ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
               {([
                 ["w-16", "w-2/3"],
                 ["w-20", "w-1/2"],
@@ -639,21 +692,22 @@ export default function DocumentsPage() {
             </p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", previewEnabled ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
             {documents.map((doc) => {
               const typeInfo = DOC_TYPE_LABELS[doc.doc_type as DocType];
               const Icon = typeInfo?.icon ?? FileText;
               return (
                 <div
                   key={doc.id}
-                  onClick={() => router.push(`/documents/${doc.id}`)}
+                  onClick={() => handleDocClick(doc.id)}
                   className={cn(
                     "relative group border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all",
                     doc.is_archived
                       ? "bg-white dark:bg-[#1a1a1a] border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 opacity-60"
                       : doc.is_template
                       ? "bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/50"
-                      : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
+                      : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50",
+                    previewDocId === doc.id && "ring-2 ring-[#a0704b]/50 ring-offset-1 dark:ring-offset-[#1a1a1a]"
                   )}
                 >
                   {/* Type badge */}
@@ -728,11 +782,12 @@ export default function DocumentsPage() {
               return (
                 <div
                   key={doc.id}
-                  onClick={() => router.push(`/documents/${doc.id}`)}
+                  onClick={() => handleDocClick(doc.id)}
                   className={cn(
                     "group flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
                     doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]",
-                    doc.is_template && !doc.is_archived && "border-l-2 border-l-purple-400 dark:border-l-purple-600 bg-purple-50/30 dark:bg-purple-950/10"
+                    doc.is_template && !doc.is_archived && "border-l-2 border-l-purple-400 dark:border-l-purple-600 bg-purple-50/30 dark:bg-purple-950/10",
+                    previewDocId === doc.id && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 ring-1 ring-inset ring-[#a0704b]/30"
                   )}
                 >
                   {/* Type badge — desktop only */}
@@ -873,6 +928,16 @@ export default function DocumentsPage() {
         />
           </div>{/* end max-w-6xl */}
         </div>{/* end overflow-y-auto main content */}
+
+        {/* Preview pane — desktop only, when toggle is on */}
+        {previewEnabled && (
+          <DocumentPreviewPane
+            docId={previewDocId}
+            onClose={() => setPreviewDocId(null)}
+            onOpenEditor={(id) => router.push(`/documents/${id}`)}
+            onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
+          />
+        )}
       </PageTransition>
     </DeskSurface>
   );
