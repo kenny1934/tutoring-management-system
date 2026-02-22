@@ -11,9 +11,9 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount
 from datetime import date, timedelta, datetime, timezone
-from constants import hk_now
+from constants import hk_now, PENDING_MAKEUP_STATUSES
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
@@ -252,6 +252,63 @@ async def get_unchecked_attendance_count(
         total=row.total or 0,
         critical=row.critical or 0
     )
+
+
+@router.get("/sessions/aged-pending-makeups/count", response_model=AgedPendingMakeupsCount)
+async def get_aged_pending_makeups_count(
+    tutor_id: int = Query(..., description="Filter by assigned tutor ID"),
+    threshold_days: int = Query(30, ge=1, le=60, description="Minimum days old to count"),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Count pending make-up sessions aged past a threshold.
+
+    Traces each pending make-up back to its root original session date
+    and counts those where (today - root_original_date) >= threshold_days.
+
+    Filters by assigned tutor via the student's latest active Regular enrollment.
+
+    Returns:
+    - count: total pending makeups aged >= threshold_days
+    - critical: subset aged >= 45 days
+    """
+    today = date.today()
+
+    # Get all pending makeup sessions at once
+    pending_sessions = db.query(SessionLog).options(
+        joinedload(SessionLog.student)
+    ).filter(
+        SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES)
+    ).all()
+
+    count = 0
+    critical = 0
+
+    for session in pending_sessions:
+        if not session.student_id:
+            continue
+
+        # Check tutor assignment via student's latest active Regular enrollment
+        latest_enrollment = db.query(Enrollment).filter(
+            Enrollment.student_id == session.student_id,
+            Enrollment.enrollment_type == 'Regular',
+            Enrollment.payment_status != 'Cancelled',
+        ).order_by(Enrollment.first_lesson_date.desc()).first()
+
+        if not latest_enrollment or latest_enrollment.tutor_id != tutor_id:
+            continue
+
+        # Trace to root original session date
+        root = _find_root_original_session(session, db)
+        days_old = (today - root.session_date).days
+
+        if days_old >= threshold_days:
+            count += 1
+        if days_old >= 45:
+            critical += 1
+
+    return AgedPendingMakeupsCount(count=count, critical=critical)
 
 
 @router.get("/sessions/{session_id}", response_model=DetailedSessionResponse)

@@ -658,6 +658,11 @@ export interface UncheckedAttendanceCount {
   critical: number;  // Sessions >7 days overdue
 }
 
+export interface AgedPendingMakeupsCount {
+  count: number;
+  critical: number;
+}
+
 // Message types
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
 export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation' | 'Feedback';

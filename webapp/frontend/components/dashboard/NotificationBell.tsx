@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount } from "@/lib/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -66,6 +66,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch termination review count (all users)
   const { data: reviewCount } = useTerminationReviewCount(location, tutorId);
 
+  // Fetch aged pending makeups count (all users with tutorId)
+  const { data: agedMakeups } = useAgedPendingMakeupsCount(tutorId);
+
   // Build notification items
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
@@ -117,6 +120,18 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       });
     }
 
+    // Aged pending makeups (all users)
+    if (agedMakeups?.count && agedMakeups.count > 0) {
+      items.push({
+        id: "aged-makeups",
+        icon: <AlertTriangle className="h-4 w-4" />,
+        label: "Aged Pending Make-ups",
+        count: agedMakeups.count,
+        severity: agedMakeups.critical > 0 ? "danger" : "warning",
+        href: "/sessions?filter=pending-makeups",
+      });
+    }
+
     if (contactNeeded?.count && contactNeeded.count > 0) {
       items.push({
         id: "parent-contact",
@@ -162,7 +177,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, reviewCount]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

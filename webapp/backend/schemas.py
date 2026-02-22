@@ -234,6 +234,12 @@ class UncheckedAttendanceCount(BaseModel):
     critical: int = Field(..., ge=0, description="Sessions >7 days overdue")
 
 
+class AgedPendingMakeupsCount(BaseModel):
+    """Count of pending makeups aged past threshold"""
+    count: int = Field(0, ge=0, description="Pending makeups aged >= threshold_days")
+    critical: int = Field(0, ge=0, description="Pending makeups aged >= 45 days")
+
+
 class EnrollmentCreate(BaseModel):
     """Schema for creating a new enrollment with session generation"""
     student_id: int = Field(..., gt=0)
