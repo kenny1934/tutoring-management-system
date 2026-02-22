@@ -221,7 +221,7 @@ export default function SessionsPage() {
       fetchWindow.setDate(fetchWindow.getDate() - 120);
       filters.from_date = toDateString(fetchWindow);
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
-      filters.limit = 500;
+      filters.limit = 2000;
     } else if (viewMode === "list" || viewMode === "daily") {
       filters.date = toDateString(selectedDate);
     } else if (viewMode === "weekly") {
@@ -654,9 +654,14 @@ export default function SessionsPage() {
     const sortFn = (a: Session, b: Session) => {
       const dateA = a.root_original_session_date || a.session_date;
       const dateB = b.root_original_session_date || b.session_date;
-      return makeupSort === 'most'
+      const dateCmp = makeupSort === 'most'
         ? dateA.localeCompare(dateB)   // ascending = most urgent first
         : dateB.localeCompare(dateA);  // descending = least urgent first
+      if (dateCmp !== 0) return dateCmp;
+      // Same pending days: sort by location, then school student ID
+      const locCmp = (a.location || '').localeCompare(b.location || '');
+      if (locCmp !== 0) return locCmp;
+      return (a.school_student_id || '').localeCompare(b.school_student_id || '');
     };
 
     Object.values(tiers).forEach(arr => arr.sort(sortFn));
