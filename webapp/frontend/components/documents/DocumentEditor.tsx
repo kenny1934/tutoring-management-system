@@ -261,9 +261,10 @@ function isEmptyDocument(title: string, content: Record<string, unknown> | null 
 interface DocumentEditorProps {
   document: Document;
   onUpdate: () => void;
+  printMode?: "student" | "answers" | null;
 }
 
-export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps) {
+export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentEditorProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const { showToast } = useToast();
@@ -1071,6 +1072,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       return () => document.body.classList.remove("student-print");
     });
   }, [executePrint]);
+
+  // Auto-print when opened with ?print=student or ?print=answers
+  useEffect(() => {
+    if (!printMode || !editor) return;
+    const timer = setTimeout(() => {
+      if (printMode === "student") handlePrintStudent();
+      else if (printMode === "answers") handlePrint();
+      // Clear the print param from URL so refreshing doesn't re-trigger
+      const url = new URL(window.location.href);
+      url.searchParams.delete("print");
+      window.history.replaceState({}, "", url.toString());
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [printMode, editor, handlePrintStudent, handlePrint]);
 
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const printMenuRef = useRef<HTMLDivElement>(null);
