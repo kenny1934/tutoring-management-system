@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 
 interface LocationContextType {
   selectedLocation: string;
@@ -35,13 +35,13 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
   return (
     <LocationContext.Provider
-      value={{
+      value={useMemo(() => ({
         selectedLocation,
         setSelectedLocation: handleSetLocation,
         locations,
         setLocations,
         mounted,
-      }}
+      }), [selectedLocation, handleSetLocation, locations, setLocations, mounted])}
     >
       {children}
     </LocationContext.Provider>

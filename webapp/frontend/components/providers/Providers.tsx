@@ -16,16 +16,17 @@ import { PageErrorBoundary } from "@/components/ui/error-boundary";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { ExerciseClipboardWidget } from "@/components/ui/ExerciseClipboardWidget";
 
+// Module-level constant — avoids recreating the config object on every render
+const SWR_CONFIG = {
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true, // Refresh data when user returns from offline
+  dedupingInterval: 5000,
+  keepPreviousData: true, // Show stale data while revalidating
+};
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <SWRConfig
-      value={{
-        revalidateOnFocus: true,
-        revalidateOnReconnect: true, // Refresh data when user returns from offline
-        dedupingInterval: 5000,
-        keepPreviousData: true, // Show stale data while revalidating
-      }}
-    >
+    <SWRConfig value={SWR_CONFIG}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <AuthProvider>
           <AuthGuard>

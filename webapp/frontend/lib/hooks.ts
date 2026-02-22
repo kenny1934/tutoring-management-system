@@ -148,7 +148,10 @@ export function useTutors() {
  */
 export function useActiveTutors() {
   const { data: tutors, ...rest } = useTutors();
-  const activeTutors = tutors?.filter(t => t.is_active_tutor !== false) ?? [];
+  const activeTutors = useMemo(
+    () => tutors?.filter(t => t.is_active_tutor !== false) ?? [],
+    [tutors]
+  );
   return { data: activeTutors, ...rest };
 }
 

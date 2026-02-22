@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 
 interface CommandPaletteContextType {
   isOpen: boolean;
@@ -46,8 +46,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, toggle, close]);
 
+  const contextValue = useMemo(() => ({
+    isOpen, open, close, toggle,
+  }), [isOpen, open, close, toggle]);
+
   return (
-    <CommandPaletteContext.Provider value={{ isOpen, open, close, toggle }}>
+    <CommandPaletteContext.Provider value={contextValue}>
       {children}
     </CommandPaletteContext.Provider>
   );

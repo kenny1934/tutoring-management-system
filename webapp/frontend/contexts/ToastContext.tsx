@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
@@ -105,7 +105,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast, showError, dismissToast }}>
+    <ToastContext.Provider value={useMemo(() => ({ showToast, showError, dismissToast }), [showToast, showError, dismissToast])}>
       {children}
       {isMounted &&
         createPortal(
