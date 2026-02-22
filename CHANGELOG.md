@@ -6,6 +6,14 @@
 
 * **Document preview pane** — toggle a side panel to preview documents without leaving the list; includes print buttons (Questions Only / With Answers) and keyboard shortcuts (Enter to open, Escape to close)
 * **My Docs & Recent tabs** — unified tab bar (All Docs | My Docs | Recent | Templates) replaces separate tabs and scope filters; My Docs shows documents you created or edited, Recent tracks documents you opened via localStorage
+* **Pending make-ups view** — urgency-tier grouping (Critical / Warning / OK / Overdue) with collapsible tiers, lazy-loading pagination, 2-state sort toggle, root original date display, schedule make-up button integration, and aged pending make-ups notification bell item
+* **Sort tiebreakers** — sessions with the same pending days now sort by location, then school student ID
+
+### Performance
+
+* Fixed infinite re-renders on pending-makeups view caused by Next.js 15 history patching and unstable context provider values
+* Memoized all context provider values (Auth, Location, Role, CommandPalette, Toast) and SWRConfig
+* Stabilized useActiveTutors hook, keyboard effect dependencies, and scroll handler
 
 ### Bug Fixes
 
