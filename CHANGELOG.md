@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.10...v2.1.0) (2026-02-22)
+
+
+### New Features
+
+* Add aged pending make-ups notification and urgency-tier view ([469c1d3](https://github.com/kenny1934/tutoring-management-system/commit/469c1d3d5481046266d570316b88d7d4875eb93a))
+* Lift pending-makeups limit to 2000 and add sort tiebreakers ([cde7e84](https://github.com/kenny1934/tutoring-management-system/commit/cde7e84448ff94baea0508e88bbde7bacb01e161))
+
+
+### Performance
+
+* Fix infinite re-renders on pending-makeups view ([6d90097](https://github.com/kenny1934/tutoring-management-system/commit/6d90097f3dc1e54a76cedb20ea5544e764ba3237))
+
 ## [2.0.10](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.10) (2026-02-22)
 
 ### New Features
