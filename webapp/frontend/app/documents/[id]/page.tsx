@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { documentsAPI } from "@/lib/document-api";
 import { usePageTitle } from "@/lib/hooks";
@@ -58,7 +58,9 @@ function EditorSkeleton() {
 export default function DocumentEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const docId = Number(params.id);
+  const printMode = searchParams.get("print") as "student" | "answers" | null;
 
   const { data: doc, isLoading, error, mutate } = useSWR(
     docId ? ["document", docId] : null,
@@ -95,6 +97,7 @@ export default function DocumentEditorPage() {
     <DocumentEditor
       document={doc}
       onUpdate={mutate}
+      printMode={printMode}
     />
   );
 }
