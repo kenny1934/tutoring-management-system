@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type ViewMode = "my-view" | "center-view";
@@ -53,11 +53,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   return (
     <RoleContext.Provider
-      value={{
+      value={useMemo(() => ({
         viewMode,
         setViewMode: handleSetViewMode,
         mounted,
-      }}
+      }), [viewMode, handleSetViewMode, mounted])}
     >
       {children}
     </RoleContext.Provider>

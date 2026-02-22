@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 
@@ -247,28 +248,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // isReadOnly - Supervisor and Guest are read-only
   const isReadOnly = effectiveRole === "Supervisor" || effectiveRole === "Guest";
 
+  const contextValue = useMemo(() => ({
+    user,
+    isLoading,
+    isAuthenticated,
+    isAdmin,
+    isSuperAdmin,
+    isSupervisor,
+    isGuest,
+    canViewAdminPages,
+    isReadOnly,
+    effectiveRole,
+    isImpersonating,
+    impersonatedTutor,
+    setImpersonatedRole,
+    setImpersonatedTutor,
+    login,
+    logout,
+    refetch: fetchUser,
+  }), [user, isLoading, isAuthenticated, isAdmin, isSuperAdmin, isSupervisor,
+       isGuest, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating,
+       impersonatedTutor, setImpersonatedRole, setImpersonatedTutor,
+       login, logout, fetchUser]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated,
-        isAdmin,
-        isSuperAdmin,
-        isSupervisor,
-        isGuest,
-        canViewAdminPages,
-        isReadOnly,
-        effectiveRole,
-        isImpersonating,
-        impersonatedTutor,
-        setImpersonatedRole,
-        setImpersonatedTutor,
-        login,
-        logout,
-        refetch: fetchUser,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

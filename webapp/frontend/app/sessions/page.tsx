@@ -6,10 +6,10 @@ import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, us
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -87,13 +87,21 @@ const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
 );
+const ScheduleMakeupModal = dynamic(
+  () => import("@/components/sessions/ScheduleMakeupModal").then(m => m.ScheduleMakeupModal),
+  { ssr: false }
+);
 import { proposalSlotsToSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
 
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 
-// Stable empty array to avoid new references on each render when SWR returns undefined
+// Stable empty arrays to avoid new references on each render when SWR returns undefined
 const EMPTY_PROPOSALS: MakeupProposal[] = [];
+const EMPTY_SESSIONS: Session[] = [];
+
+// Number of session cards to show per tier before "Show more"
+const TIER_PAGE_SIZE = 20;
 
 // Pending make-up statuses for special filter
 const PENDING_MAKEUP_STATUSES = [
@@ -108,7 +116,6 @@ export default function SessionsPage() {
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
   const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -209,10 +216,10 @@ export default function SessionsPage() {
 
     // Special filter: pending-makeups overrides date and status
     if (specialFilter === "pending-makeups") {
-      // 60 days ago, no upper bound
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      filters.from_date = toDateString(sixtyDaysAgo);
+      // 120 days ago to catch overdue pending makeups
+      const fetchWindow = new Date();
+      fetchWindow.setDate(fetchWindow.getDate() - 120);
+      filters.from_date = toDateString(fetchWindow);
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
       filters.limit = 500;
     } else if (viewMode === "list" || viewMode === "daily") {
@@ -231,7 +238,7 @@ export default function SessionsPage() {
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
 
   // SWR hooks for data fetching with caching
-  const { data: sessions = [], error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
+  const { data: sessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: tutors = [] } = useActiveTutors();
 
   // Scroll to time slot specified in URL ?slot= param (once per navigation)
@@ -305,6 +312,9 @@ export default function SessionsPage() {
   // Proposal detail modal state
   const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);
 
+  // Schedule makeup modal state
+  const [makeupModalSession, setMakeupModalSession] = useState<Session | null>(null);
+
   // Sync popover session with updated data from SWR (e.g., after marking attended)
   useEffect(() => {
     if (popoverSession && sessions) {
@@ -344,6 +354,10 @@ export default function SessionsPage() {
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
 
+  // Lazy loading: how many sessions to show per tier in pending-makeups view
+  const [tierShowCount, setTierShowCount] = useState<Record<string, number>>({});
+  const pendingMakeupsInitialized = useRef(false);
+
   const toggleSlot = (timeSlot: string) => {
     setCollapsedSlots(prev => {
       const next = new Set(prev);
@@ -370,6 +384,19 @@ export default function SessionsPage() {
 
   // Track time slots that have been rendered (to skip stagger animation on re-expand)
   const seenSlotsRef = useRef<Set<string>>(new Set());
+
+  // Refs for keyboard effect — avoids re-subscribing the listener on every data change
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const bulkActionsRef = useRef<Record<string, boolean>>({} as Record<string, boolean>);
+  const handleBulkAttendedRef = useRef<() => void>(() => {});
+  const handleBulkNoShowRef = useRef<() => void>(() => {});
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+  const showShortcutHintsRef = useRef(showShortcutHints);
+  showShortcutHintsRef.current = showShortcutHints;
 
   // Track toolbar height changes (for responsive wrapping)
   useLayoutEffect(() => {
@@ -440,8 +467,13 @@ export default function SessionsPage() {
     }
     if (tutorFilter) params.set('tutor', tutorFilter);
 
-    router.replace(`/sessions?${params.toString()}`, { scroll: false });
-  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, router]);
+    const newUrl = `/sessions?${params.toString()}`;
+    // Only call replaceState if URL actually changed — Next.js 15 patches
+    // history.replaceState which triggers useSearchParams updates, creating a loop
+    if (newUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
@@ -465,7 +497,8 @@ export default function SessionsPage() {
     if (!container) return;
 
     const handleScroll = () => {
-      setIsScrolledPastThreshold(container.scrollTop > 300);
+      const shouldShow = container.scrollTop > 300;
+      setIsScrolledPastThreshold(prev => prev === shouldShow ? prev : shouldShow);
     };
 
     container.addEventListener('scroll', handleScroll);
@@ -596,8 +629,8 @@ export default function SessionsPage() {
       : new Date(session.session_date + 'T00:00:00');
     const daysOld = Math.floor((today.getTime() - rootDate.getTime()) / (1000 * 60 * 60 * 24));
     const daysRemaining = Math.max(0, 60 - daysOld);
-    const tier: 'critical' | 'warning' | 'ok' =
-      daysOld >= 45 ? 'critical' : daysOld >= 30 ? 'warning' : 'ok';
+    const tier: 'overdue' | 'critical' | 'warning' | 'ok' =
+      daysOld > 60 ? 'overdue' : daysOld >= 45 ? 'critical' : daysOld >= 30 ? 'warning' : 'ok';
     return { daysOld, daysRemaining, tier };
   }, []);
 
@@ -605,7 +638,8 @@ export default function SessionsPage() {
   const groupedByUrgencyTier = useMemo(() => {
     if (specialFilter !== "pending-makeups") return null;
 
-    const tiers: Record<'critical' | 'warning' | 'ok', Session[]> = {
+    const tiers: Record<'overdue' | 'critical' | 'warning' | 'ok', Session[]> = {
+      overdue: [],
       critical: [],
       warning: [],
       ok: [],
@@ -631,8 +665,10 @@ export default function SessionsPage() {
     if (tiers.critical.length > 0) result.push(['critical', tiers.critical]);
     if (tiers.warning.length > 0) result.push(['warning', tiers.warning]);
     if (tiers.ok.length > 0) result.push(['ok', tiers.ok]);
+    if (tiers.overdue.length > 0) result.push(['overdue', tiers.overdue]);
     return result;
   }, [sessions, specialFilter, makeupSort, getSessionUrgency]);
+
 
   // Filter and sort tutors by selected location
   const filteredTutors = useMemo(() => {
@@ -847,6 +883,11 @@ export default function SessionsPage() {
     }
   }, [selectedSessions, clearSelection, showToast]);
 
+  // Keep keyboard effect refs in sync (assigned after values are defined)
+  bulkActionsRef.current = bulkActionsAvailable;
+  handleBulkAttendedRef.current = handleBulkAttended;
+  handleBulkNoShowRef.current = handleBulkNoShow;
+
   const handleBulkReschedule = useCallback(async () => {
     if (selectedSessions.length === 0) return;
     setBulkActionLoading('reschedule');
@@ -1057,21 +1098,26 @@ export default function SessionsPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (popoverSession || bulkExerciseType || quickActionSession || isCommandPaletteOpen) return;
 
+      // Read latest values from refs (avoids needing these as effect deps)
+      const currentSessions = sessionsRef.current;
+      const currentSelectedIds = selectedIdsRef.current;
+      const currentBulkActions = bulkActionsRef.current;
+
       // Cmd/Ctrl+Shift+A - Select only markable sessions (must check before Cmd+A)
       // If a session is focused, select markable in that timeslot only
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         if (focusedSessionId) {
-          const focusedSession = sessions.find(s => s.id === focusedSessionId);
+          const focusedSession = currentSessions.find(s => s.id === focusedSessionId);
           if (focusedSession) {
-            const slotSessions = sessions.filter(s => s.time_slot === focusedSession.time_slot);
+            const slotSessions = currentSessions.filter(s => s.time_slot === focusedSession.time_slot);
             const markableIds = slotSessions.filter(canBeMarked).map(s => s.id);
             setSelectedIds(new Set(markableIds));
             return;
           }
         }
         // Fallback: select all markable on page
-        const markableIds = sessions.filter(canBeMarked).map(s => s.id);
+        const markableIds = currentSessions.filter(canBeMarked).map(s => s.id);
         setSelectedIds(new Set(markableIds));
         return;
       }
@@ -1096,11 +1142,11 @@ export default function SessionsPage() {
 
       // Escape - close hints panel, clear selection, or clear focus (works with modifiers)
       if (key === 'escape') {
-        if (showShortcutHints) {
+        if (showShortcutHintsRef.current) {
           setShowShortcutHints(false);
           return;
         }
-        if (selectedIds.size > 0) {
+        if (currentSelectedIds.size > 0) {
           clearSelection();
           return;
         }
@@ -1127,7 +1173,7 @@ export default function SessionsPage() {
       } else if (key === 'enter' && focusedSessionId) {
         e.preventDefault();
         // Open popover for focused session
-        const session = sessions.find(s => s.id === focusedSessionId);
+        const session = currentSessions.find(s => s.id === focusedSessionId);
         if (session) {
           setPopoverSession(session);
           // Use card position if available, otherwise center of screen
@@ -1145,18 +1191,18 @@ export default function SessionsPage() {
         return;
       }
       // Bulk action shortcuts (when sessions are selected, no modifiers)
-      else if (!hasModifier && selectedIds.size > 0) {
+      else if (!hasModifier && currentSelectedIds.size > 0) {
         switch (key) {
           case 'a':
-            if (bulkActionsAvailable.attended) {
+            if (currentBulkActions.attended) {
               e.preventDefault();
-              handleBulkAttended();
+              handleBulkAttendedRef.current();
             }
             break;
           case 'n':
-            if (bulkActionsAvailable.noShow) {
+            if (currentBulkActions.noShow) {
               e.preventDefault();
-              handleBulkNoShow();
+              handleBulkNoShowRef.current();
             }
             break;
           case 'c':
@@ -1172,7 +1218,7 @@ export default function SessionsPage() {
       }
       // Action shortcuts on focused card (A/N/C/H/R/E, no modifiers)
       else if (!hasModifier && focusedSessionId) {
-        const session = sessions.find(s => s.id === focusedSessionId);
+        const session = currentSessions.find(s => s.id === focusedSessionId);
         if (!session) return;
 
         switch (key) {
@@ -1182,9 +1228,9 @@ export default function SessionsPage() {
               setLoadingSessionActions(prev => new Map(prev).set(session.id, 'attended'));
               sessionsAPI.markAttended(session.id).then(updated => {
                 updateSessionInCache(updated);
-                showToast(`${session.student_name} marked as attended`);
+                showToastRef.current(`${session.student_name} marked as attended`);
               }).catch(() => {
-                showToast('Failed to mark attended', 'error');
+                showToastRef.current('Failed to mark attended', 'error');
               }).finally(() => {
                 setLoadingSessionActions(prev => {
                   const next = new Map(prev);
@@ -1200,9 +1246,9 @@ export default function SessionsPage() {
               setLoadingSessionActions(prev => new Map(prev).set(session.id, 'no-show'));
               sessionsAPI.markNoShow(session.id).then(updated => {
                 updateSessionInCache(updated);
-                showToast(`${session.student_name} marked as no show`);
+                showToastRef.current(`${session.student_name} marked as no show`);
               }).catch(() => {
-                showToast('Failed to mark no show', 'error');
+                showToastRef.current('Failed to mark no show', 'error');
               }).finally(() => {
                 setLoadingSessionActions(prev => {
                   const next = new Map(prev);
@@ -1238,7 +1284,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, sessions, showToast, showShortcutHints, selectedIds, bulkActionsAvailable, handleBulkAttended, handleBulkNoShow, clearSelection, toggleSelect]);
+  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1274,7 +1320,7 @@ export default function SessionsPage() {
         }
       });
     }
-  }, [viewMode, loading, groupedSessions, collapsedSlots]);
+  }, [viewMode, loading, groupedSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mark visible urgency tier groups as "seen" for pending-makeups view
   useEffect(() => {
@@ -1286,7 +1332,25 @@ export default function SessionsPage() {
         }
       });
     }
-  }, [groupedByUrgencyTier, loading, collapsedSlots]);
+  }, [groupedByUrgencyTier, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Default collapse: only expand the first (most urgent) tier in pending-makeups
+  useEffect(() => {
+    if (!groupedByUrgencyTier || groupedByUrgencyTier.length === 0) {
+      pendingMakeupsInitialized.current = false;
+      return;
+    }
+    if (pendingMakeupsInitialized.current) return;
+    pendingMakeupsInitialized.current = true;
+
+    // Collapse all tiers except the first (critical) and reset pagination
+    setTierShowCount({});
+    const toCollapse = groupedByUrgencyTier.slice(1).map(([tier]) => `tier-${tier}`);
+    if (toCollapse.length > 0) {
+      setCollapsedSlots(new Set(toCollapse));
+    }
+  }, [groupedByUrgencyTier]);
+
 
   if (loading) {
     return (
@@ -1722,7 +1786,10 @@ export default function SessionsPage() {
                 <div className="flex items-center gap-2">
                   {/* Sort toggle */}
                   <button
-                    onClick={() => setMakeupSort(prev => prev === 'most' ? 'least' : 'most')}
+                    onClick={() => {
+                      setMakeupSort(prev => prev === 'most' ? 'least' : 'most');
+                      setTierShowCount({});
+                    }}
                     className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#1a1a1a] text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
                   >
                     <ArrowUpDown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
@@ -1870,8 +1937,17 @@ export default function SessionsPage() {
                   const tierKey = `tier-${tier}`;
                   const isCollapsed = collapsedSlots.has(tierKey);
                   const tierConfig = {
+                    overdue: {
+                      label: 'Overdue (60+ days)',
+                      icon: <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
+                      borderColor: 'border-purple-600 dark:border-purple-500',
+                      bgColor: 'bg-purple-600 dark:bg-purple-500',
+                      badgeBg: 'bg-purple-100 dark:bg-purple-900',
+                      badgeText: 'text-purple-900 dark:text-purple-100',
+                      badgeBorder: 'border-purple-600 dark:border-purple-500',
+                    },
                     critical: {
-                      label: 'Critical (45+ days)',
+                      label: 'Critical (45-60 days)',
                       icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />,
                       borderColor: 'border-red-500 dark:border-red-600',
                       bgColor: 'bg-red-500 dark:bg-red-600',
@@ -1897,7 +1973,7 @@ export default function SessionsPage() {
                       badgeText: 'text-gray-900 dark:text-gray-100',
                       badgeBorder: 'border-gray-400 dark:border-gray-500',
                     },
-                  }[tier as 'critical' | 'warning' | 'ok'];
+                  }[tier as 'overdue' | 'critical' | 'warning' | 'ok'];
                   return (
                     <React.Fragment key={tierKey}>
                       {/* Tier Header */}
@@ -1928,7 +2004,10 @@ export default function SessionsPage() {
                               </motion.div>
                             </div>
                             <div className={cn("px-3 py-1 rounded-full border-2 font-bold text-xs sm:text-sm flex-shrink-0", tierConfig.badgeBg, tierConfig.badgeText, tierConfig.badgeBorder)}>
-                              {tierSessions.length} session{tierSessions.length !== 1 ? 's' : ''}
+                              {tierSessions.length} session{tierSessions.length !== 1 ? 's' : ''}{isCollapsed ? '' : (() => {
+                                const shown = tierShowCount[tierKey] || TIER_PAGE_SIZE;
+                                return shown < tierSessions.length ? ` (showing ${shown})` : '';
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -1945,7 +2024,12 @@ export default function SessionsPage() {
                             className="overflow-hidden"
                           >
                             <div className="space-y-3 ml-0 sm:ml-4 p-1">
-                              {tierSessions.map((session, sessionIndex) => {
+                              {(() => {
+                                const showCount = tierShowCount[tierKey] || TIER_PAGE_SIZE;
+                                const visibleSessions = tierSessions.slice(0, showCount);
+                                const hasMore = tierSessions.length > showCount;
+                                return (<>
+                              {visibleSessions.map((session, sessionIndex) => {
                                 const displayStatus = getDisplayStatus(session);
                                 const statusConfig = getSessionStatusConfig(displayStatus);
                                 const StatusIcon = statusConfig.Icon;
@@ -1957,7 +2041,11 @@ export default function SessionsPage() {
                                 });
                                 const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
                                 const urgency = getSessionUrgency(session);
+                                const isSuperAdmin = effectiveRole === "Super Admin";
+                                const isOverdue = urgency.daysOld > 60;
+                                const canScheduleMakeup = !isOverdue || isSuperAdmin;
                                 const urgencyBadgeConfig = {
+                                  overdue: { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
                                   critical: { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-700' },
                                   warning: { bg: 'bg-orange-100 dark:bg-orange-900/40', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
                                   ok: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-300 dark:border-gray-600' },
@@ -2062,8 +2150,15 @@ export default function SessionsPage() {
                                           {/* Action buttons */}
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <button
-                                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap transition-colors"
-                                              title="Schedule Make-up (coming soon)"
+                                              onClick={() => canScheduleMakeup && setMakeupModalSession(session)}
+                                              disabled={!canScheduleMakeup}
+                                              className={cn(
+                                                "inline-flex items-center gap-1 text-xs px-2 py-1 rounded font-medium whitespace-nowrap transition-colors",
+                                                canScheduleMakeup
+                                                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400"
+                                                  : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                                              )}
+                                              title={!canScheduleMakeup ? "Exceeds 60-day makeup limit" : "Schedule Make-up"}
                                             >
                                               <CalendarPlus className="h-3.5 w-3.5" />
                                               <span className="hidden sm:inline">Make-up</span>
@@ -2107,6 +2202,22 @@ export default function SessionsPage() {
                                   </motion.div>
                                 );
                               })}
+                              {hasMore && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTierShowCount(prev => ({
+                                      ...prev,
+                                      [tierKey]: (prev[tierKey] || TIER_PAGE_SIZE) + TIER_PAGE_SIZE
+                                    }));
+                                  }}
+                                  className="w-full py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                >
+                                  Show {Math.min(TIER_PAGE_SIZE, tierSessions.length - showCount)} more ({tierSessions.length - showCount} remaining)
+                                </button>
+                              )}
+                              </>);
+                              })()}
                             </div>
                           </motion.div>
                         )}
@@ -2490,6 +2601,16 @@ export default function SessionsPage() {
           isOpen={!!selectedProposal}
           onClose={() => setSelectedProposal(null)}
         />
+
+        {/* Schedule Makeup Modal */}
+        {makeupModalSession && (
+          <ScheduleMakeupModal
+            session={makeupModalSession}
+            isOpen={!!makeupModalSession}
+            onClose={() => setMakeupModalSession(null)}
+            onScheduled={() => { setMakeupModalSession(null); mutateSessions(); }}
+          />
+        )}
 
         {/* Memo List Drawer */}
         {memoDrawerOpen && (
