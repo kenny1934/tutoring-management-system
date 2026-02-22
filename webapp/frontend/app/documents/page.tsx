@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight, User, Clock } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
+import { getRecentDocIds, trackDocView } from "@/lib/recent-docs";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
 
 const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
@@ -37,7 +38,7 @@ export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"documents" | "templates">("documents");
+  const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "templates">("all");
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -100,6 +101,7 @@ export default function DocumentsPage() {
   }, []);
 
   const handleDocClick = useCallback((docId: number) => {
+    trackDocView(docId);
     if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
       setPreviewDocId(docId);
     } else {
@@ -113,20 +115,29 @@ export default function DocumentsPage() {
   const [moreExhausted, setMoreExhausted] = useState(false);
 
   const isTemplatesTab = activeTab === "templates";
+  const recentIds = activeTab === "recent" ? getRecentDocIds() : [];
 
   const { data: firstPage, isLoading, mutate } = useSWR(
-    ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab],
-    () => documentsAPI.list({
-      doc_type: filterType === "all" ? undefined : filterType,
-      search: debouncedSearch || undefined,
-      include_archived: showArchived || undefined,
-      is_template: isTemplatesTab,
-      sort_by: sort.sort_by,
-      sort_order: sort.sort_order,
-      limit: PAGE_SIZE,
-      tag: isTemplatesTab ? undefined : (activeTag || undefined),
-      folder_id: isTemplatesTab ? undefined : (activeFolderId ?? undefined),
-    }),
+    ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
+    () => {
+      // For "recent" tab with no tracked IDs, return empty immediately
+      if (activeTab === "recent" && recentIds.length === 0) {
+        return Promise.resolve([] as Document[]);
+      }
+      return documentsAPI.list({
+        doc_type: filterType === "all" ? undefined : filterType,
+        search: debouncedSearch || undefined,
+        include_archived: showArchived || undefined,
+        is_template: isTemplatesTab,
+        sort_by: sort.sort_by,
+        sort_order: sort.sort_order,
+        limit: PAGE_SIZE,
+        tag: isTemplatesTab ? undefined : (activeTag || undefined),
+        folder_id: isTemplatesTab ? undefined : (activeFolderId ?? undefined),
+        my_docs: activeTab === "mine" ? true : undefined,
+        ids: activeTab === "recent" ? recentIds.join(",") : undefined,
+      });
+    },
     { revalidateOnFocus: false }
   );
 
@@ -171,8 +182,8 @@ export default function DocumentsPage() {
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
   // Ref to hold current filter params so loadMore doesn't recreate on every state change
-  const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab });
-  filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab };
+  const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
+  filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -190,6 +201,8 @@ export default function DocumentsPage() {
         offset: (f.firstPage?.length ?? 0) + f.extraDocs.length,
         tag: f.isTemplatesTab ? undefined : (f.activeTag || undefined),
         folder_id: f.isTemplatesTab ? undefined : (f.activeFolderId ?? undefined),
+        my_docs: f.activeTab === "mine" ? true : undefined,
+        ids: f.activeTab === "recent" ? f.recentIds.join(",") : undefined,
       });
       setExtraDocs((prev) => [...prev, ...next]);
       if (next.length < PAGE_SIZE) setMoreExhausted(true);
@@ -433,8 +446,8 @@ export default function DocumentsPage() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className={cn("mx-auto", previewEnabled ? "max-w-[56rem]" : "max-w-6xl")}>
         {/* Header + Filters card */}
-        <div className="relative z-20 bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 sm:py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <div className="flex items-center justify-between mb-2 sm:mb-4 flex-wrap gap-3">
+        <div className="relative z-20 bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2 sm:gap-3">
             <div className="flex items-center gap-3">
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -450,7 +463,11 @@ export default function DocumentsPage() {
                   </span>
                 )}
                 <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {isTemplatesTab
+                  {activeTab === "mine"
+                    ? "Documents you created or edited"
+                    : activeTab === "recent"
+                    ? "Documents you recently opened"
+                    : isTemplatesTab
                     ? "Reusable templates for new documents"
                     : activeFolder
                     ? <span className="flex items-center gap-1"><FolderOpen className="w-3.5 h-3.5" />{activeFolder.name}</span>
@@ -478,31 +495,29 @@ export default function DocumentsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 w-fit bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-3">
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                activeTab === "documents"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
-              )}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Documents
-            </button>
-            <button
-              onClick={() => setActiveTab("templates")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                activeTab === "templates"
-                  ? "bg-purple-600 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
-              )}
-            >
-              <Stamp className="w-3.5 h-3.5" />
-              Templates
-            </button>
+          <div className="flex gap-1 w-fit bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-2">
+            {([
+              { key: "all", label: "All Docs", icon: FileText },
+              { key: "mine", label: "My Docs", icon: User },
+              { key: "recent", label: "Recent", icon: Clock },
+              { key: "templates", label: "Templates", icon: Stamp },
+            ] as const).map(({ key, label, icon: TabIcon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                  activeTab === key
+                    ? key === "templates"
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "bg-primary text-primary-foreground shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
+                )}
+              >
+                <TabIcon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Filters */}
@@ -679,14 +694,25 @@ export default function DocumentsPage() {
           )
         ) : !documents?.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-700 dark:text-gray-400">
-            {isTemplatesTab ? <Stamp className="w-12 h-12 mb-3 opacity-40" /> : <FileText className="w-12 h-12 mb-3 opacity-40" />}
+            {activeTab === "mine" ? <User className="w-12 h-12 mb-3 opacity-40" />
+              : activeTab === "recent" ? <Clock className="w-12 h-12 mb-3 opacity-40" />
+              : isTemplatesTab ? <Stamp className="w-12 h-12 mb-3 opacity-40" />
+              : <FileText className="w-12 h-12 mb-3 opacity-40" />}
             <p className="text-lg font-medium">
-              {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
+              {activeTab === "mine"
+                ? "No documents found"
+                : activeTab === "recent"
+                ? "No recently viewed documents"
+                : debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
                 ? isTemplatesTab ? "No matching templates" : "No matching documents"
                 : isTemplatesTab ? "No templates yet" : "No documents yet"}
             </p>
             <p className="text-sm mt-1">
-              {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
+              {activeTab === "mine"
+                ? "Documents you create or edit will appear here"
+                : activeTab === "recent"
+                ? "Documents you open will appear here"
+                : debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
                 ? "Try adjusting your search or filters"
                 : isTemplatesTab ? "Create your first template to get started" : "Create your first document to get started"}
             </p>
@@ -926,7 +952,7 @@ export default function DocumentsPage() {
           confirmText="Delete"
           variant="danger"
         />
-          </div>{/* end max-w-6xl */}
+          </div>{/* end max-w container */}
         </div>{/* end overflow-y-auto main content */}
 
         {/* Preview pane — desktop only, when toggle is on */}

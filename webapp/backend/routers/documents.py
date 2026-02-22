@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm.exc import StaleDataError
-from sqlalchemy import desc, asc, func as sa_func
+from sqlalchemy import desc, asc, or_, func as sa_func
 from typing import List, Optional
 from database import get_db
 from constants import hk_now
@@ -217,7 +217,9 @@ async def list_documents(
     offset: int = Query(0, ge=0),
     tag: Optional[str] = Query(None),
     folder_id: Optional[int] = Query(None),
-    _: Tutor = Depends(reject_guest),
+    my_docs: bool = Query(False),
+    ids: Optional[str] = Query(None),
+    current_user: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
 ):
     """List documents with optional filters."""
@@ -238,6 +240,14 @@ async def list_documents(
         query = query.filter(sa_func.json_contains(Document.tags, f'"{tag}"'))
     if folder_id is not None:
         query = query.filter(Document.folder_id == folder_id)
+    if my_docs:
+        query = query.filter(
+            or_(Document.created_by == current_user.id, Document.updated_by == current_user.id)
+        )
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        if id_list:
+            query = query.filter(Document.id.in_(id_list))
 
     sort_col = getattr(Document, sort_by)
     order_fn = desc if sort_order == "desc" else asc
