@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { documentsAPI } from "@/lib/document-api";
 import { usePageTitle } from "@/lib/hooks";
+import { trackDocView } from "@/lib/recent-docs";
 import { DocumentEditor } from "@/components/documents/DocumentEditor";
 
 function EditorSkeleton() {
@@ -69,6 +71,11 @@ export default function DocumentEditorPage() {
   );
 
   usePageTitle(doc?.title ?? "Document");
+
+  // Track this document as recently viewed
+  useEffect(() => {
+    if (docId) trackDocView(docId);
+  }, [docId]);
 
   if (isLoading) {
     return <EditorSkeleton />;
