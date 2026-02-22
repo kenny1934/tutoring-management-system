@@ -12,6 +12,26 @@ const changelogData = [
           },
           {
             "description": "**My Docs & Recent tabs** — unified tab bar (All Docs | My Docs | Recent | Templates) replaces separate tabs and scope filters; My Docs shows documents you created or edited, Recent tracks documents you opened via localStorage"
+          },
+          {
+            "description": "**Pending make-ups view** — urgency-tier grouping (Critical / Warning / OK / Overdue) with collapsible tiers, lazy-loading pagination, 2-state sort toggle, root original date display, schedule make-up button integration, and aged pending make-ups notification bell item"
+          },
+          {
+            "description": "**Sort tiebreakers** — sessions with the same pending days now sort by location, then school student ID"
+          }
+        ]
+      },
+      {
+        "title": "Performance",
+        "items": [
+          {
+            "description": "Fixed infinite re-renders on pending-makeups view caused by Next.js 15 history patching and unstable context provider values"
+          },
+          {
+            "description": "Memoized all context provider values (Auth, Location, Role, CommandPalette, Toast) and SWRConfig"
+          },
+          {
+            "description": "Stabilized useActiveTutors hook, keyboard effect dependencies, and scroll handler"
           }
         ]
       },
