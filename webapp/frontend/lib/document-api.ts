@@ -23,7 +23,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 export const documentsAPI = {
-  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; is_template?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number; tag?: string; folder_id?: number }) {
+  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; is_template?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number; tag?: string; folder_id?: number; my_docs?: boolean; ids?: string }) {
     const qs = new URLSearchParams();
     if (params?.doc_type) qs.set("doc_type", params.doc_type);
     if (params?.search) qs.set("search", params.search);
@@ -35,6 +35,8 @@ export const documentsAPI = {
     if (params?.offset) qs.set("offset", String(params.offset));
     if (params?.tag) qs.set("tag", params.tag);
     if (params?.folder_id !== undefined) qs.set("folder_id", String(params.folder_id));
+    if (params?.my_docs) qs.set("my_docs", "true");
+    if (params?.ids) qs.set("ids", params.ids);
     const q = qs.toString();
     return fetchAPI<Document[]>(`/documents${q ? `?${q}` : ""}`);
   },
