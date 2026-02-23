@@ -9,6 +9,7 @@
 ### Bug Fixes
 
 * Fixed terminated students dropdown showing current/future quarters that aren't ready for review
+* Fixed documents page tab buttons overflowing on mobile
 
 ## [2.0.10](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.10) (2026-02-22)
 
