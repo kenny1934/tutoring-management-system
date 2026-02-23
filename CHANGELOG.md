@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.11](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.11) (2026-02-23)
+
+### New Features
+
+* **Geometry editor drag-to-pan** — middle-click or right-click drag to pan the board in any tool mode; two-finger touch pan on mobile devices
+
+### Bug Fixes
+
+* Fixed terminated students dropdown showing current/future quarters that aren't ready for review
+
 ## [2.0.10](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.10) (2026-02-22)
 
 ### New Features
