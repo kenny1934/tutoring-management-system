@@ -146,9 +146,13 @@ async def get_available_quarters(
             q, y = get_quarter_for_date(row.eff_end_date)
             seen_quarters.add((q, y))
 
+    # Filter out current and future quarters (not yet ready for review)
+    current_q, current_y = get_quarter_for_date(date.today())
+
     quarters = [
         QuarterOption(quarter=q, year=y)
         for q, y in sorted(seen_quarters, key=lambda x: (x[1], x[0]), reverse=True)
+        if (y, q) < (current_y, current_q)
     ]
 
     return quarters
