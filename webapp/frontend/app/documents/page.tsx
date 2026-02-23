@@ -495,7 +495,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 w-fit bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-2">
+          <div className="flex gap-1 w-fit max-w-full overflow-x-auto bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-2">
             {([
               { key: "all", label: "All Docs", icon: FileText },
               { key: "mine", label: "My Docs", icon: User },

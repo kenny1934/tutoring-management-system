@@ -17,6 +17,9 @@ const changelogData = [
         "items": [
           {
             "description": "Fixed terminated students dropdown showing current/future quarters that aren't ready for review"
+          },
+          {
+            "description": "Fixed documents page tab buttons overflowing on mobile"
           }
         ]
       }
