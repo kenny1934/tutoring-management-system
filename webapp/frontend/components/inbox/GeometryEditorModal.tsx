@@ -95,7 +95,7 @@ const COLOR_PALETTE = [
 ];
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] = [
-  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select \u00B7 Drag to area-select \u00B7 Delete to remove" },
+  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select \u00B7 Drag to area-select \u00B7 Middle/right-drag to pan \u00B7 Delete to remove" },
   { id: "point", label: "Point", icon: <Dot className="h-4 w-4" />, hint: "Click to place, or type coordinates" },
   { id: "line", label: "Line", icon: <Minus className="h-4 w-4 rotate-[30deg]" />, hint: "Click 2 points" },
   { id: "segment", label: "Segment", icon: <Minus className="h-4 w-4" />, hint: "Click 2 points" },
@@ -162,6 +162,12 @@ export default function GeometryEditorModal({
   const [selectionRect, setSelectionRect] = useState<{
     x1: number; y1: number; x2: number; y2: number;
   } | null>(null);
+
+  // Custom pan state (middle/right-click drag + two-finger touch)
+  const isPanningRef = useRef(false);
+  const panLastRef = useRef<{ x: number; y: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const touchPanRef = useRef<{ x: number; y: number } | null>(null);
 
   const isEditing = isEditingExisting;
 
@@ -628,8 +634,8 @@ export default function GeometryEditorModal({
     const board = boardRef.current;
     if (board) {
       clearGroupSelection(board);
-      // Disable pan in select mode (area-select uses drag instead)
-      board.setAttribute({ pan: { enabled: tool !== "select" } });
+      // Disable native pan in all modes — we handle pan via middle/right-click drag
+      board.setAttribute({ pan: { enabled: false } });
     }
     setSelectedEl(null);
     setEditCoords("");
@@ -662,6 +668,102 @@ export default function GeometryEditorModal({
       board.update();
     }
   }, [tool]);
+
+  // ---------------------------------------------------------------------------
+  // Custom pan: middle/right-click drag (all modes) + two-finger touch
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button === 1 || e.button === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        isPanningRef.current = true;
+        panLastRef.current = { x: e.clientX, y: e.clientY };
+        setIsPanning(true);
+        el.setPointerCapture(e.pointerId);
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isPanningRef.current || !panLastRef.current) return;
+      const board = boardRef.current;
+      if (!board) return;
+      e.preventDefault();
+      const dx = (e.clientX - panLastRef.current.x) / board.unitX;
+      const dy = (e.clientY - panLastRef.current.y) / board.unitY;
+      const bb = board.getBoundingBox();
+      board.setBoundingBox([bb[0] - dx, bb[1] + dy, bb[2] - dx, bb[3] + dy], false);
+      panLastRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        panLastRef.current = null;
+        setIsPanning(false);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const onContextMenu = (e: Event) => e.preventDefault();
+
+    // Two-finger touch pan
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        touchPanRef.current = {
+          x: (t0.clientX + t1.clientX) / 2,
+          y: (t0.clientY + t1.clientY) / 2,
+        };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length >= 2 && touchPanRef.current) {
+        e.preventDefault();
+        const board = boardRef.current;
+        if (!board) return;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const midX = (t0.clientX + t1.clientX) / 2;
+        const midY = (t0.clientY + t1.clientY) / 2;
+        const dx = (midX - touchPanRef.current.x) / board.unitX;
+        const dy = (midY - touchPanRef.current.y) / board.unitY;
+        const bb = board.getBoundingBox();
+        board.setBoundingBox([bb[0] - dx, bb[1] + dy, bb[2] - dx, bb[3] + dy], false);
+        touchPanRef.current = { x: midX, y: midY };
+      }
+    };
+
+    const onTouchEnd = () => {
+      touchPanRef.current = null;
+    };
+
+    el.addEventListener("pointerdown", onPointerDown, { capture: true });
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("contextmenu", onContextMenu);
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown, true);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("contextmenu", onContextMenu);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [jsxLoaded]);
 
   // Close shapes menu on click outside
   useEffect(() => {
@@ -1493,7 +1595,7 @@ export default function GeometryEditorModal({
               <div
                 ref={containerRef}
                 className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
-                style={{ height: "400px", touchAction: "manipulation", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
+                style={{ height: "400px", touchAction: "manipulation", cursor: isPanning ? "grabbing" : tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
               />
               {selectionRect && boardRef.current && (() => {
                 const board = boardRef.current;
