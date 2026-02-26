@@ -2250,50 +2250,52 @@ export default function SessionsPage() {
                         )}
                         style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            {/* Slot selection checkbox with dropdown */}
-                            <div className="relative flex items-center">
-                              <button
-                                onClick={(e) => toggleSlotSelection(sessionsInSlot, e)}
-                                className="p-1 hover:bg-[#a0704b]/10 rounded transition-colors"
-                                title={`Select all sessions in ${timeSlot}`}
-                              >
-                                {(() => {
-                                  const state = getSlotSelectionState(sessionsInSlot);
-                                  if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
-                                  if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
-                                  return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500" />;
-                                })()}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
-                                className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                title="Selection options (Ctrl+Shift+A markable when focused)"
-                              >
-                                <ChevronDown className="h-3 w-3" />
-                              </button>
-                              {slotDropdownOpen === timeSlot && (
-                                <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
-                                  >
-                                    Select All in Slot
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
-                                  >
-                                    Select Markable Only
-                                  </button>
-                                </div>
-                              )}
+                        <div className="flex items-center gap-2">
+                          {/* Slot selection checkbox with dropdown */}
+                          <div className="relative flex items-center">
+                            <button
+                              onClick={(e) => toggleSlotSelection(sessionsInSlot, e)}
+                              className="p-1 hover:bg-[#a0704b]/10 rounded transition-colors"
+                              title={`Select all sessions in ${timeSlot}`}
+                            >
+                              {(() => {
+                                const state = getSlotSelectionState(sessionsInSlot);
+                                if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
+                                if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
+                                return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500" />;
+                              })()}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
+                              className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              title="Selection options (Ctrl+Shift+A markable when focused)"
+                            >
+                              <ChevronDown className="h-3 w-3" />
+                            </button>
+                            {slotDropdownOpen === timeSlot && (
+                              <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                >
+                                  Select All in Slot
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                >
+                                  Select Markable Only
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Center: time slot label */}
+                          <div className="flex-1 flex items-center justify-center gap-2">
+                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-1 rounded-full">
+                              <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
-                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-1.5 rounded-full">
-                              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
-                            </div>
-                            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {timeSlot}
                             </h3>
                             <motion.div
@@ -2303,6 +2305,8 @@ export default function SessionsPage() {
                               <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                             </motion.div>
                           </div>
+
+                          {/* Right: counts */}
                           <div className="flex items-center gap-2">
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
