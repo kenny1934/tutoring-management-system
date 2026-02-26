@@ -1369,8 +1369,11 @@ export default function SessionsPage() {
             "flex items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
           )}>
-            {/* Title */}
-            <div className="h-5 w-5 bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
+            {/* Title with count badge */}
+            <div className="relative">
+              <div className="h-5 w-5 bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
+              <div className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
+            </div>
             <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
             {/* View switcher */}
@@ -1383,7 +1386,6 @@ export default function SessionsPage() {
             {/* Filters placeholder */}
             <div className="h-7 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
             <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
-            <div className="ml-auto h-5 w-16 bg-amber-200/50 dark:bg-amber-800/50 rounded-full animate-pulse" />
           </div>
 
           {viewMode === "weekly" ? (
@@ -1558,29 +1560,38 @@ export default function SessionsPage() {
                 >
                   {/* Time slot header skeleton */}
                   <div className={cn(
-                    "flex items-center gap-3 p-4 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f] mb-4",
+                    "flex items-center gap-2 px-3 py-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f] mb-2",
                     !isMobile && "paper-texture"
                   )}>
-                    <div className="w-9 h-9 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
-                    <div className="h-5 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-                    <div className="ml-auto h-6 w-16 bg-amber-200 dark:bg-amber-800 rounded-full animate-pulse" />
+                    <div className="w-6 h-6 bg-[#a0704b]/20 dark:bg-[#cd853f]/20 rounded animate-pulse" />
+                    <div className="flex-1 flex items-center justify-center gap-2">
+                      <div className="w-6 h-6 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
+                      <div className="h-5 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                    </div>
+                    <div className="h-5 w-16 bg-amber-200 dark:bg-amber-800 rounded-full animate-pulse" />
                   </div>
                   {/* Session card skeletons */}
-                  <div className="ml-0 sm:ml-4 space-y-3">
+                  <div className="ml-0 sm:ml-4 space-y-2">
                     {[1, 2].map((j) => (
                       <div key={j} className={cn(
                         "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
                         !isMobile && "paper-texture"
                       )}>
-                        <div className="flex-1 p-3 space-y-2">
+                        <div className="flex-1 p-2 sm:p-3 space-y-1.5">
                           <div className="flex items-center gap-2">
                             <div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                             <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                             <div className="h-4 w-10 bg-green-200 dark:bg-green-900 rounded animate-pulse hidden sm:block" />
                           </div>
                           <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                          {/* Action buttons skeleton */}
+                          <div className="mt-1.5 mx-2 sm:mx-3 pt-1.5 flex gap-1.5">
+                            <div className="h-5 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-5 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-5 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+                          </div>
                         </div>
-                        <div className="w-10 sm:w-12 bg-gray-300 dark:bg-gray-600 animate-pulse" />
+                        <div className="w-8 sm:w-10 bg-gray-300 dark:bg-gray-600 animate-pulse" />
                       </div>
                     ))}
                   </div>
