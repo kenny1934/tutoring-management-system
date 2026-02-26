@@ -1624,7 +1624,7 @@ export default function SessionsPage() {
     <>
       {/* Title */}
       <div className="flex items-center gap-2">
-        <div className="relative">
+        <div className="relative mr-1.5">
           <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
           {sessions.filter(isCountableSession).length > 0 && (
             <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-[#a0704b] dark:bg-[#cd853f] text-white">
@@ -1632,7 +1632,7 @@ export default function SessionsPage() {
             </span>
           )}
         </div>
-        <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
+        <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
       <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
@@ -1648,7 +1648,7 @@ export default function SessionsPage() {
           {/* Date Picker (only for list view) */}
           {viewMode === "list" && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              <span className="hidden sm:inline text-sm font-medium text-amber-700 dark:text-amber-300">
                 {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
               <input
@@ -1682,7 +1682,7 @@ export default function SessionsPage() {
           <select
             value={tutorFilter}
             onChange={(e) => setTutorFilter(e.target.value)}
-            className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7"
+            className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
@@ -1775,7 +1775,7 @@ export default function SessionsPage() {
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
-    "flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+    "flex flex-wrap items-center gap-1.5 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-2 sm:px-4 py-1.5 sm:py-2",
     !isMobile && "paper-texture"
   );
 
