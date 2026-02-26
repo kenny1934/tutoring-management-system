@@ -464,7 +464,7 @@ export function ScheduleMakeupModal({
   const currentEnrollment = useMemo(() => {
     if (!studentEnrollments) return null;
     // Filter to Regular enrollments only, then find the latest by first_lesson_date
-    const regularEnrollments = studentEnrollments.filter(e => e.enrollment_type === 'Regular');
+    const regularEnrollments = studentEnrollments.filter(e => e.enrollment_type === 'Regular' && e.payment_status !== 'Cancelled');
     if (regularEnrollments.length === 0) return null;
     return regularEnrollments.reduce((latest, e) => {
       if (!latest) return e;

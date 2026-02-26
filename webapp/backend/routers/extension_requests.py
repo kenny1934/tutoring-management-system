@@ -270,7 +270,8 @@ async def create_extension_request(
         # Only Regular enrollments count - ignore One-Time and Trial
         current_enrollment = db.query(Enrollment).filter(
             Enrollment.student_id == session.student_id,
-            Enrollment.enrollment_type == 'Regular'
+            Enrollment.enrollment_type == 'Regular',
+            Enrollment.payment_status != "Cancelled"
         ).order_by(Enrollment.first_lesson_date.desc()).first()
 
         # If current enrollment differs from session's enrollment, use current as target
