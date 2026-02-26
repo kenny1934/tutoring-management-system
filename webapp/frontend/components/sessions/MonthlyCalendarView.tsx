@@ -923,28 +923,28 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
   };
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="p-2 space-y-2">
       {sortedTimeSlots.map((timeSlot) => {
         const slotSessions = getSortedSlotSessions(sessionsByTimeSlot.get(timeSlot) || []);
         return (
           <div key={timeSlot}>
             {/* Time Slot Header */}
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-1">
               <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
-              <span className="text-xs font-semibold text-[#a0704b] dark:text-[#cd853f] px-2">
+              <span className="text-[10px] font-semibold text-[#a0704b] dark:text-[#cd853f] px-1.5">
                 {timeSlot}
               </span>
               <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
             </div>
             {/* Sessions */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {slotSessions.map((session, sessionIndex) => {
                 const prevSession = sessionIndex > 0 ? slotSessions[sessionIndex - 1] : null;
                 const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
                 return (
                   <div key={session.id}>
                     {isNewTutor && (
-                      <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-3" />
+                      <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1.5" />
                     )}
                     <SessionCard
                       session={session}
@@ -970,16 +970,16 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
       {proposedSessions.length > 0 && (
         <div>
           {/* Proposed Sessions Header */}
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center gap-1.5 mb-1">
             <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 px-2 flex items-center gap-1">
+            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 px-1.5 flex items-center gap-1">
               <CalendarClock className="h-3 w-3" />
               Proposed Sessions
             </span>
             <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
           </div>
           {/* Proposed Session Cards */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {proposedSessions.map((ps) => (
               <div
                 key={ps.id}
@@ -991,7 +991,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
                   onProposalClick?.(ps.proposal);
                 }}
                 className={cn(
-                  "relative flex items-center gap-2 pr-7 py-1.5 rounded-md cursor-pointer transition-all overflow-hidden",
+                  "relative flex items-center gap-2 pr-7 py-1 rounded-md cursor-pointer transition-all overflow-hidden",
                   "bg-amber-50 dark:bg-amber-900/20 border-2 border-dashed border-amber-400 dark:border-amber-600",
                   "hover:shadow-md hover:scale-[1.01]"
                 )}
@@ -1279,7 +1279,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
     <div
       onClick={onClick}
       className={cn(
-        "relative flex items-center gap-2 pr-7 py-1.5 rounded-md cursor-pointer transition-all overflow-hidden",
+        "relative flex items-center gap-2 pr-7 py-1 rounded-md cursor-pointer transition-all overflow-hidden",
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "hover:shadow-md hover:scale-[1.01]",
         config.bgTint,
@@ -1360,7 +1360,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         <SessionActionButtons
           session={session}
           size="sm"
-          className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700"
+          className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700"
         />
       </div>
 

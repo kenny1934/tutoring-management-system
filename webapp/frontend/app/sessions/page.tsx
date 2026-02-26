@@ -2028,7 +2028,7 @@ export default function SessionsPage() {
                             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                             className="overflow-hidden"
                           >
-                            <div className="space-y-3 ml-0 sm:ml-4 p-1">
+                            <div className="space-y-1.5 ml-0 sm:ml-4 p-1">
                               {(() => {
                                 const showCount = tierShowCount[tierKey] || TIER_PAGE_SIZE;
                                 const visibleSessions = tierSessions.slice(0, showCount);
@@ -2093,7 +2093,7 @@ export default function SessionsPage() {
                                     {/* Checkbox for bulk selection */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
-                                      className="flex-shrink-0 p-2 sm:p-3 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                      className="flex-shrink-0 p-1.5 sm:p-2 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                     >
                                       {selectedIds.has(session.id) ? (
                                         <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
@@ -2103,9 +2103,9 @@ export default function SessionsPage() {
                                     </button>
 
                                     {/* Main content */}
-                                    <div className="flex-1 p-3 sm:p-4 min-w-0">
+                                    <div className="flex-1 p-2 sm:p-3 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
-                                        <div className="space-y-1.5 flex-1 min-w-0">
+                                        <div className="space-y-1 flex-1 min-w-0">
                                           {/* Student name + badges */}
                                           <div className="flex items-center gap-1.5 flex-wrap">
                                             <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2238,17 +2238,17 @@ export default function SessionsPage() {
                   <React.Fragment key={timeSlot}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-4", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
-                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                           !isMobile && "paper-texture"
                         )}
                         style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             {/* Slot selection checkbox with dropdown */}
                             <div className="relative flex items-center">
                               <button
@@ -2287,21 +2287,21 @@ export default function SessionsPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
-                              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-1.5 rounded-full">
+                              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
                             </div>
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                               {timeSlot}
                             </h3>
                             <motion.div
                               animate={{ rotate: collapsedSlots.has(timeSlot) ? -90 : 0 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                              <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                             </motion.div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
+                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
                             </div>
                             {(() => {
@@ -2333,7 +2333,7 @@ export default function SessionsPage() {
                           transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                           className="overflow-hidden"
                         >
-                          <div className="space-y-3 ml-0 sm:ml-4 p-1">
+                          <div className="space-y-1.5 ml-0 sm:ml-4 p-1">
                             {sessionsInSlot.map((session, sessionIndex) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
@@ -2343,7 +2343,7 @@ export default function SessionsPage() {
                         return (
                           <div key={session.id}>
                             {isNewTutor && (
-                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-4" />
+                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-2" />
                             )}
                             <motion.div
                               initial={{ opacity: 0, x: -20 }}
@@ -2385,7 +2385,7 @@ export default function SessionsPage() {
                               {/* Checkbox for bulk selection */}
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
-                                className="flex-shrink-0 p-2 sm:p-3 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                className="flex-shrink-0 p-1.5 sm:p-2 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                               >
                                 {selectedIds.has(session.id) ? (
                                   <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
@@ -2395,10 +2395,10 @@ export default function SessionsPage() {
                               </button>
 
                               {/* Main content */}
-                              <div className="flex-1 p-3 sm:p-4 min-w-0">
+                              <div className="flex-1 p-2 sm:p-3 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   {/* Left side - Session info */}
-                                  <div className="space-y-1.5 flex-1 min-w-0">
+                                  <div className="space-y-1 flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <p className={cn(
                                         "flex items-center gap-1.5 min-w-0 w-full sm:w-auto",
@@ -2503,16 +2503,16 @@ export default function SessionsPage() {
                                   showLabels
                                   onLoadingChange={handleActionLoadingChange}
                                   loadingActionId={loadingSessionActions.get(session.id) || null}
-                                  className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                  className="mt-1.5 -mx-2 sm:-mx-3 -mb-2 sm:-mb-3 px-2 sm:px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04]"
                                 />
                               </div>
 
                               {/* Status color strip with icon - RIGHT side */}
-                              <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                              <div className={cn("w-8 sm:w-10 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
                                 {loadingSessionActions.has(session.id) ? (
-                                  <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                  <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                  <StatusIcon className={cn("h-4 w-4 sm:h-5 sm:w-5 text-white", statusConfig.iconClass)} />
                                 )}
                               </div>
                             </motion.div>
