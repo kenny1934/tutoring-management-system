@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff, Gradua
 import { Button } from "@/components/ui/button";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { MoreSessionsPopover } from "@/components/sessions/MoreSessionsPopover";
+import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
 import type { Session, Tutor } from "@/types";
 import {
   toDateString,
@@ -316,18 +317,7 @@ export const DailyGridView = memo(function DailyGridView({
           </Button>
 
           {/* Date picker */}
-          <input
-            type="date"
-            defaultValue={toDateString(selectedDate)}
-            key={toDateString(selectedDate)}
-            onBlur={(e) => {
-              const date = new Date(e.target.value + 'T00:00:00');
-              if (!isNaN(date.getTime()) && toDateString(date) !== toDateString(selectedDate)) {
-                onDateChange(date);
-              }
-            }}
-            className="h-7 px-2 text-xs bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
-          />
+          <DatePickerPopover selectedDate={selectedDate} onSelect={onDateChange} />
 
           {/* Full date display */}
           <div className="text-center hidden sm:block">
