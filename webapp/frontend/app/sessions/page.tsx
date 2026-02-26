@@ -2108,7 +2108,7 @@ export default function SessionsPage() {
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="space-y-1 flex-1 min-w-0">
                                           {/* Student name + badges */}
-                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                          <div className="flex items-center gap-1.5 flex-wrap" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                             <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                                               {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
                                             </span>
@@ -2124,7 +2124,7 @@ export default function SessionsPage() {
                                           </div>
 
                                           {/* Date + Time Slot + Urgency badge */}
-                                          <div className="flex items-center gap-2 flex-wrap">
+                                          <div className="flex items-center gap-2 flex-wrap" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                             <span className="text-sm font-semibold text-[#a0704b] dark:text-[#cd853f]">
                                               {session.root_original_session_date && session.root_original_session_date !== session.session_date ? (
                                                 <>
@@ -2184,7 +2184,7 @@ export default function SessionsPage() {
                                         </div>
 
                                         {/* Right side - Status + Tutor */}
-                                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+                                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                           <p className={cn("text-sm font-medium truncate max-w-[80px] sm:max-w-none", statusConfig.textClass)}>
                                             {displayStatus}
                                           </p>
@@ -2198,7 +2198,7 @@ export default function SessionsPage() {
                                     </div>
 
                                     {/* Status color strip with icon */}
-                                    <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                                    <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
                                       {loadingSessionActions.has(session.id) ? (
                                         <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                       ) : (
@@ -2401,7 +2401,7 @@ export default function SessionsPage() {
 
                               {/* Main content */}
                               <div className="flex-1 p-2 sm:p-3 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start justify-between gap-2" style={{ opacity: statusConfig.opacity ?? 1 }}>
                                   {/* Left side - Session info */}
                                   <div className="space-y-1 flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -2421,8 +2421,9 @@ export default function SessionsPage() {
                                             ? "text-gray-500 dark:text-gray-400"
                                             : session.financial_status !== "Paid"
                                               ? "text-red-600 dark:text-red-400"
-                                              : "text-gray-900 dark:text-gray-100",
-                                          statusConfig.strikethrough && "text-gray-500 dark:text-gray-400"
+                                              : statusConfig.strikethrough
+                                                ? "text-gray-500 dark:text-gray-400"
+                                                : "text-gray-900 dark:text-gray-100",
                                         )}>
                                           {session.student_name}
                                         </span>
@@ -2506,6 +2507,12 @@ export default function SessionsPage() {
                                   session={session}
                                   size="md"
                                   showLabels
+                                  disablePushRight={isMobile}
+                                  hideActions={
+                                    (session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled')
+                                      ? ['cw', 'hw', 'rate']
+                                      : undefined
+                                  }
                                   onLoadingChange={handleActionLoadingChange}
                                   loadingActionId={loadingSessionActions.get(session.id) || null}
                                   className="mt-1.5 mx-2 sm:mx-3 -mb-2 sm:-mb-3 px-2 sm:px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04] rounded-t"
@@ -2513,7 +2520,7 @@ export default function SessionsPage() {
                               </div>
 
                               {/* Status color strip with icon - RIGHT side */}
-                              <div className={cn("w-8 sm:w-10 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                              <div className={cn("w-8 sm:w-10 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)} style={{ opacity: statusConfig.opacity ?? 1 }}>
                                 {loadingSessionActions.has(session.id) ? (
                                   <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (

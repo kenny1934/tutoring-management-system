@@ -129,6 +129,8 @@ interface SessionActionButtonsProps {
   onAction?: (actionId: string, session: Session) => void;
   onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
   loadingActionId?: string | null;  // External loading state from parent (keyboard shortcuts)
+  disablePushRight?: boolean;  // Disable right-alignment of pushRight actions (for popovers/mobile)
+  hideActions?: string[];  // Action IDs to hide (e.g. hide CW/HW/Rate on resolved session cards)
   className?: string;
 }
 
@@ -141,6 +143,8 @@ export function SessionActionButtons({
   onAction,
   onLoadingChange,
   loadingActionId,
+  disablePushRight,
+  hideActions,
   className,
 }: SessionActionButtonsProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -160,6 +164,7 @@ export function SessionActionButtons({
   // Filter actions by visibility and role (uses effectiveRole from context, respects impersonation)
   const visibilityContext = { userId: impersonatedTutor?.id ?? user?.id, effectiveRole: effectiveRole || userRole };
   const visibleActions = sessionActions.filter((action) => {
+    if (hideActions?.includes(action.id)) return false;
     if (!action.isVisible(session, visibilityContext)) return false;
     // Use effectiveRole from context, or fallback to userRole prop if provided
     const roleToCheck = effectiveRole || userRole;
@@ -410,7 +415,7 @@ export function SessionActionButtons({
     <>
       <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
         {(() => {
-          const firstPushRightIdx = visibleActions.findIndex(a => a.pushRight);
+          const firstPushRightIdx = disablePushRight ? -1 : visibleActions.findIndex(a => a.pushRight);
           return visibleActions.map((action, idx) => {
           const Icon = action.icon;
           // Edit, CW, HW, Rate, Schedule-makeup, Request-extension, Cancel-makeup actions are always enabled (open modals/dialogs)

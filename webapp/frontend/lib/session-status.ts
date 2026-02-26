@@ -20,6 +20,7 @@ interface SessionStatusConfig {
   Icon: LucideIcon;
   iconClass?: string; // Custom icon color class
   strikethrough?: boolean;
+  opacity?: number; // Card opacity (defaults to 1.0)
 }
 
 export const getSessionStatusConfig = (status: string | undefined): SessionStatusConfig => {
@@ -27,10 +28,10 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
 
   // Check suffix patterns first (for wildcard statuses like "Rescheduled - Pending Make-up")
   if (s.endsWith("- Pending Make-up")) {
-    return { bgClass: "bg-orange-500", bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-600 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true };
+    return { bgClass: "bg-orange-500", bgTint: "bg-orange-50/80 dark:bg-orange-900/20", textClass: "text-orange-600 dark:text-orange-400", Icon: AlertTriangle, strikethrough: true, opacity: 0.8 };
   }
   if (s.endsWith("- Make-up Booked")) {
-    return { bgClass: "bg-gray-400", bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true };
+    return { bgClass: "bg-gray-400", bgTint: "bg-gray-100/80 dark:bg-gray-800/20", textClass: "text-gray-500 dark:text-gray-400", Icon: Loader2, strikethrough: true, opacity: 0.6 };
   }
 
   // Exact matches
