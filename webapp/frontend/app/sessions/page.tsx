@@ -2510,7 +2510,7 @@ export default function SessionsPage() {
                                   showLabels
                                   onLoadingChange={handleActionLoadingChange}
                                   loadingActionId={loadingSessionActions.get(session.id) || null}
-                                  className="mt-1.5 -mx-2 sm:-mx-3 -mb-2 sm:-mb-3 px-2 sm:px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04]"
+                                  className="mt-1.5 mx-2 sm:mx-3 -mb-2 sm:-mb-3 px-2 sm:px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04] rounded-t"
                                 />
                               </div>
 
