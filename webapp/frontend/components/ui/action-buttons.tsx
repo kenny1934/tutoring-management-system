@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -409,7 +409,9 @@ export function SessionActionButtons({
   return (
     <>
       <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
-        {visibleActions.map((action) => {
+        {(() => {
+          const firstPushRightIdx = visibleActions.findIndex(a => a.pushRight);
+          return visibleActions.map((action, idx) => {
           const Icon = action.icon;
           // Edit, CW, HW, Rate, Schedule-makeup, Request-extension, Cancel-makeup actions are always enabled (open modals/dialogs)
           const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "request-extension", "cancel-makeup", "undo"].includes(action.id) || action.api.enabled;
@@ -424,27 +426,30 @@ export function SessionActionButtons({
           const isDisabledByReadOnly = isReadOnly && !isViewableAction;
 
           return (
-            <button
-              key={action.id}
-              disabled={isDisabledByReadOnly || !isEnabled || isLoading}
-              onClick={(e) => handleClick(e, action)}
-              className={cn(
-                "flex items-center gap-1 rounded font-medium transition-all",
-                sizeClasses[size],
-                isDisabledByReadOnly
-                  ? cn(action.colorClass, "cursor-not-allowed opacity-40")
-                  : isEnabled && !isLoading
-                    ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
-                    : cn(action.colorClass, "cursor-not-allowed opacity-50"),
-                isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
-              )}
-              title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
-            >
-              <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
-              {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
-            </button>
+            <React.Fragment key={action.id}>
+              {idx === firstPushRightIdx && <div className="ml-auto" />}
+              <button
+                disabled={isDisabledByReadOnly || !isEnabled || isLoading}
+                onClick={(e) => handleClick(e, action)}
+                className={cn(
+                  "flex items-center gap-1 rounded font-medium transition-all",
+                  sizeClasses[size],
+                  isDisabledByReadOnly
+                    ? cn(action.colorClass, "cursor-not-allowed opacity-40")
+                    : isEnabled && !isLoading
+                      ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
+                      : cn(action.colorClass, "cursor-not-allowed opacity-50"),
+                  isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
+                )}
+                title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
+              >
+                <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
+                {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
+              </button>
+            </React.Fragment>
           );
-        })}
+          });
+        })()}
       </div>
 
       {/* Edit Session Modal - conditionally rendered to prevent N+1 enrollment API calls */}

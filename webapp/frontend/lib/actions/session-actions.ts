@@ -260,6 +260,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Undo',
     icon: Undo2,
     colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    pushRight: true,
     isVisible: canUndo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -280,6 +281,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Cancel',
     icon: CalendarX2,
     colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    pushRight: true,
     isVisible: canCancelMakeup,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -299,6 +301,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Edit',
     icon: Pencil,
     colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    pushRight: true,
     isVisible: () => true,
     allowedRoles: ['Admin', 'Super Admin'],
     api: {
