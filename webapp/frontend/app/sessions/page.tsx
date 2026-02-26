@@ -1613,7 +1613,14 @@ export default function SessionsPage() {
     <>
       {/* Title */}
       <div className="flex items-center gap-2">
-        <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+        <div className="relative">
+          <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+          {sessions.filter(isCountableSession).length > 0 && (
+            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-[#a0704b] dark:bg-[#cd853f] text-white">
+              {sessions.filter(isCountableSession).length}
+            </span>
+          )}
+        </div>
         <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
@@ -1750,10 +1757,6 @@ export default function SessionsPage() {
         </div>
       )}
 
-      {/* Session count */}
-      <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
-        {sessions.filter(isCountableSession).length} sessions
-      </span>
 
     </>
   );
@@ -2028,7 +2031,7 @@ export default function SessionsPage() {
                             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                             className="overflow-hidden"
                           >
-                            <div className="space-y-1.5 ml-0 sm:ml-4 p-1">
+                            <div className="space-y-2 ml-0 sm:ml-4 p-1">
                               {(() => {
                                 const showCount = tierShowCount[tierKey] || TIER_PAGE_SIZE;
                                 const visibleSessions = tierSessions.slice(0, showCount);
@@ -2333,7 +2336,7 @@ export default function SessionsPage() {
                           transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                           className="overflow-hidden"
                         >
-                          <div className="space-y-1.5 ml-0 sm:ml-4 p-1">
+                          <div className="space-y-2 ml-0 sm:ml-4 p-1">
                             {sessionsInSlot.map((session, sessionIndex) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
@@ -2343,7 +2346,7 @@ export default function SessionsPage() {
                         return (
                           <div key={session.id}>
                             {isNewTutor && (
-                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-2" />
+                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-3" />
                             )}
                             <motion.div
                               initial={{ opacity: 0, x: -20 }}
