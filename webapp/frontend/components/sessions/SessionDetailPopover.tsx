@@ -1166,6 +1166,7 @@ export function SessionDetailPopover({
           session={session}
           size="md"
           showLabels
+          disablePushRight
           loadingActionId={loadingActionId}
           className="mb-3 pt-3 border-t border-gray-200 dark:border-gray-700"
         />

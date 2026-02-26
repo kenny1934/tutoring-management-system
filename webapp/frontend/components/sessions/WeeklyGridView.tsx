@@ -631,7 +631,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                     )}
                                     style={{
                                       minHeight: "22px",
-                                      opacity: isCancelledEnrollment ? 0.5 : 1,
+                                      opacity: Math.min(isCancelledEnrollment ? 0.5 : 1, statusConfig.opacity ?? 1),
                                     }}
                                   >
                                     <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
