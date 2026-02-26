@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
+import { DatePickerPopover } from "@/components/sessions/DatePickerPopover";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 
@@ -1648,21 +1649,7 @@ export default function SessionsPage() {
           {/* Date Picker (only for list view) */}
           {viewMode === "list" && (
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-sm font-medium text-amber-700 dark:text-amber-300">
-                {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
-              </span>
-              <input
-                type="date"
-                defaultValue={toDateString(selectedDate)}
-                key={toDateString(selectedDate)}
-                onBlur={(e) => {
-                  const date = new Date(e.target.value + 'T00:00:00');
-                  if (!isNaN(date.getTime()) && toDateString(date) !== toDateString(selectedDate)) {
-                    setSelectedDate(date);
-                  }
-                }}
-                className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
-              />
+              <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
               {/* Today button - only show when not on today */}
               {toDateString(selectedDate) !== toDateString(new Date()) && (
                 <button
