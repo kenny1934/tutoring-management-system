@@ -1564,7 +1564,7 @@ export default function SessionsPage() {
                     !isMobile && "paper-texture"
                   )}>
                     <div className="w-6 h-6 bg-[#a0704b]/20 dark:bg-[#cd853f]/20 rounded animate-pulse" />
-                    <div className="flex-1 flex items-center justify-center gap-2">
+                    <div className="flex-1 flex items-center sm:justify-center gap-2">
                       <div className="w-6 h-6 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
                       <div className="h-5 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
                     </div>
@@ -2302,7 +2302,7 @@ export default function SessionsPage() {
                           </div>
 
                           {/* Center: time slot label */}
-                          <div className="flex-1 flex items-center justify-center gap-2">
+                          <div className="flex-1 flex items-center sm:justify-center gap-2">
                             <div className="bg-[#a0704b] dark:bg-[#cd853f] p-1 rounded-full">
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
