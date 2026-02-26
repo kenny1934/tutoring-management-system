@@ -86,7 +86,7 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
             <SelectedIcon className={cn("h-2.5 w-2.5 text-white", selectedConfig.iconClass)} />
           </span>
         )}
-        <span className="truncate max-w-[180px]">{selectedOption?.label || "Status"}</span>
+        <span className="truncate max-w-[100px] sm:max-w-[180px]">{selectedOption?.label || "Status"}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
       </button>
 
