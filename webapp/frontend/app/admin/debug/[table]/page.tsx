@@ -2413,7 +2413,7 @@ export default function TableBrowserPage() {
                   </div>
                 </div>
               )}
-              <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-x-auto">
+              <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <table className="w-full min-w-max text-sm font-mono-data" role="grid">
                   <caption className="sr-only">
                     {schema?.display_name || tableName} table with {totalRows} rows.
