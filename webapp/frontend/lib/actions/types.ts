@@ -102,6 +102,9 @@ export interface ActionConfig<T = any> {
 
   /** Toast message to show on successful action completion */
   successMessage?: string;
+
+  /** If true, this action (and all after it) are pushed to the right edge of the button row */
+  pushRight?: boolean;
 }
 
 /**
