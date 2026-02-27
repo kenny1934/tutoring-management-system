@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.13](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.13) (2026-02-27)
+
+### New Features
+
+* **Bulk Confirm Payment on overdue-payments page** — multi-select with checkboxes, section-level select all, and animated batch action bar with optimistic updates
+
+### Improvements
+
+* Redesigned action button colors for better distinction: Undo (indigo), Extension (purple), Schedule Make-up (teal) — consistent across action buttons and chalkboard stubs
+* Moved unpaid badge from a separate pill to a compact inline icon next to the student name on sessions list and dashboard
+* Added within-cell sorting to monthly popover grid view for consistency with list view ordering
+* Added optimistic updates to renewals page bulk Confirm Payment and Mark Sent actions for instant UI feedback
+
+### Bug Fixes
+
+* Fixed unpaid red student name being overridden by strikethrough gray in Weekly, Daily, Monthly, and MoreSessionsPopover views
+* Fixed schedule make-up modal blocking slots that only contain cancelled sessions — conflict check now matches DB guard logic
+* Fixed monthly popover grid view missing unpaid red and strikethrough styling on student names
+
 ## [2.0.12](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.12) (2026-02-27)
 
 ### New Features
