@@ -134,6 +134,7 @@ export default function GeometryEditorModal({
   const [curveMode, setCurveMode] = useState<CurveMode>("fx");
   const [tMinInput, setTMinInput] = useState("0");
   const [tMaxInput, setTMaxInput] = useState("2π");
+  const [editingCurve, setEditingCurve] = useState<any>(null);
   const [textInput, setTextInput] = useState("");
   const [coordInput, setCoordInput] = useState("");
   const [objectCount, setObjectCount] = useState(0);
@@ -848,6 +849,53 @@ export default function GeometryEditorModal({
   }, [mathFieldLoaded, isOpen, tool, curveMode]);
 
   // ---------------------------------------------------------------------------
+  // Detect curve selection → switch to function tool for editing
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!selectedEl) return;
+    const el = selectedEl as any;
+    const isCurve =
+      el.elType === "implicitcurve" ||
+      (el.elType === "curve" && (el._curveMode || el.visProp?.curvetype === "functiongraph"));
+    if (!isCurve) return;
+
+    // Determine curve mode
+    if (el._curveMode === "parametric") {
+      setCurveMode("parametric");
+    } else if (el._curveMode === "implicit" || el.elType === "implicitcurve") {
+      setCurveMode("implicit");
+    } else {
+      setCurveMode("fx");
+    }
+
+    setEditingCurve(el);
+    setTool("function");
+    setSelectedEl(null);
+
+    // Populate math fields after tool switch renders the math-field elements
+    setTimeout(() => {
+      if (el._curveMode === "parametric") {
+        const xtMf = xtFieldRef.current as any;
+        const ytMf = ytFieldRef.current as any;
+        if (xtMf) xtMf.value = el._xtLatex || "";
+        if (ytMf) ytMf.value = el._ytLatex || "";
+        setTMinInput(String(el._tMin ?? 0));
+        const tMax = el._tMax ?? 2 * Math.PI;
+        setTMaxInput(Math.abs(tMax - 2 * Math.PI) < 0.001 ? "2π" : String(tMax));
+      } else {
+        const mf = funcFieldRef.current as any;
+        if (mf) mf.value = el._latex || "";
+      }
+    }, 250);
+  }, [selectedEl]);
+
+  // Clear editing state when switching away from function tool
+  useEffect(() => {
+    if (tool !== "function") setEditingCurve(null);
+  }, [tool]);
+
+  // ---------------------------------------------------------------------------
   // Undo
   // ---------------------------------------------------------------------------
 
@@ -1084,12 +1132,28 @@ export default function GeometryEditorModal({
   // ---------------------------------------------------------------------------
 
   const handlePlot = useCallback(() => {
+    // If editing an existing curve, remove it first (undo already pushed by handler)
+    if (editingCurve && boardRef.current) {
+      boardRef.current.removeObject(editingCurve);
+      setEditingCurve(null);
+    }
     switch (curveMode) {
       case "fx": handleAddFunction(); break;
       case "implicit": handleAddImplicitCurve(); break;
       case "parametric": handleAddParametricCurve(); break;
     }
-  }, [curveMode, handleAddFunction, handleAddImplicitCurve, handleAddParametricCurve]);
+  }, [curveMode, editingCurve, handleAddFunction, handleAddImplicitCurve, handleAddParametricCurve]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingCurve(null);
+    const mf = funcFieldRef.current as any;
+    if (mf) mf.value = "";
+    const xtMf = xtFieldRef.current as any;
+    const ytMf = ytFieldRef.current as any;
+    if (xtMf) xtMf.value = "";
+    if (ytMf) ytMf.value = "";
+    setTool("select");
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Add point at exact coordinates
@@ -1260,14 +1324,14 @@ export default function GeometryEditorModal({
 
       {/* Modal */}
       <div
-        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden"
         style={{ maxWidth: "52rem", maxHeight: "85vh" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="geometry-editor-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 flex-shrink-0">
           <h3 id="geometry-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Diagram" : "Create Diagram"}
           </h3>
@@ -1279,6 +1343,9 @@ export default function GeometryEditorModal({
             <X className="h-4 w-4 text-gray-500" />
           </button>
         </div>
+
+        {/* Scrollable middle section */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
 
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-3 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex-wrap">
@@ -1443,6 +1510,9 @@ export default function GeometryEditorModal({
           <div className="flex flex-col border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
             {/* Curve mode selector */}
             <div className="flex items-center gap-1 px-4 pt-2 pb-1">
+              {editingCurve && (
+                <span className="text-[10px] text-[#a0704b] dark:text-[#c9a96e] font-medium mr-1">Editing:</span>
+              )}
               {([
                 { mode: "fx" as CurveMode, label: "f(x)" },
                 { mode: "implicit" as CurveMode, label: "f(x,y)=0" },
@@ -1450,9 +1520,10 @@ export default function GeometryEditorModal({
               ]).map(({ mode, label }) => (
                 <button
                   key={mode}
-                  onClick={() => setCurveMode(mode)}
+                  onClick={() => { if (!editingCurve) setCurveMode(mode); }}
+                  disabled={!!editingCurve}
                   className={cn(
-                    "px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors",
+                    "px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors disabled:cursor-default",
                     curveMode === mode
                       ? "bg-[#a0704b] text-white"
                       : "text-gray-500 dark:text-gray-400 hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30"
@@ -1516,7 +1587,7 @@ export default function GeometryEditorModal({
                             if (e.key === "Enter") {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleAddParametricCurve();
+                              handlePlot();
                             }
                           }}
                           style={{
@@ -1556,11 +1627,19 @@ export default function GeometryEditorModal({
                       />
                     </div>
                     <button
-                      onClick={handleAddParametricCurve}
+                      onClick={handlePlot}
                       className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                     >
-                      Plot
+                      {editingCurve ? "Update" : "Plot"}
                     </button>
+                    {editingCurve && (
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </>
               ) : (
@@ -1614,14 +1693,22 @@ export default function GeometryEditorModal({
                     onClick={handlePlot}
                     className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
                   >
-                    Plot
+                    {editingCurve ? "Update" : "Plot"}
                   </button>
+                  {editingCurve && (
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </>
               )}
             </div>
 
             {/* Hint text */}
-            {curveMode === "implicit" && (
+            {curveMode === "implicit" && !editingCurve && (
               <div className="px-4 pb-1.5 -mt-1">
                 <span className="text-[10px] text-gray-400 dark:text-gray-500">
                   Enter the expression = 0. E.g. x²+y²-1 for a unit circle
@@ -1792,7 +1879,7 @@ export default function GeometryEditorModal({
                 />
               ))}
             </div>
-            {["line", "segment", "circle", "polygon", "functiongraph", "curve"].includes(selectedEl.elType) && (
+            {["line", "segment", "circle", "polygon", "functiongraph", "curve", "implicitcurve"].includes(selectedEl.elType) && (
               <div className="flex items-center gap-0.5 ml-1">
                 {[0, 2, 3].map((d) => (
                   <button
@@ -1858,7 +1945,7 @@ export default function GeometryEditorModal({
         </div>
 
         {/* Board container */}
-        <div className="flex-1 min-h-0 px-3 pb-2">
+        <div className="px-3 pb-2">
           {jsxLoaded ? (
             <div className="relative">
               <div
@@ -1901,8 +1988,10 @@ export default function GeometryEditorModal({
           )}
         </div>
 
+        </div>{/* End scrollable middle section */}
+
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-400 dark:text-gray-500">
               {objectCount} object{objectCount !== 1 ? "s" : ""}
