@@ -18,6 +18,8 @@ export interface GeometryObject {
     | "circle"
     | "polygon"
     | "functiongraph"
+    | "implicitcurve"
+    | "parametriccurve"
     | "text"
     | "angle"
     | "perpendicular"
@@ -31,8 +33,19 @@ export interface GeometryObject {
     name?: string;
     x?: number;
     y?: number;
-    /** For functiongraph – the raw expression string typed by the user. */
+    /** For functiongraph / implicitcurve – the raw JS expression string. */
     expression?: string;
+    /** For functiongraph / implicitcurve – the original LaTeX from MathLive. */
+    latex?: string;
+    /** For parametriccurve – x(t) and y(t) JS expressions. */
+    xtExpression?: string;
+    ytExpression?: string;
+    /** For parametriccurve – x(t) and y(t) original LaTeX. */
+    xtLatex?: string;
+    ytLatex?: string;
+    /** For parametriccurve – parameter range. */
+    tMin?: number;
+    tMax?: number;
     /** For text – the label content. */
     content?: string;
     strokeColor?: string;
@@ -147,7 +160,8 @@ const SERIALIZABLE_TYPES = new Set([
   "functiongraph",
   "text",
   "angle",
-  "curve", // JSXGraph uses elType="curve" for functiongraphs
+  "curve", // JSXGraph uses elType="curve" for functiongraphs and parametric curves
+  "implicitcurve", // JSXGraph uses elType="implicitcurve"
   "perpendicular",
   "parallel",
   "midpoint",
@@ -231,17 +245,36 @@ function elementToObject(el: any): GeometryObject | null {
       break;
 
     case "curve":
-      // JSXGraph function graphs have elType="curve" + visProp.curvetype="functiongraph"
-      if (el.visProp?.curvetype !== "functiongraph") return null;
-      base.type = "functiongraph"; // Normalize to our serialization type
-      base.attrs.expression =
-        (el as any)._expression || el.Y?.toString() || "";
+      // JSXGraph uses elType="curve" for both functiongraphs and parametric curves
+      if ((el as any)._curveMode === "parametric") {
+        base.type = "parametriccurve";
+        base.attrs.xtExpression = (el as any)._xtExpression || "";
+        base.attrs.ytExpression = (el as any)._ytExpression || "";
+        base.attrs.xtLatex = (el as any)._xtLatex || "";
+        base.attrs.ytLatex = (el as any)._ytLatex || "";
+        base.attrs.tMin = (el as any)._tMin ?? 0;
+        base.attrs.tMax = (el as any)._tMax ?? 2 * Math.PI;
+      } else if (el.visProp?.curvetype === "functiongraph") {
+        base.type = "functiongraph";
+        base.attrs.expression =
+          (el as any)._expression || el.Y?.toString() || "";
+        base.attrs.latex = (el as any)._latex || "";
+      } else {
+        return null;
+      }
+      break;
+
+    case "implicitcurve":
+      base.type = "implicitcurve";
+      base.attrs.expression = (el as any)._expression || "";
+      base.attrs.latex = (el as any)._latex || "";
       break;
 
     case "functiongraph":
       // Fallback in case JSXGraph ever uses "functiongraph" as elType directly
       base.attrs.expression =
         (el as any)._expression || el.Y?.toString() || "";
+      base.attrs.latex = (el as any)._latex || "";
       break;
 
     case "text":
@@ -370,6 +403,42 @@ export function deserializeToBoard(
           const fn = new Function("x", `return (${expr})`);
           created = board.create("functiongraph", [fn], baseAttrs);
           (created as any)._expression = expr;
+          (created as any)._latex = obj.attrs.latex || "";
+          break;
+        }
+
+        case "implicitcurve": {
+          const implExpr = obj.attrs.expression || "0";
+          // eslint-disable-next-line no-new-func
+          const implFn = new Function("x", "y", `return (${implExpr})`);
+          created = board.create("implicitcurve", [implFn], {
+            ...baseAttrs,
+            resolution_outer: 30,
+            resolution_inner: 30,
+          });
+          (created as any)._expression = implExpr;
+          (created as any)._latex = obj.attrs.latex || "";
+          (created as any)._curveMode = "implicit";
+          break;
+        }
+
+        case "parametriccurve": {
+          const xtExpr = obj.attrs.xtExpression || "t";
+          const ytExpr = obj.attrs.ytExpression || "t";
+          const tMin = obj.attrs.tMin ?? 0;
+          const tMax = obj.attrs.tMax ?? 2 * Math.PI;
+          // eslint-disable-next-line no-new-func
+          const xtFn = new Function("t", `return (${xtExpr})`);
+          // eslint-disable-next-line no-new-func
+          const ytFn = new Function("t", `return (${ytExpr})`);
+          created = board.create("curve", [xtFn, ytFn, tMin, tMax], baseAttrs);
+          (created as any)._xtExpression = xtExpr;
+          (created as any)._ytExpression = ytExpr;
+          (created as any)._xtLatex = obj.attrs.xtLatex || "";
+          (created as any)._ytLatex = obj.attrs.ytLatex || "";
+          (created as any)._tMin = tMin;
+          (created as any)._tMax = tMax;
+          (created as any)._curveMode = "parametric";
           break;
         }
 
