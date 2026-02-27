@@ -2,13 +2,68 @@
 const changelogData = [
   {
     "version": "2.0.12",
-    "date": "2026-02-26",
+    "date": "2026-02-27",
     "sections": [
+      {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Custom date picker popover** — replaced native date inputs with a calendar popover across sessions list, weekly, and daily grid views for better month navigation without triggering date changes"
+          },
+          {
+            "description": "**\"Active\" status filter** — new composite filter option that hides resolved sessions (Pending Make-up, Make-up Booked, Cancelled) in one click"
+          },
+          {
+            "description": "**Button restyling** — action buttons and View/Lesson links now have borders and shadows to visually distinguish them from info badges"
+          }
+        ]
+      },
+      {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "Improved vertical data density in sessions list and calendar views"
+          },
+          {
+            "description": "Push undo/cancel/edit action buttons to the right edge of session cards"
+          },
+          {
+            "description": "Session count moved to badge on toolbar icon for a cleaner toolbar"
+          },
+          {
+            "description": "De-emphasized resolved sessions with reduced opacity (Pending Make-up 0.8, Make-up Booked 0.6) while keeping action buttons at full opacity"
+          },
+          {
+            "description": "Hidden CW/HW/Rate buttons and View/Lesson links on resolved session cards"
+          },
+          {
+            "description": "Applied same action button cleanup to TodaySessionsCard on dashboard"
+          },
+          {
+            "description": "Made sessions toolbar more compact on mobile"
+          }
+        ]
+      },
       {
         "title": "Bug Fixes",
         "items": [
           {
             "description": "Fixed cancelled enrollment's deadline still being used for session extension — after cancelling the latest enrollment, the system now correctly falls back to the previous enrollment's deadline"
+          },
+          {
+            "description": "Fixed unpaid red student name being overridden by strikethrough gray on rescheduled sessions"
+          },
+          {
+            "description": "Fixed right-aligned action buttons breaking layout in SessionDetailPopover and on mobile"
+          },
+          {
+            "description": "Fixed loading skeletons to match new sessions list layout"
+          },
+          {
+            "description": "Fixed time slot headers left-aligned on mobile, centered on desktop"
+          },
+          {
+            "description": "Fixed debug table horizontal scrollbar accessibility"
           }
         ]
       }
