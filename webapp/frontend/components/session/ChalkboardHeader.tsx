@@ -43,14 +43,17 @@ const CHALK_PALETTE = {
   yellow: { base: "#dcc890", highlight: "#f0e0b0", shadow: "#c4a868" },
   orange: { base: "#d4a878", highlight: "#ecc8a0", shadow: "#b88850" },
   blue: { base: "#a0b8d0", highlight: "#c0d4e8", shadow: "#7898b8" },
+  teal: { base: "#8cc0b8", highlight: "#b0d8d0", shadow: "#6a9e96" },
+  purple: { base: "#b8a0d0", highlight: "#d4c0e8", shadow: "#9878b8" },
+  indigo: { base: "#9098c8", highlight: "#b0b8e0", shadow: "#7078a8" },
 };
 
 // Map actions to chalk colors
 const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   edit: "white",
   attended: "green",
-  "schedule-makeup": "green",
-  "request-extension": "blue",
+  "schedule-makeup": "teal",
+  "request-extension": "purple",
   "cancel-makeup": "red",
   "no-show": "red",
   "sick-leave": "orange",
@@ -59,7 +62,7 @@ const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   hw: "yellow",
   rate: "yellow",
   reschedule: "orange",
-  undo: "blue",
+  undo: "indigo",
 };
 
 interface ChalkStubProps {

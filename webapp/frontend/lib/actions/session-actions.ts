@@ -173,7 +173,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Schedule Make-up Class',
     shortLabel: 'Make-up',
     icon: CalendarPlus,
-    colorClass: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    colorClass: 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
     isVisible: isPendingMakeup,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
@@ -259,7 +259,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Undo Status Change',
     shortLabel: 'Undo',
     icon: Undo2,
-    colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    colorClass: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
     pushRight: true,
     isVisible: canUndo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],

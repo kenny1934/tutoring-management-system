@@ -711,8 +711,10 @@ export const DailyGridView = memo(function DailyGridView({
                                           ? "text-gray-400 dark:text-gray-500"
                                           : session.financial_status !== "Paid"
                                             ? "text-red-600 dark:text-red-400"
-                                            : "text-gray-900 dark:text-gray-100",
-                                        statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
+                                            : statusConfig.strikethrough
+                                              ? "text-gray-400 dark:text-gray-500"
+                                              : "text-gray-900 dark:text-gray-100",
+                                        statusConfig.strikethrough && "line-through"
                                       )}>
                                         <span className="truncate">{session.student_name || "Unknown"}</span>
                                         {!isMobile && widthPercent >= 50 && session.grade && (

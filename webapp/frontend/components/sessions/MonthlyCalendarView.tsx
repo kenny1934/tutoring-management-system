@@ -1173,7 +1173,22 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                     index % 2 === 1 && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/50"
                   )}
                 >
-                  {sessionsAtTime.map((session) => {
+                  {[...sessionsAtTime].sort((a, b) => {
+                    const getPriority = (s: Session) => {
+                      const status = s.session_status || '';
+                      if (status === 'Trial Class') return 0;
+                      if (status === 'Scheduled') return 1;
+                      if (status === 'Attended') return 2;
+                      if (status === 'Make-up Class') return 3;
+                      if (status === 'Attended (Make-up)') return 4;
+                      return 10 + getStatusSortOrder(status);
+                    };
+                    const pa = getPriority(a), pb = getPriority(b);
+                    if (pa !== pb) return pa - pb;
+                    const schoolCmp = (a.school || '').localeCompare(b.school || '');
+                    if (schoolCmp !== 0) return schoolCmp;
+                    return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                  }).map((session) => {
                     const config = getSessionStatusConfig(getDisplayStatus(session));
                     const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
                     return (
@@ -1207,7 +1222,13 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                         {/* Row 2: Full name */}
                         <div className={cn(
                           "truncate",
-                          isCancelledEnrollment && "text-gray-400 dark:text-gray-500"
+                          isCancelledEnrollment
+                            ? "text-gray-400 dark:text-gray-500"
+                            : session.financial_status !== "Paid"
+                              ? "text-red-600 dark:text-red-400"
+                              : config.strikethrough
+                                ? "text-gray-400 dark:text-gray-500"
+                                : "",
                         )}>{session.student_name || "Student"}</div>
                         {/* Row 3: Grade + School tags */}
                         <div className="flex items-center gap-0.5 flex-wrap">
@@ -1326,8 +1347,10 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
             ? "text-gray-400 dark:text-gray-500"
             : session.financial_status !== "Paid"
               ? "text-red-600 dark:text-red-400"
-              : "text-[#5d4e37] dark:text-[#e8d4b8]",
-          config.strikethrough && "line-through text-gray-400 dark:text-gray-500"
+              : config.strikethrough
+                ? "text-gray-400 dark:text-gray-500"
+                : "text-[#5d4e37] dark:text-[#e8d4b8]",
+          config.strikethrough && "line-through"
         )}>
           <span className="truncate">{session.student_name || "Unknown"}</span>
           {session.grade && (
