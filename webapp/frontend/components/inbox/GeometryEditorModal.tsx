@@ -70,6 +70,8 @@ type Tool =
   | "midpoint"
   | "bisector";
 
+type CurveMode = "fx" | "implicit" | "parametric";
+
 interface GeometryEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -102,7 +104,7 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] 
   { id: "circle", label: "Circle", icon: <Circle className="h-4 w-4" />, hint: "Center, then edge" },
   { id: "sector", label: "Sector", icon: <PieChart className="h-4 w-4" />, hint: "Click center, start, end" },
   { id: "polygon", label: "Polygon", icon: <Pentagon className="h-4 w-4" />, hint: "Click vertices, dbl-click to close" },
-  { id: "function", label: "f(x)", icon: <TrendingUp className="h-4 w-4" />, hint: "Type a math expression and press Plot" },
+  { id: "function", label: "f(x)", icon: <TrendingUp className="h-4 w-4" />, hint: "Plot f(x), implicit f(x,y)=0, or parametric x(t),y(t) curves" },
   { id: "text", label: "Label", icon: <Type className="h-4 w-4" />, hint: "Click to place text" },
   { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click endpoint, vertex, endpoint" },
   { id: "perpendicular", label: "Perp.", icon: <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="3" y1="13" x2="13" y2="13" /><line x1="8" y1="3" x2="8" y2="13" /><rect x="8" y="10" width="3" height="3" strokeWidth="1" /></svg>, hint: "Click point, then a line" },
@@ -129,6 +131,9 @@ export default function GeometryEditorModal({
   const [jsxLoaded, setJsxLoaded] = useState(false);
   const [mathFieldLoaded, setMathFieldLoaded] = useState(false);
   const [funcInput, setFuncInput] = useState("");
+  const [curveMode, setCurveMode] = useState<CurveMode>("fx");
+  const [tMinInput, setTMinInput] = useState("0");
+  const [tMaxInput, setTMaxInput] = useState("2π");
   const [textInput, setTextInput] = useState("");
   const [coordInput, setCoordInput] = useState("");
   const [objectCount, setObjectCount] = useState(0);
@@ -153,6 +158,8 @@ export default function GeometryEditorModal({
   const JXGRef = useRef<any>(null);
   const lastClickTimeRef = useRef(0);
   const funcFieldRef = useRef<HTMLElement | null>(null);
+  const xtFieldRef = useRef<HTMLElement | null>(null);
+  const ytFieldRef = useRef<HTMLElement | null>(null);
   const themeInitRef = useRef(false);
   const pointCounterRef = useRef(0);
 
@@ -790,10 +797,18 @@ export default function GeometryEditorModal({
     // Wait for the math-field element to mount, then configure & show keyboard
     const initTimer = setTimeout(() => {
       if (cancelled) return;
-      const mf = funcFieldRef.current as any;
-      if (!mf) return;
-      mf.mathVirtualKeyboardPolicy = "manual";
-      mf.focus();
+
+      // Configure all math fields (parametric mode has xt/yt fields)
+      const fields = curveMode === "parametric"
+        ? [xtFieldRef.current, ytFieldRef.current]
+        : [funcFieldRef.current];
+      for (const mf of fields) {
+        if (mf) (mf as any).mathVirtualKeyboardPolicy = "manual";
+      }
+
+      // Focus the primary field
+      const primary = (curveMode === "parametric" ? xtFieldRef.current : funcFieldRef.current) as any;
+      if (primary) primary.focus();
 
       // Show the virtual keyboard after MathLive's internal connection delay
       showTimer = setTimeout(() => {
@@ -811,7 +826,7 @@ export default function GeometryEditorModal({
       const kbd = (window as any).mathVirtualKeyboard;
       if (kbd) kbd.hide();
     };
-  }, [tool, mathFieldLoaded]);
+  }, [tool, mathFieldLoaded, curveMode]);
 
   // Hide virtual keyboard when modal closes
   useEffect(() => {
@@ -824,8 +839,13 @@ export default function GeometryEditorModal({
   // Patch MathLive menu to prevent scrim from dismissing on initial click
   useEffect(() => {
     if (!mathFieldLoaded || !isOpen || tool !== "function") return;
+    if (curveMode === "parametric") {
+      const cleanupXt = patchMathLiveMenu(xtFieldRef);
+      const cleanupYt = patchMathLiveMenu(ytFieldRef);
+      return () => { cleanupXt?.(); cleanupYt?.(); };
+    }
     return patchMathLiveMenu(funcFieldRef);
-  }, [mathFieldLoaded, isOpen, tool]);
+  }, [mathFieldLoaded, isOpen, tool, curveMode]);
 
   // ---------------------------------------------------------------------------
   // Undo
@@ -958,6 +978,118 @@ export default function GeometryEditorModal({
       showToast(`Invalid expression: ${msg}`, "error");
     }
   }, [funcInput, pushUndo, updateObjectCount, showToast, activeColor, activeDash]);
+
+  // ---------------------------------------------------------------------------
+  // Add implicit curve f(x,y) = 0
+  // ---------------------------------------------------------------------------
+
+  const handleAddImplicitCurve = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+
+    const mf = funcFieldRef.current as any;
+    const latex = mf?.value || "";
+    const rawInput = latex || funcInput.trim();
+    if (!rawInput) return;
+
+    try {
+      let jsExpr = latex ? latexToJs(latex) : rawInput;
+      // If user typed "LHS = RHS", rearrange to "(LHS) - (RHS)"
+      const eqIdx = jsExpr.indexOf("=");
+      if (eqIdx !== -1 && jsExpr[eqIdx - 1] !== "!" && jsExpr[eqIdx + 1] !== "=") {
+        const lhs = jsExpr.slice(0, eqIdx);
+        const rhs = jsExpr.slice(eqIdx + 1);
+        jsExpr = `(${lhs}) - (${rhs})`;
+      }
+      // eslint-disable-next-line no-new-func
+      const fn = new Function("x", "y", `return (${jsExpr})`);
+      fn(0, 0); // sanity check
+
+      pushUndo();
+      const curve = board.create("implicitcurve", [fn], {
+        ...getLineAttrs(activeColor, activeDash),
+        strokeWidth: 2.5,
+        resolution_outer: 30,
+        resolution_inner: 30,
+        name: "",
+      });
+      (curve as any)._expression = jsExpr;
+      (curve as any)._latex = latex || "";
+      (curve as any)._curveMode = "implicit";
+      setFuncInput("");
+      if (mf) mf.value = "";
+      updateObjectCount();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      showToast(`Invalid expression: ${msg}`, "error");
+    }
+  }, [funcInput, pushUndo, updateObjectCount, showToast, activeColor, activeDash]);
+
+  // ---------------------------------------------------------------------------
+  // Add parametric curve x(t), y(t)
+  // ---------------------------------------------------------------------------
+
+  const handleAddParametricCurve = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+
+    const xtMf = xtFieldRef.current as any;
+    const ytMf = ytFieldRef.current as any;
+    const xtLatex = xtMf?.value || "";
+    const ytLatex = ytMf?.value || "";
+    if (!xtLatex && !ytLatex) return;
+
+    try {
+      const xtExpr = latexToJs(xtLatex || "0");
+      const ytExpr = latexToJs(ytLatex || "0");
+      // eslint-disable-next-line no-new-func
+      const xtFn = new Function("t", `return (${xtExpr})`);
+      // eslint-disable-next-line no-new-func
+      const ytFn = new Function("t", `return (${ytExpr})`);
+      xtFn(0); ytFn(0); // sanity check
+
+      // Parse t range — support "π" and "pi" in input
+      const parseTVal = (s: string): number => {
+        const cleaned = s.trim().replace(/π/g, "Math.PI").replace(/\bpi\b/gi, "Math.PI");
+        // eslint-disable-next-line no-new-func
+        return new Function(`return (${cleaned})`)() as number;
+      };
+      const tMin = parseTVal(tMinInput) || 0;
+      const tMax = parseTVal(tMaxInput) || 2 * Math.PI;
+
+      pushUndo();
+      const curve = board.create("curve", [xtFn, ytFn, tMin, tMax], {
+        ...getLineAttrs(activeColor, activeDash),
+        strokeWidth: 2.5,
+        name: "",
+      });
+      (curve as any)._xtExpression = xtExpr;
+      (curve as any)._ytExpression = ytExpr;
+      (curve as any)._xtLatex = xtLatex;
+      (curve as any)._ytLatex = ytLatex;
+      (curve as any)._tMin = tMin;
+      (curve as any)._tMax = tMax;
+      (curve as any)._curveMode = "parametric";
+      if (xtMf) xtMf.value = "";
+      if (ytMf) ytMf.value = "";
+      updateObjectCount();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      showToast(`Invalid expression: ${msg}`, "error");
+    }
+  }, [tMinInput, tMaxInput, pushUndo, updateObjectCount, showToast, activeColor, activeDash]);
+
+  // ---------------------------------------------------------------------------
+  // Dispatch to correct plot handler based on curve mode
+  // ---------------------------------------------------------------------------
+
+  const handlePlot = useCallback(() => {
+    switch (curveMode) {
+      case "fx": handleAddFunction(); break;
+      case "implicit": handleAddImplicitCurve(); break;
+      case "parametric": handleAddParametricCurve(); break;
+    }
+  }, [curveMode, handleAddFunction, handleAddImplicitCurve, handleAddParametricCurve]);
 
   // ---------------------------------------------------------------------------
   // Add point at exact coordinates
@@ -1308,57 +1440,194 @@ export default function GeometryEditorModal({
 
         {/* Function input bar — shown when function tool is active */}
         {tool === "function" && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
-              f(x) =
-            </span>
-            {mathFieldLoaded ? (
-              <math-field
-                ref={funcFieldRef as any}
-                aria-label="Function expression"
-                onKeyDown={(e: React.KeyboardEvent) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleAddFunction();
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  display: "block",
-                  fontSize: "14px",
-                  padding: "4px 8px",
-                  minHeight: "32px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border-color)",
-                  background: "transparent",
-                  outline: "none",
-                  "--hue": "27",
-                  "--border-color": isDark() ? "#6b5a4a" : "#e8d4b8",
-                } as React.CSSProperties}
-              />
-            ) : (
-              <input
-                type="text"
-                value={funcInput}
-                onChange={(e) => setFuncInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleAddFunction();
-                  }
-                }}
-                placeholder="Loading math input..."
-                className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
-              />
+          <div className="flex flex-col border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+            {/* Curve mode selector */}
+            <div className="flex items-center gap-1 px-4 pt-2 pb-1">
+              {([
+                { mode: "fx" as CurveMode, label: "f(x)" },
+                { mode: "implicit" as CurveMode, label: "f(x,y)=0" },
+                { mode: "parametric" as CurveMode, label: "x(t), y(t)" },
+              ]).map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  onClick={() => setCurveMode(mode)}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors",
+                    curveMode === mode
+                      ? "bg-[#a0704b] text-white"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-[#e8d4b8]/30 dark:hover:bg-[#6b5a4a]/30"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Input fields per mode */}
+            <div className="flex items-center gap-2 px-4 py-2">
+              {curveMode === "parametric" ? (
+                /* Parametric mode: x(t) and y(t) fields + t range */
+                <>
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+                        x(t) =
+                      </span>
+                      {mathFieldLoaded ? (
+                        <math-field
+                          ref={xtFieldRef as any}
+                          aria-label="x(t) expression"
+                          onKeyDown={(e: React.KeyboardEvent) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Move focus to y(t) field
+                              const ytMf = ytFieldRef.current as any;
+                              if (ytMf) ytMf.focus();
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            display: "block",
+                            fontSize: "14px",
+                            padding: "4px 8px",
+                            minHeight: "32px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            background: "transparent",
+                            outline: "none",
+                            "--hue": "27",
+                            "--border-color": isDark() ? "#6b5a4a" : "#e8d4b8",
+                          } as React.CSSProperties}
+                        />
+                      ) : (
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+                        y(t) =
+                      </span>
+                      {mathFieldLoaded ? (
+                        <math-field
+                          ref={ytFieldRef as any}
+                          aria-label="y(t) expression"
+                          onKeyDown={(e: React.KeyboardEvent) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleAddParametricCurve();
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            display: "block",
+                            fontSize: "14px",
+                            padding: "4px 8px",
+                            minHeight: "32px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            background: "transparent",
+                            outline: "none",
+                            "--hue": "27",
+                            "--border-color": isDark() ? "#6b5a4a" : "#e8d4b8",
+                          } as React.CSSProperties}
+                        />
+                      ) : (
+                        <input type="text" placeholder="Loading..." className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none text-gray-800 dark:text-gray-200" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">t:</span>
+                      <input
+                        type="text"
+                        value={tMinInput}
+                        onChange={(e) => setTMinInput(e.target.value)}
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded outline-none text-gray-800 dark:text-gray-200"
+                      />
+                      <span className="text-[10px] text-gray-400">to</span>
+                      <input
+                        type="text"
+                        value={tMaxInput}
+                        onChange={(e) => setTMaxInput(e.target.value)}
+                        className="w-10 px-1 py-0.5 text-[10px] font-mono text-center bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded outline-none text-gray-800 dark:text-gray-200"
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddParametricCurve}
+                      className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                    >
+                      Plot
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* f(x) and implicit modes: single math field */
+                <>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+                    {curveMode === "implicit" ? "f(x,y) =" : "f(x) ="}
+                  </span>
+                  {mathFieldLoaded ? (
+                    <math-field
+                      ref={funcFieldRef as any}
+                      aria-label={curveMode === "implicit" ? "Implicit curve expression" : "Function expression"}
+                      onKeyDown={(e: React.KeyboardEvent) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePlot();
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        display: "block",
+                        fontSize: "14px",
+                        padding: "4px 8px",
+                        minHeight: "32px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--border-color)",
+                        background: "transparent",
+                        outline: "none",
+                        "--hue": "27",
+                        "--border-color": isDark() ? "#6b5a4a" : "#e8d4b8",
+                      } as React.CSSProperties}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={funcInput}
+                      onChange={(e) => setFuncInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePlot();
+                        }
+                      }}
+                      placeholder="Loading math input..."
+                      className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+                    />
+                  )}
+                  <button
+                    onClick={handlePlot}
+                    className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                  >
+                    Plot
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Hint text */}
+            {curveMode === "implicit" && (
+              <div className="px-4 pb-1.5 -mt-1">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  Enter the expression = 0. E.g. x²+y²-1 for a unit circle
+                </span>
+              </div>
             )}
-            <button
-              onClick={handleAddFunction}
-              className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
-            >
-              Plot
-            </button>
           </div>
         )}
 
