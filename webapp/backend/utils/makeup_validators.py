@@ -148,21 +148,22 @@ def validate_makeup_constraints(
                 logger.warning(f"Could not check enrollment deadline: {e}")
 
     # 4. Check for student conflict at the target slot
-    # Allow if the existing session is also in "Pending Make-up" status (that slot is free)
+    # Exclude non-blocking statuses (matches active_student_slot_guard logic in models.py)
     conflict_query = db.query(SessionLog).filter(
         SessionLog.student_id == student_id,
         SessionLog.session_date == target_date,
         SessionLog.time_slot == target_time_slot,
-        SessionLog.location == target_location
+        SessionLog.location == target_location,
+        ~SessionLog.session_status.like('%Pending Make-up%'),
+        ~SessionLog.session_status.like('%Make-up Booked%'),
+        SessionLog.session_status != 'Cancelled',
     )
     if exclude_session_id:
         conflict_query = conflict_query.filter(SessionLog.id != exclude_session_id)
 
     existing_session = conflict_query.first()
-
     if existing_session:
-        if "Pending Make-up" not in existing_session.session_status:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Student already has a session at this slot (Session #{existing_session.id})"
-            )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Student already has a session at this slot (Session #{existing_session.id})"
+        )
