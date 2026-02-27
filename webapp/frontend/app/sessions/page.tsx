@@ -210,7 +210,7 @@ export default function SessionsPage() {
   const sessionFilters = useMemo(() => {
     const filters: Record<string, string | number | undefined> = {
       location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
-      status: statusFilter || undefined,
+      status: (statusFilter && statusFilter !== "__active") ? statusFilter : undefined,
       tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
       limit: viewMode === "monthly" ? 2000 : 500,
     };
@@ -239,8 +239,18 @@ export default function SessionsPage() {
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
 
   // SWR hooks for data fetching with caching
-  const { data: sessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
+  const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: tutors = [] } = useActiveTutors();
+
+  // Client-side filtering for composite "Active" filter
+  const sessions = useMemo(() => {
+    if (statusFilter !== "__active") return rawSessions;
+    return rawSessions.filter(s =>
+      !s.session_status.includes('Pending Make-up') &&
+      !s.session_status.includes('Make-up Booked') &&
+      s.session_status !== 'Cancelled'
+    );
+  }, [rawSessions, statusFilter]);
 
   // Scroll to time slot specified in URL ?slot= param (once per navigation)
   const lastScrolledSlot = useRef('');
@@ -2169,17 +2179,6 @@ export default function SessionsPage() {
                                               <CalendarPlus className="h-3.5 w-3.5" />
                                               <span className="hidden sm:inline">Make-up</span>
                                             </button>
-                                            <Link
-                                              href={`/sessions/${session.id}`}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                saveScrollPosition();
-                                              }}
-                                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors"
-                                            >
-                                              <span className="hidden sm:inline">View</span>
-                                              <ExternalLink className="h-3.5 w-3.5" />
-                                            </Link>
                                           </div>
                                         </div>
 
@@ -2453,28 +2452,32 @@ export default function SessionsPage() {
                                           <span className="hidden sm:inline">Unpaid</span>
                                         </span>
                                       )}
-                                      <Link
-                                        href={`/sessions/${session.id}`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          saveScrollPosition();
-                                        }}
-                                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0"
-                                      >
-                                        <span className="hidden sm:inline">View</span>
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                      </Link>
-                                      <Link
-                                        href={`/sessions/${session.id}?lesson=true`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          saveScrollPosition();
-                                        }}
-                                        className="flex items-center text-xs px-1.5 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors flex-shrink-0"
-                                        title="Lesson Mode"
-                                      >
-                                        <Presentation className="h-3.5 w-3.5" />
-                                      </Link>
+                                      {!(session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled') && (
+                                        <>
+                                          <Link
+                                            href={`/sessions/${session.id}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              saveScrollPosition();
+                                            }}
+                                            className="flex items-center gap-1 text-xs px-2 py-1 ml-3 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0"
+                                            title="View Session"
+                                          >
+                                            <ExternalLink className="h-3.5 w-3.5" />
+                                          </Link>
+                                          <Link
+                                            href={`/sessions/${session.id}?lesson=true`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              saveScrollPosition();
+                                            }}
+                                            className="flex items-center text-xs px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors flex-shrink-0"
+                                            title="Lesson Mode"
+                                          >
+                                            <Presentation className="h-3.5 w-3.5" />
+                                          </Link>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
 

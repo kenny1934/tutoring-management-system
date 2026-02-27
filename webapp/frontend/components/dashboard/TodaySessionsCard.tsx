@@ -645,6 +645,12 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
         session={session}
         size="md"
         showLabels
+        disablePushRight
+        hideActions={
+          (session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled')
+            ? ['cw', 'hw', 'rate']
+            : undefined
+        }
         onLoadingChange={onLoadingChange}
         loadingActionId={loadingActionId}
         className="mt-1.5 ml-6"

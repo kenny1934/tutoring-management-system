@@ -99,10 +99,10 @@ export function ActionButtons<T>({
             disabled={!isEnabled}
             onClick={(e) => handleClick(e, action)}
             className={cn(
-              "flex items-center gap-1 rounded font-medium transition-all",
+              "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
               sizeClasses[size],
               isEnabled
-                ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
+                ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
                 : cn(action.colorClass, "cursor-not-allowed opacity-50")
             )}
             title={isEnabled ? action.label : "Coming soon"}
@@ -437,12 +437,12 @@ export function SessionActionButtons({
                 disabled={isDisabledByReadOnly || !isEnabled || isLoading}
                 onClick={(e) => handleClick(e, action)}
                 className={cn(
-                  "flex items-center gap-1 rounded font-medium transition-all",
+                  "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
                   sizeClasses[size],
                   isDisabledByReadOnly
                     ? cn(action.colorClass, "cursor-not-allowed opacity-40")
                     : isEnabled && !isLoading
-                      ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
+                      ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
                       : cn(action.colorClass, "cursor-not-allowed opacity-50"),
                   isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
                 )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -12,17 +12,22 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
+
+/** Special composite filter value that excludes resolved statuses */
+export const ACTIVE_FILTER = "__active";
 
 interface StatusOption {
   value: string;
   label: string;
+  separator?: boolean; // Show a separator line after this option
 }
 
 const STATUS_OPTIONS: StatusOption[] = [
   { value: "", label: "All Statuses" },
+  { value: ACTIVE_FILTER, label: "Active", separator: true },
   { value: "Trial Class", label: "Trial Class" },
   { value: "Scheduled", label: "Scheduled" },
   { value: "Make-up Class", label: "Make-up Class" },
@@ -63,7 +68,8 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
 
   const selectedOption = STATUS_OPTIONS.find(opt => opt.value === value);
-  const selectedConfig = value ? getSessionStatusConfig(value) : null;
+  const isActiveFilter = value === ACTIVE_FILTER;
+  const selectedConfig = value && !isActiveFilter ? getSessionStatusConfig(value) : null;
   const SelectedIcon = selectedConfig?.Icon;
 
   return (
@@ -81,11 +87,15 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
         )}
       >
-        {selectedConfig && SelectedIcon && (
+        {isActiveFilter ? (
+          <span className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center bg-emerald-500">
+            <Zap className="h-2.5 w-2.5 text-white" />
+          </span>
+        ) : selectedConfig && SelectedIcon ? (
           <span className={cn("w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center", selectedConfig.bgClass)}>
             <SelectedIcon className={cn("h-2.5 w-2.5 text-white", selectedConfig.iconClass)} />
           </span>
-        )}
+        ) : null}
         <span className="truncate max-w-[100px] sm:max-w-[180px]">{selectedOption?.label || "Status"}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
       </button>
@@ -106,37 +116,44 @@ export function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownPr
             )}
           >
             {STATUS_OPTIONS.map((option) => {
-              const config = option.value ? getSessionStatusConfig(option.value) : null;
+              const isActive = option.value === ACTIVE_FILTER;
+              const config = option.value && !isActive ? getSessionStatusConfig(option.value) : null;
               const Icon = config?.Icon;
               const isSelected = option.value === value;
 
               return (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    onChange(option.value);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
-                    "hover:bg-gray-100 dark:hover:bg-gray-800",
-                    isSelected && "bg-gray-100 dark:bg-gray-800"
-                  )}
-                >
-                  {config ? (
-                    <span className={cn("w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center", config.bgClass)}>
-                      {Icon && <Icon className={cn("h-2.5 w-2.5 text-white", config.iconClass)} />}
+                <div key={option.value || "_all"}>
+                  <button
+                    onClick={() => {
+                      onChange(option.value);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
+                      "hover:bg-gray-100 dark:hover:bg-gray-800",
+                      isSelected && "bg-gray-100 dark:bg-gray-800"
+                    )}
+                  >
+                    {isActive ? (
+                      <span className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center bg-emerald-500">
+                        <Zap className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    ) : config ? (
+                      <span className={cn("w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center", config.bgClass)}>
+                        {Icon && <Icon className={cn("h-2.5 w-2.5 text-white", config.iconClass)} />}
+                      </span>
+                    ) : (
+                      <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300 dark:bg-gray-600" />
+                    )}
+                    <span className={cn(
+                      "text-gray-900 dark:text-gray-100",
+                      isSelected && "font-medium"
+                    )}>
+                      {option.label}
                     </span>
-                  ) : (
-                    <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300 dark:bg-gray-600" />
-                  )}
-                  <span className={cn(
-                    "text-gray-900 dark:text-gray-100",
-                    isSelected && "font-medium"
-                  )}>
-                    {option.label}
-                  </span>
-                </button>
+                  </button>
+                  {option.separator && <div className="my-1 border-t border-gray-200 dark:border-gray-700" />}
+                </div>
               );
             })}
           </div>
