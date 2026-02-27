@@ -526,7 +526,7 @@ export default function ExamsPage() {
       {/* Single scroll container */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Single sticky container for header + toolbar */}
-        <div ref={stickyHeaderRef} className="sticky top-0 z-40 desk-background">
+        <div ref={stickyHeaderRef} className="sticky top-0 z-40 desk-background border-b border-[#6b5a4a]/30">
           {/* Header */}
           <div className="p-4 sm:px-6 sm:py-4 desk-background">
             <div className="flex items-center gap-4">
