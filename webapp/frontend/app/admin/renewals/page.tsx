@@ -835,20 +835,30 @@ export default function AdminRenewalsPage() {
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
-        const result = await enrollmentsAPI.batchMarkPaid(renewalIds);
-        handleRefresh();
+        // Optimistic update: immediately remove checked items from cache
+        const swrKey = ['renewals', selectedLocation, showExpired];
+        const idsToRemove = new Set(checkedIds);
+        mutate(swrKey, (current: RenewalListItem[] | undefined) =>
+          current?.filter(r => !idsToRemove.has(r.id)), false
+        );
         clearChecked();
-        // Report success/partial failure
-        if (result.count < renewalIds.length) {
-          const failed = renewalIds.length - result.count;
-          showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed, ${failed} failed`, "info");
-        } else {
-          showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed`, "success");
+
+        try {
+          const result = await enrollmentsAPI.batchMarkPaid(renewalIds);
+          if (result.count < renewalIds.length) {
+            const failed = renewalIds.length - result.count;
+            showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed, ${failed} failed`, "info");
+          } else {
+            showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed`, "success");
+          }
+        } finally {
+          handleRefresh();
         }
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       showToast(`Failed to confirm payments: ${errorMsg}`, "error");
+      handleRefresh();
     } finally {
       setBatchLoading(false);
     }
@@ -864,20 +874,30 @@ export default function AdminRenewalsPage() {
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
-        const result = await enrollmentsAPI.batchMarkSent(renewalIds);
-        handleRefresh();
+        // Optimistic update: immediately remove checked items from cache
+        const swrKey = ['renewals', selectedLocation, showExpired];
+        const idsToRemove = new Set(checkedIds);
+        mutate(swrKey, (current: RenewalListItem[] | undefined) =>
+          current?.filter(r => !idsToRemove.has(r.id)), false
+        );
         clearChecked();
-        // Report success/partial failure
-        if (result.count < renewalIds.length) {
-          const failed = renewalIds.length - result.count;
-          showToast(`${result.count} marked as sent, ${failed} failed`, "info");
-        } else {
-          showToast(`${result.count} message${result.count !== 1 ? 's' : ''} marked as sent`, "success");
+
+        try {
+          const result = await enrollmentsAPI.batchMarkSent(renewalIds);
+          if (result.count < renewalIds.length) {
+            const failed = renewalIds.length - result.count;
+            showToast(`${result.count} marked as sent, ${failed} failed`, "info");
+          } else {
+            showToast(`${result.count} message${result.count !== 1 ? 's' : ''} marked as sent`, "success");
+          }
+        } finally {
+          handleRefresh();
         }
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       showToast(`Failed to mark messages as sent: ${errorMsg}`, "error");
+      handleRefresh();
     } finally {
       setBatchLoading(false);
     }
