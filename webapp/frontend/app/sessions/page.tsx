@@ -212,7 +212,7 @@ export default function SessionsPage() {
       location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
       status: (statusFilter && statusFilter !== "__active") ? statusFilter : undefined,
       tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
-      limit: viewMode === "monthly" ? 2000 : 500,
+      limit: (viewMode === "monthly" || viewMode === "weekly") ? 2000 : 500,
     };
 
     // Special filter: pending-makeups overrides date and status
