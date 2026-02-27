@@ -56,6 +56,7 @@ function ExamCalendarView({
   onRefresh,
   onEditEvent,
   canManageEvents,
+  readOnly,
 }: {
   exams: ExamWithRevisionSlots[];
   currentMonth: Date;
@@ -66,6 +67,7 @@ function ExamCalendarView({
   onRefresh: () => void;
   onEditEvent: (exam: ExamWithRevisionSlots) => void;
   canManageEvents: boolean;
+  readOnly?: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -251,7 +253,7 @@ function ExamCalendarView({
                 onRefresh={onRefresh}
                 onEditEvent={onEditEvent}
                 canManageEvents={canManageEvents}
-                readOnly={isReadOnly}
+                readOnly={readOnly}
               />
             ))
           )}
@@ -866,6 +868,7 @@ export default function ExamsPage() {
               onRefresh={handleRefresh}
               onEditEvent={handleEditEvent}
               canManageEvents={canManageEvents}
+              readOnly={isReadOnly}
             />
           ) : (
             <div className="space-y-4">
