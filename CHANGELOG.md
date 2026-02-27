@@ -1,10 +1,31 @@
 # Changelog
 
-## [2.0.12](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.12) (2026-02-26)
+## [2.0.12](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.12) (2026-02-27)
+
+### New Features
+
+* **Custom date picker popover** — replaced native date inputs with a calendar popover across sessions list, weekly, and daily grid views for better month navigation without triggering date changes
+* **"Active" status filter** — new composite filter option that hides resolved sessions (Pending Make-up, Make-up Booked, Cancelled) in one click
+* **Button restyling** — action buttons and View/Lesson links now have borders and shadows to visually distinguish them from info badges
+
+### Improvements
+
+* Improved vertical data density in sessions list and calendar views
+* Push undo/cancel/edit action buttons to the right edge of session cards
+* Session count moved to badge on toolbar icon for a cleaner toolbar
+* De-emphasized resolved sessions with reduced opacity (Pending Make-up 0.8, Make-up Booked 0.6) while keeping action buttons at full opacity
+* Hidden CW/HW/Rate buttons and View/Lesson links on resolved session cards
+* Applied same action button cleanup to TodaySessionsCard on dashboard
+* Made sessions toolbar more compact on mobile
 
 ### Bug Fixes
 
 * Fixed cancelled enrollment's deadline still being used for session extension — after cancelling the latest enrollment, the system now correctly falls back to the previous enrollment's deadline
+* Fixed unpaid red student name being overridden by strikethrough gray on rescheduled sessions
+* Fixed right-aligned action buttons breaking layout in SessionDetailPopover and on mobile
+* Fixed loading skeletons to match new sessions list layout
+* Fixed time slot headers left-aligned on mobile, centered on desktop
+* Fixed debug table horizontal scrollbar accessibility
 
 ## [2.0.11](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.11) (2026-02-23)
 
