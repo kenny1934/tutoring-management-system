@@ -9,7 +9,7 @@ import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } fr
 import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { ExamCard } from "@/components/exams/ExamCard";
+import { ExamCard, EXAM_TYPE_COLORS, getTypeColors } from "@/components/exams/ExamCard";
 
 // Lazy load modals - only imported when opened
 const CreateRevisionSlotModal = dynamic(
@@ -35,11 +35,15 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   Plus,
 } from "lucide-react";
 
 type ViewStyle = "list" | "calendar";
+
+// Ordered list of known exam types for the filter dropdown
+const EXAM_TYPES = ["Test", "Exam", "Quiz"] as const;
 
 // Calendar view component
 function ExamCalendarView({
@@ -188,18 +192,21 @@ function ExamCalendarView({
                 {/* Exam indicators */}
                 {hasExams && (
                   <div className="mt-1 space-y-0.5">
-                    {dayExams.slice(0, 2).map((exam) => (
+                    {dayExams.slice(0, 2).map((exam) => {
+                      const colors = getTypeColors(exam.event_type);
+                      return (
                       <div
                         key={exam.id}
                         className={cn(
                           "text-[10px] px-1 py-0.5 rounded truncate",
-                          "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                          colors.bg, colors.text
                         )}
                         title={exam.title}
                       >
                         {exam.title.length > 12 ? exam.title.slice(0, 12) + "…" : exam.title}
                       </div>
-                    ))}
+                      );
+                    })}
                     {dayExams.length > 2 && (
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 px-1">
                         +{dayExams.length - 2} more
@@ -266,6 +273,8 @@ export default function ExamsPage() {
   // Refs for auto-scroll to highlighted exam
   const highlightedRef = useRef<HTMLDivElement>(null);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
 
   // Get current tutor ID
   const currentTutorId = useMemo(() => {
@@ -278,6 +287,7 @@ export default function ExamsPage() {
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [schoolFilter, setSchoolFilter] = useState<string>("");
   const [gradeFilter, setGradeFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
   const [selectedExam, setSelectedExam] = useState<ExamWithRevisionSlots | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [slotDefaults, setSlotDefaults] = useState<SlotDefaults | undefined>(undefined);
@@ -398,20 +408,30 @@ export default function ExamsPage() {
     });
   }, [exams]);
 
-  // Filter exams by search query (using debounced value)
+  // Filter exams by search query and type filter
   const filteredExams = useMemo(() => {
-    if (!debouncedSearch.trim()) return exams;
+    let result = exams;
 
-    const query = debouncedSearch.toLowerCase();
-    return exams.filter((exam) => {
-      return (
-        exam.title.toLowerCase().includes(query) ||
-        exam.school?.toLowerCase().includes(query) ||
-        exam.grade?.toLowerCase().includes(query) ||
-        exam.event_type?.toLowerCase().includes(query)
-      );
-    });
-  }, [exams, debouncedSearch]);
+    // Type filter
+    if (typeFilter) {
+      result = result.filter((exam) => exam.event_type === typeFilter);
+    }
+
+    // Search filter
+    if (debouncedSearch.trim()) {
+      const query = debouncedSearch.toLowerCase();
+      result = result.filter((exam) => {
+        return (
+          exam.title.toLowerCase().includes(query) ||
+          exam.school?.toLowerCase().includes(query) ||
+          exam.grade?.toLowerCase().includes(query) ||
+          exam.event_type?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    return result;
+  }, [exams, debouncedSearch, typeFilter]);
 
   // Sort exams by date ascending
   const sortedExams = useMemo(() => {
@@ -475,6 +495,27 @@ export default function ExamsPage() {
     setEditingEvent(undefined);
     setIsEditEventModalOpen(true);
   }, []);
+
+  // Close type dropdown on outside click/tap or Escape key
+  useEffect(() => {
+    if (!typeDropdownOpen) return;
+    const handleClick = (e: Event) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setTypeDropdownOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTypeDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [typeDropdownOpen]);
 
   // If URL has ?exam=ID and the exam isn't in current results, expand date range to include it
   useEffect(() => {
@@ -567,7 +608,7 @@ export default function ExamsPage() {
           <div
             className={cn(
               "mx-4 sm:mx-6 mb-4",
-              "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+              "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a]",
               "paper-texture"
             )}
           >
@@ -615,6 +656,56 @@ export default function ExamsPage() {
                 </option>
               ))}
             </select>
+
+            {/* Type filter - custom dropdown with colored dots */}
+            <div ref={typeDropdownRef} className="relative flex-1 sm:flex-none">
+              <button
+                onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
+                aria-label="Filter by type"
+                aria-haspopup="listbox"
+                aria-expanded={typeDropdownOpen}
+                className="flex items-center gap-2 w-full sm:w-auto px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+              >
+                {typeFilter ? (
+                  <>
+                    <span className={cn("w-2 h-2 rounded-full", getTypeColors(typeFilter).dot)} />
+                    <span>{typeFilter}</span>
+                  </>
+                ) : (
+                  <span>All Types</span>
+                )}
+                <ChevronDown className={cn("h-3.5 w-3.5 ml-auto transition-transform", typeDropdownOpen && "rotate-180")} />
+              </button>
+              {typeDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full sm:w-36 z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                  <button
+                    onClick={() => { setTypeFilter(""); setTypeDropdownOpen(false); }}
+                    className={cn(
+                      "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                      !typeFilter && "bg-[#f5ede3] dark:bg-[#3d3628] font-medium"
+                    )}
+                  >
+                    All Types
+                  </button>
+                  {EXAM_TYPES.map((type) => {
+                    const colors = EXAM_TYPE_COLORS[type];
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => { setTypeFilter(type); setTypeDropdownOpen(false); }}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          typeFilter === type && "bg-[#f5ede3] dark:bg-[#3d3628] font-medium"
+                        )}
+                      >
+                        <span className={cn("w-2 h-2 rounded-full", colors.dot)} />
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* View style toggle */}
             <div className="inline-flex rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] p-0.5 bg-[#fef9f3] dark:bg-[#2d2618]">
@@ -759,7 +850,7 @@ export default function ExamsPage() {
                 No exams found
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center px-4">
-                {searchQuery || schoolFilter || gradeFilter
+                {searchQuery || schoolFilter || gradeFilter || typeFilter
                   ? "Try adjusting your filters"
                   : "No exams found in the selected date range"}
               </p>

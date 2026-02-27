@@ -21,6 +21,18 @@ import {
   Pencil,
 } from "lucide-react";
 
+// Canonical event type colors — shared with exams page filters & calendar views
+export const EXAM_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  Test: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300", dot: "bg-red-500" },
+  Exam: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-500" },
+  Quiz: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300", dot: "bg-green-500" },
+};
+
+export const DEFAULT_TYPE_COLORS = { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-700 dark:text-gray-400", dot: "bg-gray-400" };
+
+export const getTypeColors = (eventType?: string) =>
+  EXAM_TYPE_COLORS[eventType || ""] || DEFAULT_TYPE_COLORS;
+
 interface ExamCardProps {
   exam: ExamWithRevisionSlots;
   currentTutorId: number;
@@ -77,19 +89,10 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const daysUntil = getDaysUntil(exam.start_date);
   const isPast = daysUntil < 0;
 
-  // Get event type badge color
-  const getEventTypeBadge = useCallback(() => {
-    const type = exam.event_type?.toLowerCase() || "";
-    if (type.includes("final") || type.includes("exam")) {
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-    }
-    if (type.includes("mid") || type.includes("mock")) {
-      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
-    }
-    if (type.includes("test") || type.includes("quiz")) {
-      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-    }
-    return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
+  // Get event type badge color from canonical color map
+  const typeBadgeColors = useMemo(() => {
+    const colors = EXAM_TYPE_COLORS[exam.event_type || ""];
+    return colors || DEFAULT_TYPE_COLORS;
   }, [exam.event_type]);
 
   // Handle enrollment in a slot
@@ -198,7 +201,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                 {exam.event_type && (
                   <span className={cn(
                     "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
-                    getEventTypeBadge()
+                    typeBadgeColors.bg, typeBadgeColors.text
                   )}>
                     {exam.event_type}
                   </span>
