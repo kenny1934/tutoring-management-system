@@ -11,7 +11,8 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { enrollmentsAPI } from "@/lib/api";
-import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X, MessageSquareShare } from "lucide-react";
+import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X, MessageSquareShare, CreditCard } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { OverdueEnrollment } from "@/types";
@@ -118,6 +119,8 @@ export default function OverduePaymentsPage() {
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showWecom, setShowWecom] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   // Pagination limits per urgency section
   const [sectionLimits, setSectionLimits] = useState<Record<UrgencyLevel, number>>({
@@ -269,6 +272,71 @@ export default function OverduePaymentsPage() {
       setMarkingPaidId(null);
     }
   }, [selectedEnrollment, paymentDate, mutateOverdue, showToast]);
+
+  // Batch selection helpers
+  const toggleCheck = useCallback((id: number) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearChecked = useCallback(() => setCheckedIds(new Set()), []);
+
+  const isAllSectionChecked = useCallback((items: OverdueEnrollment[]) =>
+    items.length > 0 && items.every(e => checkedIds.has(e.id)),
+  [checkedIds]);
+
+  const isSomeSectionChecked = useCallback((items: OverdueEnrollment[]) =>
+    items.some(e => checkedIds.has(e.id)),
+  [checkedIds]);
+
+  const toggleSectionCheck = useCallback((items: OverdueEnrollment[]) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      const allChecked = items.length > 0 && items.every(e => prev.has(e.id));
+      if (allChecked) items.forEach(e => next.delete(e.id));
+      else items.forEach(e => next.add(e.id));
+      return next;
+    });
+  }, []);
+
+  const showCheckboxes = checkedIds.size > 0;
+
+  // Batch confirm payment
+  const handleBatchMarkPaid = useCallback(async () => {
+    if (checkedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      const ids = Array.from(checkedIds);
+      // Optimistic: remove from SWR cache immediately
+      const swrKey = ['overdue-enrollments', effectiveLocation || 'all', effectiveTutorId || 'all'];
+      const idsToRemove = new Set(checkedIds);
+      mutate(swrKey, (current: OverdueEnrollment[] | undefined) =>
+        current?.filter(e => !idsToRemove.has(e.id)), false
+      );
+      clearChecked();
+
+      try {
+        const result = await enrollmentsAPI.batchMarkPaid(ids);
+        if (result.count < ids.length) {
+          showToast(`${result.count} confirmed, ${ids.length - result.count} failed`, "info");
+        } else {
+          showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed`, "success");
+        }
+      } finally {
+        mutateOverdue();
+        mutate(['dashboard-stats']);
+      }
+    } catch (error) {
+      showToast(`Failed to confirm payments: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+      mutateOverdue();
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [checkedIds, effectiveLocation, effectiveTutorId, clearChecked, mutateOverdue, showToast]);
 
   return (
     <DeskSurface>
@@ -460,6 +528,17 @@ export default function OverduePaymentsPage() {
                           <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                               <tr>
+                                <th className="px-2 py-3 w-8">
+                                  {showCheckboxes && (
+                                    <input
+                                      type="checkbox"
+                                      checked={isAllSectionChecked(enrollments)}
+                                      ref={el => { if (el) el.indeterminate = isSomeSectionChecked(enrollments) && !isAllSectionChecked(enrollments); }}
+                                      onChange={() => toggleSectionCheck(enrollments)}
+                                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                    />
+                                  )}
+                                </th>
                                 <th className="px-4 py-3 text-left font-medium w-20">ID#</th>
                                 <th className="px-4 py-3 text-left font-medium min-w-[120px]">Student</th>
                                 <th className="px-4 py-3 text-left font-medium w-16">Grade</th>
@@ -481,13 +560,16 @@ export default function OverduePaymentsPage() {
                                   urgencyConfig={config}
                                   showLocationPrefix={selectedLocation === "All Locations"}
                                   readOnly={isReadOnly}
+                                  isChecked={checkedIds.has(enrollment.id)}
+                                  onToggleCheck={toggleCheck}
+                                  showCheckbox={showCheckboxes}
                                 />
                               ))}
                             </tbody>
                             {enrollments.length > sectionLimits[level] && (
                               <tfoot>
                                 <tr>
-                                  <td colSpan={9} className="px-4 py-2 text-center">
+                                  <td colSpan={10} className="px-4 py-2 text-center">
                                     <button
                                       onClick={() => setSectionLimits(prev => ({
                                         ...prev,
@@ -567,6 +649,49 @@ export default function OverduePaymentsPage() {
             </div>
           </div>
         )}
+        {/* Batch Action Bar */}
+        <AnimatePresence>
+          {checkedIds.size > 0 && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
+            >
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
+                <span className="text-sm font-medium text-foreground">
+                  {checkedIds.size} selected
+                </span>
+                <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                <button
+                  onClick={handleBatchMarkPaid}
+                  disabled={batchLoading || isReadOnly}
+                  className={cn(
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
+                    isReadOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : "bg-green-500 hover:bg-green-600 text-white"
+                  )}
+                  title={isReadOnly ? "Read-only access" : undefined}
+                >
+                  {batchLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  Confirm Payment
+                </button>
+                <button
+                  onClick={clearChecked}
+                  className="flex items-center gap-1 px-2 py-1.5 text-foreground/60 hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </PageTransition>
 
       {/* WeCom Send Modal */}
@@ -588,6 +713,9 @@ function OverdueRow({
   urgencyConfig,
   showLocationPrefix,
   readOnly = false,
+  isChecked,
+  onToggleCheck,
+  showCheckbox,
 }: {
   enrollment: OverdueEnrollment;
   onMarkPaid: (enrollment: OverdueEnrollment) => void;
@@ -595,6 +723,9 @@ function OverdueRow({
   urgencyConfig: UrgencyConfig;
   showLocationPrefix: boolean;
   readOnly?: boolean;
+  isChecked: boolean;
+  onToggleCheck: (id: number) => void;
+  showCheckbox: boolean;
 }) {
   const schedule = useMemo(() => {
     if (enrollment.assigned_day && enrollment.assigned_time) {
@@ -604,7 +735,21 @@ function OverdueRow({
   }, [enrollment.assigned_day, enrollment.assigned_time]);
 
   return (
-    <tr className="hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors">
+    <tr className="group hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors">
+      {/* Checkbox */}
+      <td className="px-2 py-3">
+        <div className={cn(
+          "flex items-center justify-center transition-opacity",
+          showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}>
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => onToggleCheck(enrollment.id)}
+            className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+          />
+        </div>
+      </td>
       {/* ID */}
       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
         {showLocationPrefix && enrollment.location && `${enrollment.location}-`}{enrollment.school_student_id || "-"}
