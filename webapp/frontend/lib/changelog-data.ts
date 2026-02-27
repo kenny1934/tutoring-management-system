@@ -9,6 +9,12 @@ const changelogData = [
         "items": [
           {
             "description": "**Bulk Confirm Payment on overdue-payments page** — multi-select with checkboxes, section-level select all, and animated batch action bar with optimistic updates"
+          },
+          {
+            "description": "**Implicit & parametric curves in geometry editor** — curve mode selector (f(x), f(x,y)=0, x(t),y(t)) with MathLive input, t-range controls, and full serialization for save/restore"
+          },
+          {
+            "description": "**Click-to-edit plotted curves** — select any plotted curve to load its equation back into the input field; Update replaces the curve, Cancel returns to select mode"
           }
         ]
       },
@@ -40,6 +46,9 @@ const changelogData = [
           },
           {
             "description": "Fixed monthly popover grid view missing unpaid red and strikethrough styling on student names"
+          },
+          {
+            "description": "Fixed geometry editor modal footer (Insert/Cancel) pushed off-screen when function input bars are active — header and footer now pinned with scrollable middle section"
           }
         ]
       }

@@ -5,6 +5,8 @@
 ### New Features
 
 * **Bulk Confirm Payment on overdue-payments page** — multi-select with checkboxes, section-level select all, and animated batch action bar with optimistic updates
+* **Implicit & parametric curves in geometry editor** — curve mode selector (f(x), f(x,y)=0, x(t),y(t)) with MathLive input, t-range controls, and full serialization for save/restore
+* **Click-to-edit plotted curves** — select any plotted curve to load its equation back into the input field; Update replaces the curve, Cancel returns to select mode
 
 ### Improvements
 
@@ -18,6 +20,7 @@
 * Fixed unpaid red student name being overridden by strikethrough gray in Weekly, Daily, Monthly, and MoreSessionsPopover views
 * Fixed schedule make-up modal blocking slots that only contain cancelled sessions — conflict check now matches DB guard logic
 * Fixed monthly popover grid view missing unpaid red and strikethrough styling on student names
+* Fixed geometry editor modal footer (Insert/Cancel) pushed off-screen when function input bars are active — header and footer now pinned with scrollable middle section
 
 ## [2.0.12](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.12) (2026-02-27)
 
