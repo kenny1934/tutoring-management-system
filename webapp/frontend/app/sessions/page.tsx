@@ -2426,6 +2426,9 @@ export default function SessionsPage() {
                                         )}>
                                           {session.student_name}
                                         </span>
+                                        {session.enrollment_payment_status !== 'Cancelled' && session.financial_status !== "Paid" && (
+                                          <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                                        )}
                                       </p>
                                       {session.grade && (
                                         <span
@@ -2442,14 +2445,9 @@ export default function SessionsPage() {
                                       {session.extension_request_id && (
                                         <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" /></span>
                                       )}
-                                      {session.enrollment_payment_status === 'Cancelled' ? (
+                                      {session.enrollment_payment_status === 'Cancelled' && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">
                                           Cancelled
-                                        </span>
-                                      ) : session.financial_status !== "Paid" && (
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
-                                          <HandCoins className="h-3.5 w-3.5" />
-                                          <span className="hidden sm:inline">Unpaid</span>
                                         </span>
                                       )}
                                       {!(session.session_status.includes('Pending Make-up') || session.session_status.includes('Make-up Booked') || session.session_status === 'Cancelled') && (
