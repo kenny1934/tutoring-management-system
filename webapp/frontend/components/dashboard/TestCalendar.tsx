@@ -577,7 +577,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
           <Link
             href="/exams"
-            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
           >
             <GraduationCap className="h-3 w-3" />
             <span className="hidden sm:inline">Revision</span>
@@ -586,7 +586,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           {canManageEvents && (
             <button
               onClick={() => handleOpenCreate()}
-              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
+              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
               title="Create new calendar event"
             >
               <Plus className="h-3 w-3" />

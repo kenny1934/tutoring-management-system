@@ -229,7 +229,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {markableIds.length > 0 && (
               <Link
                 href="/quick-attend"
-                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
+                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-md shadow-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
                 title="Quick attendance marking"
               >
                 <ClipboardCheck className="h-3 w-3" />
@@ -239,7 +239,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             {/* Record Memo button */}
             <button
               onClick={() => setMemoDrawerOpen(true)}
-              className="relative flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+              className="relative flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-md shadow-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
               title="Record a session memo"
             >
               <StickyNote className="h-3 w-3" />
