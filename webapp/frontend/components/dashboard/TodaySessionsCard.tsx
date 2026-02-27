@@ -581,6 +581,9 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
             )}
             {session.student_name}
           </span>
+          {!isCancelledEnrollment && isUnpaid && (
+            <HandCoins className="h-3 w-3 text-red-500 flex-shrink-0" />
+          )}
 
           {/* Grade badge */}
           {session.grade && (
@@ -600,14 +603,9 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
 
           {/* Payment indicator */}
-          {isCancelledEnrollment ? (
+          {isCancelledEnrollment && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
               Cancelled
-            </span>
-          ) : isUnpaid && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center gap-0.5">
-              <HandCoins className="h-2.5 w-2.5" />
-              <span className="hidden xs:inline">Unpaid</span>
             </span>
           )}
 
