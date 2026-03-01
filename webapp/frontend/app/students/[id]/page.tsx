@@ -274,7 +274,11 @@ export default function StudentDetailPage() {
     setSaveError(null);
 
     try {
-      const dataToSave = data ?? editForm;
+      const source = data ?? editForm;
+      // Only send fields the backend StudentUpdate schema accepts — avoid serializing
+      // nested objects (e.g. enrollments) which cause "Converting circular structure to JSON"
+      const { student_name, phone, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes } = source;
+      const dataToSave = { student_name, phone, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes };
       const updatedStudent = await studentsAPI.update(student.id, dataToSave);
       // Optimistic update - set new data immediately, skip revalidation
       mutate(['student', student.id], { ...student, ...updatedStudent }, false);
@@ -849,7 +853,7 @@ function ProfileTab({
                 Cancel
               </button>
               <button
-                onClick={onSave}
+                onClick={() => onSave()}
                 disabled={isSaving}
                 className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
@@ -925,7 +929,7 @@ function ProfileTab({
                 Cancel
               </button>
               <button
-                onClick={onSave}
+                onClick={() => onSave()}
                 disabled={isSaving}
                 className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
