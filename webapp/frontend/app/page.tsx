@@ -134,6 +134,7 @@ export default function DashboardPage() {
         {/* Today's Sessions + Test Calendar */}
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule">
           <motion.div
+            className="min-w-0"
             initial={{ opacity: 0, y: 16, rotate: isMobile ? 0 : -0.5 }}
             animate={{ opacity: 1, y: 0, rotate: isMobile ? 0 : -0.5 }}
             transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
@@ -141,6 +142,7 @@ export default function DashboardPage() {
             <TodaySessionsCard isMobile={isMobile} tutorId={effectiveTutorId} />
           </motion.div>
           <motion.div
+            className="min-w-0"
             initial={{ opacity: 0, y: 16, rotate: isMobile ? 0 : 0.7 }}
             animate={{ opacity: 1, y: 0, rotate: isMobile ? 0 : 0.7 }}
             transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}

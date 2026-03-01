@@ -574,7 +574,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
         <div className="flex items-center gap-2 min-w-0">
           <TestsAccent className="w-8 h-6 flex-shrink-0" />
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Tests & Exams</h3>
           <Link
             href="/exams"
             className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
