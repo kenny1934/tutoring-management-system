@@ -6,14 +6,7 @@ import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useHolidays } from "@/lib/hooks";
 import type { Holiday } from "@/types";
-
-// Format date to YYYY-MM-DD
-const toDateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { toDateString } from "@/lib/calendar-utils";
 
 // Get the start of the week (Sunday)
 const getWeekStart = (baseDate: Date, weekOffset: number = 0): Date => {

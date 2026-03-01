@@ -178,3 +178,65 @@ export function formatProposalDate(dateStr: string): string {
     year: "numeric",
   });
 }
+
+/**
+ * Format time for activity feed — shows just time for today, date+time otherwise
+ * Example: "10:30 AM" (today) or "Jan 15, 10:30 AM" (other days)
+ */
+export function formatActivityTime(date: Date): string {
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+
+  if (isToday) {
+    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  } else {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    });
+  }
+}
+
+/**
+ * Format date for activity feed grouping — "Today", "Yesterday", or "Mon, Jan 15"
+ */
+export function formatActivityDate(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+/**
+ * Format full timestamp for tooltips
+ * Example: "Mon, Jan 15, 10:30 AM"
+ */
+export function formatFullTimestamp(date: Date): string {
+  return date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+}
+
+/**
+ * Format date compactly (no year)
+ * Example: "Mon, Jan 15"
+ */
+export function formatDateCompact(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}

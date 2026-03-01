@@ -9,7 +9,7 @@ import { memosAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
-import { parseTimeSlot } from "@/lib/calendar-utils";
+import { parseTimeSlot, toDateString } from "@/lib/calendar-utils";
 import type { Student, MemoExercise, TutorMemo } from "@/types";
 import {
   StickyNote,
@@ -31,10 +31,6 @@ interface MemoModalProps {
   onSaved?: () => void;
 }
 
-const getTodayString = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
 
 const EMPTY_EXERCISE: MemoExercise = {
   exercise_type: "CW",
@@ -67,7 +63,7 @@ export function MemoModal({ isOpen, onClose, memo, prefillStudent, onSaved }: Me
   const parsedTime = memo?.time_slot ? parseTimeSlot(memo.time_slot) : null;
 
   // Form state
-  const [memoDate, setMemoDate] = useState(memo?.memo_date ?? getTodayString());
+  const [memoDate, setMemoDate] = useState(memo?.memo_date ?? toDateString(new Date()));
   const [timeSlotStart, setTimeSlotStart] = useState(parsedTime?.start ?? "");
   const [timeSlotEnd, setTimeSlotEnd] = useState(parsedTime?.end ?? "");
   const [location, setLocation] = useState(memo?.location ?? (selectedLocation !== "All Locations" ? selectedLocation : ""));

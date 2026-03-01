@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
+import { formatDateCompact } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -39,15 +40,6 @@ interface TrialsQuickLinkProps {
   className?: string;
 }
 
-// Format date compactly
-function formatDateCompact(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 // Compact trial card for scheduled trials - links to session detail
 function ScheduledTrialCard({

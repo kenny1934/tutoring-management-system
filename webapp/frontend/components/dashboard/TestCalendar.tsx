@@ -8,6 +8,7 @@ import { useCalendarSync } from "@/lib/hooks/index";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
+import { toDateString } from "@/lib/calendar-utils";
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { CalendarEventModal } from "./CalendarEventModal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -60,13 +61,6 @@ const getMonthCalendarDates = (year: number, month: number): Date[] => {
   return dates;
 };
 
-// Format date to YYYY-MM-DD (local timezone)
-const toDateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 // Extended event type with optional days until
 interface EventWithDaysUntil extends CalendarEvent {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
 import useSWR from "swr";
@@ -131,8 +132,7 @@ export function EnrollmentDetailModal({
   const handleCopyFee = async () => {
     if (!enrollmentId || !detail) return;
     try {
-      const isNewParam = detail.enrollment_type === 'Trial' ? undefined : (detail.is_new_student ?? undefined);
-      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, isNewParam);
+      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail));
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

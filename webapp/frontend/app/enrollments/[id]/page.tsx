@@ -23,7 +23,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
-import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
+import { getDisplayPaymentStatus, getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
@@ -388,7 +388,7 @@ export default function EnrollmentDetailPage() {
     let cancelled = false;
     setFeeMessageLoading(true);
 
-    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6, enrollment.enrollment_type === 'Trial' ? undefined : (enrollment.is_new_student ?? undefined))
+    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6, getIsNewStudentParam(enrollment))
       .then(response => {
         if (!cancelled) {
           setFeeMessage(response.message);

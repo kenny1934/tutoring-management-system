@@ -26,15 +26,7 @@ import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownBu
 import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
-
-// Format today's date as YYYY-MM-DD
-const getTodayString = (): string => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { toDateString } from "@/lib/calendar-utils";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -45,7 +37,7 @@ interface TodaySessionsCardProps {
 export function TodaySessionsCard({ className, isMobile = false, tutorId }: TodaySessionsCardProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
-  const todayString = getTodayString();
+  const todayString = toDateString(new Date());
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatDateCompact } from "@/lib/formatters";
 import { useProposals, usePendingProposalCount, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -44,15 +45,6 @@ interface ProposalQuickLinkProps {
   className?: string;
 }
 
-// Format date compactly
-function formatDateCompact(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 // Compact slot item for popover with confirmation dialogs
 function CompactSlotItem({

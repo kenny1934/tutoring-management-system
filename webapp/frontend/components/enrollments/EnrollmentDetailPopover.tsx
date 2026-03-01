@@ -16,6 +16,7 @@ import {
 } from "@floating-ui/react";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -288,8 +289,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     setIsCopying(true);
     setCopySuccess(false);
     try {
-      const isNewParam = enrollment.enrollment_type === 'Trial' ? undefined : (enrollment.is_new_student ?? undefined);
-      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, isNewParam);
+      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, getIsNewStudentParam(enrollment));
       await navigator.clipboard.writeText(response.message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
