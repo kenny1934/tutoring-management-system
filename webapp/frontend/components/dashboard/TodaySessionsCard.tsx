@@ -222,7 +222,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <SessionsAccent className="w-8 h-6" />
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Today's Sessions</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">Today's Sessions</h3>
           </div>
           <div className="flex items-center gap-1.5">
             {/* Quick Attend shortcut - only when there are markable sessions */}
