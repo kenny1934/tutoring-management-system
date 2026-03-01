@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatActivityTime, formatActivityDate, formatFullTimestamp } from "@/lib/formatters";
 import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { ActivityFeedModal } from "./ActivityFeedModal";
@@ -100,44 +101,6 @@ const EVENT_CONFIG: Record<string, {
   },
 };
 
-const formatTime = (date: Date): string => {
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
-
-  if (isToday) {
-    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  } else {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true
-    });
-  }
-};
-
-const formatDate = (date: Date): string => {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) return "Today";
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
-
-// Format full timestamp for tooltip
-const formatFullTimestamp = (date: Date): string => {
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true
-  });
-};
 
 // Extract username from email
 const extractUsername = (email?: string): string | undefined => {
@@ -179,7 +142,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
   const groupedEvents = useMemo(() => {
     const groups: Record<string, typeof events> = {};
     events.forEach(event => {
-      const dateKey = formatDate(event.time);
+      const dateKey = formatActivityDate(event.time);
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(event);
     });
@@ -325,7 +288,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
                               {getTutorName(event.modified_by)}
                             </span>
                           )}
-                          {formatTime(event.time)}
+                          {formatActivityTime(event.time)}
                         </span>
                       </div>
                     </div>

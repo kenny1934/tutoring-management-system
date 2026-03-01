@@ -18,6 +18,14 @@ export function getDisplayPaymentStatus(enrollment: Enrollment): string {
 }
 
 /**
+ * Get the is_new_student parameter for fee message API calls.
+ * Trial enrollments don't send this param (trials are inherently "new").
+ */
+export function getIsNewStudentParam(enrollment: { enrollment_type: string; is_new_student?: boolean }): boolean | undefined {
+  return enrollment.enrollment_type === 'Trial' ? undefined : (enrollment.is_new_student ?? undefined);
+}
+
+/**
  * Get styling configuration for a payment status.
  */
 export function getPaymentStatusConfig(status: string) {

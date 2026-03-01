@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDisplayPaymentStatus, getPaymentStatusConfig } from './enrollment-utils';
+import { getDisplayPaymentStatus, getPaymentStatusConfig, getIsNewStudentParam } from './enrollment-utils';
 import type { Enrollment } from '@/types';
 
 // Helper to create minimal enrollment for testing
@@ -88,5 +88,27 @@ describe('getPaymentStatusConfig', () => {
     const config = getPaymentStatusConfig('Unknown');
     expect(config.bgClass).toBe('bg-gray-400');
     expect(config.bgTint).toContain('gray');
+  });
+});
+
+describe('getIsNewStudentParam', () => {
+  it('returns undefined for Trial enrollments', () => {
+    expect(getIsNewStudentParam({ enrollment_type: 'Trial' })).toBeUndefined();
+  });
+
+  it('returns undefined for Trial even when is_new_student is set', () => {
+    expect(getIsNewStudentParam({ enrollment_type: 'Trial', is_new_student: true })).toBeUndefined();
+  });
+
+  it('returns true when is_new_student is true', () => {
+    expect(getIsNewStudentParam({ enrollment_type: 'Regular', is_new_student: true })).toBe(true);
+  });
+
+  it('returns false when is_new_student is false', () => {
+    expect(getIsNewStudentParam({ enrollment_type: 'Regular', is_new_student: false })).toBe(false);
+  });
+
+  it('returns undefined when is_new_student is undefined', () => {
+    expect(getIsNewStudentParam({ enrollment_type: 'Regular' })).toBeUndefined();
   });
 });
