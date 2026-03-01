@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "Fixed student profile edits (name, phone, school, etc.) not saving"
+          },
+          {
+            "description": "Fixed dashboard cards (Today's Sessions, Tests & Exams) overflowing horizontally on narrow screens"
           }
         ]
       }

@@ -5,6 +5,7 @@
 ### Bug Fixes
 
 * Fixed student profile edits (name, phone, school, etc.) not saving
+* Fixed dashboard cards (Today's Sessions, Tests & Exams) overflowing horizontally on narrow screens
 
 ## [2.0.13](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.13) (2026-02-27)
 
