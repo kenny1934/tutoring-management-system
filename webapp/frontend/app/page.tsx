@@ -160,7 +160,7 @@ export default function DashboardPage() {
             whileHover={{ y: -2, rotate: -0.3, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative min-w-0 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
@@ -181,7 +181,7 @@ export default function DashboardPage() {
             whileHover={{ y: -2, rotate: 0.5, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative min-w-0 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
