@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.14](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.14) (2026-03-01)
+
+### Bug Fixes
+
+* Fixed student profile edits (name, phone, school, etc.) not saving
+
 ## [2.0.13](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.13) (2026-02-27)
 
 ### New Features
