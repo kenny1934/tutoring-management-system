@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.15](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.14...v2.0.15) (2026-03-01)
+
+
+### Bug Fixes
+
+* Add consistent min-w-0 and truncate across dashboard grid cards ([a9d2856](https://github.com/kenny1934/tutoring-management-system/commit/a9d28569c5382c3c9d63fe99e0e074040fd29671))
+
+
+### Improvements
+
+* Deduplicate date formatters and enrollment utilities ([adca724](https://github.com/kenny1934/tutoring-management-system/commit/adca724893dfda748b8b1ba50ad090e2b4f7d882))
+
 ## [2.0.14](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.14) (2026-03-01)
 
 ### Bug Fixes
