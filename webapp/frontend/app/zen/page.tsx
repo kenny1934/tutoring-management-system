@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed, usePageTitle } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
+import { useRole } from "@/contexts/RoleContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
@@ -52,8 +54,15 @@ function ZenSpinner() {
 
 export default function ZenDashboardPage() {
   usePageTitle("Zen Mode");
+  const { user, impersonatedTutor } = useAuth();
   const { selectedLocation } = useLocation();
+  const { viewMode } = useRole();
   const { isFocused } = useZenKeyboardFocus();
+
+  // Determine effective tutor ID based on view mode and impersonation
+  const effectiveTutorId = viewMode === 'my-view'
+    ? impersonatedTutor?.id ?? user?.id
+    : undefined;
   const [showCalendar, setShowCalendar] = useState(false);
   const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
   const [markingSessionId, setMarkingSessionId] = useState<number | null>(null);
@@ -141,15 +150,16 @@ export default function ZenDashboardPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showCalendar, navigateDate, goToToday, selectedDate, isFocused]);
 
-  const { data: stats, isLoading: statsLoading } = useDashboardStats(
-    selectedLocation === "All Locations" ? undefined : selectedLocation
-  );
+  const locationFilter = selectedLocation === "All Locations" ? undefined : selectedLocation;
+
+  const { data: stats, isLoading: statsLoading } = useDashboardStats(locationFilter, effectiveTutorId);
 
   // Get sessions for selected date using filters
   const { data: dateSessions, isLoading: sessionsLoading } = useSessions({
     from_date: selectedDate,
     to_date: selectedDate,
-    location: selectedLocation === "All Locations" ? undefined : selectedLocation,
+    location: locationFilter,
+    tutor_id: effectiveTutorId,
   });
 
   // Get upcoming calendar events (tests/exams)
@@ -157,7 +167,7 @@ export default function ZenDashboardPage() {
 
   // Get recent activity
   const { data: activityEvents, isLoading: activityLoading } = useActivityFeed(
-    selectedLocation === "All Locations" ? undefined : selectedLocation
+    locationFilter, effectiveTutorId
   );
 
   const isLoading = statsLoading || sessionsLoading;

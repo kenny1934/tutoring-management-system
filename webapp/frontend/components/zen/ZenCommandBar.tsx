@@ -289,10 +289,10 @@ export function ZenCommandBar() {
               setZenStatus(`Unknown command: ${args[0]}`, "error");
             }
           } else {
-            const navCmds = ["go", "dashboard", "students", "sessions"];
+            const navCmds = ["go", "dashboard", "students", "sessions", "revenue", "courseware", "settings"];
             const actionCmds = ["mark", "select", "assign"];
             const dateCmds = ["today", "yesterday", "tomorrow", "date", "calendar"];
-            const utilCmds = ["help", "theme", "refresh", "exit"];
+            const utilCmds = ["help", "theme", "refresh", "tools", "puzzle", "exit"];
             setZenStatus(
               `Nav: ${navCmds.join(", ")} | Actions: ${actionCmds.join(", ")} | Date: ${dateCmds.join(", ")} | Utils: ${utilCmds.join(", ")}`,
               "info"
@@ -345,10 +345,10 @@ export function ZenCommandBar() {
       {
         name: "refresh",
         aliases: ["reload"],
-        description: "Refresh session data",
+        description: "Refresh all data",
         execute: () => {
-          mutate((key) => typeof key === "string" && key.includes("/sessions"));
-          setZenStatus("Refreshing data...", "info");
+          mutate(() => true); // Revalidate all SWR keys
+          setZenStatus("Refreshing all data...", "info");
         },
       },
 
@@ -531,7 +531,11 @@ export function ZenCommandBar() {
       "go dashboard",
       "go students",
       "go sessions",
+      "go revenue",
+      "go courseware",
       "go settings",
+      "revenue",
+      "courseware",
       "settings",
       "tools",
       "puzzle",
