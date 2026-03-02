@@ -16,6 +16,8 @@ export { ZenTestList } from "./ZenTestList";
 export { ZenActivityFeed } from "./ZenActivityFeed";
 export { ZenCalendar } from "./ZenCalendar";
 export { ZenDistributionChart } from "./ZenDistributionChart";
+export { ZenStudentList } from "./ZenStudentList";
+export { ZenSessionLogList } from "./ZenSessionLogList";
 
 // Hooks
 export { useKonamiCode } from "./hooks/useKonamiCode";

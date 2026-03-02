@@ -127,12 +127,12 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
 
           {/* Page Navigation */}
           <Section title="PAGE NAVIGATION">
+            <Shortcut keys={["d"]} desc="Go to Dashboard" />
             <Shortcut keys={["s"]} desc="Go to Students" />
             <Shortcut keys={["n"]} desc="Go to Sessions" />
             <Shortcut keys={["c"]} desc="Go to Courseware" />
             <Shortcut keys={["r"]} desc="Go to Revenue" />
-            <Shortcut keys={["d"]} desc="Go to Dashboard" />
-            <Shortcut keys={["o"]} desc="Go to Settings" />
+            <Command cmd="settings" desc="Go to Settings" />
           </Section>
 
           {/* Command Bar */}
@@ -140,6 +140,22 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["/"]} desc="Focus command bar" />
             <Shortcut keys={["Tab"]} desc="Autocomplete" />
             <Shortcut keys={["↑", "↓"]} desc="Browse history" />
+          </Section>
+
+          {/* Date Navigation */}
+          <Section title="DATE NAVIGATION">
+            <Shortcut keys={["[", "]"]} desc="Previous/next day or week" />
+            <Shortcut keys={["t"]} desc="Jump to today/current" />
+            <Shortcut keys={["Shift+C"]} desc="Toggle calendar" />
+          </Section>
+
+          {/* Students Page */}
+          <Section title="STUDENTS PAGE">
+            <Shortcut keys={["f"]} desc="Focus filter input" />
+            <Shortcut keys={["[", "]"]} desc="Prev/next page" />
+            <Shortcut keys={["Shift+S"]} desc="Toggle sort order" />
+            <Shortcut keys={["Backspace"]} desc="Back to list (from detail)" />
+            <Shortcut keys={["1", "2", "3"]} desc="Switch tabs (detail)" />
           </Section>
 
           {/* Common Commands */}
@@ -152,7 +168,9 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Command cmd="today" desc="Show today's sessions" />
             <Command cmd="date +N/-N" desc="Offset by N days" />
             <Command cmd="theme list" desc="List available themes" />
-            <Command cmd="settings" desc="Go to settings page" />
+            <Command cmd="refresh" desc="Refresh all data" />
+            <Command cmd="tools" desc="Open useful tools" />
+            <Command cmd="puzzle" desc="Daily puzzle" />
             <Command cmd="exit" desc="Exit Zen mode" />
           </Section>
         </div>
