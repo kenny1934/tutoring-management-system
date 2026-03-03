@@ -12,6 +12,7 @@ export { ZenEditSession } from "./ZenEditSession";
 export { ZenExerciseAssign } from "./ZenExerciseAssign";
 export { ZenPdfPreview } from "./ZenPdfPreview";
 export { ZenHelpOverlay } from "./ZenHelpOverlay";
+export { ZenConfirmDialog } from "./ZenConfirmDialog";
 export { ZenTestList } from "./ZenTestList";
 export { ZenActivityFeed } from "./ZenActivityFeed";
 export { ZenCalendar } from "./ZenCalendar";

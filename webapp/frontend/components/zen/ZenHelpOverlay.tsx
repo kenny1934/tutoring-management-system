@@ -112,6 +112,9 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["3"]} desc="Mark as Reschedule" />
             <Shortcut keys={["4"]} desc="Mark as Sick Leave" />
             <Shortcut keys={["5"]} desc="Mark as Weather Cancelled" />
+            <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginTop: "4px" }}>
+              Marks cursor session, or all selected with confirmation
+            </div>
           </Section>
 
           {/* Session Detail Actions */}
