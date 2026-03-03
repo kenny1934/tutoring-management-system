@@ -12,6 +12,7 @@ import {
   type GroupedSessionsResult,
 } from "./utils/sessionSorting";
 import { ZenSessionDetail } from "./ZenSessionDetail";
+import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { isCountableSession } from "@/lib/session-status";
 
@@ -23,7 +24,9 @@ interface ZenSessionListProps {
   onCursorMove: (newIndex: number) => void;
   onAction?: (action: string, sessionIds: number[]) => void;
   onQuickMark?: (sessionId: number, status: string) => void;
+  onBulkMark?: (sessionIds: number[], status: string) => void;
   markingSessionId?: number | null;
+  markingSessionIds?: Set<number>;
   showStats?: boolean;
 }
 
@@ -50,11 +53,15 @@ export function ZenSessionList({
   onCursorMove,
   onAction,
   onQuickMark,
+  onBulkMark,
   markingSessionId,
+  markingSessionIds,
   showStats = true,
 }: ZenSessionListProps) {
   // Track which session has detail view expanded
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
+  // Confirm dialog state for bulk marking
+  const [confirmAction, setConfirmAction] = useState<{ ids: number[]; status: string; label: string } | null>(null);
 
   // Keyboard focus context
   const { isFocused, setFocusedSection } = useZenKeyboardFocus();
@@ -139,44 +146,40 @@ export function ZenSessionList({
           }
           break;
 
-        // Quick action keys for marking current session
+        // Quick action keys — bulk-aware when sessions are selected
         case "1":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Attended");
-          }
-          break;
-
         case "2":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "No Show");
-          }
-          break;
-
         case "3":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Rescheduled - Pending Make-up");
-          }
-          break;
-
         case "4":
+        case "5": {
           e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Sick Leave - Pending Make-up");
-          }
-          break;
+          const statusMap: Record<string, { status: string; label: string }> = {
+            "1": { status: "Attended", label: "Attended" },
+            "2": { status: "No Show", label: "No Show" },
+            "3": { status: "Rescheduled - Pending Make-up", label: "Rescheduled" },
+            "4": { status: "Sick Leave - Pending Make-up", label: "Sick Leave" },
+            "5": { status: "Weather Cancelled - Pending Make-up", label: "Weather Cancelled" },
+          };
+          const action = statusMap[e.key];
+          if (!action) break;
 
-        case "5":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Weather Cancelled - Pending Make-up");
+          if (selectedIds.size > 0 && onBulkMark) {
+            // Bulk mode: collect all selected sessions that can be marked
+            const actionableIds = flatSessions
+              .filter((s) => selectedIds.has(s.id) && canBeMarked(s))
+              .map((s) => s.id);
+            if (actionableIds.length > 0) {
+              setConfirmAction({ ids: actionableIds, status: action.status, label: action.label });
+            }
+          } else if (currentSession && canBeMarked(currentSession) && onQuickMark) {
+            // Single mode: mark cursor session
+            onQuickMark(currentSession.id, action.status);
           }
           break;
+        }
       }
     },
-    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, expandedSessionId, isFocused]
+    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, onBulkMark, expandedSessionId, isFocused]
   );
 
   // Register global keyboard handler
@@ -407,37 +410,44 @@ export function ZenSessionList({
                 </span>
 
                 {/* Status indicator */}
-                <span
-                  style={{
-                    minWidth: "20px",
-                    textAlign: "center",
-                    color: markingSessionId === session.id
-                      ? "var(--zen-dim)"
-                      : `var(--zen-${statusColor})`,
-                    textShadow:
-                      markingSessionId !== session.id &&
-                      (statusColor === "success" || statusColor === "accent")
-                        ? "var(--zen-glow)"
-                        : "none",
-                  }}
-                >
-                  {markingSessionId === session.id ? "○" : statusChar}
-                </span>
+                {(() => {
+                  const isMarking = markingSessionId === session.id || markingSessionIds?.has(session.id);
+                  return (
+                    <>
+                      <span
+                        style={{
+                          minWidth: "20px",
+                          textAlign: "center",
+                          color: isMarking
+                            ? "var(--zen-dim)"
+                            : `var(--zen-${statusColor})`,
+                          textShadow:
+                            !isMarking &&
+                            (statusColor === "success" || statusColor === "accent")
+                              ? "var(--zen-glow)"
+                              : "none",
+                        }}
+                      >
+                        {isMarking ? "○" : statusChar}
+                      </span>
 
-                {/* Status text */}
-                <span
-                  style={{
-                    color: markingSessionId === session.id
-                      ? "var(--zen-dim)"
-                      : `var(--zen-${statusColor})`,
-                    fontSize: "11px",
-                    minWidth: "80px",
-                  }}
-                >
-                  {markingSessionId === session.id
-                    ? "..."
-                    : getShortStatus(session.session_status)}
-                </span>
+                      {/* Status text */}
+                      <span
+                        style={{
+                          color: isMarking
+                            ? "var(--zen-dim)"
+                            : `var(--zen-${statusColor})`,
+                          fontSize: "11px",
+                          minWidth: "80px",
+                        }}
+                      >
+                        {isMarking
+                          ? "..."
+                          : getShortStatus(session.session_status)}
+                      </span>
+                    </>
+                  );
+                })()}
 
                 {/* Tutor name - only show for first session of each tutor */}
                 <span
@@ -492,8 +502,39 @@ export function ZenSessionList({
         <span style={{ color: "var(--zen-fg)" }}>a</span> all •{" "}
         <span style={{ color: "var(--zen-fg)" }}>Esc</span> clear
       </div>
+
+      {/* Bulk mark confirmation dialog */}
+      {confirmAction && (
+        <ZenConfirmDialog
+          title={`Mark ${confirmAction.ids.length} session${confirmAction.ids.length !== 1 ? "s" : ""} as ${confirmAction.label}?`}
+          details={buildBulkDetails(confirmAction.ids, flatSessions)}
+          onConfirm={() => {
+            onBulkMark?.(confirmAction.ids, confirmAction.status);
+            setConfirmAction(null);
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * Build a breakdown string for the bulk confirm dialog
+ * e.g. "8 Scheduled · 3 Trial · 1 Make-up"
+ */
+function buildBulkDetails(ids: number[], flatSessions: Session[]): string {
+  const sessions = flatSessions.filter((s) => ids.includes(s.id));
+  const counts: Record<string, number> = {};
+  for (const s of sessions) {
+    const label = s.session_status === "Trial Class" ? "Trial"
+      : s.session_status === "Make-up Class" ? "Make-up"
+      : "Scheduled";
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([label, count]) => `${count} ${label}`)
+    .join(" · ");
 }
 
 /**
