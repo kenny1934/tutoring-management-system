@@ -142,11 +142,15 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["↑", "↓"]} desc="Browse history" />
           </Section>
 
-          {/* Date Navigation */}
-          <Section title="DATE NAVIGATION">
-            <Shortcut keys={["[", "]"]} desc="Previous/next day or week" />
+          {/* Sessions Page */}
+          <Section title="SESSIONS PAGE">
+            <Shortcut keys={["v"]} desc="Toggle week/day view" />
+            <Shortcut keys={["[", "]"]} desc="Prev/next week or day" />
             <Shortcut keys={["t"]} desc="Jump to today/current" />
             <Shortcut keys={["Shift+C"]} desc="Toggle calendar" />
+            <Shortcut keys={["Enter"]} desc="Drill into day (week view)" />
+            <Shortcut keys={["Esc"]} desc="Back to week (day view)" />
+            <Shortcut keys={["f"]} desc="Focus filter input" />
           </Section>
 
           {/* Students Page */}
