@@ -1,13 +1,9 @@
-"use client";
-
 /**
  * Session sorting utilities for Zen mode
  * Replicates the exact sorting logic from TodaySessionsCard.tsx
  */
 
 import type { Session } from "@/types";
-import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
 import { GRADE_COLORS, getGradeColor } from "@/lib/constants";
 
 // Re-export for consumers
@@ -299,35 +295,6 @@ export const QUICK_MARK_STATUS_MAP: Record<string, { status: string; label: stri
   "4": { status: "Sick Leave - Pending Make-up", label: "Sick Leave" },
   "5": { status: "Weather Cancelled - Pending Make-up", label: "Weather Cancelled" },
 };
-
-/**
- * Call the appropriate mark API for a given session status string.
- * Centralizes the status-to-API mapping used by quick mark and bulk mark.
- */
-export async function callMarkApi(sessionId: number, status: string): Promise<Session> {
-  let updatedSession: Session;
-  switch (status) {
-    case "Attended":
-      updatedSession = await sessionsAPI.markAttended(sessionId);
-      break;
-    case "No Show":
-      updatedSession = await sessionsAPI.markNoShow(sessionId);
-      break;
-    case "Rescheduled - Pending Make-up":
-      updatedSession = await sessionsAPI.markRescheduled(sessionId);
-      break;
-    case "Sick Leave - Pending Make-up":
-      updatedSession = await sessionsAPI.markSickLeave(sessionId);
-      break;
-    case "Weather Cancelled - Pending Make-up":
-      updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
-      break;
-    default:
-      updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
-  }
-  updateSessionInCache(updatedSession);
-  return updatedSession;
-}
 
 /**
  * Build a breakdown string for the bulk confirm dialog.

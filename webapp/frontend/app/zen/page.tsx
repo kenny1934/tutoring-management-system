@@ -9,7 +9,7 @@ import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
-import { callMarkApi } from "@/components/zen/utils/sessionSorting";
+import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { toDateString } from "@/lib/calendar-utils";
 
 // ASCII progress bar component

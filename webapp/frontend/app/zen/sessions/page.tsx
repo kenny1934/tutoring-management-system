@@ -20,10 +20,10 @@ import {
   canBeMarked,
   getTutorFirstName,
   getShortStatus,
-  callMarkApi,
   buildBulkDetails,
   QUICK_MARK_STATUS_MAP,
 } from "@/components/zen/utils/sessionSorting";
+import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { isCountableSession } from "@/lib/session-status";
 import type { Session, SessionFilters } from "@/types";
 
