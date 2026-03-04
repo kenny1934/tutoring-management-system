@@ -343,9 +343,8 @@ export default function ZenStudentsPage() {
         <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate{" "}
         <span style={{ color: "var(--zen-fg)" }}>Enter</span> view{" "}
         <span style={{ color: "var(--zen-fg)" }}>f</span>=filter{" "}
-        <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> page |{" "}
+        <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> page{" "}
         <span style={{ color: "var(--zen-fg)" }}>Shift+S</span> sort |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>d</span>=dashboard{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help
       </div>
     </div>

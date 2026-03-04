@@ -509,11 +509,7 @@ export default function ZenDashboardPage() {
             <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next{" "}
             <span style={{ color: "var(--zen-fg)" }}>t</span>=today{" "}
             <span style={{ color: "var(--zen-fg)" }}>C</span>=cal |{" "}
-            <span style={{ color: "var(--zen-fg)" }}>Tab</span>: sessions→tests→charts→activity→cmd |{" "}
-            <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
-            <span style={{ color: "var(--zen-fg)" }}>T</span>=tools{" "}
-            <span style={{ color: "var(--zen-fg)" }}>P</span>=puzzle{" "}
-            <span style={{ color: "var(--zen-fg)" }}>o</span>=settings{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Tab</span> cycle sections |{" "}
             <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>

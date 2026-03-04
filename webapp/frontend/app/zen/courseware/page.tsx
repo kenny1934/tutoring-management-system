@@ -59,10 +59,6 @@ export default function ZenCoursewarePage() {
           fontSize: "12px",
         }}
       >
-        <span style={{ color: "var(--zen-fg)" }}>d</span>=dashboard{" "}
-        <span style={{ color: "var(--zen-fg)" }}>s</span>=students{" "}
-        <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
-        <span style={{ color: "var(--zen-fg)" }}>r</span>=revenue{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help
       </div>
     </div>

@@ -715,7 +715,7 @@ export default function ZenSessionsPage() {
         {viewMode === "week" ? (
           <>
             <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate{" "}
-            <span style={{ color: "var(--zen-fg)" }}>Enter</span>=view day{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Enter</span> drill in{" "}
             <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next week{" "}
             <span style={{ color: "var(--zen-fg)" }}>t</span>=today{" "}
             <span style={{ color: "var(--zen-fg)" }}>v</span>=day view |{" "}
@@ -730,7 +730,7 @@ export default function ZenSessionsPage() {
             <span style={{ color: "var(--zen-fg)" }}>a</span>=all{" "}
             <span style={{ color: "var(--zen-fg)" }}>1</span>-<span style={{ color: "var(--zen-fg)" }}>5</span> mark{" "}
             <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail{" "}
-            <span style={{ color: "var(--zen-fg)" }}>Esc</span>=week |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Esc</span> back |{" "}
             <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next day{" "}
             <span style={{ color: "var(--zen-fg)" }}>f</span>=filter{" "}
             <span style={{ color: "var(--zen-fg)" }}>C</span>=cal{" "}
