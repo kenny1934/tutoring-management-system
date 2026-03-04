@@ -348,8 +348,25 @@ export function buildBulkDetails(ids: number[], flatSessions: Session[]): string
 
 /**
  * Get abbreviated status text for terminal display.
+ * Use compact=true for tight columns (e.g. revenue page).
  */
-export function getShortStatus(status: string): string {
+export function getShortStatus(status: string, compact?: boolean): string {
+  if (compact) {
+    switch (status) {
+      case "Attended": return "Att";
+      case "Attended (Make-up)": return "Att(MU)";
+      case "Attended (Trial)": return "Att(T)";
+      case "Scheduled": return "Sched";
+      case "Trial Class": return "Trial";
+      case "Make-up Class": return "MU";
+      case "No Show": return "NoShow";
+      case "Cancelled": return "Cancel";
+      default:
+        if (status.includes("Pending")) return "Pend";
+        if (status.includes("Booked")) return "Booked";
+        return status.slice(0, 6);
+    }
+  }
   switch (status) {
     case "Attended": return "Attended";
     case "Attended (Make-up)": return "Attended(MU)";
