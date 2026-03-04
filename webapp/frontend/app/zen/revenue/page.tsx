@@ -520,9 +520,7 @@ export default function ZenRevenuePage() {
       >
         <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next month{" "}
         <span style={{ color: "var(--zen-fg)" }}>t</span>=current |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate sessions |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>d</span>=dashboard{" "}
-        <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
+        <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate |{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help
       </div>
     </div>

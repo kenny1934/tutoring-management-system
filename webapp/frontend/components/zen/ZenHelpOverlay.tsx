@@ -97,6 +97,9 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["End"]} desc="Jump to last item" />
             <Shortcut keys={["Enter"]} desc="Open detail view" />
             <Shortcut keys={["Esc"]} desc="Close/clear selection" />
+            <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginTop: "4px" }}>
+              gg/G/Home/End require list focus
+            </div>
           </Section>
 
           {/* Selection */}
@@ -126,6 +129,9 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["o"]} desc="Open exercise PDF" />
             <Shortcut keys={["p"]} desc="Print exercise PDF" />
             <Shortcut keys={["y"]} desc="Copy exercise path" />
+            <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginTop: "4px" }}>
+              Active when detail panel is open
+            </div>
           </Section>
 
           {/* Page Navigation */}
@@ -135,14 +141,28 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["n"]} desc="Go to Sessions" />
             <Shortcut keys={["c"]} desc="Go to Courseware" />
             <Shortcut keys={["r"]} desc="Go to Revenue" />
-            <Command cmd="settings" desc="Go to Settings" />
+            <Shortcut keys={["o"]} desc="Go to Settings" />
+            <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginTop: "4px" }}>
+              c/r/o are overridden when detail panel is open
+            </div>
           </Section>
 
-          {/* Command Bar */}
-          <Section title="COMMAND BAR">
+          {/* Global */}
+          <Section title="GLOBAL">
+            <Shortcut keys={["!"]} desc="Toggle notifications" />
+            <Shortcut keys={["Shift+T"]} desc="Toggle tools panel" />
+            <Shortcut keys={["Shift+P"]} desc="Toggle puzzle" />
+            <Shortcut keys={["?"]} desc="This help overlay" />
             <Shortcut keys={["/"]} desc="Focus command bar" />
-            <Shortcut keys={["Tab"]} desc="Autocomplete" />
-            <Shortcut keys={["↑", "↓"]} desc="Browse history" />
+            <Shortcut keys={["Tab"]} desc="Cycle sections" />
+          </Section>
+
+          {/* Dashboard */}
+          <Section title="DASHBOARD">
+            <Shortcut keys={["[", "]"]} desc="Prev/next day" />
+            <Shortcut keys={["t"]} desc="Jump to today" />
+            <Shortcut keys={["Shift+C"]} desc="Toggle calendar" />
+            <Shortcut keys={["h", "l"]} desc="Switch chart (when focused)" />
           </Section>
 
           {/* Sessions Page */}
@@ -163,6 +183,13 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["Shift+S"]} desc="Toggle sort order" />
             <Shortcut keys={["Backspace"]} desc="Back to list (from detail)" />
             <Shortcut keys={["1", "2", "3"]} desc="Switch tabs (detail)" />
+          </Section>
+
+          {/* Revenue Page */}
+          <Section title="REVENUE PAGE">
+            <Shortcut keys={["[", "]"]} desc="Prev/next month" />
+            <Shortcut keys={["t"]} desc="Current month" />
+            <Shortcut keys={["j", "k"]} desc="Navigate sessions" />
           </Section>
 
           {/* Common Commands */}

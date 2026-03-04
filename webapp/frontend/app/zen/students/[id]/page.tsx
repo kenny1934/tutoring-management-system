@@ -263,7 +263,7 @@ export default function ZenStudentDetailPage() {
       >
         <span style={{ color: "var(--zen-fg)" }}>1/2/3</span> tabs{" "}
         <span style={{ color: "var(--zen-fg)" }}>h/l</span> navigate |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>j/k</span> cursor{" "}
+        <span style={{ color: "var(--zen-fg)" }}>j/k</span> scroll{" "}
         <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail |{" "}
         <span style={{ color: "var(--zen-fg)" }}>Backspace</span> back{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help

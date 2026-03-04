@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { useCalendarEvents, useDashboardStats } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
-import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+
 
 interface NavItem {
   key: string;
@@ -42,7 +42,6 @@ function renderNavLabel(item: NavItem) {
 export function ZenHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { focusedSection } = useZenKeyboardFocus();
   const [showNotifications, setShowNotifications] = useState(false);
 
   const { selectedLocation } = useLocation();
@@ -92,10 +91,9 @@ export function ZenHeader() {
     [router]
   );
 
-  // Keyboard shortcuts for navigation and notifications
+  // Keyboard shortcut for notifications only (page navigation is in ZenLayout)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't trigger when typing in inputs or command bar
       const target = event.target as HTMLElement;
       if (
         target.tagName === "INPUT" ||
@@ -119,30 +117,11 @@ export function ZenHeader() {
         setShowNotifications(false);
         return;
       }
-
-      // Don't trigger with modifiers (including Shift for Shift+C calendar toggle)
-      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-        return;
-      }
-
-      // Skip navigation shortcuts when detail view is focused
-      // This allows ZenSessionDetail to handle 'c', 'h', 'e', etc.
-      if (focusedSection === "detail") {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const navItem = NAV_ITEMS.find((item) => item.key === key);
-
-      if (navItem) {
-        event.preventDefault();
-        handleNavigation(navItem.path);
-      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleNavigation, focusedSection, showNotifications]);
+  }, [showNotifications]);
 
   return (
     <header
