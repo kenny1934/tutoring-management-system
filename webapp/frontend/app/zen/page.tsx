@@ -9,9 +9,7 @@ import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
-import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
-import { mutate } from "swr";
+import { callMarkApi } from "@/components/zen/utils/sessionSorting";
 import { toDateString } from "@/lib/calendar-utils";
 
 // ASCII progress bar component
@@ -65,7 +63,6 @@ export default function ZenDashboardPage() {
     : undefined;
   const [showCalendar, setShowCalendar] = useState(false);
   const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
-  const [markingSessionId, setMarkingSessionId] = useState<number | null>(null);
   const [markingSessionIds, setMarkingSessionIds] = useState<Set<number>>(new Set());
 
   // Use session context for shared state
@@ -197,35 +194,15 @@ export default function ZenDashboardPage() {
 
   // Quick mark handler for single session
   const handleQuickMark = useCallback(async (sessionId: number, status: string) => {
-    setMarkingSessionId(sessionId);
+    setMarkingSessionIds(new Set([sessionId]));
     setZenStatus(`Marking session as ${status}...`, "info");
     try {
-      let updatedSession;
-      switch (status) {
-        case "Attended":
-          updatedSession = await sessionsAPI.markAttended(sessionId);
-          break;
-        case "No Show":
-          updatedSession = await sessionsAPI.markNoShow(sessionId);
-          break;
-        case "Rescheduled - Pending Make-up":
-          updatedSession = await sessionsAPI.markRescheduled(sessionId);
-          break;
-        case "Sick Leave - Pending Make-up":
-          updatedSession = await sessionsAPI.markSickLeave(sessionId);
-          break;
-        case "Weather Cancelled - Pending Make-up":
-          updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
-          break;
-        default:
-          updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
-      }
-      updateSessionInCache(updatedSession);
+      await callMarkApi(sessionId, status);
       setZenStatus(`✓ Marked as ${status}`, "success");
     } catch (error) {
       setZenStatus(`Failed to mark session: ${error}`, "error");
     } finally {
-      setMarkingSessionId(null);
+      setMarkingSessionIds(new Set());
     }
   }, []);
 
@@ -234,40 +211,12 @@ export default function ZenDashboardPage() {
     setMarkingSessionIds(new Set(sessionIds));
     setZenStatus(`Marking ${sessionIds.length} session(s) as ${status}...`, "info");
 
-    let successCount = 0;
-    let failCount = 0;
-
     const results = await Promise.allSettled(
-      sessionIds.map(async (id) => {
-        let updatedSession;
-        switch (status) {
-          case "Attended":
-            updatedSession = await sessionsAPI.markAttended(id);
-            break;
-          case "No Show":
-            updatedSession = await sessionsAPI.markNoShow(id);
-            break;
-          case "Rescheduled - Pending Make-up":
-            updatedSession = await sessionsAPI.markRescheduled(id);
-            break;
-          case "Sick Leave - Pending Make-up":
-            updatedSession = await sessionsAPI.markSickLeave(id);
-            break;
-          case "Weather Cancelled - Pending Make-up":
-            updatedSession = await sessionsAPI.markWeatherCancelled(id);
-            break;
-          default:
-            updatedSession = await sessionsAPI.updateSession(id, { session_status: status });
-        }
-        updateSessionInCache(updatedSession);
-        return updatedSession;
-      })
+      sessionIds.map((id) => callMarkApi(id, status))
     );
 
-    for (const r of results) {
-      if (r.status === "fulfilled") successCount++;
-      else failCount++;
-    }
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    const failCount = results.length - successCount;
 
     setMarkingSessionIds(new Set());
     clearSelection();
@@ -483,7 +432,6 @@ export default function ZenDashboardPage() {
               onAction={handleAction}
               onQuickMark={handleQuickMark}
               onBulkMark={handleBulkMark}
-              markingSessionId={markingSessionId}
               markingSessionIds={markingSessionIds}
               showStats={true}
             />

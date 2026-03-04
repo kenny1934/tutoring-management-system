@@ -16,13 +16,13 @@ interface ZenConfirmDialogProps {
 export function ZenConfirmDialog({ title, details, onConfirm, onCancel }: ZenConfirmDialogProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Block ALL keys from reaching other handlers while dialog is open
+      e.preventDefault();
+      e.stopPropagation();
+
       if (e.key === "y" || e.key === "Y" || e.key === "Enter") {
-        e.preventDefault();
-        e.stopPropagation();
         onConfirm();
       } else if (e.key === "n" || e.key === "N" || e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
         onCancel();
       }
     };

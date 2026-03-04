@@ -4,6 +4,8 @@
  */
 
 import type { Session } from "@/types";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import { GRADE_COLORS, getGradeColor } from "@/lib/constants";
 
 // Re-export for consumers
@@ -281,5 +283,85 @@ export function getStatusColor(status: string): 'success' | 'error' | 'warning' 
         return 'warning';
       }
       return 'dim';
+  }
+}
+
+/**
+ * Keyboard shortcut (1-5) to session status mapping.
+ * Used by ZenSessionList and sessions page for quick mark actions.
+ */
+export const QUICK_MARK_STATUS_MAP: Record<string, { status: string; label: string }> = {
+  "1": { status: "Attended", label: "Attended" },
+  "2": { status: "No Show", label: "No Show" },
+  "3": { status: "Rescheduled - Pending Make-up", label: "Rescheduled" },
+  "4": { status: "Sick Leave - Pending Make-up", label: "Sick Leave" },
+  "5": { status: "Weather Cancelled - Pending Make-up", label: "Weather Cancelled" },
+};
+
+/**
+ * Call the appropriate mark API for a given session status string.
+ * Centralizes the status-to-API mapping used by quick mark and bulk mark.
+ */
+export async function callMarkApi(sessionId: number, status: string): Promise<Session> {
+  let updatedSession: Session;
+  switch (status) {
+    case "Attended":
+      updatedSession = await sessionsAPI.markAttended(sessionId);
+      break;
+    case "No Show":
+      updatedSession = await sessionsAPI.markNoShow(sessionId);
+      break;
+    case "Rescheduled - Pending Make-up":
+      updatedSession = await sessionsAPI.markRescheduled(sessionId);
+      break;
+    case "Sick Leave - Pending Make-up":
+      updatedSession = await sessionsAPI.markSickLeave(sessionId);
+      break;
+    case "Weather Cancelled - Pending Make-up":
+      updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
+      break;
+    default:
+      updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
+  }
+  updateSessionInCache(updatedSession);
+  return updatedSession;
+}
+
+/**
+ * Build a breakdown string for the bulk confirm dialog.
+ * e.g. "8 Scheduled · 3 Trial · 1 Make-up"
+ */
+export function buildBulkDetails(ids: number[], flatSessions: Session[]): string {
+  const idSet = new Set(ids);
+  const counts: Record<string, number> = {};
+  for (const s of flatSessions) {
+    if (!idSet.has(s.id)) continue;
+    const label = s.session_status === "Trial Class" ? "Trial"
+      : s.session_status === "Make-up Class" ? "Make-up"
+      : "Scheduled";
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([label, count]) => `${count} ${label}`)
+    .join(" · ");
+}
+
+/**
+ * Get abbreviated status text for terminal display.
+ */
+export function getShortStatus(status: string): string {
+  switch (status) {
+    case "Attended": return "Attended";
+    case "Attended (Make-up)": return "Attended(MU)";
+    case "Attended (Trial)": return "Attended(T)";
+    case "Scheduled": return "Scheduled";
+    case "Trial Class": return "Trial";
+    case "Make-up Class": return "Make-up";
+    case "No Show": return "No Show";
+    case "Cancelled": return "Cancelled";
+    default:
+      if (status.includes("Pending Make-up")) return "Pending MU";
+      if (status.includes("Make-up Booked")) return "MU Booked";
+      return status.slice(0, 10);
   }
 }
