@@ -22,5 +22,5 @@ export { ZenStudentList } from "./ZenStudentList";
 // Hooks
 export { useKonamiCode } from "./hooks/useKonamiCode";
 
-// Utilities
-export * from "./utils/sessionSorting";
+// Utilities (named export to avoid barrel re-exporting SWR-dependent callMarkApi into server components)
+export { calculateStats } from "./utils/sessionSorting";
