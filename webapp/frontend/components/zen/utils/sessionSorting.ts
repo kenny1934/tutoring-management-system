@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Session sorting utilities for Zen mode
  * Replicates the exact sorting logic from TodaySessionsCard.tsx
