@@ -1128,8 +1128,6 @@ export default function ZenSettingsPage() {
       >
         <span style={{ color: "var(--zen-fg)" }}>1</span>/<span style={{ color: "var(--zen-fg)" }}>2</span> tabs{" "}
         <span style={{ color: "var(--zen-fg)" }}>h</span>/<span style={{ color: "var(--zen-fg)" }}>l</span> navigate |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>d</span>=dashboard{" "}
-        <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help | Auto-save
       </div>
     </div>

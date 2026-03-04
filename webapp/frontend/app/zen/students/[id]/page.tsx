@@ -8,7 +8,7 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
-import { getStatusChar, getStatusColor, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { getStatusChar, getStatusColor, getShortStatus, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { Enrollment, Session } from "@/types";
 
 type Tab = "info" | "enrollments" | "sessions";
@@ -505,21 +505,4 @@ function SessionsTab({
       })}
     </div>
   );
-}
-
-function getShortStatus(status: string): string {
-  switch (status) {
-    case "Attended": return "Attended";
-    case "Attended (Make-up)": return "Att(MU)";
-    case "Attended (Trial)": return "Att(T)";
-    case "Scheduled": return "Scheduled";
-    case "Trial Class": return "Trial";
-    case "Make-up Class": return "Make-up";
-    case "No Show": return "No Show";
-    case "Cancelled": return "Cancelled";
-    default:
-      if (status.includes("Pending Make-up")) return "Pending MU";
-      if (status.includes("Make-up Booked")) return "MU Booked";
-      return status.slice(0, 10);
-  }
 }

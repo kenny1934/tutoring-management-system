@@ -7,7 +7,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
-import { getStatusChar, getStatusColor } from "@/components/zen/utils/sessionSorting";
+import { getStatusChar, getStatusColor, getShortStatus } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import type { SessionRevenueDetail } from "@/types";
 
@@ -471,7 +471,7 @@ export default function ZenRevenuePage() {
                         {statusChar}
                       </span>
                       <span style={{ color: `var(--zen-${statusColor})`, fontSize: "11px", minWidth: "60px" }}>
-                        {getShortStatus(session.session_status)}
+                        {getShortStatus(session.session_status, true)}
                       </span>
 
                       {/* Amount */}
@@ -525,21 +525,4 @@ export default function ZenRevenuePage() {
       </div>
     </div>
   );
-}
-
-function getShortStatus(status: string): string {
-  switch (status) {
-    case "Attended": return "Att";
-    case "Attended (Make-up)": return "Att(MU)";
-    case "Attended (Trial)": return "Att(T)";
-    case "Scheduled": return "Sched";
-    case "Trial Class": return "Trial";
-    case "Make-up Class": return "MU";
-    case "No Show": return "NoShow";
-    case "Cancelled": return "Cancel";
-    default:
-      if (status.includes("Pending")) return "Pend";
-      if (status.includes("Booked")) return "Booked";
-      return status.slice(0, 6);
-  }
 }
