@@ -9,6 +9,9 @@ import {
   getGradeColor,
   canBeMarked,
   getTutorFirstName,
+  getShortStatus,
+  buildBulkDetails,
+  QUICK_MARK_STATUS_MAP,
   type GroupedSessionsResult,
 } from "./utils/sessionSorting";
 import { ZenSessionDetail } from "./ZenSessionDetail";
@@ -25,7 +28,6 @@ interface ZenSessionListProps {
   onAction?: (action: string, sessionIds: number[]) => void;
   onQuickMark?: (sessionId: number, status: string) => void;
   onBulkMark?: (sessionIds: number[], status: string) => void;
-  markingSessionId?: number | null;
   markingSessionIds?: Set<number>;
   showStats?: boolean;
 }
@@ -54,7 +56,6 @@ export function ZenSessionList({
   onAction,
   onQuickMark,
   onBulkMark,
-  markingSessionId,
   markingSessionIds,
   showStats = true,
 }: ZenSessionListProps) {
@@ -153,14 +154,7 @@ export function ZenSessionList({
         case "4":
         case "5": {
           e.preventDefault();
-          const statusMap: Record<string, { status: string; label: string }> = {
-            "1": { status: "Attended", label: "Attended" },
-            "2": { status: "No Show", label: "No Show" },
-            "3": { status: "Rescheduled - Pending Make-up", label: "Rescheduled" },
-            "4": { status: "Sick Leave - Pending Make-up", label: "Sick Leave" },
-            "5": { status: "Weather Cancelled - Pending Make-up", label: "Weather Cancelled" },
-          };
-          const action = statusMap[e.key];
+          const action = QUICK_MARK_STATUS_MAP[e.key];
           if (!action) break;
 
           if (selectedIds.size > 0 && onBulkMark) {
@@ -288,6 +282,7 @@ export function ZenSessionList({
             const gradeColor = getGradeColor(session.grade, session.lang_stream);
             const statusChar = getStatusChar(session.session_status);
             const isActionable = canBeMarked(session);
+            const isMarking = markingSessionIds?.has(session.id) ?? false;
 
             // Get the tutor display - check if this is first session for this tutor in group
             const tutorIndex = group.sessions.findIndex(
@@ -410,44 +405,37 @@ export function ZenSessionList({
                 </span>
 
                 {/* Status indicator */}
-                {(() => {
-                  const isMarking = markingSessionId === session.id || markingSessionIds?.has(session.id);
-                  return (
-                    <>
-                      <span
-                        style={{
-                          minWidth: "20px",
-                          textAlign: "center",
-                          color: isMarking
-                            ? "var(--zen-dim)"
-                            : `var(--zen-${statusColor})`,
-                          textShadow:
-                            !isMarking &&
-                            (statusColor === "success" || statusColor === "accent")
-                              ? "var(--zen-glow)"
-                              : "none",
-                        }}
-                      >
-                        {isMarking ? "○" : statusChar}
-                      </span>
+                <span
+                  style={{
+                    minWidth: "20px",
+                    textAlign: "center",
+                    color: isMarking
+                      ? "var(--zen-dim)"
+                      : `var(--zen-${statusColor})`,
+                    textShadow:
+                      !isMarking &&
+                      (statusColor === "success" || statusColor === "accent")
+                        ? "var(--zen-glow)"
+                        : "none",
+                  }}
+                >
+                  {isMarking ? "○" : statusChar}
+                </span>
 
-                      {/* Status text */}
-                      <span
-                        style={{
-                          color: isMarking
-                            ? "var(--zen-dim)"
-                            : `var(--zen-${statusColor})`,
-                          fontSize: "11px",
-                          minWidth: "80px",
-                        }}
-                      >
-                        {isMarking
-                          ? "..."
-                          : getShortStatus(session.session_status)}
-                      </span>
-                    </>
-                  );
-                })()}
+                {/* Status text */}
+                <span
+                  style={{
+                    color: isMarking
+                      ? "var(--zen-dim)"
+                      : `var(--zen-${statusColor})`,
+                    fontSize: "11px",
+                    minWidth: "80px",
+                  }}
+                >
+                  {isMarking
+                    ? "..."
+                    : getShortStatus(session.session_status)}
+                </span>
 
                 {/* Tutor name - only show for first session of each tutor */}
                 <span
@@ -517,52 +505,6 @@ export function ZenSessionList({
       )}
     </div>
   );
-}
-
-/**
- * Build a breakdown string for the bulk confirm dialog
- * e.g. "8 Scheduled · 3 Trial · 1 Make-up"
- */
-function buildBulkDetails(ids: number[], flatSessions: Session[]): string {
-  const sessions = flatSessions.filter((s) => ids.includes(s.id));
-  const counts: Record<string, number> = {};
-  for (const s of sessions) {
-    const label = s.session_status === "Trial Class" ? "Trial"
-      : s.session_status === "Make-up Class" ? "Make-up"
-      : "Scheduled";
-    counts[label] = (counts[label] || 0) + 1;
-  }
-  return Object.entries(counts)
-    .map(([label, count]) => `${count} ${label}`)
-    .join(" · ");
-}
-
-/**
- * Get status text for terminal display (matches GUI terminology)
- */
-function getShortStatus(status: string): string {
-  switch (status) {
-    case "Attended":
-      return "Attended";
-    case "Attended (Make-up)":
-      return "Attended(MU)";
-    case "Attended (Trial)":
-      return "Attended(T)";
-    case "Scheduled":
-      return "Scheduled";
-    case "Trial Class":
-      return "Trial";
-    case "Make-up Class":
-      return "Make-up";
-    case "No Show":
-      return "No Show";
-    case "Cancelled":
-      return "Cancelled";
-    default:
-      if (status.includes("Pending Make-up")) return "Pending MU";
-      if (status.includes("Make-up Booked")) return "MU Booked";
-      return status.slice(0, 10);
-  }
 }
 
 export default ZenSessionList;

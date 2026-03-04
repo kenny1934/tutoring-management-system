@@ -10,8 +10,6 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSessionDetail } from "@/components/zen/ZenSessionDetail";
 import { ZenConfirmDialog } from "@/components/zen/ZenConfirmDialog";
 import { ZenCalendar } from "@/components/zen/ZenCalendar";
-import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
 import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
 import { formatDateWithDay } from "@/lib/formatters";
 import {
@@ -21,6 +19,10 @@ import {
   getGradeColor,
   canBeMarked,
   getTutorFirstName,
+  getShortStatus,
+  callMarkApi,
+  buildBulkDetails,
+  QUICK_MARK_STATUS_MAP,
 } from "@/components/zen/utils/sessionSorting";
 import { isCountableSession } from "@/lib/session-status";
 import type { Session, SessionFilters } from "@/types";
@@ -54,23 +56,6 @@ function getDayIndexForDate(weekStart: string, dateStr: string): number {
   const dates = getWeekDates(weekStart);
   const idx = dates.indexOf(dateStr);
   return idx >= 0 ? idx : 0;
-}
-
-function getShortStatus(status: string): string {
-  switch (status) {
-    case "Attended": return "Attended";
-    case "Attended (Make-up)": return "Att(MU)";
-    case "Attended (Trial)": return "Att(T)";
-    case "Scheduled": return "Scheduled";
-    case "Trial Class": return "Trial";
-    case "Make-up Class": return "Make-up";
-    case "No Show": return "No Show";
-    case "Cancelled": return "Cancelled";
-    default:
-      if (status.includes("Pending Make-up")) return "Pending MU";
-      if (status.includes("Make-up Booked")) return "MU Booked";
-      return status.slice(0, 10);
-  }
 }
 
 // ── Main Page ──
@@ -118,7 +103,6 @@ export default function ZenSessionsPage() {
   // Day view state
   const [sessionCursor, setSessionCursor] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [markingSessionId, setMarkingSessionId] = useState<number | null>(null);
   const [markingSessionIds, setMarkingSessionIds] = useState<Set<number>>(new Set());
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ ids: number[]; status: string; label: string } | null>(null);
@@ -251,35 +235,15 @@ export default function ZenSessionsPage() {
 
   // Quick mark handler
   const handleQuickMark = useCallback(async (sessionId: number, status: string) => {
-    setMarkingSessionId(sessionId);
+    setMarkingSessionIds(new Set([sessionId]));
     setZenStatus(`Marking session as ${status}...`, "info");
     try {
-      let updatedSession;
-      switch (status) {
-        case "Attended":
-          updatedSession = await sessionsAPI.markAttended(sessionId);
-          break;
-        case "No Show":
-          updatedSession = await sessionsAPI.markNoShow(sessionId);
-          break;
-        case "Rescheduled - Pending Make-up":
-          updatedSession = await sessionsAPI.markRescheduled(sessionId);
-          break;
-        case "Sick Leave - Pending Make-up":
-          updatedSession = await sessionsAPI.markSickLeave(sessionId);
-          break;
-        case "Weather Cancelled - Pending Make-up":
-          updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
-          break;
-        default:
-          updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
-      }
-      updateSessionInCache(updatedSession);
+      await callMarkApi(sessionId, status);
       setZenStatus(`✓ Marked as ${status}`, "success");
     } catch (error) {
       setZenStatus(`Failed to mark session: ${error}`, "error");
     } finally {
-      setMarkingSessionId(null);
+      setMarkingSessionIds(new Set());
     }
   }, []);
 
@@ -288,40 +252,12 @@ export default function ZenSessionsPage() {
     setMarkingSessionIds(new Set(sessionIds));
     setZenStatus(`Marking ${sessionIds.length} session(s) as ${status}...`, "info");
 
-    let successCount = 0;
-    let failCount = 0;
-
     const results = await Promise.allSettled(
-      sessionIds.map(async (id) => {
-        let updatedSession;
-        switch (status) {
-          case "Attended":
-            updatedSession = await sessionsAPI.markAttended(id);
-            break;
-          case "No Show":
-            updatedSession = await sessionsAPI.markNoShow(id);
-            break;
-          case "Rescheduled - Pending Make-up":
-            updatedSession = await sessionsAPI.markRescheduled(id);
-            break;
-          case "Sick Leave - Pending Make-up":
-            updatedSession = await sessionsAPI.markSickLeave(id);
-            break;
-          case "Weather Cancelled - Pending Make-up":
-            updatedSession = await sessionsAPI.markWeatherCancelled(id);
-            break;
-          default:
-            updatedSession = await sessionsAPI.updateSession(id, { session_status: status });
-        }
-        updateSessionInCache(updatedSession);
-        return updatedSession;
-      })
+      sessionIds.map((id) => callMarkApi(id, status))
     );
 
-    for (const r of results) {
-      if (r.status === "fulfilled") successCount++;
-      else failCount++;
-    }
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    const failCount = results.length - successCount;
 
     setMarkingSessionIds(new Set());
     setSelectedIds(new Set());
@@ -475,14 +411,7 @@ export default function ZenSessionsPage() {
           case "4":
           case "5": {
             e.preventDefault();
-            const statusMap: Record<string, { status: string; label: string }> = {
-              "1": { status: "Attended", label: "Attended" },
-              "2": { status: "No Show", label: "No Show" },
-              "3": { status: "Rescheduled - Pending Make-up", label: "Rescheduled" },
-              "4": { status: "Sick Leave - Pending Make-up", label: "Sick Leave" },
-              "5": { status: "Weather Cancelled - Pending Make-up", label: "Weather Cancelled" },
-            };
-            const action = statusMap[e.key];
+            const action = QUICK_MARK_STATUS_MAP[e.key];
             if (!action) break;
 
             if (selectedIds.size > 0) {
@@ -752,7 +681,6 @@ export default function ZenSessionsPage() {
           sessionCursor={sessionCursor}
           selectedIds={selectedIds}
           expandedSessionId={expandedSessionId}
-          markingSessionId={markingSessionId}
           markingSessionIds={markingSessionIds}
           onToggleSelect={toggleSelect}
           onQuickMark={handleQuickMark}
@@ -936,30 +864,12 @@ interface TimeSlotGroup {
   sessions: Session[];
 }
 
-/**
- * Build a breakdown string for the bulk confirm dialog
- */
-function buildBulkDetails(ids: number[], flatSessions: Session[]): string {
-  const sessions = flatSessions.filter((s) => ids.includes(s.id));
-  const counts: Record<string, number> = {};
-  for (const s of sessions) {
-    const label = s.session_status === "Trial Class" ? "Trial"
-      : s.session_status === "Make-up Class" ? "Make-up"
-      : "Scheduled";
-    counts[label] = (counts[label] || 0) + 1;
-  }
-  return Object.entries(counts)
-    .map(([label, count]) => `${count} ${label}`)
-    .join(" · ");
-}
-
 function DayDetailView({
   sessions: groupedSessions,
   flatSessions,
   sessionCursor,
   selectedIds,
   expandedSessionId,
-  markingSessionId,
   markingSessionIds,
   onToggleSelect,
   onQuickMark,
@@ -971,8 +881,7 @@ function DayDetailView({
   sessionCursor: number;
   selectedIds: Set<number>;
   expandedSessionId: number | null;
-  markingSessionId: number | null;
-  markingSessionIds?: Set<number>;
+  markingSessionIds: Set<number>;
   onToggleSelect: (id: number) => void;
   onQuickMark: (sessionId: number, status: string) => void;
   cursorRowRef: React.RefObject<HTMLDivElement | null>;
@@ -1033,6 +942,7 @@ function DayDetailView({
             const statusChar = getStatusChar(session.session_status);
             const isActionable = canBeMarked(session);
             const isExpanded = expandedSessionId === session.id;
+            const isMarking = markingSessionIds.has(session.id);
 
             return (
               <div key={session.id} ref={isAtCursor ? cursorRowRef : undefined}>
@@ -1069,19 +979,12 @@ function DayDetailView({
                   <span style={{ minWidth: "70px", maxWidth: "70px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-dim)", fontSize: "11px" }}>
                     {session.school || "—"}
                   </span>
-                  {(() => {
-                    const isMarking = markingSessionId === session.id || markingSessionIds?.has(session.id);
-                    return (
-                      <>
-                        <span style={{ minWidth: "20px", textAlign: "center", color: isMarking ? "var(--zen-dim)" : `var(--zen-${statusColor})` }}>
-                          {isMarking ? "○" : statusChar}
-                        </span>
-                        <span style={{ color: isMarking ? "var(--zen-dim)" : `var(--zen-${statusColor})`, fontSize: "11px", minWidth: "70px" }}>
-                          {isMarking ? "..." : getShortStatus(session.session_status)}
-                        </span>
-                      </>
-                    );
-                  })()}
+                  <span style={{ minWidth: "20px", textAlign: "center", color: isMarking ? "var(--zen-dim)" : `var(--zen-${statusColor})` }}>
+                    {isMarking ? "○" : statusChar}
+                  </span>
+                  <span style={{ color: isMarking ? "var(--zen-dim)" : `var(--zen-${statusColor})`, fontSize: "11px", minWidth: "70px" }}>
+                    {isMarking ? "..." : getShortStatus(session.session_status)}
+                  </span>
                   <span style={{ minWidth: "80px", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-fg)", fontSize: "12px" }}>
                     {session.tutor_name ? getTutorFirstName(session.tutor_name) : "—"}
                   </span>
