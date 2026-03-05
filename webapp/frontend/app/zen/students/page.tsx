@@ -6,6 +6,7 @@ import { useStudents, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { ZenStudentList } from "@/components/zen/ZenStudentList";
 import type { Student, StudentFilters } from "@/types";
 
@@ -270,7 +271,7 @@ export default function ZenStudentsPage() {
 
       {/* Student List */}
       {isLoading ? (
-        <div style={{ color: "var(--zen-dim)" }}>Loading students...</div>
+        <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading students...</div>
       ) : (
         <ZenStudentList
           students={students || []}

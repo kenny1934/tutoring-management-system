@@ -7,6 +7,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { ZenSessionDetail } from "@/components/zen/ZenSessionDetail";
 import { ZenConfirmDialog } from "@/components/zen/ZenConfirmDialog";
 import { ZenCalendar } from "@/components/zen/ZenCalendar";
@@ -666,7 +667,7 @@ export default function ZenSessionsPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div style={{ color: "var(--zen-dim)" }}>Loading sessions...</div>
+        <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading sessions...</div>
       ) : viewMode === "week" ? (
         <WeekSummaryView
           weekStats={weekStats}
@@ -786,7 +787,7 @@ function WeekSummaryView({
         <span style={{ width: "50px", textAlign: "right" }}>OTHER</span>
       </div>
       <div style={{ color: "var(--zen-border)", marginBottom: "4px" }}>
-        {"─".repeat(50)}
+        {"─".repeat(60)}
       </div>
 
       {/* Day rows */}
@@ -834,7 +835,7 @@ function WeekSummaryView({
 
       {/* Totals */}
       <div style={{ color: "var(--zen-border)", marginTop: "4px", marginBottom: "4px" }}>
-        {"─".repeat(50)}
+        {"─".repeat(60)}
       </div>
       <div
         style={{
@@ -930,7 +931,7 @@ function DayDetailView({
             {slotGroup.timeSlot}
           </div>
           <div style={{ color: "var(--zen-border)", marginBottom: "2px", letterSpacing: "0.5px" }}>
-            {"─".repeat(35)}
+            {"─".repeat(30)}
           </div>
 
           {slotGroup.sessions.map((session) => {

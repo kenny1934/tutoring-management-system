@@ -18,6 +18,7 @@ export { ZenActivityFeed } from "./ZenActivityFeed";
 export { ZenCalendar } from "./ZenCalendar";
 export { ZenDistributionChart } from "./ZenDistributionChart";
 export { ZenStudentList } from "./ZenStudentList";
+export { ZenSpinner, ZenProgressBar } from "./ZenSpinner";
 
 // Hooks
 export { useKonamiCode } from "./hooks/useKonamiCode";
