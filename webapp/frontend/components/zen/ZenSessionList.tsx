@@ -9,9 +9,13 @@ import {
   getGradeColor,
   canBeMarked,
   getTutorFirstName,
+  getShortStatus,
+  buildBulkDetails,
+  QUICK_MARK_STATUS_MAP,
   type GroupedSessionsResult,
 } from "./utils/sessionSorting";
 import { ZenSessionDetail } from "./ZenSessionDetail";
+import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { isCountableSession } from "@/lib/session-status";
 
@@ -23,7 +27,8 @@ interface ZenSessionListProps {
   onCursorMove: (newIndex: number) => void;
   onAction?: (action: string, sessionIds: number[]) => void;
   onQuickMark?: (sessionId: number, status: string) => void;
-  markingSessionId?: number | null;
+  onBulkMark?: (sessionIds: number[], status: string) => void;
+  markingSessionIds?: Set<number>;
   showStats?: boolean;
 }
 
@@ -50,11 +55,14 @@ export function ZenSessionList({
   onCursorMove,
   onAction,
   onQuickMark,
-  markingSessionId,
+  onBulkMark,
+  markingSessionIds,
   showStats = true,
 }: ZenSessionListProps) {
   // Track which session has detail view expanded
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
+  // Confirm dialog state for bulk marking
+  const [confirmAction, setConfirmAction] = useState<{ ids: number[]; status: string; label: string } | null>(null);
 
   // Keyboard focus context
   const { isFocused, setFocusedSection } = useZenKeyboardFocus();
@@ -139,44 +147,33 @@ export function ZenSessionList({
           }
           break;
 
-        // Quick action keys for marking current session
+        // Quick action keys — bulk-aware when sessions are selected
         case "1":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Attended");
-          }
-          break;
-
         case "2":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "No Show");
-          }
-          break;
-
         case "3":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Rescheduled - Pending Make-up");
-          }
-          break;
-
         case "4":
+        case "5": {
           e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Sick Leave - Pending Make-up");
-          }
-          break;
+          const action = QUICK_MARK_STATUS_MAP[e.key];
+          if (!action) break;
 
-        case "5":
-          e.preventDefault();
-          if (currentSession && canBeMarked(currentSession) && onQuickMark) {
-            onQuickMark(currentSession.id, "Weather Cancelled - Pending Make-up");
+          if (selectedIds.size > 0 && onBulkMark) {
+            // Bulk mode: collect all selected sessions that can be marked
+            const actionableIds = flatSessions
+              .filter((s) => selectedIds.has(s.id) && canBeMarked(s))
+              .map((s) => s.id);
+            if (actionableIds.length > 0) {
+              setConfirmAction({ ids: actionableIds, status: action.status, label: action.label });
+            }
+          } else if (currentSession && canBeMarked(currentSession) && onQuickMark) {
+            // Single mode: mark cursor session
+            onQuickMark(currentSession.id, action.status);
           }
           break;
+        }
       }
     },
-    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, expandedSessionId, isFocused]
+    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, onBulkMark, expandedSessionId, isFocused]
   );
 
   // Register global keyboard handler
@@ -198,7 +195,7 @@ export function ZenSessionList({
   if (flatSessions.length === 0) {
     return (
       <div style={{ color: "var(--zen-dim)" }}>
-        No sessions today
+        No sessions
       </div>
     );
   }
@@ -228,6 +225,11 @@ export function ZenSessionList({
         >
           <span style={{ color: "var(--zen-dim)" }}>
             Total: <span style={{ color: "var(--zen-fg)" }}>{stats.total}</span>
+            {flatSessions.length > 0 && (
+              <span style={{ color: "var(--zen-accent)", marginLeft: "4px" }}>
+                ({cursorIndex + 1}/{flatSessions.length})
+              </span>
+            )}
           </span>
           <span style={{ color: "var(--zen-dim)" }}>
             Completed:{" "}
@@ -285,6 +287,7 @@ export function ZenSessionList({
             const gradeColor = getGradeColor(session.grade, session.lang_stream);
             const statusChar = getStatusChar(session.session_status);
             const isActionable = canBeMarked(session);
+            const isMarking = markingSessionIds?.has(session.id) ?? false;
 
             // Get the tutor display - check if this is first session for this tutor in group
             const tutorIndex = group.sessions.findIndex(
@@ -411,30 +414,30 @@ export function ZenSessionList({
                   style={{
                     minWidth: "20px",
                     textAlign: "center",
-                    color: markingSessionId === session.id
+                    color: isMarking
                       ? "var(--zen-dim)"
                       : `var(--zen-${statusColor})`,
                     textShadow:
-                      markingSessionId !== session.id &&
+                      !isMarking &&
                       (statusColor === "success" || statusColor === "accent")
                         ? "var(--zen-glow)"
                         : "none",
                   }}
                 >
-                  {markingSessionId === session.id ? "○" : statusChar}
+                  {isMarking ? "○" : statusChar}
                 </span>
 
                 {/* Status text */}
                 <span
                   style={{
-                    color: markingSessionId === session.id
+                    color: isMarking
                       ? "var(--zen-dim)"
                       : `var(--zen-${statusColor})`,
                     fontSize: "11px",
                     minWidth: "80px",
                   }}
                 >
-                  {markingSessionId === session.id
+                  {isMarking
                     ? "..."
                     : getShortStatus(session.session_status)}
                 </span>
@@ -481,47 +484,42 @@ export function ZenSessionList({
           fontSize: "11px",
         }}
       >
-        <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Space</span> select •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>1</span>=Attended{" "}
-        <span style={{ color: "var(--zen-fg)" }}>2</span>=No Show{" "}
-        <span style={{ color: "var(--zen-fg)" }}>3</span>=Reschedule{" "}
-        <span style={{ color: "var(--zen-fg)" }}>4</span>=Sick{" "}
-        <span style={{ color: "var(--zen-fg)" }}>5</span>=Weather •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>a</span> all •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Esc</span> clear
+        {selectedIds.size > 0 ? (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>1</span>-<span style={{ color: "var(--zen-fg)" }}>5</span> mark selected •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Esc</span> clear selection •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Space</span> toggle •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>a</span> select all
+          </>
+        ) : (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Space</span> select •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>1</span>=Attended{" "}
+            <span style={{ color: "var(--zen-fg)" }}>2</span>=No Show{" "}
+            <span style={{ color: "var(--zen-fg)" }}>3</span>=Reschedule{" "}
+            <span style={{ color: "var(--zen-fg)" }}>4</span>=Sick{" "}
+            <span style={{ color: "var(--zen-fg)" }}>5</span>=Weather •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>a</span> all
+          </>
+        )}
       </div>
+
+      {/* Bulk mark confirmation dialog */}
+      {confirmAction && (
+        <ZenConfirmDialog
+          title={`Mark ${confirmAction.ids.length} session${confirmAction.ids.length !== 1 ? "s" : ""} as ${confirmAction.label}?`}
+          details={buildBulkDetails(confirmAction.ids, flatSessions)}
+          onConfirm={() => {
+            onBulkMark?.(confirmAction.ids, confirmAction.status);
+            setConfirmAction(null);
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
-}
-
-/**
- * Get status text for terminal display (matches GUI terminology)
- */
-function getShortStatus(status: string): string {
-  switch (status) {
-    case "Attended":
-      return "Attended";
-    case "Attended (Make-up)":
-      return "Attended(MU)";
-    case "Attended (Trial)":
-      return "Attended(T)";
-    case "Scheduled":
-      return "Scheduled";
-    case "Trial Class":
-      return "Trial";
-    case "Make-up Class":
-      return "Make-up";
-    case "No Show":
-      return "No Show";
-    case "Cancelled":
-      return "Cancelled";
-    default:
-      if (status.includes("Pending Make-up")) return "Pending MU";
-      if (status.includes("Make-up Booked")) return "MU Booked";
-      return status.slice(0, 10);
-  }
 }
 
 export default ZenSessionList;

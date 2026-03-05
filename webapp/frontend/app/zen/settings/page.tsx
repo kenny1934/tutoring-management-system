@@ -6,6 +6,7 @@ import { useZen, ZEN_THEMES, type ZenTheme } from "@/contexts/ZenContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { api, type PathAliasDefinition } from "@/lib/api";
 import {
   getPathMappings,
@@ -785,7 +786,7 @@ export default function ZenSettingsPage() {
         </div>
 
         {mappingsLoading ? (
-          <div style={{ color: "var(--zen-dim)", fontSize: "12px" }}>Loading...</div>
+          <div style={{ color: "var(--zen-dim)", fontSize: "12px" }}><ZenSpinner /> Loading...</div>
         ) : (
           <>
             {/* Current Mappings */}
@@ -1128,8 +1129,6 @@ export default function ZenSettingsPage() {
       >
         <span style={{ color: "var(--zen-fg)" }}>1</span>/<span style={{ color: "var(--zen-fg)" }}>2</span> tabs{" "}
         <span style={{ color: "var(--zen-fg)" }}>h</span>/<span style={{ color: "var(--zen-fg)" }}>l</span> navigate |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>d</span>=dashboard{" "}
-        <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
         <span style={{ color: "var(--zen-fg)" }}>?</span>=help | Auto-save
       </div>
     </div>
