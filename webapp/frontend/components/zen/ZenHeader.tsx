@@ -267,7 +267,7 @@ export function ZenHeader() {
               {notifications.pendingPayments > 0 && (
                 <button
                   onClick={() => {
-                    router.push("/zen/students?status=pending");
+                    router.push("/zen/students");
                     setShowNotifications(false);
                   }}
                   style={{
@@ -307,6 +307,7 @@ export function ZenHeader() {
               {notifications.testsThisWeek > 0 && (
                 <button
                   onClick={() => {
+                    router.push("/zen");
                     setShowNotifications(false);
                   }}
                   style={{
@@ -367,8 +368,8 @@ export function ZenHeader() {
           }}
         >
           <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
-          <span style={{ color: "var(--zen-fg)" }}>T</span>=tools{" "}
-          <span style={{ color: "var(--zen-fg)" }}>P</span>=puzzle{" "}
+          <span style={{ color: "var(--zen-fg)" }}>Shift+T</span>=tools{" "}
+          <span style={{ color: "var(--zen-fg)" }}>Shift+P</span>=puzzle{" "}
           <span style={{ color: "var(--zen-fg)" }}>?</span>=help
         </span>
       </div>

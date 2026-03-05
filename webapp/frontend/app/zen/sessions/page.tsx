@@ -909,6 +909,11 @@ function DayDetailView({
       <div style={{ display: "flex", gap: "24px", marginBottom: "16px", fontSize: "12px" }}>
         <span style={{ color: "var(--zen-dim)" }}>
           Total: <span style={{ color: "var(--zen-fg)" }}>{flatSessions.filter(isCountableSession).length}</span>
+          {flatSessions.length > 0 && (
+            <span style={{ color: "var(--zen-accent)", marginLeft: "4px" }}>
+              ({sessionCursor + 1}/{flatSessions.length})
+            </span>
+          )}
         </span>
         <span style={{ color: "var(--zen-dim)" }}>
           Attended: <span style={{ color: "var(--zen-success)" }}>{attended}</span>
@@ -973,6 +978,18 @@ function DayDetailView({
                   </span>
                   <span style={{ minWidth: "160px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-fg)" }}>
                     {session.student_name || "Unknown"}
+                    {session.financial_status && session.financial_status !== "Paid" && (
+                      <span
+                        style={{
+                          color: "var(--zen-error)",
+                          marginLeft: "4px",
+                          fontWeight: "bold",
+                        }}
+                        title="Unpaid"
+                      >
+                        $
+                      </span>
+                    )}
                   </span>
                   <span style={{ width: "36px", padding: "0 4px", backgroundColor: gradeColor + "40", color: "var(--zen-fg)", borderRadius: "2px", textAlign: "center", fontSize: "11px" }}>
                     {session.grade || "—"}{session.lang_stream || ""}

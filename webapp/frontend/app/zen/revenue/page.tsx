@@ -74,7 +74,7 @@ export default function ZenRevenuePage() {
   const { viewMode } = useRole();
   const { setDisableSectionCycling } = useZenKeyboardFocus();
   const { data: tutors = [] } = useTutors();
-  const { data: activeTutors = [] } = useActiveTutors();
+  const { data: activeTutors = [], isLoading: tutorsLoading } = useActiveTutors();
 
   // Disable global Tab section cycling
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function ZenRevenuePage() {
   const viewedTutor = tutors.find((t) => t.id === effectiveTutorId);
   const showSalary = viewedTutor?.role && !["Admin", "Super Admin"].includes(viewedTutor.role);
 
-  const isLoading = summaryLoading || sessionsLoading;
+  const isLoading = summaryLoading || sessionsLoading || (canViewAdminPages && viewMode === "center-view" && tutorsLoading);
 
   // Session cursor
   const [sessionCursor, setSessionCursor] = useState(0);
@@ -324,7 +324,7 @@ export default function ZenRevenuePage() {
             }}
             title="Current month (t)"
           >
-            t=now
+            t=today
           </button>
         </div>
       </div>

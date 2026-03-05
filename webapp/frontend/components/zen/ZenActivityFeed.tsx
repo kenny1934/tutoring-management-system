@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { formatTimeAgo } from "@/lib/formatters";
 import type { ActivityEvent } from "@/types";
 
@@ -131,13 +132,13 @@ export function ZenActivityFeed({
 
   if (isLoading) {
     return (
-      <div style={{ color: "var(--zen-dim)" }}>Loading activity...</div>
+      <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading activity...</div>
     );
   }
 
   if (!events || events.length === 0) {
     return (
-      <div style={{ color: "var(--zen-dim)" }}>No recent activity.</div>
+      <div style={{ color: "var(--zen-dim)" }}>No recent activity</div>
     );
   }
 
@@ -145,7 +146,7 @@ export function ZenActivityFeed({
     <div
       className="zen-activity-feed"
       style={{
-        outline: hasFocus ? "1px solid var(--zen-accent)" : "none",
+        outline: hasFocus ? "1px solid var(--zen-accent)" : "1px solid transparent",
         outlineOffset: "2px",
         padding: "2px",
       }}
@@ -187,12 +188,12 @@ export function ZenActivityFeed({
               borderBottom: "1px dotted var(--zen-border)",
               cursor: isClickable ? "pointer" : "default",
               transition: "background-color 0.1s ease",
-              backgroundColor: isAtCursor ? "var(--zen-border)" : "transparent",
+              backgroundColor: isAtCursor ? "var(--zen-selection)" : "transparent",
               borderLeft: isAtCursor ? "2px solid var(--zen-accent)" : "2px solid transparent",
             }}
             onMouseEnter={(e) => {
               if (!isAtCursor && isClickable) {
-                e.currentTarget.style.backgroundColor = "var(--zen-border)";
+                e.currentTarget.style.backgroundColor = "var(--zen-selection)";
               }
             }}
             onMouseLeave={(e) => {
@@ -202,7 +203,7 @@ export function ZenActivityFeed({
             }}
             onFocus={(e) => {
               if (!isAtCursor && isClickable) {
-                e.currentTarget.style.backgroundColor = "var(--zen-border)";
+                e.currentTarget.style.backgroundColor = "var(--zen-selection)";
               }
             }}
             onBlur={(e) => {
