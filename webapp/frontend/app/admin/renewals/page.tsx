@@ -830,8 +830,10 @@ export default function AdminRenewalsPage() {
     try {
       // For "awaiting_payment" tab, we need to mark the RENEWAL enrollments as paid
       // The checkedIds contain the original enrollment IDs, so we need to find the renewal IDs
+      // Use `renewals` (full unfiltered list) instead of `activeList` (search-filtered) so items
+      // selected across different search queries are all found
       const renewalIds = Array.from(checkedIds)
-        .map(id => activeList.find(r => r.id === id)?.renewal_enrollment_id)
+        .map(id => renewals?.find(r => r.id === id)?.renewal_enrollment_id)
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
@@ -869,8 +871,9 @@ export default function AdminRenewalsPage() {
     setBatchLoading(true);
     try {
       // For "to_send" tab, we need to mark the RENEWAL enrollments' fee_message_sent
+      // Use `renewals` (full unfiltered list) instead of `activeList` (search-filtered)
       const renewalIds = Array.from(checkedIds)
-        .map(id => activeList.find(r => r.id === id)?.renewal_enrollment_id)
+        .map(id => renewals?.find(r => r.id === id)?.renewal_enrollment_id)
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
