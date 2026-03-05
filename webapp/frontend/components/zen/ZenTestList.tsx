@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { CalendarEvent } from "@/types";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { getDaysUntil } from "@/lib/calendar-utils";
 
 interface ZenTestListProps {
@@ -119,13 +120,13 @@ export function ZenTestList({
 
   if (isLoading) {
     return (
-      <div style={{ color: "var(--zen-dim)" }}>Loading tests...</div>
+      <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading tests...</div>
     );
   }
 
   if (upcomingEvents.length === 0) {
     return (
-      <div style={{ color: "var(--zen-dim)" }}>No upcoming tests scheduled.</div>
+      <div style={{ color: "var(--zen-dim)" }}>No upcoming tests scheduled</div>
     );
   }
 

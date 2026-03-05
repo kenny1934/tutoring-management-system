@@ -2,67 +2,37 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed, usePageTitle } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
+import { useRole } from "@/contexts/RoleContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
-import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
+import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, ZenSpinner, ZenProgressBar, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
-import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
-import { mutate } from "swr";
+import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { toDateString } from "@/lib/calendar-utils";
-
-// ASCII progress bar component
-function ZenProgressBar({ completed, total }: { completed: number; total: number }) {
-  const barWidth = 10;
-  const filled = total > 0 ? Math.round((completed / total) * barWidth) : 0;
-  const empty = barWidth - filled;
-  const bar = "█".repeat(filled) + "░".repeat(empty);
-
-  return (
-    <span style={{ fontFamily: "monospace" }}>
-      <span style={{ color: "var(--zen-dim)" }}>[</span>
-      <span style={{ color: completed === total && total > 0 ? "var(--zen-success)" : "var(--zen-accent)" }}>
-        {bar}
-      </span>
-      <span style={{ color: "var(--zen-dim)" }}>] </span>
-      <span style={{ color: "var(--zen-fg)" }}>{completed}</span>
-      <span style={{ color: "var(--zen-dim)" }}>/</span>
-      <span style={{ color: "var(--zen-fg)" }}>{total}</span>
-      <span style={{ color: "var(--zen-dim)" }}> done</span>
-    </span>
-  );
-}
-
-// ASCII spinner frames
-const SPINNER_FRAMES = ["|", "/", "-", "\\"];
-
-function ZenSpinner() {
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
-    }, 100);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <span>{SPINNER_FRAMES[frame]}</span>;
-}
 
 export default function ZenDashboardPage() {
   usePageTitle("Zen Mode");
+  const { user, impersonatedTutor } = useAuth();
   const { selectedLocation } = useLocation();
+  const { viewMode } = useRole();
   const { isFocused } = useZenKeyboardFocus();
+
+  // Determine effective tutor ID based on view mode and impersonation
+  const effectiveTutorId = viewMode === 'my-view'
+    ? impersonatedTutor?.id ?? user?.id
+    : undefined;
   const [showCalendar, setShowCalendar] = useState(false);
   const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
-  const [markingSessionId, setMarkingSessionId] = useState<number | null>(null);
+  const [markingSessionIds, setMarkingSessionIds] = useState<Set<number>>(new Set());
 
   // Use session context for shared state
   const {
     setSessions,
     selectedIds,
     toggleSelect,
+    clearSelection,
     cursorIndex,
     moveCursor,
     selectedDate,
@@ -141,15 +111,16 @@ export default function ZenDashboardPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showCalendar, navigateDate, goToToday, selectedDate, isFocused]);
 
-  const { data: stats, isLoading: statsLoading } = useDashboardStats(
-    selectedLocation === "All Locations" ? undefined : selectedLocation
-  );
+  const locationFilter = selectedLocation === "All Locations" ? undefined : selectedLocation;
+
+  const { data: stats, isLoading: statsLoading } = useDashboardStats(locationFilter, effectiveTutorId);
 
   // Get sessions for selected date using filters
   const { data: dateSessions, isLoading: sessionsLoading } = useSessions({
     from_date: selectedDate,
     to_date: selectedDate,
-    location: selectedLocation === "All Locations" ? undefined : selectedLocation,
+    location: locationFilter,
+    tutor_id: effectiveTutorId,
   });
 
   // Get upcoming calendar events (tests/exams)
@@ -157,7 +128,7 @@ export default function ZenDashboardPage() {
 
   // Get recent activity
   const { data: activityEvents, isLoading: activityLoading } = useActivityFeed(
-    selectedLocation === "All Locations" ? undefined : selectedLocation
+    locationFilter, effectiveTutorId
   );
 
   const isLoading = statsLoading || sessionsLoading;
@@ -185,37 +156,39 @@ export default function ZenDashboardPage() {
 
   // Quick mark handler for single session
   const handleQuickMark = useCallback(async (sessionId: number, status: string) => {
-    setMarkingSessionId(sessionId);
+    setMarkingSessionIds(new Set([sessionId]));
     setZenStatus(`Marking session as ${status}...`, "info");
     try {
-      let updatedSession;
-      switch (status) {
-        case "Attended":
-          updatedSession = await sessionsAPI.markAttended(sessionId);
-          break;
-        case "No Show":
-          updatedSession = await sessionsAPI.markNoShow(sessionId);
-          break;
-        case "Rescheduled - Pending Make-up":
-          updatedSession = await sessionsAPI.markRescheduled(sessionId);
-          break;
-        case "Sick Leave - Pending Make-up":
-          updatedSession = await sessionsAPI.markSickLeave(sessionId);
-          break;
-        case "Weather Cancelled - Pending Make-up":
-          updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
-          break;
-        default:
-          updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
-      }
-      updateSessionInCache(updatedSession);
+      await callMarkApi(sessionId, status);
       setZenStatus(`✓ Marked as ${status}`, "success");
     } catch (error) {
       setZenStatus(`Failed to mark session: ${error}`, "error");
     } finally {
-      setMarkingSessionId(null);
+      setMarkingSessionIds(new Set());
     }
   }, []);
+
+  // Bulk mark handler for multiple selected sessions
+  const handleBulkMark = useCallback(async (sessionIds: number[], status: string) => {
+    setMarkingSessionIds(new Set(sessionIds));
+    setZenStatus(`Marking ${sessionIds.length} session(s) as ${status}...`, "info");
+
+    const results = await Promise.allSettled(
+      sessionIds.map((id) => callMarkApi(id, status))
+    );
+
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    const failCount = results.length - successCount;
+
+    setMarkingSessionIds(new Set());
+    clearSelection();
+
+    if (failCount === 0) {
+      setZenStatus(`✓ ${successCount} session(s) marked as ${status}`, "success");
+    } else {
+      setZenStatus(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? "error" : "warning");
+    }
+  }, [clearSelection]);
 
   return (
     <div
@@ -410,7 +383,7 @@ export default function ZenDashboardPage() {
             )}
 
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ────────────────
+              {"─".repeat(30)}
             </div>
             <ZenSessionList
               sessions={dateSessions || []}
@@ -420,7 +393,8 @@ export default function ZenDashboardPage() {
               onCursorMove={moveCursor}
               onAction={handleAction}
               onQuickMark={handleQuickMark}
-              markingSessionId={markingSessionId}
+              onBulkMark={handleBulkMark}
+              markingSessionIds={markingSessionIds}
               showStats={true}
             />
           </section>
@@ -439,7 +413,7 @@ export default function ZenDashboardPage() {
               TESTS &amp; EXAMS
             </h2>
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ──────────────
+              {"─".repeat(30)}
             </div>
             <ZenTestList
               events={calendarEvents || []}
@@ -475,7 +449,7 @@ export default function ZenDashboardPage() {
               RECENT ACTIVITY
             </h2>
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ───────────────
+              {"─".repeat(30)}
             </div>
             <ZenActivityFeed
               events={activityEvents || []}
@@ -497,11 +471,7 @@ export default function ZenDashboardPage() {
             <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next{" "}
             <span style={{ color: "var(--zen-fg)" }}>t</span>=today{" "}
             <span style={{ color: "var(--zen-fg)" }}>C</span>=cal |{" "}
-            <span style={{ color: "var(--zen-fg)" }}>Tab</span>: sessions→tests→charts→activity→cmd |{" "}
-            <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
-            <span style={{ color: "var(--zen-fg)" }}>T</span>=tools{" "}
-            <span style={{ color: "var(--zen-fg)" }}>P</span>=puzzle{" "}
-            <span style={{ color: "var(--zen-fg)" }}>o</span>=settings{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Tab</span> cycle sections |{" "}
             <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>
