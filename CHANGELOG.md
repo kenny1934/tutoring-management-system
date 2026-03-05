@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.0.15](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.15) (2026-03-05)
+
+### New Features
+
+* **Zen mode pages** — added Students, Sessions, Revenue, and Courseware pages with full keyboard navigation
+* **Zen sessions week/day views** — redesigned with week summary + day detail layout, bulk-aware quick mark with confirmation dialog
+* **Shared zen components** — extracted ZenSpinner and ZenProgressBar for consistent loading states across all zen pages
+
+### Improvements
+
+* Deduplicated zen mark handlers, shared utilities, session sorting, date formatters, and enrollment utilities
+* Context-aware nav hints in zen session list (bulk vs default mode)
+* Standardized zen divider widths and empty state punctuation
+* Fixed zen header shortcut hints (Shift+T, Shift+P) and notification links
+
+### Bug Fixes
+
+* Fixed bulk confirm payment not decrementing student coupon count when enrollment has a coupon discount
+* Fixed renewals page bulk actions only processing the last selected item when items were selected across different search queries
+* Fixed zen revenue page infinite loading for admin center-view by including tutor loading state
+* Fixed zen activity feed cursor color and outline shift on focus
+* Fixed dashboard cards overflowing on narrow mobile screens
+* Fixed SWR server component build errors in sessionSorting and callMarkApi
+
 ## [2.0.14](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.14) (2026-03-01)
 
 ### Bug Fixes
