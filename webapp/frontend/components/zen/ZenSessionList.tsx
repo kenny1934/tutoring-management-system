@@ -195,7 +195,7 @@ export function ZenSessionList({
   if (flatSessions.length === 0) {
     return (
       <div style={{ color: "var(--zen-dim)" }}>
-        No sessions today
+        No sessions
       </div>
     );
   }

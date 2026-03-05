@@ -383,7 +383,7 @@ export default function ZenDashboardPage() {
             )}
 
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ────────────────
+              {"─".repeat(30)}
             </div>
             <ZenSessionList
               sessions={dateSessions || []}
@@ -413,7 +413,7 @@ export default function ZenDashboardPage() {
               TESTS &amp; EXAMS
             </h2>
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ──────────────
+              {"─".repeat(30)}
             </div>
             <ZenTestList
               events={calendarEvents || []}
@@ -449,7 +449,7 @@ export default function ZenDashboardPage() {
               RECENT ACTIVITY
             </h2>
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
-              ───────────────
+              {"─".repeat(30)}
             </div>
             <ZenActivityFeed
               events={activityEvents || []}
