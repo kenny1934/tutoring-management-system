@@ -7,48 +7,10 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
-import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
+import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, ZenSpinner, ZenProgressBar, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { toDateString } from "@/lib/calendar-utils";
-
-// ASCII progress bar component
-function ZenProgressBar({ completed, total }: { completed: number; total: number }) {
-  const barWidth = 10;
-  const filled = total > 0 ? Math.round((completed / total) * barWidth) : 0;
-  const empty = barWidth - filled;
-  const bar = "█".repeat(filled) + "░".repeat(empty);
-
-  return (
-    <span style={{ fontFamily: "monospace" }}>
-      <span style={{ color: "var(--zen-dim)" }}>[</span>
-      <span style={{ color: completed === total && total > 0 ? "var(--zen-success)" : "var(--zen-accent)" }}>
-        {bar}
-      </span>
-      <span style={{ color: "var(--zen-dim)" }}>] </span>
-      <span style={{ color: "var(--zen-fg)" }}>{completed}</span>
-      <span style={{ color: "var(--zen-dim)" }}>/</span>
-      <span style={{ color: "var(--zen-fg)" }}>{total}</span>
-      <span style={{ color: "var(--zen-dim)" }}> done</span>
-    </span>
-  );
-}
-
-// ASCII spinner frames
-const SPINNER_FRAMES = ["|", "/", "-", "\\"];
-
-function ZenSpinner() {
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
-    }, 100);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <span>{SPINNER_FRAMES[frame]}</span>;
-}
 
 export default function ZenDashboardPage() {
   usePageTitle("Zen Mode");

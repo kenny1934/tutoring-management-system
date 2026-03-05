@@ -225,6 +225,11 @@ export function ZenSessionList({
         >
           <span style={{ color: "var(--zen-dim)" }}>
             Total: <span style={{ color: "var(--zen-fg)" }}>{stats.total}</span>
+            {flatSessions.length > 0 && (
+              <span style={{ color: "var(--zen-accent)", marginLeft: "4px" }}>
+                ({cursorIndex + 1}/{flatSessions.length})
+              </span>
+            )}
           </span>
           <span style={{ color: "var(--zen-dim)" }}>
             Completed:{" "}
@@ -479,16 +484,26 @@ export function ZenSessionList({
           fontSize: "11px",
         }}
       >
-        <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Space</span> select •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>1</span>=Attended{" "}
-        <span style={{ color: "var(--zen-fg)" }}>2</span>=No Show{" "}
-        <span style={{ color: "var(--zen-fg)" }}>3</span>=Reschedule{" "}
-        <span style={{ color: "var(--zen-fg)" }}>4</span>=Sick{" "}
-        <span style={{ color: "var(--zen-fg)" }}>5</span>=Weather •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>a</span> all •{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Esc</span> clear
+        {selectedIds.size > 0 ? (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>1</span>-<span style={{ color: "var(--zen-fg)" }}>5</span> mark selected •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Esc</span> clear selection •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Space</span> toggle •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>a</span> select all
+          </>
+        ) : (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Space</span> select •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>1</span>=Attended{" "}
+            <span style={{ color: "var(--zen-fg)" }}>2</span>=No Show{" "}
+            <span style={{ color: "var(--zen-fg)" }}>3</span>=Reschedule{" "}
+            <span style={{ color: "var(--zen-fg)" }}>4</span>=Sick{" "}
+            <span style={{ color: "var(--zen-fg)" }}>5</span>=Weather •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>a</span> all
+          </>
+        )}
       </div>
 
       {/* Bulk mark confirmation dialog */}

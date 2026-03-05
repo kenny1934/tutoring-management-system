@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, usePageTitle } from "@/lib/hooks";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
@@ -148,7 +149,7 @@ export default function ZenStudentDetailPage() {
   if (studentLoading) {
     return (
       <div style={{ maxWidth: "1000px", margin: "0 auto", color: "var(--zen-dim)" }}>
-        Loading student...
+        <ZenSpinner /> Loading student...
       </div>
     );
   }
@@ -333,7 +334,7 @@ function EnrollmentsTab({
   cursorRowRef: React.RefObject<HTMLDivElement | null>;
 }) {
   if (isLoading) {
-    return <div style={{ color: "var(--zen-dim)" }}>Loading enrollments...</div>;
+    return <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading enrollments...</div>;
   }
 
   if (enrollments.length === 0) {
@@ -438,7 +439,7 @@ function SessionsTab({
   cursorRowRef: React.RefObject<HTMLDivElement | null>;
 }) {
   if (isLoading) {
-    return <div style={{ color: "var(--zen-dim)" }}>Loading sessions...</div>;
+    return <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading sessions...</div>;
   }
 
   if (sessions.length === 0) {

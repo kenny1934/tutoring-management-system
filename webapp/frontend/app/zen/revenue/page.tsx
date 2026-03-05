@@ -7,6 +7,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { getStatusChar, getStatusColor, getShortStatus } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import type { SessionRevenueDetail } from "@/types";
@@ -329,7 +330,7 @@ export default function ZenRevenuePage() {
       </div>
 
       {isLoading ? (
-        <div style={{ color: "var(--zen-dim)" }}>Loading revenue data...</div>
+        <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading revenue data...</div>
       ) : !summary ? (
         <div style={{ color: "var(--zen-dim)" }}>No revenue data for this period</div>
       ) : (
@@ -347,7 +348,7 @@ export default function ZenRevenuePage() {
             >
               SUMMARY
             </h2>
-            <div style={{ color: "var(--zen-dim)", marginBottom: "12px" }}>{"─".repeat(40)}</div>
+            <div style={{ color: "var(--zen-dim)", marginBottom: "12px" }}>{"─".repeat(60)}</div>
 
             <div
               style={{
@@ -401,7 +402,7 @@ export default function ZenRevenuePage() {
               >
                 DAILY BREAKDOWN
               </h2>
-              <div style={{ color: "var(--zen-dim)", marginBottom: "12px" }}>{"─".repeat(40)}</div>
+              <div style={{ color: "var(--zen-dim)", marginBottom: "12px" }}>{"─".repeat(60)}</div>
               <AsciiBarChart data={dailyBreakdown} />
             </section>
           )}

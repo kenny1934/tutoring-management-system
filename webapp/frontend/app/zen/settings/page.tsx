@@ -6,6 +6,7 @@ import { useZen, ZEN_THEMES, type ZenTheme } from "@/contexts/ZenContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { api, type PathAliasDefinition } from "@/lib/api";
 import {
   getPathMappings,
@@ -785,7 +786,7 @@ export default function ZenSettingsPage() {
         </div>
 
         {mappingsLoading ? (
-          <div style={{ color: "var(--zen-dim)", fontSize: "12px" }}>Loading...</div>
+          <div style={{ color: "var(--zen-dim)", fontSize: "12px" }}><ZenSpinner /> Loading...</div>
         ) : (
           <>
             {/* Current Mappings */}
