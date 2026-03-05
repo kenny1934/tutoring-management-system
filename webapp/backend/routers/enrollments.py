@@ -2257,7 +2257,7 @@ async def cancel_enrollment(
 async def batch_mark_paid(
     request: BatchEnrollmentRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin_write)
+    current_user: Tutor = Depends(require_admin_write)
 ):
     """
     Mark multiple enrollments as paid.
@@ -2266,7 +2266,9 @@ async def batch_mark_paid(
     """
     updated = []
     for eid in request.enrollment_ids:
-        enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
+        enrollment = db.query(Enrollment).options(
+            joinedload(Enrollment.discount)
+        ).filter(Enrollment.id == eid).first()
         if enrollment and enrollment.payment_status != 'Paid':
             enrollment.payment_status = 'Paid'
             enrollment.payment_date = date.today()
@@ -2276,6 +2278,15 @@ async def batch_mark_paid(
             db.query(SessionLog).filter(
                 SessionLog.enrollment_id == eid
             ).update({'financial_status': 'Paid'})
+            # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
+            if (enrollment.discount and
+                enrollment.discount.discount_value and
+                int(enrollment.discount.discount_value) in (200, 300)):
+                student_coupon = db.query(StudentCoupon).filter(
+                    StudentCoupon.student_id == enrollment.student_id
+                ).first()
+                if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+                    student_coupon.available_coupons -= 1
             updated.append(eid)
 
     db.commit()
