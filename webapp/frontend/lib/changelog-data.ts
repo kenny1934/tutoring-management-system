@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout"
+          },
+          {
+            "description": "**Document editor list improvements** — nested list style cycling (1→a→i for ordered, disc→circle→square for bullets), task/checklist support with toolbar button and `Ctrl+Shift+9` shortcut, arbitrary start number input rule (e.g. type `3. ` to start at 3), start number dropdown on toolbar, right-click context menu for ordered lists (restart numbering, set value, convert types), and plain text paste detection for list patterns"
           }
         ]
       },
@@ -29,6 +32,9 @@ const changelogData = [
           },
           {
             "description": "Improved visual distinction between Book/Propose modes in makeup modal — color-coded toggle (green for Book, blue for Propose) with accent border"
+          },
+          {
+            "description": "Fixed inbox showing message threads not belonging to the current user"
           }
         ]
       }
