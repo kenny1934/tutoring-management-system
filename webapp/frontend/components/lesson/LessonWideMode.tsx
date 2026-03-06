@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
+  ArrowLeft, Calendar, MapPin, HelpCircle,
   Maximize2, Minimize2, PencilLine, Users,
-  AlertTriangle, Loader2 as Loader2Icon, LayoutList, FileStack,
+  AlertTriangle, Loader2 as Loader2Icon, LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
@@ -512,14 +512,25 @@ export function LessonWideMode({
   }, [onSessionDataChange]);
 
   // --- Print ---
-  const handlePrint = useCallback(async () => {
-    if (!selectedEntry?.exercise?.pdf_name) return;
+  const handlePrint = useCallback(async (entry?: StudentExerciseEntry) => {
+    const target = entry || selectedEntry;
+    if (!target?.exercise?.pdf_name) return;
+    const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
+    const entryStamp: PrintStampInfo = {
+      location: target.session.location,
+      schoolStudentId: target.session.school_student_id,
+      studentName: target.session.student_name,
+      sessionDate: target.session.session_date,
+      sessionTime: target.session.time_slot,
+    };
     await printFileFromPathWithFallback(
-      selectedEntry.exercise.pdf_name,
-      getExercisePageNumbers(selectedEntry.exercise),
-      stamp
+      target.exercise.pdf_name,
+      target.exercise.page_start,
+      target.exercise.page_end,
+      complexPages || undefined,
+      entryStamp
     );
-  }, [selectedEntry, stamp]);
+  }, [selectedEntry]);
 
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
@@ -723,7 +734,7 @@ export function LessonWideMode({
         <div className="flex items-center gap-2 min-w-0">
           <Users className="h-4 w-4 text-white/70 flex-shrink-0" />
           <span className="text-sm font-bold text-white/90 truncate">
-            {slot}
+            {tutorName ? `${tutorName} — ${slot}` : slot}
           </span>
           <span className="text-xs text-white/50">
             ({sessions.length} student{sessions.length !== 1 ? "s" : ""})
@@ -771,30 +782,6 @@ export function LessonWideMode({
 
         <div className="flex-1" />
 
-        {/* Sidebar mode toggle */}
-        <div className="hidden md:flex items-center bg-white/10 rounded-lg p-0.5">
-          <button
-            onClick={() => setSidebarMode("by-student")}
-            className={cn(
-              "p-1.5 rounded-md transition-colors",
-              sidebarMode === "by-student" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/70"
-            )}
-            title="Group by student"
-          >
-            <Users className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setSidebarMode("by-file")}
-            className={cn(
-              "p-1.5 rounded-md transition-colors",
-              sidebarMode === "by-file" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/70"
-            )}
-            title="Group by file"
-          >
-            <FileStack className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
         {/* Annotation mode toggle */}
         {selectedEntry?.exercise?.pdf_name && (
           <button
@@ -808,17 +795,6 @@ export function LessonWideMode({
             title={drawingEnabled ? "Exit annotation mode (Esc)" : "Annotation mode (D)"}
           >
             <PencilLine className="h-3.5 w-3.5" />
-          </button>
-        )}
-
-        {/* Print button */}
-        {selectedEntry?.exercise?.pdf_name && (
-          <button
-            onClick={handlePrint}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-            title="Print current exercise (P)"
-          >
-            <Printer className="h-3.5 w-3.5 text-white/70" />
           </button>
         )}
 
@@ -864,6 +840,7 @@ export function LessonWideMode({
     isReadOnly,
     hasAnnotations: checkHasAnnotations,
     selectedLocation,
+    onPrint: handlePrint,
   };
 
   return (
