@@ -43,7 +43,7 @@ export default function FloatingDropdown({
 
     const newStyle: React.CSSProperties = {
       position: "fixed",
-      zIndex: 61,
+      zIndex: 10001,
       maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
     };
 
@@ -109,7 +109,7 @@ export default function FloatingDropdown({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60]" onClick={(e) => { e.stopPropagation(); onClose(); }} />
+      <div className="fixed inset-0 z-[10000]" onClick={(e) => { e.stopPropagation(); onClose(); }} />
       <div ref={dropdownRef} style={style} className={cn(className)}>
         {children}
       </div>
