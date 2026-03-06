@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
-import type { Session, SessionExercise } from "@/types";
+import type { Session, SessionExercise, MakeupProposal } from "@/types";
 import { canBeMarked, getStatusChar, getStatusColor } from "./utils/sessionSorting";
+import { getPendingSlotCount } from "@/lib/proposal-utils";
 import { openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { sessionsAPI, api } from "@/lib/api";
@@ -15,6 +16,7 @@ interface ZenSessionDetailProps {
   onClose: () => void;
   onMark: (sessionId: number, status: string) => void;
   onRefresh?: () => void;
+  proposal?: MakeupProposal;
 }
 
 /**
@@ -41,6 +43,7 @@ export function ZenSessionDetail({
   onClose,
   onMark,
   onRefresh,
+  proposal,
 }: ZenSessionDetailProps) {
   const [isMarking, setIsMarking] = useState(false);
   const [isRating, setIsRating] = useState(false);
@@ -479,6 +482,99 @@ export function ZenSessionDetail({
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Makeup Proposal */}
+      {proposal && (
+        <div
+          style={{
+            marginTop: "16px",
+            paddingTop: "12px",
+            borderTop: "1px solid var(--zen-border)",
+          }}
+        >
+          <div
+            style={{
+              color: "var(--zen-warning)",
+              fontWeight: "bold",
+              marginBottom: "8px",
+              fontSize: "12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            MAKEUP PROPOSAL
+            <span style={{
+              backgroundColor: "var(--zen-warning)",
+              color: "var(--zen-bg)",
+              padding: "0 6px",
+              fontSize: "10px",
+            }}>
+              {getPendingSlotCount(proposal)} pending
+            </span>
+          </div>
+          <div style={{ fontSize: "12px", marginBottom: "8px" }}>
+            <span style={{ color: "var(--zen-dim)" }}>Type: </span>
+            <span style={{ color: "var(--zen-fg)" }}>{proposal.proposal_type.replace(/_/g, " ")}</span>
+            {proposal.proposed_by_tutor_name && (
+              <>
+                <span style={{ color: "var(--zen-dim)", marginLeft: "12px" }}>By: </span>
+                <span style={{ color: "var(--zen-fg)" }}>{proposal.proposed_by_tutor_name}</span>
+              </>
+            )}
+            {proposal.notes && (
+              <>
+                <span style={{ color: "var(--zen-dim)", marginLeft: "12px" }}>Notes: </span>
+                <span style={{ color: "var(--zen-fg)" }}>{proposal.notes}</span>
+              </>
+            )}
+          </div>
+          {proposal.slots.map((slot, idx) => {
+            const slotDate = new Date(slot.proposed_date + "T00:00:00");
+            const weekday = slotDate.toLocaleDateString("en-US", { weekday: "short" });
+            const statusColor = slot.slot_status === "pending"
+              ? "var(--zen-warning)"
+              : slot.slot_status === "approved"
+              ? "var(--zen-success)"
+              : "var(--zen-error)";
+            return (
+              <div
+                key={slot.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  marginBottom: "2px",
+                  padding: "2px 4px",
+                }}
+              >
+                <span style={{ color: "var(--zen-dim)", width: "20px" }}>{idx + 1}.</span>
+                <span style={{ color: "var(--zen-fg)", minWidth: "120px" }}>
+                  {slot.proposed_date} {weekday}
+                </span>
+                <span style={{ color: "var(--zen-dim)", minWidth: "100px" }}>
+                  {slot.proposed_time_slot}
+                </span>
+                <span style={{ color: "var(--zen-dim)", minWidth: "40px" }}>
+                  {slot.proposed_location}
+                </span>
+                <span style={{ color: "var(--zen-fg)", minWidth: "80px" }}>
+                  {slot.proposed_tutor_name || "—"}
+                </span>
+                <span style={{
+                  color: statusColor,
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}>
+                  {slot.slot_status}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
