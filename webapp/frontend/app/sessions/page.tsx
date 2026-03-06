@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -2010,13 +2010,11 @@ export default function SessionsPage() {
                               <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                                 {tierConfig.label}
                               </h3>
-                              <motion.div
-                                animate={{ rotate: isCollapsed ? -90 : 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="flex-shrink-0"
-                              >
-                                <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                              </motion.div>
+                              <div className="flex-shrink-0">
+                                {isCollapsed
+                                  ? <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                                  : <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />}
+                              </div>
                             </div>
                             <div className={cn("px-3 py-1 rounded-full border-2 font-bold text-xs sm:text-sm flex-shrink-0", tierConfig.badgeBg, tierConfig.badgeText, tierConfig.badgeBorder)}>
                               {tierSessions.length} session{tierSessions.length !== 1 ? 's' : ''}{isCollapsed ? '' : (() => {
@@ -2294,12 +2292,11 @@ export default function SessionsPage() {
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {timeSlot}
                             </h3>
-                            <motion.div
-                              animate={{ rotate: collapsedSlots.has(timeSlot) ? -90 : 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                            </motion.div>
+                            <div>
+                              {collapsedSlots.has(timeSlot)
+                                ? <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                : <ChevronUp className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
+                            </div>
                           </div>
 
                           {/* Right: counts */}
