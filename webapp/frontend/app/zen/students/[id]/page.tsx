@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, usePageTitle } from "@/lib/hooks";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
+import { ZenEnrollmentDetail } from "@/components/zen/ZenEnrollmentDetail";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
@@ -27,7 +28,7 @@ export default function ZenStudentDetailPage() {
   }, [setDisableSectionCycling]);
 
   const { data: student, isLoading: studentLoading } = useStudent(id);
-  const { data: enrollments, isLoading: enrollmentsLoading } = useStudentEnrollments(id);
+  const { data: enrollments, isLoading: enrollmentsLoading, mutate: mutateEnrollments } = useStudentEnrollments(id);
   const { data: sessions, isLoading: sessionsLoading } = useStudentSessions(id, 50);
 
   usePageTitle(student ? `${student.student_name} - Zen Mode` : "Student - Zen Mode");
@@ -35,6 +36,7 @@ export default function ZenStudentDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [enrollmentCursor, setEnrollmentCursor] = useState(0);
   const [sessionCursor, setSessionCursor] = useState(0);
+  const [expandedEnrollmentId, setExpandedEnrollmentId] = useState<number | null>(null);
 
   // Sorted sessions (most recent first)
   const sortedSessions = useMemo(
@@ -126,17 +128,28 @@ export default function ZenStudentDetailPage() {
           }
           break;
 
+        case "Escape":
+          if (expandedEnrollmentId !== null) {
+            e.preventDefault();
+            setExpandedEnrollmentId(null);
+          }
+          break;
+
         case "Backspace":
           e.preventDefault();
-          router.push("/zen/students");
-          setZenStatus("Back to students", "info");
+          if (expandedEnrollmentId !== null) {
+            setExpandedEnrollmentId(null);
+          } else {
+            router.push("/zen/students");
+            setZenStatus("Back to students", "info");
+          }
           break;
 
         case "Enter":
           e.preventDefault();
           if (activeTab === "enrollments" && sortedEnrollments[enrollmentCursor]) {
             const enrollment = sortedEnrollments[enrollmentCursor];
-            setZenStatus(`Enrollment #${enrollment.id}: ${enrollment.assigned_day} ${enrollment.assigned_time} — ${getDisplayPaymentStatus(enrollment)}`, "info");
+            setExpandedEnrollmentId((prev) => prev === enrollment.id ? null : enrollment.id);
           }
           break;
       }
@@ -144,7 +157,7 @@ export default function ZenStudentDetailPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, sortedEnrollments, sortedSessions, enrollmentCursor, sessionCursor, router]);
+  }, [activeTab, sortedEnrollments, sortedSessions, enrollmentCursor, sessionCursor, expandedEnrollmentId, router]);
 
   if (studentLoading) {
     return (
@@ -240,6 +253,9 @@ export default function ZenStudentDetailPage() {
           isLoading={enrollmentsLoading}
           cursorIndex={enrollmentCursor}
           cursorRowRef={cursorRowRef}
+          expandedEnrollmentId={expandedEnrollmentId}
+          onCloseDetail={() => setExpandedEnrollmentId(null)}
+          onRefresh={() => mutateEnrollments()}
         />
       )}
 
@@ -262,12 +278,24 @@ export default function ZenStudentDetailPage() {
           fontSize: "12px",
         }}
       >
-        <span style={{ color: "var(--zen-fg)" }}>1/2/3</span> tabs{" "}
-        <span style={{ color: "var(--zen-fg)" }}>h/l</span> navigate |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>j/k</span> scroll{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail |{" "}
-        <span style={{ color: "var(--zen-fg)" }}>Backspace</span> back{" "}
-        <span style={{ color: "var(--zen-fg)" }}>?</span>=help
+        {expandedEnrollmentId !== null ? (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>p</span>=pay{" "}
+            <span style={{ color: "var(--zen-fg)" }}>m</span>=mark sent{" "}
+            <span style={{ color: "var(--zen-fg)" }}>f</span>=fee msg{" "}
+            <span style={{ color: "var(--zen-fg)" }}>x</span>=cancel |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Esc</span> close
+          </>
+        ) : (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>1/2/3</span> tabs{" "}
+            <span style={{ color: "var(--zen-fg)" }}>h/l</span> navigate |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>j/k</span> scroll{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Backspace</span> back{" "}
+            <span style={{ color: "var(--zen-fg)" }}>?</span>=help
+          </>
+        )}
       </div>
     </div>
   );
@@ -327,11 +355,17 @@ function EnrollmentsTab({
   isLoading,
   cursorIndex,
   cursorRowRef,
+  expandedEnrollmentId,
+  onCloseDetail,
+  onRefresh,
 }: {
   enrollments: Enrollment[];
   isLoading: boolean;
   cursorIndex: number;
   cursorRowRef: React.RefObject<HTMLDivElement | null>;
+  expandedEnrollmentId: number | null;
+  onCloseDetail: () => void;
+  onRefresh: () => void;
 }) {
   if (isLoading) {
     return <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading enrollments...</div>;
@@ -354,8 +388,8 @@ function EnrollmentsTab({
           : "var(--zen-warning)";
 
         return (
+          <React.Fragment key={enrollment.id}>
           <div
-            key={enrollment.id}
             ref={isAtCursor ? cursorRowRef : undefined}
             style={{
               display: "flex",
@@ -419,6 +453,15 @@ function EnrollmentsTab({
               {enrollment.lessons_paid ? `${enrollment.lessons_paid}L` : ""}
             </span>
           </div>
+          {expandedEnrollmentId === enrollment.id && (
+            <ZenEnrollmentDetail
+              enrollmentId={enrollment.id}
+              enrollment={enrollment}
+              onClose={onCloseDetail}
+              onRefresh={onRefresh}
+            />
+          )}
+        </React.Fragment>
         );
       })}
     </div>

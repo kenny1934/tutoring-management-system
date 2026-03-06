@@ -131,6 +131,7 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         n: "/zen/sessions",
         c: "/zen/courseware",
         r: "/zen/revenue",
+        e: "/zen/enrollments",
         d: "/zen",
         o: "/zen/settings",
       };
