@@ -22,6 +22,7 @@ import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, CustomOrderedList, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -31,6 +32,7 @@ import {
   Strikethrough,
   List,
   ListOrdered,
+  ListTodo,
   TextQuote,
   Code,
   Underline as UnderlineIcon,
@@ -370,7 +372,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   }, [doc.id, onUpdate]);
 
   // Dropdown states — only one toolbar menu can be open at a time
-  type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | null;
+  type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | "orderedListStart" | null;
   const [activeMenu, setActiveMenu] = useState<MenuId>(null);
   const toggleMenu = (id: MenuId) => setActiveMenu(prev => prev === id ? null : id);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
@@ -389,6 +391,11 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
   // Keyboard shortcuts modal
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  // List context menu
+  const [listContextMenu, setListContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const listContextMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(listContextMenuRef, () => setListContextMenu(null));
 
   // Paper mode: document content always in light/print colors
   const [paperMode, setPaperMode] = useState(() => {
@@ -570,11 +577,12 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       if (e.key === "Escape") {
         if (showFindReplace) { setShowFindReplace(false); setSearchTerm(""); editorInstanceRef.current?.commands.clearSearch(); }
         if (showShortcutsModal) setShowShortcutsModal(false);
+        if (listContextMenu) setListContextMenu(null);
       }
     };
     document.addEventListener("keydown", handleGlobalKeys);
     return () => document.removeEventListener("keydown", handleGlobalKeys);
-  }, [zoomIn, zoomOut, showFindReplace, showShortcutsModal]);
+  }, [zoomIn, zoomOut, showFindReplace, showShortcutsModal, listContextMenu]);
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
@@ -620,8 +628,10 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     immediatelyRender: false,
     editable: !isReadOnly,
     extensions: [
-      StarterKit.configure({ orderedList: false }),
+      StarterKit.configure({ orderedList: false, bulletList: { keepMarks: true, keepAttributes: true } }),
       CustomOrderedList,
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: "Start writing..." }),
       TextStyle,
       Color,
@@ -700,6 +710,31 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             event.preventDefault();
             handleImageUpload(imageFiles);
             return true;
+          }
+        }
+        // Convert plain text numbered/bullet lists to HTML
+        const html = event.clipboardData?.getData("text/html");
+        if (!html) {
+          const text = event.clipboardData?.getData("text/plain");
+          if (text) {
+            const nonEmpty = text.split("\n").filter(l => l.trim());
+            if (nonEmpty.length >= 2) {
+              const olPattern = /^\d+[.)]\s+/;
+              const ulPattern = /^[-*•]\s+/;
+              const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+              if (nonEmpty.every(l => olPattern.test(l))) {
+                event.preventDefault();
+                const items = nonEmpty.map(l => `<li>${esc(l.replace(olPattern, ""))}</li>`).join("");
+                editor?.commands.insertContent(`<ol>${items}</ol>`);
+                return true;
+              }
+              if (nonEmpty.every(l => ulPattern.test(l))) {
+                event.preventDefault();
+                const items = nonEmpty.map(l => `<li>${esc(l.replace(ulPattern, ""))}</li>`).join("");
+                editor?.commands.insertContent(`<ul>${items}</ul>`);
+                return true;
+              }
+            }
           }
         }
         return false;
@@ -1631,7 +1666,46 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             <>
               {/* Lists */}
               <ToolbarBtn icon={List} label="Bullet" isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} showLabel={showLabels} />
-              <ToolbarBtn icon={ListOrdered} label="Ordered" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} showLabel={showLabels} />
+              <div className="relative">
+                <div className="flex items-center">
+                  <ToolbarBtn icon={ListOrdered} label="Ordered" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} showLabel={showLabels} />
+                  {editor.isActive("orderedList") && (
+                    <button
+                      onClick={() => toggleMenu("orderedListStart")}
+                      className={cn(
+                        "p-0.5 rounded transition-colors -ml-1",
+                        activeMenu === "orderedListStart" ? "bg-[#a0704b] text-white" : "text-gray-400 hover:text-[#a0704b]"
+                      )}
+                      title="Set start number"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                {activeMenu === "orderedListStart" && (
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 min-w-[10rem]">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1 block">Start number</label>
+                    <input
+                      type="number"
+                      min={1}
+                      defaultValue={editor.getAttributes("orderedList").start ?? 1}
+                      className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = parseInt((e.target as HTMLInputElement).value, 10);
+                          if (val >= 1) {
+                            editor.chain().focus().updateAttributes("orderedList", { start: val }).run();
+                            setActiveMenu(null);
+                          }
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <p className="text-[9px] text-gray-400 mt-1">Press Enter to apply</p>
+                  </div>
+                )}
+              </div>
+              <ToolbarBtn icon={ListTodo} label="Checklist" isActive={editor.isActive("taskList")} onClick={() => editor.chain().focus().toggleTaskList().run()} showLabel={showLabels} />
               <ToolbarSep />
 
               {/* Block types */}
@@ -2052,10 +2126,27 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                   <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} totalPages={totalPages} />
                 </div>
 
-                <EditorContent
-                  editor={editor}
-                  className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
-                />
+                <div
+                  onContextMenu={(e) => {
+                    if (!editor || isReadOnly) return;
+                    // Resolve position at click coordinates (not current selection)
+                    const coords = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+                    if (!coords) return;
+                    const $pos = editor.state.doc.resolve(coords.pos);
+                    for (let d = $pos.depth; d > 0; d--) {
+                      if ($pos.node(d).type.name === "orderedList") {
+                        e.preventDefault();
+                        setListContextMenu({ x: e.clientX, y: e.clientY });
+                        return;
+                      }
+                    }
+                  }}
+                >
+                  <EditorContent
+                    editor={editor}
+                    className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
+                  />
+                </div>
                 <EditorBubbleMenu editor={editor} />
 
                 {/* Last-page footer (React component) — padding from Node Decorations handles intermediate pages */}
@@ -2204,6 +2295,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 ["Structure", [
                   ["Ctrl+Shift+7", "Ordered list"],
                   ["Ctrl+Shift+8", "Bullet list"],
+                  ["Ctrl+Shift+9", "Task list"],
                   ["Ctrl+Shift+B", "Blockquote"],
                   ["Tab", "Indent"],
                   ["Shift+Tab", "Outdent"],
@@ -2249,6 +2341,80 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           </div>
         </div>
       )}
+
+      {/* List context menu (right-click on ordered list) */}
+      {listContextMenu && editor && (() => {
+        const ctxItemCls = "w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]";
+        return (
+          <div
+            ref={listContextMenuRef}
+            className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[11rem]"
+            style={{ left: listContextMenu.x, top: listContextMenu.y }}
+          >
+            <button
+              className={ctxItemCls}
+              onClick={() => {
+                const { state } = editor;
+                const { $from } = state.selection;
+                let olDepth = -1;
+                for (let d = $from.depth; d > 0; d--) {
+                  if ($from.node(d).type.name === "orderedList") { olDepth = d; break; }
+                }
+                if (olDepth > 0) {
+                  const olNode = $from.node(olDepth);
+                  const liIndex = $from.index(olDepth);
+                  if (liIndex > 0) {
+                    const olStart = $from.before(olDepth);
+                    const { tr } = state;
+                    const beforeItems = [];
+                    const afterItems = [];
+                    for (let i = 0; i < olNode.childCount; i++) {
+                      (i < liIndex ? beforeItems : afterItems).push(olNode.child(i));
+                    }
+                    const olType = olNode.type;
+                    tr.replaceWith(olStart, olStart + olNode.nodeSize, [
+                      olType.create({ ...olNode.attrs }, beforeItems),
+                      olType.create({ ...olNode.attrs, start: 1 }, afterItems),
+                    ]);
+                    editor.view.dispatch(tr);
+                  } else {
+                    editor.chain().focus().updateAttributes("orderedList", { start: 1 }).run();
+                  }
+                }
+                setListContextMenu(null);
+              }}
+            >
+              Restart numbering at 1
+            </button>
+            <div className="px-3 py-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5 block">Start at</label>
+              <input
+                type="number"
+                min={1}
+                defaultValue={editor.getAttributes("orderedList").start ?? 1}
+                className="w-full px-2 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = parseInt((e.target as HTMLInputElement).value, 10);
+                    if (val >= 1) {
+                      editor.chain().focus().updateAttributes("orderedList", { start: val }).run();
+                    }
+                    setListContextMenu(null);
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+            <button className={ctxItemCls} onClick={() => { editor.chain().focus().toggleBulletList().run(); setListContextMenu(null); }}>
+              Convert to bullet list
+            </button>
+            <button className={ctxItemCls} onClick={() => { editor.chain().focus().toggleTaskList().run(); setListContextMenu(null); }}>
+              Convert to checklist
+            </button>
+          </div>
+        );
+      })()}
 
     </div>
   );

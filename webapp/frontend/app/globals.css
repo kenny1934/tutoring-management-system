@@ -2743,6 +2743,47 @@ body.student-print .print-answer-key {
   color: #60a5fa;
 }
 
+/* Ordered list nesting: 1 -> a -> i -> cycle */
+.document-editor-content .tiptap ol { list-style-type: decimal; }
+.document-editor-content .tiptap ol ol { list-style-type: lower-alpha; }
+.document-editor-content .tiptap ol ol ol { list-style-type: lower-roman; }
+.document-editor-content .tiptap ol ol ol ol { list-style-type: decimal; }
+.document-editor-content .tiptap ol ol ol ol ol { list-style-type: lower-alpha; }
+
+/* Bullet list nesting: disc -> circle -> square -> cycle */
+.document-editor-content .tiptap ul:not([data-type="taskList"]) { list-style-type: disc; }
+.document-editor-content .tiptap ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) { list-style-type: circle; }
+.document-editor-content .tiptap ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) { list-style-type: square; }
+.document-editor-content .tiptap ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) { list-style-type: disc; }
+
+/* Task list styling */
+.document-editor-content .tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.document-editor-content .tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.document-editor-content .tiptap ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.document-editor-content .tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: #a0704b;
+}
+.document-editor-content .tiptap ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+.document-editor-content .tiptap ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
 .dark .document-watermark-image,
 .dark .decoration-watermark-img {
   mix-blend-mode: multiply;
