@@ -7,10 +7,12 @@
 * **Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support
 * **Bulk print dropdown** — added CW/HW bulk print and download buttons to lesson-wide mode header for quick access
 * **Copy make-up message** — new "Msg" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback
+* **Dashboard lesson button** — added lesson-wide mode button to TodaySessionsCard time slot headers for quick access from the dashboard
 
 ### Bug Fixes
 
 * Fixed bulk CW/HW download and print not inserting blank pages for double-sided printing — each student's pages now start on a new front page when printed duplex
+* Improved lesson mode header responsiveness on mobile — compact padding, smaller buttons, and floating sidebar toggle for lesson-wide mode
 
 ## [2.0.17](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.17) (2026-03-06)
 

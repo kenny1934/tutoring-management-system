@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Copy make-up message** — new \"Msg\" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback"
+          },
+          {
+            "description": "**Dashboard lesson button** — added lesson-wide mode button to TodaySessionsCard time slot headers for quick access from the dashboard"
           }
         ]
       },
@@ -23,6 +26,9 @@ const changelogData = [
         "items": [
           {
             "description": "Fixed bulk CW/HW download and print not inserting blank pages for double-sided printing — each student's pages now start on a new front page when printed duplex"
+          },
+          {
+            "description": "Improved lesson mode header responsiveness on mobile — compact padding, smaller buttons, and floating sidebar toggle for lesson-wide mode"
           }
         ]
       }
