@@ -5,18 +5,25 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronDown, PenTool, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getGradeColor } from "@/lib/constants";
+import { useLocation } from "@/contexts/LocationContext";
 import { sessionsAPI } from "@/lib/api";
+import { formatDateCompact } from "@/lib/formatters";
 import { RecapExerciseItem } from "./RecapExerciseItem";
-import type { ExerciseHistorySession } from "@/types";
+import type { Session, ExerciseHistorySession } from "@/types";
 import type { PrintStampInfo } from "@/lib/file-system";
+import Link from "next/link";
 
 interface ExerciseHistoryPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  studentId: number;
-  studentName: string;
+  session: Session;
   currentSessionId: number;
   stamp?: PrintStampInfo;
+  /** Pre-fetched history data to avoid double-fetching (from duplicate detection) */
+  initialData?: ExerciseHistorySession[];
+  /** Whether there's more data beyond initialData */
+  initialDataHasMore?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -24,11 +31,17 @@ const PAGE_SIZE = 10;
 export function ExerciseHistoryPanel({
   isOpen,
   onClose,
-  studentId,
-  studentName,
+  session: parentSession,
   currentSessionId,
   stamp,
+  initialData,
+  initialDataHasMore,
 }: ExerciseHistoryPanelProps) {
+  const { selectedLocation } = useLocation();
+  const studentIdDisplay = selectedLocation === "All Locations" && parentSession.location
+    ? `${parentSession.location}-${parentSession.school_student_id || ""}`
+    : parentSession.school_student_id;
+
   const [sessions, setSessions] = useState<ExerciseHistorySession[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,7 +51,7 @@ export function ExerciseHistoryPanel({
   const fetchHistory = useCallback(async (beforeDate?: string) => {
     setLoading(true);
     try {
-      const result = await sessionsAPI.getExerciseHistory(studentId, {
+      const result = await sessionsAPI.getExerciseHistory(parentSession.student_id, {
         beforeDate,
         limit: PAGE_SIZE,
         excludeSessionId: currentSessionId,
@@ -51,14 +64,20 @@ export function ExerciseHistoryPanel({
       setLoading(false);
       setInitialLoaded(true);
     }
-  }, [studentId, currentSessionId]);
+  }, [parentSession.student_id, currentSessionId]);
 
-  // Load on open
+  // Load on open — use initialData if available, otherwise fetch
   useEffect(() => {
     if (isOpen && !initialLoaded) {
-      fetchHistory();
+      if (initialData && initialData.length > 0) {
+        setSessions(initialData);
+        setHasMore(initialDataHasMore ?? false);
+        setInitialLoaded(true);
+      } else {
+        fetchHistory();
+      }
     }
-  }, [isOpen, initialLoaded, fetchHistory]);
+  }, [isOpen, initialLoaded, initialData, fetchHistory]);
 
   // Reset when closed
   useEffect(() => {
@@ -120,22 +139,47 @@ export function ExerciseHistoryPanel({
             )}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-gradient-to-r from-purple-50 to-[#fef9f3] dark:from-purple-900/20 dark:to-[#1a1611]">
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+            <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-gradient-to-r from-purple-50 to-[#fef9f3] dark:from-purple-900/20 dark:to-[#1a1611]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   Exercise History
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {studentName}
-                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-              >
-                <X className="h-4 w-4 text-gray-500" />
-              </button>
+              <div className="flex items-center gap-1.5 mt-1">
+                {studentIdDisplay && (
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                    {studentIdDisplay}
+                  </span>
+                )}
+                <Link
+                  href={`/students/${parentSession.student_id}`}
+                  target="_blank"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline truncate"
+                >
+                  {parentSession.student_name}
+                </Link>
+                {parentSession.grade && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0"
+                    style={{ backgroundColor: getGradeColor(parentSession.grade, parentSession.lang_stream) }}
+                  >
+                    {parentSession.grade}{parentSession.lang_stream}
+                  </span>
+                )}
+                {parentSession.school && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shrink-0">
+                    {parentSession.school}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Scrollable Content */}
@@ -166,10 +210,7 @@ export function ExerciseHistoryPanel({
                         {/* Session date header */}
                         <div className="px-3 py-1.5 bg-gray-50 dark:bg-[#252015] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {new Date(session.session_date + "T00:00:00").toLocaleDateString(
-                              "en-US",
-                              { weekday: "short", month: "short", day: "numeric" }
-                            )}
+                            {formatDateCompact(session.session_date)}
                             {session.time_slot && (
                               <span className="text-gray-500 dark:text-gray-400 ml-1">
                                 · {session.time_slot}

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical, AlertTriangle } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,8 @@ import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
-import type { Session, PageSelection, CoursewarePopularity } from "@/types";
+import { useLocation } from "@/contexts/LocationContext";
+import type { Session, PageSelection, CoursewarePopularity, ExerciseHistorySession } from "@/types";
 import Link from "next/link";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
@@ -22,7 +23,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -75,6 +76,11 @@ export function ExerciseModal({
   onSave,
   readOnly = false,
 }: ExerciseModalProps) {
+  const { selectedLocation } = useLocation();
+  const studentIdDisplay = selectedLocation === "All Locations" && session.location
+    ? `${session.location}-${session.school_student_id || ""}`
+    : session.school_student_id;
+
   // Filter existing exercises to only show the relevant type
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
@@ -164,6 +170,44 @@ export function ExerciseModal({
   // Recap section state
   const [recapExpanded, setRecapExpanded] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+
+  // Exercise history for duplicate detection
+  const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistorySession[]>([]);
+  const [exerciseHistoryHasMore, setExerciseHistoryHasMore] = useState(false);
+  const [duplicateDetailOpen, setDuplicateDetailOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (isOpen && session?.student_id) {
+      sessionsAPI.getExerciseHistory(session.student_id, {
+        limit: 50,
+        excludeSessionId: session.id,
+      }).then(result => {
+        setExerciseHistory(result.sessions);
+        setExerciseHistoryHasMore(result.has_more);
+      }).catch(() => {});
+    }
+    if (!isOpen) {
+      setExerciseHistory([]);
+      setExerciseHistoryHasMore(false);
+      setDuplicateDetailOpen({});
+    }
+  }, [isOpen, session?.student_id, session?.id]);
+
+  // Pre-index history by normalized filename (recomputes only when history changes)
+  const duplicateIndex = useMemo(() => buildDuplicateIndex(exerciseHistory), [exerciseHistory]);
+
+  // Compute duplicate matches for each exercise row (fast Map lookup per row)
+  const duplicateMap = useMemo(() => {
+    if (duplicateIndex.size === 0) return exercises.map(() => []);
+    return exercises.map(ex =>
+      findDuplicatesFromIndex(
+        ex.pdf_name,
+        ex.page_start ? Number(ex.page_start) : undefined,
+        ex.page_end ? Number(ex.page_end) : undefined,
+        duplicateIndex,
+      )
+    );
+  }, [exercises, duplicateIndex]);
 
   // Fetch detailed session data for recap (previous session, homework completion)
   const { data: detailedSession, isLoading: isLoadingDetails } = useSession(session?.id ?? 0);
@@ -961,7 +1005,7 @@ export function ExerciseModal({
         {/* Session Info Header */}
         <div className="flex items-center gap-2 flex-wrap bg-[#f5ebe0] dark:bg-[#3d3628] rounded-lg p-3">
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            {session.school_student_id}
+            {studentIdDisplay}
           </span>
           <Link
             href={`/students/${session.student_id}`}
@@ -1561,6 +1605,18 @@ export function ExerciseModal({
                       )}
                     />
 
+                    {/* Duplicate warning icon */}
+                    {duplicateMap[index]?.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDuplicateDetailOpen(prev => ({ ...prev, [exercise.clientId]: !prev[exercise.clientId] }))}
+                        className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex-shrink-0"
+                        title="Previously assigned exercise"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      </button>
+                    )}
+
                     {/* File action buttons */}
                     <ExerciseActionButtons
                       hasPdfName={!!exercise.pdf_name}
@@ -1580,6 +1636,38 @@ export function ExerciseModal({
                       onCancelDelete={cancelDelete}
                     />
                   </div>
+
+                  {/* Duplicate exercise detail */}
+                  {duplicateDetailOpen[exercise.clientId] && duplicateMap[index]?.length > 0 && (
+                    <div className="flex gap-2 items-start">
+                      <div className="w-5 md:w-10 shrink-0" />
+                      <div className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-0.5 flex-1">
+                        ⚠ Previously assigned:{' '}
+                        {duplicateMap[index].map((m, i) => {
+                          const date = new Date(m.sessionDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                          const pages = m.pageStart
+                            ? m.pageEnd && m.pageEnd !== m.pageStart
+                              ? ` p${m.pageStart}-${m.pageEnd}`
+                              : ` p${m.pageStart}`
+                            : '';
+                          return (
+                            <span key={`${m.sessionId}-${m.exerciseType}-${m.pageStart}`}>
+                              {i > 0 && ', '}
+                              <Link
+                                href={`/sessions/${m.sessionId}`}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                className="underline hover:text-amber-800 dark:hover:text-amber-300 inline-flex items-center gap-0.5"
+                              >
+                                {date} ({m.exerciseType}{pages})
+                                <ExternalLink className="h-2.5 w-2.5 inline" />
+                              </Link>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Row 2: Page Range Mode Selection */}
                   <div className="flex gap-2 items-start">
@@ -1743,10 +1831,11 @@ export function ExerciseModal({
       <ExerciseHistoryPanel
         isOpen={historyPanelOpen}
         onClose={() => setHistoryPanelOpen(false)}
-        studentId={session.student_id}
-        studentName={session.student_name || "Student"}
+        session={session}
         currentSessionId={session.id}
         stamp={recapStamp}
+        initialData={exerciseHistory}
+        initialDataHasMore={exerciseHistoryHasMore}
       />
 
       {/* Close Confirmation Dialog - uses createPortal to render above modal */}
