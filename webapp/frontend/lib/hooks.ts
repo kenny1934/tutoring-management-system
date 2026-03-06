@@ -873,14 +873,14 @@ export function useProposals(params: {
   proposedBy?: number;
   status?: ProposalStatus;
   includeSession?: boolean;
-} = {}) {
+} | null = {}) {
   return useSWR<MakeupProposal[]>(
-    ['proposals', params.tutorId, params.proposedBy, params.status],
+    params ? ['proposals', params.tutorId, params.proposedBy, params.status] : null,
     () => proposalsAPI.getAll({
-      tutor_id: params.tutorId,
-      proposed_by: params.proposedBy,
-      status: params.status,
-      include_session: params.includeSession ?? true,
+      tutor_id: params!.tutorId,
+      proposed_by: params!.proposedBy,
+      status: params!.status,
+      include_session: params!.includeSession ?? true,
     }),
     { revalidateOnFocus: false }
   );

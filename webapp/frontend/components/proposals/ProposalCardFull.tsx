@@ -520,6 +520,8 @@ export const ProposalCardFull = memo(function ProposalCardFull({
   const isProposer = proposal.proposed_by_tutor_id === currentTutorId;
   const isNeedsInputTarget = proposal.proposal_type === "needs_input" &&
     proposal.needs_input_tutor_id === currentTutorId;
+  const isTargetForProposal = isNeedsInputTarget ||
+    proposal.slots.some(s => s.proposed_tutor_id === currentTutorId);
   const canCancel = isProposer && proposal.status === "pending";
   const canRejectNeedsInput = isNeedsInputTarget && proposal.status === "pending";
 
@@ -719,26 +721,28 @@ export const ProposalCardFull = memo(function ProposalCardFull({
 
             {/* Right side: direction badge + chevron */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                  isProposer
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                )}
-              >
-                {isProposer ? (
-                  <>
-                    <Send className="h-3 w-3" />
-                    <span className="hidden sm:inline">You proposed</span>
-                  </>
-                ) : (
-                  <>
-                    <Inbox className="h-3 w-3" />
-                    <span className="hidden sm:inline">For you</span>
-                  </>
-                )}
-              </div>
+              {(isProposer || isTargetForProposal) && (
+                <div
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+                    isProposer
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                  )}
+                >
+                  {isProposer ? (
+                    <>
+                      <Send className="h-3 w-3" />
+                      <span className="hidden sm:inline">You proposed</span>
+                    </>
+                  ) : (
+                    <>
+                      <Inbox className="h-3 w-3" />
+                      <span className="hidden sm:inline">For you</span>
+                    </>
+                  )}
+                </div>
+              )}
               <ChevronDown
                 className={cn(
                   "h-5 w-5 text-gray-400 transition-transform duration-200",

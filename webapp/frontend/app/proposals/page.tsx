@@ -25,9 +25,10 @@ import {
   X,
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
+  Users,
 } from "lucide-react";
 
-type TabType = "for-me" | "by-me";
+type TabType = "for-me" | "by-me" | "all";
 
 // Status filter options
 const statusFilters: { value: ProposalStatus | "all"; label: string; icon: React.ElementType }[] = [
@@ -44,11 +45,13 @@ export default function ProposalsPage() {
 
   usePageTitle("Make-up Proposals");
 
-  // Get current tutor ID
-  const currentTutorId = useMemo(() => {
-    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id;
+  // Get current tutor
+  const currentTutor = useMemo(() => {
+    return tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
   }, [tutors]);
+
+  const currentTutorId = currentTutor?.id;
+  const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
 
   // State
   const [activeTab, setActiveTab] = useState<TabType>("for-me");
@@ -64,7 +67,7 @@ export default function ProposalsPage() {
     const idParam = searchParams.get("id");
     const tabParam = searchParams.get("tab");
 
-    if (tabParam === "by-me" || tabParam === "for-me") {
+    if (tabParam === "by-me" || tabParam === "for-me" || tabParam === "all") {
       setActiveTab(tabParam);
     }
 
@@ -89,9 +92,16 @@ export default function ProposalsPage() {
     includeSession: true,
   });
 
+  const { data: allProposals = [], isLoading: loadingAll } = useProposals(
+    isAdmin ? {
+      status: statusFilter === "all" ? undefined : statusFilter,
+      includeSession: true,
+    } : null
+  );
+
   // Filter and sort proposals
   const filteredProposals = useMemo(() => {
-    let proposals = activeTab === "for-me" ? proposalsForMe : proposalsByMe;
+    let proposals = activeTab === "for-me" ? proposalsForMe : activeTab === "by-me" ? proposalsByMe : allProposals;
 
     // Filter by search (student, proposer, target tutors, original tutor)
     if (searchQuery.trim()) {
@@ -113,20 +123,23 @@ export default function ProposalsPage() {
       const dateB = new Date(b.created_at).getTime();
       return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
     });
-  }, [activeTab, proposalsForMe, proposalsByMe, searchQuery, sortOrder]);
+  }, [activeTab, proposalsForMe, proposalsByMe, allProposals, searchQuery, sortOrder]);
 
-  const isLoading = activeTab === "for-me" ? loadingForMe : loadingByMe;
+  const isLoading = activeTab === "for-me" ? loadingForMe : activeTab === "by-me" ? loadingByMe : loadingAll;
 
   // Auto-switch tab and scroll to highlighted proposal
   useEffect(() => {
-    if (highlightedProposalId && !loadingForMe && !loadingByMe) {
+    if (highlightedProposalId && !loadingForMe && !loadingByMe && !loadingAll) {
       const inForMe = proposalsForMe.some((p) => p.id === highlightedProposalId);
       const inByMe = proposalsByMe.some((p) => p.id === highlightedProposalId);
+      const inAll = allProposals.some((p) => p.id === highlightedProposalId);
 
       if (inForMe && activeTab !== "for-me") {
         setActiveTab("for-me");
       } else if (inByMe && !inForMe && activeTab !== "by-me") {
         setActiveTab("by-me");
+      } else if (inAll && !inForMe && !inByMe && activeTab !== "all") {
+        setActiveTab("all");
       }
 
       // Scroll to the proposal after a short delay
@@ -135,7 +148,7 @@ export default function ProposalsPage() {
         element?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 150);
     }
-  }, [highlightedProposalId, proposalsForMe, proposalsByMe, loadingForMe, loadingByMe, activeTab]);
+  }, [highlightedProposalId, proposalsForMe, proposalsByMe, allProposals, loadingForMe, loadingByMe, loadingAll, activeTab]);
 
   // Handle tab change - clear highlight when user manually switches
   const handleTabChange = (tab: TabType) => {
@@ -235,6 +248,25 @@ export default function ProposalsPage() {
                 </span>
               )}
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleTabChange("all")}
+                className={cn(
+                  "flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                  activeTab === "all"
+                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/20"
+                )}
+              >
+                <Users className="h-4 w-4" />
+                All
+                {allProposals.length > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
+                    {allProposals.length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -306,7 +338,13 @@ export default function ProposalsPage() {
                 No proposals found
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center px-4">
-                {activeTab === "for-me"
+                {activeTab === "all"
+                  ? statusFilter === "pending"
+                    ? "No pending proposals"
+                    : statusFilter === "all"
+                    ? "No proposals found"
+                    : `No ${statusFilter} proposals`
+                  : activeTab === "for-me"
                   ? statusFilter === "pending"
                     ? "No pending proposals to review"
                     : statusFilter === "all"
