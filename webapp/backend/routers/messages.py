@@ -1011,7 +1011,10 @@ async def get_message_threads(
             TutorMessage.scheduled_at.is_(None),  # Exclude pending scheduled messages
             or_(
                 visible_to_tutor_filter(tutor_id, db),
-                TutorMessage.id.in_(has_replies_subq),     # Threads I started with replies
+                and_(
+                    TutorMessage.from_tutor_id == tutor_id,  # Only MY sent threads
+                    TutorMessage.id.in_(has_replies_subq),
+                ),
             )
         )
     )
