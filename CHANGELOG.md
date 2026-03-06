@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)
+
+### New Features
+
+* **Zen enrollments** — added inline enrollment detail within zen student view
+* **Zen student detail** — expanded to 7 tabs with full feature parity, copy lesson dates, and makeup proposal indicators
+
+### Improvements
+
+* Removed standalone zen enrollments page to match main app structure
+
+### Bug Fixes
+
+* Fixed profile pictures not saving — widened `profile_picture` column from VARCHAR(500) to VARCHAR(2048) to accommodate Google profile picture URLs
+
 ## [2.0.15](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.15) (2026-03-05)
 
 ### New Features
