@@ -9,6 +9,7 @@ import {
   PenTool,
   Home,
   MessageSquarePlus,
+  MessageSquareText,
   Undo2,
   Pencil,
   Clock,
@@ -53,6 +54,13 @@ const hideCwHw = (s: Session): boolean =>
  */
 const canUndo = (s: Session): boolean =>
   !!s.previous_session_status && !s.session_status?.includes('Make-up Booked');
+
+/**
+ * Sessions with make-up info available for copying a parent notification message.
+ * Either the make-up session itself or the original session with make-up booked.
+ */
+const hasMakeupInfo = (s: Session): boolean =>
+  s.session_status === 'Make-up Class' || s.session_status?.includes('Make-up Booked');
 
 /**
  * Sessions where make-up can be cancelled.
@@ -270,6 +278,25 @@ export const sessionActions: ActionConfig<Session>[] = [
     },
     confirmMessage: 'Revert to previous status?',
     // Note: successMessage handled specially with redo toast in ChalkboardHeader
+  },
+
+  // ----------------------------------------
+  // Copy Make-up Message
+  // ----------------------------------------
+  {
+    id: 'copy-makeup-msg',
+    label: 'Copy Make-up Message',
+    shortLabel: 'Msg',
+    icon: MessageSquareText,
+    colorClass: 'bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400',
+    pushRight: true,
+    isVisible: hasMakeupInfo,
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
+    api: {
+      enabled: true,
+      method: 'POST',
+      endpoint: '',
+    },
   },
 
   // ----------------------------------------

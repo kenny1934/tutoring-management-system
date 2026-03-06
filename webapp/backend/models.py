@@ -18,6 +18,7 @@ class Tutor(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_email = Column(String(255), nullable=False, unique=True)
     tutor_name = Column(String(255), nullable=False)
+    nickname = Column(String(100), comment='Short display name for parent messages, e.g. David Sir, Miss Bella')
     default_location = Column(String(255))
     role = Column(String(50), nullable=False)
     profile_picture = Column(String(2048), comment='Google profile picture URL')
