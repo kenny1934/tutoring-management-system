@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.17](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.17) (2026-03-06)
+
+### New Features
+
+* **Exercise history panel** — side panel in exercise modal showing past exercises for each student, with duplicate detection warnings when assigning previously-used exercises
+
+### Bug Fixes
+
+* Fixed sidebar view switching (My View → Center View) not updating the session page tutor filter on first click
+
 ## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)
 
 ### New Features
