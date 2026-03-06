@@ -10,6 +10,7 @@ interface Tutor {
   id: number;
   tutor_name: string;
   default_location?: string;
+  profile_picture?: string;
 }
 
 interface RoleSwitcherProps {
@@ -37,7 +38,8 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
           setTutors(data.map(t => ({
             id: t.id,
             tutor_name: t.tutor_name,
-            default_location: t.default_location
+            default_location: t.default_location,
+            profile_picture: t.profile_picture,
           })));
         })
         .catch(() => { /* non-critical */ })
@@ -73,7 +75,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
   };
 
   const handleTutorSelect = (tutor: Tutor) => {
-    setImpersonatedTutor({ id: tutor.id, name: tutor.tutor_name });
+    setImpersonatedTutor({ id: tutor.id, name: tutor.tutor_name, profile_picture: tutor.profile_picture });
     // Switch to tutor's location so dashboard shows correct data
     if (tutor.default_location) {
       setSelectedLocation(tutor.default_location);

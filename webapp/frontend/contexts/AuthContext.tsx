@@ -49,6 +49,7 @@ export const READ_ONLY_ROLES = ["Supervisor", "Guest"] as const;
 export interface ImpersonatedTutor {
   id: number;
   name: string;
+  profile_picture?: string;
 }
 
 /**
