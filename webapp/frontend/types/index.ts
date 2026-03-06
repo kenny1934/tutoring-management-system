@@ -290,6 +290,7 @@ export interface LinkedSessionInfo {
   session_date: string;
   time_slot?: string;
   tutor_name?: string;
+  tutor_nickname?: string;
   session_status: string;
 }
 
@@ -330,6 +331,7 @@ export interface Session {
   notes?: string;
   student_name?: string;
   tutor_name?: string;
+  tutor_nickname?: string;
   school_student_id?: string;
   grade?: string;
   lang_stream?: string;

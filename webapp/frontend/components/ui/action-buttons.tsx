@@ -15,6 +15,7 @@ import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestMod
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
+import { MakeupMessageModal } from "@/components/sessions/MakeupMessageModal";
 
 // Size configurations for buttons
 const sizeClasses = {
@@ -152,6 +153,7 @@ export function SessionActionButtons({
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [isMakeupMsgOpen, setIsMakeupMsgOpen] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -224,6 +226,12 @@ export function SessionActionButtons({
     // Special handling for request-extension action - open modal immediately (modal fetches data)
     if (action.id === "request-extension") {
       setIsExtensionModalOpen(true);
+      return;
+    }
+
+    // Special handling for copy-makeup-msg action - open message modal
+    if (action.id === "copy-makeup-msg") {
+      setIsMakeupMsgOpen(true);
       return;
     }
 
@@ -419,7 +427,7 @@ export function SessionActionButtons({
           return visibleActions.map((action, idx) => {
           const Icon = action.icon;
           // Edit, CW, HW, Rate, Schedule-makeup, Request-extension, Cancel-makeup actions are always enabled (open modals/dialogs)
-          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "request-extension", "cancel-makeup", "undo"].includes(action.id) || action.api.enabled;
+          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "request-extension", "cancel-makeup", "copy-makeup-msg", "undo"].includes(action.id) || action.api.enabled;
           const isLoading = effectiveLoadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
@@ -511,6 +519,16 @@ export function SessionActionButtons({
           }}
           tutorId={(currentTutorId || session.tutor_id)!}
           isProactive={true}
+        />
+      )}
+
+      {/* Make-up Message Modal */}
+      {isMakeupMsgOpen && (
+        <MakeupMessageModal
+          session={session}
+          isOpen={true}
+          onClose={() => setIsMakeupMsgOpen(false)}
+          usePortal={!disablePushRight}
         />
       )}
 

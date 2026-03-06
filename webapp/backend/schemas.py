@@ -79,6 +79,7 @@ class TutorBase(BaseModel):
     """Base tutor schema"""
     user_email: str = Field(..., min_length=3, max_length=255)
     tutor_name: str = Field(..., min_length=1, max_length=200)
+    nickname: Optional[str] = Field(None, max_length=100)
     default_location: Optional[str] = Field(None, max_length=200)
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
@@ -454,6 +455,7 @@ class LinkedSessionInfo(BaseModel):
     session_date: date
     time_slot: Optional[str] = None
     tutor_name: Optional[str] = None
+    tutor_nickname: Optional[str] = None
     session_status: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -464,6 +466,7 @@ class SessionResponse(SessionBase):
     id: int = Field(..., gt=0)
     student_name: Optional[str] = Field(None, max_length=200)
     tutor_name: Optional[str] = Field(None, max_length=200)
+    tutor_nickname: Optional[str] = Field(None, max_length=100)
     school_student_id: Optional[str] = Field(None, max_length=50)
     grade: Optional[str] = Field(None, max_length=20)
     lang_stream: Optional[str] = Field(None, max_length=50)

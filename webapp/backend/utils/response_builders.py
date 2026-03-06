@@ -50,6 +50,7 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None) ->
     data = SessionResponse.model_validate(session)
     data.student_name = session.student.student_name if session.student else None
     data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    data.tutor_nickname = session.tutor.nickname if session.tutor else None
     data.school_student_id = session.student.school_student_id if session.student else None
     data.grade = session.student.grade if session.student else None
     data.lang_stream = session.student.lang_stream if session.student else None
@@ -89,5 +90,6 @@ def build_linked_session_info(session: SessionLog, tutor: Tutor = None) -> Linke
         session_date=session.session_date,
         time_slot=session.time_slot,
         tutor_name=tutor.tutor_name if tutor else None,
+        tutor_nickname=tutor.nickname if tutor else None,
         session_status=session.session_status
     )
