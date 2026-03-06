@@ -6,10 +6,12 @@
 
 * **Exercise history panel** — side panel in exercise modal showing past exercises for each student, with duplicate detection warnings when assigning previously-used exercises
 * **"All" proposals tab** — admin and super admin users can now see all proposals across tutors in the proposals view
+* **Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout
 
 ### Bug Fixes
 
 * Fixed sidebar view switching (My View → Center View) not updating the session page tutor filter on first click
+* Fixed "For you" badge incorrectly showing on proposals in the All tab when the admin is neither proposer nor target
 * Improved visual distinction between Book/Propose modes in makeup modal — color-coded toggle (green for Book, blue for Propose) with accent border
 
 ## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)

@@ -18,7 +18,6 @@ import {
   Inbox,
   Send,
   Filter,
-  Loader2,
   Search,
   Clock,
   Check,
@@ -29,6 +28,45 @@ import {
 } from "lucide-react";
 
 type TabType = "for-me" | "by-me" | "all";
+
+function ProposalCardSkeleton() {
+  return (
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-4 border-l-gray-200 dark:border-l-gray-700 overflow-hidden">
+      <div className="px-5 py-4 bg-[#faf6f1] dark:bg-[#2d2820]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="h-9 w-9 shimmer-sepia rounded-lg flex-shrink-0" />
+            <div className="min-w-0 flex-1 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-16 shimmer-sepia rounded-full" />
+                <div className="h-4 w-16 shimmer-sepia rounded" />
+                <div className="h-4 w-28 shimmer-sepia rounded" />
+                <div className="h-5 w-8 shimmer-sepia rounded" />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-3 w-28 shimmer-sepia rounded" />
+                <div className="h-3 w-20 shimmer-sepia rounded" />
+                <div className="h-3 w-16 shimmer-sepia rounded" />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="h-6 w-20 shimmer-sepia rounded-full hidden sm:block" />
+            <div className="h-5 w-5 shimmer-sepia rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProposalListSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map(i => <ProposalCardSkeleton key={i} />)}
+    </div>
+  );
+}
 
 // Status filter options
 const statusFilters: { value: ProposalStatus | "all"; label: string; icon: React.ElementType }[] = [
@@ -171,9 +209,34 @@ export default function ProposalsPage() {
     return (
       <DeskSurface>
         <PageTransition className="flex flex-col gap-4 p-4 sm:p-8">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+          {/* Header skeleton */}
+          <div className="flex items-center gap-4">
+            <div className="h-9 w-9 shimmer-sepia rounded-lg" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shimmer-sepia rounded-lg" />
+              <div className="space-y-2">
+                <div className="h-6 w-48 shimmer-sepia rounded" />
+                <div className="h-4 w-56 shimmer-sepia rounded" />
+              </div>
+            </div>
           </div>
+          {/* Tab bar skeleton */}
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
+            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-2 py-3 gap-4">
+              <div className="h-5 w-20 shimmer-sepia rounded" />
+              <div className="h-5 w-20 shimmer-sepia rounded" />
+            </div>
+            <div className="px-4 py-3 flex flex-col gap-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
+              <div className="h-9 w-full sm:w-[450px] shimmer-sepia rounded-lg" />
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="h-7 w-20 shimmer-sepia rounded-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Card skeletons */}
+          <ProposalListSkeleton />
         </PageTransition>
       </DeskSurface>
     );
@@ -324,9 +387,7 @@ export default function ProposalsPage() {
         {/* Proposals List */}
         <div className="space-y-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
-            </div>
+            <ProposalListSkeleton />
           ) : filteredProposals.length === 0 ? (
             <div className={cn(
               "flex flex-col items-center justify-center py-16 rounded-xl",
