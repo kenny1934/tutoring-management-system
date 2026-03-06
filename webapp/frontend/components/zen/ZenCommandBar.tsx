@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent } from
 import { useRouter } from "next/navigation";
 import { useZen, ZEN_THEMES } from "@/contexts/ZenContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/contexts/RoleContext";
+import { useActiveTutors } from "@/lib/hooks";
 import { sessionsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import { setZenStatus } from "./ZenStatusBar";
@@ -56,6 +59,9 @@ export function ZenCommandBar() {
     submitAnswer: submitPuzzleAnswer,
   } = useDailyPuzzle();
   const { theme, themeId, commandHistory, addToHistory, disableZenMode, setTheme, setExiting } = useZen();
+  const { isSuperAdmin, canViewAdminPages, isImpersonating, impersonatedTutor, setImpersonatedRole, setImpersonatedTutor } = useAuth();
+  const { viewMode, setViewMode } = useRole();
+  const { data: tutors = [] } = useActiveTutors();
   const {
     selectedIds,
     selectAll,
@@ -292,7 +298,7 @@ export function ZenCommandBar() {
             const navCmds = ["go", "dashboard", "students", "sessions", "revenue", "courseware", "settings"];
             const actionCmds = ["mark", "select", "assign"];
             const dateCmds = ["today", "yesterday", "tomorrow", "date", "calendar"];
-            const utilCmds = ["help", "theme", "refresh", "tools", "puzzle", "exit"];
+            const utilCmds = ["help", "theme", "view", "refresh", "tools", "puzzle", "exit"];
             setZenStatus(
               `Nav: ${navCmds.join(", ")} | Actions: ${actionCmds.join(", ")} | Date: ${dateCmds.join(", ")} | Utils: ${utilCmds.join(", ")}`,
               "info"
@@ -469,6 +475,74 @@ export function ZenCommandBar() {
         },
       },
       {
+        name: "view",
+        aliases: ["v"],
+        description: "Switch view mode (view my, view center, view as <tutor>, view reset)",
+        execute: (args) => {
+          const action = args[0]?.toLowerCase();
+
+          if (!action) {
+            const mode = viewMode === "my-view" ? "My View" : "Center View";
+            const impersonation = isImpersonating && impersonatedTutor
+              ? ` (as ${impersonatedTutor.name})`
+              : "";
+            setZenStatus(`Current: ${mode}${impersonation}`, "info");
+            return;
+          }
+
+          if (action === "my") {
+            setViewMode("my-view");
+            setZenStatus("Switched to My View", "success");
+            return;
+          }
+
+          if (action === "center" || action === "all") {
+            if (!canViewAdminPages) {
+              setZenStatus("Only admins can use center view", "error");
+              return;
+            }
+            setViewMode("center-view");
+            setZenStatus("Switched to Center View", "success");
+            return;
+          }
+
+          if (action === "as") {
+            if (!isSuperAdmin) {
+              setZenStatus("Only super admins can impersonate", "error");
+              return;
+            }
+            const name = args.slice(1).join(" ");
+            if (!name) {
+              setZenStatus("Usage: view as <tutor name>", "error");
+              return;
+            }
+            const tutor = tutors.find(
+              (t) => t.tutor_name.toLowerCase().includes(name.toLowerCase())
+            );
+            if (!tutor) {
+              setZenStatus(`No tutor matching "${name}"`, "error");
+              return;
+            }
+            setImpersonatedRole("Tutor");
+            setImpersonatedTutor({ id: tutor.id, name: tutor.tutor_name, profile_picture: tutor.profile_picture });
+            setZenStatus(`Now viewing as ${tutor.tutor_name}`, "success");
+            return;
+          }
+
+          if (action === "reset" || action === "clear") {
+            if (isImpersonating) {
+              setImpersonatedRole(null);
+              setZenStatus("Impersonation cleared", "success");
+            } else {
+              setZenStatus("Not currently impersonating", "info");
+            }
+            return;
+          }
+
+          setZenStatus("Usage: view <my|center|as <name>|reset>", "error");
+        },
+      },
+      {
         name: "tools",
         aliases: ["links", "resources"],
         description: "Open useful tools menu",
@@ -499,6 +573,15 @@ export function ZenCommandBar() {
       setSelectedDate,
       selectedDate,
       getDateLabel,
+      viewMode,
+      setViewMode,
+      isSuperAdmin,
+      canViewAdminPages,
+      isImpersonating,
+      impersonatedTutor,
+      setImpersonatedRole,
+      setImpersonatedTutor,
+      tutors,
     ]
   );
 
@@ -556,6 +639,10 @@ export function ZenCommandBar() {
       "theme github",
       "theme onelight",
       "theme latte",
+      "view my",
+      "view center",
+      "view as",
+      "view reset",
     ],
     []
   );
