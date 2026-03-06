@@ -12,6 +12,9 @@ const changelogData = [
           },
           {
             "description": "**\"All\" proposals tab** — admin and super admin users can now see all proposals across tutors in the proposals view"
+          },
+          {
+            "description": "**Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout"
           }
         ]
       },
@@ -20,6 +23,9 @@ const changelogData = [
         "items": [
           {
             "description": "Fixed sidebar view switching (My View → Center View) not updating the session page tutor filter on first click"
+          },
+          {
+            "description": "Fixed \"For you\" badge incorrectly showing on proposals in the All tab when the admin is neither proposer nor target"
           },
           {
             "description": "Improved visual distinction between Book/Propose modes in makeup modal — color-coded toggle (green for Book, blue for Propose) with accent border"
