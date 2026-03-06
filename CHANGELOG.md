@@ -5,6 +5,8 @@
 ### New Features
 
 * **Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support
+* **Bulk print dropdown** — added CW/HW bulk print and download buttons to lesson-wide mode header for quick access
+* **Copy make-up message** — new "Msg" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback
 
 ### Bug Fixes
 
