@@ -9,7 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
-import { getPageNumbers, type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
+import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
+import { getExercisePageNumbers, getAnswerPageNumbers } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -33,28 +34,6 @@ import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
-
-/** S5: Compute page numbers for an exercise. */
-function getExercisePageNumbers(exercise: SessionExercise): number[] {
-  const { complexPages } = parseExerciseRemarks(exercise.remarks);
-  return getPageNumbers({
-    pdf_name: exercise.pdf_name || "",
-    page_start: exercise.page_start,
-    page_end: exercise.page_end,
-    complex_pages: complexPages || undefined,
-  }, "[Lesson]");
-}
-
-/** Compute answer page numbers from exercise metadata (supports both simple and custom ranges). */
-function getAnswerPageNumbers(exercise: SessionExercise): number[] {
-  const { complexPages } = parseExerciseRemarks(exercise.answer_remarks);
-  return getPageNumbers({
-    pdf_name: exercise.answer_pdf_name || "",
-    page_start: exercise.answer_page_start,
-    page_end: exercise.answer_page_end,
-    complex_pages: complexPages || undefined,
-  }, "[Lesson ANS]");
-}
 
 /** Inline exit confirmation dialog — warns about unsaved annotations. */
 function ExitConfirmDialog({

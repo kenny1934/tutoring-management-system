@@ -415,30 +415,35 @@ export function PdfPageViewer({
 
         const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
           if (cancelled) return null;
-          const page = await doc.getPage(pageNum);
-          const viewport = page.getViewport({ scale });
+          try {
+            const page = await doc.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
 
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return null;
-          await page.render({ canvasContext: ctx, viewport }).promise;
+            const canvas = document.createElement("canvas");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            if (canvas.width === 0 || canvas.height === 0) return null;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return null;
+            await page.render({ canvasContext: ctx, viewport }).promise;
 
-          if (cancelled) return null;
+            if (cancelled) return null;
 
-          const blob = await new Promise<Blob>((resolve) =>
-            canvas.toBlob((b) => resolve(b!), "image/png")
-          );
+            const blob = await new Promise<Blob>((resolve, reject) =>
+              canvas.toBlob((b) => b ? resolve(b) : reject(new Error("toBlob returned null")), "image/png")
+            );
 
-          if (cancelled) return null;
+            if (cancelled) return null;
 
-          const url = URL.createObjectURL(blob);
-          return {
-            url,
-            width: viewport.width / dpr,
-            height: viewport.height / dpr,
-          };
+            const url = URL.createObjectURL(blob);
+            return {
+              url,
+              width: viewport.width / dpr,
+              height: viewport.height / dpr,
+            };
+          } catch {
+            return null;
+          }
         };
 
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
@@ -570,6 +575,7 @@ export function PdfPageViewer({
     // Only re-render if zoom demands more than 10% beyond current resolution
     if (neededScale <= renderScaleRef.current * 1.1) return;
 
+    let cancelled = false;
     const pdfBytes = pdfBytesRef.current;
     const timer = setTimeout(async () => {
       try {
@@ -579,28 +585,44 @@ export function PdfPageViewer({
         const scale = neededScale * dpr;
 
         const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
-          const page = await doc.getPage(pageNum);
-          const viewport = page.getViewport({ scale });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return null;
-          await (page.render({ canvasContext: ctx, viewport }) as any).promise;
-          const blob = await new Promise<Blob>((resolve) =>
-            canvas.toBlob((b) => resolve(b!), "image/png")
-          );
-          // CSS dimensions stay at base RENDER_SCALE so zoom CSS transform isn't double-counted
-          const nativeWidth = viewport.width / scale;
-          const nativeHeight = viewport.height / scale;
-          return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
+          if (cancelled) return null;
+          try {
+            const page = await doc.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            if (canvas.width === 0 || canvas.height === 0) return null;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return null;
+            await (page.render({ canvasContext: ctx, viewport }) as any).promise;
+            const blob = await new Promise<Blob>((resolve, reject) =>
+              canvas.toBlob((b) => b ? resolve(b) : reject(new Error("toBlob returned null")), "image/png")
+            );
+            // CSS dimensions stay at base RENDER_SCALE so zoom CSS transform isn't double-counted
+            const nativeWidth = viewport.width / scale;
+            const nativeHeight = viewport.height / scale;
+            return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
+          } catch {
+            return null;
+          }
         };
 
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
         const results = await Promise.all(pageNums.map(renderPage));
         doc.destroy();
 
+        if (cancelled) {
+          results.forEach((r) => r && URL.revokeObjectURL(r.url));
+          return;
+        }
+
         const rendered = results.filter((r): r is RenderedPage => r !== null);
+
+        // If hi-res render produced no valid pages, keep current (lower-res) pages
+        if (rendered.length === 0) {
+          return;
+        }
 
         // Snapshot old URLs before replacing — revoke AFTER cache is updated
         const oldUrls = [...pageUrlsRef.current];
@@ -626,7 +648,10 @@ export function PdfPageViewer({
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cancelled = true;
+    };
   }, [zoom, pages, exerciseId]);
 
   // Keyboard shortcuts for zoom (+/- keys)

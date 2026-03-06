@@ -6,7 +6,8 @@ import {
   Check, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getDisplayName } from "@/lib/exercise-utils";
+import { getPageLabel } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,16 +23,6 @@ interface LessonExerciseSidebarProps {
   hasAnnotations?: (exerciseId: number) => boolean;
   /** Homework completion data for previous session's HW exercises. */
   homeworkCompletion?: HomeworkCompletion[];
-}
-
-function getPageLabel(exercise: SessionExercise): string | null {
-  const { complexPages } = parseExerciseRemarks(exercise.remarks);
-  if (complexPages) return `p${complexPages}`;
-  if (exercise.page_start && exercise.page_end && exercise.page_start !== exercise.page_end) {
-    return `p${exercise.page_start}-${exercise.page_end}`;
-  }
-  if (exercise.page_start) return `p${exercise.page_start}`;
-  return null;
 }
 
 function ExerciseItem({
