@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle } from "@/lib/hooks";
+import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, useProposals, usePageTitle } from "@/lib/hooks";
 import { parentCommunicationsAPI } from "@/lib/api";
 import type { ParentCommunication } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +19,9 @@ import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
 import { getStatusChar, getStatusColor, getShortStatus, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { parseStarRating } from "@/components/ui/star-rating";
-import type { Enrollment, Session, CalendarEvent } from "@/types";
+import { getDisplayStatus } from "@/lib/session-status";
+import { getPendingSlotCount } from "@/lib/proposal-utils";
+import type { Enrollment, Session, CalendarEvent, MakeupProposal } from "@/types";
 
 type Tab = "info" | "enrollments" | "sessions" | "contacts" | "ratings" | "tests" | "courseware";
 const ALL_TABS: Tab[] = ["info", "enrollments", "sessions", "contacts", "ratings", "tests", "courseware"];
@@ -51,6 +53,19 @@ export default function ZenStudentDetailPage() {
   const { data: sessions, isLoading: sessionsLoading, mutate: mutateSessions } = useStudentSessions(id, 50);
   const { data: contacts, mutate: mutateContacts } = useStudentParentContacts(id);
   const { data: calendarEvents } = useCalendarEvents(90, true, 30);
+  const { data: allProposals = [] } = useProposals({ status: "pending", includeSession: true });
+
+  // Map session IDs to their pending proposals (filtered to this student)
+  const sessionProposalMap = useMemo(() => {
+    const map: Record<number, MakeupProposal> = {};
+    if (!student) return map;
+    for (const p of allProposals) {
+      if (p.original_session?.student_id === student.id) {
+        map[p.original_session_id] = p;
+      }
+    }
+    return map;
+  }, [allProposals, student]);
 
   usePageTitle(student ? `${student.student_name} - Zen Mode` : "Student - Zen Mode");
 
@@ -307,6 +322,42 @@ export default function ZenStudentDetailPage() {
             });
           }
           break;
+
+        case "y":
+        case "Y":
+          if (activeTab === "sessions" && !expandedSessionId) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const COPYABLE = ["Scheduled", "Make-up Class", "Trial Class"];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const upcoming = sortedSessions.filter((s) => {
+              const d = new Date(s.session_date + "T00:00:00");
+              return d >= today && COPYABLE.includes(getDisplayStatus(s));
+            }).sort((a, b) => a.session_date.localeCompare(b.session_date));
+            if (upcoming.length === 0) {
+              setZenStatus("No upcoming lessons to copy", "info");
+              break;
+            }
+            const detailed = e.key === "Y";
+            const text = upcoming.map((s) => {
+              const d = new Date(s.session_date + "T00:00:00");
+              const ts = s.time_slot || "";
+              if (detailed) {
+                const month = d.toLocaleDateString("en-US", { month: "short" });
+                const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+                return `${month} ${d.getDate()}, ${d.getFullYear()} (${weekday}) ${ts}`;
+              }
+              const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+              return `${d.getDate()}/${d.getMonth() + 1} (${weekday}) ${ts.replace(/\s/g, "")}`;
+            }).join("\n");
+            navigator.clipboard.writeText(text).then(() => {
+              setZenStatus(`Copied ${upcoming.length} lesson date${upcoming.length !== 1 ? "s" : ""} (${detailed ? "detailed" : "compact"})`, "success");
+            }).catch(() => {
+              setZenStatus("Failed to copy to clipboard", "error");
+            });
+          }
+          break;
       }
     };
 
@@ -442,6 +493,7 @@ export default function ZenStudentDetailPage() {
           onCloseDetail={() => setExpandedSessionId(null)}
           onMark={handleQuickMark}
           onRefresh={() => mutateSessions()}
+          sessionProposalMap={sessionProposalMap}
         />
       )}
 
@@ -531,6 +583,16 @@ export default function ZenStudentDetailPage() {
             <span style={{ color: "var(--zen-fg)" }}>n</span>=new{" "}
             <span style={{ color: "var(--zen-fg)" }}>Enter</span>=edit{" "}
             <span style={{ color: "var(--zen-fg)" }}>d</span>=delete |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Backspace</span> back
+          </>
+        ) : activeTab === "sessions" ? (
+          <>
+            <span style={{ color: "var(--zen-fg)" }}>1-7</span> tabs{" "}
+            <span style={{ color: "var(--zen-fg)" }}>h/l</span> navigate |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>j/k</span> scroll{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail{" "}
+            <span style={{ color: "var(--zen-fg)" }}>y</span>=copy dates{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Y</span>=detailed |{" "}
             <span style={{ color: "var(--zen-fg)" }}>Backspace</span> back
           </>
         ) : (
@@ -716,6 +778,7 @@ function SessionsTab({
   onCloseDetail,
   onMark,
   onRefresh,
+  sessionProposalMap,
 }: {
   sessions: Session[];
   isLoading: boolean;
@@ -725,6 +788,7 @@ function SessionsTab({
   onCloseDetail: () => void;
   onMark: (sessionId: number, status: string) => void;
   onRefresh: () => void;
+  sessionProposalMap: Record<number, MakeupProposal>;
 }) {
   if (isLoading) {
     return <div style={{ color: "var(--zen-dim)" }}><ZenSpinner /> Loading sessions...</div>;
@@ -778,6 +842,18 @@ function SessionsTab({
               <span style={{ color: "var(--zen-warning)", fontSize: "11px" }}>
                 {session.performance_rating || ""}
               </span>
+              {sessionProposalMap[session.id] && (
+                <span style={{
+                  color: "var(--zen-bg)",
+                  backgroundColor: "var(--zen-warning)",
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  padding: "0 4px",
+                  marginLeft: "4px",
+                }}>
+                  P{getPendingSlotCount(sessionProposalMap[session.id])}
+                </span>
+              )}
             </div>
             {expandedSessionId === session.id && (
               <ZenSessionDetail
@@ -785,6 +861,7 @@ function SessionsTab({
                 onClose={onCloseDetail}
                 onMark={onMark}
                 onRefresh={onRefresh}
+                proposal={sessionProposalMap[session.id]}
               />
             )}
           </React.Fragment>
