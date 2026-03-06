@@ -18,6 +18,9 @@ const changelogData = [
           },
           {
             "description": "**Document editor list improvements** — nested list style cycling (1→a→i for ordered, disc→circle→square for bullets), task/checklist support with toolbar button and `Ctrl+Shift+9` shortcut, arbitrary start number input rule (e.g. type `3. ` to start at 3), start number dropdown on toolbar, right-click context menu for ordered lists (restart numbering, set value, convert types), and plain text paste detection for list patterns"
+          },
+          {
+            "description": "**Zen mode view toggle & impersonation** — added view mode toggle (My View/Center View) and role impersonation support to zen mode"
           }
         ]
       },
@@ -35,6 +38,24 @@ const changelogData = [
           },
           {
             "description": "Fixed inbox showing message threads not belonging to the current user"
+          },
+          {
+            "description": "Fixed leave record button always pointing to super admin's link instead of the current user's"
+          },
+          {
+            "description": "Fixed zen mode column overflow with wider theme fonts"
+          },
+          {
+            "description": "Removed confusing `!=alerts` hint from zen header"
+          },
+          {
+            "description": "Restricted Add Student and New Enrollment buttons to admin users only"
+          },
+          {
+            "description": "Fixed lesson mode answer viewer not respecting custom page ranges — now correctly handles complex page selections (e.g., \"1,3,5-7\")"
+          },
+          {
+            "description": "Fixed lesson mode PDF viewer header showing \"p3-6\" instead of \"p3,6\" for non-contiguous pages"
           }
         ]
       }
