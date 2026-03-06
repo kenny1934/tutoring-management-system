@@ -37,6 +37,12 @@ const changelogData = [
           },
           {
             "description": "Fixed makeup session appearing on wrong date in sessions list"
+          },
+          {
+            "description": "Fixed document editor tab indents not deletable with Backspace — now reduces indent level instead of merging blocks"
+          },
+          {
+            "description": "Fixed document editor numbered list auto-format being too aggressive — now only triggers on \"1. \" instead of any number"
           }
         ]
       }
