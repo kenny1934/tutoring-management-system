@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, BookOpen } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -2299,8 +2299,26 @@ export default function SessionsPage() {
                             </div>
                           </div>
 
-                          {/* Right: counts */}
+                          {/* Right: lesson button + counts */}
                           <div className="flex items-center gap-2">
+                            {tutorFilter && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const params = new URLSearchParams({
+                                    date: toDateString(selectedDate),
+                                    slot: timeSlot,
+                                    tutor_id: tutorFilter,
+                                  });
+                                  window.open(`/sessions/lesson?${params.toString()}`, '_blank');
+                                }}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-full border-2 border-teal-600 dark:border-teal-700 bg-teal-100 dark:bg-teal-900 text-teal-900 dark:text-teal-100 text-xs font-bold hover:bg-teal-200 dark:hover:bg-teal-800 transition-colors"
+                                title="Open lesson mode for this time slot"
+                              >
+                                <BookOpen className="h-3 w-3" />
+                                Lesson
+                              </button>
+                            )}
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
                             </div>
