@@ -16,6 +16,7 @@ import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { MakeupMessageModal } from "@/components/sessions/MakeupMessageModal";
+import { formatMakeupMessage } from "@/lib/makeup-message";
 
 // Size configurations for buttons
 const sizeClasses = {
@@ -154,6 +155,7 @@ export function SessionActionButtons({
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [isMakeupMsgOpen, setIsMakeupMsgOpen] = useState(false);
+  const [copiedMakeupMsg, setCopiedMakeupMsg] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -229,9 +231,23 @@ export function SessionActionButtons({
       return;
     }
 
-    // Special handling for copy-makeup-msg action - open message modal
+    // Special handling for copy-makeup-msg action
     if (action.id === "copy-makeup-msg") {
-      setIsMakeupMsgOpen(true);
+      const isMobileScreen = window.innerWidth < 640;
+      if (isMobileScreen) {
+        // Direct copy on mobile — skip modal to avoid stacking context issues
+        try {
+          const msg = formatMakeupMessage(session, 'zh');
+          await navigator.clipboard.writeText(msg);
+          showToast("Message copied!");
+          setCopiedMakeupMsg(true);
+          setTimeout(() => setCopiedMakeupMsg(false), 1000);
+        } catch {
+          showToast("Failed to copy", "error");
+        }
+      } else {
+        setIsMakeupMsgOpen(true);
+      }
       return;
     }
 
@@ -437,6 +453,9 @@ export function SessionActionButtons({
           // Actions that open view-friendly modals (Supervisor can open but save is disabled inside)
           const isViewableAction = ["cw", "hw", "rate", "schedule-makeup"].includes(action.id);
           const isDisabledByReadOnly = isReadOnly && !isViewableAction;
+          const colorClass = action.id === 'copy-makeup-msg' && copiedMakeupMsg
+            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+            : action.colorClass;
 
           return (
             <React.Fragment key={action.id}>
@@ -448,10 +467,10 @@ export function SessionActionButtons({
                   "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
                   sizeClasses[size],
                   isDisabledByReadOnly
-                    ? cn(action.colorClass, "cursor-not-allowed opacity-40")
+                    ? cn(colorClass, "cursor-not-allowed opacity-40")
                     : isEnabled && !isLoading
-                      ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
-                      : cn(action.colorClass, "cursor-not-allowed opacity-50"),
+                      ? cn(colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
+                      : cn(colorClass, "cursor-not-allowed opacity-50"),
                   isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
                 )}
                 title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
