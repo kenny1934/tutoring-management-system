@@ -82,7 +82,8 @@ export function addSessionToCache(newSession: Session) {
   // Update single session cache
   mutate(['session', newSession.id], newSession, { revalidate: false });
 
-  // Add to list caches
+  // Revalidate all list caches so the new session appears in the correct filtered view
+  // (Don't optimistically add — we can't determine which filtered cache it belongs to)
   mutate(
     (key) => {
       if (!Array.isArray(key)) return false;
@@ -91,13 +92,8 @@ export function addSessionToCache(newSession: Session) {
              type === 'student-sessions' ||
              type === 'enrollment-sessions';
     },
-    (currentData: Session[] | undefined) => {
-      if (!currentData) return currentData;
-      // Add new session if not already present
-      if (currentData.some(s => s.id === newSession.id)) return currentData;
-      return [...currentData, newSession];
-    },
-    { revalidate: false }
+    undefined,
+    { revalidate: true }
   );
 }
 
