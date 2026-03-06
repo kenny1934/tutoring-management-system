@@ -413,7 +413,6 @@ export function ZenHeader() {
             paddingLeft: "12px",
           }}
         >
-          <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
           <span style={{ color: "var(--zen-fg)" }}>Shift+T</span>=tools{" "}
           <span style={{ color: "var(--zen-fg)" }}>Shift+P</span>=puzzle{" "}
           <span style={{ color: "var(--zen-fg)" }}>?</span>=help
