@@ -7,5 +7,6 @@ export { PaginationExtension, paginationPluginKey } from "./pagination";
 export { buildHFontFamily } from "./pagination-utils";
 export { SearchAndReplace, searchPluginKey } from "./search-and-replace";
 export { Indent } from "./indent";
+export { CustomOrderedList } from "./ordered-list";
 export { LineSpacing } from "./line-spacing";
 export { computeDocDiff } from "./doc-diff";
