@@ -19,6 +19,7 @@ export { ZenCalendar } from "./ZenCalendar";
 export { ZenDistributionChart } from "./ZenDistributionChart";
 export { ZenStudentList } from "./ZenStudentList";
 export { ZenEnrollmentDetail } from "./ZenEnrollmentDetail";
+export { ZenContactForm } from "./ZenContactForm";
 export { ZenSpinner, ZenProgressBar } from "./ZenSpinner";
 
 // Hooks
