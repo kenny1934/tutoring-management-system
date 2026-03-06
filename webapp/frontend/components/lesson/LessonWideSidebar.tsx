@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
-  Users, FileStack, User,
+  Users, FileStack, User, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/exercise-utils";
@@ -26,6 +26,7 @@ interface LessonWideSidebarProps {
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
+  onPrint?: (entry: StudentExerciseEntry) => void;
 }
 
 // --- By-Student mode components ---
@@ -35,20 +36,22 @@ function StudentExerciseItem({
   isSelected,
   onClick,
   hasAnnotations,
+  onPrint,
 }: {
   entry: StudentExerciseEntry;
   isSelected: boolean;
   onClick: () => void;
   hasAnnotations?: boolean;
+  onPrint?: (entry: StudentExerciseEntry) => void;
 }) {
   const displayName = getDisplayName(entry.exercise.pdf_name);
   const pageLabel = getPageLabel(entry.exercise);
 
   return (
-    <button
+    <div
       onClick={onClick}
       className={cn(
-        "w-full text-left px-2.5 py-2 rounded-md transition-all text-sm group",
+        "w-full text-left px-2.5 py-2 rounded-md transition-all text-sm group cursor-pointer",
         "border border-transparent min-h-[44px] md:min-h-0",
         isSelected
           ? "bg-[#f5e6d0] dark:bg-[#3d3020] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
@@ -67,11 +70,20 @@ function StudentExerciseItem({
             <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">{pageLabel}</span>
           )}
         </div>
+        {entry.exercise.pdf_name && onPrint && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPrint(entry); }}
+            className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+            title="Print"
+          >
+            <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+          </button>
+        )}
         {hasAnnotations && (
           <span className="w-2 h-2 rounded-full bg-[#a0704b] mt-1.5 flex-shrink-0" title="Has annotations" />
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -85,6 +97,7 @@ function StudentBlock({
   hasAnnotations,
   selectedLocation,
   defaultExpanded,
+  onPrint,
 }: {
   session: Session;
   entries: StudentExerciseEntry[];
@@ -95,6 +108,7 @@ function StudentBlock({
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
   defaultExpanded: boolean;
+  onPrint?: (entry: StudentExerciseEntry) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
@@ -163,6 +177,7 @@ function StudentBlock({
                   onEdit={() => onEditExercises(session, "CW")}
                   isReadOnly={isReadOnly}
                   hasAnnotations={hasAnnotations}
+                  onPrint={onPrint}
                 />
               )}
               {hwEntries.length > 0 && (
@@ -176,6 +191,7 @@ function StudentBlock({
                   onEdit={() => onEditExercises(session, "HW")}
                   isReadOnly={isReadOnly}
                   hasAnnotations={hasAnnotations}
+                  onPrint={onPrint}
                 />
               )}
               {cwEntries.length === 0 && hwEntries.length === 0 && (
@@ -201,6 +217,7 @@ function ExerciseTypeSection({
   onEdit,
   isReadOnly,
   hasAnnotations,
+  onPrint,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -211,6 +228,7 @@ function ExerciseTypeSection({
   onEdit: () => void;
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
+  onPrint?: (entry: StudentExerciseEntry) => void;
 }) {
   return (
     <div>
@@ -243,6 +261,7 @@ function ExerciseTypeSection({
             }
             onClick={() => onEntrySelect(entry)}
             hasAnnotations={hasAnnotations?.(entry.exercise.id)}
+            onPrint={onPrint}
           />
         ))}
       </div>
@@ -258,12 +277,14 @@ function FileGroupItem({
   onEntrySelect,
   hasAnnotations,
   selectedLocation,
+  onPrint,
 }: {
   group: FileGroup;
   selectedEntry: StudentExerciseEntry | null;
   onEntrySelect: (entry: StudentExerciseEntry) => void;
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
+  onPrint?: (entry: StudentExerciseEntry) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -308,11 +329,11 @@ function FileGroupItem({
                 const hasAnno = hasAnnotations?.(entry.exercise.id);
 
                 return (
-                  <button
+                  <div
                     key={`${entry.session.id}-${entry.exercise.id}`}
                     onClick={() => onEntrySelect(entry)}
                     className={cn(
-                      "w-full text-left px-2 py-1.5 rounded-md transition-all text-xs",
+                      "w-full text-left px-2 py-1.5 rounded-md transition-all text-xs group cursor-pointer",
                       "border border-transparent min-h-[36px] md:min-h-0",
                       isSelected
                         ? "bg-[#f5e6d0] dark:bg-[#3d3020] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
@@ -344,11 +365,20 @@ function FileGroupItem({
                         </span>
                       )}
                       <div className="flex-1" />
+                      {entry.exercise.pdf_name && onPrint && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onPrint(entry); }}
+                          className="p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                          title="Print"
+                        >
+                          <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+                        </button>
+                      )}
                       {hasAnno && (
                         <span className="w-2 h-2 rounded-full bg-[#a0704b] flex-shrink-0" title="Has annotations" />
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -374,6 +404,7 @@ export function LessonWideSidebar({
   isReadOnly,
   hasAnnotations,
   selectedLocation,
+  onPrint,
 }: LessonWideSidebarProps) {
   if (sessions.length === 0) {
     return (
@@ -437,6 +468,7 @@ export function LessonWideSidebar({
                   hasAnnotations={hasAnnotations}
                   selectedLocation={selectedLocation}
                   defaultExpanded
+                  onPrint={onPrint}
                 />
               );
             })}
@@ -461,6 +493,7 @@ export function LessonWideSidebar({
                       onEntrySelect={onEntrySelect}
                       hasAnnotations={hasAnnotations}
                       selectedLocation={selectedLocation}
+                      onPrint={onPrint}
                     />
                   ))}
                 </div>
@@ -483,6 +516,7 @@ export function LessonWideSidebar({
                       onEntrySelect={onEntrySelect}
                       hasAnnotations={hasAnnotations}
                       selectedLocation={selectedLocation}
+                      onPrint={onPrint}
                     />
                   ))}
                 </div>
