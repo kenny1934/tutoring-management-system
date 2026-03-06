@@ -43,6 +43,9 @@ const changelogData = [
           },
           {
             "description": "Fixed document editor numbered list auto-format being too aggressive — now only triggers on \"1. \" instead of any number"
+          },
+          {
+            "description": "Fixed inability to cancel makeup sessions rescheduled to a different tutor — original tutor now also has cancel permission"
           }
         ]
       }
