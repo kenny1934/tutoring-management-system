@@ -12,6 +12,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
+import { getInitials } from "@/lib/avatar-utils";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -652,9 +653,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {(() => {
           // When impersonating a specific tutor, show their name
           const displayName = impersonatedTutor?.name || user?.name || "Guest";
-          const initials = displayName
-            .split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+          const initials = getInitials(displayName);
           const displayRole = effectiveRole || "Guest";
+          const rawPicture = isImpersonating && impersonatedTutor?.profile_picture
+            ? impersonatedTutor.profile_picture
+            : user?.picture;
+          const displayPicture = rawPicture?.startsWith("http") ? rawPicture : undefined;
 
           return !isMobile && isCollapsed ? (
             /* Collapsed state: Avatar only */
@@ -673,9 +677,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 }}
                 title="User settings"
               >
-                {user?.picture ? (
+                {displayPicture ? (
                   <Image
-                    src={user.picture}
+                    src={displayPicture}
                     alt={displayName}
                     width={40}
                     height={40}
@@ -709,9 +713,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 }}
               >
                 <div className="relative flex-shrink-0">
-                  {user?.picture ? (
+                  {displayPicture ? (
                     <Image
-                      src={user.picture}
+                      src={displayPicture}
                       alt={displayName}
                       width={44}
                       height={44}
