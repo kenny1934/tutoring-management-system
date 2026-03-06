@@ -2312,7 +2312,7 @@ export default function SessionsPage() {
                                   });
                                   window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                                 }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                                className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
                                 title="Open lesson mode for this time slot"
                               >
                                 <Presentation className="h-3.5 w-3.5" />
