@@ -25,8 +25,6 @@ import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
 
-// Maps the current user's display name to their tutor_name in the database
-const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -61,7 +59,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const { viewMode } = useRole();
-  const { isAdmin, isGuest } = useAuth();
+  const { user, isAdmin, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();
 
   // Daily emoji - deterministic based on date to avoid hydration mismatch
@@ -71,12 +69,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     return greetingEmojis[dayIndex % greetingEmojis.length];
   }, []);
 
-  // Derive tutor ID from tutors list if not provided
-  const currentTutorId = useMemo(() => {
-    if (tutorId) return tutorId;
-    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return currentTutor?.id;
-  }, [tutorId, tutors]);
+  // Derive tutor ID from prop or auth user
+  const currentTutorId = tutorId ?? user?.id;
 
   // Fetch contact-needed count for Parent Contacts badge (shares SWR cache with NotificationBell)
   const { data: contactNeeded } = useSWR(
@@ -88,7 +82,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const { data: reviewCount } = useTerminationReviewCount(location, currentTutorId);
 
   // Current user's leave record URL (for my-view mode)
-  const currentUserLeaveUrl = getLeaveRecordUrl(CURRENT_USER_TUTOR);
+  const currentTutorName = tutors.find(t => t.id === currentTutorId)?.tutor_name;
+  const currentUserLeaveUrl = currentTutorName ? getLeaveRecordUrl(currentTutorName) : undefined;
 
   // Filter tutors with leave records by location, sorted by first name
   const tutorsWithLeaveRecords = useMemo(() => {
