@@ -7,12 +7,14 @@
 * **Exercise history panel** — side panel in exercise modal showing past exercises for each student, with duplicate detection warnings when assigning previously-used exercises
 * **"All" proposals tab** — admin and super admin users can now see all proposals across tutors in the proposals view
 * **Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout
+* **Document editor list improvements** — nested list style cycling (1→a→i for ordered, disc→circle→square for bullets), task/checklist support with toolbar button and `Ctrl+Shift+9` shortcut, arbitrary start number input rule (e.g. type `3. ` to start at 3), start number dropdown on toolbar, right-click context menu for ordered lists (restart numbering, set value, convert types), and plain text paste detection for list patterns
 
 ### Bug Fixes
 
 * Fixed sidebar view switching (My View → Center View) not updating the session page tutor filter on first click
 * Fixed "For you" badge incorrectly showing on proposals in the All tab when the admin is neither proposer nor target
 * Improved visual distinction between Book/Propose modes in makeup modal — color-coded toggle (green for Book, blue for Propose) with accent border
+* Fixed inbox showing message threads not belonging to the current user
 
 ## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)
 
