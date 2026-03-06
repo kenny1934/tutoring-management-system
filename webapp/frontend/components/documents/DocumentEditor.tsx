@@ -21,7 +21,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, CustomOrderedList, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -620,7 +620,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     immediatelyRender: false,
     editable: !isReadOnly,
     extensions: [
-      StarterKit.configure({}),
+      StarterKit.configure({ orderedList: false }),
+      CustomOrderedList,
       Placeholder.configure({ placeholder: "Start writing..." }),
       TextStyle,
       Color,

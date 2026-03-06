@@ -93,6 +93,20 @@ export const Indent = Extension.create({
       "Shift-Tab": () =>
         this.editor.commands.liftListItem("listItem") ||
         this.editor.commands.outdent(),
+      Backspace: () => {
+        const { state } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        if ($from.parentOffset !== 0) return false;
+        const node = $from.parent;
+        if (
+          (node.type.name === "paragraph" || node.type.name === "heading") &&
+          (node.attrs.indent || 0) > 0
+        ) {
+          return this.editor.commands.outdent();
+        }
+        return false;
+      },
     };
   },
 });
