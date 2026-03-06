@@ -1282,7 +1282,7 @@ export function ScheduleMakeupModal({
     >
       <div className="space-y-4">
         {/* Original Session Info - Compact sticky bar */}
-        <div className="sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center gap-2 text-xs flex-wrap">
+        <div className={cn("sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b-2 flex items-center gap-2 text-xs flex-wrap transition-colors", mode === "propose" ? "border-b-blue-400 dark:border-b-blue-600" : "border-b-green-400 dark:border-b-green-600")}>
           <User className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
           {session.school_student_id && (
             <span className="text-[9px] text-gray-400 font-mono">{session.school_student_id}</span>
@@ -1325,7 +1325,7 @@ export function ScheduleMakeupModal({
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                 mode === "book"
-                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 shadow-sm ring-1 ring-green-200 dark:ring-green-800"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               )}
             >
@@ -1337,7 +1337,7 @@ export function ScheduleMakeupModal({
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                 mode === "propose"
-                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               )}
             >
