@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
-  ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, BookCheck,
+  ZoomIn, ZoomOut, UnfoldHorizontal, Eye, EyeOff, BookCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -846,7 +846,7 @@ export function PdfPageViewer({
             className={tbBtnClass}
             title="Fit to width"
           >
-            <Maximize2 className="h-3.5 w-3.5" />
+            <UnfoldHorizontal className="h-3.5 w-3.5" />
           </button>
         </div>
 
