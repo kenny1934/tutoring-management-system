@@ -52,14 +52,14 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
   const compact = !usePortal;
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center" onClick={(e) => e.stopPropagation()}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Modal */}
+      {/* Modal — full-screen on mobile, centered card on sm+ */}
       <div className={cn(
-        "relative w-full mx-4 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700",
-        compact ? "max-w-[28rem]" : "max-w-[32rem]"
+        "relative w-full h-full sm:h-auto flex flex-col bg-white dark:bg-gray-900 shadow-xl border border-gray-200 dark:border-gray-700 sm:rounded-xl sm:mx-4 overflow-hidden",
+        compact ? "sm:max-w-[28rem]" : "sm:max-w-[32rem]"
       )}>
         {/* Header */}
         <div className={cn(
@@ -104,14 +104,14 @@ export function MakeupMessageModal({ session, isOpen, onClose, usePortal = true 
         </div>
 
         {/* Message content */}
-        <div className={compact ? "p-3" : "p-4"}>
+        <div className={cn("flex-1 min-h-0 flex flex-col", compact ? "p-3" : "p-4")}>
           <textarea
             value={message}
             onChange={(e) => isEditable && setMessage(e.target.value)}
             readOnly={!isEditable}
             className={cn(
-              "w-full p-3 font-mono rounded-lg border resize-none transition-colors",
-              compact ? "h-36 text-xs" : "h-48 text-sm",
+              "w-full p-3 font-mono rounded-lg border resize-none transition-colors flex-1",
+              compact ? "sm:flex-none sm:h-36 text-xs" : "sm:flex-none sm:h-48 text-sm",
               isEditable
                 ? "border-sky-400 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-sky-300/30"
                 : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-default"
