@@ -28,6 +28,15 @@ const changelogData = [
         "items": [
           {
             "description": "Fixed profile pictures not saving — widened `profile_picture` column from VARCHAR(500) to VARCHAR(2048) to accommodate Google profile picture URLs"
+          },
+          {
+            "description": "Fixed exercise modal not allowing deletion of all exercises of a type"
+          },
+          {
+            "description": "Fixed emoji picker appearing beneath the feedback modal"
+          },
+          {
+            "description": "Fixed makeup session appearing on wrong date in sessions list"
           }
         ]
       }

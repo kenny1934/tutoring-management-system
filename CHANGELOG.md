@@ -14,6 +14,9 @@
 ### Bug Fixes
 
 * Fixed profile pictures not saving — widened `profile_picture` column from VARCHAR(500) to VARCHAR(2048) to accommodate Google profile picture URLs
+* Fixed exercise modal not allowing deletion of all exercises of a type
+* Fixed emoji picker appearing beneath the feedback modal
+* Fixed makeup session appearing on wrong date in sessions list
 
 ## [2.0.15](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.15) (2026-03-05)
 
