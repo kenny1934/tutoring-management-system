@@ -17,6 +17,8 @@
 * Fixed exercise modal not allowing deletion of all exercises of a type
 * Fixed emoji picker appearing beneath the feedback modal
 * Fixed makeup session appearing on wrong date in sessions list
+* Fixed document editor tab indents not deletable with Backspace — now reduces indent level instead of merging blocks
+* Fixed document editor numbered list auto-format being too aggressive — now only triggers on "1. " instead of any number
 
 ## [2.0.15](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.15) (2026-03-05)
 
