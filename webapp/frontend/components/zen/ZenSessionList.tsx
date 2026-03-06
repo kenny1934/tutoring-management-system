@@ -334,7 +334,8 @@ export function ZenSessionList({
                 {/* Selection checkbox */}
                 <span
                   style={{
-                    width: "24px",
+                    minWidth: "28px",
+                    flexShrink: 0,
                     color: isSelected ? "var(--zen-accent)" : "var(--zen-dim)",
                   }}
                 >
