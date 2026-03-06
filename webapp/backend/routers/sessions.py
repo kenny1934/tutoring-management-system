@@ -1295,10 +1295,15 @@ async def cancel_makeup(
     if not makeup_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {makeup_session_id} not found")
 
-    # Check ownership - only makeup session owner or admin can cancel
+    # Check ownership - makeup owner, original session owner, or admin can cancel
+    original_session_tutor_id = db.query(SessionLog.tutor_id).filter(
+        SessionLog.id == makeup_session.make_up_for_id
+    ).scalar() if makeup_session.make_up_for_id else None
+
     is_owner = makeup_session.tutor_id == current_user.id
+    is_original_owner = original_session_tutor_id == current_user.id
     is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
+    if not (is_owner or is_original_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only cancel makeups for your own sessions")
 
     # Validate this is a make-up session
