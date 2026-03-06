@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "s", label: "Students", shortcut: "S", path: "/zen/students" },
   { key: "n", label: "Sessions", shortcut: "n", path: "/zen/sessions", bracketIndex: 6 },
   { key: "c", label: "Courseware", shortcut: "C", path: "/zen/courseware" },
+  { key: "e", label: "Enrollments", shortcut: "E", path: "/zen/enrollments", bracketIndex: 0 },
   { key: "r", label: "Revenue", shortcut: "R", path: "/zen/revenue" },
 ];
 

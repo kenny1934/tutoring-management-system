@@ -366,9 +366,31 @@ export const discountsAPI = {
 
 // Enrollments API
 export const enrollmentsAPI = {
-  getAll: (student_id?: number) => {
-    const params = student_id ? `?student_id=${student_id}` : "";
-    return fetchAPI<Enrollment[]>(`/enrollments${params}`);
+  getAll: (paramsOrStudentId?: number | {
+    student_id?: number;
+    tutor_id?: number;
+    location?: string;
+    payment_status?: string;
+    enrollment_type?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    if (typeof paramsOrStudentId === "number") {
+      return fetchAPI<Enrollment[]>(`/enrollments?student_id=${paramsOrStudentId}`);
+    }
+    const searchParams = new URLSearchParams();
+    if (paramsOrStudentId) {
+      const p = paramsOrStudentId;
+      if (p.student_id) searchParams.set("student_id", p.student_id.toString());
+      if (p.tutor_id) searchParams.set("tutor_id", p.tutor_id.toString());
+      if (p.location) searchParams.set("location", p.location);
+      if (p.payment_status) searchParams.set("payment_status", p.payment_status);
+      if (p.enrollment_type) searchParams.set("enrollment_type", p.enrollment_type);
+      if (p.limit) searchParams.set("limit", p.limit.toString());
+      if (p.offset) searchParams.set("offset", p.offset.toString());
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<Enrollment[]>(`/enrollments${qs ? `?${qs}` : ""}`);
   },
 
   getActive: (location?: string) => {
