@@ -3,7 +3,7 @@
  * Used by ExerciseModal and BulkExerciseModal.
  */
 
-import type { PageSelection } from '@/types';
+import type { PageSelection, ExerciseHistorySession } from '@/types';
 
 // ============================================================================
 // Exercise Creation Utilities
@@ -457,3 +457,79 @@ export function createExercisesFromClipboard(
 
 /** Event name for clipboard change listeners */
 export { CLIPBOARD_EVENT };
+
+// ============================================================================
+// Duplicate Exercise Detection
+// ============================================================================
+
+export interface DuplicateMatch {
+  sessionId: number;
+  sessionDate: string;
+  exerciseType: string;
+  pageStart?: number;
+  pageEnd?: number;
+}
+
+/** Extract base filename from a path, lowercased, extension removed. */
+export function normalizeFilename(path: string): string {
+  if (!path) return '';
+  const basename = path.split(/[/\\]/).pop() || path;
+  return basename.replace(/\.[^.]+$/, '').toLowerCase();
+}
+
+/** Check if two page ranges overlap. If either has no range, returns true (conservative). */
+function pagesOverlap(
+  startA?: number, endA?: number,
+  startB?: number, endB?: number,
+): boolean {
+  // If either side has no pages, match on filename alone
+  if (!startA || !startB) return true;
+  const eA = endA || startA;
+  const eB = endB || startB;
+  return startA <= eB && startB <= eA;
+}
+
+/** Pre-indexed history map for efficient duplicate lookups. */
+export type DuplicateIndex = Map<string, DuplicateMatch[]>;
+
+/**
+ * Build a lookup map from exercise history, keyed by normalized filename.
+ * Call once when history data arrives, then use with `findDuplicatesFromIndex`.
+ */
+export function buildDuplicateIndex(history: ExerciseHistorySession[]): DuplicateIndex {
+  const map = new Map<string, DuplicateMatch[]>();
+  for (const session of history) {
+    for (const ex of session.exercises) {
+      const key = normalizeFilename(ex.pdf_name);
+      if (!key) continue;
+      const match: DuplicateMatch = {
+        sessionId: session.session_id,
+        sessionDate: session.session_date,
+        exerciseType: ex.exercise_type === 'Classwork' ? 'CW' : ex.exercise_type === 'Homework' ? 'HW' : ex.exercise_type,
+        pageStart: ex.page_start,
+        pageEnd: ex.page_end,
+      };
+      const existing = map.get(key);
+      if (existing) existing.push(match);
+      else map.set(key, [match]);
+    }
+  }
+  return map;
+}
+
+/**
+ * Find duplicate exercises using a pre-built index. O(1) filename lookup + page overlap filter.
+ */
+export function findDuplicatesFromIndex(
+  pdfName: string,
+  pageStart?: number,
+  pageEnd?: number,
+  index: DuplicateIndex = new Map(),
+): DuplicateMatch[] {
+  if (!pdfName) return [];
+  const key = normalizeFilename(pdfName);
+  if (!key) return [];
+  const candidates = index.get(key);
+  if (!candidates) return [];
+  return candidates.filter(m => pagesOverlap(pageStart, pageEnd, m.pageStart, m.pageEnd));
+}
