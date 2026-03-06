@@ -45,17 +45,15 @@ function getExercisePageNumbers(exercise: SessionExercise): number[] {
   }, "[Lesson]");
 }
 
-/** Compute answer page numbers from exercise metadata. */
+/** Compute answer page numbers from exercise metadata (supports both simple and custom ranges). */
 function getAnswerPageNumbers(exercise: SessionExercise): number[] {
-  if (exercise.answer_page_start && exercise.answer_page_end) {
-    const pages: number[] = [];
-    for (let i = exercise.answer_page_start; i <= exercise.answer_page_end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }
-  if (exercise.answer_page_start) return [exercise.answer_page_start];
-  return []; // Empty = all pages
+  const { complexPages } = parseExerciseRemarks(exercise.answer_remarks);
+  return getPageNumbers({
+    pdf_name: exercise.answer_pdf_name || "",
+    page_start: exercise.answer_page_start,
+    page_end: exercise.answer_page_end,
+    complex_pages: complexPages || undefined,
+  }, "[Lesson ANS]");
 }
 
 /** Inline exit confirmation dialog — warns about unsaved annotations. */

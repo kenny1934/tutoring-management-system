@@ -19,6 +19,25 @@ import {
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
+/** Format page numbers into compact range notation: [1,3,5,6,7] → "1,3,5-7" */
+function formatCompactPageRange(pages: number[]): string {
+  if (pages.length === 0) return "";
+  if (pages.length === 1) return String(pages[0]);
+  const sorted = [...pages].sort((a, b) => a - b);
+  const groups: string[] = [];
+  let start = sorted[0], end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) {
+      end = sorted[i];
+    } else {
+      groups.push(start === end ? String(start) : `${start}-${end}`);
+      start = end = sorted[i];
+    }
+  }
+  groups.push(start === end ? String(start) : `${start}-${end}`);
+  return groups.join(",");
+}
+
 // Pen colors palette
 const PEN_COLORS = [
   { color: "#dc2626", label: "Red" },
@@ -792,9 +811,7 @@ export function PdfPageViewer({
         )}
         {pageNumbers.length > 0 && (
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
-            p{pageNumbers.length === 1
-              ? pageNumbers[0]
-              : `${pageNumbers[0]}-${pageNumbers[pageNumbers.length - 1]}`}
+            p{formatCompactPageRange(pageNumbers)}
           </span>
         )}
         {pages.length > 1 && (
