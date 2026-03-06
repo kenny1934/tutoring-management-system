@@ -264,7 +264,12 @@ export async function extractBulkPagesForDownload(
   // Track page ranges per item for per-item stamp support
   const itemPageRanges: Array<{ startIdx: number; endIdx: number; itemStamp?: PrintStampInfo }> = [];
 
-  for (const item of items) {
+  // Helper to identify student boundaries by stamp identity
+  const studentKey = (s?: PrintStampInfo) => s ? JSON.stringify(s) : '';
+  let studentStartPageIdx = 0;
+
+  for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+    const item = items[itemIdx];
     const startIdx = pdfDoc.getPageCount();
     try {
       // Load source PDF
@@ -284,6 +289,21 @@ export async function extractBulkPagesForDownload(
       // Continue with other PDFs even if one fails
     }
     itemPageRanges.push({ startIdx, endIdx: pdfDoc.getPageCount(), itemStamp: item.stamp });
+
+    // Insert blank page at student boundaries for double-sided printing
+    const nextItem = items[itemIdx + 1];
+    const isLastItem = itemIdx === items.length - 1;
+    const isStudentBoundary = !isLastItem && studentKey(item.stamp) !== studentKey(nextItem?.stamp);
+    if (isStudentBoundary) {
+      const studentPageCount = pdfDoc.getPageCount() - studentStartPageIdx;
+      if (studentPageCount % 2 !== 0) {
+        // Add blank page matching the last page's dimensions
+        const lastPage = pdfDoc.getPage(pdfDoc.getPageCount() - 1);
+        const { width, height } = lastPage.getSize();
+        pdfDoc.addPage([width, height]);
+      }
+      studentStartPageIdx = pdfDoc.getPageCount();
+    }
   }
 
   // Add stamp overlays — per-item stamp takes priority, then global stamp
