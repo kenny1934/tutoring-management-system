@@ -9,7 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { canBeMarked } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -290,6 +290,25 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     ({group.sessions.filter(isCountableSession).length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
                   </span>
+                  <div className="flex-1" />
+                  {tutorId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const params = new URLSearchParams({
+                          date: todayString,
+                          slot: group.timeSlot,
+                          tutor_id: String(tutorId),
+                        });
+                        window.open(`/sessions/lesson?${params.toString()}`, '_blank');
+                      }}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                      title="Open lesson mode for this time slot"
+                    >
+                      <Presentation className="h-3 w-3" />
+                      <span className="hidden sm:inline">Lesson</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Sessions in this time slot */}

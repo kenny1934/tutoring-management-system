@@ -734,7 +734,7 @@ export function LessonWideMode({
       isOverlay && "shadow-lg rounded-3xl"
     )}>
       <div className={cn(
-        "flex items-center gap-3 px-3 py-2.5",
+        "flex items-center gap-1.5 sm:gap-3 px-2 py-2 sm:px-3 sm:py-2.5",
         "bg-[#2d4739] dark:bg-[#1a2821]",
         "shadow-inner rounded-[12px]",
         isOverlay && "rounded-[20px]"
@@ -742,7 +742,7 @@ export function LessonWideMode({
         {/* Exit button — closes tab */}
         <button
           onClick={focusMode ? exitFocusMode : () => window.close()}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           title={focusMode ? "Exit focus mode (Esc)" : "Close lesson tab"}
         >
           <ArrowLeft className="h-4 w-4 text-white/80" />
@@ -754,14 +754,14 @@ export function LessonWideMode({
           <span className="text-sm font-bold text-white/90 truncate">
             {tutorName ? `${tutorName} — ${slot}` : slot}
           </span>
-          <span className="text-xs text-white/50">
+          <span className="hidden sm:inline text-xs text-white/50">
             ({sessions.length} student{sessions.length !== 1 ? "s" : ""})
           </span>
         </div>
 
         {/* Current student info */}
         {selectedEntry && (
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="hidden sm:flex items-center gap-2 min-w-0">
             <span className="text-white/40">&bull;</span>
             {studentIdDisplay && (
               <span className="text-xs text-white/60 font-mono">{studentIdDisplay}</span>
@@ -805,7 +805,7 @@ export function LessonWideMode({
           <button
             onClick={handleHeaderAnnotationToggle}
             className={cn(
-              "p-1.5 rounded-lg transition-colors",
+              "p-1 sm:p-1.5 rounded-lg transition-colors",
               drawingEnabled
                 ? "bg-white/20 text-white"
                 : "hover:bg-white/10 text-white/70"
@@ -821,7 +821,7 @@ export function LessonWideMode({
           <button
             onClick={() => setShowPrintMenu(v => !v)}
             className={cn(
-              "p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
+              "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
               showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
             title="Print all exercises"
@@ -1138,6 +1138,17 @@ export function LessonWideMode({
             )}
           </div>
         </>
+      )}
+
+      {/* Mobile: Floating exercise list button */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileExerciseListOpen(true)}
+          className="fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform"
+          aria-label="Exercise list"
+        >
+          <LayoutList className="h-6 w-6 text-white" />
+        </button>
       )}
 
       {/* Mobile exercise list bottom sheet */}
