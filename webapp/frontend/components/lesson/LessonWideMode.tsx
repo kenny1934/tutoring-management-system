@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, MapPin, HelpCircle,
+  ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown,
   Maximize2, Minimize2, PencilLine, Users,
   AlertTriangle, Loader2 as Loader2Icon, LayoutList,
 } from "lucide-react";
@@ -26,6 +26,8 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
+import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
+import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
@@ -70,6 +72,7 @@ export function LessonWideMode({
   isReadOnly,
 }: LessonWideModeProps) {
   const { selectedLocation } = useLocation();
+  const { showToast } = useToast();
 
   // --- Sidebar mode ---
   const [sidebarMode, setSidebarMode] = useState<"by-student" | "by-file">("by-student");
@@ -532,6 +535,21 @@ export function LessonWideMode({
     );
   }, [selectedEntry]);
 
+  // --- Bulk print ---
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const handleBulkPrint = useCallback(async (type: 'CW' | 'HW') => {
+    setShowPrintMenu(false);
+    const groups = groupExercisesByStudent(sessions, type);
+    if (groups.length === 0) {
+      showToast(`No ${type} exercises found`, 'info');
+      return;
+    }
+    const error = await bulkPrintAllStudents(groups);
+    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+  }, [sessions, showToast]);
+
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedEntry?.exercise || !pdfData) return;
@@ -797,6 +815,55 @@ export function LessonWideMode({
             <PencilLine className="h-3.5 w-3.5" />
           </button>
         )}
+
+        {/* Bulk print dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowPrintMenu(v => !v)}
+            className={cn(
+              "p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
+              showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+            )}
+            title="Print all exercises"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <ChevronDown className="h-2.5 w-2.5" />
+          </button>
+          <AnimatePresence>
+            {showPrintMenu && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60]"
+                  onClick={() => setShowPrintMenu(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] text-white rounded-lg shadow-xl border border-white/10 py-1 w-40"
+                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}
+                >
+                  <button
+                    onClick={() => handleBulkPrint('CW')}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors"
+                  >
+                    Print all CW
+                  </button>
+                  <button
+                    onClick={() => handleBulkPrint('HW')}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors"
+                  >
+                    Print all HW
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Focus mode toggle */}
         <button
