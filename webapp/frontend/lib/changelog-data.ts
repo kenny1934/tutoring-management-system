@@ -11,6 +11,14 @@ const changelogData = [
             "description": "**Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support"
           }
         ]
+      },
+      {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "Fixed bulk CW/HW download and print not inserting blank pages for double-sided printing — each student's pages now start on a new front page when printed duplex"
+          }
+        ]
       }
     ]
   },
