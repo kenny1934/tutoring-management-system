@@ -8,6 +8,7 @@
 * **"All" proposals tab** — admin and super admin users can now see all proposals across tutors in the proposals view
 * **Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout
 * **Document editor list improvements** — nested list style cycling (1→a→i for ordered, disc→circle→square for bullets), task/checklist support with toolbar button and `Ctrl+Shift+9` shortcut, arbitrary start number input rule (e.g. type `3. ` to start at 3), start number dropdown on toolbar, right-click context menu for ordered lists (restart numbering, set value, convert types), and plain text paste detection for list patterns
+* **Zen mode view toggle & impersonation** — added view mode toggle (My View/Center View) and role impersonation support to zen mode
 
 ### Bug Fixes
 
@@ -15,6 +16,12 @@
 * Fixed "For you" badge incorrectly showing on proposals in the All tab when the admin is neither proposer nor target
 * Improved visual distinction between Book/Propose modes in makeup modal — color-coded toggle (green for Book, blue for Propose) with accent border
 * Fixed inbox showing message threads not belonging to the current user
+* Fixed leave record button always pointing to super admin's link instead of the current user's
+* Fixed zen mode column overflow with wider theme fonts
+* Removed confusing `!=alerts` hint from zen header
+* Restricted Add Student and New Enrollment buttons to admin users only
+* Fixed lesson mode answer viewer not respecting custom page ranges — now correctly handles complex page selections (e.g., "1,3,5-7")
+* Fixed lesson mode PDF viewer header showing "p3-6" instead of "p3,6" for non-contiguous pages
 
 ## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)
 
