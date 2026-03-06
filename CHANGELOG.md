@@ -22,6 +22,8 @@
 * Restricted Add Student and New Enrollment buttons to admin users only
 * Fixed lesson mode answer viewer not respecting custom page ranges — now correctly handles complex page selections (e.g., "1,3,5-7")
 * Fixed lesson mode PDF viewer header showing "p3-6" instead of "p3,6" for non-contiguous pages
+* Fixed lesson mode PDF viewer "Fit to width" button using a fullscreen-style icon — now uses a horizontal expand icon that better conveys its purpose
+* Fixed sessions list time slot chevron icons using confusing tree-view convention — now uses standard accordion pattern (up=collapse, down=expand)
 
 ## [2.0.16](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.16) (2026-03-06)
 
