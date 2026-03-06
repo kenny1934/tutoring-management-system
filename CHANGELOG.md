@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.18](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.18) (2026-03-06)
+
+### New Features
+
+* **Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support
+
 ## [2.0.17](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.17) (2026-03-06)
 
 ### New Features
