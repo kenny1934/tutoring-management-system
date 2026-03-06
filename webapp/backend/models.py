@@ -20,7 +20,7 @@ class Tutor(Base):
     tutor_name = Column(String(255), nullable=False)
     default_location = Column(String(255))
     role = Column(String(50), nullable=False)
-    profile_picture = Column(String(500), comment='AppSheet file path for tutor profile picture')
+    profile_picture = Column(String(2048), comment='Google profile picture URL')
     basic_salary = Column(DECIMAL(10, 2), default=0.00, comment='Monthly base salary (before session revenue)')
     is_active_tutor = Column(Boolean, default=True, nullable=False, comment='Whether this user teaches students (false for Supervisors, non-teaching admins)')
 
