@@ -29,6 +29,7 @@ import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
+import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 
@@ -162,6 +163,7 @@ export function ExerciseModal({
 
   // Recap section state
   const [recapExpanded, setRecapExpanded] = useState(false);
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
 
   // Fetch detailed session data for recap (previous session, homework completion)
   const { data: detailedSession, isLoading: isLoadingDetails } = useSession(session?.id ?? 0);
@@ -1014,6 +1016,15 @@ export function ExerciseModal({
                   {uncheckedHwCount > 0 && `${uncheckedHwCount} HW`}
                 </span>
               )}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); setHistoryPanelOpen(true); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setHistoryPanelOpen(true); } }}
+                className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 underline ml-1 cursor-pointer"
+              >
+                View All
+              </span>
               {recapExpanded ? (
                 <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
               ) : (
@@ -1726,6 +1737,16 @@ export function ExerciseModal({
         }}
         filenames={searchFilenames}
         onFilesSelected={handleBatchSearchFilesSelected}
+      />
+
+      {/* Exercise History Side Panel */}
+      <ExerciseHistoryPanel
+        isOpen={historyPanelOpen}
+        onClose={() => setHistoryPanelOpen(false)}
+        studentId={session.student_id}
+        studentName={session.student_name || "Student"}
+        currentSessionId={session.id}
+        stamp={recapStamp}
       />
 
       {/* Close Confirmation Dialog - uses createPortal to render above modal */}

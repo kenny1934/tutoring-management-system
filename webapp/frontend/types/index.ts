@@ -207,6 +207,19 @@ export interface SessionExercise {
   answer_remarks?: string;
 }
 
+// Exercise History types (for exercise history panel)
+export interface ExerciseHistorySession {
+  session_id: number;
+  session_date: string;
+  time_slot?: string;
+  exercises: SessionExercise[];
+}
+
+export interface ExerciseHistoryResponse {
+  sessions: ExerciseHistorySession[];
+  has_more: boolean;
+}
+
 // Homework Completion types
 export interface HomeworkCompletion {
   id: number;

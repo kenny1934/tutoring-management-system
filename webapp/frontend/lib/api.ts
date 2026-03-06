@@ -131,6 +131,7 @@ import type {
   TutorMemoCreate,
   TutorMemoUpdate,
   TutorMemoImportRequest,
+  ExerciseHistoryResponse,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -700,6 +701,15 @@ export const sessionsAPI = {
     return fetchAPI<Session>(`/sessions/${makeupSessionId}/cancel-makeup`, {
       method: 'DELETE',
     });
+  },
+
+  getExerciseHistory: (studentId: number, options?: { beforeDate?: string; limit?: number; excludeSessionId?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.beforeDate) params.append("before_date", options.beforeDate);
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.excludeSessionId) params.append("exclude_session_id", options.excludeSessionId.toString());
+    const query = params.toString();
+    return fetchAPI<ExerciseHistoryResponse>(`/sessions/student/${studentId}/exercise-history${query ? `?${query}` : ""}`);
   },
 
   // Undo/Redo
