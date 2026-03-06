@@ -56,6 +56,12 @@ const changelogData = [
           },
           {
             "description": "Fixed lesson mode PDF viewer header showing \"p3-6\" instead of \"p3,6\" for non-contiguous pages"
+          },
+          {
+            "description": "Fixed lesson mode PDF viewer \"Fit to width\" button using a fullscreen-style icon — now uses a horizontal expand icon that better conveys its purpose"
+          },
+          {
+            "description": "Fixed sessions list time slot chevron icons using confusing tree-view convention — now uses standard accordion pattern (up=collapse, down=expand)"
           }
         ]
       }
