@@ -83,7 +83,7 @@ class TutorBase(BaseModel):
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
-    profile_picture: Optional[str] = Field(None, max_length=500)
+    profile_picture: Optional[str] = Field(None, max_length=2048)
 
 
 class TutorResponse(TutorBase):
