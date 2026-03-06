@@ -199,7 +199,6 @@ export default function SessionsPage() {
     // Apply tutor from URL (for client-side navigation, e.g., session popover link)
     const urlTutor = searchParams.get('tutor');
     if (urlTutor) {
-      urlTutorOverride.current = urlTutor;  // Protect from roleViewMode override
       if (urlTutor !== tutorFilter) {
         setTutorFilter(urlTutor);
       }
