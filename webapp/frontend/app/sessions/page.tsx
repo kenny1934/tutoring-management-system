@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, BookOpen } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -2312,10 +2312,10 @@ export default function SessionsPage() {
                                   });
                                   window.open(`/sessions/lesson?${params.toString()}`, '_blank');
                                 }}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded-full border-2 border-teal-600 dark:border-teal-700 bg-teal-100 dark:bg-teal-900 text-teal-900 dark:text-teal-100 text-xs font-bold hover:bg-teal-200 dark:hover:bg-teal-800 transition-colors"
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
                                 title="Open lesson mode for this time slot"
                               >
-                                <BookOpen className="h-3 w-3" />
+                                <Presentation className="h-3.5 w-3.5" />
                                 Lesson
                               </button>
                             )}
