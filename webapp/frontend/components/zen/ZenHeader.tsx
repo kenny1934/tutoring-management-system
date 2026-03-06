@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { useCalendarEvents, useDashboardStats } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/contexts/RoleContext";
 
 
 interface NavItem {
@@ -45,6 +47,8 @@ export function ZenHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const { selectedLocation } = useLocation();
+  const { canViewAdminPages, isImpersonating, impersonatedTutor, isSuperAdmin, setImpersonatedRole } = useAuth();
+  const { viewMode, setViewMode } = useRole();
 
   // Fetch data for notifications (matching GUI NotificationBell logic)
   const { data: calendarEvents } = useCalendarEvents(7);
@@ -192,6 +196,48 @@ export function ZenHeader() {
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* View mode indicator */}
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+        {/* Impersonation indicator */}
+        {isImpersonating && impersonatedTutor && (
+          <button
+            onClick={() => setImpersonatedRole(null)}
+            style={{
+              background: "none",
+              border: "1px solid var(--zen-warning)",
+              color: "var(--zen-warning)",
+              padding: "2px 8px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "12px",
+            }}
+            title="Click to exit impersonation"
+          >
+            AS: {impersonatedTutor.name} ×
+          </button>
+        )}
+
+        {/* View mode toggle (admin+ only) */}
+        {canViewAdminPages && (
+          <button
+            onClick={() => setViewMode(viewMode === "my-view" ? "center-view" : "my-view")}
+            style={{
+              background: "none",
+              border: "1px solid var(--zen-border)",
+              color: "var(--zen-accent)",
+              padding: "2px 8px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "12px",
+              textShadow: "var(--zen-glow)",
+            }}
+            title={`Switch to ${viewMode === "my-view" ? "center" : "my"} view`}
+          >
+            [{viewMode === "my-view" ? "MY" : "ALL"}]
+          </button>
+        )}
+      </div>
 
       {/* Notifications */}
       <div
