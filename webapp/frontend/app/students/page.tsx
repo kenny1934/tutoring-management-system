@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
 import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag, Plus } from "lucide-react";
@@ -41,6 +42,7 @@ export default function StudentsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
+  const { isAdmin } = useAuth();
 
   // Initialize state from URL params
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
@@ -485,7 +487,14 @@ export default function StudentsPage() {
             {/* Add Student Button */}
             <button
               onClick={() => setAddStudentModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors shadow-sm"
+              disabled={!isAdmin}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm",
+                !isAdmin
+                  ? "bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
+              title={!isAdmin ? "Admin access required" : undefined}
             >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Add Student</span>

@@ -1173,14 +1173,14 @@ function ProfileTab({
             </h3>
             <button
               onClick={onNewEnrollment}
-              disabled={readOnly}
+              disabled={!isAdmin}
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded-lg text-white text-xs font-medium transition-colors",
-                readOnly
+                !isAdmin
                   ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
                   : "bg-teal-600 hover:bg-teal-700"
               )}
-              title={readOnly ? "Read-only access" : undefined}
+              title={!isAdmin ? "Admin access required" : undefined}
             >
               <Plus className="h-3 w-3" />
               <span>New</span>
