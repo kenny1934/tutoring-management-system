@@ -11,7 +11,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
@@ -127,6 +127,50 @@ async def get_sessions(
         result.append(session_data)
 
     return result
+
+
+@router.get("/sessions/student/{student_id}/exercise-history", response_model=ExerciseHistoryResponse)
+async def get_exercise_history(
+    student_id: int,
+    before_date: Optional[date] = Query(None, description="Cursor: only return sessions before this date"),
+    limit: int = Query(10, ge=1, le=50, description="Number of sessions to return"),
+    exclude_session_id: Optional[int] = Query(None, description="Exclude this session from results"),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get paginated exercise history for a student, grouped by session."""
+    query = db.query(SessionLog).options(
+        joinedload(SessionLog.exercises)
+    ).filter(
+        SessionLog.student_id == student_id,
+        SessionLog.session_status.in_(["Attended", "Attended (Make-up)"]),
+    )
+
+    if before_date:
+        query = query.filter(SessionLog.session_date < before_date)
+
+    if exclude_session_id:
+        query = query.filter(SessionLog.id != exclude_session_id)
+
+    query = query.order_by(SessionLog.session_date.desc())
+
+    # Fetch limit+1 to check if there are more
+    sessions = query.limit(limit + 1).all()
+    has_more = len(sessions) > limit
+    sessions = sessions[:limit]
+
+    # Filter to only sessions with exercises and build response
+    result_sessions = []
+    for s in sessions:
+        if s.exercises:
+            result_sessions.append(ExerciseHistorySession(
+                session_id=s.id,
+                session_date=s.session_date,
+                time_slot=s.time_slot,
+                exercises=[SessionExerciseResponse.model_validate(ex) for ex in s.exercises],
+            ))
+
+    return ExerciseHistoryResponse(sessions=result_sessions, has_more=has_more)
 
 
 # ============================================================================

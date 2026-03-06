@@ -551,6 +551,22 @@ class BulkExerciseAssignResponse(BaseModel):
     session_ids: List[int] = Field(..., description="IDs of sessions that received exercises")
 
 
+class ExerciseHistorySession(BaseModel):
+    """A single session's exercises for the exercise history panel"""
+    session_id: int
+    session_date: date
+    time_slot: Optional[str] = None
+    exercises: List[SessionExerciseResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExerciseHistoryResponse(BaseModel):
+    """Paginated exercise history for a student"""
+    sessions: List[ExerciseHistorySession] = []
+    has_more: bool = False
+
+
 class RateSessionRequest(BaseModel):
     """Request schema for rating a session"""
     performance_rating: Optional[str] = Field(None, max_length=100)
