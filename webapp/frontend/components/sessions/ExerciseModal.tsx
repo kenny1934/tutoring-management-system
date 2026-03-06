@@ -276,11 +276,6 @@ export function ExerciseModal({
       setExercises(validExercises);
     }
 
-    if (validExercises.length === 0) {
-      onClose();
-      return;
-    }
-
     // Validate page ranges before saving
     const errors: ExerciseValidationError[] = [];
     validExercises.forEach((ex, idx) => {
