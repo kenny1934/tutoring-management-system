@@ -31,39 +31,28 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   const [sparkleFrame, setSparkleFrame] = useState(0);
   const hasAnimatedRef = useRef(false);
 
-  const truncName = (name: string, max: number) => {
-    const base = name.replace(/\.[^.]+$/, "");
-    return base.length > max ? base.slice(0, max - 1) + "…" : base;
-  };
-
   const centerPad = (text: string, width: number) => {
     if (text.length >= width) return text.slice(0, width);
     const pad = width - text.length;
-    const left = Math.floor(pad / 2);
+    const left = Math.ceil(pad / 2);
     return " ".repeat(left) + text + " ".repeat(pad - left);
   };
 
-  const makeMedal = (rank: string, item: { filename: string; assignment_count: number; unique_student_count: number }) => {
-    const COL = 19; // column width
-    const name = truncName(item.filename, 17);
-    const uses = `${item.assignment_count} uses`;
-    const students = `${item.unique_student_count} students`;
-    return [
-      centerPad(",%%%,", COL),
-      centerPad(`(%${rank.padStart(3)}%%)`, COL),
-      centerPad("`%%%'", COL),
-      centerPad(")|(", COL),
-      centerPad("( | )", COL),
-      centerPad("[=====]", COL),
-      centerPad(name, COL),
-      centerPad(uses, COL),
-      centerPad(students, COL),
-    ];
-  };
+  const COL = 19; // column width for medal art
+  const makeMedal = (rank: string) => [
+    centerPad(",%%%,", COL),
+    centerPad(`(%${rank.padStart(3)}%%)`, COL),
+    centerPad("`%%%'", COL),
+    centerPad(")|(", COL),
+    centerPad("( | )", COL),
+    centerPad("[=====]", COL),
+  ];
 
-  const medal1 = makeMedal("1st", items[0]);
-  const medal2 = makeMedal("2nd", items[1]);
-  const medal3 = makeMedal("3rd", items[2]);
+  const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
+
+  const medal1 = makeMedal("1st");
+  const medal2 = makeMedal("2nd");
+  const medal3 = makeMedal("3rd");
 
   // Staged reveal animation
   useEffect(() => {
@@ -91,7 +80,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   const GAP = "    ";
   const EMPTY_COL = " ".repeat(19);
 
-  // Build combined lines: sparkle (1 line) + medal (9 lines)
+  // Build combined lines: sparkle (1 line) + medal art (6 lines) + name/stats (HTML)
   const sparkleLines = phase >= 3
     ? [
         `${EMPTY_COL}${GAP}${SPARKLE_FRAMES[sparkleFrame]}${GAP}${EMPTY_COL}`,
@@ -118,7 +107,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
         </div>
       ))}
 
-      {/* Medal lines with per-column coloring */}
+      {/* Medal art lines with per-column coloring */}
       {medal1.map((_, row) => (
         <div key={`medal-${row}`} style={{ whiteSpace: "pre" }}>
           <span style={{ color: phase >= 2 ? "var(--zen-fg)" : "transparent" }}>
@@ -134,6 +123,41 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
           </span>
         </div>
       ))}
+
+      {/* Name and stats below medals */}
+      <div style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
+        {[
+          { item: items[1], color: "var(--zen-fg)", visible: phase >= 2 },
+          { item: items[0], color: "var(--zen-accent)", visible: phase >= 3 },
+          { item: items[2], color: "var(--zen-dim)", visible: phase >= 1 },
+        ].map(({ item, color, visible }, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              textAlign: "center",
+              color: visible ? color : "transparent",
+              fontSize: "10px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: "bold",
+              }}
+              title={item.filename}
+            >
+              {stripExt(item.filename)}
+            </div>
+            <div style={{ opacity: 0.8 }}>
+              {item.assignment_count} uses · {item.unique_student_count} students
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
