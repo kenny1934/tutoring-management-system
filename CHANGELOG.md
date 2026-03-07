@@ -9,6 +9,7 @@
 
 ### Bug Fixes
 
+* Fixed sending messages with geometry diagrams failing due to MySQL TEXT column size limit (64KB) — upgraded to MEDIUMTEXT (16MB)
 * Fixed PDF preview failing for students with Chinese names — stamp overlay now supports CJK characters
 * Fixed PDF preview occasionally showing "Failed to process PDF" despite the file being available — added auto-retry and better error handling
 * Fixed medal podium filename overflow and alignment across all columns

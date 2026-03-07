@@ -151,7 +151,7 @@ CREATE TABLE tutor_messages (
     from_tutor_id INT NOT NULL,
     to_tutor_id INT NULL COMMENT 'NULL = broadcast to all tutors',
     subject VARCHAR(200),
-    message TEXT NOT NULL,
+    message MEDIUMTEXT NOT NULL,
     priority VARCHAR(20) DEFAULT 'Normal' COMMENT 'Normal, High, Urgent',
     category VARCHAR(50) COMMENT 'Reminder, Question, Announcement, Schedule, Handover',
     created_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),

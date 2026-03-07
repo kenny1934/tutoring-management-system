@@ -19,6 +19,9 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
+            "description": "Fixed sending messages with geometry diagrams failing due to MySQL TEXT column size limit (64KB) — upgraded to MEDIUMTEXT (16MB)"
+          },
+          {
             "description": "Fixed PDF preview failing for students with Chinese names — stamp overlay now supports CJK characters"
           },
           {
