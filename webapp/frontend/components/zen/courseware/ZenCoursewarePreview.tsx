@@ -60,8 +60,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
     if (previewUrl) window.open(previewUrl, "_blank");
   }, [previewUrl]);
 
-  // Expose zoom/open methods via keyboard handler in parent
-  // Parent calls these via ref or by handling keys itself
+  // Zoom keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -173,9 +172,9 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
               fontSize: "11px",
               marginLeft: "4px",
             }}
-            title="Open in new tab (o)"
+            title="Open in new tab"
           >
-            [o]pen
+            open
           </button>
         </div>
       </div>
@@ -322,7 +321,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
           flexShrink: 0,
         }}
       >
-        +/- zoom • [o]pen in tab • [a]ssign
+        +/- zoom • [a]ssign
       </div>
     </div>
   );
