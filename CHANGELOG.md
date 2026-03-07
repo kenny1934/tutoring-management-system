@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.20](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.19...v2.0.20) (2026-03-07)
+
+
+### Bug Fixes
+
+* Exclude generated columns from debug admin writes on session_log ([e2bdcf6](https://github.com/kenny1934/tutoring-management-system/commit/e2bdcf6df5b0e04c8a0bfab76ddcaea97242fa0e))
+* Upgrade tutor_messages.message column from TEXT to MEDIUMTEXT ([75cffcb](https://github.com/kenny1934/tutoring-management-system/commit/75cffcb6c3bbfad91d49df18c970889fcd052697))
+
 ## [2.0.19](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.19) (2026-03-07)
 
 ### New Features
