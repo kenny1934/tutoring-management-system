@@ -80,22 +80,16 @@ export default function ZenCoursewarePage() {
         return;
       }
 
-      // Open in new tab
-      if (e.key === "o" && selectedFile) {
-        // Let the preview component handle this
-        return;
-      }
-
       // Assign shortcut (only when no tab-specific handler catches it)
       // Tab components handle 'a' themselves, so this is a fallback
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [assignTarget, selectedFile]);
+  }, [assignTarget]);
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ height: "calc(100vh - 130px)", display: "flex", flexDirection: "column", position: "relative" }}>
       {/* Header with tabs */}
       <div
         style={{
