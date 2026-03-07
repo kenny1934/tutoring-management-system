@@ -89,7 +89,7 @@ export default function ZenCoursewarePage() {
   }, [assignTarget]);
 
   return (
-    <div style={{ height: "calc(100vh - 130px)", display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ height: "calc(100vh - 150px)", display: "flex", flexDirection: "column", position: "relative" }}>
       {/* Header with tabs */}
       <div
         style={{
