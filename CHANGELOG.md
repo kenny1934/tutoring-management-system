@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.19](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.19) (2026-03-07)
+
+### New Features
+
+* **Zen courseware page** — new courseware tab in zen mode with browse, search, and assignment capabilities
+* **Trending podium** — redesigned trending section as a medal ceremony podium with sparkle animation and stats labels
+
+### Bug Fixes
+
+* Fixed PDF preview failing for students with Chinese names — stamp overlay now supports CJK characters
+* Fixed PDF preview occasionally showing "Failed to process PDF" despite the file being available — added auto-retry and better error handling
+* Fixed medal podium filename overflow and alignment across all columns
+* Fixed zen courseware page height causing site-level scrollbar
+
 ## [2.0.18](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.18) (2026-03-06)
 
 ### New Features
