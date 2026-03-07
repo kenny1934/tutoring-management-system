@@ -81,18 +81,17 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
         borderBottom: "1px solid var(--zen-border)",
         flexShrink: 0,
         overflow: "hidden",
-        display: "flex",
+        display: "grid",
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
         gap: "16px",
-        justifyContent: "center",
       }}
     >
       {columns.map(({ medal, item, color, visible, sparkle }, i) => (
         <div
           key={i}
           style={{
-            flex: 1,
-            minWidth: 0,
             textAlign: "center",
+            overflow: "hidden",
             color: visible ? color : "transparent",
           }}
         >
@@ -124,18 +123,22 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
           ))}
 
           {/* Name */}
-          <div
-            style={{
-              fontSize: "10px",
-              fontWeight: "bold",
-              marginTop: "2px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            title={item.filename}
-          >
-            {stripExt(item.filename)}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: "bold",
+                marginTop: "2px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "100%",
+                textAlign: "left",
+              }}
+              title={item.filename}
+            >
+              {stripExt(item.filename)}
+            </div>
           </div>
 
           {/* Stats */}
