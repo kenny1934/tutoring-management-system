@@ -16,6 +16,96 @@ interface ZenCoursewareTrendingProps {
 type TimeRange = "recent" | "all-time";
 type ExerciseFilter = "" | "Classwork" | "Homework";
 
+// ASCII art podium with typewriter reveal animation
+function TrendingPodium({ items }: { items: { filename: string; assignment_count: number; unique_student_count: number }[] }) {
+  const [revealCount, setRevealCount] = useState(0);
+  const hasAnimatedRef = useRef(false);
+
+  const truncName = (name: string, max: number) => {
+    const base = name.replace(/\.[^.]+$/, ""); // strip extension
+    return base.length > max ? base.slice(0, max - 1) + "…" : base.padEnd(max);
+  };
+
+  const n1 = truncName(items[0]?.filename || "", 13);
+  const n2 = truncName(items[1]?.filename || "", 11);
+  const n3 = truncName(items[2]?.filename || "", 11);
+
+  const s1 = `${items[0]?.assignment_count || 0}× · ${items[0]?.unique_student_count || 0}s`;
+  const s2 = `${items[1]?.assignment_count || 0}× · ${items[1]?.unique_student_count || 0}s`;
+  const s3 = `${items[2]?.assignment_count || 0}× · ${items[2]?.unique_student_count || 0}s`;
+
+  // Build the podium lines
+  // Top box inner width: 15, Bottom box inner width: 29
+  const lines = [
+    `         ╔═════════════════╗`,
+    `         ║    ★  #1  ★     ║`,
+    `         ║ ${n1.padEnd(15)} ║`,
+    `         ║ ${s1.padEnd(15)} ║`,
+    `   ╔═════╩═════════════════╩══════╗`,
+    `   ║ #2          ░░░         #3   ║`,
+    `   ║ ${n2.padEnd(11)} ░░░ ${n3.padEnd(11)}  ║`,
+    `   ║ ${s2.padEnd(11)} ░░░ ${s3.padEnd(11)}  ║`,
+    `   ╚══════════════════════════════╝`,
+  ];
+
+  const fullText = lines.join("\n");
+
+  useEffect(() => {
+    if (hasAnimatedRef.current) {
+      setRevealCount(fullText.length);
+      return;
+    }
+    hasAnimatedRef.current = true;
+    let i = 0;
+    const interval = setInterval(() => {
+      i += 3; // reveal 3 chars at a time for speed
+      if (i >= fullText.length) {
+        setRevealCount(fullText.length);
+        clearInterval(interval);
+      } else {
+        setRevealCount(i);
+      }
+    }, 8);
+    return () => clearInterval(interval);
+  }, [fullText]);
+
+  // Color the revealed text line by line
+  const revealed = fullText.slice(0, revealCount);
+  const revealedLines = revealed.split("\n");
+
+  return (
+    <div
+      style={{
+        padding: "6px 8px",
+        borderBottom: "1px solid var(--zen-border)",
+        fontFamily: "monospace",
+        fontSize: "10px",
+        lineHeight: "1.4",
+        flexShrink: 0,
+        overflow: "hidden",
+        minHeight: "130px",
+      }}
+    >
+      {revealedLines.map((line, i) => {
+        // #1 lines (1-3) get accent color, #2 lines (5-7) get fg, #3 stats get dim
+        let color = "var(--zen-border)"; // box chars default
+        if (i >= 1 && i <= 3) color = "var(--zen-accent)";
+        else if (i >= 5 && i <= 7) color = "var(--zen-fg)";
+        else if (i === 4 || i === 8) color = "var(--zen-border)";
+
+        return (
+          <div key={i} style={{ color, whiteSpace: "pre" }}>
+            {line}
+            {i === revealedLines.length - 1 && revealCount < fullText.length && (
+              <span style={{ color: "var(--zen-accent)" }}>▌</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ZenCoursewareTrending({
   isActive,
   onSelectFile,
@@ -278,6 +368,9 @@ export function ZenCoursewareTrending({
         </div>
       )}
 
+      {/* Podium — Top 3 */}
+      {items.length >= 3 && <TrendingPodium items={items.slice(0, 3)} />}
+
       {/* List */}
       <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
         {isLoading && (
@@ -380,11 +473,21 @@ export function ZenCoursewareTrending({
                       <div style={{ color: "var(--zen-accent)", marginBottom: "2px" }}>
                         Recent assignments:
                       </div>
-                      {usageDetails.map((detail, i) => (
-                        <div key={i} style={{ color: "var(--zen-fg)", marginBottom: "1px" }}>
-                          • {detail.exercise_type} — Session #{detail.session_id}
-                        </div>
-                      ))}
+                      {usageDetails.map((detail, i) => {
+                        const pages = detail.page_start
+                          ? `p.${detail.page_start}${detail.page_end ? `-${detail.page_end}` : ""}`
+                          : "all";
+                        const student = [
+                          detail.student_name,
+                          detail.school_student_id ? `(${detail.school_student_id})` : null,
+                          detail.grade,
+                        ].filter(Boolean).join(" ");
+                        return (
+                          <div key={i} style={{ color: "var(--zen-fg)", marginBottom: "1px", fontFamily: "monospace" }}>
+                            {detail.session_date} │ {detail.exercise_type === "Classwork" ? "CW" : "HW"} │ {student || "—"} │ {pages} │ {detail.tutor_name || "—"} │ {detail.location || "—"}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
