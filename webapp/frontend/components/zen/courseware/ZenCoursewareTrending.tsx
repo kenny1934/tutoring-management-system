@@ -41,7 +41,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   const COL = 19; // column width for medal art
   const makeMedal = (rank: string) => [
     centerPad(",%%%,", COL),
-    centerPad(`(% ${rank}%)`, COL),
+    centerPad(`(%${rank}%)`, COL),
     centerPad("`%%%'", COL),
     centerPad(")|(", COL),
     centerPad("( | )", COL),
@@ -100,6 +100,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
           style={{
             flex: 1,
             minWidth: 0,
+            overflow: "hidden",
             textAlign: "center",
             color: visible ? color : "transparent",
           }}
