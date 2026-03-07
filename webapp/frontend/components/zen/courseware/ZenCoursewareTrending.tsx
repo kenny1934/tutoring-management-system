@@ -16,13 +16,13 @@ interface ZenCoursewareTrendingProps {
 type TimeRange = "recent" | "all-time";
 type ExerciseFilter = "" | "Classwork" | "Homework";
 
-// Sparkle animation frames above the #1 medal (19 chars wide)
+// Sparkle animation frames above the #1 medal
 const SPARKLE_FRAMES = [
-  "       ·  ✦  ·       ",
-  "      ✦  ·  ✦        ",
-  "       * ✦ · ✦ *     ",
-  "       ·  ★  ·       ",
-  "      .  * ✦ *  .    ",
+  "·  ✦  ·",
+  "✦  ·  ✦",
+  "* ✦ · ✦ *",
+  "·  ★  ·",
+  ".  * ✦ *  .",
 ];
 
 // Medal ceremony podium with staged reveal and sparkle animation
@@ -31,21 +31,13 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   const [sparkleFrame, setSparkleFrame] = useState(0);
   const hasAnimatedRef = useRef(false);
 
-  const centerPad = (text: string, width: number) => {
-    if (text.length >= width) return text.slice(0, width);
-    const pad = width - text.length;
-    const left = Math.ceil(pad / 2);
-    return " ".repeat(left) + text + " ".repeat(pad - left);
-  };
-
-  const COL = 19; // column width for medal art
   const makeMedal = (rank: string) => [
-    centerPad(",%%%,", COL),
-    centerPad(`(%${rank}%)`, COL),
-    centerPad("`%%%'", COL),
-    centerPad(")|(", COL),
-    centerPad("( | )", COL),
-    centerPad("[=====]", COL),
+    ",%%%,",
+    `(%${rank}%)`,
+    "`%%%'",
+    ")|(",
+    "( | )",
+    "[=====]",
   ];
 
   const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
@@ -100,7 +92,6 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
           style={{
             flex: 1,
             minWidth: 0,
-            overflow: "hidden",
             textAlign: "center",
             color: visible ? color : "transparent",
           }}
@@ -110,12 +101,12 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
             style={{
               fontFamily: "monospace",
               fontSize: "11px",
-              whiteSpace: "pre",
               height: "15px",
               color: "var(--zen-accent)",
+              letterSpacing: "1px",
             }}
           >
-            {sparkle && phase >= 3 ? SPARKLE_FRAMES[sparkleFrame] : " "}
+            {sparkle && phase >= 3 ? SPARKLE_FRAMES[sparkleFrame] : "\u00A0"}
           </div>
 
           {/* Medal art */}
@@ -126,7 +117,6 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
                 fontFamily: "monospace",
                 fontSize: "11px",
                 lineHeight: "1.3",
-                whiteSpace: "pre",
               }}
             >
               {line}
