@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useSessions } from "@/lib/hooks";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
+import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
+import {
+  groupAndSortSessions,
+  getStatusChar,
+  getStatusColor,
+  getGradeColor,
+  getTutorFirstName,
+  getShortStatus,
+} from "@/components/zen/utils/sessionSorting";
 import type { Session } from "@/types";
 
 interface AssignTarget {
@@ -21,52 +31,85 @@ interface ZenCoursewareAssignProps {
 
 type ExerciseType = "CW" | "HW";
 
+// ── Week helpers ──
+
+function getWeekStartStr(dateStr: string): string {
+  const { start } = getWeekBounds(new Date(dateStr + "T00:00:00"));
+  return toDateString(start);
+}
+
+function getWeekEndStr(dateStr: string): string {
+  const { end } = getWeekBounds(new Date(dateStr + "T00:00:00"));
+  return toDateString(end);
+}
+
+function getWeekDates(weekStart: string): string[] {
+  const dates: string[] = [];
+  const d = new Date(weekStart + "T00:00:00");
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(d);
+    day.setDate(d.getDate() + i);
+    dates.push(toDateString(day));
+  }
+  return dates;
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
+}
+
 export function ZenCoursewareAssign({
   target,
   onClose,
   onAssigned,
 }: ZenCoursewareAssignProps) {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const today = useMemo(() => toDateString(new Date()), []);
+  const [weekStart, setWeekStart] = useState(() => getWeekStartStr(today));
+  const weekEnd = getWeekEndStr(weekStart);
+  const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
+
+  const [dateIndex, setDateIndex] = useState(() => {
+    const idx = getWeekDates(getWeekStartStr(today)).indexOf(today);
+    return idx >= 0 ? idx : 0;
+  });
+  const selectedDate = weekDates[dateIndex] || weekDates[0];
+
   const [cursor, setCursor] = useState(0);
   const [exerciseType, setExerciseType] = useState<ExerciseType>("CW");
   const [isAssigning, setIsAssigning] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Fetch recent sessions
+  // Fetch sessions for the week
+  const { data: allSessions, isLoading } = useSessions({
+    from_date: weekStart,
+    to_date: weekEnd,
+    limit: 2000,
+  });
+
+  // Group sessions by date
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    weekDates.forEach((d) => map.set(d, []));
+    (allSessions || []).forEach((s) => {
+      const existing = map.get(s.session_date);
+      if (existing) existing.push(s);
+    });
+    return map;
+  }, [allSessions, weekDates]);
+
+  // Sessions for selected date, grouped by time slot
+  const { groupedSessions, flatSessions } = useMemo(() => {
+    const dateSessions = sessionsByDate.get(selectedDate) || [];
+    return groupAndSortSessions(dateSessions);
+  }, [sessionsByDate, selectedDate]);
+
+  // Reset cursor when date changes
   useEffect(() => {
-    const fetchSessions = async () => {
-      setIsLoading(true);
-      try {
-        const today = new Date();
-        const fromDate = new Date(today);
-        fromDate.setDate(fromDate.getDate() - 7);
-
-        const toDate = new Date(today);
-        toDate.setDate(toDate.getDate() + 1);
-
-        const data = await sessionsAPI.getAll({
-          from_date: fromDate.toISOString().split("T")[0],
-          to_date: toDate.toISOString().split("T")[0],
-          limit: 50,
-        });
-
-        // Sort: today first, then by date descending
-        const sorted = [...data].sort((a, b) => {
-          const dateA = new Date(a.session_date + "T" + (a.time_slot || "00:00"));
-          const dateB = new Date(b.session_date + "T" + (b.time_slot || "00:00"));
-          return dateB.getTime() - dateA.getTime();
-        });
-
-        setSessions(sorted);
-      } catch {
-        setZenStatus("Failed to load sessions", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSessions();
-  }, []);
+    setCursor(0);
+  }, [selectedDate]);
 
   // Auto-scroll
   useEffect(() => {
@@ -77,7 +120,7 @@ export function ZenCoursewareAssign({
   }, [cursor]);
 
   const handleAssign = useCallback(async () => {
-    const session = sessions[cursor];
+    const session = flatSessions[cursor];
     if (!session || isAssigning) return;
 
     setIsAssigning(true);
@@ -106,26 +149,56 @@ export function ZenCoursewareAssign({
       setZenStatus("Assignment failed", "error");
       setIsAssigning(false);
     }
-  }, [sessions, cursor, exerciseType, target, isAssigning, onAssigned, onClose]);
+  }, [flatSessions, cursor, exerciseType, target, isAssigning, onAssigned, onClose]);
+
+  // Week navigation
+  const goWeek = useCallback((direction: number) => {
+    setWeekStart((prev) => {
+      const d = new Date(prev + "T00:00:00");
+      d.setDate(d.getDate() + direction * 7);
+      return toDateString(d);
+    });
+    setDateIndex(direction > 0 ? 0 : 6);
+  }, []);
 
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      const tgt = e.target as HTMLElement;
+      if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable) return;
 
       switch (e.key) {
         case "j":
         case "ArrowDown":
           e.preventDefault();
           e.stopImmediatePropagation();
-          setCursor((prev) => Math.min(prev + 1, sessions.length - 1));
+          setCursor((prev) => Math.min(prev + 1, flatSessions.length - 1));
           break;
         case "k":
         case "ArrowUp":
           e.preventDefault();
           e.stopImmediatePropagation();
           setCursor((prev) => Math.max(prev - 1, 0));
+          break;
+        case "[":
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setDateIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        case "]":
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setDateIndex((prev) => Math.min(prev + 1, 6));
+          break;
+        case "{":
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          goWeek(-1);
+          break;
+        case "}":
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          goWeek(1);
           break;
         case "c":
           e.preventDefault();
@@ -152,7 +225,9 @@ export function ZenCoursewareAssign({
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [sessions, cursor, handleAssign, onClose]);
+  }, [flatSessions, cursor, handleAssign, onClose, goWeek]);
+
+  let flatIndex = -1;
 
   return (
     <div
@@ -172,6 +247,7 @@ export function ZenCoursewareAssign({
           borderBottom: "1px solid var(--zen-border)",
           paddingBottom: "8px",
           marginBottom: "8px",
+          flexShrink: 0,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -207,6 +283,7 @@ export function ZenCoursewareAssign({
           gap: "8px",
           marginBottom: "8px",
           fontSize: "11px",
+          flexShrink: 0,
         }}
       >
         <span style={{ color: "var(--zen-dim)" }}>Type:</span>
@@ -240,21 +317,83 @@ export function ZenCoursewareAssign({
         </button>
       </div>
 
-      {/* Session list header */}
+      {/* Date tabs */}
       <div
         style={{
           display: "flex",
-          padding: "2px 0",
-          fontSize: "10px",
-          color: "var(--zen-dim)",
-          borderBottom: "1px solid var(--zen-border)",
-          gap: "8px",
+          alignItems: "center",
+          gap: "4px",
+          marginBottom: "8px",
+          flexShrink: 0,
         }}
       >
-        <span style={{ width: "80px" }}>DATE</span>
-        <span style={{ width: "50px" }}>TIME</span>
-        <span style={{ flex: 1 }}>STUDENT</span>
-        <span style={{ width: "40px" }}>GRADE</span>
+        <button
+          onClick={() => goWeek(-1)}
+          style={{
+            padding: "2px 6px",
+            backgroundColor: "transparent",
+            border: "1px solid var(--zen-border)",
+            color: "var(--zen-fg)",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "10px",
+          }}
+          title="Previous week"
+        >
+          {"<"}
+        </button>
+
+        {weekDates.map((date, i) => {
+          const count = (sessionsByDate.get(date) || []).length;
+          const isActive = i === dateIndex;
+          const isToday = date === today;
+          const hasSessions = count > 0;
+
+          return (
+            <button
+              key={date}
+              onClick={() => setDateIndex(i)}
+              style={{
+                flex: 1,
+                padding: "3px 2px",
+                backgroundColor: isActive ? "var(--zen-accent)" : "transparent",
+                color: isActive
+                  ? "var(--zen-bg)"
+                  : hasSessions
+                  ? "var(--zen-fg)"
+                  : "var(--zen-dim)",
+                border: isToday && !isActive
+                  ? "1px solid var(--zen-accent)"
+                  : "1px solid var(--zen-border)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "10px",
+                textAlign: "center",
+                opacity: hasSessions ? 1 : 0.5,
+              }}
+            >
+              {isToday && !isActive ? "★" : ""}
+              {formatShortDate(date)}
+              {hasSessions ? ` (${count})` : ""}
+            </button>
+          );
+        })}
+
+        <button
+          onClick={() => goWeek(1)}
+          style={{
+            padding: "2px 6px",
+            backgroundColor: "transparent",
+            border: "1px solid var(--zen-border)",
+            color: "var(--zen-fg)",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "10px",
+          }}
+          title="Next week"
+        >
+          {">"}
+        </button>
       </div>
 
       {/* Session list */}
@@ -265,48 +404,149 @@ export function ZenCoursewareAssign({
           </div>
         )}
 
-        {!isLoading && sessions.length === 0 && (
+        {!isLoading && flatSessions.length === 0 && (
           <div style={{ padding: "16px", textAlign: "center", color: "var(--zen-dim)", fontSize: "12px" }}>
-            No recent sessions found
+            No sessions on {formatShortDate(selectedDate)}
           </div>
         )}
 
-        {sessions.map((session, index) => {
-          const isSelected = index === cursor;
-          return (
-            <div
-              key={session.id}
-              data-selected={isSelected}
-              onClick={() => {
-                setCursor(index);
-                handleAssign();
-              }}
-              style={{
-                display: "flex",
-                padding: "3px 0",
-                fontSize: "11px",
-                gap: "8px",
-                cursor: "pointer",
-                backgroundColor: isSelected ? "var(--zen-accent)" : "transparent",
-                color: isSelected ? "var(--zen-bg)" : "var(--zen-fg)",
-              }}
-            >
-              <span style={{ width: "80px" }}>{session.session_date}</span>
-              <span style={{ width: "50px" }}>{session.time_slot?.slice(0, 5) || "—"}</span>
-              <span
+        {!isLoading &&
+          groupedSessions.map((slotGroup) => (
+            <div key={slotGroup.timeSlot} style={{ marginBottom: "8px" }}>
+              {/* Time slot header */}
+              <div
                 style={{
-                  flex: 1,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  color: "var(--zen-accent)",
+                  fontSize: "11px",
+                  marginBottom: "2px",
+                  paddingLeft: "4px",
                 }}
               >
-                {session.student_name}
-              </span>
-              <span style={{ width: "40px" }}>{session.grade || "—"}</span>
+                {slotGroup.timeSlot}
+              </div>
+              <div
+                style={{
+                  color: "var(--zen-border)",
+                  marginBottom: "2px",
+                  letterSpacing: "0.5px",
+                  fontSize: "10px",
+                }}
+              >
+                {"─".repeat(40)}
+              </div>
+
+              {/* Session rows */}
+              {slotGroup.sessions.map((session) => {
+                flatIndex++;
+                const rowIndex = flatIndex;
+                const isAtCursor = rowIndex === cursor;
+                const statusColor = getStatusColor(session.session_status);
+                const gradeColor = getGradeColor(session.grade, session.lang_stream);
+                const statusChar = getStatusChar(session.session_status);
+
+                return (
+                  <div
+                    key={session.id}
+                    data-selected={isAtCursor}
+                    onClick={() => {
+                      setCursor(rowIndex);
+                      handleAssign();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "2px 4px",
+                      cursor: "pointer",
+                      backgroundColor: isAtCursor ? "var(--zen-selection)" : "transparent",
+                      borderLeft: isAtCursor
+                        ? "2px solid var(--zen-accent)"
+                        : "2px solid transparent",
+                      fontSize: "11px",
+                    }}
+                  >
+                    {/* Cursor indicator */}
+                    <span
+                      style={{
+                        width: "10px",
+                        color: isAtCursor ? "var(--zen-accent)" : "transparent",
+                        textShadow: isAtCursor ? "var(--zen-glow)" : "none",
+                      }}
+                    >
+                      {isAtCursor ? ">" : " "}
+                    </span>
+
+                    {/* Status char */}
+                    <span
+                      style={{
+                        width: "16px",
+                        textAlign: "center",
+                        color: `var(--zen-${statusColor})`,
+                      }}
+                    >
+                      {statusChar}
+                    </span>
+
+                    {/* Student name */}
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: "var(--zen-fg)",
+                      }}
+                    >
+                      {session.student_name || "Unknown"}
+                    </span>
+
+                    {/* Grade badge */}
+                    <span
+                      style={{
+                        width: "36px",
+                        padding: "0 4px",
+                        backgroundColor: gradeColor + "40",
+                        color: "var(--zen-fg)",
+                        borderRadius: "2px",
+                        textAlign: "center",
+                        fontSize: "10px",
+                      }}
+                    >
+                      {session.grade || "—"}
+                      {session.lang_stream || ""}
+                    </span>
+
+                    {/* Short status */}
+                    <span
+                      style={{
+                        width: "50px",
+                        color: `var(--zen-${statusColor})`,
+                        fontSize: "10px",
+                      }}
+                    >
+                      {getShortStatus(session.session_status, true)}
+                    </span>
+
+                    {/* Tutor */}
+                    <span
+                      style={{
+                        width: "60px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: "var(--zen-dim)",
+                        fontSize: "10px",
+                      }}
+                    >
+                      {session.tutor_name
+                        ? getTutorFirstName(session.tutor_name)
+                        : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          ))}
       </div>
 
       {/* Footer */}
@@ -318,9 +558,10 @@ export function ZenCoursewareAssign({
           color: "var(--zen-dim)",
           display: "flex",
           justifyContent: "space-between",
+          flexShrink: 0,
         }}
       >
-        <span>j/k nav • [c]lasswork / [h]omework • Enter assign</span>
+        <span>j/k nav • [/] day • {"{/}"} week • [c]w/[h]w • Enter assign</span>
         {isAssigning && <span style={{ color: "var(--zen-warning)" }}>Assigning...</span>}
       </div>
     </div>
