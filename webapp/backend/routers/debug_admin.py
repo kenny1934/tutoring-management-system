@@ -635,7 +635,7 @@ async def get_table_schema(
             name=col['name'],
             type=get_sqlalchemy_type_name(col['type']),
             nullable=col.get('nullable', True),
-            readonly=col['name'] in readonly_cols or col['name'] in pk_columns,
+            readonly=col['name'] in readonly_cols or col['name'] in pk_columns or col.get('computed') is not None,
             primary_key=col['name'] in pk_columns,
             default=str(col.get('default')) if col.get('default') is not None else None,
         ))

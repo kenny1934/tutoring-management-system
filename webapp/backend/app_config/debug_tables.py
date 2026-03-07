@@ -11,7 +11,7 @@ DEBUG_TABLE_CONFIG = {
         "display_name": "Sessions",
         "primary_key": "id",
         "priority": 1,
-        "readonly_columns": ["id"],
+        "readonly_columns": ["id", "active_student_slot_guard", "active_makeup_for_guard"],
         "hidden_columns": [],
         "search_columns": ["notes", "session_status"],
         "default_sort": ("session_date", "desc"),
