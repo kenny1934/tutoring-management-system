@@ -41,6 +41,8 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   ];
 
   const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
+  const truncate = (s: string, max: number) =>
+    s.length > max ? s.slice(0, max) + "…" : s;
 
   const medal1 = makeMedal("1st");
   const medal2 = makeMedal("2nd");
@@ -81,8 +83,8 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
         borderBottom: "1px solid var(--zen-border)",
         flexShrink: 0,
         overflow: "hidden",
-        display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+        display: "flex",
+        justifyContent: "center",
         gap: "16px",
       }}
     >
@@ -90,8 +92,9 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
         <div
           key={i}
           style={{
+            flex: 1,
+            minWidth: 0,
             textAlign: "center",
-            overflow: "hidden",
             color: visible ? color : "transparent",
           }}
         >
@@ -123,22 +126,15 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
           ))}
 
           {/* Name */}
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: "bold",
-                marginTop: "2px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "100%",
-                textAlign: "left",
-              }}
-              title={item.filename}
-            >
-              {stripExt(item.filename)}
-            </div>
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: "bold",
+              marginTop: "2px",
+            }}
+            title={item.filename}
+          >
+            {truncate(stripExt(item.filename), 25)}
           </div>
 
           {/* Stats */}
