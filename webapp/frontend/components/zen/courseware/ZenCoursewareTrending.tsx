@@ -16,92 +16,121 @@ interface ZenCoursewareTrendingProps {
 type TimeRange = "recent" | "all-time";
 type ExerciseFilter = "" | "Classwork" | "Homework";
 
-// ASCII art podium with typewriter reveal animation
+// Sparkle animation frames above the #1 medal
+const SPARKLE_FRAMES = [
+  "    ·  ✦  ·    ",
+  "   ✦  ·  ✦     ",
+  "    * ✦ · ✦ *  ",
+  "    ·  ★  ·    ",
+  "   .  * ✦ *  . ",
+];
+
+// Medal ceremony podium with staged reveal and sparkle animation
 function TrendingPodium({ items }: { items: { filename: string; assignment_count: number; unique_student_count: number }[] }) {
-  const [revealCount, setRevealCount] = useState(0);
+  const [phase, setPhase] = useState(0); // 0=empty, 1=#3, 2=#2, 3=#1+sparkles
+  const [sparkleFrame, setSparkleFrame] = useState(0);
   const hasAnimatedRef = useRef(false);
 
   const truncName = (name: string, max: number) => {
-    const base = name.replace(/\.[^.]+$/, ""); // strip extension
-    return base.length > max ? base.slice(0, max - 1) + "…" : base.padEnd(max);
+    const base = name.replace(/\.[^.]+$/, "");
+    if (base.length > max) return base.slice(0, max - 1) + "…";
+    // Center-pad
+    const pad = max - base.length;
+    const left = Math.floor(pad / 2);
+    return " ".repeat(left) + base + " ".repeat(pad - left);
   };
 
-  const n1 = truncName(items[0]?.filename || "", 13);
-  const n2 = truncName(items[1]?.filename || "", 11);
-  const n3 = truncName(items[2]?.filename || "", 11);
+  const makeMedal = (rank: string, item: { filename: string; assignment_count: number; unique_student_count: number }) => {
+    const name = truncName(item.filename, 11);
+    const stats = `${item.assignment_count}× · ${item.unique_student_count}s`;
+    const centeredStats = stats.length < 11
+      ? " ".repeat(Math.floor((11 - stats.length) / 2)) + stats + " ".repeat(Math.ceil((11 - stats.length) / 2))
+      : stats.slice(0, 11);
+    return [
+      `    ,%%%,    `,
+      `   (%${rank.padStart(3)}%%)   `,
+      `    \`%%%'    `,
+      `     )|(     `,
+      `    ( | )    `,
+      `   [=====]   `,
+      ` ${name} `,
+      ` ${centeredStats} `,
+    ];
+  };
 
-  const s1 = `${items[0]?.assignment_count || 0}× · ${items[0]?.unique_student_count || 0}s`;
-  const s2 = `${items[1]?.assignment_count || 0}× · ${items[1]?.unique_student_count || 0}s`;
-  const s3 = `${items[2]?.assignment_count || 0}× · ${items[2]?.unique_student_count || 0}s`;
+  const medal1 = makeMedal("1st", items[0]);
+  const medal2 = makeMedal("2nd", items[1]);
+  const medal3 = makeMedal("3rd", items[2]);
 
-  // Build the podium lines
-  // Top box inner width: 15, Bottom box inner width: 29
-  const lines = [
-    `         ╔═════════════════╗`,
-    `         ║    ★  #1  ★     ║`,
-    `         ║ ${n1.padEnd(15)} ║`,
-    `         ║ ${s1.padEnd(15)} ║`,
-    `   ╔═════╩═════════════════╩══════╗`,
-    `   ║ #2          ░░░         #3   ║`,
-    `   ║ ${n2.padEnd(11)} ░░░ ${n3.padEnd(11)}  ║`,
-    `   ║ ${s2.padEnd(11)} ░░░ ${s3.padEnd(11)}  ║`,
-    `   ╚══════════════════════════════╝`,
-  ];
-
-  const fullText = lines.join("\n");
-
+  // Staged reveal animation
   useEffect(() => {
     if (hasAnimatedRef.current) {
-      setRevealCount(fullText.length);
+      setPhase(3);
       return;
     }
     hasAnimatedRef.current = true;
-    let i = 0;
-    const interval = setInterval(() => {
-      i += 3; // reveal 3 chars at a time for speed
-      if (i >= fullText.length) {
-        setRevealCount(fullText.length);
-        clearInterval(interval);
-      } else {
-        setRevealCount(i);
-      }
-    }, 8);
-    return () => clearInterval(interval);
-  }, [fullText]);
+    const t1 = setTimeout(() => setPhase(1), 100);   // #3 appears
+    const t2 = setTimeout(() => setPhase(2), 500);   // #2 appears
+    const t3 = setTimeout(() => setPhase(3), 900);   // #1 appears
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
 
-  // Color the revealed text line by line
-  const revealed = fullText.slice(0, revealCount);
-  const revealedLines = revealed.split("\n");
+  // Sparkle loop after phase 3
+  useEffect(() => {
+    if (phase < 3) return;
+    const interval = setInterval(() => {
+      setSparkleFrame((prev) => (prev + 1) % SPARKLE_FRAMES.length);
+    }, 400);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  // Column width is 13 chars, gap is 4 spaces
+  const GAP = "    ";
+  const EMPTY_COL = " ".repeat(13);
+
+  // Build combined lines: sparkle (3 lines) + medal (8 lines)
+  const sparkleLines = phase >= 3
+    ? [
+        `${EMPTY_COL}${GAP}${SPARKLE_FRAMES[sparkleFrame]}${GAP}${EMPTY_COL}`,
+      ]
+    : [" "];
 
   return (
     <div
       style={{
-        padding: "6px 8px",
+        padding: "8px 8px 6px",
         borderBottom: "1px solid var(--zen-border)",
         fontFamily: "monospace",
-        fontSize: "10px",
-        lineHeight: "1.4",
+        fontSize: "11px",
+        lineHeight: "1.3",
         flexShrink: 0,
         overflow: "hidden",
-        minHeight: "130px",
+        textAlign: "center",
       }}
     >
-      {revealedLines.map((line, i) => {
-        // #1 lines (1-3) get accent color, #2 lines (5-7) get fg, #3 stats get dim
-        let color = "var(--zen-border)"; // box chars default
-        if (i >= 1 && i <= 3) color = "var(--zen-accent)";
-        else if (i >= 5 && i <= 7) color = "var(--zen-fg)";
-        else if (i === 4 || i === 8) color = "var(--zen-border)";
+      {/* Sparkle line above #1 */}
+      {sparkleLines.map((line, i) => (
+        <div key={`sparkle-${i}`} style={{ color: "var(--zen-accent)", whiteSpace: "pre", height: "15px" }}>
+          {line}
+        </div>
+      ))}
 
-        return (
-          <div key={i} style={{ color, whiteSpace: "pre" }}>
-            {line}
-            {i === revealedLines.length - 1 && revealCount < fullText.length && (
-              <span style={{ color: "var(--zen-accent)" }}>▌</span>
-            )}
-          </div>
-        );
-      })}
+      {/* Medal lines with per-column coloring */}
+      {medal1.map((_, row) => (
+        <div key={`medal-${row}`} style={{ whiteSpace: "pre" }}>
+          <span style={{ color: phase >= 2 ? "var(--zen-fg)" : "transparent" }}>
+            {phase >= 2 ? medal2[row] : EMPTY_COL}
+          </span>
+          <span>{GAP}</span>
+          <span style={{ color: phase >= 3 ? "var(--zen-accent)" : "transparent" }}>
+            {phase >= 3 ? medal1[row] : EMPTY_COL}
+          </span>
+          <span>{GAP}</span>
+          <span style={{ color: phase >= 1 ? "var(--zen-dim)" : "transparent" }}>
+            {phase >= 1 ? medal3[row] : EMPTY_COL}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
