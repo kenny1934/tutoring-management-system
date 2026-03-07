@@ -16,13 +16,13 @@ interface ZenCoursewareTrendingProps {
 type TimeRange = "recent" | "all-time";
 type ExerciseFilter = "" | "Classwork" | "Homework";
 
-// Sparkle animation frames above the #1 medal
+// Sparkle animation frames above the #1 medal (19 chars wide)
 const SPARKLE_FRAMES = [
-  "    ·  ✦  ·    ",
-  "   ✦  ·  ✦     ",
-  "    * ✦ · ✦ *  ",
-  "    ·  ★  ·    ",
-  "   .  * ✦ *  . ",
+  "       ·  ✦  ·       ",
+  "      ✦  ·  ✦        ",
+  "       * ✦ · ✦ *     ",
+  "       ·  ★  ·       ",
+  "      .  * ✦ *  .    ",
 ];
 
 // Medal ceremony podium with staged reveal and sparkle animation
@@ -33,28 +33,31 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
 
   const truncName = (name: string, max: number) => {
     const base = name.replace(/\.[^.]+$/, "");
-    if (base.length > max) return base.slice(0, max - 1) + "…";
-    // Center-pad
-    const pad = max - base.length;
+    return base.length > max ? base.slice(0, max - 1) + "…" : base;
+  };
+
+  const centerPad = (text: string, width: number) => {
+    if (text.length >= width) return text.slice(0, width);
+    const pad = width - text.length;
     const left = Math.floor(pad / 2);
-    return " ".repeat(left) + base + " ".repeat(pad - left);
+    return " ".repeat(left) + text + " ".repeat(pad - left);
   };
 
   const makeMedal = (rank: string, item: { filename: string; assignment_count: number; unique_student_count: number }) => {
-    const name = truncName(item.filename, 11);
-    const stats = `${item.assignment_count}× · ${item.unique_student_count}s`;
-    const centeredStats = stats.length < 11
-      ? " ".repeat(Math.floor((11 - stats.length) / 2)) + stats + " ".repeat(Math.ceil((11 - stats.length) / 2))
-      : stats.slice(0, 11);
+    const COL = 19; // column width
+    const name = truncName(item.filename, 17);
+    const uses = `${item.assignment_count} uses`;
+    const students = `${item.unique_student_count} students`;
     return [
-      `    ,%%%,    `,
-      `   (%${rank.padStart(3)}%%)   `,
-      `    \`%%%'    `,
-      `     )|(     `,
-      `    ( | )    `,
-      `   [=====]   `,
-      ` ${name} `,
-      ` ${centeredStats} `,
+      centerPad(",%%%,", COL),
+      centerPad(`(%${rank.padStart(3)}%%)`, COL),
+      centerPad("`%%%'", COL),
+      centerPad(")|(", COL),
+      centerPad("( | )", COL),
+      centerPad("[=====]", COL),
+      centerPad(name, COL),
+      centerPad(uses, COL),
+      centerPad(students, COL),
     ];
   };
 
@@ -84,11 +87,11 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Column width is 13 chars, gap is 4 spaces
+  // Column width is 19 chars, gap is 4 spaces
   const GAP = "    ";
-  const EMPTY_COL = " ".repeat(13);
+  const EMPTY_COL = " ".repeat(19);
 
-  // Build combined lines: sparkle (3 lines) + medal (8 lines)
+  // Build combined lines: sparkle (1 line) + medal (9 lines)
   const sparkleLines = phase >= 3
     ? [
         `${EMPTY_COL}${GAP}${SPARKLE_FRAMES[sparkleFrame]}${GAP}${EMPTY_COL}`,
