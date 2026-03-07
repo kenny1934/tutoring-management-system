@@ -68,6 +68,14 @@ export async function loadExercisePdf(
       if (response.ok) {
         const blob = await response.blob();
         const data = await blob.arrayBuffer();
+        // Validate PDF magic bytes — reject non-PDF responses (e.g. HTML error pages)
+        const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+        const magic = String.fromCharCode(...header);
+        if (!magic.startsWith('%PDF-')) {
+          console.warn('[lesson-pdf-loader] Non-PDF data received. Content-Type:',
+            response.headers.get('content-type'), 'Header:', magic);
+          return { error: 'fetch_failed' };
+        }
         return { data, source: 'paperless' };
       }
     } catch {
