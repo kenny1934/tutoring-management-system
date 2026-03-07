@@ -3,9 +3,93 @@
  * Note: PDF.js functions use dynamic imports to avoid SSR issues
  */
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocument, PDFFont } from 'pdf-lib';
 
 // Lazy-loaded PDF.js library (only loaded when needed, client-side only)
 let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+
+// Cached CJK font bytes (fetched once, reused across stamp operations)
+let cachedFontBytes: ArrayBuffer | null = null;
+
+async function getCjkFontBytes(): Promise<ArrayBuffer> {
+  if (cachedFontBytes) return cachedFontBytes;
+  const response = await fetch('/fonts/NotoSansTC-Regular.ttf');
+  cachedFontBytes = await response.arrayBuffer();
+  return cachedFontBytes;
+}
+
+/** Check if text contains any non-ASCII characters (CJK, etc.) */
+function hasNonAscii(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    if (text.codePointAt(i)! > 0x7F) return true;
+  }
+  return false;
+}
+
+interface StampFonts {
+  latin: PDFFont;  // Helvetica — proportional ASCII/digits
+  cjk: PDFFont;    // Noto Sans TC — CJK characters (or Helvetica if not needed)
+}
+
+/** Embed fonts for stamp text. Skips 6.8MB CJK font if all text is ASCII. */
+async function embedStampFonts(pdfDoc: PDFDocument, stampTexts: string[]): Promise<StampFonts> {
+  const { StandardFonts } = await import('pdf-lib');
+  const latin = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const needsCjk = stampTexts.some(hasNonAscii);
+  if (!needsCjk) return { latin, cjk: latin };
+
+  const fontkit = await import('fontkit');
+  pdfDoc.registerFontkit(fontkit);
+  const fontBytes = await getCjkFontBytes();
+  const cjk = await pdfDoc.embedFont(fontBytes, { subset: false });
+  return { latin, cjk };
+}
+
+/** Pick font per character: Helvetica for ASCII, Noto Sans TC for CJK */
+function fontForChar(ch: string, fonts: StampFonts): PDFFont {
+  return ch.codePointAt(0)! <= 0x7F ? fonts.latin : fonts.cjk;
+}
+
+/** Split text into runs of same-font characters */
+function splitIntoRuns(text: string, fonts: StampFonts): Array<{ text: string; font: PDFFont }> {
+  if (text.length === 0) return [];
+  const runs: Array<{ text: string; font: PDFFont }> = [];
+  let currentFont = fontForChar(text[0], fonts);
+  let currentText = text[0];
+  for (let i = 1; i < text.length; i++) {
+    const font = fontForChar(text[i], fonts);
+    if (font === currentFont) {
+      currentText += text[i];
+    } else {
+      runs.push({ text: currentText, font: currentFont });
+      currentFont = font;
+      currentText = text[i];
+    }
+  }
+  runs.push({ text: currentText, font: currentFont });
+  return runs;
+}
+
+/** Measure mixed-font text width */
+function measureMixedText(text: string, fonts: StampFonts, size: number): number {
+  return splitIntoRuns(text, fonts).reduce(
+    (w, run) => w + run.font.widthOfTextAtSize(run.text, size), 0
+  );
+}
+
+/** Draw mixed-font text on a PDF page */
+function drawMixedText(
+  page: { drawText: (text: string, opts: Record<string, unknown>) => void },
+  text: string, x: number, y: number,
+  fonts: StampFonts, size: number, color: unknown
+) {
+  let cx = x;
+  for (const run of splitIntoRuns(text, fonts)) {
+    page.drawText(run.text, { x: cx, y, size, font: run.font, color });
+    cx += run.font.widthOfTextAtSize(run.text, size);
+  }
+}
 
 export async function getPdfJs() {
   if (typeof window === 'undefined') {
@@ -174,25 +258,20 @@ export async function stampPdf(
   pdfData: ArrayBuffer,
   stamp: PrintStampInfo
 ): Promise<Blob> {
-  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const { PDFDocument, rgb } = await import('pdf-lib');
   const pdfDoc = await PDFDocument.load(pdfData, { ignoreEncryption: true });
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontSize = 8;
   const baseStampText = formatStamp(stamp);
+  const fonts = await embedStampFonts(pdfDoc, [baseStampText]);
+  const fontSize = 8;
+  const color = rgb(0.2, 0.2, 0.2);
   const pages = pdfDoc.getPages();
   const totalPages = pages.length;
 
   pages.forEach((page, idx) => {
     const stampText = `${baseStampText} | p.${idx + 1}/${totalPages}`;
     const { width, height } = page.getSize();
-    const textWidth = font.widthOfTextAtSize(stampText, fontSize);
-    page.drawText(stampText, {
-      x: width - textWidth - 40,
-      y: height - 25,
-      size: fontSize,
-      font,
-      color: rgb(0.2, 0.2, 0.2),
-    });
+    const textWidth = measureMixedText(stampText, fonts, fontSize);
+    drawMixedText(page, stampText, width - textWidth - 40, height - 25, fonts, fontSize, color);
   });
 
   const pdfBytes = await pdfDoc.save();
@@ -257,7 +336,7 @@ export async function extractBulkPagesForDownload(
   stamp?: PrintStampInfo
 ): Promise<Blob> {
   // Dynamically import pdf-lib to avoid bundling issues
-  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const { PDFDocument, rgb } = await import('pdf-lib');
 
   const pdfDoc = await PDFDocument.create();
 
@@ -310,21 +389,24 @@ export async function extractBulkPagesForDownload(
   // Page numbering is continuous across items sharing the same stamp
   const hasAnyStamp = stamp || items.some(item => item.stamp);
   if (hasAnyStamp) {
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontSize = 8;
-    const allPages = pdfDoc.getPages();
-
     // Group by stamp identity for continuous page numbering
     const stampKey = (s: PrintStampInfo) => JSON.stringify(s);
 
-    // Pre-compute total pages per stamp group
+    // Pre-compute stamp texts and totals per stamp group
     const stampGroupTotals = new Map<string, number>();
+    const stampGroupTexts = new Map<string, string>();
     for (const range of itemPageRanges) {
       const effectiveStamp = range.itemStamp || stamp;
       if (!effectiveStamp) continue;
       const key = stampKey(effectiveStamp);
       stampGroupTotals.set(key, (stampGroupTotals.get(key) || 0) + (range.endIdx - range.startIdx));
+      if (!stampGroupTexts.has(key)) stampGroupTexts.set(key, formatStamp(effectiveStamp));
     }
+
+    const fonts = await embedStampFonts(pdfDoc, Array.from(stampGroupTexts.values()));
+    const fontSize = 8;
+    const color = rgb(0.2, 0.2, 0.2);
+    const allPages = pdfDoc.getPages();
 
     // Running counter per stamp group
     const stampGroupCounters = new Map<string, number>();
@@ -335,22 +417,16 @@ export async function extractBulkPagesForDownload(
 
       const key = stampKey(effectiveStamp);
       const groupTotal = stampGroupTotals.get(key) || 0;
-      const baseStampText = formatStamp(effectiveStamp);
+      const baseStampText = stampGroupTexts.get(key)!;
 
       for (let i = range.startIdx; i < range.endIdx; i++) {
         const counter = (stampGroupCounters.get(key) || 0) + 1;
         stampGroupCounters.set(key, counter);
         const stampText = `${baseStampText} | p.${counter}/${groupTotal}`;
-        const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+        const textWidth = measureMixedText(stampText, fonts, fontSize);
         const page = allPages[i];
         const { width, height } = page.getSize();
-        page.drawText(stampText, {
-          x: width - textWidth - 40,
-          y: height - 25,
-          size: fontSize,
-          font,
-          color: rgb(0.2, 0.2, 0.2),
-        });
+        drawMixedText(page, stampText, width - textWidth - 40, height - 25, fonts, fontSize, color);
       }
     }
   }

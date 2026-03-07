@@ -319,6 +319,10 @@ export function PdfPageViewer({
   const renderScaleRef = useRef(RENDER_SCALE);
   const hiResRerenderRef = useRef(false);
 
+  // Auto-retry state for transient processing failures
+  const retryCountRef = useRef(0);
+  const [autoRetryTick, setAutoRetryTick] = useState(0);
+
   // Annotation visibility toggle
   const [annotationsVisible, setAnnotationsVisible] = useState(true);
 
@@ -354,6 +358,12 @@ export function PdfPageViewer({
     fitZoomRef.current = fit;
     setZoom(fit);
   }, [pages]);
+
+  // Reset retry counter when a genuinely new PDF loads
+  useEffect(() => {
+    retryCountRef.current = 0;
+    setAutoRetryTick(0);
+  }, [pdfData, exerciseId]);
 
   // Process PDF: extract+stamp → render pages as images (parallel)
   // Uses render cache to skip expensive pipeline when switching back to a previously viewed exercise.
@@ -441,7 +451,8 @@ export function PdfPageViewer({
               width: viewport.width / dpr,
               height: viewport.height / dpr,
             };
-          } catch {
+          } catch (err) {
+            console.warn("[PdfPageViewer] Page render failed (page", pageNum, "):", err);
             return null;
           }
         };
@@ -457,6 +468,11 @@ export function PdfPageViewer({
         }
 
         const rendered = results.filter((r): r is RenderedPage => r !== null);
+
+        if (rendered.length === 0 && doc.numPages > 0) {
+          throw new Error(`All ${doc.numPages} page(s) failed to render`);
+        }
+
         const urls = rendered.map((r) => r.url);
 
         pageUrlsRef.current = urls;
@@ -478,19 +494,32 @@ export function PdfPageViewer({
             }
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("[PdfPageViewer] PDF processing failed:", err);
         if (!cancelled) {
-          setProcessError("Failed to process PDF");
+          if (retryCountRef.current === 0) {
+            // First failure: auto-retry once after a brief delay
+            retryCountRef.current = 1;
+            setTimeout(() => {
+              if (!cancelled) setAutoRetryTick(t => t + 1);
+            }, 500);
+          } else {
+            retryCountRef.current = 2;
+            setProcessError("Failed to process PDF");
+          }
         }
       } finally {
-        if (!cancelled) setIsProcessing(false);
+        // Keep spinner visible while auto-retry is pending (retryCount === 1)
+        if (!cancelled && retryCountRef.current !== 1) {
+          setIsProcessing(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [pdfData, pageNumbers, stamp, exerciseId]);
+  }, [pdfData, pageNumbers, stamp, exerciseId, autoRetryTick]);
 
   // Revoke all cached page URLs on unmount
   useEffect(() => {
@@ -603,7 +632,8 @@ export function PdfPageViewer({
             const nativeWidth = viewport.width / scale;
             const nativeHeight = viewport.height / scale;
             return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
-          } catch {
+          } catch (err) {
+            console.warn("[PdfPageViewer] Hi-res page render failed (page", pageNum, "):", err);
             return null;
           }
         };
