@@ -134,7 +134,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
             }}
             title={item.filename}
           >
-            {truncate(stripExt(item.filename), 25)}
+            {truncate(stripExt(item.filename), 18)}
           </div>
 
           {/* Stats */}
