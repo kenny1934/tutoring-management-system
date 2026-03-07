@@ -41,7 +41,7 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
   const COL = 19; // column width for medal art
   const makeMedal = (rank: string) => [
     centerPad(",%%%,", COL),
-    centerPad(`(%${rank.padStart(3)}%%)`, COL),
+    centerPad(`(% ${rank}%)`, COL),
     centerPad("`%%%'", COL),
     centerPad(")|(", COL),
     centerPad("( | )", COL),
@@ -76,88 +76,83 @@ function TrendingPodium({ items }: { items: { filename: string; assignment_count
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Column width is 19 chars, gap is 4 spaces
-  const GAP = "    ";
-  const EMPTY_COL = " ".repeat(19);
-
-  // Build combined lines: sparkle (1 line) + medal art (6 lines) + name/stats (HTML)
-  const sparkleLines = phase >= 3
-    ? [
-        `${EMPTY_COL}${GAP}${SPARKLE_FRAMES[sparkleFrame]}${GAP}${EMPTY_COL}`,
-      ]
-    : [" "];
+  const columns = [
+    { medal: medal2, item: items[1], color: "var(--zen-fg)", visible: phase >= 2, sparkle: false },
+    { medal: medal1, item: items[0], color: "var(--zen-accent)", visible: phase >= 3, sparkle: true },
+    { medal: medal3, item: items[2], color: "var(--zen-dim)", visible: phase >= 1, sparkle: false },
+  ];
 
   return (
     <div
       style={{
-        padding: "8px 8px 6px",
+        padding: "8px 12px 6px",
         borderBottom: "1px solid var(--zen-border)",
-        fontFamily: "monospace",
-        fontSize: "11px",
-        lineHeight: "1.3",
         flexShrink: 0,
         overflow: "hidden",
-        textAlign: "center",
+        display: "flex",
+        gap: "16px",
+        justifyContent: "center",
       }}
     >
-      {/* Sparkle line above #1 */}
-      {sparkleLines.map((line, i) => (
-        <div key={`sparkle-${i}`} style={{ color: "var(--zen-accent)", whiteSpace: "pre", height: "15px" }}>
-          {line}
-        </div>
-      ))}
-
-      {/* Medal art lines with per-column coloring */}
-      {medal1.map((_, row) => (
-        <div key={`medal-${row}`} style={{ whiteSpace: "pre" }}>
-          <span style={{ color: phase >= 2 ? "var(--zen-fg)" : "transparent" }}>
-            {phase >= 2 ? medal2[row] : EMPTY_COL}
-          </span>
-          <span>{GAP}</span>
-          <span style={{ color: phase >= 3 ? "var(--zen-accent)" : "transparent" }}>
-            {phase >= 3 ? medal1[row] : EMPTY_COL}
-          </span>
-          <span>{GAP}</span>
-          <span style={{ color: phase >= 1 ? "var(--zen-dim)" : "transparent" }}>
-            {phase >= 1 ? medal3[row] : EMPTY_COL}
-          </span>
-        </div>
-      ))}
-
-      {/* Name and stats below medals */}
-      <div style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
-        {[
-          { item: items[1], color: "var(--zen-fg)", visible: phase >= 2 },
-          { item: items[0], color: "var(--zen-accent)", visible: phase >= 3 },
-          { item: items[2], color: "var(--zen-dim)", visible: phase >= 1 },
-        ].map(({ item, color, visible }, i) => (
+      {columns.map(({ medal, item, color, visible, sparkle }, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            textAlign: "center",
+            color: visible ? color : "transparent",
+          }}
+        >
+          {/* Sparkle (only above #1) */}
           <div
-            key={i}
             style={{
-              flex: 1,
-              textAlign: "center",
-              color: visible ? color : "transparent",
-              fontSize: "10px",
-              overflow: "hidden",
+              fontFamily: "monospace",
+              fontSize: "11px",
+              whiteSpace: "pre",
+              height: "15px",
+              color: "var(--zen-accent)",
             }}
           >
-            <div
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                fontWeight: "bold",
-              }}
-              title={item.filename}
-            >
-              {stripExt(item.filename)}
-            </div>
-            <div style={{ opacity: 0.8 }}>
-              {item.assignment_count} uses · {item.unique_student_count} students
-            </div>
+            {sparkle && phase >= 3 ? SPARKLE_FRAMES[sparkleFrame] : " "}
           </div>
-        ))}
-      </div>
+
+          {/* Medal art */}
+          {medal.map((line, row) => (
+            <div
+              key={row}
+              style={{
+                fontFamily: "monospace",
+                fontSize: "11px",
+                lineHeight: "1.3",
+                whiteSpace: "pre",
+              }}
+            >
+              {line}
+            </div>
+          ))}
+
+          {/* Name */}
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: "bold",
+              marginTop: "2px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={item.filename}
+          >
+            {stripExt(item.filename)}
+          </div>
+
+          {/* Stats */}
+          <div style={{ fontSize: "10px", opacity: 0.8 }}>
+            {item.assignment_count} uses · {item.unique_student_count} students
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
