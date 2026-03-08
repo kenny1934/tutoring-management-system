@@ -120,12 +120,11 @@ export function ZenLessonPdfViewer({
   const renderCacheRef = useRef<Map<number, {
     pages: RenderedPage[];
     pdfBytes: ArrayBuffer;
+    renderScale: number;
   }>>(new Map());
   const renderScaleRef = useRef(RENDER_SCALE);
   const pdfBytesRef = useRef<ArrayBuffer | null>(null);
   const hiResRerenderRef = useRef(false);
-  const exerciseIdRef = useRef(exerciseId);
-  exerciseIdRef.current = exerciseId;
 
   const handleZoomIn = useCallback(() => {
     userHasZoomed.current = true;
@@ -157,6 +156,8 @@ export function ZenLessonPdfViewer({
     if (exerciseId != null) {
       const cached = renderCacheRef.current.get(exerciseId);
       if (cached) {
+        pdfBytesRef.current = cached.pdfBytes;
+        renderScaleRef.current = cached.renderScale;
         setPages(cached.pages);
         onTotalPagesChange(cached.pages.length);
         setIsProcessing(false);
@@ -228,7 +229,7 @@ export function ZenLessonPdfViewer({
 
         // Cache with LRU eviction
         if (exerciseId != null) {
-          renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes });
+          renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes, renderScale: RENDER_SCALE });
           if (renderCacheRef.current.size > MAX_RENDER_CACHE_SIZE) {
             const oldestKey = renderCacheRef.current.keys().next().value;
             if (oldestKey !== undefined && oldestKey !== exerciseId) {
@@ -300,8 +301,8 @@ export function ZenLessonPdfViewer({
         setPages(rendered);
         renderScaleRef.current = neededScale;
 
-        if (exerciseIdRef.current != null) {
-          renderCacheRef.current.set(exerciseIdRef.current, { pages: rendered, pdfBytes });
+        if (exerciseId != null) {
+          renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes, renderScale: neededScale });
         }
 
         oldUrls.forEach(url => URL.revokeObjectURL(url));
@@ -311,8 +312,7 @@ export function ZenLessonPdfViewer({
     }, 300);
 
     return () => { clearTimeout(timer); cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, pages]);
+  }, [zoom, pages, exerciseId]);
 
   // Cleanup cached pages and clear confirm timer on unmount
   useEffect(() => {
