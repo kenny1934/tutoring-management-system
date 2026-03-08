@@ -196,6 +196,7 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["m"]} desc="Mark as read" />
             <Shortcut keys={["x"]} desc="Archive message" />
             <Shortcut keys={["r"]} desc="React to message" />
+            <Shortcut keys={["c"]} desc="Reply to message" />
             <Shortcut keys={["Esc"]} desc="Collapse or clear filter" />
           </Section>
 
