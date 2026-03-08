@@ -71,10 +71,9 @@ function getDomain(url: string): string {
 interface ThreadMediaPanelProps {
   thread: MessageThread;
   onClose: () => void;
-  isMobile: boolean;
 }
 
-export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMediaPanelProps) {
+export default function ThreadMediaPanel({ thread, onClose }: ThreadMediaPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("media");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [viewerGraphJson, setViewerGraphJson] = useState<string | null>(null);
@@ -82,7 +81,7 @@ export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMe
 
   const allMessages = useMemo(
     () => [thread.root_message, ...thread.replies.filter(r => r.id > 0)],
-    [thread]
+    [thread.root_message, thread.replies]
   );
 
   // Collect media (images, GIFs, videos)
@@ -104,8 +103,18 @@ export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMe
     return items.reverse(); // newest first
   }, [allMessages]);
 
-  // Image URLs for lightbox (only images + GIFs, not videos)
-  const lightboxUrls = useMemo(() => media.filter(m => m.type !== "video").map(m => m.url), [media]);
+  // Image URLs for lightbox (only images + GIFs, not videos) + O(1) index lookup
+  const { lightboxUrls, lightboxIndexMap } = useMemo(() => {
+    const urls: string[] = [];
+    const indexMap = new Map<string, number>();
+    for (const item of media) {
+      if (item.type !== "video") {
+        indexMap.set(item.url, urls.length);
+        urls.push(item.url);
+      }
+    }
+    return { lightboxUrls: urls, lightboxIndexMap: indexMap };
+  }, [media]);
 
   // Collect files (documents — not audio, video, or GIF)
   const files = useMemo<FileItem[]>(() => {
@@ -130,7 +139,7 @@ export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMe
     const items: LinkItem[] = [];
     for (const m of allMessages) {
       const sender = m.from_tutor_name || "Unknown";
-      const { urls } = extractUrls(m.message);
+      const { urls } = extractUrls(m.message, Infinity);
       for (const url of urls) {
         items.push({ url, domain: getDomain(url), date: m.created_at, sender });
       }
@@ -273,7 +282,7 @@ export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMe
                   <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-1 py-1.5">{month}</div>
                   <div className="grid grid-cols-3 gap-1">
                     {items.map((item, i) => {
-                      const lightboxIdx = item.type !== "video" ? lightboxUrls.indexOf(item.url) : -1;
+                      const lightboxIdx = item.type !== "video" ? (lightboxIndexMap.get(item.url) ?? -1) : -1;
                       return (
                         <button
                           key={`${item.url}-${i}`}
@@ -289,7 +298,7 @@ export default function ThreadMediaPanel({ thread, onClose, isMobile }: ThreadMe
                         >
                           {item.type === "video" ? (
                             <>
-                              <video src={item.url} preload="metadata" className="w-full h-full object-cover" />
+                              <video src={item.url} preload="none" className="w-full h-full object-cover" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                                 <Play className="h-6 w-6 text-white fill-white" />
                               </div>

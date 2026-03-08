@@ -468,6 +468,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           onClick={() => {
             if (showThreadSearch) setThreadSearch("");
             setShowThreadSearch(!showThreadSearch);
+            if (!showThreadSearch) setShowMediaPanel(false);
           }}
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
@@ -480,7 +481,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           <Search className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setShowMediaPanel(v => !v)}
+          onClick={() => {
+            setShowMediaPanel(v => !v);
+            setShowThreadSearch(false);
+            setThreadSearch("");
+          }}
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             showMediaPanel
@@ -627,7 +632,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
       {/* Media & files panel */}
       {showMediaPanel && (
-        <ThreadMediaPanel thread={thread} onClose={() => setShowMediaPanel(false)} isMobile={isMobile} />
+        <ThreadMediaPanel thread={thread} onClose={() => setShowMediaPanel(false)} />
       )}
 
       {/* Messages */}
