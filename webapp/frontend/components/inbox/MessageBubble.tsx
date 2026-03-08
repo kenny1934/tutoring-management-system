@@ -19,8 +19,10 @@ import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import AudioPlayer from "@/components/inbox/AudioPlayer";
+import ImageLightbox from "@/components/inbox/ImageLightbox";
 import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { Message } from "@/types";
+import { useToast } from "@/contexts/ToastContext";
 import "katex/dist/katex.min.css";
 
 // Module-level constants
@@ -238,6 +240,16 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
     }
   }, [showPicker]);
 
+  // Close picker on scroll
+  useEffect(() => {
+    if (!showPicker) return;
+    const scrollParent = pickerRef.current?.closest('[class*="overflow-y"]');
+    if (!scrollParent) return;
+    const handleScroll = () => { setShowPicker(false); setShowFullPicker(false); };
+    scrollParent.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollParent.removeEventListener("scroll", handleScroll);
+  }, [showPicker]);
+
   const handlePickerKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") { setShowPicker(false); setShowFullPicker(false); return; }
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
@@ -342,6 +354,18 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   }, []);
 
+  const badgeRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on scroll
+  useEffect(() => {
+    if (!popover) return;
+    const scrollParent = badgeRef.current?.closest('[class*="overflow-y"]');
+    if (!scrollParent) return;
+    const handleScroll = () => setPopover(null);
+    scrollParent.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollParent.removeEventListener("scroll", handleScroll);
+  }, [popover]);
+
   if (likeDetails.length === 0) return null;
 
   const popoverDetails = popover
@@ -349,7 +373,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
     : [];
 
   return (
-    <div className="inline-flex items-center gap-0.5">
+    <div ref={badgeRef} className="inline-flex items-center gap-0.5">
       {grouped.map((g) => {
         const isMine = g.tutorIds.includes(currentTutorId);
         return (
@@ -465,6 +489,7 @@ const MessageBubble = React.memo(function MessageBubble({
   onDelete,
   onEditGeoAsNew,
 }: MessageBubbleProps) {
+  const { showToast } = useToast();
   const isBroadcast = m.to_tutor_id === null;
   const isGroup = m.is_group_message;
 
@@ -480,6 +505,13 @@ const MessageBubble = React.memo(function MessageBubble({
   // Geometry viewer state
   const [geoViewerOpen, setGeoViewerOpen] = useState(false);
   const [geoViewerJson, setGeoViewerJson] = useState("");
+
+  // Image lightbox state
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const allImageUrls = useMemo(() => [
+    ...(m.image_attachments || []),
+    ...(m.file_attachments?.filter(f => f.content_type === "image/gif").map(f => f.url) || []),
+  ], [m.image_attachments, m.file_attachments]);
 
   // Internal edit state
   const [editText, setEditText] = useState(m.message);
@@ -503,11 +535,13 @@ const MessageBubble = React.memo(function MessageBubble({
   };
 
   const handleSaveEdit = async () => {
-    if (!editText || editText === "<p></p>") return;
+    if (isHtmlEmpty(editText) && editImages.length === 0) return;
     setIsSaving(true);
     try {
       await onSaveEdit(m.id, editText, editImages);
       onCancelEdit();
+    } catch {
+      showToast("Failed to save edit", "error");
     } finally {
       setIsSaving(false);
     }
@@ -597,7 +631,7 @@ const MessageBubble = React.memo(function MessageBubble({
             <div className="flex gap-2">
               <button
                 onClick={handleSaveEdit}
-                disabled={isSaving || isHtmlEmpty(editText)}
+                disabled={isSaving || (isHtmlEmpty(editText) && editImages.length === 0)}
                 className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
@@ -647,7 +681,7 @@ const MessageBubble = React.memo(function MessageBubble({
         {m.image_attachments && m.image_attachments.length > 0 && (
           <div className="mt-3 space-y-2">
             {m.image_attachments.map((url, i) => (
-              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+              <button key={url} type="button" className="block" onClick={() => setLightboxIndex(allImageUrls.indexOf(url))}>
                 <img
                   src={url}
                   alt={`Attachment ${i + 1}`}
@@ -655,7 +689,7 @@ const MessageBubble = React.memo(function MessageBubble({
                   loading="lazy"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -675,14 +709,14 @@ const MessageBubble = React.memo(function MessageBubble({
                   className="max-h-64 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
                 />
               ) : file.content_type === "image/gif" ? (
-                <a key={file.url} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
+                <button key={file.url} type="button" className="block" onClick={() => setLightboxIndex(allImageUrls.indexOf(file.url))}>
                   <img
                     src={file.url}
                     alt={file.filename}
                     className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
                     loading="lazy"
                   />
-                </a>
+                </button>
               ) : (
                 <a
                   key={file.url}
@@ -784,6 +818,16 @@ const MessageBubble = React.memo(function MessageBubble({
         graphJson={geoViewerJson}
         onEditAsNew={onEditGeoAsNew}
       />
+
+      {/* Image lightbox */}
+      {lightboxIndex !== null && allImageUrls.length > 0 && (
+        <ImageLightbox
+          images={allImageUrls}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onChangeIndex={setLightboxIndex}
+        />
+      )}
     </div>
   );
 });

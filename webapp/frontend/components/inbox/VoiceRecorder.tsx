@@ -9,9 +9,10 @@ interface VoiceRecorderProps {
   /** Use "attach" mode to show a check icon instead of send (for adding to attachments) */
   mode?: "send" | "attach";
   className?: string;
+  onError?: (message: string) => void;
 }
 
-export default function VoiceRecorder({ onSend, mode = "send", className }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onSend, mode = "send", className, onError }: VoiceRecorderProps) {
   const [state, setState] = useState<"idle" | "recording" | "uploading">("idle");
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -42,7 +43,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className }: Voic
         setDuration((d) => d + 1);
       }, 1000);
     } catch {
-      // Permission denied or no microphone
+      onError?.("Microphone access denied");
     }
   }, []);
 
