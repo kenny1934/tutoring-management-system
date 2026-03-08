@@ -9,6 +9,7 @@ import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
+import { ZenLessonHelp } from "./ZenLessonHelp";
 import type { Session } from "@/types";
 
 interface ZenLessonModeProps {
@@ -50,11 +51,36 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
   }, []);
   const handleEditExercisesRef = useRef(handleEditExercises);
   handleEditExercisesRef.current = handleEditExercises;
+  const exerciseModalTypeRef = useRef(exerciseModalType);
+  exerciseModalTypeRef.current = exerciseModalType;
+
+  const [showHelp, setShowHelp] = useState(false);
+  const showHelpRef = useRef(showHelp);
+  showHelpRef.current = showHelp;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA") return;
+      // Skip when exercise assign modal is open — let it handle its own keys
+      if (exerciseModalTypeRef.current) return;
+
+      // Help overlay — any key dismisses
+      if (showHelpRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowHelp(false);
+        return;
+      }
+
+      // Help menu
+      if (e.key === "?") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowHelp(true);
+        return;
+      }
+
       handleLessonKeyDown(e, stateRef.current, { stamp: stampRef.current, onClose, paperlessSearch: searchPaperlessByPath, onEditExercises: handleEditExercisesRef.current });
     };
 
@@ -174,6 +200,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
           <span style={{ color: "var(--zen-fg)" }}>p</span>=print{" "}
+          <span style={{ color: "var(--zen-fg)" }}>?</span>=help{" "}
           <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
         </span>
         {selectedExercise && (
@@ -189,6 +216,10 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           exerciseType={exerciseModalType}
           onClose={() => setExerciseModalType(null)}
         />
+      )}
+
+      {showHelp && (
+        <ZenLessonHelp mode="single" onClose={() => setShowHelp(false)} />
       )}
     </div>
   );
