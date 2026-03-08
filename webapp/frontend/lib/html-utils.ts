@@ -1,7 +1,7 @@
 import katex from "katex";
 
 /** Unescape HTML entities that bleach encodes in data attributes. */
-function unescapeHtmlEntities(s: string): string {
+export function unescapeHtmlEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -14,7 +14,7 @@ function unescapeHtmlEntities(s: string): string {
  * MathLive's "add row" menu produces multiple brace groups; KaTeX expects a single group
  * with \\ separators. Uses brace-depth counting to handle nested braces correctly.
  */
-function normalizeDisplaylines(latex: string): string {
+export function normalizeDisplaylines(latex: string): string {
   const prefix = "\\displaylines";
   let idx = latex.indexOf(prefix);
   while (idx !== -1) {
