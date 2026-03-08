@@ -9,7 +9,20 @@ import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
+import { ZenLessonHelp } from "./ZenLessonHelp";
+import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
+import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import type { Session } from "@/types";
+
+const zenHeaderBtn: React.CSSProperties = {
+  background: "none",
+  border: "1px solid var(--zen-border)",
+  color: "var(--zen-dim)",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: "10px",
+  padding: "2px 8px",
+};
 
 interface ZenLessonWideModeProps {
   timeSlot: string;
@@ -54,6 +67,30 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
   }, []);
   const handleEditExercisesRef = useRef(handleEditExercises);
   handleEditExercisesRef.current = handleEditExercises;
+  const exerciseModalTypeRef = useRef(exerciseModalType);
+  exerciseModalTypeRef.current = exerciseModalType;
+
+  const [showHelp, setShowHelp] = useState(false);
+  const showHelpRef = useRef(showHelp);
+  showHelpRef.current = showHelp;
+
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const showPrintMenuRef = useRef(showPrintMenu);
+  showPrintMenuRef.current = showPrintMenu;
+
+  const handleBulkPrint = useCallback(async (type: "CW" | "HW") => {
+    setShowPrintMenu(false);
+    const groups = groupExercisesByStudent(sessions, type);
+    if (groups.length === 0) {
+      setZenStatus(`No ${type} exercises found`, "warning");
+      return;
+    }
+    setZenStatus(`Printing ${type} for ${groups.length} student${groups.length !== 1 ? "s" : ""}...`, "info");
+    const error = await bulkPrintAllStudents(groups);
+    if (error === "not_supported") setZenStatus("File System Access not supported. Use Chrome/Edge.", "error");
+    else if (error === "no_valid_files") setZenStatus(`No valid ${type} PDF files found`, "error");
+    else if (error === "print_failed") setZenStatus("Print failed. Check popup blocker.", "error");
+  }, [sessions]);
 
   const digitBufferRef = useRef<{ digit: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
@@ -61,6 +98,26 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA") return;
+      // Skip when exercise assign modal is open — let it handle its own keys
+      if (exerciseModalTypeRef.current) return;
+
+      // Help overlay — any key dismisses
+      if (showHelpRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowHelp(false);
+        return;
+      }
+
+      // Print menu — Escape or any non-1/2 key dismisses
+      if (showPrintMenuRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.key === "1") handleBulkPrint("CW");
+        else if (e.key === "2") handleBulkPrint("HW");
+        else setShowPrintMenu(false);
+        return;
+      }
 
       // Tab/Shift+Tab for student switching
       if (e.key === "Tab") {
@@ -105,6 +162,22 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         return;
       }
 
+      // Help menu
+      if (e.key === "?") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowHelp(true);
+        return;
+      }
+
+      // Bulk print menu (Shift+P)
+      if (e.key === "P" && e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowPrintMenu(true);
+        return;
+      }
+
       handleLessonKeyDown(e, stateRef.current, {
         stamp: stampRef.current,
         onClose,
@@ -121,7 +194,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         digitBufferRef.current = null;
       }
     };
-  }, [sessions, onClose]);
+  }, [sessions, onClose, handleBulkPrint]);
 
   return (
     <div
@@ -156,20 +229,17 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
             {sessions.length} student{sessions.length !== 1 ? "s" : ""}
           </span>
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: "none",
-            border: "1px solid var(--zen-border)",
-            color: "var(--zen-dim)",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            fontSize: "10px",
-            padding: "2px 8px",
-          }}
-        >
-          [Esc] Close
-        </button>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button onClick={() => handleBulkPrint("CW")} style={zenHeaderBtn} title="Print all classwork">
+            Print CW
+          </button>
+          <button onClick={() => handleBulkPrint("HW")} style={zenHeaderBtn} title="Print all homework">
+            Print HW
+          </button>
+          <button onClick={onClose} style={zenHeaderBtn}>
+            [Esc] Close
+          </button>
+        </div>
       </div>
 
       {/* Student tabs */}
@@ -296,6 +366,8 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
           <span style={{ color: "var(--zen-fg)" }}>c</span>=classwork{" "}
           <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
+          <span style={{ color: "var(--zen-fg)" }}>P</span>=print all{" "}
+          <span style={{ color: "var(--zen-fg)" }}>?</span>=help{" "}
           <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
         </span>
         {activeSession && (
@@ -312,6 +384,71 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
           exerciseType={exerciseModalType}
           onClose={() => setExerciseModalType(null)}
         />
+      )}
+
+      {showHelp && (
+        <ZenLessonHelp mode="wide" onClose={() => setShowHelp(false)} />
+      )}
+
+      {showPrintMenu && (
+        <div
+          onClick={() => setShowPrintMenu(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            zIndex: 1100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "var(--zen-bg)",
+              border: "1px solid var(--zen-accent)",
+              padding: "16px 24px",
+            }}
+          >
+            <div style={{ color: "var(--zen-accent)", fontWeight: "bold", fontSize: "12px", marginBottom: "12px", textShadow: "var(--zen-glow)" }}>
+              BULK PRINT
+            </div>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => handleBulkPrint("CW")}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--zen-border)",
+                  color: "var(--zen-fg)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "11px",
+                  padding: "6px 16px",
+                }}
+              >
+                <span style={{ color: "var(--zen-accent)" }}>1</span> Classwork
+              </button>
+              <button
+                onClick={() => handleBulkPrint("HW")}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--zen-border)",
+                  color: "var(--zen-fg)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "11px",
+                  padding: "6px 16px",
+                }}
+              >
+                <span style={{ color: "var(--zen-accent)" }}>2</span> Homework
+              </button>
+            </div>
+            <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginTop: "8px" }}>
+              Press 1, 2, or Esc
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
