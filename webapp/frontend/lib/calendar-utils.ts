@@ -427,6 +427,29 @@ export function calculateSessionLayouts(sessions: Session[]): Array<Session & { 
   return result;
 }
 
+// ── String-based week helpers (convenience wrappers) ──
+
+export function getWeekStartStr(dateStr: string): string {
+  const { start } = getWeekBounds(new Date(dateStr + "T00:00:00"));
+  return toDateString(start);
+}
+
+export function getWeekEndStr(dateStr: string): string {
+  const { end } = getWeekBounds(new Date(dateStr + "T00:00:00"));
+  return toDateString(end);
+}
+
+export function getWeekDateStrings(weekStart: string): string[] {
+  const dates: string[] = [];
+  const d = new Date(weekStart + "T00:00:00");
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(d);
+    day.setDate(d.getDate() + i);
+    dates.push(toDateString(day));
+  }
+  return dates;
+}
+
 /**
  * Get the number of days until a date (negative if in the past)
  */
