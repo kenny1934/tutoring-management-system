@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { paperlessAPI, type PaperlessDocument } from "@/lib/api";
-import { formatTimeAgo } from "@/lib/formatters";
+import { formatDaysAgo } from "@/lib/formatters";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import type { PreviewFile } from "./ZenCoursewarePreview";
 
@@ -489,7 +489,7 @@ export function ZenCoursewareTrending({
                   {item.unique_student_count}
                 </span>
                 <span style={{ width: "60px", textAlign: "right", fontSize: "10px" }}>
-                  {item.latest_use ? formatTimeAgo(item.latest_use) : "-"}
+                  {item.latest_use ? formatDaysAgo(item.latest_use) : "-"}
                 </span>
               </div>
 
