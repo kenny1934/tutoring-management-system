@@ -11,6 +11,9 @@ import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistribut
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { toDateString } from "@/lib/calendar-utils";
+import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
+import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
+import type { Session } from "@/types";
 
 export default function ZenDashboardPage() {
   usePageTitle("Zen Mode");
@@ -26,6 +29,8 @@ export default function ZenDashboardPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
   const [markingSessionIds, setMarkingSessionIds] = useState<Set<number>>(new Set());
+  const [lessonSession, setLessonSession] = useState<Session | null>(null);
+  const [lessonWideSlot, setLessonWideSlot] = useState<{ timeSlot: string; sessions: Session[] } | null>(null);
 
   // Use session context for shared state
   const {
@@ -397,6 +402,8 @@ export default function ZenDashboardPage() {
               onBulkMark={handleBulkMark}
               markingSessionIds={markingSessionIds}
               showStats={true}
+              onLessonMode={(session) => setLessonSession(session)}
+              onLessonWideMode={(timeSlot, sessions) => setLessonWideSlot({ timeSlot, sessions })}
             />
           </section>
 
@@ -476,6 +483,21 @@ export default function ZenDashboardPage() {
             <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>
+      )}
+
+      {/* Lesson mode overlays */}
+      {lessonSession && (
+        <ZenLessonMode
+          session={lessonSession}
+          onClose={() => setLessonSession(null)}
+        />
+      )}
+      {lessonWideSlot && (
+        <ZenLessonWideMode
+          timeSlot={lessonWideSlot.timeSlot}
+          sessions={lessonWideSlot.sessions}
+          onClose={() => setLessonWideSlot(null)}
+        />
       )}
     </div>
   );

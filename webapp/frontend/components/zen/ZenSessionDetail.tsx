@@ -17,6 +17,7 @@ interface ZenSessionDetailProps {
   onMark: (sessionId: number, status: string) => void;
   onRefresh?: () => void;
   proposal?: MakeupProposal;
+  onLessonMode?: (session: Session) => void;
 }
 
 /**
@@ -36,6 +37,7 @@ interface ZenSessionDetailProps {
  * - o: Open first exercise PDF
  * - p: Print first exercise PDF
  * - y: Copy first exercise path
+ * - l: Lesson mode (if exercises assigned)
  * - Esc: Close
  */
 export function ZenSessionDetail({
@@ -44,6 +46,7 @@ export function ZenSessionDetail({
   onMark,
   onRefresh,
   proposal,
+  onLessonMode,
 }: ZenSessionDetailProps) {
   const [isMarking, setIsMarking] = useState(false);
   const [isRating, setIsRating] = useState(false);
@@ -199,6 +202,14 @@ export function ZenSessionDetail({
             handleCopyPath(exercises[0]);
           }
           break;
+
+        case "l":
+          if (!e.shiftKey && exercises.length > 0 && onLessonMode) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            onLessonMode(session);
+          }
+          break;
       }
     };
 
@@ -206,7 +217,7 @@ export function ZenSessionDetail({
     // This ensures 'c' opens CW modal instead of navigating to Courseware page
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [isActionable, isMarking, isRating, isEditing, exerciseAssignType, onClose, exercises]);
+  }, [isActionable, isMarking, isRating, isEditing, exerciseAssignType, onClose, exercises, onLessonMode, session]);
 
   const handleMark = useCallback(
     async (status: string) => {
@@ -726,6 +737,14 @@ export function ZenSessionDetail({
             disabled={false}
             onClick={() => setIsRating(true)}
           />
+          {exercises.length > 0 && onLessonMode && (
+            <ActionButton
+              label="[L] Lesson"
+              color="accent"
+              disabled={false}
+              onClick={() => onLessonMode(session)}
+            />
+          )}
           <span style={{ marginLeft: "auto", color: "var(--zen-dim)", fontSize: "11px" }}>
             {isMarking ? "Processing..." : ""}
           </span>
