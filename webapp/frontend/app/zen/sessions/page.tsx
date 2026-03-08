@@ -949,7 +949,7 @@ function DayDetailView({
                   <span style={{ width: "12px", color: isAtCursor ? "var(--zen-accent)" : "transparent", textShadow: isAtCursor ? "var(--zen-glow)" : "none" }}>
                     {isAtCursor ? ">" : " "}
                   </span>
-                  <span style={{ width: "24px", color: isSelected ? "var(--zen-accent)" : "var(--zen-dim)" }}>
+                  <span style={{ minWidth: "28px", flexShrink: 0, color: isSelected ? "var(--zen-accent)" : "var(--zen-dim)" }}>
                     [{isSelected ? "x" : " "}]
                   </span>
                   <span style={{ width: "50px", color: "var(--zen-dim)", fontFamily: "monospace", fontSize: "12px" }}>
