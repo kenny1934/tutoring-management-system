@@ -247,22 +247,6 @@ export function ZenLessonPdfViewer({
     return () => { cancelled = true; };
   }, [pdfData, pageNumbers, stamp, exerciseId, onTotalPagesChange]);
 
-  // Clean up blob URLs for uncached pages (e.g., answer viewer where exerciseId is undefined)
-  useEffect(() => {
-    const currentPages = pages;
-    return () => {
-      if (exerciseId == null) {
-        // Don't revoke pages that belong to a cached exercise (transient undefined during student switch)
-        const isCached = Array.from(renderCacheRef.current.values()).some(
-          entry => entry.pages === currentPages
-        );
-        if (!isCached) {
-          currentPages.forEach(p => URL.revokeObjectURL(p.url));
-        }
-      }
-    };
-  }, [pages, exerciseId]);
-
   // Hi-res re-render when zoom exceeds current render resolution
   useEffect(() => {
     if (pages.length === 0 || !pdfBytesRef.current) return;
