@@ -11,7 +11,7 @@ import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { ZenSessionDetail } from "@/components/zen/ZenSessionDetail";
 import { ZenConfirmDialog } from "@/components/zen/ZenConfirmDialog";
 import { ZenCalendar } from "@/components/zen/ZenCalendar";
-import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
+import { toDateString, getWeekStartStr, getWeekEndStr, getWeekDateStrings } from "@/lib/calendar-utils";
 import { formatDateWithDay } from "@/lib/formatters";
 import {
   groupAndSortSessions,
@@ -32,29 +32,8 @@ type ViewMode = "week" | "day";
 
 // ── Helpers ──
 
-function getWeekStartStr(dateStr: string): string {
-  const { start } = getWeekBounds(new Date(dateStr + "T00:00:00"));
-  return toDateString(start);
-}
-
-function getWeekEndStr(dateStr: string): string {
-  const { end } = getWeekBounds(new Date(dateStr + "T00:00:00"));
-  return toDateString(end);
-}
-
-function getWeekDates(weekStart: string): string[] {
-  const dates: string[] = [];
-  const d = new Date(weekStart + "T00:00:00");
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(d);
-    day.setDate(d.getDate() + i);
-    dates.push(toDateString(day));
-  }
-  return dates;
-}
-
 function getDayIndexForDate(weekStart: string, dateStr: string): number {
-  const dates = getWeekDates(weekStart);
+  const dates = getWeekDateStrings(weekStart);
   const idx = dates.indexOf(dateStr);
   return idx >= 0 ? idx : 0;
 }
@@ -87,7 +66,7 @@ export default function ZenSessionsPage() {
   const today = toDateString(new Date());
   const [weekStart, setWeekStart] = useState(getWeekStartStr(today));
   const weekEnd = getWeekEndStr(weekStart);
-  const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
+  const weekDates = useMemo(() => getWeekDateStrings(weekStart), [weekStart]);
 
   // Day cursor in week view (0-6), default to today's index
   const [dayCursor, setDayCursor] = useState(() => getDayIndexForDate(getWeekStartStr(today), today));

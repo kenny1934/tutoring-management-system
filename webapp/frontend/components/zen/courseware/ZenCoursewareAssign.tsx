@@ -5,7 +5,8 @@ import { useSessions } from "@/lib/hooks";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
-import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
+import { toDateString, getWeekStartStr, getWeekEndStr, getWeekDateStrings } from "@/lib/calendar-utils";
+import { DAY_NAMES } from "@/lib/constants";
 import {
   groupAndSortSessions,
   getStatusChar,
@@ -31,32 +32,7 @@ interface ZenCoursewareAssignProps {
 
 type ExerciseType = "CW" | "HW";
 
-// ── Week helpers ──
-
-function getWeekStartStr(dateStr: string): string {
-  const { start } = getWeekBounds(new Date(dateStr + "T00:00:00"));
-  return toDateString(start);
-}
-
-function getWeekEndStr(dateStr: string): string {
-  const { end } = getWeekBounds(new Date(dateStr + "T00:00:00"));
-  return toDateString(end);
-}
-
-function getWeekDates(weekStart: string): string[] {
-  const dates: string[] = [];
-  const d = new Date(weekStart + "T00:00:00");
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(d);
-    day.setDate(d.getDate() + i);
-    dates.push(toDateString(day));
-  }
-  return dates;
-}
-
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function formatShortDate(dateStr: string): string {
+function formatDayDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
 }
@@ -68,11 +44,11 @@ export function ZenCoursewareAssign({
 }: ZenCoursewareAssignProps) {
   const today = useMemo(() => toDateString(new Date()), []);
   const [weekStart, setWeekStart] = useState(() => getWeekStartStr(today));
-  const weekEnd = getWeekEndStr(weekStart);
-  const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
+  const weekEnd = useMemo(() => getWeekEndStr(weekStart), [weekStart]);
+  const weekDates = useMemo(() => getWeekDateStrings(weekStart), [weekStart]);
 
   const [dateIndex, setDateIndex] = useState(() => {
-    const idx = getWeekDates(getWeekStartStr(today)).indexOf(today);
+    const idx = weekDates.indexOf(today);
     return idx >= 0 ? idx : 0;
   });
   const selectedDate = weekDates[dateIndex] || weekDates[0];
@@ -373,7 +349,7 @@ export function ZenCoursewareAssign({
               }}
             >
               {isToday && !isActive ? "★" : ""}
-              {formatShortDate(date)}
+              {formatDayDate(date)}
               {hasSessions ? ` (${count})` : ""}
             </button>
           );
@@ -406,7 +382,7 @@ export function ZenCoursewareAssign({
 
         {!isLoading && flatSessions.length === 0 && (
           <div style={{ padding: "16px", textAlign: "center", color: "var(--zen-dim)", fontSize: "12px" }}>
-            No sessions on {formatShortDate(selectedDate)}
+            No sessions on {formatDayDate(selectedDate)}
           </div>
         )}
 
