@@ -141,6 +141,7 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["n"]} desc="Go to Sessions" />
             <Shortcut keys={["c"]} desc="Go to Courseware" />
             <Shortcut keys={["r"]} desc="Go to Revenue" />
+            <Shortcut keys={["i"]} desc="Go to Inbox" />
             <Shortcut keys={["o"]} desc="Go to Settings" />
             <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginTop: "4px" }}>
               c/r/o are overridden when detail panel is open
@@ -183,6 +184,18 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["Shift+S"]} desc="Toggle sort order" />
             <Shortcut keys={["Backspace"]} desc="Back to list (from detail)" />
             <Shortcut keys={["1", "2", "3"]} desc="Switch tabs (detail)" />
+          </Section>
+
+          {/* Inbox Page */}
+          <Section title="INBOX PAGE">
+            <Shortcut keys={["1"]} desc="Messages tab" />
+            <Shortcut keys={["2"]} desc="Proposals tab" />
+            <Shortcut keys={["h", "l"]} desc="Switch categories/list" />
+            <Shortcut keys={["j", "k"]} desc="Navigate items" />
+            <Shortcut keys={["Enter"]} desc="Expand/collapse detail" />
+            <Shortcut keys={["m"]} desc="Mark as read" />
+            <Shortcut keys={["x"]} desc="Archive message" />
+            <Shortcut keys={["Esc"]} desc="Collapse or clear filter" />
           </Section>
 
           {/* Revenue Page */}

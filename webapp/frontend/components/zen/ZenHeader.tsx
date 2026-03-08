@@ -22,7 +22,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "s", label: "Students", shortcut: "S", path: "/zen/students" },
   { key: "n", label: "Sessions", shortcut: "n", path: "/zen/sessions", bracketIndex: 6 },
   { key: "c", label: "Courseware", shortcut: "C", path: "/zen/courseware" },
-{ key: "r", label: "Revenue", shortcut: "R", path: "/zen/revenue" },
+  { key: "r", label: "Revenue", shortcut: "R", path: "/zen/revenue" },
+  { key: "i", label: "Inbox", shortcut: "I", path: "/zen/inbox" },
 ];
 
 /**
