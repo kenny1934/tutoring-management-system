@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText, GripVertical } from "lucide-react";
+import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText, GripVertical, Reply } from "lucide-react";
 import { Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
@@ -24,6 +24,7 @@ function getDefaultCustomDateTime() {
 export interface ReplyComposerHandle {
   insertContent: (html: string) => void;
   restoreContent: (text: string, images: string[]) => void;
+  setReplyTo: (info: { messageId: number; senderName: string; preview: string } | null) => void;
 }
 
 interface ReplyComposerProps {
@@ -60,6 +61,8 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   const [replyFiles, setReplyFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
   const { uploadFiles: handleUpload, isUploading: isReplyUploading } = useFileUpload({ tutorId: currentTutorId, acceptFiles: true });
 
+  const [replyTo, setReplyTo] = useState<{ messageId: number; senderName: string; preview: string } | null>(null);
+
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showCustomSchedule, setShowCustomSchedule] = useState(false);
   const [customScheduleDate, setCustomScheduleDate] = useState("");
@@ -91,6 +94,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
       setReplyImages([...images]);
       setReplyEditorKey(prev => prev + 1);
     },
+    setReplyTo: (info) => { setReplyTo(info); },
   }), []);
 
   const [showDraftRestored, setShowDraftRestored] = useState(false);
@@ -102,6 +106,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     setReplyText(draft?.message || "");
     setReplyImages(draft?.images || []);
     setReplyFiles([]);
+    setReplyTo(null);
     setReplyEditorKey(prev => prev + 1);
 
     // Show "Draft restored" indicator if draft had content
@@ -144,7 +149,12 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     if (!hasContent || isReplySending) return;
     setIsReplySending(true);
 
-    const text = replyText;
+    // Prepend blockquote if replying to a specific message
+    let text = replyText;
+    if (replyTo) {
+      const quoteHtml = `<blockquote data-msg-id="${replyTo.messageId}"><strong>${replyTo.senderName}</strong><br>${replyTo.preview}</blockquote>`;
+      text = quoteHtml + (text || "<p></p>");
+    }
     const images = [...replyImages];
     const files = [...replyFiles];
 
@@ -152,6 +162,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     setReplyText("");
     setReplyImages([]);
     setReplyFiles([]);
+    setReplyTo(null);
     setReplyEditorKey(prev => prev + 1);
     clearReplyDraft(threadId);
 
@@ -160,7 +171,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     } finally {
       setIsReplySending(false);
     }
-  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, threadId, onSend]);
+  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, replyTo, threadId, onSend]);
 
   const getSchedulePresets = () => {
     const now = new Date();
@@ -187,13 +198,18 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     setShowCustomSchedule(false);
     setIsReplySending(true);
 
-    const text = replyText;
+    let text = replyText;
+    if (replyTo) {
+      const quoteHtml = `<blockquote data-msg-id="${replyTo.messageId}"><strong>${replyTo.senderName}</strong><br>${replyTo.preview}</blockquote>`;
+      text = quoteHtml + (text || "<p></p>");
+    }
     const images = [...replyImages];
     const files = [...replyFiles];
 
     setReplyText("");
     setReplyImages([]);
     setReplyFiles([]);
+    setReplyTo(null);
     setReplyEditorKey(prev => prev + 1);
     clearReplyDraft(threadId);
 
@@ -205,7 +221,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     } finally {
       setIsReplySending(false);
     }
-  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, threadId, onScheduleSend, showToast]);
+  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, replyTo, threadId, onScheduleSend, showToast]);
 
   const handleCustomScheduleReply = () => {
     if (!customScheduleDate) return;
@@ -254,6 +270,18 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
       {isReplyDragging && (
         <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
           <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
+        </div>
+      )}
+      {replyTo && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-l-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2a2520] rounded-t-lg animate-in slide-in-from-bottom-2 fade-in duration-200">
+          <Reply className="h-3 w-3 text-[#a0704b] flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-semibold text-[#a0704b]">{replyTo.senderName}</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate m-0">{replyTo.preview}</p>
+          </div>
+          <button type="button" onClick={() => setReplyTo(null)} className="p-0.5 rounded-full text-gray-400 hover:text-red-500 transition-colors flex-shrink-0" title="Cancel reply">
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
       {showDraftRestored && (

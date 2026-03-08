@@ -19,8 +19,8 @@ export default function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-gray-500 dark:text-gray-400">
-      <span className="inline-flex gap-0.5">
+    <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-gray-500 dark:text-gray-400" aria-live="polite" role="status">
+      <span className="inline-flex gap-0.5" aria-hidden="true">
         <span className="h-1.5 w-1.5 rounded-full bg-[#a0704b] animate-[typing-dot_1.4s_ease-in-out_infinite]" />
         <span className="h-1.5 w-1.5 rounded-full bg-[#a0704b] animate-[typing-dot_1.4s_ease-in-out_0.2s_infinite]" />
         <span className="h-1.5 w-1.5 rounded-full bg-[#a0704b] animate-[typing-dot_1.4s_ease-in-out_0.4s_infinite]" />
