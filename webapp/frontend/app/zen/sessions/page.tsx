@@ -91,6 +91,7 @@ export default function ZenSessionsPage() {
   const [lessonSession, setLessonSession] = useState<Session | null>(null);
   const [lessonWideSlot, setLessonWideSlot] = useState<{ timeSlot: string; sessions: Session[] } | null>(null);
   const cursorRowRef = useRef<HTMLDivElement>(null);
+  const gBufferRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const locationFilter = selectedLocation === "All Locations" ? undefined : selectedLocation;
 
@@ -100,17 +101,24 @@ export default function ZenSessionsPage() {
     to_date: weekEnd,
     location: locationFilter,
     tutor_id: tutorFilter || effectiveTutorId,
-    status: statusFilter || undefined,
+    status: (statusFilter && statusFilter !== "__active") ? statusFilter : undefined,
     limit: 2000,
   }), [weekStart, weekEnd, locationFilter, tutorFilter, effectiveTutorId, statusFilter]);
 
   const { data: allSessions, isLoading } = useSessions(filters);
 
+  // Client-side filtering for composite "Active" filter
+  const filteredSessions = useMemo(() => {
+    if (!allSessions) return [];
+    if (statusFilter !== "__active") return allSessions;
+    return allSessions.filter(isCountableSession);
+  }, [allSessions, statusFilter]);
+
   // Group sessions by date for week view
   const { weekStats, daySessions } = useMemo(() => {
     const byDate: Record<string, Session[]> = {};
     weekDates.forEach((d) => { byDate[d] = []; });
-    (allSessions || []).forEach((s) => {
+    filteredSessions.forEach((s) => {
       if (byDate[s.session_date]) byDate[s.session_date].push(s);
     });
 
@@ -135,7 +143,7 @@ export default function ZenSessionsPage() {
     });
 
     return { weekStats: stats, daySessions: byDate };
-  }, [allSessions, weekDates]);
+  }, [filteredSessions, weekDates]);
 
   // Week totals
   const weekTotals = useMemo(() => {
@@ -159,12 +167,12 @@ export default function ZenSessionsPage() {
 
   const currentSession = dayFlatSessions[sessionCursor];
 
-  // Reset day view state when switching days
+  // Reset day view state when switching days or filters
   useEffect(() => {
     setSessionCursor(0);
     setSelectedIds(new Set());
     setExpandedSessionId(null);
-  }, [selectedDate]);
+  }, [selectedDate, statusFilter, tutorFilter]);
 
   // Reset day cursor when week changes
   useEffect(() => {
@@ -411,6 +419,28 @@ export default function ZenSessionsPage() {
             e.preventDefault();
             navigateDay(1);
             break;
+          case "G":
+            if (e.shiftKey && dayFlatSessions.length > 0) {
+              e.preventDefault();
+              setSessionCursor(dayFlatSessions.length - 1);
+            }
+            break;
+          case "g":
+            if (!e.shiftKey) {
+              e.preventDefault();
+              if (gBufferRef.current) {
+                // Second g — jump to first
+                clearTimeout(gBufferRef.current);
+                gBufferRef.current = null;
+                setSessionCursor(0);
+              } else {
+                // First g — buffer and wait
+                gBufferRef.current = setTimeout(() => {
+                  gBufferRef.current = null;
+                }, 500);
+              }
+            }
+            break;
           case "1":
           case "2":
           case "3":
@@ -437,19 +467,27 @@ export default function ZenSessionsPage() {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (gBufferRef.current) {
+        clearTimeout(gBufferRef.current);
+        gBufferRef.current = null;
+      }
+    };
   }, [
     viewMode, showCalendar, selectedDate, weekStart, dayCursor,
     sessionCursor, dayFlatSessions, currentSession, selectedIds, expandedSessionId,
     navigateWeek, navigateDay, goToCurrentWeek, toggleSelect, handleQuickMark, handleBulkMark, dayGroupedSessions,
   ]);
 
-  // Status filter options
+  // Status filter options (values match DB statuses, comma-separated for groups)
   const statusOptions = [
     { value: "", label: "All" },
-    { value: "Scheduled", label: "Scheduled" },
-    { value: "Attended", label: "Attended" },
+    { value: "__active", label: "Active" },
+    { value: "Scheduled,Trial Class,Make-up Class", label: "Upcoming" },
+    { value: "Attended,Attended (Make-up),Attended (Trial)", label: "Attended" },
     { value: "No Show", label: "No Show" },
+    { value: "Rescheduled - Pending Make-up,Sick Leave - Pending Make-up,Weather Cancelled - Pending Make-up", label: "Pending" },
     { value: "Cancelled", label: "Cancelled" },
   ];
 
@@ -749,6 +787,7 @@ export default function ZenSessionsPage() {
         ) : (
           <>
             <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate{" "}
+            <span style={{ color: "var(--zen-fg)" }}>gg</span>/<span style={{ color: "var(--zen-fg)" }}>G</span> first/last{" "}
             <span style={{ color: "var(--zen-fg)" }}>Space</span> select{" "}
             <span style={{ color: "var(--zen-fg)" }}>a</span>=all{" "}
             <span style={{ color: "var(--zen-fg)" }}>1</span>-<span style={{ color: "var(--zen-fg)" }}>5</span> mark{" "}
