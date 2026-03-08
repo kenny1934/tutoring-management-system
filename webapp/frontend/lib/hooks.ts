@@ -1028,55 +1028,76 @@ export function useBrowserNotifications() {
  * Hook that overlays an unread count badge on the browser favicon.
  * Draws the count on a canvas over the original favicon image.
  */
-export function useFaviconBadge(count: number) {
-  const originalHrefRef = useRef<string | null>(null);
+// Module-level cache so the badge persists across re-renders without redrawing
+let _badgeCache: { count: number; dataUrl: string } | null = null;
 
+export function useFaviconBadge(count: number, pathname?: string) {
   useEffect(() => {
-    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
-    if (!link) return;
-    // Store original href once
-    if (!originalHrefRef.current) originalHrefRef.current = link.href;
+    const DEFAULT_HREF = "/favicon.png";
 
-    if (count <= 0) {
-      link.href = originalHrefRef.current;
-      return () => {
-        if (originalHrefRef.current && link) link.href = originalHrefRef.current;
-      };
+    // Find whatever icon link Next.js currently has in the DOM
+    function applyToCurrentLink(href: string) {
+      // Small delay to let Next.js finish updating <head> after navigation
+      requestAnimationFrame(() => {
+        const links = document.querySelectorAll("link[rel~='icon']");
+        // Apply to ALL icon links (Next.js may have multiple)
+        links.forEach(el => (el as HTMLLinkElement).href = href);
+        // If no icon links exist, create one
+        if (links.length === 0) {
+          const link = document.createElement("link");
+          link.rel = "icon";
+          link.href = href;
+          document.head.appendChild(link);
+        }
+      });
     }
 
+    if (count <= 0) {
+      _badgeCache = null;
+      applyToCurrentLink(DEFAULT_HREF);
+      return;
+    }
+
+    // Use cached badge if count matches
+    if (_badgeCache && _badgeCache.count === count) {
+      applyToCurrentLink(_badgeCache.dataUrl);
+      return;
+    }
+
+    // Draw badge onto canvas
     let cancelled = false;
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = originalHrefRef.current;
+    img.src = DEFAULT_HREF;
     img.onload = () => {
       if (cancelled) return;
-      const s = 32;
+      const s = 64;
       const canvas = document.createElement("canvas");
       canvas.width = s;
       canvas.height = s;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, s, s);
-      // Red circle badge
       const text = count > 99 ? "99+" : String(count);
-      const r = s * 0.28;
-      const cx = s - r - 1;
-      const cy = r + 1;
+      const r = s * 0.3;
+      const cx = s - r;
+      const cy = r;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
       ctx.fillStyle = "#ef4444";
       ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#fff";
+      ctx.stroke();
       ctx.fillStyle = "#fff";
-      ctx.font = `bold ${r * 1.2}px sans-serif`;
+      ctx.font = `bold ${r * 1.3}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(text, cx, cy + 0.5);
-      link.href = canvas.toDataURL("image/png");
+      ctx.fillText(text, cx, cy + 1);
+      const dataUrl = canvas.toDataURL("image/png");
+      _badgeCache = { count, dataUrl };
+      applyToCurrentLink(dataUrl);
     };
-    return () => {
-      cancelled = true;
-      if (originalHrefRef.current && link) link.href = originalHrefRef.current;
-    };
-  }, [count]);
+    return () => { cancelled = true; };
+  }, [count, pathname]);
 }
 
 /**
