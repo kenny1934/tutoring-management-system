@@ -121,6 +121,7 @@ export default function ZenDashboardPage() {
     to_date: selectedDate,
     location: locationFilter,
     tutor_id: effectiveTutorId,
+    limit: 2000,
   });
 
   // Get upcoming calendar events (tests/exams)
