@@ -10,6 +10,8 @@ import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import { ZenLessonHelp } from "./ZenLessonHelp";
+import { useAnnotations } from "@/hooks/useAnnotations";
+import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { Session } from "@/types";
 
 interface ZenLessonModeProps {
@@ -58,12 +60,84 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
   const showHelpRef = useRef(showHelp);
   showHelpRef.current = showHelp;
 
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const showExitConfirmRef = useRef(showExitConfirm);
+  showExitConfirmRef.current = showExitConfirm;
+
+  // Annotations
+  const annotations = useAnnotations(`zen-lesson-${session.id}`);
+
+  const handleUndo = useCallback(() => {
+    if (!selectedExercise) return;
+    const pageIdx = currentPage - 1;
+    const updated = annotations.undoLastStroke(selectedExercise.id, pageIdx);
+    // Force re-render via state update not needed — strokes are read from ref
+  }, [selectedExercise, currentPage, annotations]);
+
+  const handleRedo = useCallback(() => {
+    if (!selectedExercise) return;
+    const pageIdx = currentPage - 1;
+    annotations.redoLastStroke(selectedExercise.id, pageIdx);
+  }, [selectedExercise, currentPage, annotations]);
+
+  const handleSaveAnnotated = useCallback(async () => {
+    if (!selectedExercise || !pdfData) return;
+    try {
+      const ann = annotations.getAnnotations(selectedExercise.id);
+      const blob = await saveAnnotatedPdf(pdfData, pageNumbers, stamp, ann);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `annotated-${getDisplayName(selectedExercise.pdf_name)}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (err) {
+      console.error("Failed to save annotated PDF:", err);
+    }
+  }, [selectedExercise, pdfData, pageNumbers, stamp, annotations]);
+
+  const handleExitAttempt = useCallback(() => {
+    if (annotations.hasAnyAnnotations()) {
+      setShowExitConfirm(true);
+    } else {
+      onClose();
+    }
+  }, [annotations, onClose]);
+
+  const handleUndoRef = useRef(handleUndo);
+  handleUndoRef.current = handleUndo;
+  const handleRedoRef = useRef(handleRedo);
+  handleRedoRef.current = handleRedo;
+  const handleSaveAnnotatedRef = useRef(handleSaveAnnotated);
+  handleSaveAnnotatedRef.current = handleSaveAnnotated;
+  const handleExitAttemptRef = useRef(handleExitAttempt);
+  handleExitAttemptRef.current = handleExitAttempt;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA") return;
       // Skip when exercise assign modal is open — let it handle its own keys
       if (exerciseModalTypeRef.current) return;
+
+      // Exit confirm dialog — keyboard driven
+      if (showExitConfirmRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.key === "1") {
+          handleSaveAnnotatedRef.current().then(() => {
+            annotations.clearStorage();
+            onClose();
+          });
+        } else if (e.key === "2") {
+          annotations.clearAll();
+          annotations.clearStorage();
+          onClose();
+        } else {
+          setShowExitConfirm(false);
+        }
+        return;
+      }
 
       // Help overlay — any key dismisses
       if (showHelpRef.current) {
@@ -81,7 +155,16 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         return;
       }
 
-      handleLessonKeyDown(e, stateRef.current, { stamp: stampRef.current, onClose, paperlessSearch: searchPaperlessByPath, onEditExercises: handleEditExercisesRef.current });
+      handleLessonKeyDown(e, stateRef.current, {
+        stamp: stampRef.current,
+        onClose,
+        onExitAttempt: handleExitAttemptRef.current,
+        paperlessSearch: searchPaperlessByPath,
+        onEditExercises: handleEditExercisesRef.current,
+        onUndo: handleUndoRef.current,
+        onRedo: handleRedoRef.current,
+        onSaveAnnotated: handleSaveAnnotatedRef.current,
+      });
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
@@ -136,6 +219,21 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
             onTotalPagesChange={setTotalPages}
             zoom={zoom}
             onZoomChange={setZoom}
+            drawingEnabled={state.drawingEnabled}
+            isDrawing={state.isDrawing}
+            isErasing={state.isErasing}
+            penColor={state.penColor}
+            penSize={state.penSize}
+            annotationHidden={state.annotationHidden}
+            pageStrokes={selectedExercise ? (pageIdx) => annotations.getAnnotations(selectedExercise.id)[pageIdx] || [] : undefined}
+            onStrokesChange={selectedExercise ? (pageIdx, strokes) => annotations.setPageStrokes(selectedExercise.id, pageIdx, strokes) : undefined}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onClearPage={selectedExercise ? (pageIdx) => annotations.clearPage(selectedExercise.id, pageIdx) : undefined}
+            onPenColorChange={state.setPenColor}
+            onPenSizeChange={state.setPenSize}
+            hasAnnotationsForExercise={selectedExercise ? annotations.hasAnnotations(selectedExercise.id) : false}
+            onSaveAnnotated={handleSaveAnnotated}
           />
 
           {showAnswerKey && (
@@ -200,6 +298,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
           <span style={{ color: "var(--zen-fg)" }}>p</span>=print{" "}
+          <span style={{ color: "var(--zen-fg)" }}>d</span>=draw{" "}
           <span style={{ color: "var(--zen-fg)" }}>?</span>=help{" "}
           <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
         </span>
@@ -221,6 +320,33 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
 
       {showHelp && (
         <ZenLessonHelp mode="single" onClose={() => setShowHelp(false)} />
+      )}
+
+      {showExitConfirm && (
+        <div
+          onClick={() => setShowExitConfirm(false)}
+          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div onClick={(ev) => ev.stopPropagation()} style={{ backgroundColor: "var(--zen-bg)", border: "1px solid var(--zen-accent)", padding: "16px 24px" }}>
+            <div style={{ color: "var(--zen-accent)", fontWeight: "bold", fontSize: "12px", marginBottom: "12px", textShadow: "var(--zen-glow)" }}>
+              UNSAVED ANNOTATIONS
+            </div>
+            <div style={{ color: "var(--zen-dim)", fontSize: "11px", marginBottom: "12px" }}>
+              You have unsaved annotations. What would you like to do?
+            </div>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button onClick={() => { handleSaveAnnotated().then(() => { annotations.clearStorage(); onClose(); }); }} style={{ background: "none", border: "1px solid var(--zen-border)", color: "var(--zen-fg)", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", padding: "6px 16px" }}>
+                <span style={{ color: "var(--zen-accent)" }}>1</span> Download &amp; Exit
+              </button>
+              <button onClick={() => { annotations.clearAll(); annotations.clearStorage(); onClose(); }} style={{ background: "none", border: "1px solid var(--zen-border)", color: "var(--zen-fg)", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", padding: "6px 16px" }}>
+                <span style={{ color: "var(--zen-accent)" }}>2</span> Exit
+              </button>
+            </div>
+            <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginTop: "8px" }}>
+              Press 1, 2, or Esc to cancel
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

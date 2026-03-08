@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { extractPagesForPrint, getPdfJs, type PrintStampInfo } from "@/lib/pdf-utils";
+import { AnnotationLayer } from "@/components/lesson/AnnotationLayer";
+import type { Stroke } from "@/hooks/useAnnotations";
 
 interface RenderedPage {
   url: string;
@@ -14,6 +16,22 @@ const MAX_ZOOM = 200;
 const ZOOM_STEP = 25;
 const RENDER_SCALE = 1.5;
 const MAX_RENDER_CACHE_SIZE = 20;
+
+const PEN_COLORS = ["#e53e3e", "#3182ce", "#38a169", "#1a202c", "#dd6b20"];
+const PEN_SIZES = [
+  { label: "S", size: 3 },
+  { label: "M", size: 6 },
+  { label: "L", size: 12 },
+];
+
+const zenToolBtn: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: "var(--zen-dim)",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: "10px",
+};
 
 function computeFitZoom(container: HTMLElement, pageWidth: number): number {
   const style = getComputedStyle(container);
@@ -36,6 +54,22 @@ interface ZenLessonPdfViewerProps {
   onTotalPagesChange: (total: number) => void;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  // Annotation props
+  drawingEnabled?: boolean;
+  isDrawing?: boolean;
+  isErasing?: boolean;
+  penColor?: string;
+  penSize?: number;
+  annotationHidden?: boolean;
+  pageStrokes?: (pageIndex: number) => Stroke[];
+  onStrokesChange?: (pageIndex: number, strokes: Stroke[]) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onClearPage?: (pageIndex: number) => void;
+  onPenColorChange?: (color: string) => void;
+  onPenSizeChange?: (size: number) => void;
+  hasAnnotationsForExercise?: boolean;
+  onSaveAnnotated?: () => void;
 }
 
 export function ZenLessonPdfViewer({
@@ -52,7 +86,23 @@ export function ZenLessonPdfViewer({
   onTotalPagesChange,
   zoom,
   onZoomChange,
+  drawingEnabled,
+  isDrawing,
+  isErasing,
+  penColor = "#e53e3e",
+  penSize = 3,
+  annotationHidden,
+  pageStrokes,
+  onStrokesChange,
+  onUndo,
+  onRedo,
+  onClearPage,
+  onPenColorChange,
+  onPenSizeChange,
+  hasAnnotationsForExercise,
+  onSaveAnnotated,
 }: ZenLessonPdfViewerProps) {
+  const [clearConfirmPage, setClearConfirmPage] = useState<number | null>(null);
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
@@ -371,22 +421,90 @@ export function ZenLessonPdfViewer({
             : "No PDF loaded"}
         </span>
         <span style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {drawingEnabled && (
+            <>
+              {/* Annotation toolbar */}
+              <span style={{ display: "flex", gap: "2px", alignItems: "center", borderRight: "1px solid var(--zen-border)", paddingRight: "6px", marginRight: "2px" }}>
+                {PEN_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => onPenColorChange?.(c)}
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      backgroundColor: c,
+                      border: c === penColor ? "2px solid var(--zen-fg)" : "1px solid var(--zen-border)",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                    title={c}
+                  />
+                ))}
+              </span>
+              <span style={{ display: "flex", gap: "2px", alignItems: "center", borderRight: "1px solid var(--zen-border)", paddingRight: "6px", marginRight: "2px" }}>
+                {PEN_SIZES.map(({ label, size: s }) => (
+                  <button
+                    key={label}
+                    onClick={() => onPenSizeChange?.(s)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: s === penSize ? "var(--zen-accent)" : "var(--zen-dim)",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontSize: "10px",
+                      fontWeight: s === penSize ? "bold" : "normal",
+                      padding: "0 2px",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </span>
+              <button onClick={onUndo} style={zenToolBtn} title="Undo (z)">↩</button>
+              <button onClick={onRedo} style={zenToolBtn} title="Redo (Z)">↪</button>
+              {onClearPage && (
+                <button
+                  onClick={() => {
+                    if (clearConfirmPage === currentPage - 1) {
+                      onClearPage(currentPage - 1);
+                      setClearConfirmPage(null);
+                    } else {
+                      setClearConfirmPage(currentPage - 1);
+                      setTimeout(() => setClearConfirmPage(null), 2000);
+                    }
+                  }}
+                  style={{ ...zenToolBtn, color: clearConfirmPage === currentPage - 1 ? "var(--zen-error)" : "var(--zen-dim)" }}
+                  title="Clear page annotations"
+                >
+                  {clearConfirmPage === currentPage - 1 ? "Sure?" : "Clear"}
+                </button>
+              )}
+              {hasAnnotationsForExercise && onSaveAnnotated && (
+                <button onClick={onSaveAnnotated} style={{ ...zenToolBtn, color: "var(--zen-accent)" }} title="Save annotated PDF (s)">
+                  Save
+                </button>
+              )}
+              <span style={{ borderRight: "1px solid var(--zen-border)", height: "12px", marginRight: "2px" }} />
+            </>
+          )}
           <button
             onClick={handleZoomOut}
-            style={{ background: "none", border: "none", color: "var(--zen-dim)", cursor: "pointer", fontFamily: "inherit", fontSize: "10px" }}
+            style={zenToolBtn}
           >
             [-]
           </button>
           <span>{zoom}%</span>
           <button
             onClick={handleZoomIn}
-            style={{ background: "none", border: "none", color: "var(--zen-dim)", cursor: "pointer", fontFamily: "inherit", fontSize: "10px" }}
+            style={zenToolBtn}
           >
             [+]
           </button>
           <button
             onClick={handleFitWidth}
-            style={{ background: "none", border: "none", color: "var(--zen-dim)", cursor: "pointer", fontFamily: "inherit", fontSize: "10px" }}
+            style={zenToolBtn}
           >
             [f]it
           </button>
@@ -440,6 +558,7 @@ export function ZenLessonPdfViewer({
                   width: `${page.width * scaleFactor}px`,
                   height: `${page.height * scaleFactor}px`,
                   flexShrink: 0,
+                  position: "relative",
                 }}
               >
                 <img
@@ -452,6 +571,19 @@ export function ZenLessonPdfViewer({
                   }}
                   draggable={false}
                 />
+                {drawingEnabled && onStrokesChange && (
+                  <AnnotationLayer
+                    width={page.width * scaleFactor}
+                    height={page.height * scaleFactor}
+                    strokes={pageStrokes?.(i) || []}
+                    isDrawing={isDrawing || false}
+                    isErasing={isErasing || false}
+                    penColor={penColor}
+                    penSize={penSize * scaleFactor}
+                    onStrokesChange={(strokes) => onStrokesChange(i, strokes)}
+                    hidden={annotationHidden}
+                  />
+                )}
               </div>
             ))}
           </div>
