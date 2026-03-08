@@ -748,6 +748,12 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
           <Attachments msg={msg} />
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
             <ReactionBadges msg={msg} currentTutorId={currentTutorId} onReact={onReact} />
+            <span
+              onClick={(e) => { e.stopPropagation(); onShowReactionPicker(reactionPickerForId === msg.id ? null : msg.id); }}
+              style={{ cursor: "pointer", color: "var(--zen-dim)", fontSize: "10px" }}
+            >
+              [+react]
+            </span>
           </div>
           <ReactionPicker messageId={msg.id} activePickerId={reactionPickerForId} onReact={onReact} onClose={() => onShowReactionPicker(null)} />
           {msg.priority !== "Normal" && (
@@ -762,9 +768,11 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
               <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginBottom: "4px" }}>
                 {thread.replies.length} {thread.replies.length === 1 ? "reply" : "replies"}
               </div>
-              {thread.replies.map(reply => (
-                <div key={reply.id} style={{ marginBottom: "6px", paddingLeft: "8px", borderLeft: "1px solid var(--zen-border)" }}>
-                  <div style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
+              {thread.replies.map(reply => {
+                const isFromMe = reply.from_tutor_id === currentTutorId;
+                return (
+                <div key={reply.id} style={{ marginBottom: "6px", paddingLeft: "8px", borderLeft: `1px solid ${isFromMe ? "var(--zen-accent)" : "var(--zen-border)"}` }}>
+                  <div style={{ color: isFromMe ? "var(--zen-accent)" : "var(--zen-dim)", fontSize: "10px" }}>
                     {reply.from_tutor_name} · {formatTimeAgo(reply.created_at)}
                   </div>
                   <div
@@ -783,7 +791,8 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
                   </div>
                   <ReactionPicker messageId={reply.id} activePickerId={reactionPickerForId} onReact={onReact} onClose={() => onShowReactionPicker(null)} />
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
