@@ -1,5 +1,72 @@
 # Changelog
 
+## [2.0.20](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.20) (2026-03-08)
+
+### New Features
+
+* **Shared content panel in chat** — browse all media, files, links, audio, math, and graphs shared in a conversation thread with jump-to-message, sender filter, and tab navigation
+* **Chat quality-of-life** — message copy, reply banner, image zoom, loading skeleton, and accessibility improvements
+* **Zen lesson mode** — per-session and lesson-wide PDF viewing with keyboard-driven exercise navigation, page browsing, zoom, answer key toggle, open, and print
+* **Zen lesson mode exercise editing** — inline CW/HW assignment with pre-populated existing exercises, direct path input, search/browse, multi-select, and editable page ranges
+* **Zen lesson mode access everywhere** — `[L]esson` button on time slot headers and session detail panel across zen dashboard and sessions page. `L` opens single-student lesson mode, `Shift+L` opens lesson-wide mode
+* **Zen lesson-wide two-digit student keys** — student switcher supports numbers 1–99 with buffered input
+* **Zen courseware assign redesign** — tabbed date picker showing session details for clearer context when assigning exercises
+
+### Improvements
+
+* Shared lesson state hook eliminates duplication between single and wide lesson modes
+* Shared week date helpers deduplicated across pages
+* Dashboard session limit raised from 100 to 2000
+
+### Bug Fixes
+
+* Fixed PDF viewer crash during hi-res canvas re-render
+* Fixed trending courseware showing wrong relative time
+* Fixed checkbox column wrapping on zen sessions page
+* Fixed incoming message timestamp overlapping toolbar
+* Fixed reply-to-message linking broken by HTML sanitization stripping quote attributes
+* Fixed nested quote clutter in threaded replies
+* Fixed reply editor expanding beyond viewport
+* Fixed inbox thread pane UX issues with lightbox, scroll memory, and interactions
+* Fixed session_log debug writes failing on generated columns
+
+### Known Issues
+
+* **Lesson mode Escape handling** — when editing CW/HW exercises, pressing Escape may close the entire lesson mode instead of just the assignment panel
+* **Sessions page missing navigation shortcuts** — day view lacks shortcuts like `gg` (jump to first) that exist on the dashboard
+* **Session count ignores filters** — the completed/total count does not update when status or tutor filters are applied
+* **Filtered list navigation broken** — cursor up/down navigates the full list instead of only visible filtered sessions
+* **Lesson mode feature gaps** — annotation tools, bulk CW/HW download, and other main app lesson features are not yet available in zen lesson mode
+
+## [2.0.19](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.19) (2026-03-07)
+
+### New Features
+
+* **Zen courseware page** — new courseware tab in zen mode with browse, search, and assignment capabilities
+* **Zen trending podium** — redesigned zen courseware trending section as a medal ceremony podium with sparkle animation and stats labels
+
+### Bug Fixes
+
+* Fixed sending messages with geometry diagrams failing due to MySQL TEXT column size limit (64KB) — upgraded to MEDIUMTEXT (16MB)
+* Fixed PDF preview failing for students with Chinese names — stamp overlay now supports CJK characters
+* Fixed PDF preview occasionally showing "Failed to process PDF" despite the file being available — added auto-retry and better error handling
+* Fixed zen trending podium filename overflow and alignment across all columns
+* Fixed zen courseware page height causing site-level scrollbar
+
+## [2.0.18](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.18) (2026-03-06)
+
+### New Features
+
+* **Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support
+* **Bulk print dropdown** — added CW/HW bulk print and download buttons to lesson-wide mode header for quick access
+* **Copy make-up message** — new "Msg" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback
+* **Dashboard lesson button** — added lesson-wide mode button to TodaySessionsCard time slot headers for quick access from the dashboard
+
+### Bug Fixes
+
+* Fixed bulk CW/HW download and print not inserting blank pages for double-sided printing — each student's pages now start on a new front page when printed duplex
+* Improved lesson mode header responsiveness on mobile — compact padding, smaller buttons, and floating sidebar toggle for lesson-wide mode
+
 ## [2.0.17](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.17) (2026-03-06)
 
 ### New Features
