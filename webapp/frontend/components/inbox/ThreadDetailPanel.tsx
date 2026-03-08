@@ -277,13 +277,12 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     });
   }, [allMessages, onMarkRead, msg.scheduled_at]);
 
-  // Quote a message into the reply editor
+  // Quote a message — show reply-to banner (blockquote prepended at send time by ReplyComposer)
   const handleQuote = useCallback((m: Message) => {
     const senderName = m.from_tutor_name || "Unknown";
     const plainText = stripHtml(m.message);
     const truncated = plainText.length > 150 ? plainText.slice(0, 150) + "..." : plainText;
-    const quoteHtml = `<blockquote data-msg-id="${m.id}"><strong>${senderName}</strong><br>${truncated}</blockquote><p></p>`;
-    replyComposerRef.current?.insertContent(quoteHtml);
+    replyComposerRef.current?.setReplyTo?.({ messageId: m.id, senderName, preview: truncated });
   }, []);
 
   // Scroll-to-bottom button
@@ -659,7 +658,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
               {/* "New messages" divider */}
               {m.id === firstUnreadIdRef.current && (
-                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
+                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400" role="separator" aria-label="New unread messages below">
                   <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
                   <span className="font-medium">New messages</span>
                   <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
@@ -674,6 +673,18 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             </React.Fragment>
           );
         })}
+
+        {/* Reply skeleton — shown while replies are loading */}
+        {msg.reply_count > 0 && replies.length === 0 && (
+          <div className="space-y-3 mt-4 animate-in fade-in duration-300">
+            {[false, true, false].map((isOther, i) => (
+              <div key={i} className={cn("flex gap-2", isOther ? "mr-16" : "ml-16 justify-end")}>
+                {isOther && <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 skeleton-shimmer" />}
+                <div className={cn("rounded-2xl", isOther ? "bg-[#faf6f1] dark:bg-[#2a2a2a]" : "bg-[#ede0cf] dark:bg-[#3d3628]", "skeleton-shimmer")} style={{ width: `${40 + i * 15}%`, height: 40 }} />
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Optimistic send bubble — looks fully sent, like a real message */}
         {optimisticMessage && (

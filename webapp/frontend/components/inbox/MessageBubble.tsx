@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom";
 import {
   X, Pencil, Check, Trash2, Loader2, Reply, Forward,
-  Smile, FileText, Download, Mic,
+  Smile, FileText, Download, Mic, Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
-import { isHtmlEmpty, renderMathInHtml, renderGeometryInHtml, highlightTextNodes } from "@/lib/html-utils";
+import { isHtmlEmpty, stripHtml, renderMathInHtml, renderGeometryInHtml, highlightTextNodes } from "@/lib/html-utils";
 import { highlightCodeBlocks } from "@/lib/code-highlight";
 import GeometryViewerModal from "@/components/inbox/GeometryViewerModal";
 import { messagesAPI } from "@/lib/api";
@@ -547,6 +547,13 @@ const MessageBubble = React.memo(function MessageBubble({
     }
   };
 
+  const handleCopy = useCallback(async () => {
+    const plain = stripHtml(m.message);
+    if (!plain) return;
+    await navigator.clipboard.writeText(plain);
+    showToast("Copied to clipboard", "info");
+  }, [m.message, showToast]);
+
   return (
     <div data-msg-idx={idx} className={cn(
       !isOwn && "flex gap-2 mr-12 sm:mr-20",
@@ -753,6 +760,11 @@ const MessageBubble = React.memo(function MessageBubble({
               : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
+            {!isHtmlEmpty(m.message) && (
+              <button onClick={handleCopy} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Copy text">
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Quote">
               <Reply className="h-3.5 w-3.5" />
             </button>
