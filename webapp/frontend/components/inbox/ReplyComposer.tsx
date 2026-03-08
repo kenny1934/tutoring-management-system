@@ -31,6 +31,7 @@ interface ReplyComposerProps {
   currentTutorId: number;
   mentionUsers: MentionUser[];
   isMobile: boolean;
+  recipientName?: string;
   onSend: (text: string, images: string[], files: { url: string; filename: string; content_type: string }[]) => Promise<void>;
   onScheduleSend?: (text: string, images: string[], files: { url: string; filename: string; content_type: string }[], scheduledAt: string) => Promise<void>;
   onOpenFullEditor: () => void;
@@ -45,7 +46,7 @@ interface ReplyComposerProps {
 }
 
 const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(function ReplyComposer(
-  { threadId, currentTutorId, mentionUsers, isMobile, onSend, onScheduleSend, onOpenFullEditor, onDraftChange, onTyping, templates, onCreateTemplate, onDeleteTemplate, onSendVoice, externalGeoState, onExternalGeoStateConsumed },
+  { threadId, currentTutorId, mentionUsers, isMobile, recipientName, onSend, onScheduleSend, onOpenFullEditor, onDraftChange, onTyping, templates, onCreateTemplate, onDeleteTemplate, onSendVoice, externalGeoState, onExternalGeoStateConsumed },
   ref
 ) {
   const { showToast } = useToast();
@@ -92,6 +93,8 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     },
   }), []);
 
+  const [showDraftRestored, setShowDraftRestored] = useState(false);
+
   // Load draft and reset editor when switching threads
   useEffect(() => {
     const draft = loadReplyDraft(threadId);
@@ -100,7 +103,22 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     setReplyImages(draft?.images || []);
     setReplyFiles([]);
     setReplyEditorKey(prev => prev + 1);
+
+    // Show "Draft restored" indicator if draft had content
+    if (draft && (!isHtmlEmpty(draft.message) || (draft.images && draft.images.length > 0))) {
+      setShowDraftRestored(true);
+      setTimeout(() => setShowDraftRestored(false), 2000);
+    } else {
+      setShowDraftRestored(false);
+    }
   }, [threadId]);
+
+  // Auto-focus editor on thread open (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      setTimeout(() => editorRef.current?.focus(), 150);
+    }
+  }, [threadId, isMobile]);
 
   // Auto-save reply draft on content change
   useEffect(() => {
@@ -235,6 +253,11 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
           <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
         </div>
       )}
+      {showDraftRestored && (
+        <div className="text-[11px] text-gray-400 dark:text-gray-500 px-1 pb-1 animate-in fade-in duration-200">
+          Draft restored
+        </div>
+      )}
       <InboxRichEditor
         key={replyEditorKey}
         onEditorReady={(editor) => {
@@ -250,7 +273,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
           files.forEach(f => dt.items.add(f));
           handleReplyFileUpload(dt.files);
         }}
-        placeholder="Type a reply..."
+        placeholder={recipientName ? `Reply to ${recipientName}...` : "Type a reply..."}
         minHeight="40px"
         mentionUsers={mentionUsers}
         templates={templates}
