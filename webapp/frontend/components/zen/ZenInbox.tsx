@@ -99,7 +99,7 @@ function ReactionBadges({ msg, currentTutorId, onReact }: { msg: Message; curren
     groups.set(d.emoji, g);
   }
   return (
-    <div style={{ marginTop: "4px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+    <>
       {Array.from(groups.entries()).map(([emoji, { count, isMine }]) => (
         <span
           key={emoji}
@@ -115,6 +115,27 @@ function ReactionBadges({ msg, currentTutorId, onReact }: { msg: Message; curren
           {emoji}×{count}
         </span>
       ))}
+    </>
+  );
+}
+
+function ReactionPicker({ messageId, activePickerId, onReact, onClose }: { messageId: number; activePickerId: number | null; onReact: (messageId: number, emoji: string) => void; onClose: () => void }) {
+  if (activePickerId !== messageId) return null;
+  return (
+    <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--zen-dim)" }}>
+      React:{" "}
+      {REACTION_EMOJIS.map((emoji, i) => (
+        <span
+          key={emoji}
+          onClick={(e) => { e.stopPropagation(); onReact(messageId, emoji); onClose(); }}
+          style={{ cursor: "pointer", marginRight: "6px" }}
+        >
+          <span style={{ color: "var(--zen-fg)" }}>[{i + 1}]</span>{emoji}
+        </span>
+      ))}
+      <span onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ cursor: "pointer" }}>
+        <span style={{ color: "var(--zen-fg)" }}>Esc</span>=cancel
+      </span>
     </div>
   );
 }
@@ -528,7 +549,8 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
                     thread={thread}
                     isAtCursor={focusPane === "list" && i === cursor}
                     isExpanded={expandedId === thread.root_message.id}
-                    showReactionPicker={reactionPickerForId === thread.root_message.id}
+                    reactionPickerForId={reactionPickerForId}
+                    onShowReactionPicker={setReactionPickerForId}
                     isReplying={replyingToId === thread.root_message.id}
                     currentTutorId={tutorId}
                     ref={focusPane === "list" && i === cursor ? cursorRowRef : undefined}
@@ -621,7 +643,8 @@ interface MessageRowProps {
   thread: MessageThread;
   isAtCursor: boolean;
   isExpanded: boolean;
-  showReactionPicker: boolean;
+  reactionPickerForId: number | null;
+  onShowReactionPicker: (messageId: number | null) => void;
   isReplying: boolean;
   currentTutorId: number | null;
   onClick: () => void;
@@ -635,7 +658,7 @@ interface MessageRowProps {
 }
 
 const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageRow(
-  { thread, isAtCursor, isExpanded, showReactionPicker, isReplying, currentTutorId, onClick, onDoubleClick, onMarkRead, onArchive, onReact, onStartReply, onReplySent, onCancelReply },
+  { thread, isAtCursor, isExpanded, reactionPickerForId, onShowReactionPicker, isReplying, currentTutorId, onClick, onDoubleClick, onMarkRead, onArchive, onReact, onStartReply, onReplySent, onCancelReply },
   ref,
 ) {
   const msg = thread.root_message;
@@ -723,23 +746,10 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             dangerouslySetInnerHTML={{ __html: renderedBody }}
           />
           <Attachments msg={msg} />
-          <ReactionBadges msg={msg} currentTutorId={currentTutorId} onReact={onReact} />
-          {/* Reaction picker */}
-          {showReactionPicker && (
-            <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--zen-dim)" }}>
-              React:{" "}
-              {REACTION_EMOJIS.map((emoji, i) => (
-                <span
-                  key={emoji}
-                  onClick={(e) => { e.stopPropagation(); onReact(msg.id, emoji); }}
-                  style={{ cursor: "pointer", marginRight: "6px" }}
-                >
-                  <span style={{ color: "var(--zen-fg)" }}>[{i + 1}]</span>{emoji}
-                </span>
-              ))}
-              <span style={{ color: "var(--zen-fg)" }}>Esc</span>=cancel
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
+            <ReactionBadges msg={msg} currentTutorId={currentTutorId} onReact={onReact} />
+          </div>
+          <ReactionPicker messageId={msg.id} activePickerId={reactionPickerForId} onReact={onReact} onClose={() => onShowReactionPicker(null)} />
           {msg.priority !== "Normal" && (
             <div style={{ color: msg.priority === "Urgent" ? "var(--zen-error)" : "var(--zen-warning)", fontSize: "10px", marginTop: "4px" }}>
               Priority: {msg.priority}
@@ -762,7 +772,16 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
                     dangerouslySetInnerHTML={{ __html: renderMessage(reply.message) }}
                   />
                   <Attachments msg={reply} />
-                  <ReactionBadges msg={reply} currentTutorId={currentTutorId} onReact={onReact} />
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                    <ReactionBadges msg={reply} currentTutorId={currentTutorId} onReact={onReact} />
+                    <span
+                      onClick={(e) => { e.stopPropagation(); onShowReactionPicker(reactionPickerForId === reply.id ? null : reply.id); }}
+                      style={{ cursor: "pointer", color: "var(--zen-dim)", fontSize: "10px" }}
+                    >
+                      [+react]
+                    </span>
+                  </div>
+                  <ReactionPicker messageId={reply.id} activePickerId={reactionPickerForId} onReact={onReact} onClose={() => onShowReactionPicker(null)} />
                 </div>
               ))}
             </div>
