@@ -383,7 +383,7 @@ export default function ZenSessionsPage() {
             break;
           case "l":
           case "L":
-            if (currentSession) {
+            if (currentSession && !expandedSessionId) {
               e.preventDefault();
               if (e.shiftKey) {
                 // Shift+L: lesson-wide mode for the timeslot
@@ -692,6 +692,8 @@ export default function ZenSessionsPage() {
           onQuickMark={handleQuickMark}
           cursorRowRef={cursorRowRef}
           onSetExpanded={setExpandedSessionId}
+          onLessonMode={(session) => setLessonSession(session)}
+          onLessonWideMode={(timeSlot, sessions) => setLessonWideSlot({ timeSlot, sessions })}
         />
       )}
 
@@ -897,6 +899,8 @@ function DayDetailView({
   onQuickMark,
   cursorRowRef,
   onSetExpanded,
+  onLessonMode,
+  onLessonWideMode,
 }: {
   sessions: TimeSlotGroup[];
   flatSessions: Session[];
@@ -908,6 +912,8 @@ function DayDetailView({
   onQuickMark: (sessionId: number, status: string) => void;
   cursorRowRef: React.RefObject<HTMLDivElement | null>;
   onSetExpanded: (id: number | null) => void;
+  onLessonMode?: (session: Session) => void;
+  onLessonWideMode?: (timeSlot: string, sessions: Session[]) => void;
 }) {
   if (flatSessions.length === 0) {
     return <div style={{ color: "var(--zen-dim)" }}>No sessions on this day</div>;
@@ -953,8 +959,28 @@ function DayDetailView({
       {/* Time slot groups */}
       {groupedSessions.map((slotGroup) => (
         <div key={slotGroup.timeSlot} style={{ marginBottom: "12px" }}>
-          <div style={{ color: "var(--zen-accent)", fontSize: "12px", marginBottom: "2px" }}>
-            {slotGroup.timeSlot}
+          <div style={{ color: "var(--zen-accent)", fontSize: "12px", marginBottom: "2px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <span>{slotGroup.timeSlot}</span>
+            {onLessonWideMode && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLessonWideMode(slotGroup.timeSlot, slotGroup.sessions);
+                }}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--zen-border)",
+                  color: "var(--zen-dim)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "10px",
+                  padding: "1px 6px",
+                }}
+                title="Lesson wide mode (Shift+L)"
+              >
+                [L]esson
+              </button>
+            )}
           </div>
           <div style={{ color: "var(--zen-border)", marginBottom: "2px", letterSpacing: "0.5px" }}>
             {"─".repeat(30)}
@@ -1035,6 +1061,7 @@ function DayDetailView({
                     session={session}
                     onClose={() => onSetExpanded(null)}
                     onMark={onQuickMark}
+                    onLessonMode={onLessonMode}
                   />
                 )}
               </div>
