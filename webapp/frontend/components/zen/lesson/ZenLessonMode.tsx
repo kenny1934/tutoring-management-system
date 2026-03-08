@@ -212,6 +212,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
 
       {exerciseModalType && (
         <ZenExerciseAssign
+          key={exerciseModalType}
           session={session}
           exerciseType={exerciseModalType}
           onClose={() => setExerciseModalType(null)}
