@@ -297,7 +297,7 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
 export function handleLessonKeyDown(
   e: KeyboardEvent,
   state: ZenLessonState,
-  opts: { stamp: PrintStampInfo; onClose: () => void; paperlessSearch?: (path: string) => Promise<number | null> },
+  opts: { stamp: PrintStampInfo; onClose: () => void; paperlessSearch?: (path: string) => Promise<number | null>; onEditExercises?: (type: "CW" | "HW") => void },
 ): boolean {
   const {
     exercises, selectedExercise, showAnswerKey, totalPages, answerAvailable, answerOpenSetRef,
@@ -379,6 +379,16 @@ export function handleLessonKeyDown(
           opts.paperlessSearch
         );
       }
+      return true;
+    case "c":
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      opts.onEditExercises?.("CW");
+      return true;
+    case "h":
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      opts.onEditExercises?.("HW");
       return true;
     case "Escape":
       e.preventDefault();
