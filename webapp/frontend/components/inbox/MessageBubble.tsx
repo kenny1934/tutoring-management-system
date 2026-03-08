@@ -579,22 +579,11 @@ const MessageBubble = React.memo(function MessageBubble({
           !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]"
         )}
       >
-        {/* Sender name + time (others only, first in group) */}
+        {/* Sender name (others only, first in group) */}
         {!isOwn && isFirstInGroup && (
-          <div className="flex items-baseline justify-between mb-1">
+          <div className="mb-1">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
               {m.from_tutor_name || "Unknown"}
-            </span>
-            <span
-              className={cn(
-                "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
-                !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
-              )}
-              title={new Date(m.created_at).toLocaleString()}
-            >
-              {formatMessageTime(m.created_at)}
-              {m.updated_at && <span className="italic">(edited)</span>}
-              <SeenBadge message={m} currentTutorId={currentTutorId} />
             </span>
           </div>
         )}
@@ -805,6 +794,20 @@ const MessageBubble = React.memo(function MessageBubble({
         {m.like_count > 0 && (
           <div className="absolute -bottom-2.5 left-3" style={{ animation: 'reaction-pop 0.2s ease-out both' }}>
             <LikesBadge message={m} currentTutorId={currentTutorId} onToggleReaction={onReact} />
+          </div>
+        )}
+
+        {/* Incoming message: timestamp + seen badge (bottom-right, matching own message layout) */}
+        {!isOwn && (
+          <div className={cn(
+            "flex items-center justify-end gap-1 mt-1 transition-opacity",
+            !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
+          )}>
+            <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
+              {formatMessageTime(m.created_at)}
+              {m.updated_at && <span className="italic ml-1">(edited)</span>}
+            </span>
+            <SeenBadge message={m} currentTutorId={currentTutorId} />
           </div>
         )}
 
