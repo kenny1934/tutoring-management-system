@@ -300,7 +300,7 @@ export function handleLessonKeyDown(
   opts: { stamp: PrintStampInfo; onClose: () => void; paperlessSearch?: (path: string) => Promise<number | null> },
 ): boolean {
   const {
-    exercises, selectedExercise, totalPages, answerAvailable, answerOpenSetRef,
+    exercises, selectedExercise, showAnswerKey, totalPages, answerAvailable, answerOpenSetRef,
     setExerciseCursor, setCurrentPage, setZoom, setShowAnswerKey,
   } = state;
 
@@ -349,13 +349,11 @@ export function handleLessonKeyDown(
       e.preventDefault();
       e.stopImmediatePropagation();
       if (selectedExercise && answerAvailable.get(selectedExercise.id) === true) {
-        setShowAnswerKey((prev) => {
-          const next = !prev;
-          if (next) answerOpenSetRef.current.add(selectedExercise.id);
-          else answerOpenSetRef.current.delete(selectedExercise.id);
-          setZenStatus(next ? "Answer key shown" : "Answer key hidden", "info");
-          return next;
-        });
+        const next = !showAnswerKey;
+        if (next) answerOpenSetRef.current.add(selectedExercise.id);
+        else answerOpenSetRef.current.delete(selectedExercise.id);
+        setShowAnswerKey(next);
+        setZenStatus(next ? "Answer key shown" : "Answer key hidden", "info");
       } else if (selectedExercise && answerAvailable.get(selectedExercise.id) === false) {
         setZenStatus("No answer file found", "warning");
       }
