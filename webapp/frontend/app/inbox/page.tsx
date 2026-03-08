@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useFaviconBadge, useProposals, useClickOutside, useActiveTutors, useTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
+import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -376,7 +376,6 @@ const STABLE_EMPTY_MSG: Message[] = [];
 const STABLE_EMPTY_THREADS: MessageThread[] = [];
 
 export default function InboxPage() {
-  usePageTitle("Inbox");
 
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
@@ -912,12 +911,9 @@ export default function InboxPage() {
   // Page title badge with unread count
   useEffect(() => {
     const count = unreadCount?.count || 0;
-    document.title = count > 0 ? `(${count}) Inbox` : 'Inbox';
-    return () => { document.title = 'TMS'; };
+    document.title = count > 0 ? `(${count}) Inbox - CSM Pro` : 'Inbox - CSM Pro';
+    return () => { document.title = 'CSM Pro'; };
   }, [unreadCount?.count]);
-
-  // Favicon badge with unread count
-  useFaviconBadge(unreadCount?.count || 0);
 
   // Web Push subscription (registers SW + subscribes if permission granted)
   usePushNotifications(tutorId);

@@ -5,7 +5,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "New Message", {
       body: data.body || "",
-      icon: "/favicon.ico",
+      icon: "/favicon.png",
       data: data.data || {},
       tag: "inbox-" + (data.data?.threadId || "general"),
     })

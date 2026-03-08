@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -67,6 +67,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch unread message count for Inbox badge (skip for Guest/Supervisor who can't access Inbox)
   const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
+
+  // App-wide favicon badge with unread count (pathname triggers re-apply after navigation)
+  useFaviconBadge(unreadCount?.count || 0, pathname);
 
   // Check for unseen app updates
   const hasUnseenUpdates = useUnseenUpdates();

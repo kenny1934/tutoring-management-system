@@ -13,6 +13,7 @@ const caveat = Caveat({
 export const metadata: Metadata = {
   title: "CSM Pro",
   description: "Professional tutoring management and scheduling platform",
+  icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({
