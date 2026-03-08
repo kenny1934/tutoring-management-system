@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Session, CoursewarePopularity } from "@/types";
 import { paperlessAPI, api, type PaperlessDocument, type PaperlessTag } from "@/lib/api";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -26,6 +26,7 @@ import {
   clearRecentDocuments,
   type RecentDocument,
 } from "@/lib/shelv-storage";
+import { parseExerciseRemarks, detectPageMode } from "@/lib/exercise-utils";
 import { ZenPdfPreview } from "./ZenPdfPreview";
 import { getPageCount } from "@/lib/pdf-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -118,8 +119,25 @@ export function ZenExerciseAssign({
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set());
 
-  // Exercises state (multiple exercises)
-  const [exercises, setExercises] = useState<ZenExerciseItem[]>([]);
+  // Exercises state — pre-populate from existing session exercises
+  const initialExercises = useMemo(() => {
+    const longType = exerciseType === "CW" ? "Classwork" : "Homework";
+    return (session.exercises || [])
+      .filter(ex => ex.exercise_type === exerciseType || ex.exercise_type === longType)
+      .map(ex => {
+        const { complexPages } = parseExerciseRemarks(ex.remarks);
+        const pageMode = detectPageMode(ex.page_start, ex.page_end, complexPages);
+        return {
+          id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          pdf_name: ex.pdf_name,
+          page_mode: pageMode,
+          page_start: ex.page_start?.toString() || "",
+          page_end: ex.page_end?.toString() || "",
+          custom_pages: complexPages || "",
+        } as ZenExerciseItem;
+      });
+  }, [session.exercises, exerciseType]);
+  const [exercises, setExercises] = useState<ZenExerciseItem[]>(initialExercises);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
 
   // Usage details expansion
@@ -1363,7 +1381,7 @@ export function ZenExerciseAssign({
             fontWeight: "bold",
           }}
         >
-          ASSIGN {title}
+          {initialExercises.length > 0 ? "EDIT" : "ASSIGN"} {title}{initialExercises.length > 0 ? ` (${initialExercises.length})` : ""}
         </span>
         <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
           Tab navigate • Ctrl+m multi-select • Esc cancel
@@ -2565,6 +2583,13 @@ function ExerciseRow({
   onDelete: () => void;
   onFocus: () => void;
 }) {
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isActive && !exercise.pdf_name && pdfInputRef.current) {
+      pdfInputRef.current.focus();
+    }
+  }, [isActive, exercise.pdf_name]);
+
   return (
     <div
       style={{
@@ -2579,19 +2604,26 @@ function ExerciseRow({
       <span style={{ color: "var(--zen-dim)", fontSize: "10px", width: "20px" }}>
         {index + 1}.
       </span>
-      <span
+      <input
+        ref={pdfInputRef}
+        type="text"
+        value={exercise.pdf_name}
+        onChange={(e) => onUpdate("pdf_name", e.target.value)}
+        onFocus={onFocus}
+        placeholder="paste or type PDF path"
         style={{
           flex: 1,
+          backgroundColor: "var(--zen-bg)",
+          border: "none",
+          borderBottom: "1px solid var(--zen-border)",
           color: "var(--zen-fg)",
+          padding: "1px 3px",
+          fontFamily: "inherit",
           fontSize: "11px",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          outline: "none",
         }}
         title={exercise.pdf_name}
-      >
-        {getFileName(exercise.pdf_name) || "(empty)"}
-      </span>
+      />
 
       {/* Page range inputs */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
