@@ -986,7 +986,9 @@ export default function InboxRichEditor({
 
       {/* Editor content */}
       <div className="relative">
-        <EditorContent editor={editor} />
+        <div className="max-h-[40vh] overflow-y-auto">
+          <EditorContent editor={editor} />
+        </div>
         {onOpenFullEditor && (
           <button
             type="button"
