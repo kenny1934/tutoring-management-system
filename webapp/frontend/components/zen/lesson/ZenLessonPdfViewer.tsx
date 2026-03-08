@@ -252,7 +252,13 @@ export function ZenLessonPdfViewer({
     const currentPages = pages;
     return () => {
       if (exerciseId == null) {
-        currentPages.forEach(p => URL.revokeObjectURL(p.url));
+        // Don't revoke pages that belong to a cached exercise (transient undefined during student switch)
+        const isCached = Array.from(renderCacheRef.current.values()).some(
+          entry => entry.pages === currentPages
+        );
+        if (!isCached) {
+          currentPages.forEach(p => URL.revokeObjectURL(p.url));
+        }
       }
     };
   }, [pages, exerciseId]);
