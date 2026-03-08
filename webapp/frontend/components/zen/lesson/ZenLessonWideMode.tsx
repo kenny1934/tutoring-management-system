@@ -100,16 +100,20 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
 
   // Annotations
   const annotations = useAnnotations(activeSession ? `zen-lesson-wide-${activeSession.id}` : undefined);
+  const [, setStrokeVersion] = useState(0);
+  const bumpStrokes = useCallback(() => setStrokeVersion(v => v + 1), []);
 
   const handleUndo = useCallback(() => {
     if (!selectedExercise) return;
     annotations.undoLastStroke(selectedExercise.id, currentPage - 1);
-  }, [selectedExercise, currentPage, annotations]);
+    bumpStrokes();
+  }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 
   const handleRedo = useCallback(() => {
     if (!selectedExercise) return;
     annotations.redoLastStroke(selectedExercise.id, currentPage - 1);
-  }, [selectedExercise, currentPage, annotations]);
+    bumpStrokes();
+  }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedExercise || !pdfData) return;
@@ -384,10 +388,10 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
             penSize={state.penSize}
             annotationHidden={state.annotationHidden}
             pageStrokes={selectedExercise ? (pageIdx) => annotations.getAnnotations(selectedExercise.id)[pageIdx] || [] : undefined}
-            onStrokesChange={selectedExercise ? (pageIdx, strokes) => annotations.setPageStrokes(selectedExercise.id, pageIdx, strokes) : undefined}
+            onStrokesChange={selectedExercise ? (pageIdx, strokes) => { annotations.setPageStrokes(selectedExercise.id, pageIdx, strokes); bumpStrokes(); } : undefined}
             onUndo={handleUndo}
             onRedo={handleRedo}
-            onClearPage={selectedExercise ? (pageIdx) => annotations.clearPage(selectedExercise.id, pageIdx) : undefined}
+            onClearPage={selectedExercise ? (pageIdx) => { annotations.clearPage(selectedExercise.id, pageIdx); bumpStrokes(); } : undefined}
             onPenColorChange={state.setPenColor}
             onPenSizeChange={state.setPenSize}
             hasAnnotationsForExercise={selectedExercise ? annotations.hasAnnotations(selectedExercise.id) : false}
