@@ -13,7 +13,7 @@ interface LinkPreviewData {
 // Client-side cache to avoid re-fetching across re-renders
 const previewCache = new Map<string, LinkPreviewData | null>();
 
-export function extractUrls(html: string): { urls: string[]; total: number } {
+export function extractUrls(html: string, limit = 3): { urls: string[]; total: number } {
   const urls: string[] = [];
   // Extract from <a href="..."> tags
   const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
@@ -31,7 +31,7 @@ export function extractUrls(html: string): { urls: string[]; total: number } {
   // Deduplicate and filter
   const filtered = [...new Set(urls)]
     .filter(u => !u.match(/\.(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx)$/i));
-  return { urls: filtered.slice(0, 3), total: filtered.length };
+  return { urls: filtered.slice(0, limit), total: filtered.length };
 }
 
 function SinglePreview({ url }: { url: string }) {
