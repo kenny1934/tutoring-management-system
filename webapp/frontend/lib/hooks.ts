@@ -1025,6 +1025,61 @@ export function useBrowserNotifications() {
 }
 
 /**
+ * Hook that overlays an unread count badge on the browser favicon.
+ * Draws the count on a canvas over the original favicon image.
+ */
+export function useFaviconBadge(count: number) {
+  const originalHrefRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+    if (!link) return;
+    // Store original href once
+    if (!originalHrefRef.current) originalHrefRef.current = link.href;
+
+    if (count <= 0) {
+      link.href = originalHrefRef.current;
+      return () => {
+        if (originalHrefRef.current && link) link.href = originalHrefRef.current;
+      };
+    }
+
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = originalHrefRef.current;
+    img.onload = () => {
+      if (cancelled) return;
+      const s = 32;
+      const canvas = document.createElement("canvas");
+      canvas.width = s;
+      canvas.height = s;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, s, s);
+      // Red circle badge
+      const text = count > 99 ? "99+" : String(count);
+      const r = s * 0.28;
+      const cx = s - r - 1;
+      const cy = r + 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      ctx.fillStyle = "#ef4444";
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = `bold ${r * 1.2}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, cx, cy + 0.5);
+      link.href = canvas.toDataURL("image/png");
+    };
+    return () => {
+      cancelled = true;
+      if (originalHrefRef.current && link) link.href = originalHrefRef.current;
+    };
+  }, [count]);
+}
+
+/**
  * Hook for detecting clicks outside of a referenced element
  * Useful for closing dropdowns, modals, or popups
  */
