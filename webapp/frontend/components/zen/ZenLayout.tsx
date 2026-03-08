@@ -133,6 +133,7 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         r: "/zen/revenue",
         d: "/zen",
         o: "/zen/settings",
+        i: "/zen/inbox",
       };
 
       // Handle vim-style gg (go to first) - only when sessions focused
@@ -244,7 +245,7 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
       window.removeEventListener("keydown", handleKeyDown);
       if (gTimeout) clearTimeout(gTimeout);
     };
-  }, [pathname, router, moveCursor, flatSessions.length, gPending, focusedSection, setFocusedSection]);
+  }, [pathname, router, moveCursor, flatSessions.length, gPending, focusedSection, setFocusedSection, disableSectionCycling]);
 
   return (
     <div

@@ -17,6 +17,7 @@ export { ZenTestList } from "./ZenTestList";
 export { ZenActivityFeed } from "./ZenActivityFeed";
 export { ZenCalendar } from "./ZenCalendar";
 export { ZenDistributionChart } from "./ZenDistributionChart";
+export { ZenInbox } from "./ZenInbox";
 export { ZenStudentList } from "./ZenStudentList";
 export { ZenEnrollmentDetail } from "./ZenEnrollmentDetail";
 export { ZenContactForm } from "./ZenContactForm";
