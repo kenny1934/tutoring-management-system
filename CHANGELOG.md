@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.0.21](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.21) (2026-03-09)
+
+### New Features
+
+* **Web Push notifications** — receive OS-level notifications for new inbox messages even when the browser tab is closed, using free browser Push API with VAPID keys (no third-party service cost)
+* **Favicon unread badge** — red circle with unread message count overlaid on the browser tab icon, visible app-wide across all pages
+* **New message banner** — in-app toast showing sender name and preview when a message arrives for another thread, with click-to-jump and auto-dismiss
+* **Connection status indicator** — amber "Reconnecting..." or red "Disconnected" bar when the real-time SSE connection drops
+* **Differentiated urgent alerts** — urgent/high priority messages play a distinct two-tone sound and show red-accented notifications
+
+### Improvements
+
+* Dedicated 64x64 favicon for crisp display at small sizes
+* Inbox tab title shows unread count: `(3) Inbox - CSM Pro`
+* Push subscription auto-syncs once per browser session to recover from backend purges
+
+### Bug Fixes
+
+* Fixed zen annotation strokes disappearing after drawing
+* Fixed zen lesson PDF viewer race conditions during exercise switching
+* Fixed hi-res re-render overwriting pages on exercise switch
+* Fixed cached blob URL revocation causing broken images during student switch
+* Fixed zen exercise assign showing stale data when switching CW/HW or students
+* Fixed zen mode known issues: Escape handling, timer cleanup, and exit dialog
+
 ## [2.0.20](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.20) (2026-03-08)
 
 ### New Features
