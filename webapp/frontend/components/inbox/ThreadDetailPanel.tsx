@@ -17,6 +17,7 @@ import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
 import TypingIndicator from "@/components/inbox/TypingIndicator";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import type { Message, MessageThread, MessageCreate, MessageTemplate } from "@/types";
+import { useToast } from "@/contexts/ToastContext";
 import type { TypingUser } from "@/lib/useSSE";
 import { CATEGORIES, PRIORITIES, type PriorityLevel, formatSnoozeUntil, formatScheduledAt, formatDateLabel, computeReplyRecipients } from "@/lib/inbox-constants";
 import {
@@ -144,6 +145,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onRegisterUndo,
   onOptimisticReply,
 }: ThreadDetailPanelProps) {
+  const { showToast } = useToast();
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies.filter(r => r.id > 0)];
 
@@ -202,6 +204,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // "Edit as New" geometry state — set when user clicks "Edit as New" in a diagram viewer
   const [externalGeoState, setExternalGeoState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollPositionsRef = useRef<Map<number, number>>(new Map());
 
   // Capture first unread message ID before auto-mark-read (runs during render, before effects)
   const firstUnreadIdRef = useRef<number | null>(null);
@@ -239,10 +242,28 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }
   }, [thread, currentTutorId, optimisticMessage, onOptimisticReply]);
 
-  // Auto-scroll to bottom when thread opens
+  // Save scroll position when switching away; restore or scroll-to-bottom when opening
+  const prevScrollThreadIdRef = useRef<number | null>(null);
   useEffect(() => {
+    const prevId = prevScrollThreadIdRef.current;
+    const newId = thread.root_message.id;
+    // Save outgoing thread's scroll position
+    if (prevId !== null && prevId !== newId && scrollRef.current) {
+      scrollPositionsRef.current.set(prevId, scrollRef.current.scrollTop);
+    }
+    prevScrollThreadIdRef.current = newId;
+
+    // Only scroll on thread change (not on every SWR refresh)
+    if (prevId === newId) return;
+
     setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      if (!scrollRef.current) return;
+      const saved = scrollPositionsRef.current.get(newId);
+      if (saved !== undefined) {
+        scrollRef.current.scrollTo({ top: saved });
+      } else {
+        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      }
     }, 100);
   }, [thread]);
 
@@ -619,7 +640,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 if (el) {
                   await new Promise<void>(resolve => shatterElement(el, resolve));
                 }
-                onDelete(msgId, msgId === msg.id);
+                await onDelete(msgId, msgId === msg.id);
+                showToast("Message deleted", "info");
               }}
               onEditGeoAsNew={setExternalGeoState}
             />

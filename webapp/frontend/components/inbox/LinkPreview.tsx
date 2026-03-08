@@ -13,7 +13,7 @@ interface LinkPreviewData {
 // Client-side cache to avoid re-fetching across re-renders
 const previewCache = new Map<string, LinkPreviewData | null>();
 
-function extractUrls(html: string): string[] {
+function extractUrls(html: string): { urls: string[]; total: number } {
   const urls: string[] = [];
   // Extract from <a href="..."> tags
   const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
@@ -28,10 +28,10 @@ function extractUrls(html: string): string[] {
       urls.push(match[1]);
     }
   }
-  // Deduplicate and limit
-  return [...new Set(urls)]
-    .filter(u => !u.match(/\.(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx)$/i))
-    .slice(0, 3);
+  // Deduplicate and filter
+  const filtered = [...new Set(urls)]
+    .filter(u => !u.match(/\.(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx)$/i));
+  return { urls: filtered.slice(0, 3), total: filtered.length };
 }
 
 function SinglePreview({ url }: { url: string }) {
@@ -122,7 +122,8 @@ function SinglePreview({ url }: { url: string }) {
 }
 
 export function LinkPreview({ messageHtml }: { messageHtml: string }) {
-  const urls = extractUrls(messageHtml);
+  const { urls, total } = extractUrls(messageHtml);
+  const extra = total - urls.length;
 
   if (urls.length === 0) return null;
 
@@ -131,6 +132,11 @@ export function LinkPreview({ messageHtml }: { messageHtml: string }) {
       {urls.map((url) => (
         <SinglePreview key={url} url={url} />
       ))}
+      {extra > 0 && (
+        <div className="text-[11px] text-gray-400 dark:text-gray-500 pl-1">
+          +{extra} more {extra === 1 ? "link" : "links"}
+        </div>
+      )}
     </div>
   );
 }

@@ -210,7 +210,10 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   const handleCustomScheduleReply = () => {
     if (!customScheduleDate) return;
     const dt = new Date(`${customScheduleDate}T${customScheduleTime}:00`);
-    if (dt <= new Date()) return;
+    if (dt <= new Date()) {
+      showToast("Cannot schedule in the past", "error");
+      return;
+    }
     handleScheduleReply(dt);
   };
 
@@ -338,7 +341,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         </Reorder.Group>
         <div className="flex items-center gap-1 ml-2">
           {onSendVoice && (
-            <VoiceRecorder onSend={onSendVoice} />
+            <VoiceRecorder onSend={onSendVoice} onError={(msg) => showToast(msg, "error")} />
           )}
           <AttachmentMenu
             onFiles={(files) => handleReplyFileUpload(files)}
