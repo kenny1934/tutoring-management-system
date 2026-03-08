@@ -13,7 +13,7 @@ interface LinkPreviewData {
 // Client-side cache to avoid re-fetching across re-renders
 const previewCache = new Map<string, LinkPreviewData | null>();
 
-function extractUrls(html: string): { urls: string[]; total: number } {
+export function extractUrls(html: string): { urls: string[]; total: number } {
   const urls: string[] = [];
   // Extract from <a href="..."> tags
   const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
