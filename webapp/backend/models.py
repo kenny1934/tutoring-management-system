@@ -1064,3 +1064,20 @@ class DocumentVersion(Base):
 
     document = relationship("Document", back_populates="versions")
     creator = relationship("Tutor", foreign_keys=[created_by])
+
+
+class PushSubscription(Base):
+    """Web Push notification subscriptions per tutor per browser."""
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (
+        Index('idx_push_sub_tutor', 'tutor_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+    tutor = relationship("Tutor")
