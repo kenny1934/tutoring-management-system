@@ -8,7 +8,7 @@ import { ZenLessonHeader } from "./ZenLessonHeader";
 import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
-import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import type { Session } from "@/types";
 
 interface ZenLessonModeProps {
@@ -184,10 +184,9 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
       </div>
 
       {exerciseModalType && (
-        <ExerciseModal
+        <ZenExerciseAssign
           session={session}
           exerciseType={exerciseModalType}
-          isOpen={true}
           onClose={() => setExerciseModalType(null)}
         />
       )}
