@@ -210,12 +210,11 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
     try {
       await messagesAPI.markRead(messageId, tutorId);
       setZenStatus("Marked as read", "success");
-      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"), undefined, { revalidate: true });
-      refreshThreads();
+      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"));
     } catch {
       setZenStatus("Failed to mark as read", "error");
     }
-  }, [tutorId, refreshThreads]);
+  }, [tutorId]);
 
   const handleArchive = useCallback(async (messageId: number) => {
     if (!tutorId) return;
@@ -223,25 +222,23 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
       await messagesAPI.archive([messageId], tutorId);
       setZenStatus("Archived", "success");
       setExpandedId(null);
-      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"), undefined, { revalidate: true });
-      refreshThreads();
+      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"));
     } catch {
       setZenStatus("Archive failed", "error");
     }
-  }, [tutorId, refreshThreads]);
+  }, [tutorId]);
 
   const handleReact = useCallback(async (messageId: number, emoji: string) => {
     if (!tutorId) return;
     try {
       const res = await messagesAPI.toggleLike(messageId, tutorId, emoji);
       setZenStatus(res.is_liked ? `Reacted ${emoji}` : `Removed ${emoji}`, "info");
-      mutate((key: unknown) => Array.isArray(key) && key[0] === "message-threads-paginated", undefined, { revalidate: true });
-      refreshThreads();
+      mutate((key: unknown) => Array.isArray(key) && key[0] === "message-threads-paginated");
     } catch {
       setZenStatus("Reaction failed", "error");
     }
     setReactionPickerForId(null);
-  }, [tutorId, refreshThreads]);
+  }, [tutorId]);
 
   // Keyboard handler
   useEffect(() => {
@@ -849,7 +846,6 @@ function ZenReplyComposer({ threadRootMessage, tutorId, onSent, onCancel }: ZenR
         file_attachments: files.length > 0 ? files : undefined,
       }, tutorId);
       setZenStatus("Reply sent", "success");
-      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"), undefined, { revalidate: true });
       onSent();
     } catch {
       setZenStatus("Failed to send reply", "error");
