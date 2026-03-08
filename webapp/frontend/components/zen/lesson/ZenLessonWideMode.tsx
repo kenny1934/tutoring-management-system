@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -8,6 +8,7 @@ import { ZenLessonStudentTabs } from "./ZenLessonStudentTabs";
 import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import type { Session } from "@/types";
 
 interface ZenLessonWideModeProps {
@@ -47,6 +48,15 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
   const stampRef = useRef(stamp);
   stampRef.current = stamp;
 
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const handleEditExercises = useCallback((type: "CW" | "HW") => {
+    setExerciseModalType(type);
+  }, []);
+  const handleEditExercisesRef = useRef(handleEditExercises);
+  handleEditExercisesRef.current = handleEditExercises;
+
+  const digitBufferRef = useRef<{ digit: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
@@ -64,26 +74,53 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         return;
       }
 
-      // Number keys for direct student jump
-      if (e.key >= "1" && e.key <= "9" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const idx = parseInt(e.key) - 1;
-        if (idx < sessions.length) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          setStudentIndex(idx);
+      // Number keys for direct student jump (supports two-digit input)
+      if (e.key >= "0" && e.key <= "9" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        if (digitBufferRef.current) {
+          // Second digit — combine with first
+          clearTimeout(digitBufferRef.current.timer);
+          const idx = parseInt(digitBufferRef.current.digit + e.key) - 1;
+          digitBufferRef.current = null;
+          if (idx >= 0 && idx < sessions.length) {
+            setStudentIndex(idx);
+          }
+        } else if (e.key === "0") {
+          // "0" alone does nothing
           return;
+        } else {
+          // First digit — buffer and wait for possible second digit
+          const firstDigit = e.key;
+          const timer = setTimeout(() => {
+            digitBufferRef.current = null;
+            const idx = parseInt(firstDigit) - 1;
+            if (idx < sessions.length) {
+              setStudentIndex(idx);
+            }
+          }, 500);
+          digitBufferRef.current = { digit: firstDigit, timer };
         }
+        return;
       }
 
       handleLessonKeyDown(e, stateRef.current, {
         stamp: stampRef.current,
         onClose,
         paperlessSearch: searchPaperlessByPath,
+        onEditExercises: handleEditExercisesRef.current,
       });
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      if (digitBufferRef.current) {
+        clearTimeout(digitBufferRef.current.timer);
+        digitBufferRef.current = null;
+      }
+    };
   }, [sessions, onClose]);
 
   return (
@@ -176,6 +213,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
             selectedIndex={exerciseCursor}
             onSelect={state.setExerciseCursor}
             answerAvailable={answerAvailable}
+            onEditExercises={handleEditExercises}
           />
         </div>
 
@@ -250,11 +288,13 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         }}
       >
         <span>
-          <span style={{ color: "var(--zen-fg)" }}>Tab</span> student{" "}
+          <span style={{ color: "var(--zen-fg)" }}>Tab/1-99</span> student{" "}
           <span style={{ color: "var(--zen-fg)" }}>j/k</span> exercises{" "}
           <span style={{ color: "var(--zen-fg)" }}>[/]</span> pages{" "}
           <span style={{ color: "var(--zen-fg)" }}>+/-</span> zoom{" "}
           <span style={{ color: "var(--zen-fg)" }}>a</span>=answer{" "}
+          <span style={{ color: "var(--zen-fg)" }}>c</span>=classwork{" "}
+          <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
           <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
         </span>
@@ -265,6 +305,15 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
           </span>
         )}
       </div>
+
+      {exerciseModalType && activeSession && (
+        <ExerciseModal
+          session={activeSession}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
     </div>
   );
 }

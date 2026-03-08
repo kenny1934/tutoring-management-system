@@ -8,6 +8,7 @@ interface ZenLessonSidebarProps {
   selectedIndex: number;
   onSelect: (index: number) => void;
   answerAvailable?: Map<number, boolean | null>; // exerciseId → true/false/null(searching)
+  onEditExercises?: (type: "CW" | "HW") => void;
 }
 
 function formatPageRange(exercise: SessionExercise): string {
@@ -33,6 +34,7 @@ export function ZenLessonSidebar({
   selectedIndex,
   onSelect,
   answerAvailable,
+  onEditExercises,
 }: ZenLessonSidebarProps) {
   const cwExercises = exercises.filter(
     (e) => e.exercise_type === "CW" || e.exercise_type === "Classwork"
@@ -42,16 +44,16 @@ export function ZenLessonSidebar({
   );
 
   // Build flat list matching parent's exercise ordering (CW first, then HW)
-  const sections: { title: string; items: { exercise: SessionExercise; flatIndex: number }[] }[] = [];
+  const sections: { title: string; type: "CW" | "HW"; items: { exercise: SessionExercise; flatIndex: number }[] }[] = [];
   let flatIdx = 0;
 
   if (cwExercises.length > 0) {
     const items = cwExercises.map((e) => ({ exercise: e, flatIndex: flatIdx++ }));
-    sections.push({ title: `CLASSWORK (${cwExercises.length})`, items });
+    sections.push({ title: `CLASSWORK (${cwExercises.length})`, type: "CW", items });
   }
   if (hwExercises.length > 0) {
     const items = hwExercises.map((e) => ({ exercise: e, flatIndex: flatIdx++ }));
-    sections.push({ title: `HOMEWORK (${hwExercises.length})`, items });
+    sections.push({ title: `HOMEWORK (${hwExercises.length})`, type: "HW", items });
   }
 
   if (sections.length === 0) {
@@ -74,9 +76,28 @@ export function ZenLessonSidebar({
               padding: "0 8px",
               marginBottom: "2px",
               textShadow: "var(--zen-glow)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            {section.title}
+            <span>{section.title}</span>
+            {onEditExercises && (
+              <button
+                onClick={() => onEditExercises(section.type)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--zen-dim)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "9px",
+                  padding: "0 2px",
+                }}
+              >
+                [edit]
+              </button>
+            )}
           </div>
           <div
             style={{
