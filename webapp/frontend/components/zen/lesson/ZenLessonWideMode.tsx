@@ -8,7 +8,7 @@ import { ZenLessonStudentTabs } from "./ZenLessonStudentTabs";
 import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
-import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import type { Session } from "@/types";
 
 interface ZenLessonWideModeProps {
@@ -307,10 +307,9 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
       </div>
 
       {exerciseModalType && activeSession && (
-        <ExerciseModal
+        <ZenExerciseAssign
           session={activeSession}
           exerciseType={exerciseModalType}
-          isOpen={true}
           onClose={() => setExerciseModalType(null)}
         />
       )}
