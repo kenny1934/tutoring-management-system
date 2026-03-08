@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -8,6 +8,7 @@ import { ZenLessonHeader } from "./ZenLessonHeader";
 import { ZenLessonSidebar } from "./ZenLessonSidebar";
 import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import type { Session } from "@/types";
 
 interface ZenLessonModeProps {
@@ -43,11 +44,18 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
   const stampRef = useRef(stamp);
   stampRef.current = stamp;
 
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const handleEditExercises = useCallback((type: "CW" | "HW") => {
+    setExerciseModalType(type);
+  }, []);
+  const handleEditExercisesRef = useRef(handleEditExercises);
+  handleEditExercisesRef.current = handleEditExercises;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA") return;
-      handleLessonKeyDown(e, stateRef.current, { stamp: stampRef.current, onClose, paperlessSearch: searchPaperlessByPath });
+      handleLessonKeyDown(e, stateRef.current, { stamp: stampRef.current, onClose, paperlessSearch: searchPaperlessByPath, onEditExercises: handleEditExercisesRef.current });
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
@@ -83,6 +91,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
             selectedIndex={exerciseCursor}
             onSelect={state.setExerciseCursor}
             answerAvailable={answerAvailable}
+            onEditExercises={handleEditExercises}
           />
         </div>
 
@@ -161,6 +170,8 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           <span style={{ color: "var(--zen-fg)" }}>+/-</span> zoom{" "}
           <span style={{ color: "var(--zen-fg)" }}>f</span>=fit{" "}
           <span style={{ color: "var(--zen-fg)" }}>a</span>=answer{" "}
+          <span style={{ color: "var(--zen-fg)" }}>c</span>=classwork{" "}
+          <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
           <span style={{ color: "var(--zen-fg)" }}>p</span>=print{" "}
           <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
@@ -171,6 +182,15 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           </span>
         )}
       </div>
+
+      {exerciseModalType && (
+        <ExerciseModal
+          session={session}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
     </div>
   );
 }
