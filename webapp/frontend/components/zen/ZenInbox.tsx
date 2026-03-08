@@ -14,10 +14,74 @@ import { highlightCodeBlocks } from "@/lib/code-highlight";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import "katex/dist/katex.min.css";
-import type { MessageThread, MessageCategory, MakeupProposal } from "@/types";
+import type { MessageThread, MessageCategory, MakeupProposal, Message } from "@/types";
 
 function renderMessage(html: string): string {
   return highlightCodeBlocks(renderGeometryInHtml(renderMathInHtml(html)));
+}
+
+function Attachments({ msg }: { msg: Pick<Message, "image_attachments" | "file_attachments"> }) {
+  const hasImages = msg.image_attachments && msg.image_attachments.length > 0;
+  const hasFiles = msg.file_attachments && msg.file_attachments.length > 0;
+  if (!hasImages && !hasFiles) return null;
+
+  return (
+    <div style={{ marginTop: "6px" }}>
+      {msg.image_attachments?.map((url, i) => (
+        <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+          <img
+            src={url}
+            alt={`Attachment ${i + 1}`}
+            style={{ maxHeight: "200px", maxWidth: "100%", border: "1px solid var(--zen-border)", marginTop: "4px", display: "block" }}
+            loading="lazy"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        </a>
+      ))}
+      {msg.file_attachments?.map((file) =>
+        file.content_type?.startsWith("video/") ? (
+          <video
+            key={file.url}
+            src={file.url}
+            controls
+            preload="metadata"
+            style={{ maxHeight: "240px", maxWidth: "100%", border: "1px solid var(--zen-border)", marginTop: "4px", display: "block" }}
+          />
+        ) : file.content_type?.startsWith("audio/") ? (
+          <audio key={file.url} src={file.url} controls preload="metadata" style={{ marginTop: "4px", width: "100%", maxWidth: "300px" }} />
+        ) : file.content_type === "image/gif" ? (
+          <a key={file.url} href={file.url} target="_blank" rel="noopener noreferrer">
+            <img
+              src={file.url}
+              alt={file.filename}
+              style={{ maxHeight: "200px", maxWidth: "100%", border: "1px solid var(--zen-border)", marginTop: "4px", display: "block" }}
+              loading="lazy"
+            />
+          </a>
+        ) : (
+          <a
+            key={file.url}
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 8px",
+              border: "1px solid var(--zen-border)",
+              color: "var(--zen-accent)",
+              fontSize: "10px",
+              marginTop: "4px",
+              textDecoration: "none",
+            }}
+          >
+            [{file.content_type?.split("/").pop()?.toUpperCase() || "FILE"}] {file.filename}
+          </a>
+        )
+      )}
+    </div>
+  );
 }
 
 const CATEGORIES: { key: MessageCategory; label: string; abbr: string }[] = [
@@ -555,6 +619,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             style={{ color: "var(--zen-fg)", fontSize: "11px", lineHeight: "1.4" }}
             dangerouslySetInnerHTML={{ __html: renderedBody }}
           />
+          <Attachments msg={msg} />
           {msg.priority !== "Normal" && (
             <div style={{ color: msg.priority === "Urgent" ? "var(--zen-error)" : "var(--zen-warning)", fontSize: "10px", marginTop: "4px" }}>
               Priority: {msg.priority}
@@ -576,6 +641,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
                     style={{ color: "var(--zen-fg)", fontSize: "11px" }}
                     dangerouslySetInnerHTML={{ __html: renderMessage(reply.message) }}
                   />
+                  <Attachments msg={reply} />
                 </div>
               ))}
             </div>
