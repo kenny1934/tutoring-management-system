@@ -18,6 +18,7 @@ ALLOWED_ATTRIBUTES = {
     "img": ["src", "alt", "style"],
     "td": ["colspan", "rowspan", "data-colwidth", "style"],
     "th": ["colspan", "rowspan", "data-colwidth", "style"],
+    "blockquote": ["data-msg-id"],
     "code": ["class"],
     "pre": ["class"],
 }

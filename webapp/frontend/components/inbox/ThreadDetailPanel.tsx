@@ -6,7 +6,7 @@ import { usePanelSwipe } from "@/lib/usePanelSwipe";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { messagesAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { stripHtml, renderMathInHtml } from "@/lib/html-utils";
+import { stripHtml, stripBlockquotes, renderMathInHtml } from "@/lib/html-utils";
 import { shatterElement } from "@/lib/shatter-animation";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import MessageBubble from "@/components/inbox/MessageBubble";
@@ -284,7 +284,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Quote a message — show reply-to banner (blockquote prepended at send time by ReplyComposer)
   const handleQuote = useCallback((m: Message) => {
     const senderName = m.from_tutor_name || "Unknown";
-    const plainText = stripHtml(m.message);
+    const plainText = stripHtml(stripBlockquotes(m.message));
     const truncated = plainText.length > 150 ? plainText.slice(0, 150) + "..." : plainText;
     replyComposerRef.current?.setReplyTo?.({ messageId: m.id, senderName, preview: truncated });
   }, []);

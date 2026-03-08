@@ -57,6 +57,11 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
 }
 
+/** Remove blockquote elements and their content from HTML. */
+export function stripBlockquotes(html: string): string {
+  return html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, "").trim();
+}
+
 /** Render KaTeX math nodes (inline & block) in an HTML string. */
 export function renderMathInHtml(html: string): string {
   // Replace inline math spans with KaTeX-rendered HTML
