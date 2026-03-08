@@ -66,6 +66,14 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
   // PDF cache
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
 
+  // Annotation state
+  const [drawingEnabled, setDrawingEnabled] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isErasing, setIsErasing] = useState(false);
+  const [penColor, setPenColor] = useState("#e53e3e");
+  const [penSize, setPenSize] = useState(3);
+  const [annotationHidden, setAnnotationHidden] = useState(false);
+
   // Answer key state
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [answerPdfData, setAnswerPdfData] = useState<ArrayBuffer | null>(null);
@@ -287,6 +295,18 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
     answerAvailable,
     answerCacheRef,
     answerOpenSetRef,
+    drawingEnabled,
+    setDrawingEnabled,
+    isDrawing,
+    setIsDrawing,
+    isErasing,
+    setIsErasing,
+    penColor,
+    setPenColor,
+    penSize,
+    setPenSize,
+    annotationHidden,
+    setAnnotationHidden,
   };
 }
 
@@ -297,11 +317,22 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
 export function handleLessonKeyDown(
   e: KeyboardEvent,
   state: ZenLessonState,
-  opts: { stamp: PrintStampInfo; onClose: () => void; paperlessSearch?: (path: string) => Promise<number | null>; onEditExercises?: (type: "CW" | "HW") => void },
+  opts: {
+    stamp: PrintStampInfo;
+    onClose: () => void;
+    onExitAttempt?: () => void;
+    paperlessSearch?: (path: string) => Promise<number | null>;
+    onEditExercises?: (type: "CW" | "HW") => void;
+    onUndo?: () => void;
+    onRedo?: () => void;
+    onSaveAnnotated?: () => void;
+  },
 ): boolean {
   const {
     exercises, selectedExercise, showAnswerKey, totalPages, answerAvailable, answerOpenSetRef,
+    drawingEnabled, isDrawing, isErasing, annotationHidden,
     setExerciseCursor, setCurrentPage, setZoom, setShowAnswerKey,
+    setDrawingEnabled, setIsDrawing, setIsErasing, setAnnotationHidden,
   } = state;
 
   switch (e.key) {
@@ -380,6 +411,83 @@ export function handleLessonKeyDown(
         );
       }
       return true;
+    case "d":
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!drawingEnabled) {
+        // Enable drawing with pen
+        setDrawingEnabled(true);
+        setIsDrawing(true);
+        setIsErasing(false);
+        setZenStatus("Drawing mode", "info");
+      } else if (isErasing) {
+        // Switch from eraser to pen
+        setIsDrawing(true);
+        setIsErasing(false);
+        setZenStatus("Pen mode", "info");
+      } else {
+        // Turn off drawing
+        setDrawingEnabled(false);
+        setIsDrawing(false);
+        setIsErasing(false);
+        setZenStatus("Drawing off", "info");
+      }
+      return true;
+    case "e":
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!drawingEnabled) {
+        // Enable drawing with eraser
+        setDrawingEnabled(true);
+        setIsDrawing(false);
+        setIsErasing(true);
+        setZenStatus("Eraser mode", "info");
+      } else if (isDrawing && !isErasing) {
+        // Switch from pen to eraser
+        setIsDrawing(false);
+        setIsErasing(true);
+        setZenStatus("Eraser mode", "info");
+      } else {
+        // Turn off drawing
+        setDrawingEnabled(false);
+        setIsDrawing(false);
+        setIsErasing(false);
+        setZenStatus("Drawing off", "info");
+      }
+      return true;
+    case "z":
+      if (drawingEnabled && !e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        opts.onUndo?.();
+        return true;
+      }
+      return false;
+    case "Z":
+      if (drawingEnabled && e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        opts.onRedo?.();
+        return true;
+      }
+      return false;
+    case "v":
+      if (drawingEnabled) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setAnnotationHidden(!annotationHidden);
+        setZenStatus(annotationHidden ? "Annotations visible" : "Annotations hidden", "info");
+        return true;
+      }
+      return false;
+    case "s":
+      if (drawingEnabled) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        opts.onSaveAnnotated?.();
+        return true;
+      }
+      return false;
     case "c":
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -393,7 +501,17 @@ export function handleLessonKeyDown(
     case "Escape":
       e.preventDefault();
       e.stopImmediatePropagation();
-      opts.onClose();
+      if (drawingEnabled) {
+        // First Escape exits drawing mode
+        setDrawingEnabled(false);
+        setIsDrawing(false);
+        setIsErasing(false);
+        setZenStatus("Drawing off", "info");
+      } else if (opts.onExitAttempt) {
+        opts.onExitAttempt();
+      } else {
+        opts.onClose();
+      }
       return true;
     default:
       return false;

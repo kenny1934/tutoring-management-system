@@ -44,6 +44,17 @@ const SHARED_SHORTCUTS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Annotations",
+    shortcuts: [
+      { key: "d", description: "Toggle pen drawing" },
+      { key: "e", description: "Toggle eraser" },
+      { key: "z", description: "Undo stroke" },
+      { key: "Z", description: "Redo stroke" },
+      { key: "v", description: "Toggle annotation visibility" },
+      { key: "s", description: "Save annotated PDF" },
+    ],
+  },
+  {
     title: "General",
     shortcuts: [
       { key: "?", description: "Toggle this help" },
