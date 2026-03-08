@@ -1384,7 +1384,7 @@ export function ZenExerciseAssign({
           {initialExercises.length > 0 ? "EDIT" : "ASSIGN"} {title}{initialExercises.length > 0 ? ` (${initialExercises.length})` : ""}
         </span>
         <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
-          Tab navigate • Ctrl+m multi-select • Esc cancel
+          a add • d delete • Tab navigate • Ctrl+m multi-select • Esc cancel
         </span>
       </div>
 
@@ -2584,6 +2584,7 @@ function ExerciseRow({
   onFocus: () => void;
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [pdfFocused, setPdfFocused] = useState(false);
   useEffect(() => {
     if (isActive && !exercise.pdf_name && pdfInputRef.current) {
       pdfInputRef.current.focus();
@@ -2609,18 +2610,20 @@ function ExerciseRow({
         type="text"
         value={exercise.pdf_name}
         onChange={(e) => onUpdate("pdf_name", e.target.value)}
-        onFocus={onFocus}
+        onFocus={() => { onFocus(); setPdfFocused(true); }}
+        onBlur={() => setPdfFocused(false)}
         placeholder="paste or type PDF path"
         style={{
           flex: 1,
           backgroundColor: "var(--zen-bg)",
           border: "none",
-          borderBottom: "1px solid var(--zen-border)",
+          borderBottom: pdfFocused ? "1px solid var(--zen-accent)" : "1px solid var(--zen-border)",
           color: "var(--zen-fg)",
           padding: "1px 3px",
           fontFamily: "inherit",
           fontSize: "11px",
           outline: "none",
+          boxShadow: pdfFocused ? "0 1px 0 var(--zen-accent)" : "none",
         }}
         title={exercise.pdf_name}
       />
