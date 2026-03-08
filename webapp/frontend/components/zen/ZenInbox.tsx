@@ -84,6 +84,8 @@ function Attachments({ msg }: { msg: Pick<Message, "image_attachments" | "file_a
   );
 }
 
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
 const CATEGORIES: { key: MessageCategory; label: string; abbr: string }[] = [
   { key: "Reminder", label: "Reminder", abbr: "Remind" },
   { key: "Question", label: "Question", abbr: "Quest" },
@@ -110,6 +112,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [focusPane, setFocusPane] = useState<"categories" | "list">("list");
   const [categoryCursor, setCategoryCursor] = useState(0); // 0 = All, 1+ = categories
+  const [reactionPickerForId, setReactionPickerForId] = useState<number | null>(null);
   const cursorRowRef = useRef<HTMLDivElement>(null);
   const gPressedRef = useRef(false);
 
@@ -186,11 +189,40 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
     }
   }, [tutorId, refreshThreads]);
 
+  const handleReact = useCallback(async (messageId: number, emoji: string) => {
+    if (!tutorId) return;
+    try {
+      const res = await messagesAPI.toggleLike(messageId, tutorId, emoji);
+      setZenStatus(res.is_liked ? `Reacted ${emoji}` : `Removed ${emoji}`, "info");
+      mutate((key: unknown) => Array.isArray(key) && key[0] === "message-threads-paginated", undefined, { revalidate: true });
+      refreshThreads();
+    } catch {
+      setZenStatus("Reaction failed", "error");
+    }
+    setReactionPickerForId(null);
+  }, [tutorId, refreshThreads]);
+
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable) return;
+
+      // Reaction picker mode — intercept before everything else
+      if (reactionPickerForId !== null) {
+        const idx = parseInt(e.key) - 1;
+        if (idx >= 0 && idx < REACTION_EMOJIS.length) {
+          e.preventDefault();
+          handleReact(reactionPickerForId, REACTION_EMOJIS[idx]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setReactionPickerForId(null);
+          return;
+        }
+        return; // Block all other keys while picker is open
+      }
 
       // Tab switching
       if (e.key === "1" && !e.ctrlKey && !e.metaKey) {
@@ -326,11 +358,18 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
         }
         return;
       }
+
+      // React
+      if (e.key === "r" && !e.shiftKey && activeTab === "messages" && expandedId) {
+        e.preventDefault();
+        setReactionPickerForId(expandedId);
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, focusPane, cursor, expandedId, categoryFilter, categoryList, currentList.length, threads, proposals, hasMore, loadMore, handleMarkRead, handleArchive]);
+  }, [activeTab, focusPane, cursor, expandedId, categoryFilter, categoryList, currentList.length, threads, proposals, hasMore, loadMore, handleMarkRead, handleArchive, handleReact, reactionPickerForId]);
 
   return (
     <div style={{ padding: "8px 12px", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -441,11 +480,14 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
                     thread={thread}
                     isAtCursor={focusPane === "list" && i === cursor}
                     isExpanded={expandedId === thread.root_message.id}
+                    showReactionPicker={reactionPickerForId === thread.root_message.id}
+                    currentTutorId={tutorId}
                     ref={focusPane === "list" && i === cursor ? cursorRowRef : undefined}
                     onClick={() => { setFocusPane("list"); setCursor(i); }}
                     onDoubleClick={() => { setCursor(i); setExpandedId(thread.root_message.id); }}
                     onMarkRead={() => handleMarkRead(thread.root_message.id)}
                     onArchive={() => handleArchive(thread.root_message.id)}
+                    onReact={(emoji) => handleReact(thread.root_message.id, emoji)}
                   />
                 ))}
                 {hasMore && (
@@ -504,6 +546,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
           <>
             <span style={{ color: "var(--zen-fg)" }}>m</span>=read{" "}
             <span style={{ color: "var(--zen-fg)" }}>x</span>=archive{" "}
+            <span style={{ color: "var(--zen-fg)" }}>r</span>=react{" "}
           </>
         )}
         <span style={{ color: "var(--zen-fg)" }}>1/2</span> tabs
@@ -525,14 +568,17 @@ interface MessageRowProps {
   thread: MessageThread;
   isAtCursor: boolean;
   isExpanded: boolean;
+  showReactionPicker: boolean;
+  currentTutorId: number | null;
   onClick: () => void;
   onDoubleClick: () => void;
   onMarkRead: () => void;
   onArchive: () => void;
+  onReact: (emoji: string) => void;
 }
 
 const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageRow(
-  { thread, isAtCursor, isExpanded, onClick, onDoubleClick, onMarkRead, onArchive },
+  { thread, isAtCursor, isExpanded, showReactionPicker, currentTutorId, onClick, onDoubleClick, onMarkRead, onArchive, onReact },
   ref,
 ) {
   const msg = thread.root_message;
@@ -620,6 +666,51 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             dangerouslySetInnerHTML={{ __html: renderedBody }}
           />
           <Attachments msg={msg} />
+          {/* Reactions */}
+          {msg.like_count > 0 && (
+            <div style={{ marginTop: "4px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {(() => {
+                const groups = new Map<string, { count: number; isMine: boolean }>();
+                for (const d of msg.like_details || []) {
+                  const g = groups.get(d.emoji) || { count: 0, isMine: false };
+                  g.count++;
+                  if (d.tutor_id === currentTutorId) g.isMine = true;
+                  groups.set(d.emoji, g);
+                }
+                return Array.from(groups.entries()).map(([emoji, { count, isMine }]) => (
+                  <span
+                    key={emoji}
+                    onClick={(e) => { e.stopPropagation(); onReact(emoji); }}
+                    style={{
+                      color: isMine ? "var(--zen-accent)" : "var(--zen-dim)",
+                      cursor: "pointer",
+                      border: isMine ? "1px solid var(--zen-accent)" : "1px solid var(--zen-border)",
+                      padding: "0 4px",
+                      fontSize: "11px",
+                    }}
+                  >
+                    {emoji}×{count}
+                  </span>
+                ));
+              })()}
+            </div>
+          )}
+          {/* Reaction picker */}
+          {showReactionPicker && (
+            <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--zen-dim)" }}>
+              React:{" "}
+              {REACTION_EMOJIS.map((emoji, i) => (
+                <span
+                  key={emoji}
+                  onClick={(e) => { e.stopPropagation(); onReact(emoji); }}
+                  style={{ cursor: "pointer", marginRight: "6px" }}
+                >
+                  <span style={{ color: "var(--zen-fg)" }}>[{i + 1}]</span>{emoji}
+                </span>
+              ))}
+              <span style={{ color: "var(--zen-fg)" }}>Esc</span>=cancel
+            </div>
+          )}
           {msg.priority !== "Normal" && (
             <div style={{ color: msg.priority === "Urgent" ? "var(--zen-error)" : "var(--zen-warning)", fontSize: "10px", marginTop: "4px" }}>
               Priority: {msg.priority}
@@ -656,6 +747,8 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             <span onClick={onArchive} style={{ cursor: "pointer" }}>
               <span style={{ color: "var(--zen-fg)" }}>x</span>=archive
             </span>
+            {"  "}
+            <span style={{ color: "var(--zen-fg)" }}>r</span>=react
             {"  "}
             <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
           </div>
