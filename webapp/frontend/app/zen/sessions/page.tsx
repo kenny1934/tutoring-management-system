@@ -26,6 +26,8 @@ import {
 } from "@/components/zen/utils/sessionSorting";
 import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { isCountableSession } from "@/lib/session-status";
+import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
+import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
 import type { Session, SessionFilters } from "@/types";
 
 type ViewMode = "week" | "day";
@@ -86,6 +88,8 @@ export default function ZenSessionsPage() {
   const [markingSessionIds, setMarkingSessionIds] = useState<Set<number>>(new Set());
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ ids: number[]; status: string; label: string } | null>(null);
+  const [lessonSession, setLessonSession] = useState<Session | null>(null);
+  const [lessonWideSlot, setLessonWideSlot] = useState<{ timeSlot: string; sessions: Session[] } | null>(null);
   const cursorRowRef = useRef<HTMLDivElement>(null);
 
   const locationFilter = selectedLocation === "All Locations" ? undefined : selectedLocation;
@@ -377,6 +381,28 @@ export default function ZenSessionsPage() {
               setZenStatus("Week view", "info");
             }
             break;
+          case "l":
+          case "L":
+            if (currentSession) {
+              e.preventDefault();
+              if (e.shiftKey) {
+                // Shift+L: lesson-wide mode for the timeslot
+                const slot = dayGroupedSessions.find((g) =>
+                  g.sessions.some((s) => s.id === currentSession.id)
+                );
+                if (slot) {
+                  setLessonWideSlot({ timeSlot: slot.timeSlot, sessions: slot.sessions });
+                  setZenStatus(`Lesson wide: ${slot.timeSlot}`, "info");
+                }
+              } else if (currentSession.exercises?.length) {
+                // L: per-session lesson mode
+                setLessonSession(currentSession);
+                setZenStatus(`Lesson: ${currentSession.student_name}`, "info");
+              } else {
+                setZenStatus("No exercises assigned", "warning");
+              }
+            }
+            break;
           case "[":
             e.preventDefault();
             navigateDay(-1);
@@ -415,7 +441,7 @@ export default function ZenSessionsPage() {
   }, [
     viewMode, showCalendar, selectedDate, weekStart, dayCursor,
     sessionCursor, dayFlatSessions, currentSession, selectedIds, expandedSessionId,
-    navigateWeek, navigateDay, goToCurrentWeek, toggleSelect, handleQuickMark, handleBulkMark,
+    navigateWeek, navigateDay, goToCurrentWeek, toggleSelect, handleQuickMark, handleBulkMark, dayGroupedSessions,
   ]);
 
   // Status filter options
@@ -682,6 +708,21 @@ export default function ZenSessionsPage() {
         />
       )}
 
+      {/* Lesson mode overlays */}
+      {lessonSession && (
+        <ZenLessonMode
+          session={lessonSession}
+          onClose={() => setLessonSession(null)}
+        />
+      )}
+      {lessonWideSlot && (
+        <ZenLessonWideMode
+          timeSlot={lessonWideSlot.timeSlot}
+          sessions={lessonWideSlot.sessions}
+          onClose={() => setLessonWideSlot(null)}
+        />
+      )}
+
       {/* Navigation hint */}
       <div
         style={{
@@ -710,6 +751,7 @@ export default function ZenSessionsPage() {
             <span style={{ color: "var(--zen-fg)" }}>a</span>=all{" "}
             <span style={{ color: "var(--zen-fg)" }}>1</span>-<span style={{ color: "var(--zen-fg)" }}>5</span> mark{" "}
             <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail{" "}
+            <span style={{ color: "var(--zen-fg)" }}>L</span>=lesson{" "}
             <span style={{ color: "var(--zen-fg)" }}>Esc</span> back |{" "}
             <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next day{" "}
             <span style={{ color: "var(--zen-fg)" }}>f</span>=filter{" "}
