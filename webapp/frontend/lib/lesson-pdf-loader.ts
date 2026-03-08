@@ -41,7 +41,12 @@ export async function loadExercisePdf(
       try {
         const file = await result.handle.getFile();
         const data = await file.arrayBuffer();
-        return { data, source: 'local' };
+        // Validate PDF magic bytes — non-PDF files (e.g. .doc/.docx) fall through to Paperless
+        const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+        const magic = String.fromCharCode(...header);
+        if (magic.startsWith('%PDF-')) {
+          return { data, source: 'local' };
+        }
       } catch {
         // Local read failed, continue to Paperless fallback
       }
