@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.0.22](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.22) (2026-03-09)
+
+### New Features
+
+* **Zen inbox** — full inbox page in zen mode with read-only thread viewing, HTML/KaTeX rendering, media attachments (images, video, audio, files), emoji reactions, and reply composer with file upload
+* **Unsaved annotation warning (lesson wide mode)** — exit confirmation dialog with "Download All & Exit" batch ZIP download, `beforeunload` browser warning, and `s` keyboard shortcut for saving
+* **Unsaved annotation warning (zen lesson mode)** — exit dialog now offers three options: Download All (ZIP), Download Current, and Exit; plus `beforeunload` browser warning
+* **Non-PDF fallback to Shelv** — local .doc/.docx files in lesson mode now fall through to Shelv search instead of failing, so users with local file access still get the PDF conversion
+
+### Improvements
+
+* Extracted `ExitConfirmDialog` to shared component used by both lesson modes
+* Used existing `downloadBlob` utility instead of inline blob download pattern (fixes Firefox compatibility)
+* Background SWR revalidation for inbox instead of full refresh
+
+### Bug Fixes
+
+* Fixed `saveAnnotatedPdf` argument order bug in lesson wide mode (stamp and annotations were swapped)
+* Fixed zen inbox always fetching messages for tutor ID 0 instead of actual user
+* Fixed `/` key being intercepted when typing in non-command-bar inputs
+* Fixed focused section not updating when inbox message is expanded
+* Fixed reaction button styling for own replies in zen inbox
+
 ## [2.0.21](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.21) (2026-03-09)
 
 ### New Features
