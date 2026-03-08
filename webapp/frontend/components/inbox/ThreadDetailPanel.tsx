@@ -14,6 +14,7 @@ import ReplyComposer from "@/components/inbox/ReplyComposer";
 import type { ReplyComposerHandle } from "@/components/inbox/ReplyComposer";
 import SnoozePicker from "@/components/inbox/SnoozePicker";
 import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
+import ThreadMediaPanel from "@/components/inbox/ThreadMediaPanel";
 import TypingIndicator from "@/components/inbox/TypingIndicator";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import type { Message, MessageThread, MessageCreate, MessageTemplate } from "@/types";
@@ -42,6 +43,7 @@ import {
   FileText,
   Mic,
   Reply,
+  Image,
 } from "lucide-react";
 
 // Swipeable message wrapper — swipe right to quote (mobile only)
@@ -167,6 +169,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Thread search state
   const [threadSearch, setThreadSearch] = useState("");
   const [showThreadSearch, setShowThreadSearch] = useState(false);
+  const [showMediaPanel, setShowMediaPanel] = useState(false);
 
   // Pre-compute date separators and message grouping to avoid recalculating per render
   const processedMessages = useMemo(() =>
@@ -255,6 +258,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
     // Only scroll on thread change (not on every SWR refresh)
     if (prevId === newId) return;
+    setShowMediaPanel(false);
 
     setTimeout(() => {
       if (!scrollRef.current) return;
@@ -475,6 +479,18 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         >
           <Search className="h-4 w-4" />
         </button>
+        <button
+          onClick={() => setShowMediaPanel(v => !v)}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
+            showMediaPanel
+              ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+              : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+          )}
+          title="Media & files"
+        >
+          <Image className="h-4 w-4" />
+        </button>
         {/* More actions dropdown */}
         <div className="relative" ref={moreMenuRef}>
           <button
@@ -609,8 +625,13 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         />
       )}
 
+      {/* Media & files panel */}
+      {showMediaPanel && (
+        <ThreadMediaPanel thread={thread} onClose={() => setShowMediaPanel(false)} isMobile={isMobile} />
+      )}
+
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" onClick={handleQuoteClick}>
+      <div ref={scrollRef} className={cn("flex-1 overflow-y-auto p-4", showMediaPanel && "hidden")} onClick={handleQuoteClick}>
         {processedMessages.map(({ message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup }, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
 
