@@ -4,8 +4,10 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
+import { exerciseToPageNumbers } from "./useZenLessonState";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Stroke } from "@/hooks/useAnnotations";
+import type { SessionExercise } from "@/types";
 
 interface UseZenAnnotationHandlersParams {
   annotations: {
@@ -20,6 +22,8 @@ interface UseZenAnnotationHandlersParams {
     hasAnyAnnotations: () => boolean;
   };
   selectedExercise: { id: number; pdf_name: string } | undefined;
+  exercises: SessionExercise[];
+  pdfCacheRef: React.RefObject<Map<string, ArrayBuffer>>;
   currentPage: number;
   pdfData: ArrayBuffer | null;
   pageNumbers: number[];
@@ -30,6 +34,8 @@ interface UseZenAnnotationHandlersParams {
 export function useZenAnnotationHandlers({
   annotations,
   selectedExercise,
+  exercises,
+  pdfCacheRef,
   currentPage,
   pdfData,
   pageNumbers,
@@ -66,6 +72,31 @@ export function useZenAnnotationHandlers({
     }
   }, [selectedExercise, pdfData, pageNumbers, stamp, annotations]);
 
+  const handleSaveAllAnnotated = useCallback(async () => {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      for (const exercise of exercises) {
+        if (!annotations.hasAnnotations(exercise.id)) continue;
+        if (!exercise.pdf_name) continue;
+
+        const cached = pdfCacheRef.current?.get(exercise.pdf_name);
+        if (!cached) continue;
+
+        const ann = annotations.getAnnotations(exercise.id);
+        const pages = exerciseToPageNumbers(exercise);
+        const blob = await saveAnnotatedPdf(cached, pages, stamp, ann);
+        zip.file(`annotated-${getDisplayName(exercise.pdf_name)}.pdf`, blob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(zipBlob, "annotated-exercises.zip");
+    } catch (err) {
+      console.error("Failed to save all annotated PDFs:", err);
+    }
+  }, [exercises, pdfCacheRef, annotations, stamp]);
+
   const handleExitAttempt = useCallback(() => {
     if (annotations.hasAnyAnnotations()) {
       setShowExitConfirm(true);
@@ -81,6 +112,8 @@ export function useZenAnnotationHandlers({
   handleRedoRef.current = handleRedo;
   const handleSaveAnnotatedRef = useRef(handleSaveAnnotated);
   handleSaveAnnotatedRef.current = handleSaveAnnotated;
+  const handleSaveAllAnnotatedRef = useRef(handleSaveAllAnnotated);
+  handleSaveAllAnnotatedRef.current = handleSaveAllAnnotated;
   const handleExitAttemptRef = useRef(handleExitAttempt);
   handleExitAttemptRef.current = handleExitAttempt;
 
@@ -120,6 +153,7 @@ export function useZenAnnotationHandlers({
     handleUndo,
     handleRedo,
     handleSaveAnnotated,
+    handleSaveAllAnnotated,
     handleExitAttempt,
     showExitConfirm,
     setShowExitConfirm,
@@ -127,6 +161,7 @@ export function useZenAnnotationHandlers({
       handleUndoRef,
       handleRedoRef,
       handleSaveAnnotatedRef,
+      handleSaveAllAnnotatedRef,
       handleExitAttemptRef,
       showExitConfirmRef,
     },

@@ -64,8 +64,20 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
   // Annotations
   const annotations = useAnnotations(`zen-lesson-${session.id}`);
   const ann = useZenAnnotationHandlers({
-    annotations, selectedExercise, currentPage, pdfData, pageNumbers, stamp, onClose,
+    annotations, selectedExercise, exercises, pdfCacheRef: state.pdfCacheRef,
+    currentPage, pdfData, pageNumbers, stamp, onClose,
   });
+
+  // Warn on tab close with unsaved annotations
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (annotations.hasAnyAnnotations()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [annotations]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,11 +91,16 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         e.preventDefault();
         e.stopImmediatePropagation();
         if (e.key === "1") {
-          ann.refs.handleSaveAnnotatedRef.current().then(() => {
+          ann.refs.handleSaveAllAnnotatedRef.current().then(() => {
             annotations.clearStorage();
             onClose();
           });
         } else if (e.key === "2") {
+          ann.refs.handleSaveAnnotatedRef.current().then(() => {
+            annotations.clearStorage();
+            onClose();
+          });
+        } else if (e.key === "3") {
           annotations.clearAll();
           annotations.clearStorage();
           onClose();
@@ -278,6 +295,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
 
       {ann.showExitConfirm && (
         <ZenExitConfirmDialog
+          onSaveAllAndExit={() => { ann.handleSaveAllAnnotated().then(() => { annotations.clearStorage(); onClose(); }); }}
           onSaveAndExit={() => { ann.handleSaveAnnotated().then(() => { annotations.clearStorage(); onClose(); }); }}
           onDiscardAndExit={() => { annotations.clearAll(); annotations.clearStorage(); onClose(); }}
           onCancel={() => ann.setShowExitConfirm(false)}

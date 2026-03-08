@@ -10,7 +10,7 @@ import type { PrintStampInfo } from "@/lib/pdf-utils";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import type { SessionExercise } from "@/types";
 
-function exerciseToPageNumbers(exercise: SessionExercise): number[] {
+export function exerciseToPageNumbers(exercise: SessionExercise): number[] {
   const { complexPages } = parseExerciseRemarks(exercise.remarks || null);
   const bulk: BulkPrintExercise = {
     pdf_name: exercise.pdf_name,
@@ -292,6 +292,7 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
     setAnswerTotalPages,
     answerZoom,
     setAnswerZoom,
+    pdfCacheRef,
     answerAvailable,
     answerCacheRef,
     answerOpenSetRef,
