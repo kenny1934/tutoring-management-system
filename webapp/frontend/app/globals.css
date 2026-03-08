@@ -2114,6 +2114,29 @@ html {
   opacity: 0.7;
 }
 
+/* Visible "jump to original" indicator on quoted messages */
+.prose blockquote[data-msg-id]::after {
+  content: "↩ view original";
+  display: block;
+  font-size: 0.65em;
+  font-style: normal;
+  color: #a0704b;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+.prose blockquote[data-msg-id]:hover::after {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Nested blockquotes: visually reduce weight to distinguish from parent */
+.prose blockquote blockquote {
+  margin: 0.25rem 0;
+  border-left-width: 2px;
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
 /* Ensure inline color on spans is inherited by child elements (overrides prose defaults) */
 .prose span[style*="color"] strong,
 .prose span[style*="color"] em,
