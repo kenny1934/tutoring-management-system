@@ -380,6 +380,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
 
       {exerciseModalType && activeSession && (
         <ZenExerciseAssign
+          key={`${activeSession.id}-${exerciseModalType}`}
           session={activeSession}
           exerciseType={exerciseModalType}
           onClose={() => setExerciseModalType(null)}
