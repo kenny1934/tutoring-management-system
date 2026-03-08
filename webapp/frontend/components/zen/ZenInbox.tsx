@@ -13,6 +13,7 @@ import { stripHtml, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-ut
 import { highlightCodeBlocks } from "@/lib/code-highlight";
 import { computeReplyRecipients } from "@/lib/inbox-constants";
 import { useFileUpload } from "@/lib/useFileUpload";
+import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import "katex/dist/katex.min.css";
@@ -118,6 +119,12 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
   const [replyingToId, setReplyingToId] = useState<number | null>(null);
   const cursorRowRef = useRef<HTMLDivElement>(null);
   const gPressedRef = useRef(false);
+  const { setFocusedSection } = useZenKeyboardFocus();
+
+  // Signal to ZenLayout: skip nav keys (c→courseware, r→revenue) when message is expanded
+  useEffect(() => {
+    setFocusedSection(expandedId ? "detail" : "sessions");
+  }, [expandedId, setFocusedSection]);
 
   // Data hooks
   const { data: categoryCounts } = useUnreadCategoryCounts(tutorId);
