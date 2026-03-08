@@ -16,7 +16,8 @@ from database import get_db
 from sse import sse_manager
 import re
 from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, ThreadPin, ThreadMute, MessageSnooze, MessageMention, MessageRecipient, MessageTemplate, Tutor, MakeupProposal
-from utils.html_sanitizer import sanitize_message_html
+from utils.html_sanitizer import sanitize_message_html, strip_html_tags
+from .push_notifications import send_push_to_tutors
 from schemas import (
     MessageCreate,
     MessageUpdate,
@@ -340,17 +341,26 @@ def _deliver_due_scheduled_messages(tutor_id: int, db: Session):
         elif msg.to_tutor_id > 0:
             recipient_ids = [msg.to_tutor_id]
         if recipient_ids:
+            sender_name = msg.from_tutor.tutor_name if msg.from_tutor else "Someone"
+            preview = (msg.message or "")[:100]
             asyncio.create_task(sse_manager.broadcast("new_message", {
                 "message_id": msg.id,
                 "thread_id": msg.reply_to_id or msg.id,
                 "from_tutor_id": msg.from_tutor_id,
-                "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
+                "from_tutor_name": sender_name,
                 "subject": msg.subject,
-                "preview": (msg.message or "")[:100],
+                "preview": preview,
                 "category": msg.category,
                 "priority": msg.priority,
                 "mentioned_tutor_ids": sorted(mentioned_ids),
             }, recipient_ids))
+
+            # Web Push for offline users
+            send_push_to_tutors(recipient_ids, {
+                "title": sender_name,
+                "body": strip_html_tags(preview),
+                "data": {"threadId": msg.reply_to_id or msg.id, "url": "/inbox"},
+            })
 
 
 def build_message_response(
@@ -1657,17 +1667,26 @@ async def create_message(
             recipient_ids = [effective_to_tutor_id]
 
         if recipient_ids:
+            sender_name = new_message.from_tutor.tutor_name if new_message.from_tutor else "Someone"
+            preview = (new_message.message or "")[:100]
             asyncio.create_task(sse_manager.broadcast("new_message", {
                 "message_id": new_message.id,
                 "thread_id": new_message.reply_to_id or new_message.id,
                 "from_tutor_id": from_tutor_id,
-                "from_tutor_name": new_message.from_tutor.tutor_name if new_message.from_tutor else None,
+                "from_tutor_name": sender_name,
                 "subject": new_message.subject,
-                "preview": (new_message.message or "")[:100],
+                "preview": preview,
                 "category": new_message.category,
                 "priority": new_message.priority,
                 "mentioned_tutor_ids": sorted(mentioned_ids),
             }, recipient_ids))
+
+            # Web Push for offline users
+            send_push_to_tutors(recipient_ids, {
+                "title": sender_name,
+                "body": strip_html_tags(preview),
+                "data": {"threadId": new_message.reply_to_id or new_message.id, "url": "/inbox"},
+            })
 
     return build_message_response(new_message, from_tutor_id, db)
 

@@ -181,17 +181,28 @@ async def deliver_scheduled_messages_once():
                     recipient_ids = [msg.to_tutor_id]
 
                 if recipient_ids:
+                    sender_name = msg.from_tutor.tutor_name if msg.from_tutor else "Someone"
+                    preview = (msg.message or "")[:100]
                     await sse_manager.broadcast("new_message", {
                         "message_id": msg.id,
                         "thread_id": msg.reply_to_id or msg.id,
                         "from_tutor_id": msg.from_tutor_id,
-                        "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
+                        "from_tutor_name": sender_name,
                         "subject": msg.subject,
-                        "preview": (msg.message or "")[:100],
+                        "preview": preview,
                         "category": msg.category,
                         "priority": msg.priority,
                         "mentioned_tutor_ids": sorted(mention_ids),
                     }, recipient_ids)
+
+                    # Web Push for offline users
+                    from routers.push_notifications import send_push_to_tutors
+                    from utils.html_sanitizer import strip_html_tags
+                    send_push_to_tutors(recipient_ids, {
+                        "title": sender_name,
+                        "body": strip_html_tags(preview),
+                        "data": {"threadId": msg.reply_to_id or msg.id, "url": "/inbox"},
+                    })
                     logger.info("Delivered scheduled message %d to %d recipients", msg.id, len(recipient_ids))
         finally:
             db.close()
@@ -279,7 +290,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
@@ -305,6 +316,7 @@ app.include_router(discounts.router, prefix="/api", tags=["discounts"])
 app.include_router(wecom.router, prefix="/api", tags=["wecom"])
 app.include_router(tutor_memos.router, prefix="/api", tags=["tutor-memos"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
+app.include_router(push_notifications.router, prefix="/api", tags=["push-notifications"])
 
 
 if __name__ == "__main__":

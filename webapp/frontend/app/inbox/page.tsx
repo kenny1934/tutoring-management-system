@@ -24,6 +24,7 @@ import ComposeModal from "@/components/inbox/ComposeModal";
 import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { useSSE } from "@/lib/useSSE";
+import { usePushNotifications } from "@/lib/usePushNotifications";
 import ConnectionStatus from "@/components/inbox/ConnectionStatus";
 import NewMessageBanner from "@/components/inbox/NewMessageBanner";
 import SearchFilters from "@/components/inbox/SearchFilters";
@@ -917,6 +918,9 @@ export default function InboxPage() {
 
   // Favicon badge with unread count
   useFaviconBadge(unreadCount?.count || 0);
+
+  // Web Push subscription (registers SW + subscribes if permission granted)
+  usePushNotifications(tutorId);
 
   // Handlers
   // Undo send: store pending timer + data so we can cancel or flush on tab close
