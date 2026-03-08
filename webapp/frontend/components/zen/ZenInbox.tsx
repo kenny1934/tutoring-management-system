@@ -89,6 +89,36 @@ function Attachments({ msg }: { msg: Pick<Message, "image_attachments" | "file_a
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
+function ReactionBadges({ msg, currentTutorId, onReact }: { msg: Message; currentTutorId: number | null; onReact: (messageId: number, emoji: string) => void }) {
+  if (!msg.like_count || msg.like_count === 0) return null;
+  const groups = new Map<string, { count: number; isMine: boolean }>();
+  for (const d of msg.like_details || []) {
+    const g = groups.get(d.emoji) || { count: 0, isMine: false };
+    g.count++;
+    if (d.tutor_id === currentTutorId) g.isMine = true;
+    groups.set(d.emoji, g);
+  }
+  return (
+    <div style={{ marginTop: "4px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+      {Array.from(groups.entries()).map(([emoji, { count, isMine }]) => (
+        <span
+          key={emoji}
+          onClick={(e) => { e.stopPropagation(); onReact(msg.id, emoji); }}
+          style={{
+            color: isMine ? "var(--zen-accent)" : "var(--zen-dim)",
+            cursor: "pointer",
+            border: isMine ? "1px solid var(--zen-accent)" : "1px solid var(--zen-border)",
+            padding: "0 4px",
+            fontSize: "11px",
+          }}
+        >
+          {emoji}×{count}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const CATEGORIES: { key: MessageCategory; label: string; abbr: string }[] = [
   { key: "Reminder", label: "Reminder", abbr: "Remind" },
   { key: "Question", label: "Question", abbr: "Quest" },
@@ -509,7 +539,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
                     onDoubleClick={() => { setCursor(i); setExpandedId(thread.root_message.id); }}
                     onMarkRead={() => handleMarkRead(thread.root_message.id)}
                     onArchive={() => handleArchive(thread.root_message.id)}
-                    onReact={(emoji) => handleReact(thread.root_message.id, emoji)}
+                    onReact={handleReact}
                     onStartReply={() => setReplyingToId(thread.root_message.id)}
                     onReplySent={() => { setReplyingToId(null); refreshThreads(); }}
                     onCancelReply={() => setReplyingToId(null)}
@@ -601,7 +631,7 @@ interface MessageRowProps {
   onDoubleClick: () => void;
   onMarkRead: () => void;
   onArchive: () => void;
-  onReact: (emoji: string) => void;
+  onReact: (messageId: number, emoji: string) => void;
   onStartReply: () => void;
   onReplySent: () => void;
   onCancelReply: () => void;
@@ -696,35 +726,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             dangerouslySetInnerHTML={{ __html: renderedBody }}
           />
           <Attachments msg={msg} />
-          {/* Reactions */}
-          {msg.like_count > 0 && (
-            <div style={{ marginTop: "4px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {(() => {
-                const groups = new Map<string, { count: number; isMine: boolean }>();
-                for (const d of msg.like_details || []) {
-                  const g = groups.get(d.emoji) || { count: 0, isMine: false };
-                  g.count++;
-                  if (d.tutor_id === currentTutorId) g.isMine = true;
-                  groups.set(d.emoji, g);
-                }
-                return Array.from(groups.entries()).map(([emoji, { count, isMine }]) => (
-                  <span
-                    key={emoji}
-                    onClick={(e) => { e.stopPropagation(); onReact(emoji); }}
-                    style={{
-                      color: isMine ? "var(--zen-accent)" : "var(--zen-dim)",
-                      cursor: "pointer",
-                      border: isMine ? "1px solid var(--zen-accent)" : "1px solid var(--zen-border)",
-                      padding: "0 4px",
-                      fontSize: "11px",
-                    }}
-                  >
-                    {emoji}×{count}
-                  </span>
-                ));
-              })()}
-            </div>
-          )}
+          <ReactionBadges msg={msg} currentTutorId={currentTutorId} onReact={onReact} />
           {/* Reaction picker */}
           {showReactionPicker && (
             <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--zen-dim)" }}>
@@ -732,7 +734,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
               {REACTION_EMOJIS.map((emoji, i) => (
                 <span
                   key={emoji}
-                  onClick={(e) => { e.stopPropagation(); onReact(emoji); }}
+                  onClick={(e) => { e.stopPropagation(); onReact(msg.id, emoji); }}
                   style={{ cursor: "pointer", marginRight: "6px" }}
                 >
                   <span style={{ color: "var(--zen-fg)" }}>[{i + 1}]</span>{emoji}
@@ -763,6 +765,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
                     dangerouslySetInnerHTML={{ __html: renderMessage(reply.message) }}
                   />
                   <Attachments msg={reply} />
+                  <ReactionBadges msg={reply} currentTutorId={currentTutorId} onReact={onReact} />
                 </div>
               ))}
             </div>
