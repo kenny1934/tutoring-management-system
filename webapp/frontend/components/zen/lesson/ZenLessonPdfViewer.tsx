@@ -124,6 +124,8 @@ export function ZenLessonPdfViewer({
   const renderScaleRef = useRef(RENDER_SCALE);
   const pdfBytesRef = useRef<ArrayBuffer | null>(null);
   const hiResRerenderRef = useRef(false);
+  const exerciseIdRef = useRef(exerciseId);
+  exerciseIdRef.current = exerciseId;
 
   const handleZoomIn = useCallback(() => {
     userHasZoomed.current = true;
@@ -308,8 +310,8 @@ export function ZenLessonPdfViewer({
         setPages(rendered);
         renderScaleRef.current = neededScale;
 
-        if (exerciseId != null) {
-          renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes });
+        if (exerciseIdRef.current != null) {
+          renderCacheRef.current.set(exerciseIdRef.current, { pages: rendered, pdfBytes });
         }
 
         oldUrls.forEach(url => URL.revokeObjectURL(url));
@@ -319,7 +321,8 @@ export function ZenLessonPdfViewer({
     }, 300);
 
     return () => { clearTimeout(timer); cancelled = true; };
-  }, [zoom, pages, exerciseId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, pages]);
 
   // Cleanup cached pages and clear confirm timer on unmount
   useEffect(() => {
