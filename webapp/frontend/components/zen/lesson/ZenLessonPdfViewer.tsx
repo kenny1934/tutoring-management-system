@@ -131,7 +131,7 @@ export function ZenLessonPdfViewer({
         pdfBytesRef.current = pdfBytes;
 
         const pdfjs = await getPdfJs();
-        const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+        const doc = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
 
         if (cancelled) { doc.destroy(); return; }
 
