@@ -45,6 +45,8 @@ const isAnyMessageKey = (key: unknown) =>
  * Triggers SWR cache revalidation when events are received.
  * Returns typing users per thread for typing indicator display.
  */
+export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
+
 export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallbacks) {
   const { mutate } = useSWRConfig();
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -52,6 +54,10 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
   const backoffRef = useRef(1000);
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
+
+  // Connection status for UI indicator — only expose after first successful connection
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const hasConnectedRef = useRef(false);
 
   // Typing indicators: threadId -> list of typing users
   const [typingByThread, setTypingByThread] = useState<Map<number, TypingUser[]>>(new Map());
@@ -83,6 +89,7 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
       eventSourceRef.current.close();
     }
 
+    setConnectionStatus('connecting');
     const url = `/api/messages/stream?tutor_id=${tutorId}`;
     const es = new EventSource(url, { withCredentials: true });
     eventSourceRef.current = es;
@@ -90,6 +97,8 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
     es.onopen = () => {
       // Reset backoff on successful connection
       backoffRef.current = 1000;
+      hasConnectedRef.current = true;
+      setConnectionStatus('connected');
     };
 
     // Handle specific event types
@@ -149,6 +158,7 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
     es.onerror = () => {
       es.close();
       eventSourceRef.current = null;
+      setConnectionStatus('disconnected');
 
       // Reconnect with exponential backoff (max 30s)
       const delay = backoffRef.current;
@@ -193,5 +203,7 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
     };
   }, [connect, mutate]);
 
-  return { typingByThread };
+  // Only report connection issues after SSE has connected at least once
+  const effectiveStatus: ConnectionStatus = hasConnectedRef.current ? connectionStatus : 'connected';
+  return { typingByThread, connectionStatus: effectiveStatus };
 }

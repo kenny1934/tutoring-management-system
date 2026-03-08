@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
+import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useFaviconBadge, useProposals, useClickOutside, useActiveTutors, useTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -24,6 +24,8 @@ import ComposeModal from "@/components/inbox/ComposeModal";
 import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { useSSE } from "@/lib/useSSE";
+import ConnectionStatus from "@/components/inbox/ConnectionStatus";
+import NewMessageBanner from "@/components/inbox/NewMessageBanner";
 import SearchFilters from "@/components/inbox/SearchFilters";
 import { highlightMatch } from "@/components/inbox/MessageBubble";
 import {
@@ -436,6 +438,8 @@ export default function InboxPage() {
     typeof window !== 'undefined' && window.innerWidth < 1024
   );
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [newMsgBanner, setNewMsgBanner] = useState<{ senderName: string; preview: string; threadId: number; isUrgent: boolean } | null>(null);
+  const dismissBanner = useCallback(() => setNewMsgBanner(null), []);
   const [catCanScrollUp, setCatCanScrollUp] = useState(false);
   const [catCanScrollDown, setCatCanScrollDown] = useState(false);
   const catNavRef = useRef<HTMLDivElement>(null);
@@ -453,35 +457,44 @@ export default function InboxPage() {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("inbox_sound_muted") !== "1";
   });
-  const notifAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   useEffect(() => {
     localStorage.setItem("inbox_sound_muted", soundEnabled ? "0" : "1");
   }, [soundEnabled]);
+  // Shared Web Audio chime helper — schedule a single tone with frequency ramp
+  const scheduleChime = useCallback((ctx: AudioContext, freq1: number, freq2: number, vol: number, offset: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(freq1, ctx.currentTime + offset);
+    osc.frequency.setValueAtTime(freq2, ctx.currentTime + offset + 0.08);
+    gain.gain.setValueAtTime(vol, ctx.currentTime + offset);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.3);
+    osc.start(ctx.currentTime + offset);
+    osc.stop(ctx.currentTime + offset + 0.3);
+  }, []);
+
+  const ensureAudioCtx = useCallback((): AudioContext | null => {
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+      if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+      return audioCtxRef.current;
+    } catch { return null; }
+  }, []);
+
   const playNotifSound = useCallback(() => {
     if (!soundEnabled) return;
-    try {
-      if (!notifAudioRef.current) {
-        // Short, subtle notification chime (Web Audio API — reuse context)
-        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-        const ctx = audioCtxRef.current;
-        if (ctx.state === "suspended") ctx.resume();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.3);
-        return;
-      }
-      notifAudioRef.current.currentTime = 0;
-      notifAudioRef.current.play().catch(() => {});
-    } catch {}
-  }, [soundEnabled]);
+    const ctx = ensureAudioCtx();
+    if (ctx) scheduleChime(ctx, 880, 1100, 0.15, 0);
+  }, [soundEnabled, ensureAudioCtx, scheduleChime]);
+
+  // Urgent notification sound — two-tone chime, higher pitch
+  const playUrgentSound = useCallback(() => {
+    if (!soundEnabled) return;
+    const ctx = ensureAudioCtx();
+    if (ctx) { scheduleChime(ctx, 1200, 1500, 0.2, 0); scheduleChime(ctx, 1200, 1500, 0.2, 0.35); }
+  }, [soundEnabled, ensureAudioCtx, scheduleChime]);
 
   // Track button position when popover is open — compute once on open + on scroll/resize
   useEffect(() => {
@@ -849,21 +862,47 @@ export default function InboxPage() {
   }, [unreadCount?.count, sendNotification, playNotifSound]);
 
   // SSE real-time updates — instant push instead of polling
-  const { typingByThread } = useSSE(tutorId, {
-    onNewMessage: useCallback((data: { thread_id: number; from_tutor_name: string | null; preview: string; mentioned_tutor_ids?: number[] }) => {
+  const { typingByThread, connectionStatus } = useSSE(tutorId, {
+    onNewMessage: useCallback((data: { thread_id: number; from_tutor_name: string | null; preview: string; mentioned_tutor_ids?: number[]; priority?: string; subject?: string | null }) => {
       const isMentioned = tutorId != null && data.mentioned_tutor_ids?.includes(tutorId);
       // Skip notification for muted threads (unless current user is @mentioned)
       const thread = displayThreads.find(t => t.root_message.id === data.thread_id);
       if (thread?.root_message.is_thread_muted && !isMentioned) return;
 
-      playNotifSound();
-      sendNotification(isMentioned ? "You were mentioned" : "New Message", {
+      const isUrgent = data.priority === "Urgent" || data.priority === "High" || isMentioned;
+      const plainPreview = stripHtml(data.preview);
+
+      // Differentiated sound
+      if (isUrgent) {
+        playUrgentSound();
+      } else {
+        playNotifSound();
+      }
+
+      // Differentiated browser notification
+      const title = isMentioned
+        ? `You were mentioned by ${data.from_tutor_name || "someone"}`
+        : data.priority === "Urgent"
+          ? `Urgent: ${data.subject || "New Message"}`
+          : "New Message";
+      sendNotification(title, {
         body: data.from_tutor_name
-          ? `${data.from_tutor_name}: ${stripHtml(data.preview)}`
-          : stripHtml(data.preview),
+          ? `${data.from_tutor_name}: ${plainPreview}`
+          : plainPreview,
         icon: "/favicon.ico",
       });
-    }, [playNotifSound, sendNotification, displayThreads, tutorId]),
+
+      // In-app banner for messages in other threads
+      const currentThreadId = selectedThread?.root_message.id;
+      if (data.thread_id !== currentThreadId) {
+        setNewMsgBanner({
+          senderName: data.from_tutor_name || "Unknown",
+          preview: plainPreview,
+          threadId: data.thread_id,
+          isUrgent,
+        });
+      }
+    }, [playNotifSound, playUrgentSound, sendNotification, displayThreads, tutorId, selectedThread?.root_message.id]),
     onReminderDue: useCallback((data: { subject: string | null; preview: string }) => {
       showToast(`Reminder: ${data.subject || data.preview || "Message"}`, "info");
     }, [showToast]),
@@ -875,6 +914,9 @@ export default function InboxPage() {
     document.title = count > 0 ? `(${count}) Inbox` : 'Inbox';
     return () => { document.title = 'TMS'; };
   }, [unreadCount?.count]);
+
+  // Favicon badge with unread count
+  useFaviconBadge(unreadCount?.count || 0);
 
   // Handlers
   // Undo send: store pending timer + data so we can cancel or flush on tab close
@@ -1736,6 +1778,22 @@ export default function InboxPage() {
                   </div>
                 </div>
               </div>
+              {/* Connection status + new message banner */}
+              <ConnectionStatus status={connectionStatus} />
+              {newMsgBanner && (
+                <NewMessageBanner
+                  senderName={newMsgBanner.senderName}
+                  preview={newMsgBanner.preview}
+                  threadId={newMsgBanner.threadId}
+                  isUrgent={newMsgBanner.isUrgent}
+                  onJump={(threadId) => {
+                    setNewMsgBanner(null);
+                    const thread = displayThreads.find(t => t.root_message.id === threadId);
+                    if (thread) setSelectedThread(thread);
+                  }}
+                  onDismiss={dismissBanner}
+                />
+              )}
               {isLoading ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {([
