@@ -815,18 +815,20 @@ export function ZenCommandBar() {
         }
       }
 
-      // Skip if typing in input
-      if (
-        document.activeElement === inputRef.current ||
-        ["INPUT", "TEXTAREA"].includes(
-          (document.activeElement as HTMLElement)?.tagName
-        )
-      ) {
-        // Only handle "/" to focus
+      // Skip if typing in command bar input
+      if (document.activeElement === inputRef.current) {
         if (e.key === "/") {
           e.preventDefault();
           inputRef.current?.focus();
         }
+        return;
+      }
+      // Skip if typing in any other input/textarea
+      if (
+        ["INPUT", "TEXTAREA"].includes(
+          (document.activeElement as HTMLElement)?.tagName
+        )
+      ) {
         return;
       }
 
