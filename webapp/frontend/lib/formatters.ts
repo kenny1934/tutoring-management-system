@@ -158,6 +158,22 @@ export function formatTimeAgo(timestamp: string): string {
 }
 
 /**
+ * Format a date-only string (YYYY-MM-DD) as day-level relative time.
+ * Use instead of formatTimeAgo when the source has no time component.
+ */
+export function formatDaysAgo(dateStr: string): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const date = new Date(dateStr + "T00:00:00");
+  const diffDays = Math.round((today.getTime() - date.getTime()) / 86400000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
  * Convert rating number to emoji stars
  * Example: 3 → "⭐⭐⭐"
  */
