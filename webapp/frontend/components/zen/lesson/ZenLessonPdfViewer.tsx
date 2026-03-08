@@ -103,6 +103,7 @@ export function ZenLessonPdfViewer({
   onSaveAnnotated,
 }: ZenLessonPdfViewerProps) {
   const [clearConfirmPage, setClearConfirmPage] = useState<number | null>(null);
+  const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
@@ -309,7 +310,7 @@ export function ZenLessonPdfViewer({
     return () => clearTimeout(timer);
   }, [zoom, pages, exerciseId]);
 
-  // Cleanup cached pages on unmount
+  // Cleanup cached pages and clear confirm timer on unmount
   useEffect(() => {
     const cache = renderCacheRef.current;
     return () => {
@@ -317,6 +318,7 @@ export function ZenLessonPdfViewer({
         entry.pages.forEach((p) => URL.revokeObjectURL(p.url));
       }
       cache.clear();
+      if (clearConfirmTimerRef.current) clearTimeout(clearConfirmTimerRef.current);
     };
   }, []);
 
@@ -467,12 +469,13 @@ export function ZenLessonPdfViewer({
               {onClearPage && (
                 <button
                   onClick={() => {
+                    if (clearConfirmTimerRef.current) clearTimeout(clearConfirmTimerRef.current);
                     if (clearConfirmPage === currentPage - 1) {
                       onClearPage(currentPage - 1);
                       setClearConfirmPage(null);
                     } else {
                       setClearConfirmPage(currentPage - 1);
-                      setTimeout(() => setClearConfirmPage(null), 2000);
+                      clearConfirmTimerRef.current = setTimeout(() => setClearConfirmPage(null), 2000);
                     }
                   }}
                   style={{ ...zenToolBtn, color: clearConfirmPage === currentPage - 1 ? "var(--zen-error)" : "var(--zen-dim)" }}
