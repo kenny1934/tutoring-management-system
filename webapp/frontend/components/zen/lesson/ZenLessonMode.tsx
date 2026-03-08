@@ -66,19 +66,22 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
 
   // Annotations
   const annotations = useAnnotations(`zen-lesson-${session.id}`);
+  const [, setStrokeVersion] = useState(0);
+  const bumpStrokes = useCallback(() => setStrokeVersion(v => v + 1), []);
 
   const handleUndo = useCallback(() => {
     if (!selectedExercise) return;
     const pageIdx = currentPage - 1;
-    const updated = annotations.undoLastStroke(selectedExercise.id, pageIdx);
-    // Force re-render via state update not needed — strokes are read from ref
-  }, [selectedExercise, currentPage, annotations]);
+    annotations.undoLastStroke(selectedExercise.id, pageIdx);
+    bumpStrokes();
+  }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 
   const handleRedo = useCallback(() => {
     if (!selectedExercise) return;
     const pageIdx = currentPage - 1;
     annotations.redoLastStroke(selectedExercise.id, pageIdx);
-  }, [selectedExercise, currentPage, annotations]);
+    bumpStrokes();
+  }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedExercise || !pdfData) return;
@@ -226,10 +229,10 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
             penSize={state.penSize}
             annotationHidden={state.annotationHidden}
             pageStrokes={selectedExercise ? (pageIdx) => annotations.getAnnotations(selectedExercise.id)[pageIdx] || [] : undefined}
-            onStrokesChange={selectedExercise ? (pageIdx, strokes) => annotations.setPageStrokes(selectedExercise.id, pageIdx, strokes) : undefined}
+            onStrokesChange={selectedExercise ? (pageIdx, strokes) => { annotations.setPageStrokes(selectedExercise.id, pageIdx, strokes); bumpStrokes(); } : undefined}
             onUndo={handleUndo}
             onRedo={handleRedo}
-            onClearPage={selectedExercise ? (pageIdx) => annotations.clearPage(selectedExercise.id, pageIdx) : undefined}
+            onClearPage={selectedExercise ? (pageIdx) => { annotations.clearPage(selectedExercise.id, pageIdx); bumpStrokes(); } : undefined}
             onPenColorChange={state.setPenColor}
             onPenSizeChange={state.setPenSize}
             hasAnnotationsForExercise={selectedExercise ? annotations.hasAnnotations(selectedExercise.id) : false}
