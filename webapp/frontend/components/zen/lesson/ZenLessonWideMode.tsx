@@ -98,8 +98,20 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
   // Annotations
   const annotations = useAnnotations(activeSession ? `zen-lesson-wide-${activeSession.id}` : undefined);
   const ann = useZenAnnotationHandlers({
-    annotations, selectedExercise, currentPage, pdfData, pageNumbers, stamp, onClose,
+    annotations, selectedExercise, exercises: state.exercises, pdfCacheRef: state.pdfCacheRef,
+    currentPage, pdfData, pageNumbers, stamp, onClose,
   });
+
+  // Warn on tab close with unsaved annotations
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (annotations.hasAnyAnnotations()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [annotations]);
 
   const digitBufferRef = useRef<{ digit: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
@@ -115,11 +127,16 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         e.preventDefault();
         e.stopImmediatePropagation();
         if (e.key === "1") {
-          ann.refs.handleSaveAnnotatedRef.current().then(() => {
+          ann.refs.handleSaveAllAnnotatedRef.current().then(() => {
             annotations.clearStorage();
             onClose();
           });
         } else if (e.key === "2") {
+          ann.refs.handleSaveAnnotatedRef.current().then(() => {
+            annotations.clearStorage();
+            onClose();
+          });
+        } else if (e.key === "3") {
           annotations.clearAll();
           annotations.clearStorage();
           onClose();
@@ -441,6 +458,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
 
       {ann.showExitConfirm && (
         <ZenExitConfirmDialog
+          onSaveAllAndExit={() => { ann.handleSaveAllAnnotated().then(() => { annotations.clearStorage(); onClose(); }); }}
           onSaveAndExit={() => { ann.handleSaveAnnotated().then(() => { annotations.clearStorage(); onClose(); }); }}
           onDiscardAndExit={() => { annotations.clearAll(); annotations.clearStorage(); onClose(); }}
           onCancel={() => ann.setShowExitConfirm(false)}

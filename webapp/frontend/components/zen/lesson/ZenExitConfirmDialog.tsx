@@ -1,12 +1,13 @@
 "use client";
 
 interface ZenExitConfirmDialogProps {
+  onSaveAllAndExit: () => void;
   onSaveAndExit: () => void;
   onDiscardAndExit: () => void;
   onCancel: () => void;
 }
 
-export function ZenExitConfirmDialog({ onSaveAndExit, onDiscardAndExit, onCancel }: ZenExitConfirmDialogProps) {
+export function ZenExitConfirmDialog({ onSaveAllAndExit, onSaveAndExit, onDiscardAndExit, onCancel }: ZenExitConfirmDialogProps) {
   return (
     <div
       onClick={onCancel}
@@ -20,15 +21,18 @@ export function ZenExitConfirmDialog({ onSaveAndExit, onDiscardAndExit, onCancel
           You have unsaved annotations. What would you like to do?
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
+          <button onClick={onSaveAllAndExit} style={{ background: "none", border: "1px solid var(--zen-border)", color: "var(--zen-fg)", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", padding: "6px 16px" }}>
+            <span style={{ color: "var(--zen-accent)" }}>1</span> Download All &amp; Exit
+          </button>
           <button onClick={onSaveAndExit} style={{ background: "none", border: "1px solid var(--zen-border)", color: "var(--zen-fg)", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", padding: "6px 16px" }}>
-            <span style={{ color: "var(--zen-accent)" }}>1</span> Download &amp; Exit
+            <span style={{ color: "var(--zen-accent)" }}>2</span> Download Current &amp; Exit
           </button>
           <button onClick={onDiscardAndExit} style={{ background: "none", border: "1px solid var(--zen-border)", color: "var(--zen-fg)", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", padding: "6px 16px" }}>
-            <span style={{ color: "var(--zen-accent)" }}>2</span> Exit
+            <span style={{ color: "var(--zen-accent)" }}>3</span> Exit
           </button>
         </div>
         <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginTop: "8px" }}>
-          Press 1, 2, or Esc to cancel
+          Press 1, 2, 3, or Esc to cancel
         </div>
       </div>
     </div>
