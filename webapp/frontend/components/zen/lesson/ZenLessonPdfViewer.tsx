@@ -229,7 +229,7 @@ export function ZenLessonPdfViewer({
           renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes });
           if (renderCacheRef.current.size > MAX_RENDER_CACHE_SIZE) {
             const oldestKey = renderCacheRef.current.keys().next().value;
-            if (oldestKey !== undefined) {
+            if (oldestKey !== undefined && oldestKey !== exerciseId) {
               renderCacheRef.current.get(oldestKey)?.pages.forEach(p => URL.revokeObjectURL(p.url));
               renderCacheRef.current.delete(oldestKey);
             }
@@ -261,15 +261,19 @@ export function ZenLessonPdfViewer({
     const neededScale = (zoom / 100) * RENDER_SCALE;
     if (neededScale <= renderScaleRef.current * 1.1) return;
 
+    let cancelled = false;
     const pdfBytes = pdfBytesRef.current;
     const timer = setTimeout(async () => {
       try {
         const pdfjs = await getPdfJs();
+        if (cancelled) return;
         const doc = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
+        if (cancelled) { doc.destroy(); return; }
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
         const scale = neededScale * dpr;
 
         const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
+          if (cancelled) return null;
           const page = await doc.getPage(pageNum);
           const viewport = page.getViewport({ scale });
           const canvas = document.createElement("canvas");
@@ -278,9 +282,11 @@ export function ZenLessonPdfViewer({
           const ctx = canvas.getContext("2d");
           if (!ctx) return null;
           await page.render({ canvasContext: ctx, viewport }).promise;
+          if (cancelled) return null;
           const blob = await new Promise<Blob>((resolve) =>
             canvas.toBlob((b) => resolve(b!), "image/png")
           );
+          if (cancelled) return null;
           const nativeWidth = viewport.width / scale;
           const nativeHeight = viewport.height / scale;
           return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
@@ -289,6 +295,11 @@ export function ZenLessonPdfViewer({
         const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
         const results = await Promise.all(pageNums.map(renderPage));
         doc.destroy();
+
+        if (cancelled) {
+          results.forEach(r => r && URL.revokeObjectURL(r.url));
+          return;
+        }
 
         const rendered = results.filter((r): r is RenderedPage => r !== null);
         const oldUrls = pages.map(p => p.url);
@@ -303,11 +314,11 @@ export function ZenLessonPdfViewer({
 
         oldUrls.forEach(url => URL.revokeObjectURL(url));
       } catch (err) {
-        console.error("Hi-res re-render failed:", err);
+        if (!cancelled) console.error("Hi-res re-render failed:", err);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); cancelled = true; };
   }, [zoom, pages, exerciseId]);
 
   // Cleanup cached pages and clear confirm timer on unmount
