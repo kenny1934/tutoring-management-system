@@ -35,8 +35,11 @@ export function usePushNotifications(tutorId: number | null) {
       try {
         const existing = await reg.pushManager.getSubscription();
         if (existing) {
-          // Re-sync to backend in case the row was purged
-          await syncSubscription(existing);
+          // Re-sync to backend once per session (avoids POST on every page load)
+          if (!sessionStorage.getItem("push-synced")) {
+            await syncSubscription(existing);
+            sessionStorage.setItem("push-synced", "1");
+          }
           return;
         }
 
