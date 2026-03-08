@@ -316,6 +316,19 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }
   }, []);
 
+  // Jump to a specific message from the media panel
+  const handleJumpToMessage = useCallback((messageId: number) => {
+    setShowMediaPanel(false);
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${messageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-blue-400');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400'), 1500);
+      }
+    }, 100);
+  }, []);
+
   // Called by ReplyComposer when user sends a reply
   const handleSendReply = useCallback(async (text: string, images: string[], files: { url: string; filename: string; content_type: string }[] = []) => {
     // Build MessageCreate with auto-computed recipients
@@ -632,7 +645,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
       {/* Media & files panel */}
       {showMediaPanel && (
-        <ThreadMediaPanel thread={thread} onClose={() => setShowMediaPanel(false)} />
+        <ThreadMediaPanel thread={thread} onClose={() => setShowMediaPanel(false)} onJumpToMessage={handleJumpToMessage} />
       )}
 
       {/* Messages */}
