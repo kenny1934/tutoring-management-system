@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown,
   Maximize2, Minimize2, PencilLine, Users,
-  AlertTriangle, Loader2 as Loader2Icon, LayoutList,
+  AlertTriangle, LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -26,6 +26,8 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
+import { downloadBlob } from "@/lib/geometry-utils";
+import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -553,14 +555,81 @@ export function LessonWideMode({
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedEntry?.exercise || !pdfData) return;
-    await saveAnnotatedPdf(
+    const blob = await saveAnnotatedPdf(
       pdfData,
       getExercisePageNumbers(selectedEntry.exercise),
-      currentAnnotations,
       stamp,
-      `${exerciseLabel || "exercise"}-annotated.pdf`
+      currentAnnotations,
     );
+    downloadBlob(blob, `${exerciseLabel || "exercise"}-annotated.pdf`);
   }, [selectedEntry, pdfData, currentAnnotations, stamp, exerciseLabel]);
+
+  // --- Exit confirmation ---
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const handleExitAttempt = useCallback(() => {
+    if (hasAnyAnnotations()) {
+      setShowExitConfirm(true);
+    } else {
+      window.close();
+    }
+  }, [hasAnyAnnotations]);
+
+  const handleSaveAllAndExit = useCallback(async () => {
+    setIsSavingAll(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const allAnnotationsMap = getAllAnnotations();
+
+      for (const entry of allEntries) {
+        const ann = allAnnotationsMap.get(entry.exercise.id);
+        if (!ann || !Object.values(ann).some((s) => s.length > 0)) continue;
+        if (!entry.exercise.pdf_name) continue;
+
+        const cached = pdfCacheRef.current.get(entry.exercise.pdf_name);
+        if (!cached) continue;
+
+        const entryStamp: PrintStampInfo = {
+          location: entry.session.location,
+          schoolStudentId: entry.studentId || undefined,
+          studentName: entry.studentName,
+          sessionDate: entry.session.session_date,
+          sessionTime: entry.session.time_slot,
+        };
+
+        const pages = getExercisePageNumbers(entry.exercise);
+        const blob = await saveAnnotatedPdf(cached, pages, entryStamp, ann);
+        const label = `${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`;
+        zip.file(`annotated-${label}.pdf`, blob);
+      }
+
+      const parts = ["Annotations", date, slot].filter(Boolean);
+      const zipName = parts.join("_").replace(/\s+/g, "-") + ".zip";
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(zipBlob, zipName);
+      clearStorage();
+      setIsSavingAll(false);
+      setShowExitConfirm(false);
+      window.close();
+    } catch (err) {
+      console.error("Failed to save annotated PDFs:", err);
+      setIsSavingAll(false);
+    }
+  }, [allEntries, getAllAnnotations, date, slot, clearStorage]);
+
+  // --- beforeunload warning ---
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasAnyAnnotations()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasAnyAnnotations]);
 
   // --- Retry ---
   const handleRetry = useCallback(() => {
@@ -597,7 +666,7 @@ export function LessonWideMode({
     // Skip when modals are open or input is focused
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (exerciseModalSession) return;
+    if (exerciseModalSession || showExitConfirm) return;
 
     switch (e.key) {
       case "Escape":
@@ -638,6 +707,9 @@ export function LessonWideMode({
       case "a":
         handleAnswerKeyToggle();
         break;
+      case "s":
+        if (exerciseHasAnnotations) handleSaveAnnotated();
+        break;
       case "f":
         toggleFocusMode();
         break;
@@ -651,9 +723,10 @@ export function LessonWideMode({
         break;
     }
   }, [
-    exerciseModalSession, showShortcutHelp, drawingEnabled, focusMode,
+    exerciseModalSession, showExitConfirm, showShortcutHelp, drawingEnabled, focusMode,
     currentFileGroup, toggleAnnotationTool, handleRedo, handleUndo,
     handlePrint, handleAnswerKeyToggle, toggleFocusMode, exitFocusMode,
+    exerciseHasAnnotations, handleSaveAnnotated,
   ]));
 
   // Navigate between exercises (j/k)
@@ -739,9 +812,9 @@ export function LessonWideMode({
         "shadow-inner rounded-[12px]",
         isOverlay && "rounded-[20px]"
       )} style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}>
-        {/* Exit button — closes tab */}
+        {/* Exit button — closes tab (with annotation warning) */}
         <button
-          onClick={focusMode ? exitFocusMode : () => window.close()}
+          onClick={focusMode ? exitFocusMode : handleExitAttempt}
           className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           title={focusMode ? "Exit focus mode (Esc)" : "Close lesson tab"}
         >
@@ -953,6 +1026,7 @@ export function LessonWideMode({
                   ["d", "Pen tool"],
                   ["e", "Eraser tool"],
                   ["z / Z", "Undo / Redo"],
+                  ["s", "Save annotated PDF"],
                   ["p", "Print"],
                   ["a", "Answer key"],
                   ["f", "Focus mode"],
@@ -1175,6 +1249,20 @@ export function LessonWideMode({
           exerciseType={exerciseModalType}
           isOpen
           onClose={handleExerciseModalClose}
+        />
+      )}
+
+      {/* Exit confirmation dialog */}
+      {showExitConfirm && (
+        <ExitConfirmDialog
+          isOpen={showExitConfirm}
+          isSaving={isSavingAll}
+          onCancel={() => setShowExitConfirm(false)}
+          onSaveAndExit={handleSaveAllAndExit}
+          onExit={() => {
+            clearStorage();
+            window.close();
+          }}
         />
       )}
     </motion.div>
