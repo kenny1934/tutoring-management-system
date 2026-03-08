@@ -11,6 +11,8 @@ import { messagesAPI } from "@/lib/api";
 import { formatTimeAgo } from "@/lib/formatters";
 import { stripHtml, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-utils";
 import { highlightCodeBlocks } from "@/lib/code-highlight";
+import { computeReplyRecipients } from "@/lib/inbox-constants";
+import { useFileUpload } from "@/lib/useFileUpload";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import "katex/dist/katex.min.css";
@@ -113,6 +115,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
   const [focusPane, setFocusPane] = useState<"categories" | "list">("list");
   const [categoryCursor, setCategoryCursor] = useState(0); // 0 = All, 1+ = categories
   const [reactionPickerForId, setReactionPickerForId] = useState<number | null>(null);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
   const cursorRowRef = useRef<HTMLDivElement>(null);
   const gPressedRef = useRef(false);
 
@@ -144,6 +147,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
   useEffect(() => {
     setCursor(0);
     setExpandedId(null);
+    setReplyingToId(null);
   }, [activeTab, categoryFilter]);
 
   // Auto-scroll cursor into view
@@ -207,6 +211,9 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable) return;
+
+      // Composing reply — block all keyboard shortcuts (textarea handles its own input)
+      if (replyingToId !== null) return;
 
       // Reaction picker mode — intercept before everything else
       if (reactionPickerForId !== null) {
@@ -365,11 +372,18 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
         setReactionPickerForId(expandedId);
         return;
       }
+
+      // Compose reply
+      if (e.key === "c" && !e.shiftKey && activeTab === "messages" && expandedId && !replyingToId) {
+        e.preventDefault();
+        setReplyingToId(expandedId);
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, focusPane, cursor, expandedId, categoryFilter, categoryList, currentList.length, threads, proposals, hasMore, loadMore, handleMarkRead, handleArchive, handleReact, reactionPickerForId]);
+  }, [activeTab, focusPane, cursor, expandedId, categoryFilter, categoryList, currentList.length, threads, proposals, hasMore, loadMore, handleMarkRead, handleArchive, handleReact, reactionPickerForId, replyingToId]);
 
   return (
     <div style={{ padding: "8px 12px", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -481,6 +495,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
                     isAtCursor={focusPane === "list" && i === cursor}
                     isExpanded={expandedId === thread.root_message.id}
                     showReactionPicker={reactionPickerForId === thread.root_message.id}
+                    isReplying={replyingToId === thread.root_message.id}
                     currentTutorId={tutorId}
                     ref={focusPane === "list" && i === cursor ? cursorRowRef : undefined}
                     onClick={() => { setFocusPane("list"); setCursor(i); }}
@@ -488,6 +503,9 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
                     onMarkRead={() => handleMarkRead(thread.root_message.id)}
                     onArchive={() => handleArchive(thread.root_message.id)}
                     onReact={(emoji) => handleReact(thread.root_message.id, emoji)}
+                    onStartReply={() => setReplyingToId(thread.root_message.id)}
+                    onReplySent={() => { setReplyingToId(null); refreshThreads(); }}
+                    onCancelReply={() => setReplyingToId(null)}
                   />
                 ))}
                 {hasMore && (
@@ -547,6 +565,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
             <span style={{ color: "var(--zen-fg)" }}>m</span>=read{" "}
             <span style={{ color: "var(--zen-fg)" }}>x</span>=archive{" "}
             <span style={{ color: "var(--zen-fg)" }}>r</span>=react{" "}
+            <span style={{ color: "var(--zen-fg)" }}>c</span>=reply{" "}
           </>
         )}
         <span style={{ color: "var(--zen-fg)" }}>1/2</span> tabs
@@ -569,16 +588,20 @@ interface MessageRowProps {
   isAtCursor: boolean;
   isExpanded: boolean;
   showReactionPicker: boolean;
+  isReplying: boolean;
   currentTutorId: number | null;
   onClick: () => void;
   onDoubleClick: () => void;
   onMarkRead: () => void;
   onArchive: () => void;
   onReact: (emoji: string) => void;
+  onStartReply: () => void;
+  onReplySent: () => void;
+  onCancelReply: () => void;
 }
 
 const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageRow(
-  { thread, isAtCursor, isExpanded, showReactionPicker, currentTutorId, onClick, onDoubleClick, onMarkRead, onArchive, onReact },
+  { thread, isAtCursor, isExpanded, showReactionPicker, isReplying, currentTutorId, onClick, onDoubleClick, onMarkRead, onArchive, onReact, onStartReply, onReplySent, onCancelReply },
   ref,
 ) {
   const msg = thread.root_message;
@@ -738,25 +761,226 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
             </div>
           )}
 
+          {/* Reply composer */}
+          {isReplying && currentTutorId && (
+            <ZenReplyComposer
+              threadRootMessage={msg}
+              tutorId={currentTutorId}
+              onSent={onReplySent}
+              onCancel={onCancelReply}
+            />
+          )}
+
           {/* Action hints */}
-          <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginTop: "6px", borderTop: "1px solid var(--zen-border)", paddingTop: "4px" }}>
-            <span onClick={onMarkRead} style={{ cursor: "pointer" }}>
-              <span style={{ color: "var(--zen-fg)" }}>m</span>=mark-read
-            </span>
-            {"  "}
-            <span onClick={onArchive} style={{ cursor: "pointer" }}>
-              <span style={{ color: "var(--zen-fg)" }}>x</span>=archive
-            </span>
-            {"  "}
-            <span style={{ color: "var(--zen-fg)" }}>r</span>=react
-            {"  "}
-            <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
-          </div>
+          {!isReplying && (
+            <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginTop: "6px", borderTop: "1px solid var(--zen-border)", paddingTop: "4px" }}>
+              <span onClick={onMarkRead} style={{ cursor: "pointer" }}>
+                <span style={{ color: "var(--zen-fg)" }}>m</span>=mark-read
+              </span>
+              {"  "}
+              <span onClick={onArchive} style={{ cursor: "pointer" }}>
+                <span style={{ color: "var(--zen-fg)" }}>x</span>=archive
+              </span>
+              {"  "}
+              <span style={{ color: "var(--zen-fg)" }}>r</span>=react
+              {"  "}
+              <span onClick={onStartReply} style={{ cursor: "pointer" }}>
+                <span style={{ color: "var(--zen-fg)" }}>c</span>=reply
+              </span>
+              {"  "}
+              <span style={{ color: "var(--zen-fg)" }}>Esc</span>=close
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 });
+
+// ── Reply Composer ──
+
+interface ZenReplyComposerProps {
+  threadRootMessage: Message;
+  tutorId: number;
+  onSent: () => void;
+  onCancel: () => void;
+}
+
+function ZenReplyComposer({ threadRootMessage, tutorId, onSent, onCancel }: ZenReplyComposerProps) {
+  const [text, setText] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [files, setFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
+  const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { uploadFiles, isUploading, fileInputRef } = useFileUpload({
+    tutorId,
+    acceptFiles: true,
+    onError: () => setZenStatus("Upload failed", "error"),
+  });
+
+  // Auto-focus textarea on mount
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSend = useCallback(async () => {
+    const trimmed = text.trim();
+    if (!trimmed && images.length === 0 && files.length === 0) return;
+
+    setSending(true);
+    try {
+      const recipients = computeReplyRecipients(threadRootMessage, tutorId);
+      await messagesAPI.create({
+        ...recipients,
+        reply_to_id: threadRootMessage.id,
+        message: `<p>${trimmed.replace(/\n/g, "<br>")}</p>`,
+        image_attachments: images.length > 0 ? images : undefined,
+        file_attachments: files.length > 0 ? files : undefined,
+      }, tutorId);
+      setZenStatus("Reply sent", "success");
+      mutate((key: unknown) => Array.isArray(key) && (key[0] === "message-threads-paginated" || key[0] === "unread-count" || key[0] === "unread-category-counts"), undefined, { revalidate: true });
+      onSent();
+    } catch {
+      setZenStatus("Failed to send reply", "error");
+    } finally {
+      setSending(false);
+    }
+  }, [text, images, files, threadRootMessage, tutorId, onSent]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl+Enter to send
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSend();
+      return;
+    }
+    // Escape to cancel
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+      return;
+    }
+  }, [handleSend, onCancel]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const clipFiles = e.clipboardData?.files;
+    if (clipFiles && clipFiles.length > 0) {
+      e.preventDefault();
+      uploadFiles(clipFiles, {
+        onImage: (url) => setImages(prev => [...prev, url]),
+        onFile: (f) => setFiles(prev => [...prev, f]),
+      });
+    }
+  }, [uploadFiles]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadFiles(e.target.files, {
+      onImage: (url) => setImages(prev => [...prev, url]),
+      onFile: (f) => setFiles(prev => [...prev, f]),
+    });
+  }, [uploadFiles]);
+
+  const removeImage = (idx: number) => setImages(prev => prev.filter((_, i) => i !== idx));
+  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx));
+
+  return (
+    <div style={{ marginTop: "8px", borderTop: "1px solid var(--zen-border)", paddingTop: "6px" }}>
+      <div style={{ color: "var(--zen-dim)", fontSize: "10px", marginBottom: "4px" }}>
+        ── Reply ──
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        placeholder="Type your reply..."
+        rows={3}
+        style={{
+          width: "100%",
+          backgroundColor: "var(--zen-bg)",
+          color: "var(--zen-fg)",
+          border: "1px solid var(--zen-border)",
+          fontFamily: "inherit",
+          fontSize: "11px",
+          padding: "6px 8px",
+          resize: "vertical",
+          outline: "none",
+          lineHeight: "1.4",
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--zen-accent)"; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--zen-border)"; }}
+      />
+
+      {/* Uploaded files */}
+      {(images.length > 0 || files.length > 0) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
+          {images.map((url, i) => (
+            <span
+              key={url}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "2px 6px",
+                border: "1px solid var(--zen-border)",
+                fontSize: "10px",
+                color: "var(--zen-fg)",
+              }}
+            >
+              [IMG] {url.split("/").pop()?.slice(0, 20)}
+              <span onClick={() => removeImage(i)} style={{ cursor: "pointer", color: "var(--zen-error)" }}>×</span>
+            </span>
+          ))}
+          {files.map((f, i) => (
+            <span
+              key={f.url}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "2px 6px",
+                border: "1px solid var(--zen-border)",
+                fontSize: "10px",
+                color: "var(--zen-fg)",
+              }}
+            >
+              [{f.content_type?.split("/").pop()?.toUpperCase() || "FILE"}] {f.filename.slice(0, 20)}
+              <span onClick={() => removeFile(i)} style={{ cursor: "pointer", color: "var(--zen-error)" }}>×</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+      />
+
+      {/* Action bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", fontSize: "10px", color: "var(--zen-dim)" }}>
+        <span style={{ color: "var(--zen-fg)" }}>Ctrl+Enter</span>=send
+        {"  "}
+        <span
+          onClick={() => fileInputRef.current?.click()}
+          style={{ cursor: "pointer" }}
+        >
+          <span style={{ color: "var(--zen-fg)" }}>attach</span>
+        </span>
+        {"  "}
+        <span style={{ color: "var(--zen-fg)" }}>Esc</span>=cancel
+        {isUploading && <span style={{ color: "var(--zen-accent)" }}>uploading...</span>}
+        {sending && <span style={{ color: "var(--zen-accent)" }}>sending...</span>}
+      </div>
+    </div>
+  );
+}
 
 // ── Proposal Row ──
 
