@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
-import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
+import { extractPagesForPrint, getPdfJs, type PrintStampInfo } from "@/lib/pdf-utils";
 
 interface RenderedPage {
   url: string;
@@ -29,6 +29,7 @@ interface ZenLessonPdfViewerProps {
   loadingMessage?: string | null;
   error: string | null;
   exerciseId?: number;
+  stamp?: PrintStampInfo;
   currentPage: number;
   onCurrentPageChange: (page: number) => void;
   totalPages: number;
@@ -44,6 +45,7 @@ export function ZenLessonPdfViewer({
   loadingMessage,
   error,
   exerciseId,
+  stamp,
   currentPage,
   onCurrentPageChange,
   totalPages,
@@ -59,12 +61,19 @@ export function ZenLessonPdfViewer({
   const userHasZoomed = useRef(false);
   const fitZoomRef = useRef(100);
 
+  // Track observer-reported page to distinguish external (keyboard) page changes
+  const observerPageRef = useRef(1);
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
+
   const renderCacheRef = useRef<Map<number, {
     pages: RenderedPage[];
     pdfBytes: ArrayBuffer;
   }>>(new Map());
+  const renderScaleRef = useRef(RENDER_SCALE);
+  const pdfBytesRef = useRef<ArrayBuffer | null>(null);
+  const hiResRerenderRef = useRef(false);
 
-  // Zoom handlers exposed for parent
   const handleZoomIn = useCallback(() => {
     userHasZoomed.current = true;
     onZoomChange(Math.min(zoom + ZOOM_STEP, MAX_ZOOM));
@@ -81,9 +90,6 @@ export function ZenLessonPdfViewer({
     fitZoomRef.current = fit;
     onZoomChange(fit);
   }, [pages, onZoomChange]);
-
-  // Expose methods via ref-like callbacks for parent keyboard handler
-  // (parent calls onZoomChange/handleFitWidth directly)
 
   // Process PDF: extract pages → render as images
   useEffect(() => {
@@ -109,18 +115,20 @@ export function ZenLessonPdfViewer({
     let cancelled = false;
     setIsProcessing(true);
     setProcessError(null);
+    renderScaleRef.current = RENDER_SCALE;
 
     (async () => {
       try {
         let pdfBytes: ArrayBuffer;
-        if (pageNumbers.length > 0) {
-          const blob = await extractPagesForPrint(pdfData, pageNumbers);
+        if (stamp || pageNumbers.length > 0) {
+          const blob = await extractPagesForPrint(pdfData, pageNumbers, stamp);
           pdfBytes = await blob.arrayBuffer();
         } else {
           pdfBytes = pdfData.slice(0);
         }
 
         if (cancelled) return;
+        pdfBytesRef.current = pdfBytes;
 
         const pdfjs = await getPdfJs();
         const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
@@ -184,9 +192,74 @@ export function ZenLessonPdfViewer({
     })();
 
     return () => { cancelled = true; };
-  }, [pdfData, pageNumbers, exerciseId, onTotalPagesChange]);
+  }, [pdfData, pageNumbers, stamp, exerciseId, onTotalPagesChange]);
 
-  // Cleanup on unmount
+  // Clean up blob URLs for uncached pages (e.g., answer viewer where exerciseId is undefined)
+  useEffect(() => {
+    const currentPages = pages;
+    return () => {
+      if (exerciseId == null) {
+        currentPages.forEach(p => URL.revokeObjectURL(p.url));
+      }
+    };
+  }, [pages, exerciseId]);
+
+  // Hi-res re-render when zoom exceeds current render resolution
+  useEffect(() => {
+    if (pages.length === 0 || !pdfBytesRef.current) return;
+    const neededScale = (zoom / 100) * RENDER_SCALE;
+    if (neededScale <= renderScaleRef.current * 1.1) return;
+
+    const pdfBytes = pdfBytesRef.current;
+    const timer = setTimeout(async () => {
+      try {
+        const pdfjs = await getPdfJs();
+        const doc = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
+        const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+        const scale = neededScale * dpr;
+
+        const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
+          const page = await doc.getPage(pageNum);
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const blob = await new Promise<Blob>((resolve) =>
+            canvas.toBlob((b) => resolve(b!), "image/png")
+          );
+          const nativeWidth = viewport.width / scale;
+          const nativeHeight = viewport.height / scale;
+          return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
+        };
+
+        const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
+        const results = await Promise.all(pageNums.map(renderPage));
+        doc.destroy();
+
+        const rendered = results.filter((r): r is RenderedPage => r !== null);
+        const oldUrls = pages.map(p => p.url);
+
+        hiResRerenderRef.current = true;
+        setPages(rendered);
+        renderScaleRef.current = neededScale;
+
+        if (exerciseId != null) {
+          renderCacheRef.current.set(exerciseId, { pages: rendered, pdfBytes });
+        }
+
+        oldUrls.forEach(url => URL.revokeObjectURL(url));
+      } catch (err) {
+        console.error("Hi-res re-render failed:", err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [zoom, pages, exerciseId]);
+
+  // Cleanup cached pages on unmount
   useEffect(() => {
     const cache = renderCacheRef.current;
     return () => {
@@ -197,9 +270,13 @@ export function ZenLessonPdfViewer({
     };
   }, []);
 
-  // Auto fit-to-width on initial load
+  // Auto fit-to-width on initial load (skip for hi-res re-renders)
   useLayoutEffect(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
+    if (hiResRerenderRef.current) {
+      hiResRerenderRef.current = false;
+      return;
+    }
     userHasZoomed.current = false;
     const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
     fitZoomRef.current = fit;
@@ -229,13 +306,14 @@ export function ZenLessonPdfViewer({
   }, [pages, onZoomChange]);
 
   // IntersectionObserver: track current visible page
+  // Uses currentPageRef to avoid recreating observer on every page change
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || pages.length <= 1) return;
     const observer = new IntersectionObserver(
       (entries) => {
         let maxRatio = 0;
-        let maxPage = currentPage;
+        let maxPage = currentPageRef.current;
         for (const entry of entries) {
           if (entry.intersectionRatio > maxRatio) {
             maxRatio = entry.intersectionRatio;
@@ -243,7 +321,10 @@ export function ZenLessonPdfViewer({
             if (idx >= 0) maxPage = idx + 1;
           }
         }
-        if (maxRatio > 0) onCurrentPageChange(maxPage);
+        if (maxRatio > 0) {
+          observerPageRef.current = maxPage;
+          onCurrentPageChange(maxPage);
+        }
       },
       { root: container, threshold: [0, 0.25, 0.5, 0.75, 1] },
     );
@@ -251,18 +332,18 @@ export function ZenLessonPdfViewer({
       if (el) observer.observe(el);
     }
     return () => observer.disconnect();
-  }, [pages, currentPage, onCurrentPageChange]);
+  }, [pages, onCurrentPageChange]);
 
-  // Scroll to page when navigated via keyboard
-  const scrollToPage = useCallback((page: number) => {
-    const el = pageRefs.current[page - 1];
+  // Scroll to page on external change (keyboard navigation)
+  useEffect(() => {
+    if (currentPage === observerPageRef.current) return;
+    const el = pageRefs.current[currentPage - 1];
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  }, [currentPage]);
 
   const showLoading = isLoading || isProcessing;
   const showError = error || processError;
 
-  // Styled scale factor
   const scaleFactor = zoom / 100;
 
   return (
@@ -379,4 +460,3 @@ export function ZenLessonPdfViewer({
     </div>
   );
 }
-
