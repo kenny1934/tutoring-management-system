@@ -9,9 +9,16 @@ import {
 } from "@/lib/hooks";
 import { messagesAPI } from "@/lib/api";
 import { formatTimeAgo } from "@/lib/formatters";
+import { stripHtml, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-utils";
+import { highlightCodeBlocks } from "@/lib/code-highlight";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
+import "katex/dist/katex.min.css";
 import type { MessageThread, MessageCategory, MakeupProposal } from "@/types";
+
+function renderMessage(html: string): string {
+  return highlightCodeBlocks(renderGeometryInHtml(renderMathInHtml(html)));
+}
 
 const CATEGORIES: { key: MessageCategory; label: string; abbr: string }[] = [
   { key: "Reminder", label: "Reminder", abbr: "Remind" },
@@ -84,9 +91,7 @@ export function ZenInbox({ tutorId }: ZenInboxProps) {
     ];
     for (const cat of CATEGORIES) {
       const c = counts[cat.key] || 0;
-      if (c > 0 || categoryFilter === cat.key) {
-        items.push({ key: cat.key, label: cat.label, count: c });
-      }
+      items.push({ key: cat.key, label: cat.label, count: c });
     }
     return items;
   }, [counts, totalUnread, categoryFilter]);
@@ -470,6 +475,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
   const unread = !msg.is_read;
   const senderName = msg.from_tutor_name || "Unknown";
   const senderShort = senderName.length > 10 ? senderName.slice(0, 10) : senderName;
+  const renderedBody = useMemo(() => renderMessage(msg.message), [msg.message]);
 
   return (
     <div ref={ref}>
@@ -511,7 +517,7 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}>
-          {msg.subject || msg.message.slice(0, 60).replace(/\n/g, " ")}
+          {msg.subject || stripHtml(msg.message).slice(0, 60).replace(/\n/g, " ")}
         </span>
 
         {/* Reply count */}
@@ -545,9 +551,10 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
               {msg.subject}
             </div>
           )}
-          <div style={{ color: "var(--zen-fg)", fontSize: "11px", whiteSpace: "pre-wrap", lineHeight: "1.4" }}>
-            {msg.message}
-          </div>
+          <div
+            style={{ color: "var(--zen-fg)", fontSize: "11px", lineHeight: "1.4" }}
+            dangerouslySetInnerHTML={{ __html: renderedBody }}
+          />
           {msg.priority !== "Normal" && (
             <div style={{ color: msg.priority === "Urgent" ? "var(--zen-error)" : "var(--zen-warning)", fontSize: "10px", marginTop: "4px" }}>
               Priority: {msg.priority}
@@ -565,9 +572,10 @@ const MessageRow = forwardRef<HTMLDivElement, MessageRowProps>(function MessageR
                   <div style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
                     {reply.from_tutor_name} · {formatTimeAgo(reply.created_at)}
                   </div>
-                  <div style={{ color: "var(--zen-fg)", fontSize: "11px", whiteSpace: "pre-wrap" }}>
-                    {reply.message}
-                  </div>
+                  <div
+                    style={{ color: "var(--zen-fg)", fontSize: "11px" }}
+                    dangerouslySetInnerHTML={{ __html: renderMessage(reply.message) }}
+                  />
                 </div>
               ))}
             </div>
