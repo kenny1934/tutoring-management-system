@@ -516,7 +516,7 @@ const MessageBubble = React.memo(function MessageBubble({
   return (
     <div data-msg-idx={idx} className={cn(
       !isOwn && "flex gap-2 mr-12 sm:mr-20",
-      isFirstInGroup ? "mt-3" : "mt-1",
+      isFirstInGroup ? "mt-4" : "mt-1",
       idx === 0 && "mt-0"
     )}>
       {!isOwn && (
@@ -757,7 +757,7 @@ const MessageBubble = React.memo(function MessageBubble({
 
         {/* Like count badge */}
         {m.like_count > 0 && (
-          <div className="absolute -bottom-2.5 left-3">
+          <div className="absolute -bottom-2.5 left-3" style={{ animation: 'reaction-pop 0.2s ease-out both' }}>
             <LikesBadge message={m} currentTutorId={currentTutorId} onToggleReaction={onReact} />
           </div>
         )}

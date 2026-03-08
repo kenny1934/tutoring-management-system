@@ -734,17 +734,21 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         )}
 
         {/* Scroll to bottom button — sticky stays pinned to bottom of scroll viewport */}
-        {showScrollBottom && (
-          <div className="sticky bottom-2 h-0 flex justify-end pr-2 z-10 overflow-visible">
-            <button
-              onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-[#a0704b] transition-all -translate-y-full"
-              title="Scroll to bottom"
-            >
-              <ChevronDown className="h-5 w-5" />
-            </button>
-          </div>
-        )}
+        <div className={cn(
+          "sticky bottom-2 h-0 flex justify-end pr-2 z-10 overflow-visible transition-all duration-200",
+          showScrollBottom ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}>
+          <button
+            onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
+            className={cn(
+              "w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-[#a0704b] transition-all duration-200 -translate-y-full",
+              showScrollBottom ? "scale-100" : "scale-75"
+            )}
+            title="Scroll to bottom"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Typing indicator */}
@@ -760,6 +764,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           currentTutorId={currentTutorId}
           mentionUsers={threadMentionUsers}
           isMobile={isMobile}
+          recipientName={
+            msg.to_tutor_id !== null && !msg.is_group_message
+              ? getTutorFirstName(threadMentionUsers.find(u => u.id !== currentTutorId)?.label || "")
+              : undefined
+          }
           onSend={handleSendReply}
           onScheduleSend={handleScheduleReply}
           onOpenFullEditor={() => onReply(msg)}
