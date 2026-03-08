@@ -68,6 +68,8 @@ export function ZenSessionList({
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
   // Confirm dialog state for bulk marking
   const [confirmAction, setConfirmAction] = useState<{ ids: number[]; status: string; label: string } | null>(null);
+  // Buffer for gg (jump to first) two-key combo
+  const gBufferRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keyboard focus context
   const { isFocused, setFocusedSection } = useZenKeyboardFocus();
@@ -200,6 +202,30 @@ export function ZenSessionList({
             }
           }
           break;
+
+        case "G":
+          // Shift+G: jump to last session
+          e.preventDefault();
+          if (flatSessions.length > 0) {
+            onCursorMove(flatSessions.length - 1);
+          }
+          break;
+
+        case "g":
+          // gg: jump to first session (two-key combo with timeout)
+          e.preventDefault();
+          if (gBufferRef.current) {
+            // Second g — jump to first
+            clearTimeout(gBufferRef.current);
+            gBufferRef.current = null;
+            onCursorMove(0);
+          } else {
+            // First g — buffer and wait
+            gBufferRef.current = setTimeout(() => {
+              gBufferRef.current = null;
+            }, 500);
+          }
+          break;
       }
     },
     [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, onBulkMark, expandedSessionId, isFocused, groupedSessions, onLessonMode, onLessonWideMode]
@@ -208,7 +234,13 @@ export function ZenSessionList({
   // Register global keyboard handler
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (gBufferRef.current) {
+        clearTimeout(gBufferRef.current);
+        gBufferRef.current = null;
+      }
+    };
   }, [handleKeyDown]);
 
   // Auto-scroll to keep cursor visible
@@ -550,6 +582,7 @@ export function ZenSessionList({
         ) : (
           <>
             <span style={{ color: "var(--zen-fg)" }}>j/k</span> navigate •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>gg/G</span> first/last •{" "}
             <span style={{ color: "var(--zen-fg)" }}>Enter</span> detail •{" "}
             <span style={{ color: "var(--zen-fg)" }}>Space</span> select •{" "}
             <span style={{ color: "var(--zen-fg)" }}>1</span>=Attended{" "}
