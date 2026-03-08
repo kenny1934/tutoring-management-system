@@ -18,6 +18,7 @@ import { ZenSessionDetail } from "./ZenSessionDetail";
 import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { isCountableSession } from "@/lib/session-status";
+import { setZenStatus } from "./ZenStatusBar";
 
 interface ZenSessionListProps {
   sessions: Session[];
@@ -30,6 +31,8 @@ interface ZenSessionListProps {
   onBulkMark?: (sessionIds: number[], status: string) => void;
   markingSessionIds?: Set<number>;
   showStats?: boolean;
+  onLessonMode?: (session: Session) => void;
+  onLessonWideMode?: (timeSlot: string, sessions: Session[]) => void;
 }
 
 /**
@@ -58,6 +61,8 @@ export function ZenSessionList({
   onBulkMark,
   markingSessionIds,
   showStats = true,
+  onLessonMode,
+  onLessonWideMode,
 }: ZenSessionListProps) {
   // Track which session has detail view expanded
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
@@ -171,9 +176,33 @@ export function ZenSessionList({
           }
           break;
         }
+
+        case "l":
+        case "L":
+          if (currentSession) {
+            e.preventDefault();
+            if (e.shiftKey && onLessonWideMode) {
+              // Shift+L: lesson wide mode for the time slot
+              const group = groupedSessions.find((g) =>
+                g.sessions.some((s) => s.id === currentSession.id)
+              );
+              if (group) {
+                onLessonWideMode(group.timeSlot, group.sessions);
+                setZenStatus(`Lesson wide: ${group.timeSlot}`, "info");
+              }
+            } else if (!e.shiftKey && onLessonMode) {
+              if (currentSession.exercises?.length) {
+                onLessonMode(currentSession);
+                setZenStatus(`Lesson: ${currentSession.student_name}`, "info");
+              } else {
+                setZenStatus("No exercises assigned", "warning");
+              }
+            }
+          }
+          break;
       }
     },
-    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, onBulkMark, expandedSessionId, isFocused]
+    [cursorIndex, flatSessions, currentSession, selectedIds, onToggleSelect, onCursorMove, onQuickMark, onBulkMark, expandedSessionId, isFocused, groupedSessions, onLessonMode, onLessonWideMode]
   );
 
   // Register global keyboard handler
@@ -261,12 +290,37 @@ export function ZenSessionList({
               fontWeight: "bold",
               marginBottom: "4px",
               textShadow: "var(--zen-glow)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
-            {group.timeSlot}{" "}
-            <span style={{ color: "var(--zen-dim)", fontWeight: "normal" }}>
-              ({group.sessions.filter(isCountableSession).length} session{group.sessions.filter(isCountableSession).length !== 1 ? "s" : ""})
+            <span>
+              {group.timeSlot}{" "}
+              <span style={{ color: "var(--zen-dim)", fontWeight: "normal" }}>
+                ({group.sessions.filter(isCountableSession).length} session{group.sessions.filter(isCountableSession).length !== 1 ? "s" : ""})
+              </span>
             </span>
+            {onLessonWideMode && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLessonWideMode(group.timeSlot, group.sessions);
+                }}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--zen-border)",
+                  color: "var(--zen-dim)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "10px",
+                  padding: "1px 6px",
+                }}
+                title="Lesson wide mode (Shift+L)"
+              >
+                [L]esson
+              </button>
+            )}
           </div>
           <div
             style={{
@@ -467,6 +521,7 @@ export function ZenSessionList({
                   session={session}
                   onClose={() => setExpandedSessionId(null)}
                   onMark={onQuickMark}
+                  onLessonMode={onLessonMode}
                 />
               )}
               </div>
@@ -502,6 +557,7 @@ export function ZenSessionList({
             <span style={{ color: "var(--zen-fg)" }}>3</span>=Reschedule{" "}
             <span style={{ color: "var(--zen-fg)" }}>4</span>=Sick{" "}
             <span style={{ color: "var(--zen-fg)" }}>5</span>=Weather •{" "}
+            <span style={{ color: "var(--zen-fg)" }}>L</span>=lesson •{" "}
             <span style={{ color: "var(--zen-fg)" }}>a</span> all
           </>
         )}
