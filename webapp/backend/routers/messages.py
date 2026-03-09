@@ -993,6 +993,7 @@ async def get_message_threads(
     date_to: Optional[str] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
     has_attachments: Optional[bool] = Query(None, description="Filter messages with attachments"),
     priority: Optional[str] = Query(None, description="Filter by priority level"),
+    broadcast_only: bool = Query(False, description="Only return broadcast messages (to_tutor_id IS NULL)"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
@@ -1014,6 +1015,18 @@ async def get_message_threads(
     ).scalar_subquery()
 
     # Base query for root messages (excluding archived and still-scheduled)
+    # When broadcast_only, skip the expensive visibility OR — broadcasts are visible to everyone
+    visibility_filter = (
+        TutorMessage.to_tutor_id.is_(None)
+        if broadcast_only
+        else or_(
+            visible_to_tutor_filter(tutor_id, db),
+            and_(
+                TutorMessage.from_tutor_id == tutor_id,  # Only MY sent threads
+                TutorMessage.id.in_(has_replies_subq),
+            ),
+        )
+    )
     base_query = (
         db.query(TutorMessage)
         .outerjoin(Tutor, TutorMessage.from_tutor_id == Tutor.id)
@@ -1021,13 +1034,7 @@ async def get_message_threads(
             TutorMessage.reply_to_id.is_(None),
             ~TutorMessage.id.in_(archived_ids_subq),  # Exclude archived
             TutorMessage.scheduled_at.is_(None),  # Exclude pending scheduled messages
-            or_(
-                visible_to_tutor_filter(tutor_id, db),
-                and_(
-                    TutorMessage.from_tutor_id == tutor_id,  # Only MY sent threads
-                    TutorMessage.id.in_(has_replies_subq),
-                ),
-            )
+            visibility_filter,
         )
     )
     if category:

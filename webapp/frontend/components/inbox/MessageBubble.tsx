@@ -465,6 +465,7 @@ export interface MessageBubbleProps {
   onForward: () => void;
   onDelete: (msgId: number) => Promise<void>;
   onEditGeoAsNew?: (graphJson: string) => void;
+  readOnly?: boolean;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
@@ -488,6 +489,7 @@ const MessageBubble = React.memo(function MessageBubble({
   onForward,
   onDelete,
   onEditGeoAsNew,
+  readOnly = false,
 }: MessageBubbleProps) {
   const { showToast } = useToast();
   const isBroadcast = m.to_tutor_id === null;
@@ -741,7 +743,7 @@ const MessageBubble = React.memo(function MessageBubble({
         )}
 
         {/* Message actions — floating pill on hover (desktop), inline on mobile */}
-        {!isEditing && (
+        {!isEditing && !readOnly && (
           <div className={cn(
             "flex items-center gap-0.5",
             isMobile

@@ -374,12 +374,14 @@ function SwipeableThreadItem({
 // Stable empty arrays to prevent re-render loops from destructured defaults
 const STABLE_EMPTY_MSG: Message[] = [];
 const STABLE_EMPTY_THREADS: MessageThread[] = [];
+const SUPERVISOR_HIDDEN_CATS = ["sent", "archived", "starred", "mentions", "scheduled", "reminders"];
 
 export default function InboxPage() {
 
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
+  const isReadOnlyInbox = isSupervisor;
   const { data: allTutors = [] } = useTutors();  // For profile picture map (all users)
   const { data: activeTutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
   const onlineTutorIds = usePresence();
@@ -538,6 +540,7 @@ export default function InboxPage() {
     search: debouncedSearch || undefined,
     pageSize: 20,
     filters: searchFilters,
+    broadcastOnly: isReadOnlyInbox,
   });
 
   // Per-category unread counts for sidebar badges (lightweight endpoint)
@@ -1433,7 +1436,7 @@ export default function InboxPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  if (isSupervisor || isGuest) {
+  if (isGuest) {
     return (
       <DeskSurface fullHeight>
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
@@ -1488,7 +1491,7 @@ export default function InboxPage() {
                 </button>
               </div>
               <div className="flex items-center gap-3">
-                {isAdmin && (
+                {isAdmin && !isReadOnlyInbox && (
                   <button
                     onClick={() => setShowWecom(true)}
                     className="flex items-center gap-2 px-4 py-2 border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
@@ -1498,14 +1501,16 @@ export default function InboxPage() {
                     <span className="hidden sm:inline">WeCom</span>
                   </button>
                 )}
-                <button
-                  onClick={handleCompose}
-                  disabled={!hasTutor}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                >
-                  <PenSquare className="h-4 w-4" />
-                  Compose
-                </button>
+                {!isReadOnlyInbox && (
+                  <button
+                    onClick={handleCompose}
+                    disabled={!hasTutor}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <PenSquare className="h-4 w-4" />
+                    Compose
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1533,9 +1538,13 @@ export default function InboxPage() {
                 </button>
                 <nav>
                   {CATEGORY_SECTIONS.map((section, sectionIdx) => {
+                    const sectionItems = isReadOnlyInbox
+                      ? section.items.filter(c => !SUPERVISOR_HIDDEN_CATS.includes(c.id))
+                      : section.items;
+                    if (sectionItems.length === 0) return null;
                     const isCollapsible = section.collapsible;
                     const isExpanded = !isCollapsible || tagsExpanded;
-                    const hasUnread = isCollapsible && section.items.some(c => categoryUnreadCounts[c.id] > 0);
+                    const hasUnread = isCollapsible && sectionItems.some(c => categoryUnreadCounts[c.id] > 0);
 
                     return (
                       <div key={section.id}>
@@ -1555,7 +1564,7 @@ export default function InboxPage() {
                                   <span>{section.label}</span>
                                   {!isExpanded && !categoryCollapsed && (
                                     <span className="flex items-center gap-0.5 ml-1 opacity-50">
-                                      {section.items.slice(0, 6).map((cat) => (
+                                      {sectionItems.slice(0, 6).map((cat) => (
                                         <span key={cat.id} className="[&>svg]:h-2.5 [&>svg]:w-2.5">
                                           {cat.icon}
                                         </span>
@@ -1586,7 +1595,7 @@ export default function InboxPage() {
                           isCollapsible && !isExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
                         )}>
                           <div className="overflow-hidden space-y-1">
-                          {section.items.map((cat) => (
+                          {sectionItems.map((cat) => (
                             <button
                               key={cat.id}
                               onClick={() => setSelectedCategory(cat.id)}
@@ -1676,7 +1685,7 @@ export default function InboxPage() {
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                   </button>
-                  {displayThreads.length > 0 && selectedCategory !== "sent" && (
+                  {displayThreads.length > 0 && selectedCategory !== "sent" && !isReadOnlyInbox && (
                     <button
                       onClick={() => { setBulkMode(prev => !prev); bulkClear(); }}
                       className={cn(
@@ -1843,7 +1852,7 @@ export default function InboxPage() {
                         ? "No messages match your search"
                         : EMPTY_MESSAGES[selectedCategory] || "No messages in your inbox"}
                     </p>
-                    {!searchQuery && ["inbox", "sent", "starred", "archived"].includes(selectedCategory) && (
+                    {!searchQuery && !isReadOnlyInbox && ["inbox", "sent", "starred", "archived"].includes(selectedCategory) && (
                       <button
                         onClick={handleCompose}
                         disabled={!hasTutor}
@@ -2030,6 +2039,7 @@ export default function InboxPage() {
                     setShowCompose(true);
                   }}
                   isArchived={selectedCategory === "archived"}
+                  readOnly={isReadOnlyInbox}
                   isMobile={isMobile}
                   pictureMap={tutorPictureMap}
                   onDraftChange={handleDraftChange}
@@ -2054,7 +2064,9 @@ export default function InboxPage() {
                 <div className="text-center text-gray-400 dark:text-gray-500">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Select a conversation</p>
-                  <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-mono">c</kbd> to compose</p>
+                  {!isReadOnlyInbox && (
+                    <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-mono">c</kbd> to compose</p>
+                  )}
                 </div>
               </div>
             )}

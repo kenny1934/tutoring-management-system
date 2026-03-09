@@ -651,6 +651,7 @@ export interface UseMessageThreadsPaginatedOptions {
   search?: string;
   pageSize?: number;
   filters?: SearchFilters;
+  broadcastOnly?: boolean;
 }
 
 /**
@@ -674,7 +675,7 @@ export interface PaginatedResult<T> {
 export function useMessageThreadsPaginated(
   options: UseMessageThreadsPaginatedOptions
 ): PaginatedResult<MessageThread> {
-  const { tutorId, category, search, pageSize = 20, filters } = options;
+  const { tutorId, category, search, pageSize = 20, filters, broadcastOnly } = options;
   const filtersKey = filters ? JSON.stringify(filters) : '';
   const [allData, setAllData] = useState<MessageThread[]>([]);
   const [offset, setOffset] = useState(0);
@@ -691,12 +692,12 @@ export function useMessageThreadsPaginated(
     setOffset(0);
     setHasMore(true);
     setTotalCount(0);
-  }, [search, category, tutorId, filtersKey]);
+  }, [search, category, tutorId, filtersKey, broadcastOnly]);
 
   // Fetch current page
   const { data, isLoading, error, mutate } = useSWR<PaginatedThreadsResponse>(
-    tutorId ? ['message-threads-paginated', tutorId, category || 'all', search || '', offset, pageSize, filtersKey] : null,
-    () => messagesAPI.getThreads(tutorId!, category, pageSize, offset, search, filters),
+    tutorId ? ['message-threads-paginated', tutorId, category || 'all', search || '', offset, pageSize, filtersKey, broadcastOnly ? 'broadcast' : ''] : null,
+    () => messagesAPI.getThreads(tutorId!, category, pageSize, offset, search, filters, broadcastOnly),
     {
       refreshInterval: offset === 0 ? refreshInterval : 0, // Only poll first page
       revalidateOnFocus: false,
