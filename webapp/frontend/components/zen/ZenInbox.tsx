@@ -16,6 +16,7 @@ import { useFileUpload } from "@/lib/useFileUpload";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
+import AudioPlayer from "@/components/inbox/AudioPlayer";
 import "katex/dist/katex.min.css";
 import type { MessageThread, MessageCategory, MakeupProposal, Message } from "@/types";
 
@@ -51,7 +52,7 @@ function Attachments({ msg }: { msg: Pick<Message, "image_attachments" | "file_a
             style={{ maxHeight: "240px", maxWidth: "100%", border: "1px solid var(--zen-border)", marginTop: "4px", display: "block" }}
           />
         ) : file.content_type?.startsWith("audio/") ? (
-          <audio key={file.url} src={file.url} controls preload="metadata" style={{ marginTop: "4px", width: "100%", maxWidth: "300px" }} />
+          <AudioPlayer key={file.url} src={file.url} filename={file.filename} duration={file.duration} className="mt-1" />
         ) : file.content_type === "image/gif" ? (
           <a key={file.url} href={file.url} target="_blank" rel="noopener noreferrer">
             <img
