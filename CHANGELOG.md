@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.24](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.24) (2026-03-10)
+
+### New Features
+
+* **GIF messaging** — search and send GIFs via GIPHY in inbox replies and compose, with trending browse and debounced search
+* **Supervisor broadcast inbox** — supervisors can now view broadcast messages in a read-only inbox (no compose, reply, react, or archive)
+
+### Bug Fixes
+
+* Fixed geometry editor undo/redo not respecting snap-to-grid setting
+
 ## [2.0.23](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.23) (2026-03-10)
 
 ### Improvements
