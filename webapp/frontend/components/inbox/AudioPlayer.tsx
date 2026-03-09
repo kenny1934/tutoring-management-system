@@ -16,16 +16,29 @@ export default function AudioPlayer({ src, filename, className, duration: initia
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(initialDuration || 0);
   const [currentTime, setCurrentTime] = useState(0);
+  const probingRef = useRef(false);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // WebM/Opus audio may report Infinity duration on loadedmetadata;
-    // durationchange fires later when the real duration is known.
     const setValidDuration = () => {
       if (isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
+      } else if (!isFinite(audio.duration) && !probingRef.current) {
+        // WebM/Opus workaround: seek to end to force the browser to
+        // determine the real duration (metadata doesn't include it).
+        probingRef.current = true;
+        audio.currentTime = 1e101;
+      }
+    };
+    const onSeeked = () => {
+      if (probingRef.current) {
+        probingRef.current = false;
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          setDuration(audio.duration);
+        }
+        audio.currentTime = 0;
       }
     };
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
@@ -33,12 +46,14 @@ export default function AudioPlayer({ src, filename, className, duration: initia
 
     audio.addEventListener("loadedmetadata", setValidDuration);
     audio.addEventListener("durationchange", setValidDuration);
+    audio.addEventListener("seeked", onSeeked);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.removeEventListener("loadedmetadata", setValidDuration);
       audio.removeEventListener("durationchange", setValidDuration);
+      audio.removeEventListener("seeked", onSeeked);
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
     };
