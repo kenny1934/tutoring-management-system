@@ -265,7 +265,7 @@ export default function GeometryEditorModal({
 
     // Restore state if editing
     if (initialState?.objects?.length > 0) {
-      deserializeToBoard(board, initialState, false, isDark());
+      deserializeToBoard(board, initialState, false, isDark(), snapToGrid);
       updateObjectCount();
     }
     recalcPointCounter();
@@ -917,7 +917,7 @@ export default function GeometryEditorModal({
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, prevState.boundingBox, isDark());
     boardRef.current = newBoard;
-    deserializeToBoard(newBoard, prevState, false, isDark());
+    deserializeToBoard(newBoard, prevState, false, isDark(), snapToGrid);
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
@@ -925,7 +925,7 @@ export default function GeometryEditorModal({
     updateObjectCount();
     recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount, recalcPointCounter, clearGroupSelection]);
+  }, [isDark, snapToGrid, updateObjectCount, recalcPointCounter, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Redo
@@ -948,7 +948,7 @@ export default function GeometryEditorModal({
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, nextState.boundingBox, isDark());
     boardRef.current = newBoard;
-    deserializeToBoard(newBoard, nextState, false, isDark());
+    deserializeToBoard(newBoard, nextState, false, isDark(), snapToGrid);
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
@@ -956,7 +956,7 @@ export default function GeometryEditorModal({
     updateObjectCount();
     recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount, recalcPointCounter, clearGroupSelection]);
+  }, [isDark, snapToGrid, updateObjectCount, recalcPointCounter, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Clear
