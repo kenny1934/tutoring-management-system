@@ -335,7 +335,8 @@ export function deserializeToBoard(
   board: any,
   state: GeometryState,
   readOnly = false,
-  isDark = false
+  isDark = false,
+  snapToGrid?: boolean
 ): void {
   const idMap: Record<string, any> = {};
 
@@ -358,7 +359,7 @@ export function deserializeToBoard(
         case "point":
           created = board.create("point", [obj.attrs.x!, obj.attrs.y!], {
             ...baseAttrs,
-            snapToGrid: !readOnly,
+            snapToGrid: snapToGrid ?? !readOnly,
             label: { strokeColor: isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
           });
           break;
@@ -526,7 +527,7 @@ export function deserializeToBoard(
           if (!mp1 || !mp2) continue;
           created = board.create("midpoint", [mp1, mp2], {
             ...baseAttrs,
-            snapToGrid: !readOnly,
+            snapToGrid: snapToGrid ?? !readOnly,
             label: { strokeColor: isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
           });
           break;
