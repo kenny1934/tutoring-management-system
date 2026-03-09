@@ -285,8 +285,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         >
         <nav className="space-y-2 px-3 py-4">
         {navigation
-          // Filter out Inbox for Supervisor (read-only role)
-          .filter((item) => !(item.name === "Inbox" && (isSupervisor || isGuest)))
+          // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
+          .filter((item) => !(item.name === "Inbox" && isGuest))
           .map((item) => {
           const isActive = pathname === item.href;
           const showExpanded = isMobile || !isCollapsed;

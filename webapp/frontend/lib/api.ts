@@ -1244,7 +1244,8 @@ export const messagesAPI = {
     limit?: number,
     offset?: number,
     search?: string,
-    filters?: { from_tutor_id?: number; date_from?: string; date_to?: string; has_attachments?: boolean; priority?: string }
+    filters?: { from_tutor_id?: number; date_from?: string; date_to?: string; has_attachments?: boolean; priority?: string },
+    broadcastOnly?: boolean
   ) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
     if (category) params.append("category", category);
@@ -1256,6 +1257,7 @@ export const messagesAPI = {
     if (filters?.date_to) params.append("date_to", filters.date_to);
     if (filters?.has_attachments) params.append("has_attachments", "true");
     if (filters?.priority) params.append("priority", filters.priority);
+    if (broadcastOnly) params.append("broadcast_only", "true");
     return fetchAPI<PaginatedThreadsResponse>(`/messages?${params}`);
   },
 

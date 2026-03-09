@@ -89,6 +89,7 @@ export interface ThreadDetailPanelProps {
   onThreadUnpin: (msgId: number) => Promise<void>;
   onForward: (msg: Message) => void;
   isArchived?: boolean;
+  readOnly?: boolean;
   isMobile?: boolean;
   pictureMap?: Map<number, string>;
   onDraftChange?: (threadId: number) => void;
@@ -129,6 +130,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onThreadUnpin,
   onForward,
   isArchived = false,
+  readOnly = false,
   isMobile = false,
   pictureMap,
   onDraftChange,
@@ -510,7 +512,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           <Image className="h-4 w-4" />
         </button>
         {/* More actions dropdown */}
-        <div className="relative" ref={moreMenuRef}>
+        {!readOnly && <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setShowMoreMenu(!showMoreMenu)}
             className={cn(
@@ -601,7 +603,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </button>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Scheduled message banner */}
@@ -682,6 +684,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 showToast("Message deleted", "info");
               }}
               onEditGeoAsNew={setExternalGeoState}
+              readOnly={readOnly}
             />
           );
 
@@ -704,7 +707,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               )}
               {/* Wrap with SwipeableMessage on mobile for swipe-to-quote */}
-              {isMobile ? (
+              {isMobile && !readOnly ? (
                 <SwipeableMessage onQuote={() => handleQuote(m)}>
                   {messageBubble}
                 </SwipeableMessage>
@@ -828,8 +831,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         <TypingIndicator typingUsers={typingUsers} />
       )}
 
-      {/* Inline reply bar (hidden for scheduled messages) */}
-      {!msg.scheduled_at && (
+      {/* Inline reply bar (hidden for scheduled messages and read-only mode) */}
+      {!msg.scheduled_at && !readOnly && (
         <ReplyComposer
           ref={replyComposerRef}
           threadId={threadId}
