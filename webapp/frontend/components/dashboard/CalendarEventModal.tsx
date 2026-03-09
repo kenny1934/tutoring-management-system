@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { useFormDirtyTracking } from "@/lib/ui-hooks";
 import { calendarAPI, studentsAPI } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import type { CalendarEvent, CalendarEventCreate } from "@/types";
 import {
   X,
@@ -71,6 +73,15 @@ export function CalendarEventModal({
 }: CalendarEventModalProps) {
   const { showToast } = useToast();
   const isEditMode = !!event;
+
+  // Dirty tracking for discard warning
+  const {
+    setIsDirty,
+    showCloseConfirm,
+    handleCloseAttempt,
+    confirmDiscard,
+    cancelClose,
+  } = useFormDirtyTracking(isOpen, onClose);
 
   // Track if component is mounted (for SSR compatibility with Portal)
   const [mounted, setMounted] = useState(false);
@@ -173,6 +184,9 @@ export function CalendarEventModal({
     }
   }, [isOpen, event, prefilledDate]);
 
+  // Mark form dirty on any field change
+  const markDirty = useCallback(() => setIsDirty(true), [setIsDirty]);
+
   // Clear academic stream when grade changes to non-senior
   useEffect(() => {
     if (grade && !["F4", "F5", "F6"].includes(grade)) {
@@ -213,14 +227,20 @@ export function CalendarEventModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isSubmitting && !isDeleting) {
-        onClose();
+      if (e.key === "Escape") {
+        if (showCloseConfirm) {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelClose();
+        } else if (!isSubmitting && !isDeleting) {
+          handleCloseAttempt();
+        }
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSubmitting, isDeleting, onClose]);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [isOpen, isSubmitting, isDeleting, showCloseConfirm, handleCloseAttempt, cancelClose]);
 
   // Form validation - now requires school, grade, eventType, and startDate
   const canSubmit = useMemo(() => {
@@ -294,7 +314,7 @@ export function CalendarEventModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50"
-        onClick={() => !isSubmitting && !isDeleting && onClose()}
+        onClick={() => !isSubmitting && !isDeleting && handleCloseAttempt()}
       />
 
       {/* Modal */}
@@ -318,7 +338,7 @@ export function CalendarEventModal({
             {isEditMode ? "Edit Calendar Event" : "Create Calendar Event"}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleCloseAttempt}
             disabled={isSubmitting || isDeleting}
             className="p-1 rounded-lg hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 transition-colors disabled:opacity-50"
           >
@@ -352,7 +372,7 @@ export function CalendarEventModal({
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setEventType(type)}
+                  onClick={() => { setEventType(type); markDirty(); }}
                   disabled={isSubmitting}
                   className={cn(
                     "flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all",
@@ -379,7 +399,7 @@ export function CalendarEventModal({
                 type="text"
                 list="school-suggestions"
                 value={school}
-                onChange={(e) => setSchool(e.target.value.toUpperCase())}
+                onChange={(e) => { setSchool(e.target.value.toUpperCase()); markDirty(); }}
                 placeholder="Type or select..."
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
@@ -405,7 +425,7 @@ export function CalendarEventModal({
               </label>
               <select
                 value={grade}
-                onChange={(e) => setGrade(e.target.value)}
+                onChange={(e) => { setGrade(e.target.value); markDirty(); }}
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-[#e8d4b8]/30 dark:bg-[#2d2618]/70",
@@ -432,7 +452,7 @@ export function CalendarEventModal({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setAcademicStream("")}
+                  onClick={() => { setAcademicStream(""); markDirty(); }}
                   disabled={isSubmitting}
                   className={cn(
                     "flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all border-2",
@@ -447,7 +467,7 @@ export function CalendarEventModal({
                   <button
                     key={stream.value}
                     type="button"
-                    onClick={() => setAcademicStream(stream.value)}
+                    onClick={() => { setAcademicStream(stream.value); markDirty(); }}
                     disabled={isSubmitting}
                     className={cn(
                       "flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all border-2",
@@ -471,7 +491,7 @@ export function CalendarEventModal({
             <input
               type="text"
               value={suffix}
-              onChange={(e) => setSuffix(e.target.value)}
+              onChange={(e) => { setSuffix(e.target.value); markDirty(); }}
               placeholder="e.g., Algebra, Geometry"
               className={cn(
                 "w-full px-3 py-2 rounded-lg",
@@ -495,7 +515,7 @@ export function CalendarEventModal({
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => { setStartDate(e.target.value); markDirty(); }}
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
                   "bg-white/50 dark:bg-[#2d2618]/70",
@@ -514,7 +534,7 @@ export function CalendarEventModal({
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => { setEndDate(e.target.value); markDirty(); }}
                 min={startDate}
                 className={cn(
                   "w-full px-3 py-2 rounded-lg",
@@ -536,7 +556,7 @@ export function CalendarEventModal({
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => { setDescription(e.target.value); markDirty(); }}
               rows={4}
               placeholder="What topics will be covered..."
               className={cn(
@@ -611,7 +631,7 @@ export function CalendarEventModal({
             <div className={cn("flex gap-3", !isEditMode && "ml-auto")}>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleCloseAttempt}
                 disabled={isSubmitting || isDeleting}
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
@@ -640,6 +660,24 @@ export function CalendarEventModal({
           )}
         </div>
       </div>
+      {/* Close Confirmation Dialog */}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              You have unsaved changes. Discard them?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={cancelClose}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDiscard}>
+                Discard
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
