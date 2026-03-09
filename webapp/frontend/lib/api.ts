@@ -1534,6 +1534,18 @@ export const messagesAPI = {
       method: "DELETE",
     });
   },
+
+  // GIF search (GIPHY proxy)
+  gifTrending: (limit = 20, offset = 0) => {
+    return fetchAPI<{ id: string; url: string; preview_url: string; width: number; height: number; title: string }[]>(
+      `/messages/gif/trending?limit=${limit}&offset=${offset}`
+    );
+  },
+  gifSearch: (q: string, limit = 20, offset = 0) => {
+    return fetchAPI<{ id: string; url: string; preview_url: string; width: number; height: number; title: string }[]>(
+      `/messages/gif/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`
+    );
+  },
 };
 
 // Make-up Proposals API
