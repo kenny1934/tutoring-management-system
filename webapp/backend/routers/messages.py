@@ -3,8 +3,10 @@ Messages API endpoints.
 Provides messaging system for tutor-to-tutor communication.
 """
 import asyncio
+import os
 import time
 import logging
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
@@ -2409,3 +2411,67 @@ async def delete_message(
         }, recipient_ids))
 
     return {"success": True, "message": "Message deleted"}
+
+
+# ============================================
+# GIF Search (GIPHY Proxy)
+# ============================================
+
+GIPHY_API_KEY = os.getenv("GIPHY_API_KEY", "")
+GIPHY_BASE = "https://api.giphy.com/v1/gifs"
+
+
+def _simplify_giphy(data: list) -> list:
+    """Extract only needed fields from GIPHY response."""
+    results = []
+    for g in data:
+        images = g.get("images", {})
+        original = images.get("original", {})
+        preview = images.get("fixed_width_small", {}) or images.get("fixed_width", {})
+        if not original.get("url"):
+            continue
+        results.append({
+            "id": g.get("id"),
+            "url": original["url"],
+            "preview_url": preview.get("url") or original["url"],
+            "width": int(original.get("width", 0)),
+            "height": int(original.get("height", 0)),
+            "title": g.get("title", ""),
+        })
+    return results
+
+
+async def _giphy_fetch(path: str, params: dict) -> list:
+    """Fetch from GIPHY API and return simplified results."""
+    if not GIPHY_API_KEY:
+        raise HTTPException(status_code=503, detail="GIF service not configured")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{GIPHY_BASE}/{path}", params={
+                "api_key": GIPHY_API_KEY, "rating": "g", **params,
+            })
+            resp.raise_for_status()
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=502, detail="GIF service unavailable")
+    except (httpx.TimeoutException, httpx.RequestError):
+        raise HTTPException(status_code=502, detail="GIF service unavailable")
+    return _simplify_giphy(resp.json().get("data", []))
+
+
+@router.get("/messages/gif/trending")
+async def gif_trending(
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+):
+    """Proxy trending GIFs from GIPHY."""
+    return await _giphy_fetch("trending", {"limit": limit, "offset": offset})
+
+
+@router.get("/messages/gif/search")
+async def gif_search(
+    q: str = Query(..., min_length=1, max_length=100),
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+):
+    """Proxy GIF search from GIPHY."""
+    return await _giphy_fetch("search", {"q": q, "limit": limit, "offset": offset})

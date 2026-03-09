@@ -11,6 +11,7 @@ import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import VoiceRecorder from "@/components/inbox/VoiceRecorder";
+import GifPicker from "@/components/inbox/GifPicker";
 import type { MessageTemplate } from "@/types";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -371,6 +372,11 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
           {onSendVoice && (
             <VoiceRecorder onSend={onSendVoice} onError={(msg) => showToast(msg, "error")} />
           )}
+          <GifPicker
+            onSelect={async (url, title) => {
+              await onSend("<p></p>", [], [{ url, filename: title, content_type: "image/gif" }]);
+            }}
+          />
           <AttachmentMenu
             onFiles={(files) => handleReplyFileUpload(files)}
             isUploading={isReplyUploading}

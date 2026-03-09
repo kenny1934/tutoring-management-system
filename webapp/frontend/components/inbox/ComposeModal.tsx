@@ -15,6 +15,7 @@ import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import VoiceRecorder from "@/components/inbox/VoiceRecorder";
+import GifPicker from "@/components/inbox/GifPicker";
 import type { Message, MessageCreate, MessageCategory, MessageTemplate } from "@/types";
 import { getDraftKey, loadDraft, saveDraft, clearDraft } from "@/lib/inbox-drafts";
 import { stripHtml, isHtmlEmpty } from "@/lib/html-utils";
@@ -699,6 +700,11 @@ export default function ComposeModal({
                 onSend={async (file, durationSec) => {
                   const uploaded = await messagesAPI.uploadFile(file, fromTutorId);
                   setUploadedFiles(prev => [...prev, { ...uploaded, duration: durationSec }]);
+                }}
+              />
+              <GifPicker
+                onSelect={(url, title) => {
+                  setUploadedFiles(prev => [...prev, { url, filename: title, content_type: "image/gif" }]);
                 }}
               />
               <AttachmentMenu
