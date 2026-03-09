@@ -90,7 +90,8 @@ def _adopt_matching_sessions(
 def _get_consumable_sessions_query(
     db: Session,
     student_id: int,
-    location: Optional[str] = None
+    location: Optional[str] = None,
+    locations: Optional[List[str]] = None
 ):
     """
     Build query for sessions that can be consumed for revision enrollment.
@@ -99,7 +100,7 @@ def _get_consumable_sessions_query(
     - Pending make-up sessions (any date, not already booked)
     - Future scheduled/make-up sessions
 
-    If location is None, returns sessions from all locations.
+    If both location and locations are None, returns sessions from all locations.
     """
     query = db.query(SessionLog).options(
         joinedload(SessionLog.tutor)
@@ -116,7 +117,9 @@ def _get_consumable_sessions_query(
             )
         )
     )
-    if location:
+    if locations:
+        query = query.filter(SessionLog.location.in_(locations))
+    elif location:
         query = query.filter(SessionLog.location == location)
     return query
 
@@ -849,7 +852,7 @@ async def get_eligible_students(
 @router.get("/exam-revision/calendar/{event_id}/eligible-students", response_model=List[EligibleStudentResponse])
 async def get_eligible_students_by_exam(
     event_id: int,
-    location: Optional[str] = Query(None, description="Location to filter students by (optional - omit for all locations)"),
+    locations: Optional[str] = Query(None, description="Comma-separated locations to filter by (optional - omit for all locations)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -859,8 +862,9 @@ async def get_eligible_students_by_exam(
 
     Eligibility criteria:
     1. Student's school, grade, academic_stream (if F4-F6) match the calendar event
-    2. Student has an active enrollment (at the specified location if provided)
+    2. Student has an active enrollment (at the specified location(s) if provided)
     3. Student has at least one pending make-up session OR unused scheduled/make-up session (future dated)
+    4. Student is not already enrolled in a revision slot for this event
     """
     # Get the calendar event
     calendar_event = db.query(CalendarEvent).filter(
@@ -870,18 +874,29 @@ async def get_eligible_students_by_exam(
     if not calendar_event:
         raise HTTPException(status_code=404, detail=f"Calendar event with ID {event_id} not found")
 
+    # Parse locations
+    locations_list = [loc.strip() for loc in locations.split(",")] if locations else None
+
+    # Exclude students already enrolled in revision slots for this event
+    already_enrolled_ids = {row[0] for row in db.query(SessionLog.student_id).join(
+        ExamRevisionSlot, SessionLog.exam_revision_slot_id == ExamRevisionSlot.id
+    ).filter(
+        ExamRevisionSlot.calendar_event_id == calendar_event.id,
+        SessionLog.session_status.in_(ENROLLED_SESSION_STATUSES)
+    ).distinct().all()}
+
     # Build student filter based on calendar event criteria
     student_filters = _build_student_filters_from_event(calendar_event)
 
-    # Find students with active enrollments (optionally filtered by location)
+    # Find students with active enrollments (optionally filtered by locations)
     enrolled_students_query = db.query(Student).join(
         Enrollment, Student.id == Enrollment.student_id
     ).filter(
         Enrollment.payment_status.in_(['Paid', 'Pending Payment']),  # Active enrollments
         *student_filters
     )
-    if location:
-        enrolled_students_query = enrolled_students_query.filter(Enrollment.location == location)
+    if locations_list:
+        enrolled_students_query = enrolled_students_query.filter(Enrollment.location.in_(locations_list))
     enrolled_students_query = enrolled_students_query.distinct()
 
     students = enrolled_students_query.all()
@@ -892,8 +907,8 @@ async def get_eligible_students_by_exam(
         Enrollment.student_id.in_(student_ids),
         Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
     )
-    if location:
-        enrollment_query = enrollment_query.filter(Enrollment.location == location)
+    if locations_list:
+        enrollment_query = enrollment_query.filter(Enrollment.location.in_(locations_list))
     enrollments = enrollment_query.options(joinedload(Enrollment.tutor)).all()
     enrollment_map = {e.student_id: e for e in enrollments}
 
@@ -901,9 +916,13 @@ async def get_eligible_students_by_exam(
     eligible_students = []
 
     for student in students:
-        # Find pending make-up sessions (optionally filtered by location)
+        # Skip already enrolled students
+        if student.id in already_enrolled_ids:
+            continue
+
+        # Find pending make-up sessions (optionally filtered by locations)
         pending_sessions = _get_consumable_sessions_query(
-            db, student.id, location
+            db, student.id, locations=locations_list
         ).order_by(SessionLog.session_date).all()
 
         if pending_sessions:
@@ -1240,8 +1259,15 @@ async def get_exams_with_revision_slots(
                 enrolled_count=enrolled_count
             ))
 
-        # Count eligible students for this exam
-        eligible_count = _count_eligible_students(db, event, location)
+        # Count eligible students — based on slot locations (not app filter)
+        # because cross-location revision is not allowed
+        slot_locations = list(set(s.location for s in slots))
+        if slot_locations:
+            eligible_count = _count_eligible_students(db, event, locations=slot_locations)
+        elif location:
+            eligible_count = _count_eligible_students(db, event, locations=[location])
+        else:
+            eligible_count = _count_eligible_students(db, event)
 
         result.append(ExamWithRevisionSlotsResponse(
             id=event.id,
@@ -1265,11 +1291,14 @@ async def get_exams_with_revision_slots(
 def _count_eligible_students(
     db: Session,
     calendar_event: CalendarEvent,
-    location: Optional[str] = None
+    locations: Optional[List[str]] = None
 ) -> int:
     """
     Count students eligible for revision slots for this calendar event.
     Excludes students already enrolled in revision slots for this event.
+
+    locations: list of locations to filter by (e.g. slot locations).
+               If None, counts across all locations.
     """
     # Get students already enrolled in revision slots for this calendar event
     enrolled_statuses = ENROLLED_SESSION_STATUSES
@@ -1298,8 +1327,8 @@ def _count_eligible_students(
             )
         )
     )
-    if location:
-        student_ids_with_pending = student_ids_with_pending.filter(SessionLog.location == location)
+    if locations:
+        student_ids_with_pending = student_ids_with_pending.filter(SessionLog.location.in_(locations))
 
     student_ids_with_pending = student_ids_with_pending.distinct()
 
@@ -1313,8 +1342,8 @@ def _count_eligible_students(
         *student_filters
     )
 
-    if location:
-        count = count.filter(Enrollment.location == location)
+    if locations:
+        count = count.filter(Enrollment.location.in_(locations))
 
     return count.scalar() or 0
 

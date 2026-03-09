@@ -1294,10 +1294,10 @@ export function useEligibleStudents(slotId: number | null | undefined) {
  * Hook for fetching eligible students by exam (calendar event)
  * This doesn't require a slot to exist - useful for showing eligible students before creating slots
  */
-export function useEligibleStudentsByExam(eventId: number | null | undefined, location?: string | null) {
+export function useEligibleStudentsByExam(eventId: number | null | undefined, locations?: string[] | null) {
   return useSWR<EligibleStudent[]>(
-    eventId ? ['eligible-students-by-exam', eventId, location || 'all'] : null,
-    () => examRevisionAPI.getEligibleStudentsByExam(eventId!, location),
+    eventId ? ['eligible-students-by-exam', eventId, locations?.join(',') || 'all'] : null,
+    () => examRevisionAPI.getEligibleStudentsByExam(eventId!, locations),
     { revalidateOnFocus: false }
   );
 }

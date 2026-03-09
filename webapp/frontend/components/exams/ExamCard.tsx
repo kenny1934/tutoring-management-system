@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
-import { useEligibleStudents, useEligibleStudentsByExam } from "@/lib/hooks";
+import { useEligibleStudentsByExam } from "@/lib/hooks";
 import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
 import { EditRevisionSlotModal } from "./EditRevisionSlotModal";
@@ -56,19 +56,19 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const [tutorFilter, setTutorFilter] = useState<string>("");
 
   // Fetch eligible students when expanded
-  // Use slot-based hook when slots exist, otherwise use exam-based hook
-  const firstSlotId = exam.revision_slots.length > 0 ? exam.revision_slots[0].id : null;
-  const { data: eligibleBySlot = [], isLoading: loadingBySlot } = useEligibleStudents(
-    showEligibleStudents && firstSlotId ? firstSlotId : null
-  );
-  const { data: eligibleByExam = [], isLoading: loadingByExam } = useEligibleStudentsByExam(
-    showEligibleStudents && !firstSlotId ? exam.id : null,
-    location
-  );
+  // Derive locations from available revision slots (cross-location revision not allowed)
+  const slotLocations = useMemo(() => {
+    const locs = [...new Set(exam.revision_slots.map(s => s.location))];
+    return locs.length > 0 ? locs : null;
+  }, [exam.revision_slots]);
 
-  // Use slot-based data when slots exist, otherwise use exam-based data
-  const eligibleStudents = firstSlotId ? eligibleBySlot : eligibleByExam;
-  const loadingEligible = firstSlotId ? loadingBySlot : loadingByExam;
+  // Use slot locations if slots exist, otherwise fall back to app location filter
+  const eligibleLocations = slotLocations ?? (location ? [location] : null);
+
+  const { data: eligibleStudents = [], isLoading: loadingEligible } = useEligibleStudentsByExam(
+    showEligibleStudents ? exam.id : null,
+    eligibleLocations
+  );
 
   // Extract unique tutors from eligible students for filtering
   const uniqueTutors = useMemo(() => {
