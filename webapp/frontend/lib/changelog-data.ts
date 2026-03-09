@@ -2,7 +2,7 @@
 const changelogData = [
   {
     "version": "2.0.23",
-    "date": "2026-03-09",
+    "date": "2026-03-10",
     "sections": [
       {
         "title": "Improvements",
@@ -18,6 +18,9 @@ const changelogData = [
       {
         "title": "Bug Fixes",
         "items": [
+          {
+            "description": "Fixed voice messages showing 0:00 duration until played (WebM metadata workaround)"
+          },
           {
             "description": "Fixed eligible students expanded list not matching collapsed count when \"All Locations\" is selected"
           },

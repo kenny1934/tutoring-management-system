@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.23](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.23) (2026-03-09)
+## [2.0.23](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.23) (2026-03-10)
 
 ### Improvements
 
@@ -9,6 +9,7 @@
 
 ### Bug Fixes
 
+* Fixed voice messages showing 0:00 duration until played (WebM metadata workaround)
 * Fixed eligible students expanded list not matching collapsed count when "All Locations" is selected
 * Fixed exam-based eligible students endpoint not excluding already-enrolled students
 
