@@ -20,6 +20,7 @@ import re
 from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, ThreadPin, ThreadMute, MessageSnooze, MessageMention, MessageRecipient, MessageTemplate, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html, strip_html_tags
 from .push_notifications import send_push_to_tutors
+from services.email_service import send_feedback_email
 from schemas import (
     MessageCreate,
     MessageUpdate,
@@ -1675,8 +1676,8 @@ async def create_message(
             # Direct: notify recipient
             recipient_ids = [effective_to_tutor_id]
 
+        sender_name = new_message.from_tutor.tutor_name if new_message.from_tutor else "Someone"
         if recipient_ids:
-            sender_name = new_message.from_tutor.tutor_name if new_message.from_tutor else "Someone"
             preview = (new_message.message or "")[:100]
             asyncio.create_task(sse_manager.broadcast("new_message", {
                 "message_id": new_message.id,
@@ -1696,6 +1697,14 @@ async def create_message(
                 "body": strip_html_tags(preview),
                 "data": {"threadId": new_message.reply_to_id or new_message.id, "url": "/inbox"},
             })
+
+        # Email notification for Feedback messages to superadmin
+        if new_message.category == "Feedback":
+            send_feedback_email(
+                sender_name=sender_name,
+                subject=new_message.subject,
+                body_html=new_message.message or "",
+            )
 
     return build_message_response(new_message, from_tutor_id, db)
 
