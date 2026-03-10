@@ -1509,6 +1509,16 @@ export interface SearchResults {
     location: string | null;
     payment_status: string | null;
   }>;
+  exams: Array<{
+    id: number;
+    event_id: string;
+    title: string;
+    start_date: string | null;
+    end_date: string | null;
+    school: string | null;
+    grade: string | null;
+    event_type: string | null;
+  }>;
 }
 
 // =============================================================================

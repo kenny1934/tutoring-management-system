@@ -38,7 +38,7 @@ export interface PageItem {
 // Result item type for unified list
 export interface ResultItem {
   id: string;
-  type: "student" | "session" | "enrollment" | "page" | "recent" | "action" | "utility" | "help";
+  type: "student" | "session" | "enrollment" | "exam" | "page" | "recent" | "action" | "utility" | "help";
   title: string;
   subtitle?: string;
   href?: string;
@@ -111,6 +111,7 @@ export const typeBadgeColors: Record<string, string> = {
   student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   session: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   enrollment: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  exam: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   page: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   utility: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
   help: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
@@ -125,6 +126,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     content: [
       { label: '@name', desc: 'Filter to students only' },
       { label: '#term', desc: 'Filter to sessions only' },
+      { label: '!term', desc: 'Filter to exams only' },
       { label: '/page', desc: 'Filter to pages only' },
       { label: '= expr', desc: 'Calculator (e.g. = 6 * 250)' },
       { label: 'date +7', desc: 'Date offset (or d -30)' },

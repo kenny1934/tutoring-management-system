@@ -36,6 +36,7 @@ import {
   ChevronRight,
   HelpCircle,
   MessageSquarePlus,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, SearchResults, studentsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
@@ -264,7 +265,7 @@ export function CommandPalette() {
         setResults(data);
         setSelectedIndex(0);
         // Save to recent if we got results (save original query with filter prefix)
-        const hasResults = data.students.length > 0 || data.sessions.length > 0 || data.enrollments.length > 0;
+        const hasResults = data.students.length > 0 || data.sessions.length > 0 || data.enrollments.length > 0 || data.exams.length > 0;
         if (hasResults) {
           saveRecentSearch(query);
         }
@@ -503,6 +504,25 @@ export function CommandPalette() {
           });
         });
       }
+
+      // Exams (only if no filter or filter is "exam")
+      if (!filterType || filterType === "exam") {
+        results.exams.forEach((exam) => {
+          items.push({
+            id: `exam-${exam.id}`,
+            type: "exam",
+            title: exam.title,
+            subtitle: [
+              exam.start_date ? new Date(exam.start_date).toLocaleDateString() : null,
+              exam.event_type,
+              exam.school,
+              exam.grade,
+            ].filter(Boolean).join(" · "),
+            href: `/exams`,
+            icon: GraduationCap,
+          });
+        });
+      }
     }
 
     // Add matching pages using fuzzy search (only if no filter or filter is "page")
@@ -536,6 +556,14 @@ export function CommandPalette() {
   // State for help preview (separate from API-fetched preview)
   const [helpPreview, setHelpPreview] = useState<HelpTopic | null>(null);
 
+  // Derive exam preview from search results (no API fetch needed)
+  const examPreview = useMemo(() => {
+    const item = allItems[selectedIndex];
+    if (item?.type !== 'exam' || !results?.exams) return null;
+    const examId = parseInt(item.id.split('-')[1], 10);
+    return results.exams.find(e => e.id === examId) ?? null;
+  }, [selectedIndex, allItems, results]);
+
   // Update preview based on selected item
   useEffect(() => {
     const item = allItems[selectedIndex];
@@ -544,6 +572,13 @@ export function CommandPalette() {
     if (item?.type === 'help') {
       const topic = HELP_TOPICS.find(t => t.id === item.id);
       setHelpPreview(topic || null);
+      setPreviewItem(null);
+      return;
+    }
+
+    // Exam preview is derived via useMemo — just clear other previews
+    if (item?.type === 'exam') {
+      setHelpPreview(null);
       setPreviewItem(null);
       return;
     }
@@ -748,7 +783,7 @@ export function CommandPalette() {
             aria-label="Search results"
             className={cn(
               "overflow-y-auto",
-              (debouncedPreviewItem || helpPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
+              (debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
             )}
           >
           {loading && (
@@ -784,7 +819,7 @@ export function CommandPalette() {
           {!loading && allItems.length > 0 && query && (
             <div className="py-2">
               {/* Group by type */}
-              {["utility", "help", "student", "session", "enrollment", "page"].map((type) => {
+              {["utility", "help", "student", "session", "enrollment", "exam", "page"].map((type) => {
                 const typeItems = allItems.filter((item) => item.type === type);
                 if (typeItems.length === 0) return null;
 
@@ -794,6 +829,7 @@ export function CommandPalette() {
                   student: "Students",
                   session: "Sessions",
                   enrollment: "Enrollments",
+                  exam: "Exams",
                   page: "Pages",
                 };
 
@@ -1009,10 +1045,12 @@ export function CommandPalette() {
           </div>
 
           {/* Preview panel - desktop only */}
-          {(debouncedPreviewItem || helpPreview) && !commandPath.length && (
+          {(debouncedPreviewItem || helpPreview || examPreview) && !commandPath.length && (
             <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#1a1a1a]/50">
               {helpPreview ? (
                 <HelpPreview topic={helpPreview} />
+              ) : examPreview ? (
+                <PreviewContent data={{ type: 'exam', data: examPreview }} />
               ) : previewLoading ? (
                 <PreviewSkeleton />
               ) : (

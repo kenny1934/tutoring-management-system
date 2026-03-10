@@ -9,9 +9,11 @@ from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta, time
 from database import get_db
-from models import Student, Enrollment, SessionLog, Tutor
+from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent
 from auth.dependencies import get_current_user, is_office_ip, get_effective_role
+
+EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
 
 router = APIRouter()
 
@@ -344,6 +346,19 @@ async def global_search(
 
     enrollments = enrollment_query.limit(limit).all()
 
+    # Search exams/tests by title, school, grade
+    exam_query = db.query(CalendarEvent).filter(
+        CalendarEvent.event_type.in_(EXAM_EVENT_TYPES),
+        CalendarEvent.start_date >= today - timedelta(days=30),
+        or_(
+            CalendarEvent.title.ilike(search_term),
+            func.coalesce(CalendarEvent.school, '').ilike(search_term),
+            func.coalesce(CalendarEvent.grade, '').ilike(search_term),
+        )
+    ).order_by(CalendarEvent.start_date.asc())
+
+    exams = exam_query.limit(limit).all()
+
     return {
         "students": [
             {
@@ -377,6 +392,19 @@ async def global_search(
                 "payment_status": e.payment_status,
             }
             for e in enrollments
+        ],
+        "exams": [
+            {
+                "id": ex.id,
+                "event_id": ex.event_id,
+                "title": ex.title,
+                "start_date": ex.start_date.isoformat() if ex.start_date else None,
+                "end_date": ex.end_date.isoformat() if ex.end_date else None,
+                "school": ex.school,
+                "grade": ex.grade,
+                "event_type": ex.event_type,
+            }
+            for ex in exams
         ],
     }
 
