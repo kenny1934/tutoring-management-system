@@ -37,6 +37,9 @@ const changelogData = [
           },
           {
             "description": "Fixed inbox emoji picker closing after every emoji selection — now stays open until you click away"
+          },
+          {
+            "description": "Fixed unchecked attendance status column using plain gray pill instead of color-coded status tags"
           }
         ]
       }

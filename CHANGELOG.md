@@ -17,6 +17,7 @@
 * Fixed session cards jumping position when marking attendance (Attended/No Show now sort in place)
 * Fixed command palette recent searches saving on every keystroke instead of on selection
 * Fixed inbox emoji picker closing after every emoji selection — now stays open until you click away
+* Fixed unchecked attendance status column using plain gray pill instead of color-coded status tags
 
 ## [2.0.24](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.24) (2026-03-10)
 
