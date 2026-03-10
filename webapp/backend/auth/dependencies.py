@@ -361,6 +361,24 @@ def reject_guest(
     return current_user
 
 
+def reject_read_only(
+    request: Request,
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Block read-only roles (Supervisor, Guest) from write endpoints.
+    Allows Tutor, Admin, and Super Admin.
+
+    Respects impersonation for Super Admins.
+    """
+    if get_effective_role(request, current_user) in READ_ONLY_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only access — modifications not permitted",
+        )
+    return current_user
+
+
 def require_non_guest_view(
     request: Request,
     current_user: Tutor = Depends(get_current_user),

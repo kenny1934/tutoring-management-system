@@ -268,7 +268,7 @@ interface DocumentEditorProps {
 
 export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentEditorProps) {
   const router = useRouter();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isReadOnly: roleReadOnly } = useAuth();
   const { showToast } = useToast();
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
@@ -349,7 +349,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [doc.id]);
 
-  const isReadOnly = lockedByOther !== null || doc.is_archived;
+  const isReadOnly = roleReadOnly || lockedByOther !== null || doc.is_archived;
 
   const handleForceUnlock = useCallback(async () => {
     try {

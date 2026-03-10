@@ -41,6 +41,8 @@ interface FolderSidebarProps {
   mobile?: boolean;
   /** When true, collapse to zero width (smooth transition). */
   hidden?: boolean;
+  /** When true, hide all folder CRUD actions (create, rename, delete). */
+  isReadOnly?: boolean;
 }
 
 /* ── Build tree from flat list ─────────────────────────── */
@@ -84,6 +86,7 @@ function FolderTreeItem({
   onCreateSubfolder,
   onRename,
   onDelete,
+  isReadOnly,
 }: {
   node: FolderTreeNode;
   depth: number;
@@ -92,6 +95,7 @@ function FolderTreeItem({
   onCreateSubfolder: (parentId: number) => void;
   onRename: (folder: DocumentFolder) => void;
   onDelete: (folder: DocumentFolder) => void;
+  isReadOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,7 +142,7 @@ function FolderTreeItem({
         <span className="text-[10px] opacity-50 shrink-0 tabular-nums">{node.document_count}</span>
 
         {/* Hover menu trigger */}
-        <div className="relative shrink-0" ref={menuRef}>
+        {!isReadOnly && <div className="relative shrink-0" ref={menuRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -195,7 +199,7 @@ function FolderTreeItem({
               </button>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Children */}
@@ -211,6 +215,7 @@ function FolderTreeItem({
               onCreateSubfolder={onCreateSubfolder}
               onRename={onRename}
               onDelete={onDelete}
+              isReadOnly={isReadOnly}
             />
           ))}
         </div>
@@ -279,6 +284,7 @@ export default function FolderSidebar({
   totalDocCount,
   mobile,
   hidden,
+  isReadOnly,
 }: FolderSidebarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -390,13 +396,13 @@ export default function FolderSidebar({
               Folders
             </span>
             <div className="flex items-center gap-0.5">
-              <button
+              {!isReadOnly && <button
                 onClick={() => setCreating({ parentId: null })}
                 className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
                 title="New folder"
               >
                 <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-              </button>
+              </button>}
               {!mobile && (
                 <button
                   onClick={toggleCollapse}
@@ -440,11 +446,12 @@ export default function FolderSidebar({
                 onCreateSubfolder={handleCreateSubfolder}
                 onRename={handleStartRename}
                 onDelete={onDeleteFolder}
+                isReadOnly={isReadOnly}
               />
             ))}
 
             {/* Inline create */}
-            {creating && (
+            {!isReadOnly && creating && (
               <InlineCreateFolder
                 parentId={creating.parentId}
                 onCreate={onCreateFolder}
@@ -453,7 +460,7 @@ export default function FolderSidebar({
             )}
 
             {/* Empty state */}
-            {tree.length === 0 && !creating && (
+            {!isReadOnly && tree.length === 0 && !creating && (
               <button
                 onClick={() => setCreating({ parentId: null })}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"

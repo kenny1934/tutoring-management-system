@@ -8,6 +8,10 @@
 * **Tests & exams in command palette** — search tests and exams directly from the command palette with preview panel
 * **Feedback email notifications** — superadmin receives a Gmail email when tutors submit bug reports, feature requests, or suggestions via the feedback panel
 
+### Improvements
+
+* **Documents read-only for supervisors** — supervisors can view documents but cannot create, edit, delete, duplicate, lock, or manage folders; backend write endpoints return 403 for read-only roles
+
 ### Bug Fixes
 
 * Fixed session cards jumping position when marking attendance (Attended/No Show now sort in place)
