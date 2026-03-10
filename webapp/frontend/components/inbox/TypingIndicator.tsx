@@ -8,7 +8,13 @@ interface TypingIndicatorProps {
 export default function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   if (typingUsers.length === 0) return null;
 
-  const names = typingUsers.map(u => u.tutorName.split(" ").pop() || u.tutorName);
+  const names = typingUsers.map(u => {
+    const parts = u.tutorName.split(" ").filter(Boolean);
+    if (parts.length > 1 && /^(mr|ms)\.?$/i.test(parts[0])) {
+      return parts[1];
+    }
+    return parts[0] || u.tutorName;
+  });
   let text: string;
   if (names.length === 1) {
     text = `${names[0]} is typing`;
