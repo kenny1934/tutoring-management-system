@@ -34,6 +34,9 @@ const changelogData = [
           },
           {
             "description": "Fixed command palette recent searches saving on every keystroke instead of on selection"
+          },
+          {
+            "description": "Fixed inbox emoji picker closing after every emoji selection — now stays open until you click away"
           }
         ]
       }

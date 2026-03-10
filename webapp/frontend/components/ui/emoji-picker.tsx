@@ -27,9 +27,10 @@ interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
   triggerRef: RefObject<HTMLElement | null>;
+  persistOnSelect?: boolean;
 }
 
-export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef }: EmojiPickerProps) {
+export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef, persistOnSelect }: EmojiPickerProps) {
   const [selectedGroup, setSelectedGroup] = useState(-1); // -1 = frequent
   const frequent = getFrequentEmojis();
 
@@ -96,7 +97,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef }: EmojiPick
             key={emoji}
             onClick={() => {
               onSelect(emoji);
-              onClose();
+              if (!persistOnSelect) onClose();
             }}
             className="p-1.5 text-xl hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
           >

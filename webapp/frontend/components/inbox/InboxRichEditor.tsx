@@ -961,6 +961,7 @@ export default function InboxRichEditor({
             isOpen={showEmojiPicker}
             onClose={() => setShowEmojiPicker(false)}
             onSelect={insertEmoji}
+            persistOnSelect
           />
         </div>
       </div>
