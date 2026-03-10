@@ -13,6 +13,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { sessionsAPI } from "@/lib/api";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { Loader2, Check, X, ClipboardList, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -466,9 +467,7 @@ export default function UncheckedAttendancePage() {
                                     </td>
                                   )}
                                   <td className="px-4 py-3">
-                                    <span className="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                                      {session.session_status}
-                                    </span>
+                                    <SessionStatusTag status={session.session_status} size="sm" />
                                   </td>
                                   <td className="px-4 py-3 text-center whitespace-nowrap">
                                     <span className={cn(
