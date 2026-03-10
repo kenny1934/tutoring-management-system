@@ -63,6 +63,7 @@ import { parseQuery, evaluateMath, highlightMatch } from "./commandPalette/utils
 import { useRecentSearches } from "./commandPalette/hooks";
 import { ResultItemButton } from "./commandPalette/ResultItem";
 import { PreviewSkeleton, HelpPreview, PreviewContent } from "./commandPalette/PreviewPanel";
+import { useWebHaptics } from "web-haptics/react";
 
 export function CommandPalette() {
   const router = useRouter();
@@ -72,6 +73,7 @@ export function CommandPalette() {
   const { viewMode, setViewMode } = useRole();
   const { selectedLocation, setSelectedLocation, locations } = useLocation();
   const { showToast } = useToast();
+  const haptic = useWebHaptics();
 
   // State for nested command navigation
   const [commandPath, setCommandPath] = useState<string[]>([]);
@@ -264,11 +266,6 @@ export function CommandPalette() {
         const data = await api.stats.search(searchTerm, selectedLocation);
         setResults(data);
         setSelectedIndex(0);
-        // Save to recent if we got results (save original query with filter prefix)
-        const hasResults = data.students.length > 0 || data.sessions.length > 0 || data.enrollments.length > 0 || data.exams.length > 0;
-        if (hasResults) {
-          saveRecentSearch(query);
-        }
       } catch (error) {
         // Search failed silently
       } finally {
@@ -277,7 +274,7 @@ export function CommandPalette() {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [query, searchTerm, saveRecentSearch]);
+  }, [query, searchTerm]);
 
   // Slash syntax: "filter/" or "loc/" etc. to enter submenu
   useEffect(() => {
@@ -613,7 +610,12 @@ export function CommandPalette() {
         case "Enter":
           e.preventDefault();
           if (allItems[selectedIndex]) {
+            haptic.trigger("light");
             const item = allItems[selectedIndex];
+            // Save to recent only when selecting a data result
+            if (query && ["student", "session", "enrollment", "exam"].includes(item.type)) {
+              saveRecentSearch(query);
+            }
             if (item.type === "recent") {
               // Set query instead of navigating for recent searches
               setQuery(item.title);
@@ -650,7 +652,7 @@ export function CommandPalette() {
           break;
       }
     },
-    [allItems, selectedIndex, router, close, query, commandPath]
+    [allItems, selectedIndex, router, close, query, commandPath, saveRecentSearch]
   );
 
   // Scroll selected item into view
@@ -859,6 +861,10 @@ export function CommandPalette() {
                           searchTerm={searchTerm}
                           showEnterIcon={item.type !== 'help'}
                           onClick={() => {
+                            haptic.trigger("light");
+                            if (query && ["student", "session", "enrollment", "exam"].includes(item.type)) {
+                              saveRecentSearch(query);
+                            }
                             if (item.execute) {
                               item.execute();
                             } else if (item.href) {
@@ -884,7 +890,7 @@ export function CommandPalette() {
                   item={item}
                   index={idx}
                   isSelected={idx === selectedIndex}
-                  onClick={() => item.execute?.()}
+                  onClick={() => { haptic.trigger("light"); item.execute?.(); }}
                 />
               ))}
             </div>
