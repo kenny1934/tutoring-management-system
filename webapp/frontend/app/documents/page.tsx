@@ -9,6 +9,7 @@ import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { formatTimeAgo } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { documentsAPI, foldersAPI } from "@/lib/document-api";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
@@ -38,6 +39,7 @@ export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
   const { showToast } = useToast();
+  const { isReadOnly } = useAuth();
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "templates">("all");
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
@@ -407,6 +409,7 @@ export default function DocumentsPage() {
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
           totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
+          isReadOnly={isReadOnly}
         />
 
         {/* Mobile drawer backdrop + sidebar — always mounted, animated (hidden on templates tab) */}
@@ -437,6 +440,7 @@ export default function DocumentsPage() {
                 onRenameFolder={handleRenameFolder}
                 onDeleteFolder={handleDeleteFolder}
                 mobile
+                isReadOnly={isReadOnly}
               />
             </div>
           </div>
@@ -475,7 +479,7 @@ export default function DocumentsPage() {
                 </p>
               </div>
             </div>
-            {isTemplatesTab ? (
+            {!isReadOnly && (isTemplatesTab ? (
               <button
                 onClick={handleCreateTemplate}
                 className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm"
@@ -491,7 +495,7 @@ export default function DocumentsPage() {
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">New Document</span>
               </button>
-            )}
+            ))}
           </div>
 
           {/* Tabs */}
@@ -750,13 +754,13 @@ export default function DocumentsPage() {
                         </span>
                       )}
                     </div>
-                    <DocContextMenu
+                    {!isReadOnly && <DocContextMenu
                       doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                       onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
                       onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
                       folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                       onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
-                    />
+                    />}
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
@@ -845,7 +849,7 @@ export default function DocumentsPage() {
                       </span>
                     )}
                     {/* Mobile menu — at end of title row */}
-                    <span className="sm:hidden shrink-0 ml-auto">
+                    {!isReadOnly && <span className="sm:hidden shrink-0 ml-auto">
                       <DocContextMenu
                         doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                         onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
@@ -853,7 +857,7 @@ export default function DocumentsPage() {
                         folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                         onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                       />
-                    </span>
+                    </span>}
                   </span>
                   {/* Mobile meta row — type badge + editor + timestamp below title */}
                   <span className="flex sm:hidden items-center gap-2 w-full pl-6 text-xs text-gray-500 dark:text-gray-400">
@@ -876,7 +880,7 @@ export default function DocumentsPage() {
                       : formatTimeAgo(doc.updated_at)
                     }
                   </span>
-                  <span className="hidden sm:block shrink-0">
+                  {!isReadOnly && <span className="hidden sm:block shrink-0">
                     <DocContextMenu
                       doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                       onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
@@ -884,7 +888,7 @@ export default function DocumentsPage() {
                       folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
                       onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                     />
-                  </span>
+                  </span>}
                 </div>
               );
             })}

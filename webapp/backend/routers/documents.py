@@ -26,7 +26,7 @@ from schemas import (
     FolderUpdate,
     FolderResponse,
 )
-from auth.dependencies import get_current_user, reject_guest
+from auth.dependencies import get_current_user, reject_guest, reject_read_only
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +289,7 @@ async def get_document(
 @router.post("/documents", response_model=DocumentResponse)
 async def create_document(
     data: DocumentCreate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Create a new document."""
@@ -321,7 +321,7 @@ async def create_document(
 async def update_document(
     doc_id: int,
     data: DocumentUpdate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Update a document (title, content, or archive status)."""
@@ -383,7 +383,7 @@ async def update_document(
 @router.delete("/documents/{doc_id}")
 async def delete_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Soft-delete a document (archive it)."""
@@ -404,7 +404,7 @@ async def delete_document(
 @router.delete("/documents/{doc_id}/permanent")
 async def permanently_delete_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Hard-delete an archived document permanently."""
@@ -425,7 +425,7 @@ async def permanently_delete_document(
 @router.post("/documents/{doc_id}/duplicate", response_model=DocumentResponse)
 async def duplicate_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Duplicate a document — copies content, type, page layout, and tags. New owner is current user."""
@@ -458,7 +458,7 @@ async def duplicate_document(
 @router.post("/documents/upload-image")
 async def upload_document_image(
     file: UploadFile = File(...),
-    _: Tutor = Depends(get_current_user),
+    _: Tutor = Depends(reject_read_only),
 ):
     """Upload an image for use in document content. Returns the public URL."""
     from services.image_storage import upload_image
@@ -479,7 +479,7 @@ async def upload_document_image(
 @router.post("/documents/{doc_id}/lock", response_model=DocumentResponse)
 async def lock_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Acquire or refresh a lock on a document."""
@@ -510,7 +510,7 @@ async def lock_document(
 @router.post("/documents/{doc_id}/heartbeat")
 async def heartbeat_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Refresh the lock expiry (keep-alive)."""
@@ -529,7 +529,7 @@ async def heartbeat_document(
 @router.delete("/documents/{doc_id}/lock")
 async def unlock_document(
     doc_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Release a lock. Owner of the lock or admins can release."""
@@ -606,7 +606,7 @@ async def get_version(
 async def create_checkpoint(
     doc_id: int,
     data: CreateCheckpointRequest = CreateCheckpointRequest(),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Create a manual checkpoint of the current document state."""
@@ -636,7 +636,7 @@ async def create_checkpoint(
 async def restore_version(
     doc_id: int,
     ver_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Restore a document to a previous version. Snapshots current state first."""
@@ -681,7 +681,7 @@ async def restore_version(
 async def delete_version(
     doc_id: int,
     ver_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Delete a single version."""
@@ -741,7 +741,7 @@ async def list_folders(
 @router.post("/document-folders", response_model=FolderResponse)
 async def create_folder(
     data: FolderCreate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Create a new document folder."""
@@ -768,7 +768,7 @@ async def create_folder(
 async def update_folder(
     folder_id: int,
     data: FolderUpdate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Update a document folder name or parent."""
@@ -798,7 +798,7 @@ async def update_folder(
 @router.delete("/document-folders/{folder_id}")
 async def delete_folder(
     folder_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """Delete a document folder. Documents in this folder become unfiled."""

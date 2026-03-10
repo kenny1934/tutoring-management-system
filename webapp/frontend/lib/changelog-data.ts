@@ -19,6 +19,14 @@ const changelogData = [
         ]
       },
       {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "**Documents read-only for supervisors** — supervisors can view documents but cannot create, edit, delete, duplicate, lock, or manage folders; backend write endpoints return 403 for read-only roles"
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {
