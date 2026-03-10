@@ -1,4 +1,5 @@
 import { useRef, useCallback } from "react";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface UseSwipeableOptions {
   onSwipeLeft?: () => void;
@@ -21,6 +22,7 @@ export function useSwipeable({
   fadeDistance = 60,
   springTransition = "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
 }: UseSwipeableOptions) {
+  const haptic = useHaptic();
   const startX = useRef(0);
   const startY = useRef(0);
   const currentX = useRef(0);
@@ -64,12 +66,12 @@ export function useSwipeable({
     if (rightIconRef.current) rightIconRef.current.style.opacity = "0";
 
     if (isSwiping.current) {
-      if (currentX.current < -threshold && onSwipeLeft) onSwipeLeft();
-      else if (currentX.current > threshold && onSwipeRight) onSwipeRight();
+      if (currentX.current < -threshold && onSwipeLeft) { haptic.trigger("light"); onSwipeLeft(); }
+      else if (currentX.current > threshold && onSwipeRight) { haptic.trigger("light"); onSwipeRight(); }
     }
     isSwiping.current = false;
     currentX.current = 0;
-  }, [onSwipeLeft, onSwipeRight, threshold, springTransition]);
+  }, [onSwipeLeft, onSwipeRight, threshold, springTransition, haptic]);
 
   return {
     containerRef,

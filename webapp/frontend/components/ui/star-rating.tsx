@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface StarRatingProps {
   rating: number;
@@ -23,6 +24,7 @@ export function StarRating({
   onChange,
 }: StarRatingProps) {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const haptic = useHaptic();
 
   const sizeClasses = {
     sm: "h-3.5 w-3.5",
@@ -36,6 +38,7 @@ export function StarRating({
 
   const handleClick = (starIndex: number) => {
     if (onChange) {
+      haptic.trigger("selection");
       // If clicking the same star that's already selected, clear to 0
       // Otherwise set to the clicked star
       const newRating = starIndex + 1 === rating ? 0 : starIndex + 1;

@@ -10,7 +10,8 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -50,6 +51,15 @@ export function ConfirmDialog({
     enabled: !loading,
   });
   const { getFloatingProps } = useInteractions([dismiss]);
+
+  const haptic = useHaptic();
+  const prevOpen = useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevOpen.current && (variant === "danger" || variant === "warning")) {
+      haptic.trigger("warning");
+    }
+    prevOpen.current = isOpen;
+  }, [isOpen, variant, haptic]);
 
   if (!isOpen) return null;
 

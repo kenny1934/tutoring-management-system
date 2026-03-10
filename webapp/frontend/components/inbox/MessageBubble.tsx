@@ -18,6 +18,7 @@ import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { useHaptic } from "@/lib/useHaptic";
 import AudioPlayer from "@/components/inbox/AudioPlayer";
 import ImageLightbox from "@/components/inbox/ImageLightbox";
 import AttachmentMenu from "@/components/inbox/AttachmentMenu";
@@ -220,6 +221,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
   const pickerRef = useRef<HTMLDivElement>(null);
   const plusButtonRef = useRef<HTMLButtonElement>(null);
   const emojiRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const haptic = useHaptic();
 
   useEffect(() => {
     if (!showPicker || showFullPicker) return; // FloatingDropdown handles its own dismiss
@@ -266,11 +268,12 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
   }, [focusIdx]);
 
   const handleReact = useCallback((emoji: string) => {
+    haptic.trigger("light");
     trackEmojiUse(emoji);
     onReact(emoji);
     setShowPicker(false);
     setShowFullPicker(false);
-  }, [onReact]);
+  }, [onReact, haptic]);
 
   return (
     <div className="relative" ref={pickerRef}>
@@ -331,6 +334,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
   const [popover, setPopover] = useState<{ emoji: string; pos: { top: number; left: number } } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+  const haptic = useHaptic();
 
   const likeDetails = message.like_details || [];
 
@@ -381,6 +385,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
             key={g.emoji}
             onClick={() => {
               if (longPressFired.current) { longPressFired.current = false; return; }
+              haptic.trigger("light");
               onToggleReaction(g.emoji);
             }}
             onTouchStart={(e) => {
@@ -388,6 +393,7 @@ const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onT
               const rect = e.currentTarget.getBoundingClientRect();
               longPressTimer.current = setTimeout(() => {
                 longPressFired.current = true;
+                haptic.trigger("heavy");
                 const spaceBelow = window.innerHeight - rect.bottom;
                 setPopover({
                   emoji: g.emoji,

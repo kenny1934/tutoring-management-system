@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface ThemeToggleProps {
   /** Compact mode: just the toggle switch, no label */
@@ -13,6 +14,7 @@ interface ThemeToggleProps {
 export function ThemeToggle({ compact = false }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const haptic = useHaptic();
 
   // Avoid hydration mismatch
   useEffect(() => {
@@ -23,7 +25,7 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
 
   const toggleButton = (
     <button
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => { haptic.trigger("light"); setTheme(isDark ? "light" : "dark"); }}
       className={cn(
         "relative w-12 h-7 rounded-full shadow-sm hover:scale-105 active:scale-95",
         isDark ? "bg-primary" : "bg-foreground/20"

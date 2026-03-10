@@ -12,6 +12,7 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHaptic } from "@/lib/useHaptic";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -50,6 +51,7 @@ export function EnrollmentDetailModal({
 }: EnrollmentDetailModalProps) {
   const { selectedLocation } = useLocation();
   const { effectiveRole, isReadOnly } = useAuth();
+  const haptic = useHaptic();
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
   // Use SWR for caching
@@ -96,6 +98,7 @@ export function EnrollmentDetailModal({
 
   const handleMarkSent = async () => {
     if (!enrollmentId) return;
+    haptic.trigger("medium");
     setMarkingSent(true);
     try {
       await enrollmentsAPI.update(enrollmentId, { fee_message_sent: true });
@@ -108,6 +111,7 @@ export function EnrollmentDetailModal({
 
   const handleUnmarkSent = async () => {
     if (!enrollmentId) return;
+    haptic.trigger("medium");
     setMarkingSent(true);
     try {
       await enrollmentsAPI.update(enrollmentId, { fee_message_sent: false });
@@ -131,6 +135,7 @@ export function EnrollmentDetailModal({
 
   const handleCopyFee = async () => {
     if (!enrollmentId || !detail) return;
+    haptic.trigger("light");
     try {
       const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail));
       await navigator.clipboard.writeText(message);

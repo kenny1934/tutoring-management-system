@@ -63,7 +63,7 @@ import { parseQuery, evaluateMath, highlightMatch } from "./commandPalette/utils
 import { useRecentSearches } from "./commandPalette/hooks";
 import { ResultItemButton } from "./commandPalette/ResultItem";
 import { PreviewSkeleton, HelpPreview, PreviewContent } from "./commandPalette/PreviewPanel";
-import { useWebHaptics } from "web-haptics/react";
+import { useHaptic } from "@/lib/useHaptic";
 
 export function CommandPalette() {
   const router = useRouter();
@@ -73,7 +73,7 @@ export function CommandPalette() {
   const { viewMode, setViewMode } = useRole();
   const { selectedLocation, setSelectedLocation, locations } = useLocation();
   const { showToast } = useToast();
-  const haptic = useWebHaptics();
+  const haptic = useHaptic();
 
   // State for nested command navigation
   const [commandPath, setCommandPath] = useState<string[]>([]);

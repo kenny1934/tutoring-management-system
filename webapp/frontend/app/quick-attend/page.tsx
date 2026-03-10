@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import type { Session, UncheckedAttendanceReminder } from "@/types";
+import { useHaptic } from "@/lib/useHaptic";
 
 type CardState = "pending" | "rating" | "done";
 
@@ -149,11 +150,6 @@ function overdueToCardData(s: UncheckedAttendanceReminder): SessionCardData {
   };
 }
 
-// Haptic feedback helper
-function haptic() {
-  try { navigator?.vibrate?.(10); } catch { /* no-op */ }
-}
-
 export default function QuickAttendPage() {
   usePageTitle("Quick Attend");
 
@@ -161,6 +157,9 @@ export default function QuickAttendPage() {
   const { viewMode } = useRole();
   const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { showToast } = useToast();
+  const hapticFeedback = useHaptic();
+  const hapticRef = useRef(hapticFeedback);
+  hapticRef.current = hapticFeedback;
 
   const [cardStates, setCardStates] = useState<Record<number, CardStatus>>({});
   const [markingIds, setMarkingIds] = useState<Set<number>>(new Set());
@@ -349,7 +348,7 @@ export default function QuickAttendPage() {
 
   const handleAttended = useCallback(async (sessionId: number) => {
     if (markingIds.has(sessionId)) return;
-    haptic();
+    hapticRef.current.trigger("medium");
     setMarkingIds((prev) => new Set(prev).add(sessionId));
     try {
       const updated = await sessionsAPI.markAttended(sessionId);
@@ -362,7 +361,7 @@ export default function QuickAttendPage() {
 
   const handleNoShow = useCallback(async (sessionId: number) => {
     if (markingIds.has(sessionId)) return;
-    haptic();
+    hapticRef.current.trigger("medium");
     setMarkingIds((prev) => new Set(prev).add(sessionId));
     try {
       const updated = await sessionsAPI.markNoShow(sessionId);
@@ -375,7 +374,7 @@ export default function QuickAttendPage() {
 
   const handleReschedule = useCallback(async (sessionId: number) => {
     if (markingIds.has(sessionId)) return;
-    haptic();
+    hapticRef.current.trigger("medium");
     setMarkingIds((prev) => new Set(prev).add(sessionId));
     try {
       const updated = await sessionsAPI.markRescheduled(sessionId);
@@ -749,6 +748,7 @@ const SessionCard = React.memo(function SessionCard({
   } = data;
   const state = cardStatus?.state || "pending";
   const [dismissed, setDismissed] = useState(false);
+  const haptic = useHaptic();
 
   // Framer Motion drag values
   const x = useMotionValue(0);
@@ -770,12 +770,12 @@ const SessionCard = React.memo(function SessionCard({
     if (shouldDismissRight) {
       setDismissed(true);
       animate(x, 500, { type: "spring", stiffness: 200, damping: 30 });
-      haptic();
+      hapticRef.current.trigger("medium");
       onAttended(sessionId);
     } else if (shouldDismissLeft) {
       setDismissed(true);
       animate(x, -500, { type: "spring", stiffness: 200, damping: 30 });
-      haptic();
+      hapticRef.current.trigger("medium");
       onNoShow(sessionId);
     } else {
       // Spring back
@@ -889,7 +889,7 @@ const SessionCard = React.memo(function SessionCard({
               {state === "pending" && !dismissed && (
                 <motion.div key="buttons" initial={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.15 }} className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => { haptic(); onAttended(sessionId); }}
+                    onClick={() => { haptic.trigger("medium"); onAttended(sessionId); }}
                     disabled={isMarking}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",
@@ -901,7 +901,7 @@ const SessionCard = React.memo(function SessionCard({
                     Attended
                   </button>
                   <button
-                    onClick={() => { haptic(); onNoShow(sessionId); }}
+                    onClick={() => { haptic.trigger("medium"); onNoShow(sessionId); }}
                     disabled={isMarking}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",
@@ -913,7 +913,7 @@ const SessionCard = React.memo(function SessionCard({
                     No Show
                   </button>
                   <button
-                    onClick={() => { haptic(); onReschedule(sessionId); }}
+                    onClick={() => { haptic.trigger("medium"); onReschedule(sessionId); }}
                     disabled={isMarking}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium text-sm transition-colors",

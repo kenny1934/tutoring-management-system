@@ -8,6 +8,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useUncheckedAttendance } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
+import { useHaptic } from "@/lib/useHaptic";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
@@ -82,6 +83,7 @@ export default function UncheckedAttendancePage() {
   const { viewMode } = useRole();
   const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { showToast } = useToast();
+  const haptic = useHaptic();
 
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(ALL_TUTORS);
   const [markingId, setMarkingId] = useState<number | null>(null);
@@ -238,6 +240,7 @@ export default function UncheckedAttendancePage() {
 
   // Mark attendance handlers
   const handleMarkAttended = useCallback(async (sessionId: number) => {
+    haptic.trigger("medium");
     setMarkingId(sessionId);
     try {
       await sessionsAPI.markAttended(sessionId);
@@ -249,9 +252,10 @@ export default function UncheckedAttendancePage() {
     } finally {
       setMarkingId(null);
     }
-  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast]);
+  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
 
   const handleMarkNoShow = useCallback(async (sessionId: number) => {
+    haptic.trigger("medium");
     setMarkingId(sessionId);
     try {
       await sessionsAPI.markNoShow(sessionId);
@@ -263,7 +267,7 @@ export default function UncheckedAttendancePage() {
     } finally {
       setMarkingId(null);
     }
-  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast]);
+  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
 
   // Format date for display
   const formatDate = (dateStr: string) => {
