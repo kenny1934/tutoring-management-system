@@ -80,13 +80,10 @@ export function useGroupedSessions(
             const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
             const status = s.session_status || '';
 
-            if (status === 'Trial Class') return 0;
-            if (isMainGroup && status === 'Scheduled') return 1;
-            if (isMainGroup && status === 'Attended') return 2;
-            if (status === 'Scheduled') return 3;
-            if (status === 'Attended') return 4;
-            if (status === 'Make-up Class') return 5;
-            if (status === 'Attended (Make-up)') return 6;
+            if (status === 'Trial Class' || status === 'Attended (Trial)') return 0;
+            if (isMainGroup && (status === 'Scheduled' || status === 'Attended' || status === 'No Show')) return 1;
+            if (status === 'Scheduled' || status === 'Attended' || status === 'No Show') return 3;
+            if (status === 'Make-up Class' || status === 'Attended (Make-up)') return 5;
             return 10 + getStatusSortOrder(status);
           };
 
