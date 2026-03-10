@@ -15,6 +15,10 @@ export function parseQuery(q: string): { type: string | null; term: string } {
   const sessionMatch = q.match(/^[#](.+)/i) || q.match(/^sess:(.+)/i);
   if (sessionMatch) return { type: "session", term: sessionMatch[1] };
 
+  // !exam or e:term → exams
+  const examMatch = q.match(/^[!](.+)/i) || q.match(/^e:(.+)/i);
+  if (examMatch) return { type: "exam", term: examMatch[1] };
+
   // /page or p:page → pages
   const pageMatch = q.match(/^[\/](.+)/i) || q.match(/^p:(.+)/i);
   if (pageMatch) return { type: "page", term: pageMatch[1] };

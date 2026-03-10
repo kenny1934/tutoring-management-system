@@ -5,6 +5,7 @@ import {
   Clock,
   Phone,
   MapPin,
+  GraduationCap,
   HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,16 @@ import { getGradeColor } from "@/lib/constants";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { HelpTopic } from "./types";
+
+// Event type colors for exam preview badges
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  Test: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-200",
+  Exam: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200",
+  Quiz: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200",
+  "Final Exam": "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200",
+  "Mid-term": "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-200",
+  Mock: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-200",
+};
 
 // Preview data types for command palette
 interface StudentPreviewData {
@@ -37,6 +48,15 @@ interface SessionPreviewData {
   tutor_name?: string;
 }
 
+interface ExamPreviewData {
+  title: string;
+  start_date: string | null;
+  end_date: string | null;
+  school: string | null;
+  grade: string | null;
+  event_type: string | null;
+}
+
 interface EnrollmentPreviewData {
   student_name: string;
   school_student_id?: string;
@@ -54,7 +74,8 @@ type PreviewData =
   | { type: 'help'; data: HelpTopic }
   | { type: 'student'; data: StudentPreviewData }
   | { type: 'session'; data: SessionPreviewData }
-  | { type: 'enrollment'; data: EnrollmentPreviewData };
+  | { type: 'enrollment'; data: EnrollmentPreviewData }
+  | { type: 'exam'; data: ExamPreviewData };
 
 // Preview panel skeleton
 export function PreviewSkeleton() {
@@ -284,6 +305,58 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
               <span>{e.lessons_paid} lessons paid</span>
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // Exam preview
+  if (data.type === 'exam') {
+    const ex = data.data;
+    return (
+      <div className="space-y-3">
+        {/* Title */}
+        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+          {ex.title}
+        </div>
+        {/* Date */}
+        {ex.start_date && (
+          <div className="flex items-center gap-2 text-xs text-[#8b7355] dark:text-[#a89880]">
+            <Calendar className="h-3 w-3" />
+            <span>{new Date(ex.start_date).toLocaleDateString()}</span>
+            {ex.end_date && ex.end_date !== ex.start_date && (
+              <span>– {new Date(ex.end_date).toLocaleDateString()}</span>
+            )}
+          </div>
+        )}
+        {/* Badges */}
+        <div className="flex flex-wrap gap-1.5">
+          {ex.event_type && (
+            <span className={cn(
+              "px-1.5 py-0.5 text-[11px] rounded",
+              EVENT_TYPE_COLORS[ex.event_type] || "bg-gray-100 text-gray-700"
+            )}>
+              {ex.event_type}
+            </span>
+          )}
+          {ex.grade && (
+            <span
+              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
+              style={{ backgroundColor: getGradeColor(ex.grade) }}
+            >
+              {ex.grade}
+            </span>
+          )}
+          {ex.school && (
+            <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+              {ex.school}
+            </span>
+          )}
+        </div>
+        {/* Icon indicator */}
+        <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
+          <GraduationCap className="h-3 w-3 text-[#8b7355]" />
+          <span>Exam Schedule</span>
         </div>
       </div>
     );
