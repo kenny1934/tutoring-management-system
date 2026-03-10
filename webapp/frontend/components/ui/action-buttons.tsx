@@ -6,6 +6,7 @@ import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cach
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHaptic } from "@/lib/useHaptic";
 import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
@@ -161,6 +162,7 @@ export function SessionActionButtons({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
   const { user, effectiveRole, isReadOnly, impersonatedTutor } = useAuth();
+  const haptic = useHaptic();
 
   // Combine internal loadingAction with external loadingActionId
   const effectiveLoadingAction = loadingActionId || loadingAction;
@@ -235,6 +237,7 @@ export function SessionActionButtons({
     if (action.id === "copy-makeup-msg") {
       const isMobileScreen = window.innerWidth < 640;
       if (isMobileScreen) {
+        haptic.trigger("light");
         // Direct copy on mobile — skip modal to avoid stacking context issues
         try {
           const msg = formatMakeupMessage(session, 'zh');
@@ -260,6 +263,9 @@ export function SessionActionButtons({
     if (!action.api.enabled) {
       return;
     }
+
+    // Immediate haptic for inline API actions (attended, no-show, reschedule, etc.)
+    haptic.trigger("medium");
 
     // Handle "attended" action with API call
     if (action.id === "attended") {

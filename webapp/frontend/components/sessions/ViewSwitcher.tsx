@@ -3,6 +3,7 @@
 import { List, CalendarDays, Calendar as CalendarIcon, Grid3x3 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useHaptic } from "@/lib/useHaptic";
 
 export type ViewMode = "list" | "weekly" | "daily" | "monthly";
 
@@ -13,6 +14,7 @@ interface ViewSwitcherProps {
 }
 
 export function ViewSwitcher({ currentView, onViewChange, compact = false }: ViewSwitcherProps) {
+  const haptic = useHaptic();
   const views: { mode: ViewMode; icon: typeof List; label: string }[] = [
     { mode: "list", icon: List, label: "List" },
     { mode: "weekly", icon: Grid3x3, label: "Week" },
@@ -30,7 +32,7 @@ export function ViewSwitcher({ currentView, onViewChange, compact = false }: Vie
       {views.map(({ mode, icon: Icon, label }) => (
         <motion.button
           key={mode}
-          onClick={() => onViewChange(mode)}
+          onClick={() => { haptic.trigger("selection"); onViewChange(mode); }}
           className={cn(
             "relative rounded-md font-medium transition-colors flex items-center",
             compact ? "px-2 py-1 text-xs gap-1" : "px-3 py-2 text-sm gap-2",

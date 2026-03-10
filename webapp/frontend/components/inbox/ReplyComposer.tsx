@@ -14,6 +14,7 @@ import VoiceRecorder from "@/components/inbox/VoiceRecorder";
 import GifPicker from "@/components/inbox/GifPicker";
 import type { MessageTemplate } from "@/types";
 import { useToast } from "@/contexts/ToastContext";
+import { useHaptic } from "@/lib/useHaptic";
 
 function getDefaultCustomDateTime() {
   const d = new Date(Date.now() + 60_000);
@@ -52,6 +53,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   ref
 ) {
   const { showToast } = useToast();
+  const haptic = useHaptic();
   const initialDraft = useRef(loadReplyDraft(threadId));
   const [replyText, setReplyText] = useState(initialDraft.current?.message || "");
   const [replyImages, setReplyImages] = useState<string[]>(initialDraft.current?.images || []);
@@ -317,7 +319,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
       />
       {/* Attachment previews + send row */}
       {replyFiles.length > 0 && (
-        <Reorder.Group axis="y" values={replyFiles} onReorder={setReplyFiles} className="mt-2 space-y-1" as="div">
+        <Reorder.Group axis="y" values={replyFiles} onReorder={(v) => { haptic.trigger("medium"); setReplyFiles(v); }} className="mt-2 space-y-1" as="div">
           {replyFiles.map((file) => (
             <Reorder.Item
               key={file.url}
@@ -342,7 +344,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         </Reorder.Group>
       )}
       <div className="flex items-end justify-between mt-2">
-        <Reorder.Group axis="x" values={replyImages} onReorder={setReplyImages} className="flex flex-wrap gap-2 flex-1 min-w-0" as="div">
+        <Reorder.Group axis="x" values={replyImages} onReorder={(v) => { haptic.trigger("medium"); setReplyImages(v); }} className="flex flex-wrap gap-2 flex-1 min-w-0" as="div">
           {replyImages.map((url) => (
             <Reorder.Item
               key={url}

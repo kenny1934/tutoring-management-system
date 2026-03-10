@@ -26,6 +26,7 @@ import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cach
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHaptic } from "@/lib/useHaptic";
 import type { Session, ExtensionRequestDetail } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -201,6 +202,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
   const { user, effectiveRole, isReadOnly, impersonatedTutor } = useAuth();
+  const haptic = useHaptic();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Get tutor name by email, fallback to username from email
@@ -313,6 +315,9 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
       setIsExtensionModalOpen(true);
       return;
     }
+
+    // Immediate haptic for inline API actions
+    haptic.trigger("medium");
 
     // Handle "attended" action with API call
     if (action.id === 'attended') {

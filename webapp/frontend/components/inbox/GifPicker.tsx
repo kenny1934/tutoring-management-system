@@ -5,6 +5,7 @@ import { Search, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { messagesAPI } from "@/lib/api";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface GifResult {
   id: string;
@@ -21,6 +22,7 @@ interface GifPickerProps {
 }
 
 export default function GifPicker({ onSelect, className }: GifPickerProps) {
+  const haptic = useHaptic();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [gifs, setGifs] = useState<GifResult[]>([]);
@@ -75,6 +77,7 @@ export default function GifPicker({ onSelect, className }: GifPickerProps) {
   }, [query, isOpen, fetchGifs]);
 
   const handleSelect = (gif: GifResult) => {
+    haptic.trigger("light");
     onSelect(gif.url, gif.title || "GIF");
     setIsOpen(false);
   };

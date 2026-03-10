@@ -20,6 +20,7 @@ import type { Message, MessageCreate, MessageCategory, MessageTemplate } from "@
 import { getDraftKey, loadDraft, saveDraft, clearDraft } from "@/lib/inbox-drafts";
 import { stripHtml, isHtmlEmpty } from "@/lib/html-utils";
 import { useToast } from "@/contexts/ToastContext";
+import { useHaptic } from "@/lib/useHaptic";
 
 // Category options for compose dropdown
 const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon: React.ReactNode }> = [
@@ -75,6 +76,7 @@ export default function ComposeModal({
   onDeleteTemplate,
 }: ComposeModalProps) {
   const { showToast } = useToast();
+  const haptic = useHaptic();
   const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
   const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
@@ -717,7 +719,7 @@ export default function ComposeModal({
             </div>
             {/* Image Previews */}
             {uploadedImages.length > 0 && (
-              <Reorder.Group axis="x" values={uploadedImages} onReorder={setUploadedImages} className="mt-2 flex flex-wrap gap-2" as="div">
+              <Reorder.Group axis="x" values={uploadedImages} onReorder={(v) => { haptic.trigger("medium"); setUploadedImages(v); }} className="mt-2 flex flex-wrap gap-2" as="div">
                 {uploadedImages.map((url) => (
                   <Reorder.Item
                     key={url}
@@ -745,7 +747,7 @@ export default function ComposeModal({
             )}
             {/* File Previews */}
             {uploadedFiles.length > 0 && (
-              <Reorder.Group axis="y" values={uploadedFiles} onReorder={setUploadedFiles} className="mt-2 space-y-1.5" as="div">
+              <Reorder.Group axis="y" values={uploadedFiles} onReorder={(v) => { haptic.trigger("medium"); setUploadedFiles(v); }} className="mt-2 space-y-1.5" as="div">
                 {uploadedFiles.map((file) => (
                   <Reorder.Item
                     key={file.url}

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Mic, Square, Send, Check, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface VoiceRecorderProps {
   onSend: (file: File, durationSec: number) => Promise<void>;
@@ -13,6 +14,7 @@ interface VoiceRecorderProps {
 }
 
 export default function VoiceRecorder({ onSend, mode = "send", className, onError }: VoiceRecorderProps) {
+  const haptic = useHaptic();
   const [state, setState] = useState<"idle" | "recording" | "uploading">("idle");
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -36,6 +38,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
       };
 
       mediaRecorder.start(100); // Collect data every 100ms
+      haptic.trigger("medium");
       setState("recording");
       setDuration(0);
 
@@ -45,7 +48,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
     } catch {
       onError?.("Microphone access denied");
     }
-  }, []);
+  }, [haptic]);
 
   const stopAndDiscard = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -66,6 +69,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
 
   const stopAndSend = useCallback(async () => {
     if (!mediaRecorderRef.current) return;
+    haptic.trigger("light");
 
     return new Promise<void>((resolve) => {
       mediaRecorderRef.current!.onstop = async () => {
@@ -95,7 +99,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className, onErro
       };
       mediaRecorderRef.current!.stop();
     });
-  }, [onSend]);
+  }, [onSend, haptic]);
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);

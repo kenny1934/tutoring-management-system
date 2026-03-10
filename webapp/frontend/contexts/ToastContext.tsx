@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
+import { useHaptic } from "@/lib/useHaptic";
 
 interface ToastAction {
   label: string;
@@ -36,6 +37,9 @@ const TOAST_DURATION = 3000;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const haptic = useHaptic();
+  const hapticRef = useRef(haptic);
+  hapticRef.current = haptic;
 
   // Use useEffect to set mounted state to avoid hydration mismatch
   useEffect(() => {
@@ -49,6 +53,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     options?: ToastOptions
   ) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Haptic feedback synced with toast appearance
+    if (type === "success") hapticRef.current.trigger("success");
+    else if (type === "error") hapticRef.current.trigger("error");
 
     setToasts((prev) => [...prev, { id, message, type, action }]);
 
