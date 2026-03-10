@@ -12,6 +12,9 @@ const changelogData = [
           },
           {
             "description": "**Tests & exams in command palette** — search tests and exams directly from the command palette with preview panel"
+          },
+          {
+            "description": "**Feedback email notifications** — superadmin receives a Gmail email when tutors submit bug reports, feature requests, or suggestions via the feedback panel"
           }
         ]
       },

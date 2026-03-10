@@ -6,6 +6,7 @@
 
 * **Haptic feedback** — tactile vibration on mobile for toasts, confirm dialogs, star ratings, action buttons, inbox reactions, voice recording, swipe gestures, and more via web-haptics with Android-optimized raw vibration patterns
 * **Tests & exams in command palette** — search tests and exams directly from the command palette with preview panel
+* **Feedback email notifications** — superadmin receives a Gmail email when tutors submit bug reports, feature requests, or suggestions via the feedback panel
 
 ### Bug Fixes
 
