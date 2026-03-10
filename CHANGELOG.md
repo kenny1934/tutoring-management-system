@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.25](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.25) (2026-03-10)
+
+### New Features
+
+* **Haptic feedback** — tactile vibration on mobile for toasts, confirm dialogs, star ratings, action buttons, inbox reactions, voice recording, swipe gestures, and more via web-haptics with Android-optimized raw vibration patterns
+* **Tests & exams in command palette** — search tests and exams directly from the command palette with preview panel
+
+### Bug Fixes
+
+* Fixed session cards jumping position when marking attendance (Attended/No Show now sort in place)
+* Fixed command palette recent searches saving on every keystroke instead of on selection
+
 ## [2.0.24](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.24) (2026-03-10)
 
 ### New Features
