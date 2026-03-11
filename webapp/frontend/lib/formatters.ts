@@ -182,6 +182,18 @@ export function ratingToEmoji(rating: number): string {
 }
 
 /**
+ * Format a date and time slot as compact text for copying.
+ * Example: formatCompactDateTimeSlot(new Date('2026-03-11'), '09:00 - 10:00') → "11/3 (Wed) 09:00-10:00"
+ */
+export function formatCompactDateTimeSlot(date: Date, timeSlot: string): string {
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const compactTime = timeSlot.replace(/\s/g, '');
+  return `${day}/${month} (${weekday}) ${compactTime}`;
+}
+
+/**
  * Format date for proposal display
  * Example: "Sat, Jan 18, 2025"
  */

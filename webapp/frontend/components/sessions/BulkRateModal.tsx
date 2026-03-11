@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
@@ -26,6 +27,7 @@ export function BulkRateModal({
   onClose,
   readOnly = false,
 }: BulkRateModalProps) {
+  const { showToast } = useToast();
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [ratings, setRatings] = useState<Map<number, { rating: number; notes: string }>>(new Map());
   const [saving, setSaving] = useState(false);
@@ -133,7 +135,7 @@ export function BulkRateModal({
         })
       );
     } catch {
-      // Silently fail — optimistic updates already applied
+      showToast('Some ratings failed to save', 'error');
     } finally {
       setSaving(false);
     }
@@ -141,7 +143,7 @@ export function BulkRateModal({
     // Reset dirty state and close
     setIsDirty(false);
     onClose();
-  }, [readOnly, changedSessionIds, ratings, sessions, setIsDirty, onClose]);
+  }, [readOnly, changedSessionIds, ratings, sessions, setIsDirty, onClose, showToast]);
 
   // Keyboard shortcuts
   useEffect(() => {

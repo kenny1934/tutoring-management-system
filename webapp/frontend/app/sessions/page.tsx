@@ -82,6 +82,7 @@ import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
@@ -708,10 +709,11 @@ export default function SessionsPage() {
     return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
   }, [groupedSessions, groupedByUrgencyTier]);
 
-  const selectedSessions = useMemo(() =>
-    sessions.filter(s => selectedIds.has(s.id)),
-    [sessions, selectedIds]
-  );
+  const selectedSessions = useMemo(() => {
+    const selected = sessions.filter(s => selectedIds.has(s.id));
+    const orderMap = new Map(allSessionIds.map((id, i) => [id, i]));
+    return selected.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+  }, [sessions, selectedIds, allSessionIds]);
 
   const bulkActionsAvailable = useMemo(() => ({
     attended: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
@@ -2250,7 +2252,9 @@ export default function SessionsPage() {
             ) : (
               /* Normal View: Grouped by Time Slot */
               <>
-                {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
+                {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => {
+                  const copyText = formatCompactDateTimeSlot(selectedDate, timeSlot);
+                  return (
                   <React.Fragment key={timeSlot}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
@@ -2314,16 +2318,12 @@ export default function SessionsPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const day = selectedDate.getDate();
-                                const month = selectedDate.getMonth() + 1;
-                                const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
-                                const compactTime = timeSlot.replace(/\s/g, '');
-                                navigator.clipboard.writeText(`${day}/${month} (${weekday}) ${compactTime}`);
+                                navigator.clipboard.writeText(copyText);
                                 setCopiedSlot(timeSlot);
                                 setTimeout(() => setCopiedSlot(null), 2000);
                               }}
                               className="p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors"
-                              title={`${selectedDate.getDate()}/${selectedDate.getMonth() + 1} (${selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}) ${timeSlot.replace(/\s/g, '')}`}
+                              title={copyText}
                             >
                               {copiedSlot === timeSlot ? (
                                 <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
@@ -2601,7 +2601,8 @@ export default function SessionsPage() {
                       )}
                     </AnimatePresence>
                   </React.Fragment>
-                ))}
+                  );
+                })}
               </>
             )}
           </div>
