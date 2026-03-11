@@ -104,32 +104,25 @@ export function StudentBackgroundStep({
                 "\u{1F58D}\uFE0F If you are a current student, please select the center you are attending.",
                 lang
               )}
+              <RequiredMark />
             </label>
-            <div className="space-y-2.5">
+            <div className={radioGroupClass}>
               {filteredCenters?.map((c) => {
                 const name = lang === "zh" ? c.name : c.name_en;
-                const checked = currentCenters.includes(c.name);
+                const selected = currentCenters.includes(c.name);
                 return (
                   <label
                     key={c.name}
-                    className={`flex items-center gap-3 text-sm cursor-pointer p-2.5 rounded-xl border-2 transition-all duration-200 ${
-                      checked
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
+                    className={radioLabelClass(selected)}
                   >
                     <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() =>
-                        setCurrentCenters((prev) =>
-                          checked
-                            ? prev.filter((x) => x !== c.name)
-                            : [...prev, c.name]
-                        )
-                      }
-                      className="rounded border-border accent-primary"
+                      type="radio"
+                      name="currentCenter"
+                      checked={selected}
+                      onChange={() => setCurrentCenters(() => [c.name])}
+                      className="sr-only"
                     />
+                    {selected && <RadioCheck />}
                     {name}
                   </label>
                 );
