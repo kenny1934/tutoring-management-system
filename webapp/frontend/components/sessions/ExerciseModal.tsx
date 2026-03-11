@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical, AlertTriangle } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical, AlertTriangle, Trash2 } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -109,6 +109,7 @@ export function ExerciseModal({
   // Copy/paste state
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [showPasteConfirm, setShowPasteConfirm] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [clipboardData, setClipboardData] = useState<ExerciseClipboardData | null>(null);
 
   // Form dirty tracking and close confirmation (from ui-hooks)
@@ -129,6 +130,7 @@ export function ExerciseModal({
     setFocusedRowIndex(null);
     // Clear selections since indices shift after delete
     setSelectedIndices(new Set());
+    setShowBulkDeleteConfirm(false);
   }, [setIsDirty]);
 
   const {
@@ -308,6 +310,7 @@ export function ExerciseModal({
       setValidationErrors([]);
       setShowCloseConfirm(false);
       setShowPasteConfirm(false);
+      setShowBulkDeleteConfirm(false);
       setSelectedIndices(new Set());
       setBrowsingForAnswerClientId(null);
       setAnswerFolderTreeOpen(false);
@@ -452,6 +455,24 @@ export function ExerciseModal({
     setClipboardData(getExerciseClipboard());
   }, [exercises, selectedIndices, session.id, session.student_name]);
 
+  // Bulk delete selected exercises
+  const handleBulkDeleteRequest = useCallback(() => {
+    if (selectedIndices.size === 0) return;
+    cancelDelete(); // Clear any pending single-row delete
+    setShowPasteConfirm(false); // Mutual exclusion with paste confirm
+    setShowBulkDeleteConfirm(true);
+  }, [selectedIndices.size, cancelDelete]);
+
+  const handleBulkDeleteConfirm = useCallback(() => {
+    const count = selectedIndices.size;
+    setExercises(prev => prev.filter((_, i) => !selectedIndices.has(i)));
+    setSelectedIndices(new Set());
+    setIsDirty(true);
+    setFocusedRowIndex(null);
+    setShowBulkDeleteConfirm(false);
+    showToast(`Deleted ${count} exercise${count !== 1 ? 's' : ''}`, 'success');
+  }, [selectedIndices, setIsDirty, showToast]);
+
   // Show paste confirmation dialog
   const handlePasteRequest = useCallback(() => {
     const clipboard = getExerciseClipboard();
@@ -588,6 +609,11 @@ export function ExerciseModal({
         }
       }
 
+      if (showBulkDeleteConfirm) {
+        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); handleBulkDeleteConfirm(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setShowBulkDeleteConfirm(false); return; }
+      }
+
       // Cmd/Ctrl+Enter or Cmd/Ctrl+S - Save
       if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
         e.preventDefault();
@@ -602,15 +628,20 @@ export function ExerciseModal({
         return;
       }
 
-      // Alt/Option+Backspace - Delete focused row (with confirmation)
-      if (e.altKey && e.key === 'Backspace' && focusedRowIndex !== null) {
+      // Alt/Option+Backspace - Delete selected exercises or focused row
+      if (e.altKey && e.key === 'Backspace') {
         e.preventDefault();
-        if (pendingDeleteIndex === focusedRowIndex) {
-          // Already pending confirmation, confirm it
-          confirmDelete();
-        } else {
-          // First press, request confirmation
-          requestDelete(focusedRowIndex);
+        if (selectedIndices.size > 0) {
+          // Bulk delete selected exercises
+          handleBulkDeleteRequest();
+        } else if (focusedRowIndex !== null) {
+          // Single-row delete (existing behavior)
+          setShowBulkDeleteConfirm(false);
+          if (pendingDeleteIndex === focusedRowIndex) {
+            confirmDelete();
+          } else {
+            requestDelete(focusedRowIndex);
+          }
         }
         return;
       }
@@ -633,7 +664,7 @@ export function ExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
+  }, [isOpen, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, handleBulkDeleteRequest, handleBulkDeleteConfirm, showBulkDeleteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -1475,6 +1506,19 @@ export function ExerciseModal({
               </button>
             )}
 
+            {/* Delete button */}
+            {selectedIndices.size > 0 && !readOnly && (
+              <button
+                type="button"
+                onClick={handleBulkDeleteRequest}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                title={`Delete ${selectedIndices.size} selected exercise${selectedIndices.size !== 1 ? 's' : ''} (Alt+⌫)`}
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete ({selectedIndices.size})
+              </button>
+            )}
+
             {/* Paste button */}
             {clipboardData && !readOnly && (
               <button
@@ -1522,6 +1566,22 @@ export function ExerciseModal({
           </div>
         )}
 
+        {/* Bulk Delete Confirmation Dialog */}
+        {showBulkDeleteConfirm && selectedIndices.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-700 dark:text-red-300">
+                Delete {selectedIndices.size} exercise{selectedIndices.size !== 1 ? 's' : ''}?
+              </span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setShowBulkDeleteConfirm(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleBulkDeleteConfirm} className="bg-red-600 hover:bg-red-700 text-white">Delete</Button>
+            </div>
+          </div>
+        )}
+
         {/* Exercises List */}
         {exercises.length === 0 ? (
           <div className={cn(
@@ -1541,6 +1601,7 @@ export function ExerciseModal({
               setExercises(reordered);
               setIsDirty(true);
               setSelectedIndices(new Set());
+              setShowBulkDeleteConfirm(false);
             }}
             className="space-y-3"
           >
