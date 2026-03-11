@@ -496,19 +496,26 @@ export function EnrollmentDetailModal({
             )}
 
             {/* Contact - hide in compact mode */}
-            {!compact && detail.phone && (
+            {!compact && (detail.contacts?.length ? detail.contacts : detail.phone ? [{ phone: detail.phone, label: '' }] : []).length > 0 && (
               <div className="flex items-start gap-3">
                 <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
                   <Phone className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </div>
-                <div>
+                <div className="space-y-1">
                   <div className="text-xs text-gray-600 dark:text-gray-400">Contact</div>
-                  <a
-                    href={`tel:${detail.phone}`}
-                    className="font-medium text-[#a0704b] hover:underline"
-                  >
-                    {detail.phone}
-                  </a>
+                  {(detail.contacts?.length ? detail.contacts : detail.phone ? [{ phone: detail.phone, label: '' }] : []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="font-medium text-[#a0704b] hover:underline"
+                      >
+                        {c.phone}
+                      </a>
+                      {c.label && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">({c.label})</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

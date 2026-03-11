@@ -95,7 +95,10 @@ async def check_duplicates(
     # Check phone match (if provided and has at least 8 digits)
     if phone and len(phone) >= 8:
         phone_matches = db.query(Student).filter(
-            Student.phone == phone,
+            or_(
+                Student.phone == phone,
+                func.json_search(Student.contacts, 'one', phone, None, '$[*].phone').isnot(None)
+            ),
             Student.home_location == location
         ).limit(3).all()
 
@@ -180,6 +183,10 @@ async def get_students(
         # Add phone search if user has permission
         if can_see_phone:
             search_conditions.append(Student.phone.ilike(f"%{search}%"))
+            # Also search across all contacts in JSON column
+            search_conditions.append(
+                func.json_search(Student.contacts, 'one', f'%{search}%', None, '$[*].phone').isnot(None)
+            )
         query = query.filter(or_(*search_conditions))
 
     if grade:
@@ -218,6 +225,7 @@ async def get_students(
         # Redact phone if not allowed
         if not can_see_phone:
             student_data.phone = None
+            student_data.contacts = None
         result.append(student_data)
 
     return result
@@ -257,6 +265,7 @@ async def get_student_detail(
     )
     if not can_see_phone:
         response.phone = None
+        response.contacts = None
 
     return response
 
@@ -296,6 +305,17 @@ async def update_student(
         raise HTTPException(status_code=404, detail=f"Student {student_id} not found")
 
     update_data = student_update.model_dump(exclude_unset=True)
+
+    # Sync phone <-> contacts
+    if 'contacts' in update_data:
+        contacts = update_data['contacts']
+        # Convert StudentContact models to dicts for JSON storage
+        if contacts:
+            update_data['contacts'] = [c if isinstance(c, dict) else c for c in contacts]
+            update_data['phone'] = contacts[0]['phone'] if contacts[0].get('phone') else None
+        else:
+            update_data['phone'] = None
+
     for field, value in update_data.items():
         setattr(student, field, value)
 
@@ -312,6 +332,12 @@ async def create_student(
 ):
     """Create a new student. Admin only."""
     data = student_data.model_dump()
+
+    # Sync phone <-> contacts
+    if data.get('contacts'):
+        data['phone'] = data['contacts'][0]['phone'] if data['contacts'][0].get('phone') else None
+    elif data.get('phone') and not data.get('contacts'):
+        data['contacts'] = [{'phone': data['phone'], 'label': ''}]
 
     # Auto-generate school_student_id if not provided and location is set
     if not data.get("school_student_id") and data.get("home_location"):

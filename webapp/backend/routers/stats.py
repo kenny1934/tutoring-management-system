@@ -276,6 +276,9 @@ async def global_search(
     ]
     if can_see_phone:
         student_search_conditions.append(func.coalesce(Student.phone, '').ilike(search_term))
+        student_search_conditions.append(
+            func.json_search(Student.contacts, 'one', f'%{q}%', None, '$[*].phone').isnot(None)
+        )
 
     student_query = db.query(Student).filter(or_(*student_search_conditions))
 
@@ -368,6 +371,7 @@ async def global_search(
                 "school": s.school,
                 "grade": s.grade,
                 "phone": s.phone if can_see_phone else None,
+                "contacts": s.contacts if can_see_phone else None,
             }
             for s in students
         ],

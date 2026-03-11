@@ -457,11 +457,14 @@ export function CommandPalette() {
       // Students (only if no filter or filter is "student")
       if (!filterType || filterType === "student") {
         results.students.forEach((s) => {
+          const phoneDisplay = s.contacts?.length
+            ? s.contacts.map((c: { phone: string; label?: string }) => c.label ? `${c.phone} (${c.label})` : c.phone).join(", ")
+            : s.phone;
           items.push({
             id: `student-${s.id}`,
             type: "student",
             title: s.student_name,
-            subtitle: [s.school_student_id, s.phone, s.school, s.grade].filter(Boolean).join(" · "),
+            subtitle: [s.school_student_id, phoneDisplay, s.school, s.grade].filter(Boolean).join(" · "),
             href: `/students/${s.id}`,
             icon: User,
           });

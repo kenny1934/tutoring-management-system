@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.26](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.26) (2026-03-11)
+
+### New Features
+
+* **Multiple contact numbers** — students can now have multiple phone numbers with relationship labels (Mother, Father, Grandparent, Student, Guardian, or custom free text); contacts are editable on the student detail page and add student modal
+* **Contact search** — search by any contact phone number across the student list, command palette, and duplicate detection
+
+### Improvements
+
+* **Contacts displayed everywhere** — enrollment detail modal, command palette preview, zen student page, and command palette subtitle all show full contact details with labels
+
 ## [2.0.25](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.25) (2026-03-10)
 
 ### New Features

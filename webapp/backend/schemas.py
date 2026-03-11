@@ -12,12 +12,19 @@ from decimal import Decimal
 # Student Schemas
 # ============================================
 
+class StudentContact(BaseModel):
+    """A single contact entry with phone and relationship label"""
+    phone: str = Field(..., max_length=20)
+    label: Optional[str] = Field(None, max_length=50)
+
+
 class StudentBase(BaseModel):
     """Base student schema with common fields"""
     school_student_id: Optional[str] = Field(None, max_length=50)
     student_name: str = Field(..., min_length=1, max_length=200)
     grade: Optional[str] = Field(None, max_length=20)
     phone: Optional[str] = Field(None, max_length=20)
+    contacts: Optional[List[StudentContact]] = None
     school: Optional[str] = Field(None, max_length=200)
     lang_stream: Optional[str] = Field(None, max_length=50)
     home_location: Optional[str] = Field(None, max_length=200)
@@ -45,6 +52,7 @@ class StudentUpdate(BaseModel):
     """Schema for updating student fields"""
     student_name: Optional[str] = Field(None, min_length=1, max_length=200)
     phone: Optional[str] = Field(None, max_length=20)
+    contacts: Optional[List[StudentContact]] = None
     school: Optional[str] = Field(None, max_length=200)
     grade: Optional[str] = Field(None, max_length=20)
     lang_stream: Optional[str] = Field(None, max_length=50)
@@ -419,6 +427,7 @@ class EnrollmentDetailResponse(BaseModel):
     pending_makeups: List[PendingMakeupSession] = Field(default_factory=list)
     payment_status: str
     phone: Optional[str] = None
+    contacts: Optional[List[StudentContact]] = None
     fee_message_sent: bool = False
     is_new_student: bool = False
 

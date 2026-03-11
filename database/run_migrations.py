@@ -15,6 +15,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
     "072_message_mediumtext.sql",
+    "073_student_contacts.sql",
 ]
 
 def main():
