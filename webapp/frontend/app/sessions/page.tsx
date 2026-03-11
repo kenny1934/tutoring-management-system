@@ -709,6 +709,19 @@ export default function SessionsPage() {
     return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
   }, [groupedSessions, groupedByUrgencyTier]);
 
+  // Visible session IDs - excludes sessions in collapsed time slots
+  const visibleSessionIds = useMemo(() => {
+    if (collapsedSlots.size === 0) return allSessionIds;
+    if (groupedByUrgencyTier) {
+      return groupedByUrgencyTier
+        .filter(([tier]) => !collapsedSlots.has(`tier-${tier}`))
+        .flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
+    }
+    return groupedSessions
+      .filter(([timeSlot]) => !collapsedSlots.has(timeSlot))
+      .flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+  }, [allSessionIds, groupedSessions, groupedByUrgencyTier, collapsedSlots]);
+
   const selectedSessions = useMemo(() => {
     const selected = sessions.filter(s => selectedIds.has(s.id));
     const orderMap = new Map(allSessionIds.map((id, i) => [id, i]));
@@ -750,12 +763,12 @@ export default function SessionsPage() {
 
   const toggleSelectAll = useCallback(() => {
     setSelectedIds(prev => {
-      if (prev.size === allSessionIds.length) {
+      if (prev.size === visibleSessionIds.length && visibleSessionIds.every(id => prev.has(id))) {
         return new Set();
       }
-      return new Set(allSessionIds);
+      return new Set(visibleSessionIds);
     });
-  }, [allSessionIds]);
+  }, [visibleSessionIds]);
 
   // Get selection state for a timeslot (none, partial, all)
   const getSlotSelectionState = useCallback((sessionsInSlot: Session[]): 'none' | 'partial' | 'all' => {
@@ -1110,13 +1123,13 @@ export default function SessionsPage() {
     }
   }, [selectedSessions, showToast]);
 
-  // Global selection state (none, partial, all)
+  // Global selection state (none, partial, all) - based on visible (non-collapsed) sessions
   const getGlobalSelectionState = useMemo((): 'none' | 'partial' | 'all' => {
-    if (allSessionIds.length === 0) return 'none';
+    if (visibleSessionIds.length === 0) return 'none';
     if (selectedIds.size === 0) return 'none';
-    if (selectedIds.size === allSessionIds.length) return 'all';
+    if (visibleSessionIds.every(id => selectedIds.has(id))) return 'all';
     return 'partial';
-  }, [selectedIds, allSessionIds]);
+  }, [selectedIds, visibleSessionIds]);
 
   const isAllSelected = getGlobalSelectionState === 'all';
   const hasSelection = selectedIds.size > 0;
@@ -1161,15 +1174,16 @@ export default function SessionsPage() {
       const currentBulkActions = bulkActionsRef.current;
 
       // Cmd/Ctrl+Shift+A - Cycle: markable → attended → clear
-      // If a session is focused, scope to that timeslot only
+      // If a session is focused, scope to that timeslot; otherwise scope to visible (non-collapsed) sessions
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
+        const visibleSet = new Set(visibleSessionIds);
         const scopeSessions = focusedSessionId
           ? (() => {
               const focused = currentSessions.find(s => s.id === focusedSessionId);
-              return focused ? currentSessions.filter(s => s.time_slot === focused.time_slot) : currentSessions;
+              return focused ? currentSessions.filter(s => s.time_slot === focused.time_slot) : currentSessions.filter(s => visibleSet.has(s.id));
             })()
-          : currentSessions;
+          : currentSessions.filter(s => visibleSet.has(s.id));
 
         const markableIds = scopeSessions.filter(canBeMarked).map(s => s.id);
         const attendedIds = scopeSessions.filter(isAttended).map(s => s.id);
@@ -1191,10 +1205,10 @@ export default function SessionsPage() {
         return;
       }
 
-      // Cmd/Ctrl+A - Select all visible sessions
+      // Cmd/Ctrl+A - Select all visible (non-collapsed) sessions
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
         e.preventDefault();
-        setSelectedIds(new Set(allSessionIds));
+        setSelectedIds(new Set(visibleSessionIds));
         return;
       }
 
@@ -1224,20 +1238,20 @@ export default function SessionsPage() {
       }
 
       if (!hasModifier && (key === 'j' || key === 'k')) {
-        // Guard against empty list
-        if (allSessionIds.length === 0) return;
+        // Guard against empty list - only navigate visible (non-collapsed) sessions
+        if (visibleSessionIds.length === 0) return;
 
         e.preventDefault();
-        const currentIndex = focusedSessionId ? allSessionIds.indexOf(focusedSessionId) : -1;
+        const currentIndex = focusedSessionId ? visibleSessionIds.indexOf(focusedSessionId) : -1;
 
         if (key === 'j') {
           // Move down
-          const nextIndex = currentIndex < allSessionIds.length - 1 ? currentIndex + 1 : 0;
-          setFocusedSessionId(allSessionIds[nextIndex]);
+          const nextIndex = currentIndex < visibleSessionIds.length - 1 ? currentIndex + 1 : 0;
+          setFocusedSessionId(visibleSessionIds[nextIndex]);
         } else {
           // Move up
-          const prevIndex = currentIndex > 0 ? currentIndex - 1 : allSessionIds.length - 1;
-          setFocusedSessionId(allSessionIds[prevIndex]);
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : visibleSessionIds.length - 1;
+          setFocusedSessionId(visibleSessionIds[prevIndex]);
         }
       } else if (key === 'enter' && focusedSessionId) {
         e.preventDefault();
@@ -1359,7 +1373,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
