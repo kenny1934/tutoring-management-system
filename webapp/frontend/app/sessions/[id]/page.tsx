@@ -25,6 +25,7 @@ import {
   Loader2,
   Printer,
   XCircle,
+  Download,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
@@ -38,7 +39,7 @@ import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, type PrintStampInfo } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
@@ -109,6 +110,94 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
         {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
          printState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
          <Printer className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+      </button>
+    </div>
+  );
+});
+
+// Bulk action buttons (Print All, Download All, Download Answers) for exercise section headers
+const BulkExerciseActions = memo(function BulkExerciseActions({
+  exercises,
+  stamp,
+  sessionDate,
+  schoolStudentId,
+  studentName,
+  exerciseType,
+}: {
+  exercises: { pdf_name: string; page_start?: number; page_end?: number; answer_pdf_name?: string; answer_page_start?: number; answer_page_end?: number }[];
+  stamp: PrintStampInfo;
+  sessionDate: string;
+  schoolStudentId?: string;
+  studentName?: string;
+  exerciseType: "CW" | "HW";
+}) {
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [answersState, setAnswersState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  if (!canBrowseFiles || exercises.length === 0) return null;
+
+  const withPdfs = exercises.filter(ex => ex.pdf_name?.trim());
+  if (withPdfs.length === 0) return null;
+
+  const dateStr = sessionDate.replace(/-/g, '');
+  const safeName = (studentName || '').replace(/\s+/g, '_');
+  const baseFilename = `${exerciseType}_${schoolStudentId}_${safeName}_${dateStr}`;
+
+  const handlePrintAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (printState === 'loading') return;
+    setPrintState('loading');
+    const error = await printBulkFiles(withPdfs, stamp, searchPaperlessByPath, baseFilename);
+    setPrintState(error ? 'error' : 'idle');
+    if (error) setTimeout(() => setPrintState('idle'), 2000);
+  };
+
+  const handleDownloadAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (downloadState === 'loading') return;
+    setDownloadState('loading');
+    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    setDownloadState(error ? 'error' : 'idle');
+    if (error) setTimeout(() => setDownloadState('idle'), 2000);
+  };
+
+  const handleDownloadAnswers = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (answersState === 'loading') return;
+    setAnswersState('loading');
+    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    setAnswersState(result.status === 'success' ? 'idle' : 'error');
+    if (result.status !== 'success') setTimeout(() => setAnswersState('idle'), 2000);
+  };
+
+  const btnClass = "p-1 rounded transition-colors flex flex-col items-center";
+
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" onClick={handlePrintAll} disabled={printState === 'loading'}
+        className={cn(btnClass, "text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
+        title="Print All">
+        {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
+         printState === 'error' ? <XCircle className="h-4 w-4" /> :
+         <Printer className="h-4 w-4" />}
+      </button>
+      <button type="button" onClick={handleDownloadAll} disabled={downloadState === 'loading'}
+        className={cn(btnClass, "text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30")}
+        title="Download All">
+        {downloadState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
+         downloadState === 'error' ? <XCircle className="h-4 w-4" /> :
+         <Download className="h-4 w-4" />}
+        <span className="text-[9px] leading-none">All</span>
+      </button>
+      <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
+        className={cn(btnClass, "text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
+        title="Download Answers">
+        {answersState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> :
+         answersState === 'error' ? <XCircle className="h-4 w-4" /> :
+         <Download className="h-4 w-4" />}
+        <span className="text-[9px] leading-none">Ans</span>
       </button>
     </div>
   );
@@ -547,16 +636,17 @@ export default function SessionDetailPage() {
                   {/* Classwork Section */}
                   {hasCW && (
                     <>
-                      <button
-                        onClick={() => setExerciseModalType("CW")}
-                        className="w-full mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600 cursor-pointer rounded-lg px-2 -mx-2 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-                        title="Open Classwork editor"
-                      >
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                        <button
+                          onClick={() => setExerciseModalType("CW")}
+                          className="flex items-center gap-2 cursor-pointer rounded-lg px-2 py-0.5 -mx-2 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                          title="Open Classwork editor"
+                        >
                           <PenTool className="h-5 w-5 text-red-500 dark:text-red-400" />
-                          Classwork
-                        </h3>
-                      </button>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Classwork</h3>
+                        </button>
+                        <BulkExerciseActions exercises={cwExercises} stamp={printStamp} sessionDate={session.session_date} schoolStudentId={session.school_student_id} studentName={session.student_name} exerciseType="CW" />
+                      </div>
                       <div className="space-y-3 mb-6">
                         {cwExercises.map((exercise, index) => {
                           const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
@@ -591,16 +681,17 @@ export default function SessionDetailPage() {
                   {/* Homework Section */}
                   {hasHW && (
                     <>
-                      <button
-                        onClick={() => setExerciseModalType("HW")}
-                        className="w-full mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600 cursor-pointer rounded-lg px-2 -mx-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
-                        title="Open Homework editor"
-                      >
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                        <button
+                          onClick={() => setExerciseModalType("HW")}
+                          className="flex items-center gap-2 cursor-pointer rounded-lg px-2 py-0.5 -mx-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
+                          title="Open Homework editor"
+                        >
                           <Home className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-                          Homework
-                        </h3>
-                      </button>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Homework</h3>
+                        </button>
+                        <BulkExerciseActions exercises={hwExercises} stamp={printStamp} sessionDate={session.session_date} schoolStudentId={session.school_student_id} studentName={session.student_name} exerciseType="HW" />
+                      </div>
                       <div className="space-y-3">
                         {hwExercises.map((exercise, index) => {
                           const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
