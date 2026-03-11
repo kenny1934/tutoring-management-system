@@ -4,7 +4,7 @@
 
 @variant dark (&:is(.dark *));
 
-@theme {
+@theme extend {
   /* ===== LIGHT MODE COLORS (M3 Expressive) ===== */
   /* Warm, educational palette for classroom vibe */
   --color-background: #fef9f3; /* Warm cream background */

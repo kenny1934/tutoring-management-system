@@ -1128,3 +1128,150 @@ class SavedReport(Base):
     created_at = Column(DateTime, default=func.now())
 
     creator = relationship("Tutor")
+# ============================================
+# Summer Course Models
+# ============================================
+
+class SummerCourseConfig(Base):
+    """Admin-defined summer course parameters per year."""
+    __tablename__ = "summer_course_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, unique=True)
+    title = Column(String(500), nullable=False)
+    description = Column(Text)
+    application_open_date = Column(DateTime, nullable=False)
+    application_close_date = Column(DateTime, nullable=False)
+    course_start_date = Column(Date, nullable=False)
+    course_end_date = Column(Date, nullable=False)
+    total_lessons = Column(Integer, nullable=False, default=8)
+    pricing_config = Column(JSON, nullable=False)
+    locations = Column(JSON, nullable=False, default=list)
+    available_grades = Column(JSON, nullable=False, default=list)
+    time_slots = Column(JSON, nullable=False, default=list)
+    existing_student_options = Column(JSON, default=list)
+    center_options = Column(JSON, default=list)
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    applications = relationship("SummerApplication", back_populates="config")
+    buddy_groups = relationship("SummerBuddyGroup", back_populates="config")
+    slots = relationship("SummerCourseSlot", back_populates="config")
+
+
+class SummerBuddyGroup(Base):
+    """Buddy groups for group discount eligibility."""
+    __tablename__ = "summer_buddy_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("summer_course_configs.id"), nullable=False)
+    buddy_code = Column(String(20), nullable=False, unique=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("SummerCourseConfig", back_populates="buddy_groups")
+    applications = relationship("SummerApplication", back_populates="buddy_group")
+
+
+class SummerApplication(Base):
+    """Public summer course application submitted via form."""
+    __tablename__ = "summer_applications"
+    __table_args__ = (
+        Index('idx_app_config', 'config_id'),
+        Index('idx_app_status', 'application_status'),
+        Index('idx_app_phone', 'contact_phone'),
+        Index('idx_app_grade', 'grade'),
+        Index('idx_app_buddy', 'buddy_group_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("summer_course_configs.id"), nullable=False)
+    reference_code = Column(String(20), nullable=False, unique=True)
+    # Student info
+    student_name = Column(String(255), nullable=False)
+    school = Column(String(255))
+    grade = Column(String(50), nullable=False)
+    lang_stream = Column(String(10))
+    is_existing_student = Column(String(100))
+    current_centers = Column(JSON, default=None)
+    # Contact
+    wechat_id = Column(String(100))
+    contact_phone = Column(String(50))
+    # Location & preferences
+    preferred_location = Column(String(255))
+    preference_1_day = Column(String(20))
+    preference_1_time = Column(String(50))
+    preference_2_day = Column(String(20))
+    preference_2_time = Column(String(50))
+    unavailability_notes = Column(Text)
+    # Buddy group
+    buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=True)
+    buddy_names = Column(Text)
+    # Existing student link
+    existing_student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
+    # Status
+    application_status = Column(
+        Enum('Submitted', 'Under Review', 'Placement Offered', 'Placement Confirmed',
+             'Fee Sent', 'Paid', 'Enrolled', 'Waitlisted', 'Withdrawn', 'Rejected',
+             name='summer_application_status_enum'),
+        nullable=False, default='Submitted'
+    )
+    admin_notes = Column(Text)
+    # Metadata
+    submitted_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    reviewed_by = Column(String(255))
+    reviewed_at = Column(DateTime)
+    form_language = Column(String(10), default='zh')
+
+    config = relationship("SummerCourseConfig", back_populates="applications")
+    buddy_group = relationship("SummerBuddyGroup", back_populates="applications")
+    existing_student = relationship("Student")
+    placements = relationship("SummerPlacement", back_populates="application")
+
+
+class SummerCourseSlot(Base):
+    """Available time slot for summer course timetable."""
+    __tablename__ = "summer_course_slots"
+    __table_args__ = (
+        Index('idx_slot_config', 'config_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("summer_course_configs.id"), nullable=False)
+    slot_day = Column(String(20), nullable=False)
+    time_slot = Column(String(50), nullable=False)
+    location = Column(String(255), nullable=False)
+    grade = Column(String(50))
+    course_type = Column(String(10))
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
+    max_students = Column(Integer, nullable=False, default=6)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("SummerCourseConfig", back_populates="slots")
+    tutor = relationship("Tutor")
+    placements = relationship("SummerPlacement", back_populates="slot")
+
+
+class SummerPlacement(Base):
+    """Student placement into a specific summer course slot."""
+    __tablename__ = "summer_placements"
+    __table_args__ = (
+        Index('idx_placement_app', 'application_id'),
+        Index('idx_placement_slot', 'slot_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("summer_applications.id"), nullable=False)
+    slot_id = Column(Integer, ForeignKey("summer_course_slots.id"), nullable=False)
+    lesson_number = Column(Integer, nullable=True)
+    specific_date = Column(Date, nullable=True)
+    placement_status = Column(
+        Enum('Tentative', 'Confirmed', 'Cancelled', name='summer_placement_status_enum'),
+        nullable=False, default='Tentative'
+    )
+    placed_at = Column(DateTime, server_default=func.now())
+    placed_by = Column(String(255))
+
+    application = relationship("SummerApplication", back_populates="placements")
+    slot = relationship("SummerCourseSlot", back_populates="placements")
