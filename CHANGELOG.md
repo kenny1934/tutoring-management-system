@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.28](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.28) (2026-03-11)
+
+### New Features
+
+* **Select Attended sessions** — bulk-select attended sessions for CW/HW assignment and rating via new dropdown menus on both the sessions page and dashboard card; Ctrl+Shift+A now cycles through markable → attended → clear with toast feedback on each press
+* **Lesson mode print buttons** — single lesson mode now has bulk CW/HW print dropdown and per-exercise print buttons in sidebar; wide lesson mode adds per-student CW/HW print buttons in Students grouping
+
+### Improvements
+
+* **Toast feedback on selection** — all select actions (markable, attended, per-slot) now show info toasts with count or "none found" message instead of failing silently
+* **J/K navigation respects collapsed sections** — keyboard navigation now skips over collapsed time slot sections; Ctrl+A and Ctrl+Shift+A also only operate on visible (non-collapsed) sessions
+
 ## [2.0.27](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.27) (2026-03-11)
 
 ### New Features
