@@ -28,6 +28,10 @@ export function ZenPdfPreview({
 }: ZenPdfPreviewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfDarkMode, setPdfDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('csm_pdf_dark_mode') === 'true';
+  });
   const [zoom, setZoom] = useState(100);
 
   // Page selection
@@ -67,6 +71,14 @@ export function ZenPdfPreview({
     }
   }, [onSelect, onClose, pageMode, pageStart, pageEnd, customPages]);
 
+  const togglePdfDarkMode = useCallback(() => {
+    setPdfDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('csm_pdf_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -105,11 +117,17 @@ export function ZenPdfPreview({
         handleOpenInNewTab();
         return;
       }
+
+      if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        togglePdfDarkMode();
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, handleSelect, handleZoomIn, handleZoomOut, handleOpenInNewTab]);
+  }, [onClose, handleSelect, handleZoomIn, handleZoomOut, handleOpenInNewTab, togglePdfDarkMode]);
 
   return (
     <div
@@ -190,8 +208,24 @@ export function ZenPdfPreview({
           >
             [+]
           </button>
+          <button
+            onClick={togglePdfDarkMode}
+            style={{
+              padding: "2px 8px",
+              backgroundColor: pdfDarkMode ? "var(--zen-fg)" : "transparent",
+              border: "1px solid var(--zen-border)",
+              color: pdfDarkMode ? "var(--zen-bg)" : "var(--zen-fg)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "12px",
+              marginLeft: "4px",
+            }}
+            title={pdfDarkMode ? "Light PDF mode (D)" : "Dark PDF mode (D)"}
+          >
+            {pdfDarkMode ? "☀" : "☾"}
+          </button>
           <span style={{ color: "var(--zen-dim)", fontSize: "10px", marginLeft: "8px" }}>
-            +/- zoom • [O]pen • Esc close
+            +/- zoom • [D]ark • [O]pen • Esc close
           </span>
         </div>
       </div>
@@ -371,6 +405,7 @@ export function ZenPdfPreview({
               width: `${(100 / zoom) * 100}%`,
               height: `${(100 / zoom) * 100}%`,
               border: "none",
+              ...(pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : {}),
             }}
             onLoad={() => setIsLoading(false)}
             onError={() => {

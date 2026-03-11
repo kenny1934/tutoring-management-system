@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
-  ZoomIn, ZoomOut, UnfoldHorizontal, Eye, EyeOff, BookCheck,
+  ZoomIn, ZoomOut, UnfoldHorizontal, Eye, EyeOff, BookCheck, Moon, Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -301,6 +301,10 @@ export function PdfPageViewer({
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
+  const [pdfDarkMode, setPdfDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('csm_pdf_dark_mode') === 'true';
+  });
   const pageUrlsRef = useRef<string[]>([]);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -342,6 +346,14 @@ export function PdfPageViewer({
   }, [confirmingClearAll, onClearAll]);
 
   // Zoom handlers
+  const togglePdfDarkMode = useCallback(() => {
+    setPdfDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('csm_pdf_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
   const handleZoomIn = useCallback(() => {
     userHasZoomed.current = true;
     setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
@@ -903,6 +915,13 @@ export function PdfPageViewer({
           >
             <UnfoldHorizontal className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={togglePdfDarkMode}
+            className={cn(tbBtnClass, pdfDarkMode && "!text-yellow-500 dark:!text-yellow-400")}
+            title={pdfDarkMode ? "Light PDF mode" : "Dark PDF mode"}
+          >
+            {pdfDarkMode ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
         </div>
 
         {/* Answer key toggle */}
@@ -1123,6 +1142,7 @@ export function PdfPageViewer({
                 src={page.url}
                 alt={`Page ${i + 1}`}
                 className="block w-full h-full rounded"
+                style={pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : undefined}
                 draggable={false}
               />
               <AnnotationLayer

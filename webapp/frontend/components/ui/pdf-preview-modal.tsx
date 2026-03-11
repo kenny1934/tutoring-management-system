@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw, CalendarPlus } from "lucide-react";
+import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw, CalendarPlus, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, documentProcessingAPI, type ProcessingMode } from "@/lib/api";
 import { validatePageRange, getPageCount } from "@/lib/pdf-utils";
@@ -50,6 +50,11 @@ export function PdfPreviewModal({
   const [removeBlackInk, setRemoveBlackInk] = useState(false);
   const [blackInkMode, setBlackInkMode] = useState<ProcessingMode>("balanced");
   const [blackInkStrokeThreshold, setBlackInkStrokeThreshold] = useState(0); // 0 = use preset
+  // PDF dark mode (persisted in localStorage)
+  const [pdfDarkMode, setPdfDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('csm_pdf_dark_mode') === 'true';
+  });
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -169,6 +174,14 @@ export function PdfPreviewModal({
     onSelect(selection);
   }, [onSelect, buildPageSelection, rangeError]);
 
+  const togglePdfDarkMode = useCallback(() => {
+    setPdfDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('csm_pdf_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
   // Keyboard shortcuts for preview modal
   useEffect(() => {
     if (!isOpen) return;
@@ -195,12 +208,15 @@ export function PdfPreviewModal({
         if (documentId) {
           window.open(api.paperless.getPreviewUrl(documentId), "_blank");
         }
+      } else if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        togglePdfDarkMode();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onSelect, documentId, handleSelect]);
+  }, [isOpen, onSelect, documentId, handleSelect, togglePdfDarkMode]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -362,11 +378,24 @@ export function PdfPreviewModal({
             >
               <ZoomIn className="h-4 w-4" />
             </Button>
+            <button
+              type="button"
+              onClick={togglePdfDarkMode}
+              className={cn(
+                "h-8 w-8 p-0 rounded-md border transition-colors flex items-center justify-center",
+                pdfDarkMode
+                  ? "bg-gray-700 border-gray-600 text-yellow-400 hover:bg-gray-600"
+                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              )}
+              title={pdfDarkMode ? "Light PDF mode (D)" : "Dark PDF mode (D)"}
+            >
+              {pdfDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
           </div>
           <div className="flex items-center gap-3">
             {/* Keyboard hints */}
             <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
-              {onSelect && "Enter to use · "}O to open in tab
+              {onSelect && "Enter to use · "}D dark · O open
             </span>
             {onSelect && (
               <Button
@@ -680,6 +709,7 @@ export function PdfPreviewModal({
             <iframe
               src={displayUrl}
               className="w-full h-full border-0"
+              style={pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : undefined}
               onLoad={handleIframeLoad}
               onError={handleIframeError}
               title="PDF Preview"
