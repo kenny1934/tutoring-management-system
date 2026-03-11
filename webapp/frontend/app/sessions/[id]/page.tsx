@@ -290,6 +290,17 @@ export default function SessionDetailPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (isEditModalOpen || exerciseModalType || lessonMode) return;
 
+      // Escape - Navigate back
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (window.history.length > 1) {
+          router.back();
+        } else {
+          router.push('/sessions');
+        }
+        return;
+      }
+
       // ? - Toggle shortcut hints
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
@@ -864,6 +875,10 @@ export default function SessionDetailPage() {
               <div className="flex justify-between gap-4">
                 <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">L</kbd>
                 <span>Lesson Mode</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                <span>Go back</span>
               </div>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
