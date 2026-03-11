@@ -12,6 +12,10 @@
 * **Toast feedback on selection** — all select actions (markable, attended, per-slot) now show info toasts with count or "none found" message instead of failing silently
 * **J/K navigation respects collapsed sections** — keyboard navigation now skips over collapsed time slot sections; Ctrl+A and Ctrl+Shift+A also only operate on visible (non-collapsed) sessions
 
+### Bug Fixes
+
+* **Student detail popover** — now shows all contact phone numbers with labels instead of only the single legacy phone field
+
 ## [2.0.27](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.27) (2026-03-11)
 
 ### New Features
