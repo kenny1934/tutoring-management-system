@@ -625,10 +625,14 @@ export default function ZenStudentDetailPage() {
 function InfoTab({ student }: { student: NonNullable<ReturnType<typeof useStudent>["data"]> }) {
   const gradeColor = getGradeColor(student.grade, student.lang_stream);
 
+  const contactsDisplay = student.contacts?.length
+    ? student.contacts.map(c => c.label ? `${c.phone} (${c.label})` : c.phone).join(", ")
+    : student.phone || "—";
+
   const fields = [
     { label: "Grade", value: student.grade ? `${student.grade}${student.lang_stream || ""}` : "—", color: gradeColor },
     { label: "School", value: student.school || "—" },
-    { label: "Phone", value: student.phone || "—" },
+    { label: "Phone", value: contactsDisplay },
     { label: "Home Location", value: student.home_location || "—" },
     { label: "Academic Stream", value: student.academic_stream || "—" },
     { label: "Staff Referral", value: student.is_staff_referral ? "Yes" : "No" },

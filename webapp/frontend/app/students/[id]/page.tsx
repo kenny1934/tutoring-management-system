@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal, StudentCouponResponse } from "@/types";
+import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
 import useSWR from "swr";
@@ -15,7 +15,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift
+Copy, Check, Ticket, Gift, Trash2
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -264,7 +264,7 @@ export default function StudentDetailPage() {
     setEditForm({});
   };
 
-  const handleFormChange = (field: string, value: string | boolean | null) => {
+  const handleFormChange = (field: string, value: string | boolean | StudentContact[] | null) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -277,8 +277,8 @@ export default function StudentDetailPage() {
       const source = data ?? editForm;
       // Only send fields the backend StudentUpdate schema accepts — avoid serializing
       // nested objects (e.g. enrollments) which cause "Converting circular structure to JSON"
-      const { student_name, phone, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes } = source;
-      const dataToSave = { student_name, phone, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes };
+      const { student_name, phone, contacts, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes } = source;
+      const dataToSave = { student_name, phone, contacts, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes };
       const updatedStudent = await studentsAPI.update(student.id, dataToSave);
       // Optimistic update - set new data immediately, skip revalidation
       mutate(['student', student.id], { ...student, ...updatedStudent }, false);
@@ -783,7 +783,7 @@ function ProfileTab({
   onEditAcademic: () => void;
   onCancelEdit: () => void;
   onSave: (data?: Partial<Student>) => void;
-  onFormChange: (field: string, value: string | boolean | null) => void;
+  onFormChange: (field: string, value: string | boolean | StudentContact[] | null) => void;
   isSaving: boolean;
   saveError: string | null;
   allSchools: string[];
@@ -884,19 +884,17 @@ function ProfileTab({
             <>
               <EditableInfoRow label="Name" field="student_name" value={editForm.student_name} onChange={onFormChange} required />
               <InfoRow label="Student ID" value={student.school_student_id} mono />
-              <EditableInfoRow label="Phone" field="phone" value={editForm.phone} onChange={onFormChange} type="tel" />
+              <ContactsEditor
+                contacts={editForm.contacts || [{ phone: editForm.phone || '', label: '' }]}
+                onChange={(contacts) => onFormChange('contacts', contacts)}
+              />
               <InfoRow label="Location" value={student.home_location} icon={MapPin} />
             </>
           ) : (
             <>
               <InfoRow label="Name" value={student.student_name} />
               <InfoRow label="Student ID" value={student.school_student_id} mono />
-              <InfoRow
-                label="Phone"
-                value={student.phone || "Available at office"}
-                icon={Phone}
-                className={!student.phone ? "text-gray-400 italic" : undefined}
-              />
+              <ContactsDisplay contacts={student.contacts} fallbackPhone={student.phone} />
               <InfoRow label="Location" value={student.home_location} icon={MapPin} />
             </>
           )}
@@ -1272,6 +1270,120 @@ function ProfileTab({
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Contact label presets
+const CONTACT_LABEL_PRESETS = ['Mother', 'Father', 'Grandparent', 'Student', 'Guardian'];
+
+// Contacts display (read-only)
+function ContactsDisplay({ contacts, fallbackPhone }: { contacts?: StudentContact[]; fallbackPhone?: string }) {
+  const displayContacts = contacts && contacts.length > 0
+    ? contacts
+    : fallbackPhone
+      ? [{ phone: fallbackPhone, label: '' }]
+      : null;
+
+  if (!displayContacts) {
+    return (
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+          <Phone className="h-3 w-3" />
+          Phone
+        </span>
+        <span className="text-sm text-gray-400 italic">Available at office</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {displayContacts.map((c, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            <Phone className="h-3 w-3" />
+            {c.label || 'Phone'}
+          </span>
+          <span className="text-sm text-gray-900 dark:text-gray-100">{c.phone}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Contacts editor (edit mode)
+function ContactsEditor({ contacts, onChange }: { contacts: StudentContact[]; onChange: (contacts: StudentContact[]) => void }) {
+  const inputClass = cn(
+    "px-2 py-1 rounded border text-sm",
+    "bg-white dark:bg-gray-900",
+    "border-amber-300 dark:border-amber-700",
+    "focus:outline-none focus:ring-2 focus:ring-amber-400",
+    "transition-all"
+  );
+
+  const updateContact = (index: number, field: 'phone' | 'label', value: string) => {
+    const updated = [...contacts];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange(updated);
+  };
+
+  const removeContact = (index: number) => {
+    onChange(contacts.filter((_, i) => i !== index));
+  };
+
+  const addContact = () => {
+    onChange([...contacts, { phone: '', label: '' }]);
+  };
+
+  return (
+    <div className="space-y-2">
+      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+        <Phone className="h-3 w-3" />
+        Contacts
+      </span>
+      {contacts.map((contact, i) => (
+        <div key={i} className="flex items-center gap-1.5 ml-4">
+          <input
+            type="tel"
+            value={contact.phone}
+            onChange={(e) => updateContact(i, 'phone', e.target.value)}
+            placeholder="Phone"
+            className={cn(inputClass, "w-28 flex-shrink-0")}
+          />
+          <input
+            list="contact-label-presets"
+            value={contact.label || ''}
+            onChange={(e) => updateContact(i, 'label', e.target.value)}
+            placeholder="Label"
+            className={cn(inputClass, "w-24 flex-shrink-0")}
+          />
+          {contacts.length > 1 && (
+            <button
+              type="button"
+              onClick={() => removeContact(i)}
+              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      <datalist id="contact-label-presets">
+        {CONTACT_LABEL_PRESETS.map(label => (
+          <option key={label} value={label} />
+        ))}
+      </datalist>
+      {contacts.length < 5 && (
+        <button
+          type="button"
+          onClick={addContact}
+          className="ml-4 text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1"
+        >
+          <Plus className="h-3 w-3" />
+          Add contact
+        </button>
       )}
     </div>
   );

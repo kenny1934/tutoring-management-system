@@ -32,6 +32,7 @@ interface StudentPreviewData {
   lang_stream?: string;
   school?: string;
   phone?: string;
+  contacts?: { phone: string; label?: string }[];
   home_location?: string;
   enrollment_count?: number;
 }
@@ -157,12 +158,12 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         </div>
         {/* Contact info with icons */}
         <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
-          {s.phone && (
-            <div className="flex items-center gap-2">
+          {(s.contacts?.length ? s.contacts : s.phone ? [{ phone: s.phone }] : []).map((c, i) => (
+            <div key={i} className="flex items-center gap-2">
               <Phone className="h-3 w-3 text-[#8b7355]" />
-              <span>{s.phone}</span>
+              <span>{c.phone}{c.label ? ` (${c.label})` : ''}</span>
             </div>
-          )}
+          ))}
           {s.home_location && (
             <div className="flex items-center gap-2">
               <MapPin className="h-3 w-3 text-[#8b7355]" />

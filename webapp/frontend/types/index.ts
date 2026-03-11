@@ -72,6 +72,11 @@ export const COMPLETED_STATUSES: SessionStatusValue[] = [
 // STUDENT TYPES
 // =============================================================================
 
+export interface StudentContact {
+  phone: string;
+  label?: string;
+}
+
 /**
  * Student creation payload - fields for creating a new student
  * Used in: studentsAPI.create()
@@ -81,6 +86,7 @@ export interface StudentCreate {
   school_student_id?: string;
   grade?: string;
   phone?: string;
+  contacts?: StudentContact[];
   school?: string;
   lang_stream?: string;
   home_location?: string;
@@ -97,6 +103,7 @@ export interface Student {
   student_name: string;
   grade?: string;
   phone?: string;
+  contacts?: StudentContact[];
   school?: string;
   lang_stream?: string;
   home_location?: string;
@@ -1396,6 +1403,7 @@ export interface EnrollmentDetailResponse {
   pending_makeups: PendingMakeupSession[];
   payment_status: string;
   phone?: string;
+  contacts?: StudentContact[];
   fee_message_sent: boolean;
   is_new_student?: boolean;
 }

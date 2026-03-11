@@ -4,14 +4,15 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/contexts/ToastContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { User, Loader2, GraduationCap, Phone, Building2, MapPin, BookOpen, FlaskConical, AlertTriangle, Hash } from "lucide-react";
+import { User, Loader2, GraduationCap, Phone, Building2, MapPin, BookOpen, FlaskConical, AlertTriangle, Hash, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { studentsAPI, StudentCreate } from "@/lib/api";
-import type { Student } from "@/types";
+import type { Student, StudentContact } from "@/types";
 
 const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6"];
 const ACADEMIC_STREAMS = ["Arts", "Science", "Commerce"];
 const SENIOR_GRADES = ["F4", "F5", "F6"];
+const CONTACT_LABEL_PRESETS = ["Mother", "Father", "Grandparent", "Student", "Guardian"];
 
 interface DuplicateMatch {
   id: number;
@@ -46,7 +47,7 @@ export function AddStudentModal({
   const [studentName, setStudentName] = useState("");
   const [grade, setGrade] = useState("");
   const [school, setSchool] = useState("");
-  const [phone, setPhone] = useState("");
+  const [contacts, setContacts] = useState<StudentContact[]>([{ phone: '', label: '' }]);
   const [homeLocation, setHomeLocation] = useState(availableLocations[0] || "MSA");
   const [langStream, setLangStream] = useState("");
   const [academicStream, setAcademicStream] = useState("");
@@ -81,7 +82,7 @@ export function AddStudentModal({
       setStudentName("");
       setGrade("");
       setSchool("");
-      setPhone("");
+      setContacts([{ phone: '', label: '' }]);
       setHomeLocation(isLocationLocked ? appLocation : availableLocations[0] || "MSA");
       setLangStream("");
       setAcademicStream("");
@@ -111,7 +112,7 @@ export function AddStudentModal({
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (studentName.trim().length >= 2 && homeLocation && isOpen) {
-        studentsAPI.checkDuplicates(studentName.trim(), homeLocation, phone || undefined)
+        studentsAPI.checkDuplicates(studentName.trim(), homeLocation, contacts[0]?.phone || undefined)
           .then(r => setDuplicates(r.duplicates))
           .catch(() => setDuplicates([]));
       } else {
@@ -119,7 +120,7 @@ export function AddStudentModal({
       }
     }, 500);
     return () => clearTimeout(timeout);
-  }, [studentName, homeLocation, phone, isOpen]);
+  }, [studentName, homeLocation, contacts, isOpen]);
 
   // Clear academic stream when grade changes to non-senior
   useEffect(() => {
@@ -161,11 +162,13 @@ export function AddStudentModal({
 
     setIsSubmitting(true);
     try {
+      const validContacts = contacts.filter(c => c.phone.trim());
       const data: StudentCreate = {
         student_name: studentName.trim(),
         grade: grade || undefined,
         school: school || undefined,
-        phone: phone || undefined,
+        phone: validContacts[0]?.phone || undefined,
+        contacts: validContacts.length > 0 ? validContacts : undefined,
         home_location: homeLocation || undefined,
         lang_stream: langStream || undefined,
         academic_stream: showAcademicStream && academicStream ? academicStream : undefined,
@@ -372,19 +375,64 @@ export function AddStudentModal({
           )}
         </div>
 
-        {/* Phone (always last row) */}
+        {/* Contacts */}
         <div>
           <label className="block text-sm font-medium text-foreground/70 mb-1">
             <Phone className="h-3.5 w-3.5 inline mr-1" />
             Phone
           </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Optional"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
+          <div className="space-y-2">
+            {contacts.map((contact, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="tel"
+                  value={contact.phone}
+                  onChange={(e) => {
+                    const updated = [...contacts];
+                    updated[i] = { ...updated[i], phone: e.target.value };
+                    setContacts(updated);
+                  }}
+                  placeholder="Phone number"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                />
+                <input
+                  list="add-student-contact-labels"
+                  value={contact.label || ''}
+                  onChange={(e) => {
+                    const updated = [...contacts];
+                    updated[i] = { ...updated[i], label: e.target.value };
+                    setContacts(updated);
+                  }}
+                  placeholder="Label"
+                  className="w-28 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                />
+                {contacts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setContacts(contacts.filter((_, j) => j !== i))}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <datalist id="add-student-contact-labels">
+              {CONTACT_LABEL_PRESETS.map(label => (
+                <option key={label} value={label} />
+              ))}
+            </datalist>
+            {contacts.length < 5 && (
+              <button
+                type="button"
+                onClick={() => setContacts([...contacts, { phone: '', label: '' }])}
+                className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" />
+                Add another number
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Actions */}

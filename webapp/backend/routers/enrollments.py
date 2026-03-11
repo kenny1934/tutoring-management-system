@@ -1553,6 +1553,7 @@ async def get_enrollment_detail_for_modal(
         pending_makeups=pending_makeups,
         payment_status=enrollment.payment_status or "",
         phone=enrollment.student.phone if enrollment.student else None,
+        contacts=enrollment.student.contacts if enrollment.student else None,
         fee_message_sent=enrollment.fee_message_sent or False,
         is_new_student=enrollment.is_new_student or False
     )

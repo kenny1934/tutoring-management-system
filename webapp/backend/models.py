@@ -43,6 +43,7 @@ class Student(Base):
     student_name = Column(String(255), nullable=False)
     grade = Column(String(50))
     phone = Column(String(100))
+    contacts = Column(JSON, default=list, comment='Array of contact objects: [{phone, label}]')
     school = Column(String(255))
     lang_stream = Column(String(50))
     home_location = Column(String(50))

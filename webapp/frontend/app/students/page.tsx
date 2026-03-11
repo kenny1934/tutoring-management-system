@@ -170,7 +170,7 @@ export default function StudentsPage() {
       // Priority: ID > Phone > Name
       if (student.school_student_id?.toLowerCase().includes(term)) {
         byId.push(student);
-      } else if (student.phone?.toLowerCase().includes(term)) {
+      } else if (student.phone?.toLowerCase().includes(term) || student.contacts?.some(c => c.phone?.toLowerCase().includes(term))) {
         byPhone.push(student);
       } else {
         byName.push(student);
