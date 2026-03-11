@@ -28,7 +28,7 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
-import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
+import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
@@ -124,6 +124,7 @@ export function LessonWideMode({
   const [hoverHeader, setHoverHeader] = useState(false);
   const [hoverSidebar, setHoverSidebar] = useState(false);
   const hoverHeaderTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const hoverSidebarTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // --- Shortcut help ---
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
@@ -246,6 +247,9 @@ export function LessonWideMode({
   // --- Focus mode helpers ---
   const exitFocusMode = useCallback(() => {
     clearTimeout(hoverHeaderTimerRef.current);
+    hoverHeaderTimerRef.current = undefined;
+    clearTimeout(hoverSidebarTimerRef.current);
+    hoverSidebarTimerRef.current = undefined;
     setFocusMode(false);
     setHoverHeader(false);
     setHoverSidebar(false);
@@ -256,6 +260,46 @@ export function LessonWideMode({
     setHoverHeader(false);
     setHoverSidebar(false);
   }, []);
+
+  // Focus mode: document-level mousemove for hover detection
+  // Two-threshold: 5px "arm zone" at edge starts timer, 48px "keep-alive zone" prevents cancellation
+  const HEADER_ARM_PX = 5;
+  const HEADER_ZONE_PX = 48;
+  const SIDEBAR_ZONE_PX = 48;
+  useEffect(() => {
+    if (!focusMode || isMobile) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      // Header: two-threshold — arm at edge, keep alive in zone
+      if (!hoverHeader) {
+        if (e.clientY <= HEADER_ARM_PX && !hoverHeaderTimerRef.current) {
+          hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 200);
+        } else if (e.clientY > HEADER_ZONE_PX) {
+          clearTimeout(hoverHeaderTimerRef.current);
+          hoverHeaderTimerRef.current = undefined;
+        }
+      }
+
+      // Sidebar: simple 48px zone (no toolbar conflict on left edge)
+      if (e.clientX <= SIDEBAR_ZONE_PX && !hoverSidebar) {
+        if (!hoverSidebarTimerRef.current) {
+          hoverSidebarTimerRef.current = setTimeout(() => setHoverSidebar(true), 100);
+        }
+      } else if (e.clientX > SIDEBAR_ZONE_PX && !hoverSidebar) {
+        clearTimeout(hoverSidebarTimerRef.current);
+        hoverSidebarTimerRef.current = undefined;
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      clearTimeout(hoverHeaderTimerRef.current);
+      hoverHeaderTimerRef.current = undefined;
+      clearTimeout(hoverSidebarTimerRef.current);
+      hoverSidebarTimerRef.current = undefined;
+    };
+  }, [focusMode, isMobile, hoverHeader, hoverSidebar]);
 
   // --- Annotation tool toggles ---
   const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
@@ -551,6 +595,43 @@ export function LessonWideMode({
     else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
     else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
   }, [sessions, showToast]);
+
+  // --- Print file group (one file, all students) ---
+  const handlePrintFileGroup = useCallback(async (group: FileGroup) => {
+    if (group.entries.length === 1) {
+      handlePrint(group.entries[0]);
+      return;
+    }
+    const groups: StudentExerciseGroup[] = group.entries
+      .filter(e => e.exercise.pdf_name?.trim())
+      .map(entry => ({
+        studentId: entry.session.student_id,
+        studentName: entry.session.student_name ?? 'Unknown',
+        schoolStudentId: entry.session.school_student_id ?? '',
+        location: entry.session.location ?? '',
+        sessionDate: entry.session.session_date,
+        timeSlot: entry.session.time_slot,
+        exercises: [{
+          pdf_name: entry.exercise.pdf_name,
+          page_start: entry.exercise.page_start,
+          page_end: entry.exercise.page_end,
+          remarks: entry.exercise.remarks,
+        }],
+        stamp: {
+          location: entry.session.location,
+          schoolStudentId: entry.session.school_student_id,
+          studentName: entry.session.student_name,
+          sessionDate: entry.session.session_date,
+          sessionTime: entry.session.time_slot,
+        },
+        filename: `${group.exerciseType}_${entry.session.school_student_id || ''}_${entry.session.student_name}`,
+      }));
+    if (groups.length === 0) return;
+    const error = await bulkPrintAllStudents(groups);
+    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+    else if (error === 'no_valid_files') showToast('No valid PDF files found', 'error');
+    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+  }, [handlePrint, showToast]);
 
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
@@ -981,6 +1062,7 @@ export function LessonWideMode({
     hasAnnotations: checkHasAnnotations,
     selectedLocation,
     onPrint: handlePrint,
+    onPrintFileGroup: handlePrintFileGroup,
   };
 
   return (
@@ -1182,34 +1264,49 @@ export function LessonWideMode({
         </div>
       </div>
 
-      {/* Focus mode hover overlays */}
+      {/* Focus mode hover overlays — detection via document mousemove, these are render-only */}
       {focusMode && !isMobile && (
         <>
+          {/* Header overlay */}
           <div
             className="absolute top-0 left-0 right-0 z-50"
-            style={{ height: hoverHeader ? 'auto' : 8 }}
-            onMouseEnter={() => {
-              hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 300);
-            }}
-            onMouseLeave={() => {
-              clearTimeout(hoverHeaderTimerRef.current);
-              setHoverHeader(false);
-            }}
+            style={{ height: hoverHeader ? 'auto' : 0 }}
+            onMouseLeave={() => setHoverHeader(false)}
           >
-            {hoverHeader && renderHeader(true)}
+            <AnimatePresence>
+              {hoverHeader && (
+                <motion.div
+                  initial={{ y: "-100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "-100%" }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {renderHeader(true)}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
+          {/* Sidebar overlay */}
           <div
             className="absolute top-0 left-0 bottom-0 z-50"
-            style={{ width: hoverSidebar ? sidebarWidth : 8 }}
-            onMouseEnter={() => setHoverSidebar(true)}
+            style={{ width: hoverSidebar ? sidebarWidth : 0 }}
             onMouseLeave={() => setHoverSidebar(false)}
           >
-            {hoverSidebar && (
-              <div className="h-full bg-[#faf5ed] dark:bg-[#1e1a14] border-r border-[#d4c4a8] dark:border-[#3a3228] shadow-lg">
-                <LessonWideSidebar {...sidebarProps} />
-              </div>
-            )}
+            <AnimatePresence>
+              {hoverSidebar && (
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "-100%" }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full bg-[#faf5ed] dark:bg-[#1e1a14] border-r border-[#d4c4a8] dark:border-[#3a3228] shadow-lg"
+                  style={{ width: sidebarWidth }}
+                >
+                  <LessonWideSidebar {...sidebarProps} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </>
       )}

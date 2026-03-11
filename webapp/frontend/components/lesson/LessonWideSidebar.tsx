@@ -27,6 +27,7 @@ interface LessonWideSidebarProps {
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
   onPrint?: (entry: StudentExerciseEntry) => void;
+  onPrintFileGroup?: (group: FileGroup) => void;
 }
 
 // --- By-Student mode components ---
@@ -278,6 +279,7 @@ function FileGroupItem({
   hasAnnotations,
   selectedLocation,
   onPrint,
+  onPrintFileGroup,
 }: {
   group: FileGroup;
   selectedEntry: StudentExerciseEntry | null;
@@ -285,29 +287,41 @@ function FileGroupItem({
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
   onPrint?: (entry: StudentExerciseEntry) => void;
+  onPrintFileGroup?: (group: FileGroup) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
   return (
     <div>
       {/* File header */}
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className={cn(
-          "w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left transition-colors min-h-[36px] md:min-h-0",
-          "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+      <div className="flex items-center group">
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className={cn(
+            "flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left transition-colors min-h-[36px] md:min-h-0 min-w-0",
+            "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+          )}
+        >
+          <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
+            <ChevronDown className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+          </div>
+          <span className="text-xs font-medium text-[#6b5a42] dark:text-[#c4a882] truncate flex-1">
+            {group.displayName}
+          </span>
+          <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
+            {group.entries.length}
+          </span>
+        </button>
+        {onPrintFileGroup && group.entries.length > 0 && (
+          <button
+            onClick={() => onPrintFileGroup(group)}
+            className="p-1 mr-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+            title={`Print for all ${group.entries.length} students`}
+          >
+            <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+          </button>
         )}
-      >
-        <div className={cn("transition-transform", expanded ? "rotate-0" : "-rotate-90")}>
-          <ChevronDown className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
-        </div>
-        <span className="text-xs font-medium text-[#6b5a42] dark:text-[#c4a882] truncate flex-1">
-          {group.displayName}
-        </span>
-        <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
-          {group.entries.length}
-        </span>
-      </button>
+      </div>
 
       {/* Student entries */}
       <AnimatePresence initial={false}>
@@ -405,6 +419,7 @@ export function LessonWideSidebar({
   hasAnnotations,
   selectedLocation,
   onPrint,
+  onPrintFileGroup,
 }: LessonWideSidebarProps) {
   if (sessions.length === 0) {
     return (
@@ -494,6 +509,7 @@ export function LessonWideSidebar({
                       hasAnnotations={hasAnnotations}
                       selectedLocation={selectedLocation}
                       onPrint={onPrint}
+                      onPrintFileGroup={onPrintFileGroup}
                     />
                   ))}
                 </div>
@@ -517,6 +533,7 @@ export function LessonWideSidebar({
                       hasAnnotations={hasAnnotations}
                       selectedLocation={selectedLocation}
                       onPrint={onPrint}
+                      onPrintFileGroup={onPrintFileGroup}
                     />
                   ))}
                 </div>
