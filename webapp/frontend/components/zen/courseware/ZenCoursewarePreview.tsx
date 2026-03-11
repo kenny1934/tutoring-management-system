@@ -27,6 +27,10 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [pdfDarkMode, setPdfDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('csm_pdf_dark_mode') === 'true';
+  });
   const [pageStart, setPageStart] = useState("");
   const [pageEnd, setPageEnd] = useState("");
   const prevFileRef = useRef<string | null>(null);
@@ -60,6 +64,14 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
     if (previewUrl) window.open(previewUrl, "_blank");
   }, [previewUrl]);
 
+  const togglePdfDarkMode = useCallback(() => {
+    setPdfDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('csm_pdf_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
   // Zoom keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,12 +84,15 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
       } else if (e.key === "-" || e.key === "_") {
         e.preventDefault();
         handleZoomOut();
+      } else if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        togglePdfDarkMode();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleZoomIn, handleZoomOut]);
+  }, [handleZoomIn, handleZoomOut, togglePdfDarkMode]);
 
   if (!file) {
     return (
@@ -175,6 +190,21 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
             title="Open in new tab"
           >
             open
+          </button>
+          <button
+            onClick={togglePdfDarkMode}
+            style={{
+              padding: "1px 6px",
+              backgroundColor: pdfDarkMode ? "var(--zen-fg)" : "transparent",
+              border: "1px solid var(--zen-border)",
+              color: pdfDarkMode ? "var(--zen-bg)" : "var(--zen-fg)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "11px",
+            }}
+            title={pdfDarkMode ? "Light PDF mode (D)" : "Dark PDF mode (D)"}
+          >
+            {pdfDarkMode ? "☀" : "☾"}
           </button>
         </div>
       </div>
@@ -299,6 +329,7 @@ export function ZenCoursewarePreview({ file, onPageSelect }: ZenCoursewarePrevie
                 width: `${(100 / zoom) * 100}%`,
                 height: `${(100 / zoom) * 100}%`,
                 border: "none",
+                ...(pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : {}),
               }}
               onLoad={() => setIsLoading(false)}
               onError={() => {
