@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.27](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.27) (2026-03-11)
+
+### New Features
+
+* **Bulk rate & comment** — rate and comment on multiple sessions at once from any timeslot header; copy timeslot info to clipboard
+* **Bulk exercise actions** — Print All, Download All, and Download Answers buttons on CW/HW section headers in both session detail and student courseware tab
+* **Courseware tab redesign** — consolidated layout with one card per session, CW/HW sub-grouping with colored accents, inline open/print buttons per exercise, and styled filter toggle
+* **Clickable test alerts** — upcoming assessment entries on the session detail page now link directly to the exam revision page
+* **Esc keyboard shortcut** — press Escape on session detail page to navigate back
+
+### Improvements
+
+* **Courseware tab readability** — darker text, opaque backgrounds, and StickyNote empty states for wooden desk theme in both courseware and tests tabs
+* **Print stamps on exercises** — open/print actions now include student info stamps
+
+### Bug Fixes
+
+* Fixed exams page back button always navigating to home instead of the actual previous page
+* Extracted shared `useBackNavigation` hook to consolidate duplicated history-aware back navigation
+
 ## [2.0.26](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.26) (2026-03-11)
 
 ### New Features
