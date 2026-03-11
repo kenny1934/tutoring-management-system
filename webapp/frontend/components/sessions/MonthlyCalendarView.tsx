@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
-import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home, GraduationCap, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home, GraduationCap, Clock, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -772,6 +772,7 @@ function DayPopover({
             <ListView
               sortedTimeSlots={sortedTimeSlots}
               sessionsByTimeSlot={sessionsByTimeSlot}
+              date={date}
               setOpenSessionId={setOpenSessionId}
               setPopoverClickPosition={setPopoverClickPosition}
               selectedIds={selectedIds}
@@ -850,6 +851,7 @@ function DayPopover({
 interface ListViewProps {
   sortedTimeSlots: string[];
   sessionsByTimeSlot: Map<string, Session[]>;
+  date: Date;
   setOpenSessionId: (id: number | null) => void;
   setPopoverClickPosition: (pos: { x: number; y: number } | null) => void;
   selectedIds: Set<number>;
@@ -859,7 +861,8 @@ interface ListViewProps {
   onClose?: () => void;
 }
 
-function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPopoverClickPosition, selectedIds, onToggleSelect, proposedSessions = [], onProposalClick, onClose }: ListViewProps) {
+function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId, setPopoverClickPosition, selectedIds, onToggleSelect, proposedSessions = [], onProposalClick, onClose }: ListViewProps) {
+  const [copiedSlot, setCopiedSlot] = useState<string | null>(null);
   // Sort sessions within each slot using main sessions page logic
   const getSortedSlotSessions = (sessions: Session[]) => {
     // Group by tutor
@@ -931,9 +934,26 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
             {/* Time Slot Header */}
             <div className="flex items-center gap-1.5 mb-1">
               <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
-              <span className="text-[10px] font-semibold text-[#a0704b] dark:text-[#cd853f] px-1.5">
+              <button
+                className="flex items-center gap-1 text-[10px] font-semibold text-[#a0704b] dark:text-[#cd853f] px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
+                onClick={() => {
+                  const day = date.getDate();
+                  const month = date.getMonth() + 1;
+                  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+                  const compactTime = timeSlot.replace(/\s/g, '');
+                  navigator.clipboard.writeText(`${day}/${month} (${weekday}) ${compactTime}`);
+                  setCopiedSlot(timeSlot);
+                  setTimeout(() => setCopiedSlot(null), 2000);
+                }}
+                title={`${date.getDate()}/${date.getMonth() + 1} (${date.toLocaleDateString('en-US', { weekday: 'short' })}) ${timeSlot.replace(/\s/g, '')}`}
+              >
                 {timeSlot}
-              </span>
+                {copiedSlot === timeSlot ? (
+                  <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+                ) : (
+                  <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
+                )}
+              </button>
               <div className="h-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
             </div>
             {/* Sessions */}
