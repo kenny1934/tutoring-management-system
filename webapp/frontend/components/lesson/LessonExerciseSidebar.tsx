@@ -79,13 +79,16 @@ function ExerciseItem({
         {/* Status indicators */}
         <div className="flex items-center gap-1 flex-shrink-0 mt-1">
           {exercise.pdf_name && onPrint && (
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onPrint(exercise); }}
-              className="p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPrint(exercise); } }}
+              className="p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-pointer"
               title="Print"
             >
               <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
-            </button>
+            </div>
           )}
           {completionStatus === "submitted" && (
             <span title="Submitted"><Check className="h-3 w-3 text-green-500" /></span>
