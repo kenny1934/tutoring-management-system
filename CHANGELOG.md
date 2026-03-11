@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
+
+### New Features
+
+* **Bulk exercise assignment in wide mode** — assign CW/HW to multiple students at once via student picker popover in the lesson wide mode sidebar (both by-student and by-file views)
+* **Clipboard paste in bulk modal** — exercises copied from ExerciseModal (Ctrl+C) can now be pasted into BulkExerciseModal (Ctrl+V) with confirmation dialog and source student info
+* **Multi-select bulk delete** — select multiple exercises via checkboxes and delete them all at once with an inline red confirmation banner; Alt+Backspace shortcut support
+* **PDF dark mode** — toggle button on all PDF viewers inverts page colors for comfortable dark reading; persisted via localStorage across PdfPageViewer, PdfPreviewModal, and Zen viewers
+
+### Bug Fixes
+
+* **Nested button hydration error** — fixed Next.js hydration warning caused by a print button nested inside the exercise item button in the lesson sidebar
+
 ## [2.0.28](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.28) (2026-03-11)
 
 ### New Features
