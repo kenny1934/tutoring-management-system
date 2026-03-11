@@ -25,6 +25,14 @@ const changelogData = [
             "description": "**J/K navigation respects collapsed sections** — keyboard navigation now skips over collapsed time slot sections; Ctrl+A and Ctrl+Shift+A also only operate on visible (non-collapsed) sessions"
           }
         ]
+      },
+      {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "**Student detail popover** — now shows all contact phone numbers with labels instead of only the single legacy phone field"
+          }
+        ]
       }
     ]
   },
