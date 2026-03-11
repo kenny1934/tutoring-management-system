@@ -13,7 +13,7 @@ import {
   RequiredMark,
 } from "@/lib/summer-utils";
 
-const BRANCH_IMAGES: Record<string, string> = {
+const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
   "Jardim de Vasco Center": "/summer/vasco-center.jpg",
   "Flora Garden Center": "/summer/flora-center.jpg",
 };
@@ -68,7 +68,7 @@ export function ClassPreferencesStep({
           )}
           <RequiredMark />
         </h2>
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {config.locations.map((loc) => {
             const name = lang === "zh" ? loc.name : loc.name_en;
             const addr =
@@ -80,7 +80,7 @@ export function ClassPreferencesStep({
                 : loc.open_days_label_en ||
                   loc.open_days.map((d) => dayLabel(d, lang)).join(", ");
             const selected = selectedLocation === loc.name;
-            const branchImage = BRANCH_IMAGES[loc.name_en];
+            const branchImage = loc.image_url || BRANCH_IMAGES_FALLBACK[loc.name_en];
             return (
               <label
                 key={loc.name}
@@ -105,7 +105,7 @@ export function ClassPreferencesStep({
                   className="sr-only"
                 />
                 {branchImage && (
-                  <div className="relative aspect-[5/2] overflow-hidden">
+                  <div className="relative aspect-[3/2] overflow-hidden">
                     <Image
                       src={branchImage}
                       alt={name}
