@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -34,9 +34,7 @@ const adminNavigation = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
   { name: "Overdue Payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
-  // Future admin items:
-  // { name: "Audit Log", href: "/admin/audit", icon: FileText },
-  // { name: "User Management", href: "/admin/users", icon: UserCog },
+  { name: "Summer Config", href: "/admin/summer-config", icon: Sun },
 ];
 
 interface SidebarProps {

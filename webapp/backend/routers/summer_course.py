@@ -250,12 +250,79 @@ def update_config(
     if not config:
         raise HTTPException(status_code=404, detail="Config not found")
 
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    for field, value in updates.items():
         setattr(config, field, value)
+
+    # Enforce single active config
+    if updates.get("is_active") is True:
+        db.query(SummerCourseConfig).filter(
+            SummerCourseConfig.id != config_id,
+            SummerCourseConfig.is_active == True,
+        ).update({"is_active": False})
 
     db.commit()
     db.refresh(config)
     return config
+
+
+@router.get("/summer/configs/{config_id}", response_model=SummerCourseConfigResponse)
+def get_config(
+    config_id: int,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get a single summer course config by ID."""
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return config
+
+
+@router.post("/summer/configs/{config_id}/clone", response_model=SummerCourseConfigResponse)
+def clone_config(
+    config_id: int,
+    target_year: int = Query(..., description="Target year for the cloned config"),
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Clone an existing config for a new year."""
+    source = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    # Check target year doesn't already exist
+    existing = db.query(SummerCourseConfig).filter(SummerCourseConfig.year == target_year).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Config for year {target_year} already exists")
+
+    year_diff = target_year - source.year
+
+    from dateutil.relativedelta import relativedelta
+
+    clone = SummerCourseConfig(
+        year=target_year,
+        title=source.title.replace(str(source.year), str(target_year)),
+        description=source.description,
+        application_open_date=source.application_open_date + relativedelta(years=year_diff),
+        application_close_date=source.application_close_date + relativedelta(years=year_diff),
+        course_start_date=source.course_start_date + relativedelta(years=year_diff),
+        course_end_date=source.course_end_date + relativedelta(years=year_diff),
+        total_lessons=source.total_lessons,
+        pricing_config=source.pricing_config,
+        locations=source.locations,
+        available_grades=source.available_grades,
+        time_slots=source.time_slots,
+        existing_student_options=source.existing_student_options,
+        center_options=source.center_options,
+        text_content=source.text_content,
+        banner_image_url=source.banner_image_url,
+        is_active=False,
+    )
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+    return clone
 
 
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])

@@ -327,8 +327,8 @@ export default function SummerApplyPage() {
         </p>
         <p className="text-sm text-foreground">
           {t(
-            "再次感謝家長和學生對MathConcept「中學教室」的支持！\u{1F970}",
-            "Thank you again for your support to MathConcept Secondary Academy! \u{1F970}",
+            config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！\u{1F970}",
+            config?.text_content?.success_message_en || "Thank you again for your support to MathConcept Secondary Academy! \u{1F970}",
             lang
           )}
         </p>

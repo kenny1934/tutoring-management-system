@@ -51,7 +51,7 @@ export function StudentInfoStep({
       {/* Banner */}
       <div className="rounded-2xl overflow-hidden">
         <Image
-          src="/summer/summer-banner.jpg"
+          src={config.banner_image_url || "/summer/summer-banner.jpg"}
           alt={t(
             "MathConcept 中學教室 暑期中學班 7月5日正式開課",
             "MathConcept Secondary Academy Summer Class Starting on 5th July",
@@ -71,17 +71,10 @@ export function StudentInfoStep({
 
       {/* Introduction block */}
       <div className="bg-primary/5 rounded-2xl border border-primary/20 p-6 sm:p-8 space-y-3">
-        <p className="text-center font-semibold text-foreground">
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
           {t(
-            "\u2728感謝家長和學生對 MathConcept 「中學教室」的支持！\u2728",
-            "\u2728 Thank you to all parents and students for your continuous support for MathConcept Secondary Academy! \u2728",
-            lang
-          )}
-        </p>
-        <p className="text-sm text-foreground leading-relaxed">
-          {t(
-            "現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
-            "To confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
+            config.text_content?.intro_zh || "\u2728感謝家長和學生對 MathConcept 「中學教室」的支持！\u2728\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
+            config.text_content?.intro_en || "\u2728 Thank you to all parents and students for your continuous support for MathConcept Secondary Academy! \u2728\n\nTo confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
             lang
           )}
         </p>
