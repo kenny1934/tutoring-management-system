@@ -23,6 +23,10 @@ export const getTutorFirstName = (name: string): string => {
 export const canBeMarked = (session: Session): boolean =>
   ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
 
+// Check if a session has been attended (for bulk CW/HW/rating actions)
+export const isAttended = (session: Session): boolean =>
+  ['Attended', 'Attended (Make-up)', 'Attended (Trial)'].includes(session.session_status);
+
 /**
  * Returns sort order for session statuses (lower = higher priority)
  */

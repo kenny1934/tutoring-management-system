@@ -7,9 +7,9 @@ import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeS
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
-import { canBeMarked } from "@/components/zen/utils/sessionSorting";
+import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -114,13 +114,35 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const markableIds = useMemo(() => markableSessions.map(s => s.id), [markableSessions]);
   const isAllMarkableSelected = markableIds.length > 0 && markableIds.every(id => selectedIds.has(id));
 
-  const toggleSelectMarkable = useCallback(() => {
+  // Attended sessions (for CW/HW/rating actions)
+  const attendedSessions = useMemo(() => sessions.filter(isAttended), [sessions]);
+  const attendedIds = useMemo(() => attendedSessions.map(s => s.id), [attendedSessions]);
+
+  // Selection dropdown state
+  const [showSelectDropdown, setShowSelectDropdown] = useState(false);
+
+  const handleSelectMarkable = useCallback(() => {
+    if (markableIds.length === 0) {
+      showToast('No markable sessions to select', 'info');
+      return;
+    }
     if (isAllMarkableSelected) {
       clearSelection();
+      showToast('Selection cleared', 'info');
     } else {
       selectIds(markableIds);
+      showToast(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
     }
-  }, [isAllMarkableSelected, clearSelection, selectIds, markableIds]);
+  }, [isAllMarkableSelected, clearSelection, selectIds, markableIds, showToast]);
+
+  const handleSelectAttended = useCallback(() => {
+    if (attendedIds.length === 0) {
+      showToast('No attended sessions to select', 'info');
+      return;
+    }
+    selectIds(attendedIds);
+    showToast(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
+  }, [selectIds, attendedIds, showToast]);
 
   // Bulk action handlers
   const {
@@ -136,6 +158,14 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     clearSelection,
     showToast,
   });
+
+  // Close select dropdown on outside click
+  useEffect(() => {
+    if (!showSelectDropdown) return;
+    const handleClick = () => setShowSelectDropdown(false);
+    const timer = setTimeout(() => document.addEventListener('click', handleClick), 0);
+    return () => { clearTimeout(timer); document.removeEventListener('click', handleClick); };
+  }, [showSelectDropdown]);
 
   // Bulk exercise download/print
   const [bulkExerciseProcessing, setBulkExerciseProcessing] = useState<'CW' | 'HW' | null>(null);
@@ -251,19 +281,54 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 strokeWidth={3}
               />
             )}
-            {/* Select Markable checkbox */}
-            {markableIds.length > 0 && (
-              <button
-                onClick={toggleSelectMarkable}
-                className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              >
-                {isAllMarkableSelected ? (
-                  <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
-                ) : (
-                  <Square className="h-3.5 w-3.5" />
+            {/* Select sessions dropdown */}
+            {(markableIds.length > 0 || attendedIds.length > 0) && (
+              <div className="relative">
+                <div className="flex items-center">
+                  <button
+                    onClick={handleSelectMarkable}
+                    className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  >
+                    {isAllMarkableSelected ? (
+                      <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                    ) : (
+                      <Square className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden sm:inline">Select</span>
+                  </button>
+                  <button
+                    onClick={() => setShowSelectDropdown(!showSelectDropdown)}
+                    className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    title="Selection options"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </div>
+                {showSelectDropdown && (
+                  <div className="absolute top-full right-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-50 py-1 min-w-[160px]">
+                    <button
+                      onClick={() => { handleSelectMarkable(); setShowSelectDropdown(false); }}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                    >
+                      Select Markable
+                    </button>
+                    <button
+                      onClick={() => { handleSelectAttended(); setShowSelectDropdown(false); }}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                    >
+                      Select Attended
+                    </button>
+                    {hasSelection && (
+                      <button
+                        onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-red-600 dark:text-red-400"
+                      >
+                        Clear Selection
+                      </button>
+                    )}
+                  </div>
                 )}
-                <span className="hidden sm:inline">Select Markable</span>
-              </button>
+              </div>
             )}
           </div>
         </div>
