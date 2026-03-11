@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X,
+  Check, X, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/exercise-utils";
@@ -23,6 +23,8 @@ interface LessonExerciseSidebarProps {
   hasAnnotations?: (exerciseId: number) => boolean;
   /** Homework completion data for previous session's HW exercises. */
   homeworkCompletion?: HomeworkCompletion[];
+  /** Print a single exercise. */
+  onPrint?: (exercise: SessionExercise) => void;
 }
 
 function ExerciseItem({
@@ -31,12 +33,14 @@ function ExerciseItem({
   onClick,
   hasAnnotations,
   completionStatus,
+  onPrint,
 }: {
   exercise: SessionExercise;
   isSelected: boolean;
   onClick: () => void;
   hasAnnotations?: boolean;
   completionStatus?: "submitted" | "not_submitted";
+  onPrint?: (exercise: SessionExercise) => void;
 }) {
   const displayName = getDisplayName(exercise.pdf_name);
   const pageLabel = getPageLabel(exercise);
@@ -74,6 +78,15 @@ function ExerciseItem({
 
         {/* Status indicators */}
         <div className="flex items-center gap-1 flex-shrink-0 mt-1">
+          {exercise.pdf_name && onPrint && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPrint(exercise); }}
+              className="p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+              title="Print"
+            >
+              <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+            </button>
+          )}
           {completionStatus === "submitted" && (
             <span title="Submitted"><Check className="h-3 w-3 text-green-500" /></span>
           )}
@@ -101,6 +114,7 @@ function ExerciseSection({
   session,
   hasAnnotations,
   homeworkCompletion,
+  onPrint,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -113,6 +127,7 @@ function ExerciseSection({
   session: Session;
   hasAnnotations?: (exerciseId: number) => boolean;
   homeworkCompletion?: HomeworkCompletion[];
+  onPrint?: (exercise: SessionExercise) => void;
 }) {
   return (
     <div>
@@ -149,6 +164,7 @@ function ExerciseSection({
                 onClick={() => onExerciseSelect(ex)}
                 hasAnnotations={hasAnnotations?.(ex.id)}
                 completionStatus={hwc ? (hwc.submitted ? "submitted" : "not_submitted") : undefined}
+                onPrint={onPrint}
               />
             );
           })}
@@ -184,6 +200,7 @@ function SessionBlock({
   defaultExpanded,
   hasAnnotations,
   homeworkCompletion,
+  onPrint,
 }: {
   session: Session;
   label: string;
@@ -194,6 +211,7 @@ function SessionBlock({
   defaultExpanded: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
   homeworkCompletion?: HomeworkCompletion[];
+  onPrint?: (exercise: SessionExercise) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -262,6 +280,7 @@ function SessionBlock({
                 isReadOnly={isReadOnly}
                 session={session}
                 hasAnnotations={hasAnnotations}
+                onPrint={onPrint}
               />
               <ExerciseSection
                 label="Homework"
@@ -275,6 +294,7 @@ function SessionBlock({
                 session={session}
                 hasAnnotations={hasAnnotations}
                 homeworkCompletion={homeworkCompletion}
+                onPrint={onPrint}
               />
             </div>
           </motion.div>
@@ -293,6 +313,7 @@ export function LessonExerciseSidebar({
   isReadOnly,
   hasAnnotations,
   homeworkCompletion,
+  onPrint,
 }: LessonExerciseSidebarProps) {
   const hasAnySessions = currentSession || previousSession;
 
@@ -323,6 +344,7 @@ export function LessonExerciseSidebar({
           isReadOnly={isReadOnly}
           defaultExpanded
           hasAnnotations={hasAnnotations}
+          onPrint={onPrint}
         />
       )}
 
@@ -340,6 +362,7 @@ export function LessonExerciseSidebar({
             defaultExpanded={false}
             hasAnnotations={hasAnnotations}
             homeworkCompletion={homeworkCompletion}
+            onPrint={onPrint}
           />
         </>
       )}

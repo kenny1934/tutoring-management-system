@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown,
   Maximize2, Minimize2, PencilLine, Users,
-  AlertTriangle, LayoutList,
+  AlertTriangle, LayoutList, PenTool, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -633,6 +633,19 @@ export function LessonWideMode({
     else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
   }, [handlePrint, showToast]);
 
+  // --- Bulk print all CW or HW for a single student ---
+  const handleBulkPrintStudent = useCallback(async (session: Session, type: 'CW' | 'HW') => {
+    const groups = groupExercisesByStudent([session], type);
+    if (groups.length === 0) {
+      showToast(`No ${type} exercises found`, 'info');
+      return;
+    }
+    const error = await bulkPrintAllStudents(groups);
+    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+  }, [showToast]);
+
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedEntry?.exercise || !pdfData) return;
@@ -998,20 +1011,19 @@ export function LessonWideMode({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.1 }}
-                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] text-white rounded-lg shadow-xl border border-white/10 py-1 w-40"
-                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}
+                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] dark:bg-[#1a2821] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
                 >
                   <button
                     onClick={() => handleBulkPrint('CW')}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors"
                   >
-                    Print all CW
+                    <PenTool className="h-3 w-3 text-rose-400" /> Print all CW
                   </button>
                   <button
                     onClick={() => handleBulkPrint('HW')}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors"
                   >
-                    Print all HW
+                    <BookOpen className="h-3 w-3 text-blue-400" /> Print all HW
                   </button>
                 </motion.div>
               </>
@@ -1063,6 +1075,7 @@ export function LessonWideMode({
     selectedLocation,
     onPrint: handlePrint,
     onPrintFileGroup: handlePrintFileGroup,
+    onBulkPrintStudent: handleBulkPrintStudent,
   };
 
   return (
