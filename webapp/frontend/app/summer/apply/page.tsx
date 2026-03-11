@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { summerAPI } from "@/lib/api";
 import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
 } from "@/types";
 import { type Lang, t, dayLabel, inputClass } from "@/lib/summer-utils";
+
+const BRANCH_IMAGES: Record<string, string> = {
+  "Jardim de Vasco Center": "/summer/vasco-center.jpg",
+  "Flora Garden Center": "/summer/flora-center.jpg",
+};
 
 /** Format a date string like "2025-07-05" to localized display. */
 function formatDate(dateStr: string, lang: Lang): string {
@@ -248,6 +254,22 @@ export default function SummerApplyPage() {
         >
           {lang === "zh" ? "English" : "中文"}
         </button>
+      </div>
+
+      {/* Banner */}
+      <div className="rounded-xl overflow-hidden">
+        <Image
+          src="/summer/summer-banner.jpg"
+          alt={t(
+            "MathConcept 中學教室 暑期中學班 7月5日正式開課",
+            "MathConcept Secondary Academy Summer Class Starting on 5th July",
+            lang
+          )}
+          width={6667}
+          height={1663}
+          className="w-full h-auto"
+          priority
+        />
       </div>
 
       {/* Title */}
@@ -527,10 +549,11 @@ export default function SummerApplyPage() {
               ? loc.open_days_label || loc.open_days.map((d) => dayLabel(d, lang)).join(", ")
               : loc.open_days_label_en || loc.open_days.map((d) => dayLabel(d, lang)).join(", ");
             const selected = selectedLocation === loc.name;
+            const branchImage = BRANCH_IMAGES[loc.name_en];
             return (
               <label
                 key={loc.name}
-                className={`block cursor-pointer rounded-lg border p-3 transition-colors ${
+                className={`block cursor-pointer rounded-lg border overflow-hidden transition-colors ${
                   selected
                     ? "border-primary bg-primary/10 ring-1 ring-primary"
                     : "border-border hover:border-primary"
@@ -549,10 +572,21 @@ export default function SummerApplyPage() {
                   className="sr-only"
                   required
                 />
-                <div className="font-medium text-sm">
-                  {"\u{1F4CD}"} {name} ({daysLabel})
+                {branchImage && (
+                  <Image
+                    src={branchImage}
+                    alt={name}
+                    width={800}
+                    height={600}
+                    className="w-full h-auto"
+                  />
+                )}
+                <div className="p-3">
+                  <div className="font-medium text-sm">
+                    {"\u{1F4CD}"} {name} ({daysLabel})
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{addr}</div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{addr}</div>
               </label>
             );
           })}
