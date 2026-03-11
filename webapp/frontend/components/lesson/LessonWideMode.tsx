@@ -18,6 +18,7 @@ import { LessonWideSidebar } from "./LessonWideSidebar";
 import { StudentSwitcher } from "./StudentSwitcher";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAnnotations } from "@/hooks/useAnnotations";
@@ -100,6 +101,22 @@ export function LessonWideMode({
   // --- Exercise modal ---
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+
+  // --- Bulk exercise assignment ---
+  const [bulkAssignType, setBulkAssignType] = useState<"CW" | "HW" | null>(null);
+  const [bulkSessionIds, setBulkSessionIds] = useState<Set<number>>(new Set());
+
+  const handleBulkAssign = useCallback((type: "CW" | "HW", sessionIds?: number[]) => {
+    if (sessionIds) {
+      setBulkSessionIds(new Set(sessionIds));
+      setBulkAssignType(type);
+    }
+  }, []);
+  const handleBulkAssignClose = useCallback(() => {
+    setBulkAssignType(null);
+    setBulkSessionIds(new Set());
+    onSessionDataChange();
+  }, [onSessionDataChange]);
 
   // --- Sidebar width (shared with single lesson mode) ---
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -1076,6 +1093,7 @@ export function LessonWideMode({
     onPrint: handlePrint,
     onPrintFileGroup: handlePrintFileGroup,
     onBulkPrintStudent: handleBulkPrintStudent,
+    onBulkAssign: handleBulkAssign,
   };
 
   return (
@@ -1352,13 +1370,23 @@ export function LessonWideMode({
         </MobileBottomSheet>
       )}
 
-      {/* Exercise modal */}
+      {/* Exercise modal (single student) */}
       {exerciseModalSession && exerciseModalType && (
         <ExerciseModal
           session={exerciseModalSession}
           exerciseType={exerciseModalType}
           isOpen
           onClose={handleExerciseModalClose}
+        />
+      )}
+
+      {/* Bulk exercise modal (multiple students) */}
+      {bulkAssignType && bulkSessionIds.size > 0 && (
+        <BulkExerciseModal
+          sessions={sessions.filter(s => bulkSessionIds.has(s.id))}
+          exerciseType={bulkAssignType}
+          isOpen
+          onClose={handleBulkAssignClose}
         />
       )}
 
