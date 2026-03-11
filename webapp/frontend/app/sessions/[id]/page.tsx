@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState, memo } from "react";
 import useSWR from "swr";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useSession, usePageTitle, useMemoForSession } from "@/lib/hooks";
+import { useBackNavigation } from "@/lib/ui-hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
@@ -224,7 +225,7 @@ const refinedCardVariants = {
 
 export default function SessionDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const goBack = useBackNavigation('/sessions');
   const searchParams = useSearchParams();
   const sessionId = parseInt(params.id as string);
 
@@ -284,11 +285,7 @@ export default function SessionDetailPage() {
       // Escape - Navigate back
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (window.history.length > 1) {
-          router.back();
-        } else {
-          router.push('/sessions');
-        }
+        goBack();
         return;
       }
 
@@ -494,13 +491,7 @@ export default function SessionDetailPage() {
       <div>
         {/* Mobile: Navigation bar with back + context */}
         <div className="sm:hidden flex items-center gap-2 mb-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push('/sessions');
-            }
-          }}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground">Session</span>
@@ -509,13 +500,7 @@ export default function SessionDetailPage() {
 
         {/* Desktop: Side-by-side layout */}
         <div className="hidden sm:flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push('/sessions');
-            }
-          }}>
+          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={goBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
