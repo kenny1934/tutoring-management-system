@@ -28,6 +28,7 @@ interface LessonWideSidebarProps {
   selectedLocation: string;
   onPrint?: (entry: StudentExerciseEntry) => void;
   onPrintFileGroup?: (group: FileGroup) => void;
+  onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
 }
 
 // --- By-Student mode components ---
@@ -99,6 +100,7 @@ function StudentBlock({
   selectedLocation,
   defaultExpanded,
   onPrint,
+  onBulkPrintStudent,
 }: {
   session: Session;
   entries: StudentExerciseEntry[];
@@ -110,6 +112,7 @@ function StudentBlock({
   selectedLocation: string;
   defaultExpanded: boolean;
   onPrint?: (entry: StudentExerciseEntry) => void;
+  onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
@@ -125,37 +128,61 @@ function StudentBlock({
 
   return (
     <div>
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className={cn(
-          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0",
-          "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
-        )}
-      >
-        <div className={cn("transition-transform", expanded ? "rotate-0" : "-rotate-90")}>
-          <ChevronDown className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
-        </div>
-        <User className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {studentId && (
-            <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60]">{studentId}</span>
+      <div className="flex items-center group">
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className={cn(
+            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0 min-w-0",
+            "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           )}
-          <span className="text-xs font-semibold text-[#6b5a42] dark:text-[#c4a882] truncate">
-            {session.student_name}
-          </span>
-          {session.grade && (
-            <span
-              className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              {session.grade}{session.lang_stream || ""}
+        >
+          <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
+            <ChevronDown className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+          </div>
+          <User className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            {studentId && (
+              <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60]">{studentId}</span>
+            )}
+            <span className="text-xs font-semibold text-[#6b5a42] dark:text-[#c4a882] truncate">
+              {session.student_name}
             </span>
-          )}
-        </div>
-        <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums">
-          {entries.length}
-        </span>
-      </button>
+            {session.grade && (
+              <span
+                className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
+                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+              >
+                {session.grade}{session.lang_stream || ""}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
+            {entries.length}
+          </span>
+        </button>
+        {onBulkPrintStudent && (
+          <div className="flex items-center gap-0.5 mr-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
+            {cwEntries.length > 0 && (
+              <button
+                onClick={() => onBulkPrintStudent(session, 'CW')}
+                className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
+                title={`Print all CW (${cwEntries.length})`}
+              >
+                <Printer className="h-3 w-3 text-rose-400 dark:text-rose-300" />
+              </button>
+            )}
+            {hwEntries.length > 0 && (
+              <button
+                onClick={() => onBulkPrintStudent(session, 'HW')}
+                className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
+                title={`Print all HW (${hwEntries.length})`}
+              >
+                <Printer className="h-3 w-3 text-blue-400 dark:text-blue-300" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       <AnimatePresence initial={false}>
         {expanded && (
@@ -420,6 +447,7 @@ export function LessonWideSidebar({
   selectedLocation,
   onPrint,
   onPrintFileGroup,
+  onBulkPrintStudent,
 }: LessonWideSidebarProps) {
   if (sessions.length === 0) {
     return (
@@ -484,6 +512,7 @@ export function LessonWideSidebar({
                   selectedLocation={selectedLocation}
                   defaultExpanded
                   onPrint={onPrint}
+                  onBulkPrintStudent={onBulkPrintStudent}
                 />
               );
             })}

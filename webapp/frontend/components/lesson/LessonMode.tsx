@@ -3,13 +3,15 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
-  Maximize2, Minimize2, PencilLine,
-  AlertTriangle, LayoutList,
+  Maximize2, Minimize2, PencilLine, ChevronDown,
+  AlertTriangle, LayoutList, PenTool, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
+import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
+import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getAnswerPageNumbers } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
@@ -48,6 +50,7 @@ export function LessonMode({
   const currentSession = session;
   const previousSession = session.previous_session ?? null;
   const { selectedLocation } = useLocation();
+  const { showToast } = useToast();
 
   // Location-prefixed student ID (same pattern as TodaySessionsCard)
   const studentIdDisplay = session.school_student_id
@@ -499,19 +502,31 @@ export function LessonMode({
     }
   }, [selectedExercise]);
 
-  // Print current exercise
-  const handlePrint = useCallback(async () => {
-    if (!selectedExercise?.pdf_name) return;
-    const { complexPages } = parseExerciseRemarks(selectedExercise.remarks);
+  // Print: single exercise from sidebar
+  const handlePrintExercise = useCallback(async (exercise: SessionExercise) => {
+    if (!exercise.pdf_name) return;
+    const { complexPages } = parseExerciseRemarks(exercise.remarks);
     await printFileFromPathWithFallback(
-      selectedExercise.pdf_name,
-      selectedExercise.page_start,
-      selectedExercise.page_end,
+      exercise.pdf_name,
+      exercise.page_start,
+      exercise.page_end,
       complexPages || undefined,
       stamp,
       searchPaperlessByPath
     );
-  }, [selectedExercise, stamp]);
+  }, [stamp]);
+
+  // Print: bulk print all CW or HW
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const handleBulkPrint = useCallback(async (type: 'CW' | 'HW') => {
+    setShowPrintMenu(false);
+    const groups = groupExercisesByStudent([session], type);
+    if (groups.length === 0) return;
+    const error = await bulkPrintAllStudents(groups);
+    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+  }, [session, showToast]);
 
   // Annotation handlers
   const handleAnnotationsChange = useCallback((annotations: PageAnnotations) => {
@@ -658,7 +673,9 @@ export function LessonMode({
     switch (e.key) {
       case "Escape":
         e.preventDefault();
-        if (showShortcutHelp) {
+        if (showPrintMenu) {
+          setShowPrintMenu(false);
+        } else if (showShortcutHelp) {
           setShowShortcutHelp(false);
         } else if (focusMode) {
           exitFocusMode();
@@ -881,16 +898,47 @@ export function LessonMode({
           </button>
         )}
 
-        {/* Print button */}
-        {selectedExercise?.pdf_name && (
+        {/* Bulk print dropdown */}
+        <div className="relative">
           <button
-            onClick={handlePrint}
-            className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-            title="Print current exercise (P)"
+            onClick={() => setShowPrintMenu(v => !v)}
+            className={cn(
+              "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
+              showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+            )}
+            title="Print exercises"
           >
-            <Printer className="h-3.5 w-3.5 text-white/70" />
+            <Printer className="h-3.5 w-3.5" />
+            <ChevronDown className="h-2.5 w-2.5" />
           </button>
-        )}
+          <AnimatePresence>
+            {showPrintMenu && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60]"
+                  onClick={() => setShowPrintMenu(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] dark:bg-[#1a2821] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
+                >
+                  <button onClick={() => handleBulkPrint('CW')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors">
+                    <PenTool className="h-3 w-3 text-rose-400" /> Print all CW
+                  </button>
+                  <button onClick={() => handleBulkPrint('HW')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors">
+                    <BookOpen className="h-3 w-3 text-blue-400" /> Print all HW
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Focus mode toggle (desktop only — mobile header is already compact) */}
         <button
@@ -1006,6 +1054,7 @@ export function LessonMode({
                 isReadOnly={isReadOnly}
                 hasAnnotations={checkHasAnnotations}
                 homeworkCompletion={session.homework_completion}
+                onPrint={handlePrintExercise}
               />
             </div>
 
@@ -1177,6 +1226,7 @@ export function LessonMode({
                     isReadOnly={isReadOnly}
                     hasAnnotations={checkHasAnnotations}
                     homeworkCompletion={session.homework_completion}
+                    onPrint={handlePrintExercise}
                   />
                 </motion.div>
               )}
@@ -1239,6 +1289,7 @@ export function LessonMode({
           isReadOnly={isReadOnly}
           hasAnnotations={checkHasAnnotations}
           homeworkCompletion={session.homework_completion}
+          onPrint={handlePrintExercise}
         />
       </MobileBottomSheet>
     </motion.div>
