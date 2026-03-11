@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse } from "@/types";
@@ -15,7 +15,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2
+Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -28,6 +28,9 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
@@ -591,8 +594,10 @@ export default function StudentDetailPage() {
               {activeTab === "courseware" && (
                 <CoursewareTab
                   coursewareHistory={coursewareHistory}
+                  sessions={sessions}
                   loading={sessionsLoading}
                   isMobile={isMobile}
+                  isReadOnly={isReadOnly}
                 />
               )}
 
@@ -2332,6 +2337,71 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
   );
 }
 
+// Open/Print action buttons for courseware exercise rows
+const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
+  pdfName,
+  pageStart,
+  pageEnd,
+}: {
+  pdfName: string;
+  pageStart?: number;
+  pageEnd?: number;
+}) {
+  const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  if (!canBrowseFiles) return null;
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (openState === 'loading') return;
+    setOpenState('loading');
+    const error = await openFileFromPathWithFallback(pdfName, (p) =>
+      searchPaperlessByPath(p)
+    );
+    if (error) {
+      setOpenState('error');
+      setTimeout(() => setOpenState('idle'), 2000);
+    } else {
+      setOpenState('idle');
+    }
+  };
+
+  const handlePrint = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (printState === 'loading') return;
+    setPrintState('loading');
+    const error = await printFileFromPathWithFallback(
+      pdfName, pageStart, pageEnd, undefined, undefined,
+      (p) => searchPaperlessByPath(p)
+    );
+    if (error) {
+      setPrintState('error');
+      setTimeout(() => setPrintState('idle'), 2000);
+    } else {
+      setPrintState('idle');
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 flex-shrink-0">
+      <button type="button" onClick={handleOpen} disabled={openState === 'loading'}
+        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file">
+        {openState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> :
+         openState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-500" /> :
+         <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+      </button>
+      <button type="button" onClick={handlePrint} disabled={printState === 'loading'}
+        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file">
+        {printState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> :
+         printState === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-500" /> :
+         <Printer className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+      </button>
+    </div>
+  );
+});
+
 // Courseware Tab Component
 interface CoursewareExercise {
   id?: number;
@@ -2347,18 +2417,41 @@ interface CoursewareExercise {
 
 function CoursewareTab({
   coursewareHistory,
+  sessions,
   loading,
   isMobile,
+  isReadOnly,
 }: {
   coursewareHistory: CoursewareExercise[];
+  sessions: Session[];
   loading: boolean;
   isMobile: boolean;
+  isReadOnly: boolean;
 }) {
   // State for search, filters, and grouping
   const [searchQuery, setSearchQuery] = useState("");
   const [showCW, setShowCW] = useState(true);
   const [showHW, setShowHW] = useState(true);
   const [groupBy, setGroupBy] = useState<"session" | "pdf">("session");
+
+  // ExerciseModal state
+  const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW">("CW");
+
+  // Session lookup map for ExerciseModal
+  const sessionMap = useMemo(() => {
+    const map = new Map<number, Session>();
+    sessions.forEach(s => map.set(s.id, s));
+    return map;
+  }, [sessions]);
+
+  const openExerciseModal = (sessionId: number, type: "CW" | "HW") => {
+    const session = sessionMap.get(sessionId);
+    if (session) {
+      setExerciseModalSession(session);
+      setExerciseModalType(type);
+    }
+  };
 
   // Compute statistics
   const stats = useMemo(() => {
@@ -2583,39 +2676,85 @@ function CoursewareTab({
                   </Link>
                 </div>
 
-                {/* Exercises in this session */}
-                <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  {exercises.map((exercise, index) => {
-                    const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
-
-                    return (
-                      <div
-                        key={`${exercise.session_id}-${exercise.id || index}`}
-                        className={cn(
-                          "flex items-center gap-2 p-2 rounded-lg",
-                          isCW
-                            ? "bg-red-50 dark:bg-red-900/10"
-                            : "bg-blue-50 dark:bg-blue-900/10"
-                        )}
-                      >
-                        {renderTypeBadge(exercise.exercise_type)}
-                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                          {getDisplayName(exercise.pdf_name)}
-                        </span>
-                        {exercise.page_start && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                            p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
-                          </span>
-                        )}
-                        {exercise.remarks && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
-                            "{exercise.remarks}"
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Exercises sub-grouped by CW / HW */}
+                {(() => {
+                  const cwExercises = exercises.filter(ex => ex.exercise_type === "CW" || ex.exercise_type === "Classwork");
+                  const hwExercises = exercises.filter(ex => ex.exercise_type !== "CW" && ex.exercise_type !== "Classwork");
+                  return (
+                    <div className="space-y-2 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                      {cwExercises.length > 0 && (
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => openExerciseModal(sessionId, "CW")}
+                            className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer py-1"
+                            title="Open Classwork editor"
+                          >
+                            <PenTool className="h-3 w-3" />
+                            Classwork ({cwExercises.length})
+                          </button>
+                          {cwExercises.map((exercise, index) => (
+                            <div
+                              key={`${exercise.session_id}-cw-${exercise.id || index}`}
+                              className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/10"
+                            >
+                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
+                                {getDisplayName(exercise.pdf_name)}
+                              </span>
+                              {exercise.page_start && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                  p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                                </span>
+                              )}
+                              {exercise.remarks && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
+                                  &ldquo;{exercise.remarks}&rdquo;
+                                </span>
+                              )}
+                              <div className="ml-auto flex-shrink-0">
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {hwExercises.length > 0 && (
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => openExerciseModal(sessionId, "HW")}
+                            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer py-1"
+                            title="Open Homework editor"
+                          >
+                            <Home className="h-3 w-3" />
+                            Homework ({hwExercises.length})
+                          </button>
+                          {hwExercises.map((exercise, index) => (
+                            <div
+                              key={`${exercise.session_id}-hw-${exercise.id || index}`}
+                              className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/10"
+                            >
+                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
+                                {getDisplayName(exercise.pdf_name)}
+                              </span>
+                              {exercise.page_start && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                  p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                                </span>
+                              )}
+                              {exercise.remarks && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
+                                  &ldquo;{exercise.remarks}&rdquo;
+                                </span>
+                              )}
+                              <div className="ml-auto flex-shrink-0">
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -2662,12 +2801,15 @@ function CoursewareTab({
                           {exercise.tutor_name}
                         </span>
                       )}
-                      <Link
-                        href={`/sessions/${exercise.session_id}`}
-                        className="ml-auto text-xs text-[#a0704b] hover:underline font-mono flex-shrink-0"
-                      >
-                        #{exercise.session_id}
-                      </Link>
+                      <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                        <Link
+                          href={`/sessions/${exercise.session_id}`}
+                          className="text-xs text-[#a0704b] hover:underline font-mono"
+                        >
+                          #{exercise.session_id}
+                        </Link>
+                        <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                      </div>
                     </div>
                   );
                 })}
@@ -2675,6 +2817,17 @@ function CoursewareTab({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Exercise Modal */}
+      {exerciseModalSession && (
+        <ExerciseModal
+          session={exerciseModalSession}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalSession(null)}
+          readOnly={isReadOnly}
+        />
       )}
     </div>
   );
