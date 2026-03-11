@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 /**
  * Hook for tracking form dirty state and showing close confirmation.
@@ -248,4 +249,19 @@ export function useDropdown(
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
 
   return { refs, floatingStyles, getReferenceProps, getFloatingProps };
+}
+
+/**
+ * Hook for history-aware back navigation.
+ * Goes back if browser history exists, otherwise navigates to a fallback route.
+ */
+export function useBackNavigation(fallback = '/') {
+  const router = useRouter();
+  return useCallback(() => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(fallback);
+    }
+  }, [router, fallback]);
 }

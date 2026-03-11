@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } from "@/lib/calendar-utils";
 import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { useBackNavigation } from "@/lib/ui-hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExamCard, EXAM_TYPE_COLORS, getTypeColors } from "@/components/exams/ExamCard";
@@ -267,6 +267,7 @@ export default function ExamsPage() {
   const { data: tutors = [] } = useTutors();
   const { selectedLocation } = useLocation();
   const searchParams = useSearchParams();
+  const goBack = useBackNavigation();
   const highlightExamId = searchParams.get('exam');
   const viewParam = searchParams.get('view');
 
@@ -573,12 +574,12 @@ export default function ExamsPage() {
           {/* Header */}
           <div className="p-4 sm:px-6 sm:py-4 desk-background">
             <div className="flex items-center gap-4">
-              <Link
-                href="/"
+              <button
+                onClick={goBack}
                 className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              </Link>
+              </button>
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
                   <GraduationCap className="h-6 w-6 text-[#a0704b]" />
