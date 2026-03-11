@@ -117,6 +117,7 @@ export function LessonMode({
   const [hoverHeader, setHoverHeader] = useState(false);
   const [hoverSidebar, setHoverSidebar] = useState(false);
   const hoverHeaderTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const hoverSidebarTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Shortcut help panel
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
@@ -124,6 +125,9 @@ export function LessonMode({
   // S2: Focus mode helpers
   const exitFocusMode = useCallback(() => {
     clearTimeout(hoverHeaderTimerRef.current);
+    hoverHeaderTimerRef.current = undefined;
+    clearTimeout(hoverSidebarTimerRef.current);
+    hoverSidebarTimerRef.current = undefined;
     setFocusMode(false);
     setHoverHeader(false);
     setHoverSidebar(false);
@@ -134,6 +138,46 @@ export function LessonMode({
     setHoverHeader(false);
     setHoverSidebar(false);
   }, []);
+
+  // Focus mode: document-level mousemove for hover detection
+  // Two-threshold: 5px "arm zone" at edge starts timer, 48px "keep-alive zone" prevents cancellation
+  const HEADER_ARM_PX = 5;
+  const HEADER_ZONE_PX = 48;
+  const SIDEBAR_ZONE_PX = 48;
+  useEffect(() => {
+    if (!focusMode || isMobile) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      // Header: two-threshold — arm at edge, keep alive in zone
+      if (!hoverHeader) {
+        if (e.clientY <= HEADER_ARM_PX && !hoverHeaderTimerRef.current) {
+          hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 200);
+        } else if (e.clientY > HEADER_ZONE_PX) {
+          clearTimeout(hoverHeaderTimerRef.current);
+          hoverHeaderTimerRef.current = undefined;
+        }
+      }
+
+      // Sidebar: simple 48px zone (no toolbar conflict on left edge)
+      if (e.clientX <= SIDEBAR_ZONE_PX && !hoverSidebar) {
+        if (!hoverSidebarTimerRef.current) {
+          hoverSidebarTimerRef.current = setTimeout(() => setHoverSidebar(true), 100);
+        }
+      } else if (e.clientX > SIDEBAR_ZONE_PX && !hoverSidebar) {
+        clearTimeout(hoverSidebarTimerRef.current);
+        hoverSidebarTimerRef.current = undefined;
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      clearTimeout(hoverHeaderTimerRef.current);
+      hoverHeaderTimerRef.current = undefined;
+      clearTimeout(hoverSidebarTimerRef.current);
+      hoverSidebarTimerRef.current = undefined;
+    };
+  }, [focusMode, isMobile, hoverHeader, hoverSidebar]);
 
   // F2: Annotation state with sessionStorage persistence
   const {
@@ -1081,20 +1125,14 @@ export function LessonMode({
         </div>
       </div>
 
-      {/* Focus mode: hover overlays (desktop only) */}
+      {/* Focus mode: hover overlays (desktop only) — detection via document mousemove, these are render-only */}
       {focusMode && !isMobile && (
         <>
-          {/* Top edge → header overlay (300ms debounce to avoid accidental triggers from toolbar) */}
+          {/* Header overlay */}
           <div
             className="absolute top-0 left-0 right-0 z-50"
-            style={{ height: hoverHeader ? 'auto' : 8 }}
-            onMouseEnter={() => {
-              hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 300);
-            }}
-            onMouseLeave={() => {
-              clearTimeout(hoverHeaderTimerRef.current);
-              setHoverHeader(false);
-            }}
+            style={{ height: hoverHeader ? 'auto' : 0 }}
+            onMouseLeave={() => setHoverHeader(false)}
           >
             <AnimatePresence>
               {hoverHeader && (
@@ -1110,11 +1148,10 @@ export function LessonMode({
             </AnimatePresence>
           </div>
 
-          {/* Left edge → sidebar overlay */}
+          {/* Sidebar overlay */}
           <div
             className="absolute top-0 left-0 bottom-0 z-40"
-            style={{ width: hoverSidebar ? sidebarWidth : 8 }}
-            onMouseEnter={() => setHoverSidebar(true)}
+            style={{ width: hoverSidebar ? sidebarWidth : 0 }}
             onMouseLeave={() => setHoverSidebar(false)}
           >
             <AnimatePresence>
