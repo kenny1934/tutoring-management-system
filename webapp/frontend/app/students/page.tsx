@@ -818,12 +818,17 @@ function RichPopoverContent({
 
         {/* Contact Info */}
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {student.phone && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+          {(studentDetail?.contacts?.length ? studentDetail.contacts : student.contacts?.length ? student.contacts : student.phone ? [{ phone: student.phone, label: '' }] : []).map((c, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
               <Phone className="h-3 w-3" />
-              <span className="font-mono">{student.phone}</span>
+              <a href={`tel:${c.phone}`} className="font-mono hover:text-[#a0704b] hover:underline">
+                {c.phone}
+              </a>
+              {c.label && (
+                <span className="text-gray-400 dark:text-gray-500">({c.label})</span>
+              )}
             </div>
-          )}
+          ))}
           {student.home_location && (
             <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
               <MapPin className="h-3 w-3" />
