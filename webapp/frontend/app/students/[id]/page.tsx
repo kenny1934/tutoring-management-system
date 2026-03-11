@@ -15,7 +15,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle
+Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -29,7 +29,7 @@ import { getDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, type PrintStampInfo } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
@@ -2283,7 +2283,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
     <div className="space-y-4">
       {/* Header with stats and toggle */}
       <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-300">
           {upcomingTests.length} upcoming{pastTests.length > 0 && `, ${pastTests.length} past`}
         </span>
         {pastTests.length > 0 && (
@@ -2303,8 +2303,16 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
 
       {/* Empty state for upcoming when only past tests exist */}
       {upcomingTests.length === 0 && !showPast && (
-        <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-          No upcoming tests. Click &quot;Show Past&quot; to view past tests.
+        <div className="flex justify-center py-8">
+          <StickyNote variant="yellow" size="md" showTape={true}>
+            <div className="text-center">
+              <BookOpen className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No upcoming tests</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Click &ldquo;Show Past&rdquo; to view past tests
+              </p>
+            </div>
+          </StickyNote>
         </div>
       )}
 
@@ -2316,9 +2324,9 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
       {/* Separator when showing past tests */}
       {showPast && pastTests.length > 0 && upcomingTests.length > 0 && (
         <div className="flex items-center gap-3 py-2">
-          <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">Past Tests</span>
-          <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+          <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+          <span className="text-xs font-medium text-gray-900 dark:text-gray-300">Past Tests</span>
+          <div className="flex-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
         </div>
       )}
 
@@ -2399,6 +2407,94 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
   );
 });
 
+// Bulk action buttons (Print All, Download All, Download Answers) for exercise section headers
+const BulkExerciseActions = memo(function BulkExerciseActions({
+  exercises,
+  stamp,
+  sessionDate,
+  schoolStudentId,
+  studentName,
+  exerciseType,
+}: {
+  exercises: { pdf_name: string; page_start?: number; page_end?: number; answer_pdf_name?: string; answer_page_start?: number; answer_page_end?: number }[];
+  stamp?: PrintStampInfo;
+  sessionDate: string;
+  schoolStudentId?: string;
+  studentName?: string;
+  exerciseType: "CW" | "HW";
+}) {
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [answersState, setAnswersState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  if (!canBrowseFiles || exercises.length === 0) return null;
+
+  const withPdfs = exercises.filter(ex => ex.pdf_name?.trim());
+  if (withPdfs.length === 0) return null;
+
+  const dateStr = sessionDate.replace(/-/g, '');
+  const safeName = (studentName || '').replace(/\s+/g, '_');
+  const baseFilename = `${exerciseType}_${schoolStudentId}_${safeName}_${dateStr}`;
+
+  const handlePrintAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (printState === 'loading') return;
+    setPrintState('loading');
+    const error = await printBulkFiles(withPdfs, stamp, searchPaperlessByPath, baseFilename);
+    setPrintState(error ? 'error' : 'idle');
+    if (error) setTimeout(() => setPrintState('idle'), 2000);
+  };
+
+  const handleDownloadAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (downloadState === 'loading') return;
+    setDownloadState('loading');
+    const error = await downloadBulkFiles(withPdfs, `${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    setDownloadState(error ? 'error' : 'idle');
+    if (error) setTimeout(() => setDownloadState('idle'), 2000);
+  };
+
+  const handleDownloadAnswers = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (answersState === 'loading') return;
+    setAnswersState('loading');
+    const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, searchPaperlessByPath);
+    setAnswersState(result.status === 'success' ? 'idle' : 'error');
+    if (result.status !== 'success') setTimeout(() => setAnswersState('idle'), 2000);
+  };
+
+  const btnClass = "p-0.5 rounded transition-colors flex flex-col items-center";
+
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" onClick={handlePrintAll} disabled={printState === 'loading'}
+        className={cn(btnClass, "text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30")}
+        title="Print All">
+        {printState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+         printState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
+         <Printer className="h-3.5 w-3.5" />}
+      </button>
+      <button type="button" onClick={handleDownloadAll} disabled={downloadState === 'loading'}
+        className={cn(btnClass, "text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30")}
+        title="Download All">
+        {downloadState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+         downloadState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
+         <Download className="h-3.5 w-3.5" />}
+        <span className="text-[8px] leading-none">All</span>
+      </button>
+      <button type="button" onClick={handleDownloadAnswers} disabled={answersState === 'loading'}
+        className={cn(btnClass, "text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30")}
+        title="Download Answers">
+        {answersState === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+         answersState === 'error' ? <XCircle className="h-3.5 w-3.5" /> :
+         <Download className="h-3.5 w-3.5" />}
+        <span className="text-[8px] leading-none">Ans</span>
+      </button>
+    </div>
+  );
+});
+
 // Courseware Tab Component
 interface CoursewareExercise {
   id?: number;
@@ -2410,6 +2506,9 @@ interface CoursewareExercise {
   session_id: number;
   session_date: string;
   tutor_name?: string;
+  answer_pdf_name?: string;
+  answer_page_start?: number;
+  answer_page_end?: number;
 }
 
 function CoursewareTab({
@@ -2571,7 +2670,7 @@ function CoursewareTab({
   return (
     <div className="space-y-4">
       {/* Progress Summary */}
-      <div className="flex items-center gap-4 px-4 py-3 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg">
         <BarChart3 className="h-5 w-5 text-[#a0704b]" />
         <span className="text-sm">
           <span className="font-semibold">{stats.total}</span> exercises
@@ -2600,7 +2699,7 @@ function CoursewareTab({
             placeholder="Search exercises..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
           />
         </div>
 
@@ -2608,7 +2707,7 @@ function CoursewareTab({
         <button
           onClick={() => setShowCW(!showCW)}
           className={cn(
-            "px-3 py-2 text-xs font-medium rounded-lg border transition-colors",
+            "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
             showCW
               ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
               : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
@@ -2619,7 +2718,7 @@ function CoursewareTab({
         <button
           onClick={() => setShowHW(!showHW)}
           className={cn(
-            "px-3 py-2 text-xs font-medium rounded-lg border transition-colors",
+            "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
             showHW
               ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
               : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
@@ -2628,28 +2727,52 @@ function CoursewareTab({
           HW ({stats.hwCount})
         </button>
 
-        {/* Group by dropdown */}
-        <select
-          value={groupBy}
-          onChange={(e) => setGroupBy(e.target.value as "session" | "pdf")}
-          className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
-        >
-          <option value="session">By Session</option>
-          <option value="pdf">By PDF</option>
-        </select>
+        {/* Group by toggle */}
+        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <button
+            onClick={() => setGroupBy("session")}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              groupBy === "session"
+                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            By Session
+          </button>
+          <button
+            onClick={() => setGroupBy("pdf")}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              groupBy === "pdf"
+                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            By PDF
+          </button>
+        </div>
       </div>
 
       {/* Filtered results count */}
       {filteredExercises.length !== coursewareHistory.length && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs font-medium text-gray-900 dark:text-gray-300">
           Showing {filteredExercises.length} of {coursewareHistory.length} exercises
         </p>
       )}
 
       {/* No results */}
       {filteredExercises.length === 0 && (
-        <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-          No exercises match your filters
+        <div className="flex justify-center py-8">
+          <StickyNote variant="yellow" size="md" showTape={true}>
+            <div className="text-center">
+              <Search className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No matches</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                No exercises match your filters
+              </p>
+            </div>
+          </StickyNote>
         </div>
       )}
 
@@ -2661,9 +2784,9 @@ function CoursewareTab({
             const sessionDate = new Date(firstEx.session_date + 'T00:00:00');
 
             return (
-              <div key={sessionId} className="space-y-2">
-                {/* Session Header */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div key={sessionId} className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+                {/* Session Header — top stripe */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                   <Calendar className="h-4 w-4 text-[#a0704b]" />
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -2685,26 +2808,31 @@ function CoursewareTab({
                   </Link>
                 </div>
 
-                {/* Exercises sub-grouped by CW / HW */}
+                {/* Exercises — flat list inside card */}
                 {(() => {
                   const cwExercises = exercises.filter(ex => ex.exercise_type === "CW" || ex.exercise_type === "Classwork");
                   const hwExercises = exercises.filter(ex => ex.exercise_type !== "CW" && ex.exercise_type !== "Classwork");
                   return (
-                    <div className="space-y-2 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="px-3 py-2 space-y-3">
                       {cwExercises.length > 0 && (
-                        <div className="space-y-1">
-                          <button
-                            onClick={() => openExerciseModal(sessionId, "CW")}
-                            className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 cursor-pointer py-1 px-1.5 -mx-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
-                            title="Open Classwork editor"
-                          >
-                            <PenTool className="h-3 w-3" />
-                            Classwork ({cwExercises.length})
-                          </button>
+                        <div>
+                          <div className="flex items-center justify-between border-l-[3px] border-red-400 dark:border-red-500 pl-2 py-1 mb-1">
+                            <button
+                              onClick={() => openExerciseModal(sessionId, "CW")}
+                              className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 cursor-pointer py-0.5 px-1.5 -mx-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              title="Open Classwork editor"
+                            >
+                              <PenTool className="h-3 w-3" />
+                              Classwork ({cwExercises.length})
+                            </button>
+                            {sessionMap.get(sessionId) && (
+                              <BulkExerciseActions exercises={cwExercises} stamp={buildStamp(sessionId)} sessionDate={sessionMap.get(sessionId)!.session_date} schoolStudentId={sessionMap.get(sessionId)!.school_student_id} studentName={sessionMap.get(sessionId)!.student_name} exerciseType="CW" />
+                            )}
+                          </div>
                           {cwExercises.map((exercise, index) => (
                             <div
                               key={`${exercise.session_id}-cw-${exercise.id || index}`}
-                              className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/10"
+                              className="flex items-center gap-2 py-1.5 px-2 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
                                 {getDisplayName(exercise.pdf_name)}
@@ -2715,7 +2843,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               {exercise.remarks && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-[200px]" title={exercise.remarks}>
                                   &ldquo;{exercise.remarks}&rdquo;
                                 </span>
                               )}
@@ -2726,20 +2854,28 @@ function CoursewareTab({
                           ))}
                         </div>
                       )}
+                      {cwExercises.length > 0 && hwExercises.length > 0 && (
+                        <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40" />
+                      )}
                       {hwExercises.length > 0 && (
-                        <div className="space-y-1">
-                          <button
-                            onClick={() => openExerciseModal(sessionId, "HW")}
-                            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer py-1 px-1.5 -mx-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
-                            title="Open Homework editor"
-                          >
-                            <Home className="h-3 w-3" />
-                            Homework ({hwExercises.length})
-                          </button>
+                        <div>
+                          <div className="flex items-center justify-between border-l-[3px] border-blue-400 dark:border-blue-500 pl-2 py-1 mb-1">
+                            <button
+                              onClick={() => openExerciseModal(sessionId, "HW")}
+                              className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer py-0.5 px-1.5 -mx-1.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                              title="Open Homework editor"
+                            >
+                              <Home className="h-3 w-3" />
+                              Homework ({hwExercises.length})
+                            </button>
+                            {sessionMap.get(sessionId) && (
+                              <BulkExerciseActions exercises={hwExercises} stamp={buildStamp(sessionId)} sessionDate={sessionMap.get(sessionId)!.session_date} schoolStudentId={sessionMap.get(sessionId)!.school_student_id} studentName={sessionMap.get(sessionId)!.student_name} exerciseType="HW" />
+                            )}
+                          </div>
                           {hwExercises.map((exercise, index) => (
                             <div
                               key={`${exercise.session_id}-hw-${exercise.id || index}`}
-                              className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/10"
+                              className="flex items-center gap-2 py-1.5 px-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
                                 {getDisplayName(exercise.pdf_name)}
@@ -2750,7 +2886,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               {exercise.remarks && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-[200px]" title={exercise.remarks}>
                                   &ldquo;{exercise.remarks}&rdquo;
                                 </span>
                               )}
@@ -2774,9 +2910,9 @@ function CoursewareTab({
       {groupBy === "pdf" && filteredExercises.length > 0 && (
         <div className="space-y-4">
           {Array.from(exercisesByPdf.entries()).map(([pdfName, exercises]) => (
-            <div key={pdfName} className="space-y-2">
-              {/* PDF Header */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div key={pdfName} className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              {/* PDF Header — top stripe */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <BookMarked className="h-4 w-4 text-[#a0704b]" />
                 <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                   {getDisplayName(pdfName)}
@@ -2786,15 +2922,15 @@ function CoursewareTab({
                 </span>
               </div>
 
-              {/* Instances of this PDF */}
-              <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+              {/* Instances — flat rows inside card */}
+              <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
 
                   return (
                     <div
                       key={`${exercise.session_id}-${exercise.id || index}`}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
                     >
                       <span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
                         {sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
