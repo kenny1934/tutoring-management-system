@@ -158,6 +158,29 @@
   --color-input: #2a2a2a;
 }
 
+/* Force light mode for summer public pages (neutralises .dark overrides) */
+.summer-light {
+  --color-background: #fef9f3;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #fef9f3;
+  --color-surface-variant: #f5f0e8;
+  --color-foreground: #2a2219;
+  --color-card: #ffffff;
+  --color-card-foreground: #2a2219;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2a2219;
+  --color-secondary: #f5f0e8;
+  --color-secondary-foreground: #2a2219;
+  --color-muted: #f5f0e8;
+  --color-muted-foreground: #6b5a4a;
+  --color-accent: #f5f0e8;
+  --color-accent-foreground: #2a2219;
+  --color-border: #e8d4b8;
+  --color-border-subtle: #f5e6d3;
+  --color-input: #e8d4b8;
+  color-scheme: light;
+}
+
 /* ===== CUSTOM ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }
