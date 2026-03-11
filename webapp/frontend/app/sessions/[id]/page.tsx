@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, memo } from "react";
+import useSWR from "swr";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -232,7 +233,10 @@ export default function SessionDetailPage() {
   const { isReadOnly } = useAuth();
 
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
-  const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
+  const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
+    sessionId ? ['upcoming-tests', sessionId] : null,
+    () => api.sessions.getUpcomingTests(sessionId)
+  );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -263,19 +267,6 @@ export default function SessionDetailPage() {
     fetchCurriculumSuggestion();
   }, [sessionId]);
 
-  useEffect(() => {
-    async function fetchUpcomingTests() {
-      try {
-        const data = await api.sessions.getUpcomingTests(sessionId);
-        setUpcomingTests(data);
-      } catch (err) {
-        // Silently fail if no upcoming tests available
-        setUpcomingTests([]);
-      }
-    }
-
-    fetchUpcomingTests();
-  }, [sessionId]);
 
   // Helper to check if session can be marked
   const canBeMarked = (s: Session) =>
