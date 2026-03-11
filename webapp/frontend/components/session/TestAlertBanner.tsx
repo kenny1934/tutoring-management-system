@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, AlertTriangle } from "lucide-react";
 import type { UpcomingTestAlert } from "@/types";
@@ -98,70 +99,75 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
                 const colors = getEventTypeColors(test.event_type);
 
                 return (
-                  <motion.div
+                  <Link
                     key={test.event_id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 + 0.2 }}
-                    className={cn(
-                      "flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-md border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
-                      colors.background,
-                      colors.border
-                    )}
+                    href={`/exams?exam=${test.id}`}
+                    className="block"
                   >
-                    {/* Calendar Icon */}
-                    <div
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 + 0.2 }}
                       className={cn(
-                        "flex-shrink-0 flex flex-col items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-md shadow-sm",
-                        colors.icon
+                        "flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-md border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer",
+                        colors.background,
+                        colors.border
                       )}
                     >
-                      <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-                      <span className="text-[10px] sm:text-xs font-bold text-white mt-0.5">
-                        {test.days_until}d
-                      </span>
-                    </div>
-
-                    {/* Test Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-gray-900 dark:text-gray-100">
-                              {test.title}
-                            </h4>
-                            <span className={cn(
-                              "text-xs font-semibold px-2 py-0.5 rounded-full text-white",
-                              colors.badge
-                            )}>
-                              {test.event_type}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {test.school} • {test.grade}
-                            {test.academic_stream && ` (${test.academic_stream})`}
-                          </p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {formattedDate}
-                          </p>
-                          <p className={cn("text-xs font-semibold", colors.text)}>
-                            {test.days_until === 0
-                              ? "Today!"
-                              : test.days_until === 1
-                              ? "Tomorrow"
-                              : `In ${test.days_until} days`}
-                          </p>
-                        </div>
+                      {/* Calendar Icon */}
+                      <div
+                        className={cn(
+                          "flex-shrink-0 flex flex-col items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-md shadow-sm",
+                          colors.icon
+                        )}
+                      >
+                        <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                        <span className="text-[10px] sm:text-xs font-bold text-white mt-0.5">
+                          {test.days_until}d
+                        </span>
                       </div>
-                      {test.description && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">
-                          {test.description}
-                        </p>
-                      )}
-                    </div>
-                  </motion.div>
+
+                      {/* Test Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-gray-900 dark:text-gray-100">
+                                {test.title}
+                              </h4>
+                              <span className={cn(
+                                "text-xs font-semibold px-2 py-0.5 rounded-full text-white",
+                                colors.badge
+                              )}>
+                                {test.event_type}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                              {test.school} • {test.grade}
+                              {test.academic_stream && ` (${test.academic_stream})`}
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {formattedDate}
+                            </p>
+                            <p className={cn("text-xs font-semibold", colors.text)}>
+                              {test.days_until === 0
+                                ? "Today!"
+                                : test.days_until === 1
+                                ? "Tomorrow"
+                                : `In ${test.days_until} days`}
+                            </p>
+                          </div>
+                        </div>
+                        {test.description && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">
+                            {test.description}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  </Link>
                 );
               })}
             </div>
