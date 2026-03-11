@@ -86,7 +86,7 @@ import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
+import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 const ProposalDetailModal = dynamic(
@@ -785,18 +785,54 @@ export default function SessionsPage() {
   // Select only markable sessions (Scheduled, Trial Class, Make-up Class)
   const selectMarkableOnly = useCallback(() => {
     const markableIds = sessions.filter(canBeMarked).map(s => s.id);
+    if (markableIds.length === 0) {
+      showToast('No markable sessions to select', 'info');
+      return;
+    }
     setSelectedIds(new Set(markableIds));
-  }, [sessions]);
+    showToast(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
+  }, [sessions, showToast]);
 
   // Select only markable sessions within a specific timeslot
   const selectMarkableInSlot = useCallback((sessionsInSlot: Session[]) => {
     const markableIds = sessionsInSlot.filter(canBeMarked).map(s => s.id);
+    if (markableIds.length === 0) {
+      showToast('No markable sessions in this slot', 'info');
+      return;
+    }
     setSelectedIds(prev => {
       const next = new Set(prev);
       markableIds.forEach(id => next.add(id));
       return next;
     });
-  }, []);
+    showToast(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
+  }, [showToast]);
+
+  // Select only attended sessions (for CW/HW/rating actions)
+  const selectAttendedOnly = useCallback(() => {
+    const attendedIds = sessions.filter(isAttended).map(s => s.id);
+    if (attendedIds.length === 0) {
+      showToast('No attended sessions to select', 'info');
+      return;
+    }
+    setSelectedIds(new Set(attendedIds));
+    showToast(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
+  }, [sessions, showToast]);
+
+  // Select only attended sessions within a specific timeslot
+  const selectAttendedInSlot = useCallback((sessionsInSlot: Session[]) => {
+    const attendedIds = sessionsInSlot.filter(isAttended).map(s => s.id);
+    if (attendedIds.length === 0) {
+      showToast('No attended sessions in this slot', 'info');
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      attendedIds.forEach(id => next.add(id));
+      return next;
+    });
+    showToast(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
+  }, [showToast]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -1124,22 +1160,34 @@ export default function SessionsPage() {
       const currentSelectedIds = selectedIdsRef.current;
       const currentBulkActions = bulkActionsRef.current;
 
-      // Cmd/Ctrl+Shift+A - Select only markable sessions (must check before Cmd+A)
-      // If a session is focused, select markable in that timeslot only
+      // Cmd/Ctrl+Shift+A - Cycle: markable → attended → clear
+      // If a session is focused, scope to that timeslot only
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        if (focusedSessionId) {
-          const focusedSession = currentSessions.find(s => s.id === focusedSessionId);
-          if (focusedSession) {
-            const slotSessions = currentSessions.filter(s => s.time_slot === focusedSession.time_slot);
-            const markableIds = slotSessions.filter(canBeMarked).map(s => s.id);
-            setSelectedIds(new Set(markableIds));
-            return;
-          }
+        const scopeSessions = focusedSessionId
+          ? (() => {
+              const focused = currentSessions.find(s => s.id === focusedSessionId);
+              return focused ? currentSessions.filter(s => s.time_slot === focused.time_slot) : currentSessions;
+            })()
+          : currentSessions;
+
+        const markableIds = scopeSessions.filter(canBeMarked).map(s => s.id);
+        const attendedIds = scopeSessions.filter(isAttended).map(s => s.id);
+        const allMarkableSelected = markableIds.length > 0 && markableIds.every(id => currentSelectedIds.has(id));
+        const allAttendedSelected = attendedIds.length > 0 && attendedIds.every(id => currentSelectedIds.has(id));
+
+        if (!allMarkableSelected && markableIds.length > 0) {
+          setSelectedIds(new Set(markableIds));
+          showToastRef.current(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
+        } else if (!allAttendedSelected && attendedIds.length > 0) {
+          setSelectedIds(new Set(attendedIds));
+          showToastRef.current(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
+        } else if (currentSelectedIds.size > 0) {
+          setSelectedIds(new Set());
+          showToastRef.current('Selection cleared', 'info');
+        } else {
+          showToastRef.current('No sessions to select', 'info');
         }
-        // Fallback: select all markable on page
-        const markableIds = currentSessions.filter(canBeMarked).map(s => s.id);
-        setSelectedIds(new Set(markableIds));
         return;
       }
 
@@ -1744,7 +1792,7 @@ export default function SessionsPage() {
             <button
               onClick={() => setShowSelectDropdown(!showSelectDropdown)}
               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Selection options (Ctrl+A all, Ctrl+Shift+A markable)"
+              title="Selection options (Ctrl+A all, Ctrl+Shift+A cycle markable/attended)"
             >
               <ChevronDown className="h-3 w-3" />
             </button>
@@ -1762,6 +1810,12 @@ export default function SessionsPage() {
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
               >
                 Select Markable Only
+              </button>
+              <button
+                onClick={() => { selectAttendedOnly(); setShowSelectDropdown(false); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+              >
+                Select Attended
               </button>
               {hasSelection && (
                 <button
@@ -2285,7 +2339,7 @@ export default function SessionsPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
                               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                              title="Selection options (Ctrl+Shift+A markable when focused)"
+                              title="Selection options (Ctrl+Shift+A cycle markable/attended when focused)"
                             >
                               <ChevronDown className="h-3 w-3" />
                             </button>
@@ -2302,6 +2356,12 @@ export default function SessionsPage() {
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
                                 >
                                   Select Markable Only
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); selectAttendedInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
+                                >
+                                  Select Attended in Slot
                                 </button>
                               </div>
                             )}
@@ -2771,7 +2831,7 @@ export default function SessionsPage() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+Shift+A</kbd>
-                  <span>Select markable</span>
+                  <span>Cycle markable/attended</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
