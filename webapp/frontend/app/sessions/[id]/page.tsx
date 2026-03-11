@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,10 @@ import {
   Calendar,
   PenTool,
   X,
+  ExternalLink,
+  Loader2,
+  Printer,
+  XCircle,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
@@ -34,12 +38,81 @@ import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, type PrintStampInfo } from "@/lib/file-system";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
 const LessonMode = dynamic(() =>
   import("@/components/lesson/LessonMode").then(mod => ({ default: mod.LessonMode })),
   { ssr: false }
 );
+
+// Open/Print action buttons for exercise cards
+const SessionExerciseActions = memo(function SessionExerciseActions({
+  pdfName,
+  pageStart,
+  pageEnd,
+  stamp,
+}: {
+  pdfName: string;
+  pageStart?: number;
+  pageEnd?: number;
+  stamp?: PrintStampInfo;
+}) {
+  const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  if (!canBrowseFiles) return null;
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (openState === 'loading') return;
+    setOpenState('loading');
+    const error = await openFileFromPathWithFallback(pdfName, (p) =>
+      searchPaperlessByPath(p)
+    );
+    if (error) {
+      setOpenState('error');
+      setTimeout(() => setOpenState('idle'), 2000);
+    } else {
+      setOpenState('idle');
+    }
+  };
+
+  const handlePrint = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (printState === 'loading') return;
+    setPrintState('loading');
+    const error = await printFileFromPathWithFallback(
+      pdfName, pageStart, pageEnd, undefined, stamp,
+      (p) => searchPaperlessByPath(p)
+    );
+    if (error) {
+      setPrintState('error');
+      setTimeout(() => setPrintState('idle'), 2000);
+    } else {
+      setPrintState('idle');
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 flex-shrink-0">
+      <button type="button" onClick={handleOpen} disabled={openState === 'loading'}
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file">
+        {openState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
+         openState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
+         <ExternalLink className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+      </button>
+      <button type="button" onClick={handlePrint} disabled={printState === 'loading'}
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file">
+        {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
+         printState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
+         <Printer className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+      </button>
+    </div>
+  );
+});
 
 // Refined card animation variant (less dramatic)
 const refinedCardVariants = {
@@ -394,6 +467,13 @@ export default function SessionDetailPage() {
         const hasCW = cwExercises.length > 0;
         const hasHW = hwExercises.length > 0;
         const hasExercises = hasCW || hasHW;
+        const printStamp: PrintStampInfo = {
+          location: session.location,
+          schoolStudentId: session.school_student_id,
+          studentName: session.student_name,
+          sessionDate: new Date(session.session_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          sessionTime: session.time_slot,
+        };
 
         // If no content at all, return nothing
         if (!hasExercises && !hasNotes) return null;
@@ -467,12 +547,16 @@ export default function SessionDetailPage() {
                   {/* Classwork Section */}
                   {hasCW && (
                     <>
-                      <div className="mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                      <button
+                        onClick={() => setExerciseModalType("CW")}
+                        className="w-full mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600 cursor-pointer rounded-lg px-2 -mx-2 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                        title="Open Classwork editor"
+                      >
                         <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                           <PenTool className="h-5 w-5 text-red-500 dark:text-red-400" />
                           Classwork
                         </h3>
-                      </div>
+                      </button>
                       <div className="space-y-3 mb-6">
                         {cwExercises.map((exercise, index) => {
                           const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
@@ -482,7 +566,7 @@ export default function SessionDetailPage() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: 0.5 + index * 0.1, duration: 0.3 }}
-                              className="flex gap-2 p-2 pl-4 rounded-md border-l-4 border-red-500 dark:border-red-400 cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:scale-[1.01] hover:shadow-sm"
+                              className="flex items-center gap-2 p-2 pl-4 rounded-md border-l-4 border-red-500 dark:border-red-400 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
@@ -496,6 +580,7 @@ export default function SessionDetailPage() {
                                 )}
                                 {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
                               </div>
+                              <SessionExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
                             </motion.div>
                           );
                         })}
@@ -506,12 +591,16 @@ export default function SessionDetailPage() {
                   {/* Homework Section */}
                   {hasHW && (
                     <>
-                      <div className="mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                      <button
+                        onClick={() => setExerciseModalType("HW")}
+                        className="w-full mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600 cursor-pointer rounded-lg px-2 -mx-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
+                        title="Open Homework editor"
+                      >
                         <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                           <Home className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                           Homework
                         </h3>
-                      </div>
+                      </button>
                       <div className="space-y-3">
                         {hwExercises.map((exercise, index) => {
                           const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
@@ -522,7 +611,7 @@ export default function SessionDetailPage() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: baseDelay + index * 0.1, duration: 0.3 }}
-                              className="flex gap-2 p-2 pl-4 rounded-md border-l-4 border-blue-500 dark:border-blue-400 cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:scale-[1.01] hover:shadow-sm"
+                              className="flex items-center gap-2 p-2 pl-4 rounded-md border-l-4 border-blue-500 dark:border-blue-400 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:shadow-sm"
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
@@ -536,6 +625,7 @@ export default function SessionDetailPage() {
                                 )}
                                 {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
                               </div>
+                              <SessionExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
                             </motion.div>
                           );
                         })}

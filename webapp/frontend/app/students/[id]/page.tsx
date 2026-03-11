@@ -29,7 +29,7 @@ import { getDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
@@ -2342,10 +2342,12 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
   pdfName,
   pageStart,
   pageEnd,
+  stamp,
 }: {
   pdfName: string;
   pageStart?: number;
   pageEnd?: number;
+  stamp?: PrintStampInfo;
 }) {
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -2373,7 +2375,7 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
     if (printState === 'loading') return;
     setPrintState('loading');
     const error = await printFileFromPathWithFallback(
-      pdfName, pageStart, pageEnd, undefined, undefined,
+      pdfName, pageStart, pageEnd, undefined, stamp,
       (p) => searchPaperlessByPath(p)
     );
     if (error) {
@@ -2451,6 +2453,18 @@ function CoursewareTab({
       setExerciseModalSession(session);
       setExerciseModalType(type);
     }
+  };
+
+  const buildStamp = (sessionId: number): PrintStampInfo | undefined => {
+    const s = sessionMap.get(sessionId);
+    if (!s) return undefined;
+    return {
+      location: s.location,
+      schoolStudentId: s.school_student_id,
+      studentName: s.student_name,
+      sessionDate: new Date(s.session_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      sessionTime: s.time_slot,
+    };
   };
 
   // Compute statistics
@@ -2686,7 +2700,7 @@ function CoursewareTab({
                         <div className="space-y-1">
                           <button
                             onClick={() => openExerciseModal(sessionId, "CW")}
-                            className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer py-1"
+                            className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 cursor-pointer py-1 px-1.5 -mx-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
                             title="Open Classwork editor"
                           >
                             <PenTool className="h-3 w-3" />
@@ -2711,7 +2725,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               <div className="ml-auto flex-shrink-0">
-                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
                               </div>
                             </div>
                           ))}
@@ -2721,7 +2735,7 @@ function CoursewareTab({
                         <div className="space-y-1">
                           <button
                             onClick={() => openExerciseModal(sessionId, "HW")}
-                            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer py-1"
+                            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer py-1 px-1.5 -mx-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
                             title="Open Homework editor"
                           >
                             <Home className="h-3 w-3" />
@@ -2746,7 +2760,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               <div className="ml-auto flex-shrink-0">
-                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
                               </div>
                             </div>
                           ))}
@@ -2808,7 +2822,7 @@ function CoursewareTab({
                         >
                           #{exercise.session_id}
                         </Link>
-                        <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} />
+                        <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
                       </div>
                     </div>
                   );
