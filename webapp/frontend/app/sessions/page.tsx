@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -51,6 +51,10 @@ const SessionDetailPopover = dynamic(
 );
 const BulkExerciseModal = dynamic(
   () => import("@/components/sessions/BulkExerciseModal").then(m => m.BulkExerciseModal),
+  { ssr: false }
+);
+const BulkRateModal = dynamic(
+  () => import("@/components/sessions/BulkRateModal").then(m => m.BulkRateModal),
   { ssr: false }
 );
 const ExerciseModal = dynamic(
@@ -338,6 +342,7 @@ export default function SessionsPage() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+  const [bulkRateModalOpen, setBulkRateModalOpen] = useState(false);
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
@@ -363,6 +368,7 @@ export default function SessionsPage() {
 
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
+  const [copiedSlot, setCopiedSlot] = useState<string | null>(null);
 
   // Lazy loading: how many sessions to show per tier in pending-makeups view
   const [tierShowCount, setTierShowCount] = useState<Record<string, number>>({});
@@ -713,6 +719,7 @@ export default function SessionsPage() {
     reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     weatherCancelled: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    rate: selectedSessions.length > 0,
   }), [selectedSessions]);
 
   // Bulk exercise download/print state
@@ -1108,7 +1115,7 @@ export default function SessionsPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in an input, modal open, or command palette open
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (popoverSession || bulkExerciseType || quickActionSession || isCommandPaletteOpen) return;
+      if (popoverSession || bulkExerciseType || bulkRateModalOpen || quickActionSession || isCommandPaletteOpen) return;
 
       // Read latest values from refs (avoids needing these as effect deps)
       const currentSessions = sessionsRef.current;
@@ -1224,6 +1231,12 @@ export default function SessionsPage() {
           case 'h':
             e.preventDefault();
             setBulkExerciseType('HW');
+            break;
+          case 'r':
+            if (currentBulkActions.rate) {
+              e.preventDefault();
+              setBulkRateModalOpen(true);
+            }
             break;
         }
         return;
@@ -1914,6 +1927,15 @@ export default function SessionsPage() {
                       hasExercises={selectedHaveHW}
                       isProcessing={bulkExerciseProcessing === 'HW'}
                     />
+                    {/* Rate button - always visible */}
+                    <button
+                      onClick={() => setBulkRateModalOpen(true)}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                      title="Rate selected sessions (R)"
+                    >
+                      <MessageSquarePlus className="h-3 w-3" />
+                      <span className="hidden xs:inline">Rate</span>
+                    </button>
                     {/* Clear button - always visible */}
                     <button
                       onClick={clearSelection}
@@ -2289,6 +2311,26 @@ export default function SessionsPage() {
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {timeSlot}
                             </h3>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const day = selectedDate.getDate();
+                                const month = selectedDate.getMonth() + 1;
+                                const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
+                                const compactTime = timeSlot.replace(/\s/g, '');
+                                navigator.clipboard.writeText(`${day}/${month} (${weekday}) ${compactTime}`);
+                                setCopiedSlot(timeSlot);
+                                setTimeout(() => setCopiedSlot(null), 2000);
+                              }}
+                              className="p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors"
+                              title={`${selectedDate.getDate()}/${selectedDate.getMonth() + 1} (${selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}) ${timeSlot.replace(/\s/g, '')}`}
+                            >
+                              {copiedSlot === timeSlot ? (
+                                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                              )}
+                            </button>
                             <div>
                               {collapsedSlots.has(timeSlot)
                                 ? <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -2591,6 +2633,15 @@ export default function SessionsPage() {
           />
         )}
 
+        {/* Bulk Rate Modal */}
+        {bulkRateModalOpen && (
+          <BulkRateModal
+            sessions={selectedSessions}
+            isOpen={true}
+            onClose={() => setBulkRateModalOpen(false)}
+          />
+        )}
+
         {/* Quick action modals (triggered by keyboard shortcuts on focused card) */}
         {quickActionSession && quickActionType === 'CW' && (
           <ExerciseModal
@@ -2708,6 +2759,10 @@ export default function SessionsPage() {
                 <div className="flex justify-between gap-4">
                   <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">C/H</kbd>
                   <span>CW / HW</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">R</kbd>
+                  <span>Rate & Comment</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+A</kbd>
