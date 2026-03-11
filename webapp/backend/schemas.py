@@ -4,6 +4,7 @@ These define the structure of data sent to and from the API.
 """
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Literal, Optional, List, Dict
+from typing import Any, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -2135,6 +2136,123 @@ class RadarChartConfig(BaseModel):
 class StudentRadarConfigResponse(BaseModel):
     student_id: int
     config: RadarChartConfig
+# Summer Course Schemas
+# ============================================
+
+# -- Public schemas (no auth required) --
+
+class SummerCourseFormConfig(BaseModel):
+    """Config data exposed to the public application form."""
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+
+
+class SummerApplicationCreate(BaseModel):
+    """Form submission from public applicant."""
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: str = Field(..., max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    is_existing_student: Optional[str] = Field(None, max_length=100)
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    contact_phone: str = Field(..., min_length=1, max_length=50)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    unavailability_notes: Optional[str] = None
+    buddy_code: Optional[str] = Field(None, max_length=20, description="Existing buddy group code to join")
+    buddy_names: Optional[str] = None
+    form_language: Optional[str] = Field("zh", max_length=10)
+
+
+class SummerApplicationSubmitResponse(BaseModel):
+    """Response after successful application submission."""
+    reference_code: str
+    buddy_code: Optional[str] = None
+    message: str
+
+
+class SummerApplicationStatusResponse(BaseModel):
+    """Public status check response."""
+    reference_code: str
+    student_name: str
+    application_status: str
+    submitted_at: Optional[datetime] = None
+
+
+# -- Admin schemas --
+
+class SummerCourseConfigCreate(BaseModel):
+    """Create a new summer course config."""
+    year: int
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int = Field(8, gt=0)
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    is_active: bool = False
+
+
+class SummerCourseConfigUpdate(BaseModel):
+    """Update an existing summer course config. All fields optional."""
+    title: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = None
+    application_open_date: Optional[datetime] = None
+    application_close_date: Optional[datetime] = None
+    course_start_date: Optional[date] = None
+    course_end_date: Optional[date] = None
+    total_lessons: Optional[int] = Field(None, gt=0)
+    pricing_config: Optional[Dict[str, Any]] = None
+    locations: Optional[List[Dict[str, Any]]] = None
+    available_grades: Optional[List[Dict[str, Any]]] = None
+    time_slots: Optional[List[str]] = None
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    is_active: Optional[bool] = None
+
+
+class SummerCourseConfigResponse(BaseModel):
+    """Full config response for admin."""
+    id: int
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -2175,6 +2293,35 @@ class SavedReportResponse(BaseModel):
     created_at: datetime
     mode: Optional[str] = None
     date_range_label: Optional[str] = None
+class SummerApplicationResponse(BaseModel):
+    """Full application response for admin."""
+    id: int
+    config_id: int
+    reference_code: str
+    student_name: str
+    school: Optional[str] = None
+    grade: str
+    lang_stream: Optional[str] = None
+    is_existing_student: Optional[str] = None
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = None
+    contact_phone: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    unavailability_notes: Optional[str] = None
+    buddy_group_id: Optional[int] = None
+    buddy_names: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    application_status: str
+    admin_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    form_language: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2189,6 +2336,20 @@ class SavedReportDetailResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+class SummerApplicationUpdate(BaseModel):
+    """Admin update for an application."""
+    application_status: Optional[str] = None
+    admin_notes: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    lang_stream: Optional[str] = Field(None, max_length=10)
+
+
+class SummerApplicationStats(BaseModel):
+    """Aggregate stats for admin dashboard."""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+    by_grade: Dict[str, int] = {}
+    by_location: Dict[str, int] = {}
 
 
 # Enable forward references for nested models

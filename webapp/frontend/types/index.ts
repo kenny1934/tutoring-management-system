@@ -2068,4 +2068,152 @@ export interface SavedReportDetail {
   created_by: number;
   creator_name: string | null;
   created_at: string;
+// Summer Course Types
+// ============================================
+
+export interface SummerBilingualOption {
+  name: string;
+  name_en: string;
+  value?: string;
+}
+
+export interface SummerPricingConfig {
+  base_fee: number;
+  registration_fee?: number;
+  discounts?: Array<{
+    code: string;
+    name_zh: string;
+    name_en: string;
+    amount: number;
+    conditions: {
+      before_date?: string;
+      min_group_size?: number;
+      [key: string]: unknown;
+    };
+  }>;
+}
+
+export interface SummerLocation {
+  name: string;
+  name_en: string;
+  address: string;
+  address_en?: string;
+  open_days: string[];
+  open_days_label?: string;
+  open_days_label_en?: string;
+}
+
+export interface SummerCourseFormConfig {
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  course_end_date: string;
+  total_lessons: number;
+  pricing_config: SummerPricingConfig;
+  locations: SummerLocation[];
+  available_grades: SummerBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: SummerBilingualOption[] | null;
+  center_options?: SummerBilingualOption[] | null;
+}
+
+export interface SummerApplicationCreate {
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone: string;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  buddy_code?: string | null;
+  buddy_names?: string | null;
+  form_language?: string;
+}
+
+export interface SummerApplicationSubmitResponse {
+  reference_code: string;
+  buddy_code?: string | null;
+  message: string;
+}
+
+export interface SummerApplicationStatusResponse {
+  reference_code: string;
+  student_name: string;
+  application_status: string;
+  submitted_at?: string | null;
+}
+
+export interface SummerCourseConfig {
+  id: number;
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  course_end_date: string;
+  total_lessons: number;
+  pricing_config: SummerPricingConfig;
+  locations: SummerLocation[];
+  available_grades: SummerBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: SummerBilingualOption[] | null;
+  center_options?: SummerBilingualOption[] | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface SummerApplication {
+  id: number;
+  config_id: number;
+  reference_code: string;
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  buddy_group_id?: number | null;
+  buddy_names?: string | null;
+  existing_student_id?: number | null;
+  application_status: string;
+  admin_notes?: string | null;
+  submitted_at?: string | null;
+  updated_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  form_language?: string | null;
+}
+
+export interface SummerApplicationUpdate {
+  application_status?: string;
+  admin_notes?: string;
+  existing_student_id?: number | null;
+  lang_stream?: string;
+}
+
+export interface SummerApplicationStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_grade: Record<string, number>;
+  by_location: Record<string, number>;
 }

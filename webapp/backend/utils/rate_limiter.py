@@ -46,6 +46,11 @@ RATE_LIMITS = {
 
     # Public endpoints - IP-based, prevent scraping
     "report_share_view": {"limit": 30, "window": 60},   # 30 views/min per IP
+    # Summer course public endpoints
+    "summer_apply": {"limit": 3, "window": 600},        # 3 submissions/10min
+    "summer_config": {"limit": 30, "window": 60},       # 30 config reads/min
+    "summer_status": {"limit": 10, "window": 60},       # 10 status checks/min
+    "summer_buddy": {"limit": 10, "window": 60},        # 10 buddy ops/min
 
     # Default fallback
     "default": {"limit": 100, "window": 60},

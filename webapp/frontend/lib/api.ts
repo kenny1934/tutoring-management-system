@@ -136,6 +136,14 @@ import type {
   RadarChartConfig,
   SavedReportSummary,
   SavedReportDetail,
+  SummerCourseFormConfig,
+  SummerApplicationCreate,
+  SummerApplicationSubmitResponse,
+  SummerApplicationStatusResponse,
+  SummerCourseConfig,
+  SummerApplication,
+  SummerApplicationUpdate,
+  SummerApplicationStats,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -2125,6 +2133,79 @@ export const memosAPI = {
     }),
 };
 
+// Summer Course API
+export const summerAPI = {
+  // Public endpoints (no auth)
+  getFormConfig: () =>
+    fetchAPI<SummerCourseFormConfig>("/summer/public/config"),
+
+  submitApplication: (data: SummerApplicationCreate) =>
+    fetchAPI<SummerApplicationSubmitResponse>("/summer/public/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (referenceCode: string, phone: string) =>
+    fetchAPI<SummerApplicationStatusResponse>(
+      `/summer/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
+    ),
+
+  createBuddyGroup: () =>
+    fetchAPI<{ buddy_code: string }>("/summer/public/buddy-group", { method: "POST" }),
+
+  getBuddyGroup: (code: string) =>
+    fetchAPI<{ buddy_code: string; member_count: number }>(
+      `/summer/public/buddy-group/${encodeURIComponent(code)}`
+    ),
+
+  // Admin endpoints
+  getConfigs: () =>
+    fetchAPI<SummerCourseConfig[]>("/summer/configs"),
+
+  createConfig: (data: Partial<SummerCourseConfig>) =>
+    fetchAPI<SummerCourseConfig>("/summer/configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateConfig: (id: number, data: Partial<SummerCourseConfig>) =>
+    fetchAPI<SummerCourseConfig>(`/summer/configs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplications: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<SummerApplication[]>(`/summer/applications${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplication: (id: number) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}`),
+
+  updateApplication: (id: number, data: SummerApplicationUpdate) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplicationStats: (configId?: number) => {
+    const qs = configId ? `?config_id=${configId}` : "";
+    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -2151,4 +2232,5 @@ export const api = {
   wecom: wecomAPI,
   memos: memosAPI,
   auth: authAPI,
+  summer: summerAPI,
 };
