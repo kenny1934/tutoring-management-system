@@ -24,6 +24,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
+import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
@@ -929,6 +930,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
     <div className="p-2 space-y-2">
       {sortedTimeSlots.map((timeSlot) => {
         const slotSessions = getSortedSlotSessions(sessionsByTimeSlot.get(timeSlot) || []);
+        const copyText = formatCompactDateTimeSlot(date, timeSlot);
         return (
           <div key={timeSlot}>
             {/* Time Slot Header */}
@@ -937,15 +939,11 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
               <button
                 className="flex items-center gap-1 text-[10px] font-semibold text-[#a0704b] dark:text-[#cd853f] px-1.5 hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
                 onClick={() => {
-                  const day = date.getDate();
-                  const month = date.getMonth() + 1;
-                  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-                  const compactTime = timeSlot.replace(/\s/g, '');
-                  navigator.clipboard.writeText(`${day}/${month} (${weekday}) ${compactTime}`);
+                  navigator.clipboard.writeText(copyText);
                   setCopiedSlot(timeSlot);
                   setTimeout(() => setCopiedSlot(null), 2000);
                 }}
-                title={`${date.getDate()}/${date.getMonth() + 1} (${date.toLocaleDateString('en-US', { weekday: 'short' })}) ${timeSlot.replace(/\s/g, '')}`}
+                title={copyText}
               >
                 {timeSlot}
                 {copiedSlot === timeSlot ? (

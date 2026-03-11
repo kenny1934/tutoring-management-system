@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
-import { formatShortDate } from "@/lib/formatters";
+import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, type PrintStampInfo } from "@/lib/file-system";
@@ -1600,14 +1600,9 @@ const COPYABLE_STATUSES = ['Scheduled', 'Make-up Class', 'Trial Class'];
 
 function formatSessionDate(session: Session, format: DateFormat): string {
   const date = new Date(session.session_date + 'T00:00:00');
-  const timeSlot = session.time_slot.replace(/\s/g, ''); // Remove spaces from time slot
 
   if (format === 'compact') {
-    // Format: 15/2 (Sat) 09:00-10:00
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-    return `${day}/${month} (${weekday}) ${timeSlot}`;
+    return formatCompactDateTimeSlot(date, session.time_slot);
   } else {
     // Format: Feb 15, 2026 (Saturday) 09:00 - 10:00
     const monthName = date.toLocaleDateString('en-US', { month: 'short' });
