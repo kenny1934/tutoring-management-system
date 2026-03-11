@@ -5,7 +5,7 @@ import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/l
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical, Clipboard } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convert
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -83,6 +83,9 @@ export function BulkExerciseModal({
   // Per-session save status for visual feedback
   const [sessionSaveStatus, setSessionSaveStatus] = useState<Record<number, 'saving' | 'success' | 'error'>>({});
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
+  // Clipboard paste state
+  const [clipboardData, setClipboardData] = useState<ExerciseClipboardData | null>(null);
+  const [showPasteConfirm, setShowPasteConfirm] = useState(false);
   // Answer file browse state
   const [answerFolderTreeOpen, setAnswerFolderTreeOpen] = useState(false);
   const [browsingForAnswerClientId, setBrowsingForAnswerClientId] = useState<string | null>(null);
@@ -124,6 +127,35 @@ export function BulkExerciseModal({
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
   const shouldFocusNewRef = useRef(false);
+
+  // Clipboard sync — update clipboard state when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    setClipboardData(getExerciseClipboard());
+    const handler = () => setClipboardData(getExerciseClipboard());
+    window.addEventListener(CLIPBOARD_EVENT, handler);
+    return () => window.removeEventListener(CLIPBOARD_EVENT, handler);
+  }, [isOpen]);
+
+  const handlePasteRequest = useCallback(() => {
+    const clipboard = getExerciseClipboard();
+    if (!clipboard) return;
+    setClipboardData(clipboard);
+    setShowPasteConfirm(true);
+  }, []);
+
+  const handlePasteConfirm = useCallback(() => {
+    if (!clipboardData) return;
+    const newExercises = createExercisesFromClipboard(clipboardData.exercises, exerciseType);
+    setExercises(prev => [...prev, ...newExercises]);
+    setIsDirty(true);
+    shouldFocusNewRef.current = true;
+    setShowPasteConfirm(false);
+    showToast(
+      `Pasted ${newExercises.length} exercise${newExercises.length !== 1 ? 's' : ''}${clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}`,
+      'success'
+    );
+  }, [clipboardData, exerciseType, showToast, setIsDirty]);
 
   // Initiate save - shows confirmation first
   const initiateSave = useCallback(() => {
@@ -250,6 +282,7 @@ export function BulkExerciseModal({
     setExercises([]); // Reset for next use
     setIsDirty(false);
     setValidationErrors([]);
+    setShowPasteConfirm(false);
     onClose();
   }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
 
@@ -585,6 +618,12 @@ export function BulkExerciseModal({
         }
       }
 
+      // Handle paste confirmation with Enter/Escape
+      if (showPasteConfirm) {
+        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); handlePasteConfirm(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setShowPasteConfirm(false); return; }
+      }
+
       // Handle delete confirmation with Enter/Escape when pending
       if (pendingDeleteIndex !== null) {
         if (e.key === 'Enter') {
@@ -608,6 +647,16 @@ export function BulkExerciseModal({
           initiateSave();
         }
         return;
+      }
+
+      // Ctrl+V / Cmd+V - Paste exercises from clipboard
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        const isInputFocused = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+        if (!isInputFocused && getExerciseClipboard()) {
+          e.preventDefault();
+          handlePasteRequest();
+          return;
+        }
       }
 
       // Alt/Option+N - Add new exercise
@@ -646,7 +695,7 @@ export function BulkExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
+  }, [isOpen, initiateSave, handleSave, addExercise, handlePasteRequest, handlePasteConfirm, showPasteConfirm, focusedRowIndex, pendingDeleteIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
 
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) =>
@@ -683,7 +732,7 @@ export function BulkExerciseModal({
       footer={
         <div className="flex justify-between items-center gap-3">
           <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 hidden sm:inline">
-            Alt+N add · Alt+⌫ del · Ctrl+↵ save
+            Alt+N add · Ctrl+V paste · Alt+⌫ del · Ctrl+↵ save
           </span>
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>
@@ -787,20 +836,57 @@ export function BulkExerciseModal({
             <div /> // Spacer
           )}
 
-          <button
-            type="button"
-            onClick={addExercise}
-            className={cn(
-              "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
-              isCW
-                ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+          <div className="flex gap-2">
+            {clipboardData && (
+              <button
+                type="button"
+                onClick={handlePasteRequest}
+                className="flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
+                title={`Paste ${clipboardData.exercises.length} exercise${clipboardData.exercises.length !== 1 ? 's' : ''} from ${clipboardData.sourceStudentName || 'clipboard'} (Ctrl+V)`}
+              >
+                <Clipboard className="h-4 w-4" />
+                <span className="hidden md:inline">Paste</span>
+                <span className="text-[10px] px-1 py-0.5 bg-teal-500 text-white rounded-full min-w-[16px] text-center leading-tight">
+                  {clipboardData.exercises.length}
+                </span>
+              </button>
             )}
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden md:inline">Add {title}</span>
-          </button>
+            <button
+              type="button"
+              onClick={addExercise}
+              className={cn(
+                "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                isCW
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden md:inline">Add {title}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Paste Confirmation Dialog */}
+        {showPasteConfirm && clipboardData && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clipboard className="h-4 w-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+              <span className="text-sm text-teal-700 dark:text-teal-300">
+                Paste {clipboardData.exercises.length} exercise{clipboardData.exercises.length !== 1 ? 's' : ''}
+                {clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}?
+              </span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setShowPasteConfirm(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handlePasteConfirm} className="bg-teal-600 hover:bg-teal-700 text-white">
+                Paste
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Exercises List */}
         {exercises.length === 0 ? (
