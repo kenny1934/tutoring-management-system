@@ -5,10 +5,18 @@ const changelogData = [
     "date": "2026-03-12",
     "sections": [
       {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "**Frontend version display** — fixed version number not updating in settings modal and \"What's New\" notifications"
+          }
+        ]
+      },
+      {
         "title": "Improvements",
         "items": [
           {
-            "description": "**Code cleanup** — removed deprecated import wrappers and consolidated duplicated logic across backend routers"
+            "description": "**Code cleanup** — consolidated duplicate logic, hardcoded values, and repeated database query patterns across backend and frontend"
           },
           {
             "description": "**Query optimization** — adopted shared query helpers to reduce repetitive database loading patterns"
@@ -17,7 +25,7 @@ const changelogData = [
             "description": "**Session list performance** — batch-resolve makeup session chain lookups instead of querying one-by-one"
           },
           {
-            "description": "**Test coverage 5x increase** — grew from ~134 to 637 tests (326 backend, 311 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
+            "description": "**Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
           }
         ]
       }
