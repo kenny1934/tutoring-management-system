@@ -311,6 +311,27 @@ export function SummerConfigEditor({
         if (baseFee <= 0) error = "Base fee should be greater than 0";
         break;
     }
+    // Location name validation (field = "locationName_0", "locationName_1", etc.)
+    if (field.startsWith("locationName_")) {
+      const idx = parseInt(field.split("_")[1]);
+      const loc = locations[idx];
+      if (loc && !loc.name.trim() && !loc.name_en.trim()) {
+        error = "Location name is required";
+      }
+    }
+    // Time slot format validation (field = "timeSlot_0_Monday", etc.)
+    if (field.startsWith("timeSlot_")) {
+      const parts = field.split("_");
+      const locIdx = parseInt(parts[1]);
+      const day = parts.slice(2).join("_");
+      const loc = locations[locIdx];
+      const slots = loc?.time_slots?.[day] || [];
+      const pattern = /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/;
+      const bad = slots.filter((s) => s && !pattern.test(s));
+      if (bad.length > 0) {
+        error = `Invalid format: ${bad.join(", ")}. Expected HH:MM - HH:MM`;
+      }
+    }
     setValidationErrors((prev) => ({ ...prev, [field]: error }));
   };
 
@@ -777,7 +798,8 @@ export function SummerConfigEditor({
                     next[i] = { ...loc, name: e.target.value };
                     setLocations(next);
                   }}
-                  className={inputClass}
+                  onBlur={() => validateField(`locationName_${i}`)}
+                  className={`${inputClass} ${validationErrors[`locationName_${i}`] ? "border-red-300 dark:border-red-700" : ""}`}
                   disabled={isReadOnly}
                 />
               </div>
@@ -790,9 +812,11 @@ export function SummerConfigEditor({
                     next[i] = { ...loc, name_en: e.target.value };
                     setLocations(next);
                   }}
-                  className={inputClass}
+                  onBlur={() => validateField(`locationName_${i}`)}
+                  className={`${inputClass} ${validationErrors[`locationName_${i}`] ? "border-red-300 dark:border-red-700" : ""}`}
                   disabled={isReadOnly}
                 />
+                <ValidationHint message={validationErrors[`locationName_${i}`] ?? null} />
               </div>
               <div>
                 <Label>Address (ZH)</Label>
@@ -933,27 +957,34 @@ export function SummerConfigEditor({
                     </button>
                   )}
                 </div>
-                {loc.open_days.map((day) => (
-                  <div key={day} className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-20 shrink-0">{day}</span>
-                    <input
-                      value={(loc.time_slots?.[day] || timeSlots).join(", ")}
-                      onChange={(e) => {
-                        const next = [...locations];
-                        const newTimeSlots = { ...(loc.time_slots || {}) };
-                        newTimeSlots[day] = e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean);
-                        next[i] = { ...loc, time_slots: newTimeSlots };
-                        setLocations(next);
-                      }}
-                      className={`${inputClass} flex-1`}
-                      disabled={isReadOnly}
-                      placeholder="10:00 - 11:30, 14:30 - 16:00"
-                    />
+                {loc.open_days.map((day) => {
+                  const slotKey = `timeSlot_${i}_${day}`;
+                  return (
+                  <div key={day}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">{day}</span>
+                      <input
+                        value={(loc.time_slots?.[day] || timeSlots).join(", ")}
+                        onChange={(e) => {
+                          const next = [...locations];
+                          const newTimeSlots = { ...(loc.time_slots || {}) };
+                          newTimeSlots[day] = e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          next[i] = { ...loc, time_slots: newTimeSlots };
+                          setLocations(next);
+                        }}
+                        onBlur={() => validateField(slotKey)}
+                        className={`${inputClass} flex-1 ${validationErrors[slotKey] ? "border-red-300 dark:border-red-700" : ""}`}
+                        disabled={isReadOnly}
+                        placeholder="10:00 - 11:30, 14:30 - 16:00"
+                      />
+                    </div>
+                    <ValidationHint message={validationErrors[slotKey] ?? null} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
