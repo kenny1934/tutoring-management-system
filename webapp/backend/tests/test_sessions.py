@@ -3,15 +3,18 @@ Tests for session-related business logic.
 
 Covers:
 - Makeup chain traversal (_find_root_original_session, _find_root_original_session_date)
+- Batch root date resolution (batch_find_root_original_session_dates)
 - 60-day makeup deadline rule enforcement
+- Session ownership verification
 """
 import pytest
 from datetime import date, timedelta
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from models import SessionLog, Student, Tutor, Enrollment
-from routers.sessions import _find_root_original_session
-from utils.response_builders import _find_root_original_session_date
+from routers.sessions import _find_root_original_session, _verify_session_ownership
+from utils.response_builders import _find_root_original_session_date, batch_find_root_original_session_dates
 
 
 # ============================================================================
@@ -595,3 +598,265 @@ class TestMakeupDeadlineRule:
         days_blocked = (proposed_date_blocked - root.session_date).days
         assert days_blocked == 63
         assert days_blocked > 60  # Should be blocked
+
+
+# ============================================================================
+# Batch Root Date Resolution Tests
+# ============================================================================
+
+class TestBatchFindRootOriginalSessionDates:
+    """Tests for batch_find_root_original_session_dates() function."""
+
+    def test_empty_list_returns_empty(self, db_session):
+        """Empty session list should return empty dict."""
+        result = batch_find_root_original_session_dates([], db_session)
+        assert result == {}
+
+    def test_no_makeups_returns_empty(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Sessions without make_up_for_id should return empty dict."""
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        result = batch_find_root_original_session_dates([session], db_session)
+        assert result == {}
+
+    def test_simple_chain(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """A -> B makeup chain: B should resolve to A's date."""
+        session_a = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Rescheduled - Pending Make-up",
+        )
+        db_session.add(session_a)
+        db_session.commit()
+        db_session.refresh(session_a)
+
+        session_b = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 12),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Make-up Class",
+            make_up_for_id=session_a.id,
+        )
+        db_session.add(session_b)
+        db_session.commit()
+        db_session.refresh(session_b)
+
+        result = batch_find_root_original_session_dates([session_a, session_b], db_session)
+        assert session_b.id in result
+        assert result[session_b.id] == date(2026, 1, 5)
+        assert session_a.id not in result  # A is not a makeup
+
+    def test_deep_chain(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """A -> B -> C chain: both B and C should resolve to A's date."""
+        session_a = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Rescheduled - Pending Make-up",
+        )
+        db_session.add(session_a)
+        db_session.commit()
+        db_session.refresh(session_a)
+
+        session_b = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 12),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Rescheduled - Pending Make-up",
+            make_up_for_id=session_a.id,
+        )
+        db_session.add(session_b)
+        db_session.commit()
+        db_session.refresh(session_b)
+
+        session_c = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 19),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Make-up Class",
+            make_up_for_id=session_b.id,
+        )
+        db_session.add(session_c)
+        db_session.commit()
+        db_session.refresh(session_c)
+
+        result = batch_find_root_original_session_dates([session_b, session_c], db_session)
+        assert result[session_b.id] == date(2026, 1, 5)
+        assert result[session_c.id] == date(2026, 1, 5)
+
+    def test_mixed_list(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Mix of regular and makeup sessions: only makeups appear in result."""
+        regular = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        original = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 12),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Rescheduled - Pending Make-up",
+        )
+        db_session.add_all([regular, original])
+        db_session.commit()
+        db_session.refresh(regular)
+        db_session.refresh(original)
+
+        makeup = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 19),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Make-up Class",
+            make_up_for_id=original.id,
+        )
+        db_session.add(makeup)
+        db_session.commit()
+        db_session.refresh(makeup)
+
+        result = batch_find_root_original_session_dates([regular, original, makeup], db_session)
+        assert len(result) == 1
+        assert makeup.id in result
+        assert result[makeup.id] == date(2026, 1, 12)
+
+
+# ============================================================================
+# Session Ownership Verification Tests
+# ============================================================================
+
+class TestVerifySessionOwnership:
+    """Tests for _verify_session_ownership helper."""
+
+    def test_owner_allowed(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Session owner should pass verification."""
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Should not raise
+        _verify_session_ownership(session, sample_tutor)
+
+    def test_admin_allowed(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Admin should be allowed to modify any session."""
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        admin = Tutor(
+            user_email="admin@test.com",
+            tutor_name="Admin User",
+            role="Admin",
+            default_location="Main Center",
+        )
+        db_session.add(admin)
+        db_session.commit()
+
+        # Admin should not raise even though they don't own the session
+        _verify_session_ownership(session, admin)
+
+    def test_non_owner_rejected(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Non-owner, non-admin should be rejected."""
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        other_tutor = Tutor(
+            user_email="other@test.com",
+            tutor_name="Other Tutor",
+            role="Tutor",
+            default_location="Main Center",
+        )
+        db_session.add(other_tutor)
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            _verify_session_ownership(session, other_tutor)
+        assert exc_info.value.status_code == 403
+        assert "modify" in exc_info.value.detail
+
+    def test_custom_action_in_message(self, db_session, sample_enrollment, sample_student, sample_tutor):
+        """Custom action parameter should appear in error message."""
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        other_tutor = Tutor(
+            user_email="other@test.com",
+            tutor_name="Other Tutor",
+            role="Tutor",
+            default_location="Main Center",
+        )
+        db_session.add(other_tutor)
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            _verify_session_ownership(session, other_tutor, action="rate")
+        assert "rate" in exc_info.value.detail

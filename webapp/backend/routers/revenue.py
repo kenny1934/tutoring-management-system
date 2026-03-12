@@ -10,7 +10,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 from database import get_db
 from models import Tutor
-from auth.dependencies import get_current_user, get_effective_role, can_view_admin_data
+from auth.dependencies import get_current_user, get_effective_role, can_view_admin_data, reject_guest
 
 router = APIRouter()
 
@@ -90,7 +90,7 @@ async def get_monthly_revenue_summary(
     request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -103,9 +103,6 @@ async def get_monthly_revenue_summary(
     Guests are blocked entirely.
     """
     effective_role = get_effective_role(request, current_user)
-    if effective_role == "Guest":
-        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
-
     is_admin = can_view_admin_data(effective_role)
 
     # Non-admins can only see their own revenue
@@ -163,7 +160,7 @@ async def get_session_revenue_details(
     request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -176,9 +173,6 @@ async def get_session_revenue_details(
     Guests are blocked entirely.
     """
     effective_role = get_effective_role(request, current_user)
-    if effective_role == "Guest":
-        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
-
     is_admin = can_view_admin_data(effective_role)
 
     # Non-admins can only see their own revenue
@@ -223,7 +217,7 @@ async def get_location_monthly_summary(
     request: Request,
     location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_guest),
     response: Response = None,
     db: Session = Depends(get_db)
 ):
@@ -238,8 +232,6 @@ async def get_location_monthly_summary(
     Only accessible by admins. Guests are blocked.
     """
     effective_role = get_effective_role(request, current_user)
-    if effective_role == "Guest":
-        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
 
     # Add cache header - revenue data is stable within a day
     if response:
