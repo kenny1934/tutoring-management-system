@@ -100,6 +100,12 @@ export function InfoRow({
   );
 }
 
+/** Strip "MathConcept中學教室" / "MathConcept Secondary Academy" prefix, showing just branch name. */
+export function shortCenterName(fullName: string): string {
+  const match = fullName.match(/\((.+)\)$/);
+  return match ? match[1] : fullName;
+}
+
 /** Red asterisk for required fields. */
 export const RequiredMark = () => (
   <span className="text-red-500 ml-0.5">*</span>

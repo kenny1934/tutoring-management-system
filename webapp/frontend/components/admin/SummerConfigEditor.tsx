@@ -862,6 +862,7 @@ export function SummerConfigEditor({
           Bilingual text blocks used in the application form. Each key pair (e.g. intro_zh / intro_en) appears side by side.
         </p>
         {[
+          { key: "title", label: "Form Title" },
           { key: "intro", label: "Intro Paragraph" },
           { key: "course_description", label: "Course Description" },
           { key: "disclaimer", label: "Disclaimer" },
