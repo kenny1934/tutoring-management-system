@@ -64,8 +64,8 @@ export function ClassPreferencesStep({
       <div className={sectionClass}>
         <h2 className="text-base font-semibold text-foreground leading-snug">
           {t(
-            "MathConcept「中學教室」分別設有2間分校，請家長選擇理想分校：",
-            "MathConcept Secondary Academy has 2 branches respectively, please choose below:",
+            `MathConcept「中學教室」分別設有${config.locations.length}間分校，請家長選擇理想分校：`,
+            `MathConcept Secondary Academy has ${config.locations.length} branches. Please select your preferred one:`,
             lang
           )}
           <RequiredMark />
@@ -149,7 +149,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Megaphone}>
                     {t(
                       "請家長選擇 第一理想 上課日子和時間。",
-                      "Please select your first priority of day and time.",
+                      "Please select your 1st preferred day and time.",
                       lang
                     )}
                   </IconLabel>
@@ -168,7 +168,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Calendar}>
                     {t(
                       "請家長選擇 第一理想 的上課日子：",
-                      "Please select your first priority of day:",
+                      "Please select your 1st preferred day:",
                       lang
                     )}
                   </IconLabel>
@@ -199,7 +199,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Clock}>
                     {t(
                       "請家長選擇 第一理想 的上課時間段：",
-                      "Please select your first priority of time:",
+                      "Please select your 1st preferred time:",
                       lang
                     )}
                   </IconLabel>
@@ -234,7 +234,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Megaphone}>
                     {t(
                       "請家長選擇 第二理想 上課日子和時間。",
-                      "Please select your second priority of day and time.",
+                      "Please select your 2nd preferred day and time.",
                       lang
                     )}
                   </IconLabel>
@@ -253,7 +253,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Calendar}>
                     {t(
                       "請家長選擇 第二理想 的上課日子：",
-                      "Please select your second priority of day:",
+                      "Please select your 2nd preferred day:",
                       lang
                     )}
                   </IconLabel>
@@ -284,7 +284,7 @@ export function ClassPreferencesStep({
                   <IconLabel icon={Clock}>
                     {t(
                       "請家長選擇 第二理想 的上課時間段：",
-                      "Please select your second priority of time:",
+                      "Please select your 2nd preferred time:",
                       lang
                     )}
                   </IconLabel>
@@ -321,7 +321,7 @@ export function ClassPreferencesStep({
           <IconLabel icon={Calendar}>
             {t(
               "為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
-              "In order to make the class arrangement more complete, if students have plans to go out during summer or are unable to attend class for other reasons, please fill in the date (for example: July 14 to 21). Our instructors can arrange make-up classes for you in advance.",
+              "If your child will be unavailable on certain dates during summer (e.g. July 14\u201321), please let us know so we can arrange make-up classes in advance.",
               lang
             )}
           </IconLabel>

@@ -90,7 +90,7 @@ export function StudentInfoStep({
         <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
           {t(
             config.text_content?.intro_zh || "感謝家長和學生對 MathConcept 「中學教室」的支持！\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
-            config.text_content?.intro_en || "Thank you to all parents and students for your continuous support for MathConcept Secondary Academy!\n\nTo confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
+            config.text_content?.intro_en || "Thank you for your continued support of MathConcept Secondary Academy!\n\nPlease share your preferred class time for our upcoming summer course so we can arrange your schedule.",
             lang
           )}
         </p>
@@ -106,8 +106,8 @@ export function StudentInfoStep({
             </div>
             <div className="text-sm font-semibold text-foreground mt-0.5">
               {t(
-                "升 F1 至 升 F3（中／英文部／國際學校）",
-                "Pre-F1 to Pre-F3 (CMI / EMI / International)",
+                "升F1 至 升F3（中／英文部／國際學校）",
+                "Pre-F1 to Pre-F3 (Chinese-medium / English-medium / International)",
                 lang
               )}
             </div>
@@ -171,7 +171,7 @@ export function StudentInfoStep({
             <p className="font-semibold">
               {t(
                 `早鳥優惠（${ebDateFormatted}前報名）`,
-                `Early Bird Offer (enroll before ${ebDateFormatted})`,
+                `Early Bird Offer (enrol before ${ebDateFormatted})`,
                 lang
               )}
             </p>
@@ -197,7 +197,7 @@ export function StudentInfoStep({
             <span>
               {t(
                 "9月常規課程禮券 — MathConcept現讀生及全新生報讀即可獲贈",
-                "September Regular Course Coupon — available to all MathConcept current and new students upon enrollment",
+                "September Regular Course Coupon — available to all MathConcept current and new students upon enrolment",
                 lang
               )}
             </span>

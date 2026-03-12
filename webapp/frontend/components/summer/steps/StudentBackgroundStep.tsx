@@ -61,7 +61,7 @@ export function StudentBackgroundStep({
         <IconLabel icon={PenLine}>
           {t(
             "學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
-            "Are you currently a MathConcept's student? (Including MathConcept Education and MathConcept Secondary Academy)",
+            "Are you currently a MathConcept student? (including MathConcept Education and MathConcept Secondary Academy)",
             lang
           )}
         </IconLabel>
@@ -107,7 +107,7 @@ export function StudentBackgroundStep({
               <IconLabel icon={PenLine}>
                 {t(
                   "如為現讀學生，請選擇現時所就讀的分校：",
-                  "If you are a current student, please select the center you are attending.",
+                  "If you are a current student, please select the center you are attending:",
                   lang
                 )}
               </IconLabel>

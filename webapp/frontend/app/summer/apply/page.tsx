@@ -142,19 +142,19 @@ export default function SummerApplyPage() {
           errors.push(t("請選擇分校", "Please select a branch", lang));
         if (!pref1Day)
           errors.push(
-            t("請選擇第一理想的上課日子", "Please select your first priority of day", lang)
+            t("請選擇第一理想的上課日子", "Please select your 1st preferred day", lang)
           );
         if (!pref1Time)
           errors.push(
-            t("請選擇第一理想的上課時間", "Please select your first priority of time", lang)
+            t("請選擇第一理想的上課時間", "Please select your 1st preferred time", lang)
           );
         if (!pref2Day)
           errors.push(
-            t("請選擇第二理想的上課日子", "Please select your second priority of day", lang)
+            t("請選擇第二理想的上課日子", "Please select your 2nd preferred day", lang)
           );
         if (!pref2Time)
           errors.push(
-            t("請選擇第二理想的上課時間", "Please select your second priority of time", lang)
+            t("請選擇第二理想的上課時間", "Please select your 2nd preferred time", lang)
           );
         break;
       case 4:
@@ -312,7 +312,7 @@ export default function SummerApplyPage() {
             </div>
             <div className="text-xs text-muted-foreground">
               {t(
-                "請分享此碼給你的朋友，他們報名時輸入即可加入同行優惠",
+                "請分享此碼給您的朋友，他們報名時輸入即可加入同行優惠",
                 "Share this code with your friends to join the group discount",
                 lang
               )}
@@ -329,7 +329,7 @@ export default function SummerApplyPage() {
         <p className="text-sm text-foreground">
           {t(
             config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！",
-            config?.text_content?.success_message_en || "Thank you again for your support to MathConcept Secondary Academy!",
+            config?.text_content?.success_message_en || "Thank you again for your support of MathConcept Secondary Academy!",
             lang
           )}
         </p>
