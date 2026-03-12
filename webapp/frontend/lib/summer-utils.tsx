@@ -119,3 +119,15 @@ export function shortCenterName(fullName: string): string {
 export const RequiredMark = () => (
   <span className="text-red-500 ml-0.5">*</span>
 );
+
+/** Format preference day+time pairs from a summer application. */
+export function formatPreferences(app: {
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+}) {
+  const pref1 = [app.preference_1_day, app.preference_1_time].filter(Boolean).join(" ");
+  const pref2 = [app.preference_2_day, app.preference_2_time].filter(Boolean).join(" ");
+  return { pref1, pref2, combined: [pref1, pref2].filter(Boolean).join(", ") };
+}
