@@ -279,6 +279,23 @@ def get_config(
     return config
 
 
+@router.delete("/summer/configs/{config_id}")
+def delete_config(
+    config_id: int,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Delete a summer course config. Cannot delete the active config."""
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    if config.is_active:
+        raise HTTPException(status_code=400, detail="Cannot delete the active config")
+    db.delete(config)
+    db.commit()
+    return {"success": True}
+
+
 @router.post("/summer/configs/{config_id}/clone", response_model=SummerCourseConfigResponse)
 def clone_config(
     config_id: int,

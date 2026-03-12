@@ -60,8 +60,8 @@ export function StudentBackgroundStep({
       <h2 className="text-base font-semibold text-foreground leading-snug">
         <IconLabel icon={PenLine}>
           {t(
-            "學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
-            "Are you currently a MathConcept student? (including MathConcept Education and MathConcept Secondary Academy)",
+            config.text_content?.existing_student_question_zh || "學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
+            config.text_content?.existing_student_question_en || "Are you currently a MathConcept student? (including MathConcept Education and MathConcept Secondary Academy)",
             lang
           )}
         </IconLabel>
@@ -106,8 +106,8 @@ export function StudentBackgroundStep({
             <label className={labelClass}>
               <IconLabel icon={PenLine}>
                 {t(
-                  "如為現讀學生，請選擇現時所就讀的分校：",
-                  "If you are a current student, please select the center you are attending:",
+                  config.text_content?.center_selection_prompt_zh || "如為現讀學生，請選擇現時所就讀的分校：",
+                  config.text_content?.center_selection_prompt_en || "If you are a current student, please select the center you are attending:",
                   lang
                 )}
               </IconLabel>

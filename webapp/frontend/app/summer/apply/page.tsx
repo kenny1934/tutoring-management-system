@@ -405,6 +405,7 @@ export default function SummerApplyPage() {
       case 4:
         return (
           <ContactBuddyStep
+            config={config}
             lang={lang}
             wechatId={wechatId}
             setWechatId={setWechatId}

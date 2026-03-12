@@ -8,8 +8,17 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle } from "@/lib/hooks";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseConfig } from "@/types";
-import { Sun, Plus, Copy, Pencil, ChevronLeft } from "lucide-react";
+import { Sun, Plus, Copy, Pencil, Trash2 } from "lucide-react";
 import { SummerConfigEditor } from "@/components/admin/SummerConfigEditor";
+import { Modal } from "@/components/ui/modal";
+
+function formatShortDate(date: string): string {
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function AdminSummerConfigPage() {
   usePageTitle("Summer Config");
@@ -20,8 +29,15 @@ export default function AdminSummerConfigPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Clone dialog state
   const [cloneDialogId, setCloneDialogId] = useState<number | null>(null);
   const [cloneYear, setCloneYear] = useState("");
+  const [cloneDuplicateWarning, setCloneDuplicateWarning] = useState(false);
+
+  // Delete dialog state
+  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadConfigs = useCallback(async () => {
     try {
@@ -44,16 +60,43 @@ export default function AdminSummerConfigPage() {
       showToast("Please enter a valid year (2025-2099)", "error");
       return;
     }
+
+    // Check for duplicate year
+    if (!cloneDuplicateWarning && configs.some((c) => c.year === year)) {
+      setCloneDuplicateWarning(true);
+      return;
+    }
+
     try {
       await summerAPI.cloneConfig(configId, year);
       showToast(`Config cloned for ${year}`, "success");
       setCloneDialogId(null);
       setCloneYear("");
+      setCloneDuplicateWarning(false);
       loadConfigs();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Clone failed", "error");
     }
   };
+
+  const handleDelete = async (configId: number) => {
+    setDeleting(true);
+    try {
+      await summerAPI.deleteConfig(configId);
+      showToast("Config deleted", "success");
+      setDeleteDialogId(null);
+      loadConfigs();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Delete failed", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleEditorCancel = useCallback(() => {
+    setEditingId(null);
+    setCreating(false);
+  }, []);
 
   const handleSaved = () => {
     setEditingId(null);
@@ -92,19 +135,12 @@ export default function AdminSummerConfigPage() {
       <DeskSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
           <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
-            <button
-              onClick={() => { setEditingId(null); setCreating(false); }}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back to list
-            </button>
             <SummerConfigEditor
               configId={editingId}
               isNew={creating}
               isReadOnly={isReadOnly}
               onSaved={handleSaved}
-              onCancel={() => { setEditingId(null); setCreating(false); }}
+              onCancel={handleEditorCancel}
             />
           </div>
         </PageTransition>
@@ -183,7 +219,7 @@ export default function AdminSummerConfigPage() {
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        Applications: {new Date(config.application_open_date).toLocaleDateString()} – {new Date(config.application_close_date).toLocaleDateString()}
+                        Applications: {formatShortDate(config.application_open_date)} – {formatShortDate(config.application_close_date)}
                         {" · "}
                         {config.locations.length} location{config.locations.length !== 1 ? "s" : ""}
                         {" · "}
@@ -199,13 +235,23 @@ export default function AdminSummerConfigPage() {
                         Edit
                       </button>
                       {!isReadOnly && (
-                        <button
-                          onClick={() => { setCloneDialogId(config.id); setCloneYear(String(config.year + 1)); }}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          Clone
-                        </button>
+                        <>
+                          <button
+                            onClick={() => { setCloneDialogId(config.id); setCloneYear(String(config.year + 1)); setCloneDuplicateWarning(false); }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Clone
+                          </button>
+                          {!config.is_active && (
+                            <button
+                              onClick={() => setDeleteDialogId(config.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -214,40 +260,76 @@ export default function AdminSummerConfigPage() {
             </div>
           )}
 
-          {/* Clone dialog */}
-          {cloneDialogId !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 w-80 shadow-xl">
-                <h3 className="text-lg font-semibold text-foreground mb-3">Clone Config</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Enter the target year for the cloned config. Dates will be shifted automatically.
-                </p>
-                <input
-                  type="number"
-                  value={cloneYear}
-                  onChange={(e) => setCloneYear(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm mb-4"
-                  placeholder="e.g. 2026"
-                  min={2025}
-                  max={2099}
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => { setCloneDialogId(null); setCloneYear(""); }}
-                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleClone(cloneDialogId)}
-                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors font-medium"
-                  >
-                    Clone
-                  </button>
-                </div>
+          {/* Clone dialog — using Modal */}
+          <Modal
+            isOpen={cloneDialogId !== null}
+            onClose={() => { setCloneDialogId(null); setCloneYear(""); setCloneDuplicateWarning(false); }}
+            title="Clone Config"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setCloneDialogId(null); setCloneYear(""); setCloneDuplicateWarning(false); }}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => cloneDialogId !== null && handleClone(cloneDialogId)}
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors font-medium"
+                >
+                  {cloneDuplicateWarning ? "Clone Anyway" : "Clone"}
+                </button>
               </div>
-            </div>
-          )}
+            }
+          >
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter the target year for the cloned config. Dates will be shifted automatically.
+            </p>
+            <input
+              type="number"
+              value={cloneYear}
+              onChange={(e) => { setCloneYear(e.target.value); setCloneDuplicateWarning(false); }}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm"
+              placeholder="e.g. 2026"
+              min={2025}
+              max={2099}
+            />
+            {cloneDuplicateWarning && (
+              <p className="text-sm text-amber-600 mt-2">
+                A config for {cloneYear} already exists. Clone anyway?
+              </p>
+            )}
+          </Modal>
+
+          {/* Delete confirmation dialog */}
+          <Modal
+            isOpen={deleteDialogId !== null}
+            onClose={() => setDeleteDialogId(null)}
+            title="Delete Config"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setDeleteDialogId(null)}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteDialogId !== null && handleDelete(deleteDialogId)}
+                  disabled={deleting}
+                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            }
+          >
+            <p className="text-sm text-muted-foreground">
+              Delete the {configs.find((c) => c.id === deleteDialogId)?.year} config? This cannot be undone.
+            </p>
+          </Modal>
         </div>
       </PageTransition>
     </DeskSurface>
