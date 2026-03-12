@@ -11,7 +11,9 @@
 * **Code cleanup** — consolidated duplicate logic, hardcoded values, and repeated database query patterns across backend and frontend
 * **Batch operation performance** — batch mark-paid and mark-sent now load all enrollments in a single query instead of one per enrollment
 * **Exam revision performance** — batch-resolve makeup session chain lookups instead of querying one-by-one
-* **Zen mode performance** — memoized context provider to prevent unnecessary re-renders
+* **Zen mode performance** — memoized context providers to prevent unnecessary re-renders
+* **Renewal check performance** — batch-query renewal and schedule overlap lookups instead of per-enrollment queries
+* **Reduced unnecessary API calls** — disabled automatic refetch on window focus globally
 * **Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules
 
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
