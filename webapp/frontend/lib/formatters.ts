@@ -268,3 +268,30 @@ export function formatDateCompact(dateStr: string): string {
     day: "numeric",
   });
 }
+
+/**
+ * Format date relative to today with human-friendly labels.
+ * Accepts Date objects or YYYY-MM-DD strings.
+ *
+ * Examples: "Today", "Yesterday", "Tomorrow", "In 3 days", "5 days ago", "Wed, Jan 15"
+ */
+export function formatRelativeDateLabel(input: Date | string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = typeof input === "string"
+    ? new Date(input + "T00:00:00")
+    : new Date(input.getFullYear(), input.getMonth(), input.getDate());
+  const diffDays = Math.round((date.getTime() - today.getTime()) / 86400000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === -1) return "Yesterday";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
+  if (diffDays < -1 && diffDays >= -7) return `${-diffDays} days ago`;
+
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}

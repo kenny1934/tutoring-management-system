@@ -9,7 +9,7 @@ from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse
-from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role
+from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 
 router = APIRouter()
 
@@ -170,7 +170,7 @@ async def get_students(
 
     # Check if user can see/search phone numbers (admins always, tutors only from office IP)
     can_see_phone = (
-        effective_role in ("Admin", "Super Admin") or
+        effective_role in ADMIN_WRITE_ROLES or
         is_office_ip(request, db)
     )
 
@@ -261,7 +261,7 @@ async def get_student_detail(
 
     # Redact phone if tutor is not accessing from office IP
     can_see_phone = (
-        effective_role in ("Admin", "Super Admin") or
+        effective_role in ADMIN_WRITE_ROLES or
         is_office_ip(request, db)
     )
     if not can_see_phone:

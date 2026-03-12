@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus
+from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, BASE_FEE_PER_LESSON, REGISTRATION_FEE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo
@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Grace period: students remain in "active" lists for this many days after enrollment expires
-ACTIVE_GRACE_PERIOD_DAYS = 21
 
 
 # ============================================
@@ -1633,8 +1631,8 @@ def format_fee_message(
     location_map_en = {'MSA': 'Vasco Center', 'MSB': 'Flora Garden Center'}
     bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
 
-    base_fee = 400 * lessons_paid
-    reg_fee = 100 if is_new_student else 0
+    base_fee = BASE_FEE_PER_LESSON * lessons_paid
+    reg_fee = REGISTRATION_FEE if is_new_student else 0
     discount_value = int(discount_value)  # Ensure no decimals
     total_fee = base_fee - discount_value + reg_fee
     lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])

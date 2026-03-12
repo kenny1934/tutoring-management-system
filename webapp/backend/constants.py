@@ -103,3 +103,10 @@ NON_COUNTABLE_STATUS_PATTERNS = [
 
 # All valid session status values (for validation)
 ALL_SESSION_STATUSES = [status.value for status in SessionStatus]
+
+# Fee calculation
+BASE_FEE_PER_LESSON = 400
+REGISTRATION_FEE = 100
+
+# Grace period: students remain in "active" lists for this many days after enrollment expires
+ACTIVE_GRACE_PERIOD_DAYS = 21

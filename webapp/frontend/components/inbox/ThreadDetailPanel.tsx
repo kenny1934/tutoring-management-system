@@ -20,7 +20,8 @@ import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import type { Message, MessageThread, MessageCreate, MessageTemplate } from "@/types";
 import { useToast } from "@/contexts/ToastContext";
 import type { TypingUser } from "@/lib/useSSE";
-import { CATEGORIES, PRIORITIES, type PriorityLevel, formatSnoozeUntil, formatScheduledAt, formatDateLabel, computeReplyRecipients } from "@/lib/inbox-constants";
+import { CATEGORIES, PRIORITIES, type PriorityLevel, formatSnoozeUntil, formatScheduledAt, computeReplyRecipients } from "@/lib/inbox-constants";
+import { formatRelativeDateLabel } from "@/lib/formatters";
 import {
   ChevronLeft,
   Users,
@@ -694,7 +695,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               {isNewDay && (
                 <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
                   <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
-                  <span className="font-medium px-2">{formatDateLabel(msgDate)}</span>
+                  <span className="font-medium px-2">{formatRelativeDateLabel(msgDate)}</span>
                   <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
                 </div>
               )}

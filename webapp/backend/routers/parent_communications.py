@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now
+from constants import hk_now, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 import time
 from database import get_db
 from models import ParentCommunication, Student, Tutor, Enrollment, LocationSettings
-from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range, ACTIVE_GRACE_PERIOD_DAYS
+from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range
 from schemas import (
     ParentCommunicationCreate,
     ParentCommunicationUpdate,

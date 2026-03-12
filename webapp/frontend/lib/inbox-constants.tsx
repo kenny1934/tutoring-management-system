@@ -117,20 +117,6 @@ export function formatScheduledAt(isoDate: string): string {
   return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
 }
 
-export function formatDateLabel(date: Date): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (msgDay.getTime() === today.getTime()) return "Today";
-  if (msgDay.getTime() === yesterday.getTime()) return "Yesterday";
-
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-}
-
 export function computeReplyRecipients(msg: Message, currentTutorId: number): Pick<MessageCreate, 'to_tutor_id' | 'to_tutor_ids'> {
   if (msg.is_group_message && msg.to_tutor_ids) {
     const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);

@@ -11,6 +11,7 @@ import {
   formatProposalDate,
   formatActivityDate,
   formatDateCompact,
+  formatRelativeDateLabel,
 } from './formatters';
 
 // ============================================================================
@@ -241,5 +242,64 @@ describe('formatDateCompact', () => {
     expect(result).toContain('Mar');
     expect(result).toContain('11');
     expect(result).not.toContain('2026');
+  });
+});
+
+// ============================================================================
+// formatRelativeDateLabel
+// ============================================================================
+
+describe('formatRelativeDateLabel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-12T12:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns Today for current date (string input)', () => {
+    expect(formatRelativeDateLabel('2026-03-12')).toBe('Today');
+  });
+
+  it('returns Today for current date (Date input)', () => {
+    expect(formatRelativeDateLabel(new Date('2026-03-12T10:00:00'))).toBe('Today');
+  });
+
+  it('returns Yesterday (string)', () => {
+    expect(formatRelativeDateLabel('2026-03-11')).toBe('Yesterday');
+  });
+
+  it('returns Yesterday (Date)', () => {
+    expect(formatRelativeDateLabel(new Date('2026-03-11T15:00:00'))).toBe('Yesterday');
+  });
+
+  it('returns Tomorrow', () => {
+    expect(formatRelativeDateLabel('2026-03-13')).toBe('Tomorrow');
+  });
+
+  it('returns "In N days" for near future', () => {
+    expect(formatRelativeDateLabel('2026-03-15')).toBe('In 3 days');
+    expect(formatRelativeDateLabel('2026-03-19')).toBe('In 7 days');
+  });
+
+  it('returns "N days ago" for recent past', () => {
+    expect(formatRelativeDateLabel('2026-03-09')).toBe('3 days ago');
+    expect(formatRelativeDateLabel('2026-03-05')).toBe('7 days ago');
+  });
+
+  it('returns formatted date for dates beyond 7 days', () => {
+    const result = formatRelativeDateLabel('2026-02-15');
+    expect(result).toContain('Sun');
+    expect(result).toContain('Feb');
+    expect(result).toContain('15');
+  });
+
+  it('returns formatted date for dates more than 7 days in future', () => {
+    const result = formatRelativeDateLabel('2026-03-25');
+    expect(result).toContain('Wed');
+    expect(result).toContain('Mar');
+    expect(result).toContain('25');
   });
 });
