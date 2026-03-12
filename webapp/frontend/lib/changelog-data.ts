@@ -25,7 +25,13 @@ const changelogData = [
             "description": "**Exam revision performance** — batch-resolve makeup session chain lookups instead of querying one-by-one"
           },
           {
-            "description": "**Zen mode performance** — memoized context provider to prevent unnecessary re-renders"
+            "description": "**Zen mode performance** — memoized context providers to prevent unnecessary re-renders"
+          },
+          {
+            "description": "**Renewal check performance** — batch-query renewal and schedule overlap lookups instead of per-enrollment queries"
+          },
+          {
+            "description": "**Reduced unnecessary API calls** — disabled automatic refetch on window focus globally"
           },
           {
             "description": "**Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
