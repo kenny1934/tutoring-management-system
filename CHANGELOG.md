@@ -14,6 +14,8 @@
 * **Zen mode performance** — memoized context providers to prevent unnecessary re-renders
 * **Renewal check performance** — batch-query renewal and schedule overlap lookups instead of per-enrollment queries
 * **Reduced unnecessary API calls** — disabled automatic refetch on window focus globally
+* **Accessibility** — added screen reader labels to icon buttons and dialog attributes to modals
+* **Dashboard & session list performance** — memoized attention card and proposed session components to reduce re-renders
 * **Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules
 
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
