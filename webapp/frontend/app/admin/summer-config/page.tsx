@@ -8,17 +8,11 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle } from "@/lib/hooks";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseConfig } from "@/types";
-import { Sun, Plus, Copy, Pencil, Trash2 } from "lucide-react";
+import { Sun, Plus, Copy, Pencil, Trash2, Power } from "lucide-react";
 import { SummerConfigEditor } from "@/components/admin/SummerConfigEditor";
 import { Modal } from "@/components/ui/modal";
-
-function formatShortDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatShortDate } from "@/lib/formatters";
 
 export default function AdminSummerConfigPage() {
   usePageTitle("Summer Config");
@@ -35,8 +29,12 @@ export default function AdminSummerConfigPage() {
   const [cloneYear, setCloneYear] = useState("");
   const [cloneDuplicateWarning, setCloneDuplicateWarning] = useState(false);
 
+  // Toggle active state
+  const [toggleTarget, setToggleTarget] = useState<{ id: number; year: number; activate: boolean } | null>(null);
+  const [toggling, setToggling] = useState(false);
+
   // Delete dialog state
-  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; year: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const loadConfigs = useCallback(async () => {
@@ -79,17 +77,33 @@ export default function AdminSummerConfigPage() {
     }
   };
 
-  const handleDelete = async (configId: number) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await summerAPI.deleteConfig(configId);
+      await summerAPI.deleteConfig(deleteTarget.id);
       showToast("Config deleted", "success");
-      setDeleteDialogId(null);
+      setDeleteTarget(null);
       loadConfigs();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Delete failed", "error");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
+    try {
+      await summerAPI.updateConfig(toggleTarget.id, { is_active: toggleTarget.activate });
+      showToast(toggleTarget.activate ? `${toggleTarget.year} config activated` : `${toggleTarget.year} config deactivated`, "success");
+      setToggleTarget(null);
+      loadConfigs();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Toggle failed", "error");
+    } finally {
+      setToggling(false);
     }
   };
 
@@ -221,9 +235,20 @@ export default function AdminSummerConfigPage() {
                       <div className="text-sm text-muted-foreground mt-1">
                         Applications: {formatShortDate(config.application_open_date)} – {formatShortDate(config.application_close_date)}
                         {" · "}
+                        Course: {formatShortDate(config.course_start_date)} – {formatShortDate(config.course_end_date)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        ${config.pricing_config.base_fee.toLocaleString()}
+                        {" · "}
                         {config.locations.length} location{config.locations.length !== 1 ? "s" : ""}
                         {" · "}
                         {config.total_lessons} lessons
+                        {config.updated_at && (
+                          <>
+                            {" · "}
+                            Updated {formatShortDate(config.updated_at)}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -237,6 +262,17 @@ export default function AdminSummerConfigPage() {
                       {!isReadOnly && (
                         <>
                           <button
+                            onClick={() => setToggleTarget({ id: config.id, year: config.year, activate: !config.is_active })}
+                            className={`flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                              config.is_active
+                                ? "text-amber-600 hover:text-amber-700 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                : "text-green-600 hover:text-green-700 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
+                            }`}
+                          >
+                            <Power className="h-3.5 w-3.5" />
+                            {config.is_active ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
                             onClick={() => { setCloneDialogId(config.id); setCloneYear(String(config.year + 1)); setCloneDuplicateWarning(false); }}
                             className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                           >
@@ -245,7 +281,7 @@ export default function AdminSummerConfigPage() {
                           </button>
                           {!config.is_active && (
                             <button
-                              onClick={() => setDeleteDialogId(config.id)}
+                              onClick={() => setDeleteTarget({ id: config.id, year: config.year })}
                               className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -302,34 +338,33 @@ export default function AdminSummerConfigPage() {
             )}
           </Modal>
 
-          {/* Delete confirmation dialog */}
-          <Modal
-            isOpen={deleteDialogId !== null}
-            onClose={() => setDeleteDialogId(null)}
-            title="Delete Config"
-            size="sm"
-            footer={
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setDeleteDialogId(null)}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => deleteDialogId !== null && handleDelete(deleteDialogId)}
-                  disabled={deleting}
-                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
-                >
-                  {deleting ? "Deleting..." : "Delete"}
-                </button>
-              </div>
+          {/* Toggle active confirmation dialog */}
+          <ConfirmDialog
+            isOpen={toggleTarget !== null}
+            onCancel={() => setToggleTarget(null)}
+            onConfirm={handleToggleActive}
+            title={toggleTarget?.activate ? "Activate Config" : "Deactivate Config"}
+            message={
+              toggleTarget?.activate
+                ? `Activate the ${toggleTarget?.year} config? This will deactivate any currently active config.`
+                : `Deactivate the ${toggleTarget?.year} config? No config will be active and the public form will be unavailable.`
             }
-          >
-            <p className="text-sm text-muted-foreground">
-              Delete the {configs.find((c) => c.id === deleteDialogId)?.year} config? This cannot be undone.
-            </p>
-          </Modal>
+            confirmText={toggleTarget?.activate ? "Activate" : "Deactivate"}
+            variant={toggleTarget?.activate ? "default" : "danger"}
+            loading={toggling}
+          />
+
+          {/* Delete confirmation dialog */}
+          <ConfirmDialog
+            isOpen={deleteTarget !== null}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={handleDelete}
+            title="Delete Config"
+            message={`Delete the ${deleteTarget?.year} config? This cannot be undone.`}
+            confirmText="Delete"
+            variant="danger"
+            loading={deleting}
+          />
         </div>
       </PageTransition>
     </DeskSurface>
