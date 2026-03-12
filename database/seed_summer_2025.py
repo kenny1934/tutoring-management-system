@@ -16,6 +16,8 @@ DB_NAME = os.getenv("DB_NAME")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
+DEFAULT_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"]
+
 CONFIG_2025 = {
     "year": 2025,
     "title": "2025年度暑期課程留位 Intended class time for 2025 Summer",
@@ -58,9 +60,10 @@ CONFIG_2025 = {
             "name_en": "Jardim de Vasco Center",
             "address": "澳門若翰亞美打街10號東輝閣地下B座",
             "address_en": "Rua de João de Almeida No 10, Tung Fai Kock, B R/C, Macau",
-            "open_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            "open_days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
             "open_days_label": "一星期開七日",
             "open_days_label_en": "Open 7 days a week",
+            "time_slots": {d: DEFAULT_TIME_SLOTS for d in ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]},
         },
         {
             "name": "二龍喉分校",
@@ -70,6 +73,7 @@ CONFIG_2025 = {
             "open_days": ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
             "open_days_label": "星期日一休息",
             "open_days_label_en": "Closed on Sun & Mon",
+            "time_slots": {d: DEFAULT_TIME_SLOTS for d in ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]},
         },
     ]),
     "available_grades": json.dumps([

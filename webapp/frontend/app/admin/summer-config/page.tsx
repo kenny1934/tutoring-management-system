@@ -91,7 +91,7 @@ export default function AdminSummerConfigPage() {
     return (
       <DeskSurface>
         <PageTransition className="min-h-full p-4 sm:p-6">
-          <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+          <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 max-w-7xl mx-auto">
             <button
               onClick={() => { setEditingId(null); setCreating(false); }}
               className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
