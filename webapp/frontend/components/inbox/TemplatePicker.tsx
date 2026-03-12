@@ -124,7 +124,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
                   {onDelete && (
                     <button
                       type="button"
-                      onClick={() => onDelete(t.id)}
+                      onClick={() => { if (window.confirm("Delete this template?")) onDelete(t.id); }}
                       className="p-1.5 mr-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <Trash2 className="h-3 w-3" />
