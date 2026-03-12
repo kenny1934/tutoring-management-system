@@ -5,7 +5,7 @@ Centralizes common SQLAlchemy query patterns like joinedload options
 to reduce duplication across routers.
 """
 from sqlalchemy.orm import joinedload
-from models import Enrollment, SessionLog
+from models import Enrollment, SessionLog, MakeupProposal, MakeupProposalSlot
 
 
 def enrollment_with_relations():
@@ -52,4 +52,22 @@ def session_with_relations():
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
         joinedload(SessionLog.exercises),
+    ]
+
+
+def proposal_with_slots():
+    """
+    Standard joinedload options for makeup proposal queries.
+
+    Loads proposed_by_tutor, needs_input_tutor, and slots with
+    their proposed_tutor and resolved_by_tutor relationships.
+
+    Usage:
+        query.options(*proposal_with_slots())
+    """
+    return [
+        joinedload(MakeupProposal.proposed_by_tutor),
+        joinedload(MakeupProposal.needs_input_tutor),
+        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
+        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
     ]
