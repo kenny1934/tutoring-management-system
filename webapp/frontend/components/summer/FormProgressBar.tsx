@@ -1,13 +1,5 @@
 import { Check } from "lucide-react";
-import { type Lang, t } from "@/lib/summer-utils";
-
-const STEP_LABELS = [
-  { zh: "學生資料", en: "Student" },
-  { zh: "學生背景", en: "Background" },
-  { zh: "課堂安排", en: "Schedule" },
-  { zh: "聯絡方式", en: "Contact" },
-  { zh: "確認提交", en: "Confirm" },
-];
+import { type Lang, t, STEP_LABELS } from "@/lib/summer-utils";
 
 export type StepStatus = "complete" | "warning" | "default";
 

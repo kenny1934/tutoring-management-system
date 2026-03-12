@@ -58,6 +58,15 @@ export function ClassPreferencesStep({
   );
   const openDays = selectedLocationData?.open_days || [];
 
+  // Resolve time slots: per-location per-day → global fallback
+  const getTimeSlots = (day: string): string[] => {
+    const locSlots = selectedLocationData?.time_slots;
+    if (locSlots) {
+      return locSlots[day] || config.time_slots;
+    }
+    return config.time_slots;
+  };
+
   return (
     <div className="space-y-6">
       {/* Branch selection */}
@@ -185,7 +194,10 @@ export function ClassPreferencesStep({
                         name="pref1Day"
                         value={d}
                         checked={pref1Day === d}
-                        onChange={() => setPref1Day(d)}
+                        onChange={() => {
+                          setPref1Day(d);
+                          setPref1Time("");
+                        }}
                         className="sr-only"
                       />
                       {pref1Day === d && <RadioCheck />}
@@ -194,6 +206,7 @@ export function ClassPreferencesStep({
                   ))}
                 </div>
               </div>
+              {pref1Day && (
               <div>
                 <label className={labelClass}>
                   <IconLabel icon={Clock}>
@@ -206,7 +219,7 @@ export function ClassPreferencesStep({
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
-                  {config.time_slots.map((ts) => (
+                  {getTimeSlots(pref1Day).map((ts) => (
                     <label
                       key={ts}
                       className={radioLabelClass(pref1Time === ts)}
@@ -225,6 +238,7 @@ export function ClassPreferencesStep({
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
             {/* 2nd preference */}
@@ -270,7 +284,10 @@ export function ClassPreferencesStep({
                         name="pref2Day"
                         value={d}
                         checked={pref2Day === d}
-                        onChange={() => setPref2Day(d)}
+                        onChange={() => {
+                          setPref2Day(d);
+                          setPref2Time("");
+                        }}
                         className="sr-only"
                       />
                       {pref2Day === d && <RadioCheck />}
@@ -279,6 +296,7 @@ export function ClassPreferencesStep({
                   ))}
                 </div>
               </div>
+              {pref2Day && (
               <div>
                 <label className={labelClass}>
                   <IconLabel icon={Clock}>
@@ -291,7 +309,7 @@ export function ClassPreferencesStep({
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
-                  {config.time_slots.map((ts) => (
+                  {getTimeSlots(pref2Day).map((ts) => (
                     <label
                       key={ts}
                       className={radioLabelClass(pref2Time === ts)}
@@ -310,6 +328,7 @@ export function ClassPreferencesStep({
                   ))}
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>

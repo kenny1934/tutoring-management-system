@@ -11,6 +11,15 @@ export type Lang = "zh" | "en";
 export const t = (zh: string, en: string, lang: Lang) =>
   lang === "zh" ? zh : en;
 
+/** Step labels for the summer form progress bar and preview tabs. */
+export const STEP_LABELS = [
+  { zh: "學生資料", en: "Student" },
+  { zh: "學生背景", en: "Background" },
+  { zh: "課堂安排", en: "Schedule" },
+  { zh: "聯絡方式", en: "Contact" },
+  { zh: "確認提交", en: "Confirm" },
+];
+
 /** Day name translation map. */
 const DAY_NAMES_ZH: Record<string, string> = {
   Monday: "星期一",

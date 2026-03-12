@@ -33,6 +33,14 @@ LOCATION_IMAGES = {
     "Flora Garden Center": "/summer/flora-center.jpg",
 }
 
+# Corrected open_days order (Sunday first) and per-location per-day time slots
+DEFAULT_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"]
+
+LOCATION_OPEN_DAYS = {
+    "Jardim de Vasco Center": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "Flora Garden Center": ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+}
+
 
 def main():
     print(f"Connecting to {DB_HOST}:{DB_PORT}/{DB_NAME} as {DB_USER}...")
@@ -58,10 +66,16 @@ def main():
     # Update locations with image_url
     locations = json.loads(locations_json) if isinstance(locations_json, str) else locations_json
     for loc in locations:
-        img = LOCATION_IMAGES.get(loc.get("name_en"))
+        name_en = loc.get("name_en", "")
+        img = LOCATION_IMAGES.get(name_en)
         if img:
             loc["image_url"] = img
-            print(f"  Set image_url for {loc['name_en']}: {img}")
+            print(f"  Set image_url for {name_en}: {img}")
+        # Fix open_days order and add per-day time_slots
+        if name_en in LOCATION_OPEN_DAYS:
+            loc["open_days"] = LOCATION_OPEN_DAYS[name_en]
+            loc["time_slots"] = {day: DEFAULT_TIME_SLOTS for day in loc["open_days"]}
+            print(f"  Updated open_days and time_slots for {name_en}")
 
     clean_title = "2025年度暑期課程留位 Intended class time for 2025 Summer"
     cursor.execute(

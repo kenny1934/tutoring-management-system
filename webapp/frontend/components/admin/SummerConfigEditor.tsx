@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import type {
   SummerCourseConfig,
+  SummerCourseFormConfig,
   SummerLocation,
   SummerBilingualOption,
 } from "@/types";
@@ -14,7 +15,10 @@ import {
   Trash2,
   Save,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { SummerConfigPreview } from "./SummerConfigPreview";
 
 interface SummerConfigEditorProps {
   configId: number | null;
@@ -39,10 +43,12 @@ function toDatetimeInput(val: string | null | undefined): string {
 function Section({
   title,
   defaultOpen = false,
+  onOpen,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  onOpen?: () => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -50,7 +56,11 @@ function Section({
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          const willOpen = !open;
+          setOpen(willOpen);
+          if (willOpen && onOpen) onOpen();
+        }}
         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 text-sm font-semibold text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
         {title}
@@ -225,6 +235,41 @@ export function SummerConfigEditor({
     }
   };
 
+  // Assemble a live config object for the preview
+  const [previewStep, setPreviewStep] = useState(1);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const assembledConfig: SummerCourseFormConfig = useMemo(
+    () => ({
+      year,
+      title,
+      description: description || null,
+      application_open_date: appOpenDate || "",
+      application_close_date: appCloseDate || "",
+      course_start_date: courseStartDate || "",
+      course_end_date: courseEndDate || "",
+      total_lessons: totalLessons,
+      pricing_config: {
+        base_fee: baseFee,
+        registration_fee: registrationFee || undefined,
+        discounts: discounts.length > 0 ? discounts : undefined,
+      },
+      locations,
+      available_grades: grades,
+      time_slots: timeSlots,
+      existing_student_options: existingStudentOptions.length > 0 ? existingStudentOptions : null,
+      center_options: centerOptions.length > 0 ? centerOptions : null,
+      text_content: Object.keys(textContent).length > 0 ? textContent : null,
+      banner_image_url: bannerImageUrl || null,
+    }),
+    [
+      year, title, description, appOpenDate, appCloseDate,
+      courseStartDate, courseEndDate, totalLessons, baseFee,
+      registrationFee, discounts, locations, grades, timeSlots,
+      existingStudentOptions, centerOptions, textContent, bannerImageUrl,
+    ]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -239,24 +284,43 @@ export function SummerConfigEditor({
         <h2 className="text-xl font-bold text-foreground">
           {isNew ? "New Config" : `Edit ${year} Config`}
         </h2>
-        {!isReadOnly && (
+        <div className="flex items-center gap-2">
+          {/* Mobile preview toggle */}
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium disabled:opacity-50"
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+            {showPreview ? (
+              <><EyeOff className="h-4 w-4" /> Editor</>
             ) : (
-              <Save className="h-4 w-4" />
+              <><Eye className="h-4 w-4" /> Preview</>
             )}
-            {saving ? "Saving..." : "Save"}
           </button>
-        )}
+          {!isReadOnly && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? "Saving..." : "Save"}
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Split layout: editor + preview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left column: editor */}
+        <div className={`space-y-4 ${showPreview ? "hidden lg:block" : ""}`}>
+
       {/* Section 1: Basic Info */}
-      <Section title="Basic Info" defaultOpen>
+      <Section title="Basic Info" defaultOpen onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="year">Year</Label>
@@ -324,7 +388,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 2: Dates */}
-      <Section title="Dates">
+      <Section title="Dates" onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Application Open</Label>
@@ -381,7 +445,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 3: Pricing */}
-      <Section title="Pricing">
+      <Section title="Pricing" onOpen={() => setPreviewStep(1)}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Base Fee ($)</Label>
@@ -498,7 +562,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 4: Locations */}
-      <Section title="Locations">
+      <Section title="Locations" onOpen={() => setPreviewStep(3)}>
         {!isReadOnly && (
           <button
             type="button"
@@ -605,27 +669,86 @@ export function SummerConfigEditor({
                   value={loc.open_days.join(", ")}
                   onChange={(e) => {
                     const next = [...locations];
+                    const newDays = e.target.value
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    // Preserve time_slots for existing days, remove slots for removed days
+                    const newTimeSlots: Record<string, string[]> = {};
+                    for (const day of newDays) {
+                      newTimeSlots[day] = loc.time_slots?.[day] || timeSlots;
+                    }
                     next[i] = {
                       ...loc,
-                      open_days: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
+                      open_days: newDays,
+                      time_slots: newTimeSlots,
                     };
                     setLocations(next);
                   }}
                   className={inputClass}
                   disabled={isReadOnly}
-                  placeholder="Mon, Tue, Wed"
+                  placeholder="Sunday, Monday, Tuesday"
                 />
               </div>
             </div>
+
+            {/* Per-day time slots */}
+            {loc.open_days.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Time Slots per Day</Label>
+                  {!isReadOnly && loc.open_days.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const firstDay = loc.open_days[0];
+                        const firstSlots = loc.time_slots?.[firstDay] || timeSlots;
+                        const next = [...locations];
+                        const newTimeSlots: Record<string, string[]> = {};
+                        for (const day of loc.open_days) {
+                          newTimeSlots[day] = [...firstSlots];
+                        }
+                        next[i] = { ...loc, time_slots: newTimeSlots };
+                        setLocations(next);
+                      }}
+                      className="text-[10px] text-primary hover:text-primary-hover font-medium"
+                    >
+                      Copy first day to all
+                    </button>
+                  )}
+                </div>
+                {loc.open_days.map((day) => (
+                  <div key={day} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">{day}</span>
+                    <input
+                      value={(loc.time_slots?.[day] || timeSlots).join(", ")}
+                      onChange={(e) => {
+                        const next = [...locations];
+                        const newTimeSlots = { ...(loc.time_slots || {}) };
+                        newTimeSlots[day] = e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        next[i] = { ...loc, time_slots: newTimeSlots };
+                        setLocations(next);
+                      }}
+                      className={`${inputClass} flex-1`}
+                      disabled={isReadOnly}
+                      placeholder="10:00 - 11:30, 14:30 - 16:00"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </Section>
 
-      {/* Section 5: Time Slots */}
-      <Section title="Time Slots">
+      {/* Section 5: Default Time Slots (fallback) */}
+      <Section title="Default Time Slots" onOpen={() => setPreviewStep(3)}>
+        <p className="text-xs text-muted-foreground mb-2">
+          Fallback time slots used when a location doesn&apos;t define per-day slots.
+        </p>
         {!isReadOnly && (
           <button
             type="button"
@@ -647,7 +770,7 @@ export function SummerConfigEditor({
                 }}
                 className={`${inputClass} flex-1`}
                 disabled={isReadOnly}
-                placeholder="e.g. 10:00-11:30"
+                placeholder="e.g. 10:00 - 11:30"
               />
               {!isReadOnly && (
                 <button
@@ -664,7 +787,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 6: Grades */}
-      <Section title="Available Grades">
+      <Section title="Available Grades" onOpen={() => setPreviewStep(1)}>
         {!isReadOnly && (
           <button
             type="button"
@@ -731,7 +854,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 7: Student Options */}
-      <Section title="Student Options">
+      <Section title="Student Options" onOpen={() => setPreviewStep(2)}>
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -857,7 +980,7 @@ export function SummerConfigEditor({
       </Section>
 
       {/* Section 8: Text Content */}
-      <Section title="Text Content (Bilingual)">
+      <Section title="Text Content (Bilingual)" onOpen={() => setPreviewStep(1)}>
         <p className="text-xs text-muted-foreground mb-3">
           Bilingual text blocks used in the application form. Each key pair (e.g. intro_zh / intro_en) appears side by side.
         </p>
@@ -924,6 +1047,19 @@ export function SummerConfigEditor({
           </button>
         </div>
       )}
+
+        </div>{/* end left column */}
+
+        {/* Right column: preview */}
+        <div className={`flex flex-col lg:sticky lg:top-0 lg:h-[calc(100vh-8rem)] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${showPreview ? "h-[70vh]" : "hidden lg:flex"}`}>
+          <SummerConfigPreview
+            config={assembledConfig}
+            previewStep={previewStep}
+            onStepChange={setPreviewStep}
+          />
+        </div>
+
+      </div>{/* end grid */}
     </div>
   );
 }
