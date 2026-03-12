@@ -821,44 +821,57 @@ async def get_renewal_counts(
     expiring_soon = 0
     expired = 0
 
+    # Pre-compute effective end dates and filter to relevant enrollments
+    enrollment_ids = [e.id for e in enrollments]
+    candidates = []
+    effective_ends = {}
     for enrollment in enrollments:
         effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         if not effective_end:
             continue
+        days_until_expiry = (effective_end - today).days
+        if days_until_expiry > 14 or days_until_expiry < -30:
+            continue
+        candidates.append(enrollment)
+        effective_ends[enrollment.id] = effective_end
+
+    if not candidates:
+        return RenewalCountsResponse(expiring_soon=0, expired=0, total=0)
+
+    # Batch: find all enrollments that are renewals of our candidates
+    candidate_ids = [e.id for e in candidates]
+    renewed_ids = {
+        row[0] for row in db.query(Enrollment.renewed_from_enrollment_id).filter(
+            Enrollment.renewed_from_enrollment_id.in_(candidate_ids),
+            Enrollment.payment_status != "Cancelled"
+        ).all()
+    }
+
+    # Batch: find all newer enrollments with same schedule for legacy check
+    # Build a set of (student_id, day, time, location) that have newer enrollments
+    newer_rows = db.query(
+        Enrollment.student_id, Enrollment.assigned_day,
+        Enrollment.assigned_time, Enrollment.location
+    ).filter(
+        Enrollment.student_id.in_([e.student_id for e in candidates]),
+        Enrollment.payment_status != "Cancelled",
+        Enrollment.id.notin_(candidate_ids),
+    ).all()
+    newer_schedule_set = {(r[0], r[1], r[2], r[3]) for r in newer_rows}
+
+    for enrollment in candidates:
+        # Skip if already renewed
+        if enrollment.id in renewed_ids:
+            continue
+
+        # Skip if newer enrollment with same schedule exists
+        effective_end = effective_ends[enrollment.id]
+        schedule_key = (enrollment.student_id, enrollment.assigned_day,
+                        enrollment.assigned_time, enrollment.location)
+        if schedule_key in newer_schedule_set:
+            continue
 
         days_until_expiry = (effective_end - today).days
-
-        # Only count if expiring within 2 weeks or expired
-        if days_until_expiry > 14:
-            continue
-
-        # Skip enrollments expired more than 30 days (likely orphaned)
-        if days_until_expiry < -30:
-            continue
-
-        # Check if already renewed
-        existing_renewal = db.query(Enrollment.id).filter(
-            Enrollment.renewed_from_enrollment_id == enrollment.id,
-            Enrollment.payment_status != "Cancelled"
-        ).first()
-
-        if existing_renewal:
-            continue  # Already renewed, skip
-
-        # Also check for newer enrollment with same schedule (for legacy enrollments)
-        newer_enrollment = db.query(Enrollment.id).filter(
-            Enrollment.student_id == enrollment.student_id,
-            Enrollment.assigned_day == enrollment.assigned_day,
-            Enrollment.assigned_time == enrollment.assigned_time,
-            Enrollment.location == enrollment.location,
-            Enrollment.first_lesson_date > effective_end,
-            Enrollment.payment_status != "Cancelled",
-            Enrollment.id != enrollment.id
-        ).first()
-
-        if newer_enrollment:
-            continue  # Has newer enrollment with same schedule, skip
-
         if days_until_expiry < 0:
             expired += 1
         else:

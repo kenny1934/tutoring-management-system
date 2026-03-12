@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
 
 /**
  * Focus sections in Zen mode
@@ -45,16 +45,16 @@ export function ZenKeyboardFocusProvider({
     [focusedSection]
   );
 
+  const contextValue = useMemo(() => ({
+    focusedSection,
+    setFocusedSection,
+    isFocused,
+    disableSectionCycling,
+    setDisableSectionCycling,
+  }), [focusedSection, setFocusedSection, isFocused, disableSectionCycling]);
+
   return (
-    <ZenKeyboardFocusContext.Provider
-      value={{
-        focusedSection,
-        setFocusedSection,
-        isFocused,
-        disableSectionCycling,
-        setDisableSectionCycling,
-      }}
-    >
+    <ZenKeyboardFocusContext.Provider value={contextValue}>
       {children}
     </ZenKeyboardFocusContext.Provider>
   );
