@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useUncheckedAttendance } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { useHaptic } from "@/lib/useHaptic";
+import { formatDateCompact } from "@/lib/formatters";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
@@ -270,16 +271,6 @@ export default function UncheckedAttendancePage() {
     }
   }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const totalCount = uncheckedSessions.length;
 
   return (
@@ -445,7 +436,7 @@ export default function UncheckedAttendancePage() {
                                   className="hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors cursor-pointer"
                                 >
                                   <td className="px-4 py-3">
-                                    {formatDate(session.session_date)}
+                                    {formatDateCompact(session.session_date)}
                                   </td>
                                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                                     {session.time_slot || '-'}

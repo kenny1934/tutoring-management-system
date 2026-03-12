@@ -2216,30 +2216,51 @@ async def batch_mark_paid(
     Also updates all associated sessions' financial_status to 'Paid'.
     Admin only.
     """
+    # Batch load all enrollments with discounts in one query
+    enrollments = db.query(Enrollment).options(
+        joinedload(Enrollment.discount)
+    ).filter(
+        Enrollment.id.in_(request.enrollment_ids),
+        Enrollment.payment_status != 'Paid',
+    ).all()
+
+    if not enrollments:
+        return BatchOperationResponse(updated=[], count=0)
+
+    now = hk_now()
+    today = date.today()
+    eids = [e.id for e in enrollments]
+
+    # Batch update all sessions' financial_status in one query
+    db.query(SessionLog).filter(
+        SessionLog.enrollment_id.in_(eids)
+    ).update({'financial_status': 'Paid'}, synchronize_session=False)
+
+    # Batch load coupons for students that used coupon discounts
+    coupon_student_ids = [
+        e.student_id for e in enrollments
+        if (e.discount and e.discount.discount_value and
+            int(e.discount.discount_value) in (200, 300))
+    ]
+    coupon_map = {}
+    if coupon_student_ids:
+        coupons = db.query(StudentCoupon).filter(
+            StudentCoupon.student_id.in_(coupon_student_ids)
+        ).all()
+        coupon_map = {c.student_id: c for c in coupons}
+
     updated = []
-    for eid in request.enrollment_ids:
-        enrollment = db.query(Enrollment).options(
-            joinedload(Enrollment.discount)
-        ).filter(Enrollment.id == eid).first()
-        if enrollment and enrollment.payment_status != 'Paid':
-            enrollment.payment_status = 'Paid'
-            enrollment.payment_date = date.today()
-            enrollment.last_modified_time = hk_now()
-            enrollment.last_modified_by = current_user.user_email
-            # Also update sessions' financial_status
-            db.query(SessionLog).filter(
-                SessionLog.enrollment_id == eid
-            ).update({'financial_status': 'Paid'})
-            # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
-            if (enrollment.discount and
-                enrollment.discount.discount_value and
-                int(enrollment.discount.discount_value) in (200, 300)):
-                student_coupon = db.query(StudentCoupon).filter(
-                    StudentCoupon.student_id == enrollment.student_id
-                ).first()
-                if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
-                    student_coupon.available_coupons -= 1
-            updated.append(eid)
+    for enrollment in enrollments:
+        enrollment.payment_status = 'Paid'
+        enrollment.payment_date = today
+        enrollment.last_modified_time = now
+        enrollment.last_modified_by = current_user.user_email
+        # Decrement student's available coupons if enrollment used a coupon discount
+        if enrollment.student_id in coupon_map:
+            coupon = coupon_map[enrollment.student_id]
+            if coupon.available_coupons and coupon.available_coupons > 0:
+                coupon.available_coupons -= 1
+        updated.append(enrollment.id)
 
     db.commit()
     return BatchOperationResponse(updated=updated, count=len(updated))
@@ -2255,14 +2276,18 @@ async def batch_mark_sent(
     Mark fee message as sent for multiple enrollments.
     Admin only.
     """
+    enrollments = db.query(Enrollment).filter(
+        Enrollment.id.in_(request.enrollment_ids),
+        Enrollment.fee_message_sent != True,
+    ).all()
+
+    now = hk_now()
     updated = []
-    for eid in request.enrollment_ids:
-        enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
-        if enrollment and not enrollment.fee_message_sent:
-            enrollment.fee_message_sent = True
-            enrollment.last_modified_time = hk_now()
-            enrollment.last_modified_by = current_user.user_email
-            updated.append(eid)
+    for enrollment in enrollments:
+        enrollment.fee_message_sent = True
+        enrollment.last_modified_time = now
+        enrollment.last_modified_by = current_user.user_email
+        updated.append(enrollment.id)
 
     db.commit()
     return BatchOperationResponse(updated=updated, count=len(updated))
