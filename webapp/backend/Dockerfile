@@ -17,9 +17,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Runtime libs: MySQL client only
+# Runtime libs: MySQL client shared library only (not dev headers)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    default-libmysqlclient-dev \
+    libmariadb3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages and scripts from builder

@@ -4,6 +4,7 @@ Provides read-only API endpoints for MVP testing.
 """
 import logging
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -282,11 +283,13 @@ async def health_check():
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    return {
-        "status": "healthy" if db_status == "connected" else "unhealthy",
+    is_healthy = db_status == "connected"
+    body = {
+        "status": "healthy" if is_healthy else "unhealthy",
         "database": db_status,
         "environment": os.getenv("ENVIRONMENT", "development")
     }
+    return JSONResponse(content=body, status_code=200 if is_healthy else 503)
 
 
 # Import routers (will be created next)
