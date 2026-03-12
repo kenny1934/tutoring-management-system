@@ -1,5 +1,5 @@
 import type { SummerCourseFormConfig } from "@/types";
-import { type Lang, t, dayLabel, sectionClass } from "@/lib/summer-utils";
+import { type Lang, t, dayLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;
@@ -111,11 +111,9 @@ export function ReviewSubmitStep({
                   const opt = config.center_options?.find(
                     (o) => o.name === c
                   );
-                  return opt
-                    ? lang === "zh"
-                      ? opt.name
-                      : opt.name_en
-                    : c;
+                  if (!opt) return c;
+                  const name = lang === "zh" ? opt.name : opt.name_en;
+                  return shortCenterName(name);
                 })
                 .join(", ")}
             />

@@ -10,6 +10,7 @@ import {
   RadioCheck,
   RequiredMark,
   IconLabel,
+  shortCenterName,
 } from "@/lib/summer-utils";
 
 interface StudentBackgroundStepProps {
@@ -115,6 +116,7 @@ export function StudentBackgroundStep({
             <div className={radioGroupClass}>
               {filteredCenters?.map((c) => {
                 const name = lang === "zh" ? c.name : c.name_en;
+                const displayName = isSecondaryAcademy ? shortCenterName(name) : name;
                 const selected = currentCenters.includes(c.name);
                 return (
                   <label
@@ -129,7 +131,7 @@ export function StudentBackgroundStep({
                       className="sr-only"
                     />
                     {selected && <RadioCheck />}
-                    {name}
+                    {displayName}
                   </label>
                 );
               })}

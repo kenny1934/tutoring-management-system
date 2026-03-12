@@ -1,6 +1,5 @@
 import Image from "next/image";
 import {
-  Sun,
   GraduationCap,
   Calendar,
   Clock,
@@ -22,7 +21,6 @@ import {
   RadioCheck,
   RequiredMark,
   IconLabel,
-  InfoRow,
 } from "@/lib/summer-utils";
 
 interface StudentInfoStepProps {
@@ -78,11 +76,17 @@ export function StudentInfoStep({
 
       {/* Title */}
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-foreground">{config.title}</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t(
+            config.text_content?.title_zh || config.title,
+            config.text_content?.title_en || config.title,
+            lang
+          )}
+        </h1>
       </div>
 
-      {/* Introduction block */}
-      <div className="bg-primary/5 rounded-2xl border border-primary/20 p-6 sm:p-8 space-y-4">
+      {/* Welcome */}
+      <div className="bg-primary/5 rounded-2xl border border-primary/20 p-6 sm:p-8">
         <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
           {t(
             config.text_content?.intro_zh || "感謝家長和學生對 MathConcept 「中學教室」的支持！\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
@@ -90,67 +94,116 @@ export function StudentInfoStep({
             lang
           )}
         </p>
-        <div className="space-y-2">
-          <InfoRow icon={Sun}>
-            <span className="font-semibold">
-              {t("暑期中學班", "Secondary Course", lang)}
-            </span>
-          </InfoRow>
-          <InfoRow icon={GraduationCap}>
-            {t(
-              "教學對象：升 F1 至 升 F3 （中／英文部／國際學校）學生",
-              "Grades: Pre-F1 to Pre-F3 (Chinese / English / International School) students",
-              lang
-            )}
-          </InfoRow>
-          <InfoRow icon={Calendar}>
-            {t(
-              `課程日期：${formatDate(config.course_start_date, lang)} 到 ${formatDate(config.course_end_date, lang)}`,
-              `Course dates: ${formatDate(config.course_start_date, lang)} - ${formatDate(config.course_end_date, lang)}`,
-              lang
-            )}
-          </InfoRow>
-          <InfoRow icon={Clock}>
-            {t(
-              "課堂安排：每週1堂，每堂90分鐘",
-              "Course schedule: 1 class per week, 90 minutes per class",
-              lang
-            )}
-          </InfoRow>
-          <InfoRow icon={DollarSign}>
-            {t(
-              `課程收費：$${pricing.base_fee}/${config.total_lessons}堂`,
-              `Course fees: $${pricing.base_fee} for ${config.total_lessons} lessons`,
-              lang
-            )}
-          </InfoRow>
-          {ebDiscount && (
-            <>
-              <InfoRow icon={DollarSign}>
-                {t(
-                  `${config.year} 暑期優惠：`,
-                  `${config.year} Promotion:`,
-                  lang
-                )}
-              </InfoRow>
-              <InfoRow icon={Bird}>
-                {t(
-                  `早鳥優惠 ${ebDateFormatted}前：三人同行報讀，每人學費 $${eb3pFee}；單人報讀，學費 $${ebIndividualFee}`,
-                  `Early Bird Discount Before ${ebDateFormatted}: For 3 accompany discount, the fee is $${eb3pFee} per person; for individual, the fee is $${ebIndividualFee}`,
-                  lang
-                )}
-              </InfoRow>
-              <InfoRow icon={Ticket}>
-                {t(
-                  "9月常規課程禮券 — MathConcept現讀生及全新生報讀即可獲贈",
-                  "September Regular Course Coupon — MathConcept current and new students will receive coupon when enrolling",
-                  lang
-                )}
-              </InfoRow>
-            </>
-          )}
+      </div>
+
+      {/* Course Facts */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
+          <GraduationCap className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {t("教學對象", "Grades", lang)}
+            </div>
+            <div className="text-sm font-semibold text-foreground mt-0.5">
+              {t(
+                "升 F1 至 升 F3（中／英文部／國際學校）",
+                "Pre-F1 to Pre-F3 (CMI / EMI / International)",
+                lang
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
+          <Calendar className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {t("課程日期", "Course Dates", lang)}
+            </div>
+            <div className="text-sm font-semibold text-foreground mt-0.5">
+              {formatDate(config.course_start_date, lang)}
+              {" — "}
+              {formatDate(config.course_end_date, lang)}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
+          <Clock className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {t("課堂安排", "Schedule", lang)}
+            </div>
+            <div className="text-sm font-semibold text-foreground mt-0.5">
+              {t(
+                `共${config.total_lessons}堂 · 每週1堂 · 90分鐘/堂`,
+                `${config.total_lessons} lessons · 1 class/week · 90 min each`,
+                lang
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
+          <DollarSign className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {t("課程收費", "Course Fee", lang)}
+            </div>
+            <div className="text-sm font-semibold text-foreground mt-0.5">
+              ${pricing.base_fee.toLocaleString()}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Promotion Callout */}
+      {ebDiscount && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bird className="h-5 w-5 text-amber-600" />
+            <span className="text-sm font-bold text-amber-800">
+              {t(
+                `${config.year} 暑期優惠`,
+                `${config.year} Special Offer`,
+                lang
+              )}
+            </span>
+          </div>
+          <div className="text-sm text-amber-900">
+            <p className="font-semibold">
+              {t(
+                `早鳥優惠（${ebDateFormatted}前報名）`,
+                `Early Bird Offer (enroll before ${ebDateFormatted})`,
+                lang
+              )}
+            </p>
+            <ul className="mt-1.5 space-y-1 list-disc list-inside">
+              <li>
+                {t(
+                  `三人同行：每人 $${eb3pFee?.toLocaleString()}`,
+                  `Group of 3+: $${eb3pFee?.toLocaleString()} per person`,
+                  lang
+                )}
+              </li>
+              <li>
+                {t(
+                  `單人報讀：$${ebIndividualFee?.toLocaleString()}`,
+                  `Individual: $${ebIndividualFee?.toLocaleString()}`,
+                  lang
+                )}
+              </li>
+            </ul>
+          </div>
+          <div className="flex items-start gap-2 text-sm text-amber-800">
+            <Ticket className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              {t(
+                "9月常規課程禮券 — MathConcept現讀生及全新生報讀即可獲贈",
+                "September Regular Course Coupon — available to all MathConcept current and new students upon enrollment",
+                lang
+              )}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Student Info Fields */}
       <div className={sectionClass}>
