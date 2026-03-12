@@ -1,3 +1,4 @@
+import { PenLine } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -8,6 +9,7 @@ import {
   radioLabelClass,
   RadioCheck,
   RequiredMark,
+  IconLabel,
 } from "@/lib/summer-utils";
 
 interface StudentBackgroundStepProps {
@@ -55,11 +57,13 @@ export function StudentBackgroundStep({
   return (
     <div className={sectionClass}>
       <h2 className="text-base font-semibold text-foreground leading-snug">
-        {t(
-          "\u{1F58D}\uFE0F 學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
-          "\u{1F58D}\uFE0FAre you currently a MathConcept's student? (Including MathConcept Education and MathConcept Secondary Academy)",
-          lang
-        )}
+        <IconLabel icon={PenLine}>
+          {t(
+            "學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
+            "Are you currently a MathConcept's student? (Including MathConcept Education and MathConcept Secondary Academy)",
+            lang
+          )}
+        </IconLabel>
         <RequiredMark />
       </h2>
       <div className={radioGroupClass}>
@@ -99,11 +103,13 @@ export function StudentBackgroundStep({
         <div className="overflow-hidden">
           <div className="pt-2">
             <label className={labelClass}>
-              {t(
-                "\u{1F58D}\uFE0F 如為現讀學生，請選擇現時所就讀的分校：",
-                "\u{1F58D}\uFE0F If you are a current student, please select the center you are attending.",
-                lang
-              )}
+              <IconLabel icon={PenLine}>
+                {t(
+                  "如為現讀學生，請選擇現時所就讀的分校：",
+                  "If you are a current student, please select the center you are attending.",
+                  lang
+                )}
+              </IconLabel>
               <RequiredMark />
             </label>
             <div className={radioGroupClass}>

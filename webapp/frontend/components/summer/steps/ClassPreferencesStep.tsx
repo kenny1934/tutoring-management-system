@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { MapPin, Megaphone, Calendar, Clock, Check } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -11,6 +12,7 @@ import {
   radioLabelClass,
   RadioCheck,
   RequiredMark,
+  IconLabel,
 } from "@/lib/summer-utils";
 
 const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
@@ -62,8 +64,8 @@ export function ClassPreferencesStep({
       <div className={sectionClass}>
         <h2 className="text-base font-semibold text-foreground leading-snug">
           {t(
-            "MathConcept「中學教室」分別設有2間分校，請家長選擇理想分校\u{1F60A}",
-            "MathConcept Secondary Academy has 2 branches respectively, please choose below \u{1F60A}:",
+            "MathConcept「中學教室」分別設有2間分校，請家長選擇理想分校：",
+            "MathConcept Secondary Academy has 2 branches respectively, please choose below:",
             lang
           )}
           <RequiredMark />
@@ -113,15 +115,16 @@ export function ClassPreferencesStep({
                       className="object-cover"
                     />
                     {selected && (
-                      <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md text-sm">
-                        ✓
+                      <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md">
+                        <Check className="h-4 w-4" strokeWidth={3} />
                       </div>
                     )}
                   </div>
                 )}
                 <div className="p-4 space-y-1">
-                  <div className="font-semibold text-sm">
-                    {"\u{1F4CD}"} {name} ({daysLabel})
+                  <div className="font-semibold text-sm flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                    {name} ({daysLabel})
                   </div>
                   <div className="text-xs text-muted-foreground">{addr}</div>
                 </div>
@@ -143,11 +146,13 @@ export function ClassPreferencesStep({
             <div className="space-y-3">
               <div>
                 <div className="text-sm font-medium text-primary">
-                  {t(
-                    "\u{1F4E2} 請家長選擇 第一理想 上課日子和時間。",
-                    "\u{1F4E2} Please select your first priority of day and time.",
-                    lang
-                  )}
+                  <IconLabel icon={Megaphone}>
+                    {t(
+                      "請家長選擇 第一理想 上課日子和時間。",
+                      "Please select your first priority of day and time.",
+                      lang
+                    )}
+                  </IconLabel>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {selectedLocationData &&
@@ -160,11 +165,13 @@ export function ClassPreferencesStep({
               </div>
               <div>
                 <label className={labelClass}>
-                  {t(
-                    "\u{1F4C5} 請家長選擇 第一理想 的上課日子：",
-                    "\u{1F4C5} Please select your first priority of day:",
-                    lang
-                  )}
+                  <IconLabel icon={Calendar}>
+                    {t(
+                      "請家長選擇 第一理想 的上課日子：",
+                      "Please select your first priority of day:",
+                      lang
+                    )}
+                  </IconLabel>
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
@@ -189,11 +196,13 @@ export function ClassPreferencesStep({
               </div>
               <div>
                 <label className={labelClass}>
-                  {t(
-                    "\u{1F552} 請家長選擇 第一理想 的上課時間段 ：",
-                    "\u{1F552} Please select your first priority of time:",
-                    lang
-                  )}
+                  <IconLabel icon={Clock}>
+                    {t(
+                      "請家長選擇 第一理想 的上課時間段：",
+                      "Please select your first priority of time:",
+                      lang
+                    )}
+                  </IconLabel>
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
@@ -222,11 +231,13 @@ export function ClassPreferencesStep({
             <div className="space-y-3 pt-4 border-t border-border-subtle">
               <div>
                 <div className="text-sm font-medium text-muted-foreground">
-                  {t(
-                    "\u{1F4E2} 請家長選擇 第二理想 上課日子和時間。",
-                    "\u{1F4E2} Please select your second priority of day and time.",
-                    lang
-                  )}
+                  <IconLabel icon={Megaphone}>
+                    {t(
+                      "請家長選擇 第二理想 上課日子和時間。",
+                      "Please select your second priority of day and time.",
+                      lang
+                    )}
+                  </IconLabel>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {selectedLocationData &&
@@ -239,11 +250,13 @@ export function ClassPreferencesStep({
               </div>
               <div>
                 <label className={labelClass}>
-                  {t(
-                    "\u{1F4C5} 請家長選擇 第二理想 的上課日子：",
-                    "\u{1F4C5} Please select your second priority of day:",
-                    lang
-                  )}
+                  <IconLabel icon={Calendar}>
+                    {t(
+                      "請家長選擇 第二理想 的上課日子：",
+                      "Please select your second priority of day:",
+                      lang
+                    )}
+                  </IconLabel>
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
@@ -268,11 +281,13 @@ export function ClassPreferencesStep({
               </div>
               <div>
                 <label className={labelClass}>
-                  {t(
-                    "\u{1F552} 請家長選擇 第二理想 的上課時間段 ：",
-                    "\u{1F552} Please select your second priority of time:",
-                    lang
-                  )}
+                  <IconLabel icon={Clock}>
+                    {t(
+                      "請家長選擇 第二理想 的上課時間段：",
+                      "Please select your second priority of time:",
+                      lang
+                    )}
+                  </IconLabel>
                   <RequiredMark />
                 </label>
                 <div className={radioGroupClass}>
@@ -303,11 +318,13 @@ export function ClassPreferencesStep({
       {/* Unavailability */}
       <div className={sectionClass}>
         <label className={`${labelClass} leading-relaxed`}>
-          {t(
-            "\u{1F4C5} 為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
-            "\u{1F4C5} In order to make the class arrangement more complete, if students have plans to go out during summer or are unable to attend class for other reasons, please fill in the date (for example: July 14 to 21). Our instructors can arrange make-up classes for you in advance.",
-            lang
-          )}
+          <IconLabel icon={Calendar}>
+            {t(
+              "為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
+              "In order to make the class arrangement more complete, if students have plans to go out during summer or are unable to attend class for other reasons, please fill in the date (for example: July 14 to 21). Our instructors can arrange make-up classes for you in advance.",
+              lang
+            )}
+          </IconLabel>
         </label>
         <textarea
           value={unavailability}

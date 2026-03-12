@@ -6,6 +6,7 @@ import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
 } from "@/types";
+import { CheckCircle2 } from "lucide-react";
 import { type Lang, t } from "@/lib/summer-utils";
 import {
   FormProgressBar,
@@ -289,7 +290,7 @@ export default function SummerApplyPage() {
   if (submitted) {
     return (
       <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center space-y-4">
-        <div className="text-4xl text-green-600">&#10003;</div>
+        <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" strokeWidth={2} />
         <h2 className="text-xl font-bold text-foreground">
           {t("報名成功！", "Application Submitted!", lang)}
         </h2>
@@ -327,8 +328,8 @@ export default function SummerApplyPage() {
         </p>
         <p className="text-sm text-foreground">
           {t(
-            config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！\u{1F970}",
-            config?.text_content?.success_message_en || "Thank you again for your support to MathConcept Secondary Academy! \u{1F970}",
+            config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！",
+            config?.text_content?.success_message_en || "Thank you again for your support to MathConcept Secondary Academy!",
             lang
           )}
         </p>

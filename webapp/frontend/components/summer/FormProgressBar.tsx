@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { type Lang, t } from "@/lib/summer-utils";
 
 const STEP_LABELS = [
@@ -43,11 +44,11 @@ export function FormProgressBar({
             if (isCurrent) {
               circleClass =
                 "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2 ring-offset-background";
-              content = status === "complete" ? "✓" : step;
+              content = status === "complete" ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : step;
             } else if (status === "complete") {
               circleClass =
                 "bg-primary text-primary-foreground hover:ring-2 hover:ring-primary/30 hover:ring-offset-2 hover:ring-offset-background";
-              content = "✓";
+              content = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
             } else if (status === "warning") {
               circleClass =
                 "bg-amber-500 text-white hover:ring-2 hover:ring-amber-300/30 hover:ring-offset-2 hover:ring-offset-background";

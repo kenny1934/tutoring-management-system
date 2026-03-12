@@ -18,7 +18,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 CONFIG_2025 = {
     "year": 2025,
-    "title": "\U0001f525 2025年度暑期課程留位 Intended class time for 2025 Summer \U0001f525",
+    "title": "2025年度暑期課程留位 Intended class time for 2025 Summer",
     "description": None,
     "application_open_date": "2025-03-01 00:00:00",
     "application_close_date": "2025-07-31 23:59:59",
