@@ -14,6 +14,19 @@ from auth.dependencies import require_admin_write, get_current_user, is_office_i
 router = APIRouter()
 
 
+def _get_next_student_id(db: Session, location: str) -> str:
+    """Get the next available school_student_id for a location."""
+    ids = db.query(Student.school_student_id).filter(
+        Student.home_location == location,
+        Student.school_student_id.isnot(None)
+    ).all()
+    max_id = 1000
+    for (sid,) in ids:
+        if sid and sid.isdigit():
+            max_id = max(max_id, int(sid))
+    return str(max_id + 1)
+
+
 @router.get("/students/schools", response_model=List[str])
 async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
     """Get list of all unique school names for autocomplete."""
@@ -49,19 +62,7 @@ async def get_next_student_id(
     db: Session = Depends(get_db)
 ):
     """Get the next available school_student_id for a location."""
-    # Get all school_student_ids for this location
-    ids = db.query(Student.school_student_id).filter(
-        Student.home_location == location,
-        Student.school_student_id.isnot(None)
-    ).all()
-
-    # Find the max numeric ID
-    max_id = 1000
-    for (sid,) in ids:
-        if sid and sid.isdigit():
-            max_id = max(max_id, int(sid))
-
-    return {"next_id": str(max_id + 1)}
+    return {"next_id": _get_next_student_id(db, location)}
 
 
 @router.get("/students/check-duplicates")
@@ -341,20 +342,7 @@ async def create_student(
 
     # Auto-generate school_student_id if not provided and location is set
     if not data.get("school_student_id") and data.get("home_location"):
-        location = data["home_location"]
-        # Get all school_student_ids for this location
-        ids = db.query(Student.school_student_id).filter(
-            Student.home_location == location,
-            Student.school_student_id.isnot(None)
-        ).all()
-
-        # Find the max numeric ID
-        max_id = 1000
-        for (sid,) in ids:
-            if sid and sid.isdigit():
-                max_id = max(max_id, int(sid))
-
-        data["school_student_id"] = str(max_id + 1)
+        data["school_student_id"] = _get_next_student_id(db, data["home_location"])
 
     new_student = Student(**data)
     db.add(new_student)

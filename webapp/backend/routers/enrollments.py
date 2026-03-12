@@ -22,6 +22,10 @@ from schemas import (
     ApplyScheduleChangeRequest, ScheduleChangeResult
 )
 from auth.dependencies import require_admin_write, get_current_user
+from utils.query_helpers import enrollment_with_relations, enrollment_with_student_tutor
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -147,6 +151,42 @@ def check_student_conflicts(
     return conflicts
 
 
+def _count_lesson_dates(
+    enrollment_id: int,
+    first_lesson_date: date,
+    total_lesson_dates: int,
+    holidays: dict,
+) -> date:
+    """Core loop: count non-holiday weekly dates and return the effective end date.
+
+    Shared by both single-enrollment and bulk calculation paths.
+    """
+    current_date = first_lesson_date
+    lessons_counted = 0
+    effective_end = current_date
+
+    # Max iterations guard to prevent infinite loops
+    # Set to 3x expected iterations as a safety limit
+    max_iterations = total_lesson_dates * 3
+    iterations = 0
+
+    while lessons_counted < total_lesson_dates:
+        iterations += 1
+        if iterations > max_iterations:
+            logger.warning(
+                f"Effective end date calculation exceeded max iterations ({max_iterations}) "
+                f"for enrollment {enrollment_id}. Lessons counted: {lessons_counted}/{total_lesson_dates}"
+            )
+            break
+
+        if current_date not in holidays:
+            lessons_counted += 1
+            effective_end = current_date
+        current_date += timedelta(weeks=1)
+
+    return effective_end
+
+
 def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optional[date]:
     """Calculate effective end date with holiday awareness.
 
@@ -156,16 +196,11 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     The last lesson is on the Nth non-holiday date where N = lessons_paid.
     Extension weeks provide additional deadline buffer beyond the last lesson.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     if not enrollment.first_lesson_date:
         return None
 
     weeks_paid = enrollment.lessons_paid or 0
     extension_weeks = enrollment.deadline_extension_weeks or 0
-
-    # Total lesson dates to count (lessons + extension buffer)
     total_lesson_dates = weeks_paid + extension_weeks
 
     if total_lesson_dates <= 0:
@@ -177,30 +212,7 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     end_range = enrollment.first_lesson_date + timedelta(weeks=weeks_buffer)
     holidays = get_holidays_in_range(db, enrollment.first_lesson_date, end_range)
 
-    current_date = enrollment.first_lesson_date
-    lessons_counted = 0
-    effective_end = current_date
-
-    # Max iterations guard to prevent infinite loops
-    # Set to 3x expected iterations as a safety limit
-    max_iterations = total_lesson_dates * 3
-    iterations = 0
-
-    while lessons_counted < total_lesson_dates:
-        iterations += 1
-        if iterations > max_iterations:
-            logger.warning(
-                f"Effective end date calculation exceeded max iterations ({max_iterations}) "
-                f"for enrollment {enrollment.id}. Lessons counted: {lessons_counted}/{total_lesson_dates}"
-            )
-            break
-
-        if current_date not in holidays:
-            lessons_counted += 1
-            effective_end = current_date
-        current_date += timedelta(weeks=1)
-
-    return effective_end
+    return _count_lesson_dates(enrollment.id, enrollment.first_lesson_date, total_lesson_dates, holidays)
 
 
 def calculate_effective_end_date_bulk(
@@ -212,9 +224,6 @@ def calculate_effective_end_date_bulk(
     Use this for bulk operations to avoid repeated DB queries.
     Caller should load holidays once with get_holidays_in_range().
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     if not enrollment.first_lesson_date:
         return None
 
@@ -225,30 +234,7 @@ def calculate_effective_end_date_bulk(
     if total_lesson_dates <= 0:
         return enrollment.first_lesson_date
 
-    current_date = enrollment.first_lesson_date
-    lessons_counted = 0
-    effective_end = current_date
-
-    # Max iterations guard to prevent infinite loops
-    # Set to 3x expected iterations as a safety limit
-    max_iterations = total_lesson_dates * 3
-    iterations = 0
-
-    while lessons_counted < total_lesson_dates:
-        iterations += 1
-        if iterations > max_iterations:
-            logger.warning(
-                f"Effective end date calculation exceeded max iterations ({max_iterations}) "
-                f"for enrollment {enrollment.id}. Lessons counted: {lessons_counted}/{total_lesson_dates}"
-            )
-            break
-
-        if current_date not in holidays:
-            lessons_counted += 1
-            effective_end = current_date
-        current_date += timedelta(weeks=1)
-
-    return effective_end
+    return _count_lesson_dates(enrollment.id, enrollment.first_lesson_date, total_lesson_dates, holidays)
 
 
 # ============================================
@@ -499,9 +485,7 @@ async def create_enrollment(
 
     # Re-query with joins to return full response
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment.id).first()
 
     # Build response
@@ -531,9 +515,7 @@ async def get_renewal_data(
     of assigned_day after the current enrollment's effective_end_date.
     """
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -615,8 +597,7 @@ async def get_enrollments_needing_renewal(
     query = (
         db.query(Enrollment)
         .options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor)
+            *enrollment_with_student_tutor()
         )
         .filter(
             Enrollment.payment_status != "Cancelled",
@@ -924,9 +905,7 @@ async def get_enrollments(
     - **offset**: Pagination offset (default 0)
     """
     query = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(
         # Exclude orphaned enrollments with NULL foreign keys
         Enrollment.student_id.isnot(None),
@@ -1008,9 +987,7 @@ async def get_active_enrollments(
     query = (
         db.query(Enrollment)
         .options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor),
-            joinedload(Enrollment.discount)
+            *enrollment_with_relations()
         )
         .filter(
             Enrollment.payment_status != "Cancelled",
@@ -1102,8 +1079,7 @@ async def get_overdue_enrollments(
     query = (
         db.query(Enrollment)
         .options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor)
+            *enrollment_with_student_tutor()
         )
         .filter(
             Enrollment.payment_status == "Pending Payment",
@@ -1180,9 +1156,7 @@ async def get_my_students(
     query = (
         db.query(Enrollment)
         .options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor),
-            joinedload(Enrollment.discount)
+            *enrollment_with_relations()
         )
         .filter(
             Enrollment.tutor_id == tutor_id,
@@ -1279,8 +1253,7 @@ async def get_trials(
         db.query(Enrollment, SessionLog)
         .join(SessionLog, SessionLog.enrollment_id == Enrollment.id)
         .options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor)
+            *enrollment_with_student_tutor()
         )
         .filter(
             Enrollment.enrollment_type == 'Trial',
@@ -1424,9 +1397,7 @@ async def get_enrollment_detail(
     - **enrollment_id**: The enrollment's database ID
     """
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -1464,8 +1435,7 @@ async def get_enrollment_detail_for_modal(
     from models import ExtensionRequest
 
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor)
+        *enrollment_with_student_tutor()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -1575,9 +1545,7 @@ async def get_fee_message(
     and generate a formatted fee message ready to copy.
     """
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -1752,9 +1720,7 @@ async def update_enrollment(
 ):
     """Update an enrollment's information. Admin only."""
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -1795,9 +1761,7 @@ async def update_enrollment(
     db.commit()
     # Re-query with joins to ensure relationships are loaded
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     # Manually set relationship fields (same as GET endpoint)
@@ -1830,9 +1794,7 @@ async def update_enrollment_extension(
     from datetime import datetime
 
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -1863,9 +1825,7 @@ async def update_enrollment_extension(
 
     # Re-query with joins to ensure relationships are loaded
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor),
-        joinedload(Enrollment.discount)
+        *enrollment_with_relations()
     ).filter(Enrollment.id == enrollment_id).first()
 
     # Build response
@@ -1943,8 +1903,7 @@ async def preview_schedule_change(
     """
     # Get enrollment with relationships
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor)
+        *enrollment_with_student_tutor()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -2106,8 +2065,7 @@ async def apply_schedule_change(
     """
     # Get enrollment
     enrollment = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor)
+        *enrollment_with_student_tutor()
     ).filter(Enrollment.id == enrollment_id).first()
 
     if not enrollment:
@@ -2362,8 +2320,7 @@ async def batch_renew_check(
 
     for eid in request.enrollment_ids:
         enrollment = db.query(Enrollment).options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor)
+            *enrollment_with_student_tutor()
         ).filter(Enrollment.id == eid).first()
 
         if not enrollment:
@@ -2552,8 +2509,7 @@ async def batch_renew(
     for eid in request.enrollment_ids:
         # Get original enrollment
         enrollment = db.query(Enrollment).options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.tutor)
+            *enrollment_with_student_tutor()
         ).filter(Enrollment.id == eid).first()
 
         if not enrollment:

@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useWeather, getWeatherIcon, getWeatherDescription } from "@/lib/useWeather";
+import { useWeather, getWeatherIcon, getWeatherDescription } from "@/lib/hooks/useWeather";
 
 interface TearOffCalendarProps {
   className?: string;

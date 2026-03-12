@@ -12,6 +12,7 @@ from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent
 from auth.dependencies import get_current_user, is_office_ip, get_effective_role
+from utils.query_helpers import enrollment_with_student_tutor
 
 EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
 
@@ -329,8 +330,7 @@ async def global_search(
     # Search enrollments by student name or tutor name
     # Use joinedload to eagerly load relationships, join with Tutor for search
     enrollment_query = db.query(Enrollment).options(
-        joinedload(Enrollment.student),
-        joinedload(Enrollment.tutor)
+        *enrollment_with_student_tutor()
     ).join(
         Student, Enrollment.student_id == Student.id
     ).join(

@@ -11,7 +11,7 @@ import { sessionsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import { setZenStatus } from "./ZenStatusBar";
 import { usefulTools } from "@/config/useful-tools";
-import { useDailyPuzzle } from "@/lib/useDailyPuzzle";
+import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
 
 interface Command {
   name: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDailyPuzzle } from "@/lib/useDailyPuzzle";
+import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
 import { cn } from "@/lib/utils";
 import { Lightbulb, Check, X, Loader2 } from "lucide-react";
 
