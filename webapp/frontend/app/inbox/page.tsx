@@ -9,6 +9,7 @@ import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
@@ -2007,6 +2008,7 @@ export default function InboxPage() {
                 "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
                 isMobile ? "fixed inset-0 z-40 md:left-[var(--sidebar-width)] transition-[left] duration-200" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
+                <ErrorBoundary onReset={handleCloseThread}>
                 <ThreadDetailPanel
                   thread={selectedThread}
                   currentTutorId={effectiveTutorId ?? 0}
@@ -2058,6 +2060,7 @@ export default function InboxPage() {
                   onRegisterUndo={(cb) => { undoRestoreRef.current = cb; }}
                   onOptimisticReply={setOptimisticReply}
                 />
+                </ErrorBoundary>
               </div>
             ) : !isMobile && (
               <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg">

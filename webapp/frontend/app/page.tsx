@@ -23,6 +23,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { LazySection } from "@/components/ui/lazy-section";
+import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { BinderClip, PaperClip, Pushpin } from "@/components/ui/stationery-accents";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -139,7 +140,9 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0, rotate: isMobile ? 0 : -0.5 }}
             transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
           >
-            <TodaySessionsCard isMobile={isMobile} tutorId={effectiveTutorId} />
+            <CompactErrorBoundary>
+              <TodaySessionsCard isMobile={isMobile} tutorId={effectiveTutorId} />
+            </CompactErrorBoundary>
           </motion.div>
           <motion.div
             className="min-w-0"
@@ -148,7 +151,9 @@ export default function DashboardPage() {
             transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
             id="tests-calendar"
           >
-            <TestCalendar isMobile={isMobile} />
+            <CompactErrorBoundary>
+              <TestCalendar isMobile={isMobile} />
+            </CompactErrorBoundary>
           </motion.div>
         </div>
 
@@ -167,12 +172,14 @@ export default function DashboardPage() {
             {/* Stationery accent */}
             <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
-              <GradeDistributionChart
-                students={filteredStudents}
-                isLoading={studentsLoading}
-                error={studentsError}
-                onRetry={mutateStudents}
-              />
+              <CompactErrorBoundary>
+                <GradeDistributionChart
+                  students={filteredStudents}
+                  isLoading={studentsLoading}
+                  error={studentsError}
+                  onRetry={mutateStudents}
+                />
+              </CompactErrorBoundary>
             </LazySection>
           </motion.div>
           <motion.div
@@ -188,12 +195,14 @@ export default function DashboardPage() {
             {/* Stationery accent */}
             <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
-              <SchoolDistributionChart
-                students={filteredStudents}
-                isLoading={studentsLoading}
-                error={studentsError}
-                onRetry={mutateStudents}
-              />
+              <CompactErrorBoundary>
+                <SchoolDistributionChart
+                  students={filteredStudents}
+                  isLoading={studentsLoading}
+                  error={studentsError}
+                  onRetry={mutateStudents}
+                />
+              </CompactErrorBoundary>
             </LazySection>
           </motion.div>
         </div>
@@ -207,7 +216,9 @@ export default function DashboardPage() {
           role="complementary"
           aria-label="Recent activity"
         >
-          <ActivityFeed isMobile={isMobile} tutorId={effectiveTutorId} />
+          <CompactErrorBoundary>
+            <ActivityFeed isMobile={isMobile} tutorId={effectiveTutorId} />
+          </CompactErrorBoundary>
         </motion.div>
       </PageTransition>
     </DeskSurface>
