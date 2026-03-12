@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
 import { useMapSelection, type DocSelection } from "@/lib/hooks/useMapSelection";
 import { useLocation } from "@/contexts/LocationContext";
+import { formatDateCompact } from "@/lib/formatters";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import {
@@ -125,15 +126,6 @@ const TABS: { id: CoursewareTab; label: string; icon: typeof BarChart3 }[] = [
   { id: "browse", label: "Browse", icon: FolderTree },
   { id: "search", label: "Search", icon: Search },
 ];
-
-function formatShortDate(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 // Animated counter hook
 function useAnimatedCounter(target: number, duration: number = 1000) {
@@ -691,7 +683,7 @@ function UsageDetailPanel({
             >
               {/* Date */}
               <div className="w-20 sm:w-24 flex-shrink-0 text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
-                {formatShortDate(detail.session_date)}
+                {detail.session_date ? formatDateCompact(detail.session_date) : "-"}
               </div>
 
               {/* Student */}

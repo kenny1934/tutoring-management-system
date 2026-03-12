@@ -4,7 +4,7 @@ Allows tutors to propose make-up slots for confirmation by other tutors.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from utils.query_helpers import session_with_relations
+from utils.query_helpers import session_with_relations, proposal_with_slots
 from sqlalchemy import and_, or_, func, text
 from sqlalchemy.exc import IntegrityError
 import logging
@@ -32,6 +32,14 @@ from schemas import (
 )
 
 router = APIRouter()
+
+
+def _get_tutor(db: Session, tutor_id: int) -> Tutor:
+    """Load a tutor by ID or raise 404."""
+    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail=f"Tutor {tutor_id} not found")
+    return tutor
 
 
 def _format_date_with_day(date_input) -> str:
@@ -123,10 +131,7 @@ async def get_proposals(
     - **original_from_date/original_to_date**: Filter proposals by original session date
     """
     query = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     )
 
     if status:
@@ -219,10 +224,7 @@ async def get_proposal(
 ):
     """Get a single proposal with all details."""
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal_id).first()
 
     if not proposal:
@@ -281,19 +283,12 @@ async def create_proposal(
                 status_code=400,
                 detail="needs_input_tutor_id is required for needs_input proposals"
             )
-        target_tutor = db.query(Tutor).filter(Tutor.id == data.needs_input_tutor_id).first()
-        if not target_tutor:
-            raise HTTPException(status_code=404, detail="Target tutor not found")
+        target_tutor = _get_tutor(db, data.needs_input_tutor_id)
 
     # For specific_slots, verify each slot's tutor
     if data.proposal_type == 'specific_slots':
         for slot_data in data.slots:
-            slot_tutor = db.query(Tutor).filter(Tutor.id == slot_data.proposed_tutor_id).first()
-            if not slot_tutor:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Tutor with ID {slot_data.proposed_tutor_id} not found"
-                )
+            _get_tutor(db, slot_data.proposed_tutor_id)
 
     # Gather info for message content
     student_name = original_session.student.student_name if original_session.student else "Unknown"
@@ -428,10 +423,7 @@ View proposal: /proposals?id={proposal.id}""".strip()
 
     # Reload with relationships
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal.id).first()
 
     return _build_proposal_response(proposal, include_session=True, db=db)
@@ -793,10 +785,7 @@ View proposal: /proposals?id={proposal.id}"""
 
     # Reload and return
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal.id).first()
 
     return _build_proposal_response(proposal, include_session=True, db=db)
@@ -974,10 +963,7 @@ View proposal: /proposals?id={proposal.id}"""
 
     # Reload and return
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal.id).first()
 
     return _build_proposal_response(proposal, include_session=True, db=db)
@@ -1037,12 +1023,7 @@ async def update_slot(
 
     # If changing tutor, verify the new tutor exists
     if slot_data.proposed_tutor_id is not None:
-        new_tutor = db.query(Tutor).filter(Tutor.id == slot_data.proposed_tutor_id).first()
-        if not new_tutor:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tutor with ID {slot_data.proposed_tutor_id} not found"
-            )
+        _get_tutor(db, slot_data.proposed_tutor_id)
 
     # Update only provided fields
     if slot_data.proposed_date is not None:
@@ -1058,10 +1039,7 @@ async def update_slot(
 
     # Reload and return full proposal
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal.id).first()
 
     return _build_proposal_response(proposal, include_session=True, db=db)
@@ -1120,10 +1098,7 @@ async def reject_proposal(
 
     # Reload and return
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(MakeupProposal.id == proposal.id).first()
 
     return _build_proposal_response(proposal, include_session=True, db=db)
@@ -1179,10 +1154,7 @@ async def get_proposal_for_session(
 ):
     """Get the active proposal for a session (if any)."""
     proposal = db.query(MakeupProposal).options(
-        joinedload(MakeupProposal.proposed_by_tutor),
-        joinedload(MakeupProposal.needs_input_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
-        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+        *proposal_with_slots(),
     ).filter(
         MakeupProposal.original_session_id == session_id,
         MakeupProposal.status == 'pending'
