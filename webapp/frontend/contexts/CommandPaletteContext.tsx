@@ -25,6 +25,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       if (
         typeof window !== "undefined" &&
         (window.location.pathname.startsWith("/zen") ||
+          window.location.pathname.startsWith("/summer") ||
           document.querySelector(".zen-layout"))
       ) {
         return;
