@@ -1,4 +1,5 @@
 import { Smartphone, Phone } from "lucide-react";
+import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
   t,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/summer-utils";
 
 interface ContactBuddyStepProps {
+  config?: SummerCourseFormConfig;
   lang: Lang;
   wechatId: string;
   setWechatId: (v: string) => void;
@@ -32,6 +34,7 @@ interface ContactBuddyStepProps {
 }
 
 export function ContactBuddyStep({
+  config,
   lang,
   wechatId,
   setWechatId,
@@ -57,8 +60,8 @@ export function ContactBuddyStep({
           <label className={labelClass}>
             <IconLabel icon={Smartphone}>
               {t(
-                "我們會在微信給您發放上課的信息，請提供微信號。",
-                "We will send you the class information via WeChat. Please provide your WeChat ID.",
+                config?.text_content?.wechat_prompt_zh || "我們會在微信給您發放上課的信息，請提供微信號。",
+                config?.text_content?.wechat_prompt_en || "We will send you the class information via WeChat. Please provide your WeChat ID.",
                 lang
               )}
             </IconLabel>
@@ -75,8 +78,8 @@ export function ContactBuddyStep({
           <label className={labelClass}>
             <IconLabel icon={Phone}>
               {t(
-                "請留下聯絡電話，以便我們和您聯絡！",
-                "Please provide a contact phone number.",
+                config?.text_content?.phone_prompt_zh || "請留下聯絡電話，以便我們和您聯絡！",
+                config?.text_content?.phone_prompt_en || "Please provide a contact phone number.",
                 lang
               )}
             </IconLabel>
@@ -94,12 +97,16 @@ export function ContactBuddyStep({
       {/* Buddy Group */}
       <div className={sectionClass}>
         <h2 className="text-base font-semibold text-foreground leading-snug">
-          {t("同行優惠", "Buddy Group Discount", lang)}
+          {t(
+            config?.text_content?.buddy_title_zh || "同行優惠",
+            config?.text_content?.buddy_title_en || "Buddy Group Discount",
+            lang
+          )}
         </h2>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {t(
-            "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
-            "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
+            config?.text_content?.buddy_description_zh || "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
+            config?.text_content?.buddy_description_en || "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
             lang
           )}
         </p>

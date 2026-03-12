@@ -157,8 +157,8 @@ export function ClassPreferencesStep({
                 <div className="text-sm font-medium text-primary">
                   <IconLabel icon={Megaphone}>
                     {t(
-                      "請家長選擇 第一理想 上課日子和時間。",
-                      "Please select your 1st preferred day and time.",
+                      config.text_content?.preference_1_label_zh || "請家長選擇 第一理想 上課日子和時間。",
+                      config.text_content?.preference_1_label_en || "Please select your 1st preferred day and time.",
                       lang
                     )}
                   </IconLabel>
@@ -247,8 +247,8 @@ export function ClassPreferencesStep({
                 <div className="text-sm font-medium text-muted-foreground">
                   <IconLabel icon={Megaphone}>
                     {t(
-                      "請家長選擇 第二理想 上課日子和時間。",
-                      "Please select your 2nd preferred day and time.",
+                      config.text_content?.preference_2_label_zh || "請家長選擇 第二理想 上課日子和時間。",
+                      config.text_content?.preference_2_label_en || "Please select your 2nd preferred day and time.",
                       lang
                     )}
                   </IconLabel>
@@ -339,8 +339,8 @@ export function ClassPreferencesStep({
         <label className={`${labelClass} leading-relaxed`}>
           <IconLabel icon={Calendar}>
             {t(
-              "為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
-              "If your child will be unavailable on certain dates during summer (e.g. July 14\u201321), please let us know so we can arrange make-up classes in advance.",
+              config.text_content?.unavailability_prompt_zh || "為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
+              config.text_content?.unavailability_prompt_en || "If your child will be unavailable on certain dates during summer (e.g. July 14\u201321), please let us know so we can arrange make-up classes in advance.",
               lang
             )}
           </IconLabel>

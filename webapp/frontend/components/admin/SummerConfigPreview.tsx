@@ -152,6 +152,7 @@ export const SummerConfigPreview = memo(function SummerConfigPreview({
       case 4:
         return (
           <ContactBuddyStep
+            config={config}
             lang={lang}
             wechatId=""
             setWechatId={noop}

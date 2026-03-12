@@ -106,8 +106,8 @@ export function StudentInfoStep({
             </div>
             <div className="text-sm font-semibold text-foreground mt-0.5">
               {t(
-                "升F1 至 升F3（中／英文部／國際學校）",
-                "Pre-F1 to Pre-F3 (Chinese-medium / English-medium / International)",
+                config.text_content?.target_grades_zh || "升F1 至 升F3（中／英文部／國際學校）",
+                config.text_content?.target_grades_en || "Pre-F1 to Pre-F3 (Chinese-medium / English-medium / International)",
                 lang
               )}
             </div>
@@ -134,8 +134,8 @@ export function StudentInfoStep({
             </div>
             <div className="text-sm font-semibold text-foreground mt-0.5">
               {t(
-                `共${config.total_lessons}堂 · 每週1堂 · 90分鐘/堂`,
-                `${config.total_lessons} lessons · 1 class/week · 90 min each`,
+                config.text_content?.schedule_format_zh || `共${config.total_lessons}堂 · 每週1堂 · 90分鐘/堂`,
+                config.text_content?.schedule_format_en || `${config.total_lessons} lessons · 1 class/week · 90 min each`,
                 lang
               )}
             </div>
