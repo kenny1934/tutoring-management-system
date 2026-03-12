@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Frontend version display** — fixed version number not updating in settings modal and \"What's New\" notifications"
+          },
+          {
+            "description": "**Health check** — endpoint now returns HTTP 503 when database is unreachable, so Cloud Run can route traffic away from unhealthy instances"
           }
         ]
       },
@@ -41,6 +44,12 @@ const changelogData = [
           },
           {
             "description": "**Crash resilience** — added error boundaries around dashboard charts, document editor, inbox thread panel, courseware PDF preview, and termination charts so a crash in one component doesn't take down the whole page"
+          },
+          {
+            "description": "**Template delete safety** — added confirmation prompt before deleting message templates"
+          },
+          {
+            "description": "**Smaller Docker image** — replaced dev headers with runtime-only library in backend production image"
           },
           {
             "description": "**Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
