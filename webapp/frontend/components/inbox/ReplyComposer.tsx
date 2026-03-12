@@ -282,7 +282,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             <span className="text-xs font-semibold text-[#a0704b]">{replyTo.senderName}</span>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate m-0">{replyTo.preview}</p>
           </div>
-          <button type="button" onClick={() => setReplyTo(null)} className="p-0.5 rounded-full text-gray-400 hover:text-red-500 transition-colors flex-shrink-0" title="Cancel reply">
+          <button type="button" onClick={() => setReplyTo(null)} className="p-0.5 rounded-full text-gray-400 hover:text-red-500 transition-colors flex-shrink-0" title="Cancel reply" aria-label="Cancel reply">
             <X className="h-3 w-3" />
           </button>
         </div>

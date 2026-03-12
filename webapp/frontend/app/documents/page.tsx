@@ -649,14 +649,14 @@ export default function DocumentsPage() {
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f]">
                   <FolderOpen className="w-3 h-3" />
                   {activeFolder.name}
-                  <button onClick={() => setActiveFolderId(null)} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
+                  <button onClick={() => setActiveFolderId(null)} className="ml-0.5 hover:opacity-70" aria-label="Clear folder filter"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {activeTag && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f]">
                   <Tag className="w-3 h-3" />
                   {activeTag}
-                  <button onClick={() => setActiveTag(null)} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
+                  <button onClick={() => setActiveTag(null)} className="ml-0.5 hover:opacity-70" aria-label="Clear tag filter"><X className="w-3 h-3" /></button>
                 </span>
               )}
             </div>

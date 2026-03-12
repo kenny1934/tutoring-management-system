@@ -84,6 +84,9 @@ export function Modal({
 
   const modalContent = (
     <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -107,7 +110,7 @@ export function Modal({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
+        <h2 id="modal-title" className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
           {title}
         </h2>
         <button

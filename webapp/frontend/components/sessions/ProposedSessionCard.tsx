@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { proposedSessionStyles } from "@/lib/session-status";
@@ -21,7 +22,7 @@ interface ProposedSessionCardProps {
  * Renders a proposed session slot as a "ghost" card with visual distinction
  * from regular sessions. Used in session views to show pending proposal slots.
  */
-export function ProposedSessionCard({
+export const ProposedSessionCard = memo(function ProposedSessionCard({
   proposedSession,
   onClick,
   size = "normal",
@@ -138,12 +139,12 @@ export function ProposedSessionCard({
       </div>
     </motion.div>
   );
-}
+});
 
 /**
  * List view variant of ProposedSessionCard with more details
  */
-export function ProposedSessionRow({
+export const ProposedSessionRow = memo(function ProposedSessionRow({
   proposedSession,
   onClick,
 }: {
@@ -233,4 +234,4 @@ export function ProposedSessionRow({
       </div>
     </motion.div>
   );
-}
+});
