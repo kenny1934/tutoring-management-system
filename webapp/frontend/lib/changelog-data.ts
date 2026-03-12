@@ -40,6 +40,9 @@ const changelogData = [
             "description": "**Dashboard & session list performance** — memoized attention card and proposed session components to reduce re-renders"
           },
           {
+            "description": "**Crash resilience** — added error boundaries around dashboard charts, document editor, inbox thread panel, courseware PDF preview, and termination charts so a crash in one component doesn't take down the whole page"
+          },
+          {
             "description": "**Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
           }
         ]
