@@ -316,7 +316,7 @@ export function SummerConfigEditor({
   const [saving, setSaving] = useState(false);
 
   // Form state — mirrors SummerCourseConfig fields
-  const [year, setYear] = useState(new Date().getFullYear() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [title, setTitle] = useState("");
   const [isActive, setIsActive] = useState(false);
   const [bannerImageUrl, setBannerImageUrl] = useState("");
