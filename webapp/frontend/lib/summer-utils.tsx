@@ -2,6 +2,9 @@
  * Shared utilities for summer course public pages.
  */
 
+import { Check } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 export type Lang = "zh" | "en";
 
 /** Bilingual text selector. */
@@ -60,10 +63,42 @@ export const radioLabelClass = (selected: boolean) =>
 
 /** Small checkmark shown inside selected radio pills. */
 export const RadioCheck = () => (
-  <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] leading-none">
-    ✓
+  <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+    <Check className="h-2.5 w-2.5" strokeWidth={3} />
   </span>
 );
+
+/** Icon + label pattern for form field labels. */
+export function IconLabel({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="h-4 w-4 shrink-0 text-primary/70" />
+      <span>{children}</span>
+    </span>
+  );
+}
+
+/** Icon + text row for structured info blocks. */
+export function InfoRow({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 text-sm text-foreground">
+      <Icon className="h-4 w-4 shrink-0 mt-0.5 text-primary/70" />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 /** Red asterisk for required fields. */
 export const RequiredMark = () => (

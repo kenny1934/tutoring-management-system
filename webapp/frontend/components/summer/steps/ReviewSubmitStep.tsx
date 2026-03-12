@@ -168,8 +168,8 @@ export function ReviewSubmitStep({
       <div className={sectionClass}>
         <p className="text-sm text-foreground leading-relaxed">
           {t(
-            config.text_content?.disclaimer_zh || "\u{1F4E3}\u{1F4E3}此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
-            config.text_content?.disclaimer_en || "\u{1F4E3}\u{1F4E3} This form is intended solely for collecting students\u2019 preferences for summer course time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available. (The schedule for summer course will be confirmed on or before May 21.)",
+            config.text_content?.disclaimer_zh || "此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
+            config.text_content?.disclaimer_en || "This form is intended solely for collecting students\u2019 preferences for summer course time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available. (The schedule for summer course will be confirmed on or before May 21.)",
             lang
           )}
         </p>
@@ -188,7 +188,7 @@ export function ReviewSubmitStep({
             required
           />
           <span className="text-sm font-medium text-foreground">
-            {t("確認\u2705\uFE0F", "Confirmed\u2705\uFE0F", lang)}
+            {t("確認", "Confirmed", lang)}
           </span>
         </label>
       </div>

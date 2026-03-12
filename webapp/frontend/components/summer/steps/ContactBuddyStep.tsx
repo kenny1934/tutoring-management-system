@@ -1,3 +1,4 @@
+import { Smartphone, Phone } from "lucide-react";
 import {
   type Lang,
   t,
@@ -8,6 +9,7 @@ import {
   radioLabelClass,
   RadioCheck,
   RequiredMark,
+  IconLabel,
 } from "@/lib/summer-utils";
 
 interface ContactBuddyStepProps {
@@ -53,11 +55,13 @@ export function ContactBuddyStep({
       <div className={sectionClass}>
         <div>
           <label className={labelClass}>
-            {t(
-              "\u{1F4F2} 我們會在微信給您發放上課的信息，請提供微信號。",
-              "\u{1F4F2} We will send you the class information via WeChat. Please provide your WeChat ID.",
-              lang
-            )}
+            <IconLabel icon={Smartphone}>
+              {t(
+                "我們會在微信給您發放上課的信息，請提供微信號。",
+                "We will send you the class information via WeChat. Please provide your WeChat ID.",
+                lang
+              )}
+            </IconLabel>
             <RequiredMark />
           </label>
           <input
@@ -69,11 +73,13 @@ export function ContactBuddyStep({
         </div>
         <div>
           <label className={labelClass}>
-            {t(
-              "\u{1F4DE} 請留下聯絡電話，以便我們和您聯絡！",
-              "\u{1F4DE} Please also kindly leave your contact number.",
-              lang
-            )}
+            <IconLabel icon={Phone}>
+              {t(
+                "請留下聯絡電話，以便我們和您聯絡！",
+                "Please also kindly leave your contact number.",
+                lang
+              )}
+            </IconLabel>
             <RequiredMark />
           </label>
           <input

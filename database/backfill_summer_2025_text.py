@@ -16,12 +16,12 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 TEXT_CONTENT = {
-    "intro_zh": "\u2728感謝家長和學生對 MathConcept 「中學教室」的支持！\u2728\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
-    "intro_en": "\u2728 Thank you to all parents and students for your continuous support for MathConcept Secondary Academy! \u2728\n\nTo confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
-    "disclaimer_zh": "\U0001f4e3\U0001f4e3此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
-    "disclaimer_en": "\U0001f4e3\U0001f4e3 This form is intended solely for collecting students\u2019 preferences for summer course time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available. (The schedule for summer course will be confirmed on or before May 21.)",
-    "success_message_zh": "再次感謝家長和學生對MathConcept「中學教室」的支持！\U0001f970",
-    "success_message_en": "Thank you again for your support to MathConcept Secondary Academy! \U0001f970",
+    "intro_zh": "感謝家長和學生對 MathConcept 「中學教室」的支持！\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
+    "intro_en": "Thank you to all parents and students for your continuous support for MathConcept Secondary Academy!\n\nTo confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
+    "disclaimer_zh": "此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
+    "disclaimer_en": "This form is intended solely for collecting students\u2019 preferences for summer course time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available. (The schedule for summer course will be confirmed on or before May 21.)",
+    "success_message_zh": "再次感謝家長和學生對MathConcept「中學教室」的支持！",
+    "success_message_en": "Thank you again for your support to MathConcept Secondary Academy!",
 }
 
 BANNER_IMAGE_URL = "/summer/summer-banner.jpg"
@@ -61,12 +61,13 @@ def main():
             loc["image_url"] = img
             print(f"  Set image_url for {loc['name_en']}: {img}")
 
+    clean_title = "2025年度暑期課程留位 Intended class time for 2025 Summer"
     cursor.execute(
-        "UPDATE summer_course_configs SET text_content = %s, banner_image_url = %s, locations = %s WHERE id = %s",
-        (json.dumps(TEXT_CONTENT, ensure_ascii=False), BANNER_IMAGE_URL, json.dumps(locations, ensure_ascii=False), config_id),
+        "UPDATE summer_course_configs SET title = %s, text_content = %s, banner_image_url = %s, locations = %s WHERE id = %s",
+        (clean_title, json.dumps(TEXT_CONTENT, ensure_ascii=False), BANNER_IMAGE_URL, json.dumps(locations, ensure_ascii=False), config_id),
     )
     conn.commit()
-    print(f"  Updated text_content ({len(TEXT_CONTENT)} keys), banner_image_url, and location images.")
+    print(f"  Updated title, text_content ({len(TEXT_CONTENT)} keys), banner_image_url, and location images.")
 
     cursor.close()
     conn.close()
