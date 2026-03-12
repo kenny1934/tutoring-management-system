@@ -5,6 +5,7 @@ Provides read-only access to session log data.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
+from utils.query_helpers import session_with_relations
 from sqlalchemy import func, or_, text
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
@@ -14,7 +15,7 @@ from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompleti
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES
-from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
+from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write
@@ -52,9 +53,7 @@ async def get_sessions(
     - **offset**: Pagination offset (default 0)
     """
     query = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises),
+        *session_with_relations(),
         joinedload(SessionLog.extension_request),
         joinedload(SessionLog.enrollment)
     )
@@ -111,10 +110,13 @@ async def get_sessions(
         ).filter(SessionLog.id.in_(linked_ids)).all()
         linked_sessions = {s.id: s for s in linked_query}
 
+    # Batch-resolve root original session dates for makeup sessions
+    root_dates = batch_find_root_original_session_dates(sessions, db)
+
     # Build response with related data
     result = []
     for session in sessions:
-        session_data = _build_session_response(session, db)
+        session_data = _build_session_response(session, db, root_dates=root_dates)
 
         # Add linked session info
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
@@ -549,9 +551,7 @@ async def mark_session_attended(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -615,9 +615,7 @@ async def mark_session_no_show(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -667,9 +665,7 @@ async def mark_session_rescheduled(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -719,9 +715,7 @@ async def mark_session_sick_leave(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -771,9 +765,7 @@ async def mark_session_weather_cancelled(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -830,9 +822,7 @@ async def undo_session_status(
     Returns the session with `undone_from_status` field indicating what was undone.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -898,9 +888,7 @@ async def redo_session_status(
     Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -1185,9 +1173,7 @@ async def schedule_makeup(
     # Get the original session with row-level lock to prevent race conditions
     # (two concurrent requests could both see rescheduled_to_id=NULL without this)
     original_session = db.query(SessionLog).with_for_update().options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not original_session:
@@ -1299,9 +1285,7 @@ async def schedule_makeup(
 
     # Load relationships for the makeup session
     makeup_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == makeup_session.id).first()
 
     # Build responses
@@ -1365,9 +1349,7 @@ async def cancel_makeup(
         )
 
     original_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == makeup_session.make_up_for_id).first()
 
     if not original_session:
@@ -1412,9 +1394,7 @@ async def save_session_exercises(
     - **exercises**: List of exercises to save
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -1553,9 +1533,7 @@ async def rate_session(
     - **notes**: Optional notes/comments
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -1608,9 +1586,7 @@ async def update_session(
     - **notes**: Session notes/comments
     """
     session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == session_id).first()
 
     if not session:

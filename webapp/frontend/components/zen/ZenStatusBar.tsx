@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
-import { useWeather, getWeatherIcon } from "@/lib/useWeather";
+import { useWeather, getWeatherIcon } from "@/lib/hooks/useWeather";
 
 interface StatusMessage {
   text: string;

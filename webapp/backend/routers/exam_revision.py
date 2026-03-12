@@ -7,6 +7,7 @@ and track enrollment.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from utils.query_helpers import session_with_relations
 from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
@@ -994,9 +995,7 @@ async def enroll_student(
 
     # Get the session to consume
     consume_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == request.consume_session_id).first()
 
     if not consume_session:
@@ -1103,15 +1102,11 @@ async def enroll_student(
 
     # Refresh and load relationships for response
     revision_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == revision_session.id).first()
 
     consume_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        *session_with_relations()
     ).filter(SessionLog.id == consume_session.id).first()
 
     return EnrollStudentResponse(

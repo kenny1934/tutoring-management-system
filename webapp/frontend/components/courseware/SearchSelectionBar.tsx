@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlus } from "lucide-react";
-import { type DocSelection } from "@/lib/use-selection";
+import { type DocSelection } from "@/lib/hooks/useMapSelection";
 
 interface SearchSelectionBarProps {
   selections: Map<number, DocSelection>;

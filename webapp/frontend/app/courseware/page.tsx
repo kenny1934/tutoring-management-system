@@ -6,7 +6,7 @@ import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
-import { useMapSelection, type DocSelection } from "@/lib/use-selection";
+import { useMapSelection, type DocSelection } from "@/lib/hooks/useMapSelection";
 import { useLocation } from "@/contexts/LocationContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";

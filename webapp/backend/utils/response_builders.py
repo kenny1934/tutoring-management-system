@@ -5,6 +5,7 @@ Centralizes the common patterns for building API response objects
 from SQLAlchemy models with loaded relationships.
 """
 from typing import Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from models import SessionLog, Tutor
 from schemas import SessionResponse, SessionExerciseResponse, LinkedSessionInfo
@@ -34,7 +35,56 @@ def _find_root_original_session_date(session: SessionLog, db: Session):
     return current.session_date
 
 
-def build_session_response(session: SessionLog, db: Optional[Session] = None) -> SessionResponse:
+def batch_find_root_original_session_dates(
+    sessions: list,
+    db: Session,
+) -> dict[int, date]:
+    """
+    Batch-resolve root original session dates for a list of sessions.
+
+    Returns a dict mapping session_id -> root_original_date for sessions
+    that are makeups. Non-makeup sessions are excluded from the result.
+    """
+    makeup_sessions = [s for s in sessions if s.make_up_for_id]
+    if not makeup_sessions:
+        return {}
+
+    # Build a map of all sessions we already have
+    known_sessions = {s.id: s for s in sessions}
+
+    # Collect parent IDs we need to trace
+    ids_to_fetch = {s.make_up_for_id for s in makeup_sessions}
+
+    # Iteratively load parent sessions until all chains are resolved
+    while ids_to_fetch - set(known_sessions.keys()):
+        missing_ids = list(ids_to_fetch - set(known_sessions.keys()))
+        parents = db.query(SessionLog).filter(
+            SessionLog.id.in_(missing_ids)
+        ).all()
+        if not parents:
+            break
+        for p in parents:
+            known_sessions[p.id] = p
+            if p.make_up_for_id:
+                ids_to_fetch.add(p.make_up_for_id)
+
+    # Trace each makeup session to its root
+    result = {}
+    for s in makeup_sessions:
+        visited = set()
+        current = s
+        while current.make_up_for_id and current.id not in visited:
+            visited.add(current.id)
+            parent = known_sessions.get(current.make_up_for_id)
+            if not parent:
+                break
+            current = parent
+        result[s.id] = current.session_date
+
+    return result
+
+
+def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None) -> SessionResponse:
     """
     Build a SessionResponse from a SessionLog with student/tutor/exercise data.
 
@@ -64,8 +114,11 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None) ->
         data.extension_request_id = session.extension_request.id
         data.extension_request_status = session.extension_request.request_status
     # Compute root original session date for makeup sessions (for 60-day rule)
-    if db and session.make_up_for_id:
-        data.root_original_session_date = _find_root_original_session_date(session, db)
+    if session.make_up_for_id:
+        if root_dates is not None:
+            data.root_original_session_date = root_dates.get(session.id)
+        elif db:
+            data.root_original_session_date = _find_root_original_session_date(session, db)
     # Enrollment payment status (if enrollment is loaded)
     if hasattr(session, 'enrollment') and session.enrollment:
         data.enrollment_payment_status = session.enrollment.payment_status

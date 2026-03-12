@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.30](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.30) (2026-03-12)
+
+### Improvements
+
+* **Code cleanup** — removed deprecated import wrappers and consolidated duplicated logic across backend routers
+* **Query optimization** — adopted shared query helpers to reduce repetitive database loading patterns
+* **Session list performance** — batch-resolve makeup session chain lookups instead of querying one-by-one
+
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
 
 ### New Features

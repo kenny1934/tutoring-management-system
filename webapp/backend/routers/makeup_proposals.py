@@ -4,6 +4,7 @@ Allows tutors to propose make-up slots for confirmation by other tutors.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from utils.query_helpers import session_with_relations
 from sqlalchemy import and_, or_, func, text
 from sqlalchemy.exc import IntegrityError
 import logging
@@ -75,9 +76,7 @@ def _build_proposal_response(
     if include_session and db and proposal.original_session:
         from utils.response_builders import build_session_response
         session = db.query(SessionLog).options(
-            joinedload(SessionLog.student),
-            joinedload(SessionLog.tutor),
-            joinedload(SessionLog.exercises)
+            *session_with_relations()
         ).filter(SessionLog.id == proposal.original_session_id).first()
         if session:
             original_session = build_session_response(session)
