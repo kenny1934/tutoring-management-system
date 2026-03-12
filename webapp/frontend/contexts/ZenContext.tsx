@@ -639,32 +639,38 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     setIsExiting(value);
   }, []);
 
+  const contextValue = useMemo(() => ({
+    enabled,
+    theme,
+    effectiveTheme,
+    themeId,
+    themeOverrides,
+    commandHistory,
+    glowEnabled,
+    glowIntensity,
+    mounted,
+    isExiting,
+    enableZenMode,
+    disableZenMode,
+    toggleZenMode,
+    setTheme,
+    setThemeOverride,
+    clearThemeOverrides,
+    addToHistory,
+    clearHistory,
+    setGlowEnabled,
+    setGlowIntensity,
+    setExiting,
+  }), [
+    enabled, theme, effectiveTheme, themeId, themeOverrides,
+    commandHistory, glowEnabled, glowIntensity, mounted, isExiting,
+    enableZenMode, disableZenMode, toggleZenMode, setTheme,
+    setThemeOverride, clearThemeOverrides, addToHistory, clearHistory,
+    setGlowEnabled, setGlowIntensity, setExiting,
+  ]);
+
   return (
-    <ZenContext.Provider
-      value={{
-        enabled,
-        theme,
-        effectiveTheme,
-        themeId,
-        themeOverrides,
-        commandHistory,
-        glowEnabled,
-        glowIntensity,
-        mounted,
-        isExiting,
-        enableZenMode,
-        disableZenMode,
-        toggleZenMode,
-        setTheme,
-        setThemeOverride,
-        clearThemeOverrides,
-        addToHistory,
-        clearHistory,
-        setGlowEnabled,
-        setGlowIntensity,
-        setExiting,
-      }}
-    >
+    <ZenContext.Provider value={contextValue}>
       {children}
     </ZenContext.Provider>
   );

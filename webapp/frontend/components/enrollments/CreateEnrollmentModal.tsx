@@ -326,8 +326,7 @@ export function CreateEnrollmentModal({
       setLocation(convertFromTrial.location);
       // Parse day from session date
       const sessionDate = new Date(convertFromTrial.session_date);
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      setAssignedDay(dayNames[sessionDate.getDay()]);
+      setAssignedDay(DAY_NAMES[sessionDate.getDay()]);
       setAssignedTime(convertFromTrial.time_slot);
       // Calculate next occurrence of this day after trial
       const nextDate = new Date(sessionDate);
@@ -449,8 +448,7 @@ export function CreateEnrollmentModal({
   const dayMismatchWarning = useMemo(() => {
     if (!firstLessonDate || !assignedDay) return null;
     const date = new Date(firstLessonDate + 'T00:00:00'); // Ensure local timezone
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const actualDay = dayNames[date.getDay()];
+    const actualDay = DAY_NAMES[date.getDay()];
     if (actualDay !== assignedDay) {
       return `Selected date is a ${actualDay}, but assigned day is ${assignedDay}`;
     }

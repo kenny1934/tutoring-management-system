@@ -33,7 +33,7 @@ from schemas import (
 )
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from utils.response_builders import build_session_response as _build_session_response, _find_root_original_session_date
+from utils.response_builders import build_session_response as _build_session_response, batch_find_root_original_session_dates
 from utils.makeup_validators import validate_makeup_constraints
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
@@ -806,43 +806,52 @@ async def get_eligible_students(
     # For each student, find their pending sessions
     eligible_students = []
 
+    # First pass: collect pending sessions per student
+    student_sessions = {}
     for student in students:
-        # Skip already enrolled students
         if student.id in already_enrolled_student_ids:
             continue
-
-        # Find pending make-up sessions
-        pending_sessions = _get_consumable_sessions_query(
+        pending = _get_consumable_sessions_query(
             db, student.id, slot.location
         ).order_by(SessionLog.session_date).all()
+        if pending:
+            student_sessions[student.id] = pending
 
-        if pending_sessions:
-            enrollment = enrollment_map.get(student.id)
-            past_deadline = _check_past_deadline(db, student.id, slot.session_date, slot.time_slot)
-            eligible_students.append(EligibleStudentResponse(
-                student_id=student.id,
-                student_name=student.student_name,
-                school_student_id=student.school_student_id,
-                grade=student.grade,
-                school=student.school,
-                lang_stream=student.lang_stream,
-                academic_stream=student.academic_stream,
-                home_location=student.home_location,
-                enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
-                is_past_deadline=past_deadline,
-                pending_sessions=[
-                    PendingSessionInfo(
-                        id=s.id,
-                        session_date=s.session_date,
-                        time_slot=s.time_slot,
-                        session_status=s.session_status,
-                        tutor_name=s.tutor.tutor_name if s.tutor else None,
-                        location=s.location,
-                        root_original_session_date=_find_root_original_session_date(s, db),
-                    )
-                    for s in pending_sessions
-                ]
-            ))
+    # Batch resolve root original session dates for all sessions at once
+    all_sessions = [s for sessions in student_sessions.values() for s in sessions]
+    root_dates = batch_find_root_original_session_dates(all_sessions, db)
+
+    # Second pass: build responses
+    for student in students:
+        if student.id not in student_sessions:
+            continue
+        pending_sessions = student_sessions[student.id]
+        enrollment = enrollment_map.get(student.id)
+        past_deadline = _check_past_deadline(db, student.id, slot.session_date, slot.time_slot)
+        eligible_students.append(EligibleStudentResponse(
+            student_id=student.id,
+            student_name=student.student_name,
+            school_student_id=student.school_student_id,
+            grade=student.grade,
+            school=student.school,
+            lang_stream=student.lang_stream,
+            academic_stream=student.academic_stream,
+            home_location=student.home_location,
+            enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
+            is_past_deadline=past_deadline,
+            pending_sessions=[
+                PendingSessionInfo(
+                    id=s.id,
+                    session_date=s.session_date,
+                    time_slot=s.time_slot,
+                    session_status=s.session_status,
+                    tutor_name=s.tutor.tutor_name if s.tutor else None,
+                    location=s.location,
+                    root_original_session_date=root_dates.get(s.id),
+                )
+                for s in pending_sessions
+            ]
+        ))
 
     # Sort by student ID
     eligible_students.sort(key=lambda s: s.school_student_id or "")
@@ -916,41 +925,50 @@ async def get_eligible_students_by_exam(
     # For each student, find their pending sessions
     eligible_students = []
 
+    # First pass: collect pending sessions per student
+    student_sessions = {}
     for student in students:
-        # Skip already enrolled students
         if student.id in already_enrolled_ids:
             continue
-
-        # Find pending make-up sessions (optionally filtered by locations)
-        pending_sessions = _get_consumable_sessions_query(
+        pending = _get_consumable_sessions_query(
             db, student.id, locations=locations_list
         ).order_by(SessionLog.session_date).all()
+        if pending:
+            student_sessions[student.id] = pending
 
-        if pending_sessions:
-            enrollment = enrollment_map.get(student.id)
-            eligible_students.append(EligibleStudentResponse(
-                student_id=student.id,
-                student_name=student.student_name,
-                school_student_id=student.school_student_id,
-                grade=student.grade,
-                school=student.school,
-                lang_stream=student.lang_stream,
-                academic_stream=student.academic_stream,
-                home_location=student.home_location,
-                enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
-                pending_sessions=[
-                    PendingSessionInfo(
-                        id=s.id,
-                        session_date=s.session_date,
-                        time_slot=s.time_slot,
-                        session_status=s.session_status,
-                        tutor_name=s.tutor.tutor_name if s.tutor else None,
-                        location=s.location,
-                        root_original_session_date=_find_root_original_session_date(s, db),
-                    )
-                    for s in pending_sessions
-                ]
-            ))
+    # Batch resolve root original session dates for all sessions at once
+    all_sessions = [s for sessions in student_sessions.values() for s in sessions]
+    root_dates = batch_find_root_original_session_dates(all_sessions, db)
+
+    # Second pass: build responses
+    for student in students:
+        if student.id not in student_sessions:
+            continue
+        pending_sessions = student_sessions[student.id]
+        enrollment = enrollment_map.get(student.id)
+        eligible_students.append(EligibleStudentResponse(
+            student_id=student.id,
+            student_name=student.student_name,
+            school_student_id=student.school_student_id,
+            grade=student.grade,
+            school=student.school,
+            lang_stream=student.lang_stream,
+            academic_stream=student.academic_stream,
+            home_location=student.home_location,
+            enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
+            pending_sessions=[
+                PendingSessionInfo(
+                    id=s.id,
+                    session_date=s.session_date,
+                    time_slot=s.time_slot,
+                    session_status=s.session_status,
+                    tutor_name=s.tutor.tutor_name if s.tutor else None,
+                    location=s.location,
+                    root_original_session_date=root_dates.get(s.id),
+                )
+                for s in pending_sessions
+            ]
+        ))
 
     # Sort by student ID
     eligible_students.sort(key=lambda s: s.school_student_id or "")

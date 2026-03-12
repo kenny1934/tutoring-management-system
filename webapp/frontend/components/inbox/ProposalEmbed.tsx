@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatDateCompact } from "@/lib/formatters";
 import { useProposal, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -30,16 +31,6 @@ interface ProposalEmbedProps {
 function extractProposalId(text: string): number | null {
   const match = text.match(/\/proposals\?id=(\d+)/);
   return match ? parseInt(match[1], 10) : null;
-}
-
-// Format date compactly
-function formatDateCompact(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 // Compact slot item with confirmation dialogs
