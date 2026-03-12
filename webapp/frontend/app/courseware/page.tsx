@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
 import { useMapSelection, type DocSelection } from "@/lib/hooks/useMapSelection";
 import { useLocation } from "@/contexts/LocationContext";
+import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { formatDateCompact } from "@/lib/formatters";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -1839,6 +1840,7 @@ function CoursewareBrowserTab() {
 
       {/* Preview panel */}
       {previewUrl && (
+        <CompactErrorBoundary>
         <BrowsePdfPreview
           previewUrl={previewUrl}
           previewNode={previewNode}
@@ -1861,6 +1863,7 @@ function CoursewareBrowserTab() {
           onCleanedPdf={handleCleanedPdf}
           onToggleCleaned={() => setShowCleanedPreview(!showCleanedPreview)}
         />
+        </CompactErrorBoundary>
       )}
 
       {/* Session Selector Modal */}

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useLocation } from "@/contexts/LocationContext";
+import { CompactErrorBoundary } from "@/components/ui/error-boundary";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails, useTerminationTrends, useDebouncedValue } from "@/lib/hooks";
@@ -925,20 +926,24 @@ export default function TerminatedStudentsPage() {
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <TerminationTrendChart
-                data={trendData}
-                isLoading={loadingTrends || (!trendData && !stats)}
-                selectedQuarter={selectedQuarter}
-                selectedYear={selectedYear}
-                isMobile={isMobile}
-              />
-              {terminatedStudents.length > 0 ? (
-                <ReasonDistributionChart
-                  students={terminatedStudents}
-                  getEffectiveChecked={getEffectiveChecked}
-                  getEffectiveCategory={getEffectiveCategory}
+              <CompactErrorBoundary>
+                <TerminationTrendChart
+                  data={trendData}
+                  isLoading={loadingTrends || (!trendData && !stats)}
+                  selectedQuarter={selectedQuarter}
+                  selectedYear={selectedYear}
                   isMobile={isMobile}
                 />
+              </CompactErrorBoundary>
+              {terminatedStudents.length > 0 ? (
+                <CompactErrorBoundary>
+                  <ReasonDistributionChart
+                    students={terminatedStudents}
+                    getEffectiveChecked={getEffectiveChecked}
+                    getEffectiveCategory={getEffectiveCategory}
+                    isMobile={isMobile}
+                  />
+                </CompactErrorBoundary>
               ) : isLoading ? (
                 <div className={cn(
                   "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",

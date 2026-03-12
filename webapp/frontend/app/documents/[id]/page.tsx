@@ -7,6 +7,7 @@ import { documentsAPI } from "@/lib/document-api";
 import { usePageTitle } from "@/lib/hooks";
 import { trackDocView } from "@/lib/recent-docs";
 import { DocumentEditor } from "@/components/documents/DocumentEditor";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 function EditorSkeleton() {
   return (
@@ -101,10 +102,12 @@ export default function DocumentEditorPage() {
   }
 
   return (
-    <DocumentEditor
-      document={doc}
-      onUpdate={mutate}
-      printMode={printMode}
-    />
+    <ErrorBoundary>
+      <DocumentEditor
+        document={doc}
+        onUpdate={mutate}
+        printMode={printMode}
+      />
+    </ErrorBoundary>
   );
 }
