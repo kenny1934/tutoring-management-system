@@ -17,13 +17,13 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 TEXT_CONTENT = {
     "title_zh": "2025年度暑期課程留位",
-    "title_en": "Intended class time for 2025 Summer",
+    "title_en": "2025 Summer Course Seat Reservation",
     "intro_zh": "感謝家長和學生對 MathConcept 「中學教室」的支持！\n\n現誠邀有意就讀中學暑期課程的學生家長填寫貴子女最理想的上課時間，以便導師處理留位手續。",
-    "intro_en": "Thank you to all parents and students for your continuous support for MathConcept Secondary Academy!\n\nTo confirm our summer class schedule, we invite you to share your preferred time slot for our upcoming summer course - the Secondary Preparatory Course. This will help us make the necessary arrangement for reserving your seat.",
+    "intro_en": "Thank you for your continued support of MathConcept Secondary Academy!\n\nPlease share your preferred class time for our upcoming summer course so we can arrange your schedule.",
     "disclaimer_zh": "此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
-    "disclaimer_en": "This form is intended solely for collecting students\u2019 preferences for summer course time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available. (The schedule for summer course will be confirmed on or before May 21.)",
+    "disclaimer_en": "This form collects your preferred class times only \u2014 final schedules will be arranged based on overall demand and may differ from your selection. We appreciate your understanding. (The summer course schedule will be confirmed by 21 May.)",
     "success_message_zh": "再次感謝家長和學生對MathConcept「中學教室」的支持！",
-    "success_message_en": "Thank you again for your support to MathConcept Secondary Academy!",
+    "success_message_en": "Thank you again for your support of MathConcept Secondary Academy!",
 }
 
 BANNER_IMAGE_URL = "/summer/summer-banner.jpg"

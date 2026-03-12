@@ -76,7 +76,7 @@ export function ContactBuddyStep({
             <IconLabel icon={Phone}>
               {t(
                 "請留下聯絡電話，以便我們和您聯絡！",
-                "Please also kindly leave your contact number.",
+                "Please provide a contact phone number.",
                 lang
               )}
             </IconLabel>
@@ -98,7 +98,7 @@ export function ContactBuddyStep({
         </h2>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {t(
-            "三人或以上同行報名可享團報優惠。你可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
+            "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
             "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
             lang
           )}
@@ -213,7 +213,7 @@ export function ContactBuddyStep({
                   rows={2}
                   className={inputClass}
                   placeholder={t(
-                    "請填寫你同行朋友的英文姓名",
+                    "請填寫您同行朋友的英文姓名",
                     "Enter your friends' English names",
                     lang
                   )}
