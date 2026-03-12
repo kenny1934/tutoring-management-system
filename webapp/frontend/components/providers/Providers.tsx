@@ -18,7 +18,7 @@ import { ExerciseClipboardWidget } from "@/components/ui/ExerciseClipboardWidget
 
 // Module-level constant — avoids recreating the config object on every render
 const SWR_CONFIG = {
-  revalidateOnFocus: true,
+  revalidateOnFocus: false,
   revalidateOnReconnect: true, // Refresh data when user returns from offline
   dedupingInterval: 5000,
   keepPreviousData: true, // Show stale data while revalidating
