@@ -26,7 +26,7 @@ from schemas import (
     FolderUpdate,
     FolderResponse,
 )
-from auth.dependencies import get_current_user, reject_guest, reject_read_only
+from auth.dependencies import get_current_user, reject_guest, reject_read_only, ADMIN_WRITE_ROLES
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +331,7 @@ async def update_document(
 
     # Only creator or admins can update
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own documents")
 
@@ -392,7 +392,7 @@ async def delete_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete your own documents")
 
@@ -413,7 +413,7 @@ async def permanently_delete_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete your own documents")
 
@@ -543,7 +543,7 @@ async def unlock_document(
         return {"message": "Document is not locked"}
 
     is_lock_owner = doc.locked_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_lock_owner or is_admin):
         raise HTTPException(status_code=403, detail="Only the lock holder or admins can unlock")
 
@@ -615,7 +615,7 @@ async def create_checkpoint(
         raise HTTPException(status_code=404, detail="Document not found")
 
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only create checkpoints for your own documents")
 
@@ -645,7 +645,7 @@ async def restore_version(
         raise HTTPException(status_code=404, detail="Document not found")
 
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only restore your own documents")
 
@@ -690,7 +690,7 @@ async def delete_version(
         raise HTTPException(status_code=404, detail="Document not found")
 
     is_owner = doc.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete versions of your own documents")
 
@@ -779,7 +779,7 @@ async def update_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
 
     is_owner = folder.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own folders")
 
@@ -807,7 +807,7 @@ async def delete_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
 
     is_owner = folder.created_by == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete your own folders")
 

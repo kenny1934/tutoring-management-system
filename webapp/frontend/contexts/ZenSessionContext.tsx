@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { Session } from "@/types";
 import { groupAndSortSessions, canBeMarked } from "@/components/zen/utils/sessionSorting";
+import { formatRelativeDateLabel } from "@/lib/formatters";
 
 interface ZenSessionContextType {
   // Session data
@@ -49,26 +50,6 @@ const getToday = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-// Helper to format date relative to today
-const formatDateLabel = (dateStr: string): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(dateStr + "T00:00:00");
-  const diffDays = Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === -1) return "Yesterday";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
-  if (diffDays < -1 && diffDays >= -7) return `${-diffDays} days ago`;
-
-  // Format as date
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-};
 
 export function ZenSessionProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -85,7 +66,7 @@ export function ZenSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getDateLabel = useCallback(
-    () => formatDateLabel(selectedDate),
+    () => formatRelativeDateLabel(selectedDate),
     [selectedDate]
   );
 

@@ -18,7 +18,7 @@ from schemas import (
     TutorMemoResponse,
     TutorMemoImportRequest,
 )
-from auth.dependencies import get_current_user, reject_guest
+from auth.dependencies import get_current_user, reject_guest, ADMIN_WRITE_ROLES
 
 router = APIRouter()
 
@@ -172,7 +172,7 @@ async def update_memo(
 
     # Only the creator or admins can update
     is_owner = memo.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own memos")
 
@@ -209,7 +209,7 @@ async def delete_memo(
     memo = _load_memo(db, memo_id)
 
     is_owner = memo.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete your own memos")
 
@@ -266,7 +266,7 @@ async def import_memo_to_session(
 
     # Check ownership
     is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 

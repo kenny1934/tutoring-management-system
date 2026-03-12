@@ -12,6 +12,7 @@ import { mutate } from "swr";
 import { setZenStatus } from "./ZenStatusBar";
 import { usefulTools } from "@/config/useful-tools";
 import { useDailyPuzzle } from "@/lib/hooks/useDailyPuzzle";
+import { formatRelativeDateLabel } from "@/lib/formatters";
 
 interface Command {
   name: string;
@@ -20,25 +21,6 @@ interface Command {
   execute: (args: string[]) => void | Promise<void>;
 }
 
-// Helper to format date relative to today
-const formatDateLabel = (dateStr: string): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(dateStr + "T00:00:00");
-  const diffDays = Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === -1) return "Yesterday";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
-  if (diffDays < -1 && diffDays >= -7) return `${-diffDays} days ago`;
-
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-};
 
 export function ZenCommandBar() {
   const [input, setInput] = useState("");
@@ -425,7 +407,7 @@ export function ZenCommandBar() {
           if (targetDate && !isNaN(targetDate.getTime())) {
             const isoDate = targetDate.toISOString().split("T")[0];
             setSelectedDate(isoDate);
-            const label = formatDateLabel(isoDate);
+            const label = formatRelativeDateLabel(isoDate);
             setZenStatus(`Showing sessions for ${label} (${isoDate})`, "success");
           } else {
             setZenStatus("Usage: date YYYY-MM-DD or date +N/-N (days offset)", "error");

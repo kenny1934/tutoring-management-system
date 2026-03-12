@@ -18,7 +18,7 @@ from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTEN
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
-from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write
+from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write, ADMIN_WRITE_ROLES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _verify_session_ownership(session: SessionLog, current_user: Tutor, action: str = "modify"):
     """Raise 403 if user doesn't own the session and isn't admin."""
     is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail=f"You can only {action} your own sessions")
 
@@ -1168,7 +1168,7 @@ async def schedule_makeup(
 
     # Check ownership - only original session owner or admin can schedule makeup
     is_owner = original_session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only schedule makeups for your own sessions")
 
@@ -1317,7 +1317,7 @@ async def cancel_makeup(
 
     is_owner = makeup_session.tutor_id == current_user.id
     is_original_owner = original_session_tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_original_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only cancel makeups for your own sessions")
 
@@ -1466,7 +1466,7 @@ async def bulk_assign_exercises(
         )
 
     # Check ownership - tutors can only assign to their own sessions
-    is_admin = current_user.role in ("Admin", "Super Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not is_admin:
         for session in sessions:
             if session.tutor_id != current_user.id:
