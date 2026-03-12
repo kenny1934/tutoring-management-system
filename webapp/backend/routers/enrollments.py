@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now
+from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo
@@ -120,12 +120,7 @@ def check_student_conflicts(
     conflicts = []
 
     # Statuses that don't count as conflicts (pending makeups are available for reassignment)
-    non_conflict_statuses = [
-        'Rescheduled - Pending Make-up',
-        'Sick Leave - Pending Make-up',
-        'Weather Cancelled - Pending Make-up',
-        'Cancelled'
-    ]
+    non_conflict_statuses = PENDING_MAKEUP_STATUSES + [SessionStatus.CANCELLED.value]
 
     query = db.query(SessionLog).options(
         joinedload(SessionLog.tutor)

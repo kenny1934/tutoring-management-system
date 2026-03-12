@@ -292,6 +292,15 @@ function buildQueryParams(obj: Record<string, unknown>): string {
   return params.toString();
 }
 
+// Helper to build query string with location/tutor filtering (the most common API pattern)
+function buildLocationQuery(params: Record<string, unknown> = {}, location?: string, tutorId?: number): string {
+  const obj: Record<string, unknown> = { ...params };
+  if (location && location !== "All Locations") obj.location = location;
+  if (tutorId) obj.tutor_id = tutorId;
+  const qs = buildQueryParams(obj);
+  return qs ? `?${qs}` : '';
+}
+
 // Tutors API
 export const tutorsAPI = {
   getAll: () => {
@@ -302,19 +311,8 @@ export const tutorsAPI = {
 // Students API
 export const studentsAPI = {
   getAll: (filters?: StudentFilters) => {
-    const params = new URLSearchParams();
-    if (filters?.search) params.append("search", filters.search);
-    if (filters?.grade) params.append("grade", filters.grade);
-    if (filters?.school) params.append("school", filters.school);
-    if (filters?.location) params.append("location", filters.location);
-    if (filters?.academic_stream) params.append("academic_stream", filters.academic_stream);
-    if (filters?.sort_by) params.append("sort_by", filters.sort_by);
-    if (filters?.sort_order) params.append("sort_order", filters.sort_order);
-    if (filters?.limit) params.append("limit", filters.limit.toString());
-    if (filters?.offset) params.append("offset", filters.offset.toString());
-
-    const query = params.toString();
-    return fetchAPI<Student[]>(`/students${query ? `?${query}` : ""}`);
+    const qs = buildQueryParams(filters || {});
+    return fetchAPI<Student[]>(`/students${qs ? `?${qs}` : ""}`);
   },
 
   getById: (id: number) => {
@@ -395,8 +393,7 @@ export const enrollmentsAPI = {
   },
 
   getActive: (location?: string) => {
-    const params = location && location !== "All Locations" ? `?location=${location}` : "";
-    return fetchAPI<Enrollment[]>(`/enrollments/active${params}`);
+    return fetchAPI<Enrollment[]>(`/enrollments/active${buildLocationQuery({}, location)}`);
   },
 
   getById: (id: number) => {
@@ -418,24 +415,11 @@ export const enrollmentsAPI = {
   },
 
   getMyStudents: (tutorId: number, location?: string) => {
-    const params = new URLSearchParams();
-    params.append("tutor_id", tutorId.toString());
-    if (location && location !== "All Locations") {
-      params.append("location", location);
-    }
-    return fetchAPI<Enrollment[]>(`/enrollments/my-students?${params.toString()}`);
+    return fetchAPI<Enrollment[]>(`/enrollments/my-students${buildLocationQuery({}, location, tutorId)}`);
   },
 
   getOverdue: (location?: string, tutorId?: number) => {
-    const params = new URLSearchParams();
-    if (location && location !== "All Locations") {
-      params.append("location", location);
-    }
-    if (tutorId) {
-      params.append("tutor_id", tutorId.toString());
-    }
-    const queryString = params.toString();
-    return fetchAPI<OverdueEnrollment[]>(`/enrollments/overdue${queryString ? `?${queryString}` : ''}`);
+    return fetchAPI<OverdueEnrollment[]>(`/enrollments/overdue${buildLocationQuery({}, location, tutorId)}`);
   },
 
   // Enrollment creation and preview
@@ -459,35 +443,19 @@ export const enrollmentsAPI = {
   },
 
   getRenewals: (params?: { location?: string; tutor_id?: number; include_expired?: boolean }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.location && params.location !== "All Locations") {
-      searchParams.append("location", params.location);
-    }
-    if (params?.tutor_id) {
-      searchParams.append("tutor_id", params.tutor_id.toString());
-    }
-    if (params?.include_expired !== undefined) {
-      searchParams.append("include_expired", params.include_expired.toString());
-    }
-    const queryString = searchParams.toString();
-    return fetchAPI<RenewalListItem[]>(`/enrollments/renewals${queryString ? `?${queryString}` : ''}`);
+    return fetchAPI<RenewalListItem[]>(`/enrollments/renewals${buildLocationQuery(
+      { include_expired: params?.include_expired },
+      params?.location,
+      params?.tutor_id
+    )}`);
   },
 
   getRenewalCounts: (location?: string) => {
-    const params = location && location !== "All Locations" ? `?location=${location}` : "";
-    return fetchAPI<RenewalCountsResponse>(`/enrollments/renewal-counts${params}`);
+    return fetchAPI<RenewalCountsResponse>(`/enrollments/renewal-counts${buildLocationQuery({}, location)}`);
   },
 
   getTrials: (params?: { location?: string; tutor_id?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.location && params.location !== "All Locations") {
-      searchParams.append("location", params.location);
-    }
-    if (params?.tutor_id) {
-      searchParams.append("tutor_id", params.tutor_id.toString());
-    }
-    const queryString = searchParams.toString();
-    return fetchAPI<TrialListItem[]>(`/enrollments/trials${queryString ? `?${queryString}` : ''}`);
+    return fetchAPI<TrialListItem[]>(`/enrollments/trials${buildLocationQuery({}, params?.location, params?.tutor_id)}`);
   },
 
   getDetail: (id: number) => {
@@ -727,20 +695,11 @@ export const sessionsAPI = {
 
   // Unchecked attendance
   getUncheckedAttendance: (location?: string, tutorId?: number, urgency?: string) => {
-    const params = new URLSearchParams();
-    if (location && location !== "All Locations") params.append("location", location);
-    if (tutorId) params.append("tutor_id", tutorId.toString());
-    if (urgency) params.append("urgency", urgency);
-    const query = params.toString();
-    return fetchAPI<UncheckedAttendanceReminder[]>(`/sessions/unchecked-attendance${query ? `?${query}` : ""}`);
+    return fetchAPI<UncheckedAttendanceReminder[]>(`/sessions/unchecked-attendance${buildLocationQuery({ urgency }, location, tutorId)}`);
   },
 
   getUncheckedAttendanceCount: (location?: string, tutorId?: number) => {
-    const params = new URLSearchParams();
-    if (location && location !== "All Locations") params.append("location", location);
-    if (tutorId) params.append("tutor_id", tutorId.toString());
-    const query = params.toString();
-    return fetchAPI<UncheckedAttendanceCount>(`/sessions/unchecked-attendance/count${query ? `?${query}` : ""}`);
+    return fetchAPI<UncheckedAttendanceCount>(`/sessions/unchecked-attendance/count${buildLocationQuery({}, location, tutorId)}`);
   },
 
   getAgedPendingMakeupsCount: (tutorId: number) => {

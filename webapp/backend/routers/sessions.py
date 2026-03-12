@@ -14,7 +14,7 @@ from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse
 from datetime import date, timedelta, datetime, timezone
-from constants import hk_now, PENDING_MAKEUP_STATUSES
+from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
@@ -22,6 +22,14 @@ from auth.dependencies import get_current_user, get_session_with_owner_check, re
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _verify_session_ownership(session: SessionLog, current_user: Tutor, action: str = "modify"):
+    """Raise 403 if user doesn't own the session and isn't admin."""
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail=f"You can only {action} your own sessions")
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
@@ -145,7 +153,7 @@ async def get_exercise_history(
         joinedload(SessionLog.exercises)
     ).filter(
         SessionLog.student_id == student_id,
-        SessionLog.session_status.in_(["Attended", "Attended (Make-up)"]),
+        SessionLog.session_status.in_(COMPLETED_STATUSES),
     )
 
     if before_date:
@@ -558,13 +566,10 @@ async def mark_session_attended(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership: tutor can only modify their own sessions, admins can modify any
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate current status allows marking as attended
-    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    valid_statuses = ATTENDABLE_STATUSES
     if session.session_status not in valid_statuses:
         raise HTTPException(
             status_code=400,
@@ -622,13 +627,10 @@ async def mark_session_no_show(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate current status
-    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    valid_statuses = ATTENDABLE_STATUSES
     if session.session_status not in valid_statuses:
         raise HTTPException(
             status_code=400,
@@ -672,13 +674,10 @@ async def mark_session_rescheduled(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate current status
-    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    valid_statuses = ATTENDABLE_STATUSES
     if session.session_status not in valid_statuses:
         raise HTTPException(
             status_code=400,
@@ -722,13 +721,10 @@ async def mark_session_sick_leave(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate current status
-    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    valid_statuses = ATTENDABLE_STATUSES
     if session.session_status not in valid_statuses:
         raise HTTPException(
             status_code=400,
@@ -772,13 +768,10 @@ async def mark_session_weather_cancelled(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate current status
-    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    valid_statuses = ATTENDABLE_STATUSES
     if session.session_status not in valid_statuses:
         raise HTTPException(
             status_code=400,
@@ -829,10 +822,7 @@ async def undo_session_status(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Validate we have something to undo
     if not session.previous_session_status:
@@ -856,7 +846,7 @@ async def undo_session_status(
     session.previous_session_status = None  # Clear to prevent double-undo
 
     # Clear attendance fields if undoing from Attended status
-    if undone_from_status in ("Attended", "Attended (Make-up)"):
+    if undone_from_status in COMPLETED_STATUSES:
         session.attendance_marked_by = None
         session.attendance_mark_time = None
 
@@ -895,17 +885,14 @@ async def redo_session_status(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Store current status as previous (for undo again if needed)
     session.previous_session_status = session.session_status
     session.session_status = status
 
     # Re-set attendance fields if restoring to Attended
-    if status in ("Attended", "Attended (Make-up)"):
+    if status in COMPLETED_STATUSES:
         session.attendance_marked_by = current_user.user_email
         session.attendance_mark_time = hk_now()
 
@@ -1401,10 +1388,7 @@ async def save_session_exercises(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Delete existing exercises of this type (skip when appending)
     if not request.append:
@@ -1540,10 +1524,7 @@ async def rate_session(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only rate your own sessions")
+    _verify_session_ownership(session, current_user, action="rate")
 
     # Update rating and notes
     session.performance_rating = request.performance_rating
@@ -1593,10 +1574,7 @@ async def update_session(
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
     # Check ownership
-    is_owner = session.tutor_id == current_user.id
-    is_admin = current_user.role in ("Admin", "Super Admin")
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+    _verify_session_ownership(session, current_user)
 
     # Update fields that are provided (not None)
     if request.session_date is not None:

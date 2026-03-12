@@ -21,14 +21,15 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from models import Holiday, Enrollment, Tutor, Student
 from routers.enrollments import (
     generate_session_dates,
     calculate_effective_end_date,
     calculate_effective_end_date_bulk,
     get_holidays_in_range,
     check_student_conflicts,
+    format_fee_message,
 )
+from models import Holiday, Enrollment, Tutor, Student, SessionLog
 from schemas import SessionPreview
 
 
@@ -430,3 +431,240 @@ class TestGetHolidaysInRange:
         )
 
         assert holidays == {}
+
+
+# ============================================================================
+# Test format_fee_message()
+# ============================================================================
+
+class TestFormatFeeMessage:
+    """Test suite for format_fee_message function."""
+
+    def _base_args(self, **overrides):
+        """Base arguments for format_fee_message."""
+        defaults = {
+            "lang": "en",
+            "school_student_id": "1001",
+            "student_name": "Test Student",
+            "assigned_day": "Monday",
+            "assigned_time": "15:00-16:30",
+            "location": "MSA",
+            "lessons_paid": 10,
+            "session_dates": [date(2026, 3, 2) + timedelta(weeks=i) for i in range(10)],
+            "discount_value": 0,
+            "is_new_student": False,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_base_fee_calculation(self):
+        """Fee should be 400 * lessons_paid with no extras."""
+        msg = format_fee_message(**self._base_args(lessons_paid=10))
+        assert "$4,000" in msg
+
+    def test_single_lesson_fee(self):
+        """Single lesson should be $400."""
+        msg = format_fee_message(**self._base_args(
+            lessons_paid=1,
+            session_dates=[date(2026, 3, 2)],
+        ))
+        assert "$400" in msg
+
+    def test_discount_applied(self):
+        """Discount should reduce fee: 400*10 - 500 = 3500."""
+        msg = format_fee_message(**self._base_args(discount_value=500))
+        assert "$3,500" in msg
+        assert "Discounted $500" in msg
+
+    def test_new_student_registration_fee(self):
+        """New student should have $100 registration fee added."""
+        msg = format_fee_message(**self._base_args(is_new_student=True))
+        # 400*10 + 100 = 4100
+        assert "$4,100" in msg
+        assert "$100 registration fee" in msg
+
+    def test_discount_and_registration_combined(self):
+        """Both discount and registration fee should be reflected."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=200,
+            is_new_student=True,
+        ))
+        # 400*10 - 200 + 100 = 3900
+        assert "$3,900" in msg
+
+    def test_chinese_language(self):
+        """Chinese message should use Chinese day names and location."""
+        msg = format_fee_message(**self._base_args(lang="zh"))
+        assert "逢星期一" in msg
+        assert "華士古分校" in msg
+        assert "學生編號" in msg
+
+    def test_english_language(self):
+        """English message should use English day names and location."""
+        msg = format_fee_message(**self._base_args(lang="en"))
+        assert "Every Monday" in msg
+        assert "Vasco Center" in msg
+        assert "Student ID" in msg
+
+    def test_msb_location_bank_account(self):
+        """MSB location should use correct bank account number."""
+        msg = format_fee_message(**self._base_args(location="MSB"))
+        assert "185000010473304" in msg
+
+    def test_msa_location_bank_account(self):
+        """MSA location should use correct bank account number."""
+        msg = format_fee_message(**self._base_args(location="MSA"))
+        assert "185000380468369" in msg
+
+    def test_lesson_count_in_message(self):
+        """Message should show correct lesson count."""
+        msg = format_fee_message(**self._base_args(lessons_paid=8, session_dates=[
+            date(2026, 3, 2) + timedelta(weeks=i) for i in range(8)
+        ]))
+        assert "8 lessons total" in msg
+
+    def test_session_dates_formatted(self):
+        """Session dates should appear in YYYY/MM/DD format."""
+        msg = format_fee_message(**self._base_args(
+            session_dates=[date(2026, 3, 2)],
+            lessons_paid=1,
+        ))
+        assert "2026/03/02" in msg
+
+
+# ============================================================================
+# Test check_student_conflicts()
+# ============================================================================
+
+class TestCheckStudentConflicts:
+    """Test suite for check_student_conflicts function."""
+
+    def _setup(self, db_session):
+        """Create base tutor, student, enrollment, and a scheduled session."""
+        tutor = Tutor(user_email="t@test.com", tutor_name="Tutor A", role="Tutor")
+        db_session.add(tutor)
+        db_session.flush()
+
+        student = Student(student_name="Student A", home_location="MSA", school_student_id="1001")
+        db_session.add(student)
+        db_session.flush()
+
+        enrollment = Enrollment(
+            student_id=student.id,
+            tutor_id=tutor.id,
+            first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday",
+            assigned_time="15:00-16:30",
+            location="MSA",
+            lessons_paid=4,
+            enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.flush()
+
+        session = SessionLog(
+            enrollment_id=enrollment.id,
+            student_id=student.id,
+            tutor_id=tutor.id,
+            session_date=date(2026, 3, 2),
+            time_slot="15:00-16:30",
+            location="MSA",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        return student, tutor, enrollment, session
+
+    def test_no_conflicts(self, db_session):
+        """No conflict when dates/times don't overlap."""
+        student, tutor, enrollment, _ = self._setup(db_session)
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 4, 6)],  # Different date
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 0
+
+    def test_different_time_no_conflict(self, db_session):
+        """No conflict when same date but different time slot."""
+        student, tutor, enrollment, _ = self._setup(db_session)
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],  # Same date
+            "17:00-18:30",  # Different time
+        )
+        assert len(conflicts) == 0
+
+    def test_conflict_detected(self, db_session):
+        """Conflict when same student, same date, same time."""
+        student, tutor, enrollment, _ = self._setup(db_session)
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 1
+        assert conflicts[0].session_date == date(2026, 3, 2)
+        assert conflicts[0].existing_tutor_name == "Tutor A"
+
+    def test_excluded_enrollment_not_conflicting(self, db_session):
+        """Excluding own enrollment should not flag as conflict."""
+        student, tutor, enrollment, _ = self._setup(db_session)
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+            exclude_enrollment_id=enrollment.id,
+        )
+        assert len(conflicts) == 0
+
+    def test_cancelled_session_not_conflicting(self, db_session):
+        """Cancelled sessions should not count as conflicts."""
+        student, tutor, enrollment, session = self._setup(db_session)
+        session.session_status = "Cancelled"
+        db_session.commit()
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 0
+
+    def test_pending_makeup_not_conflicting(self, db_session):
+        """Pending makeup sessions should not count as conflicts."""
+        student, tutor, enrollment, session = self._setup(db_session)
+        session.session_status = "Rescheduled - Pending Make-up"
+        db_session.commit()
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 0
+
+    def test_attended_session_is_conflict(self, db_session):
+        """Attended sessions should be flagged as conflicts."""
+        student, tutor, enrollment, session = self._setup(db_session)
+        session.session_status = "Attended"
+        db_session.commit()
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 1
