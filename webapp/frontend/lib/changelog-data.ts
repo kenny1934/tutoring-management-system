@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Session list performance** — batch-resolve makeup session chain lookups instead of querying one-by-one"
+          },
+          {
+            "description": "**Test coverage 5x increase** — grew from ~134 to 637 tests (326 backend, 311 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules"
           }
         ]
       }
