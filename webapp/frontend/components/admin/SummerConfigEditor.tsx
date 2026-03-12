@@ -12,7 +12,7 @@ import type {
 import {
   ChevronDown,
   ChevronLeft,
-  ChevronUp,
+  GripVertical,
   Plus,
   Trash2,
   Save,
@@ -21,6 +21,7 @@ import {
   EyeOff,
   X,
 } from "lucide-react";
+import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import { SummerConfigPreview } from "./SummerConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -47,6 +48,20 @@ const ALL_DAYS = [
 ];
 
 const TIME_SLOT_PATTERN = /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/;
+
+// Stable ID generator for Reorder items (prevents flashing during drag)
+let _idCounter = 0;
+function genId(prefix: string) { return `${prefix}-${Date.now()}-${++_idCounter}`; }
+
+type WithId<T> = T & { _id: string };
+function stampIds<T>(items: T[], prefix: string): WithId<T>[] {
+  return items.map(item => ({ ...item, _id: genId(prefix) }));
+}
+
+function reorderByIds<T extends { _id: string }>(items: T[], newOrder: string[]): T[] {
+  const byId = new Map(items.map(item => [item._id, item]));
+  return newOrder.map(id => byId.get(id)!);
+}
 
 const TEXT_CONTENT_GROUPS = [
   {
@@ -214,6 +229,33 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
   );
 }
 
+// Drag-and-drop reorderable item (same pattern as ExerciseModal)
+function ReorderableItem({ value, disabled, children }: {
+  value: string;
+  disabled?: boolean;
+  children: (controls: DragControls | null) => React.ReactNode;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item value={value} dragListener={false}
+      dragControls={disabled ? undefined : controls}
+      className="select-none"
+      style={{ listStyle: "none" }}>
+      {children(disabled ? null : controls)}
+    </Reorder.Item>
+  );
+}
+
+function DragHandle({ controls }: { controls: DragControls | null }) {
+  if (!controls) return null;
+  return (
+    <div className="cursor-grab active:cursor-grabbing touch-none p-0.5 self-center"
+      onPointerDown={(e) => controls.start(e)}>
+      <GripVertical className="h-4 w-4 text-muted-foreground/40 hover:text-muted-foreground" />
+    </div>
+  );
+}
+
 // Inline time slot adder with native time pickers
 function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (slot: string) => void }) {
   const [show, setShow] = useState(false);
@@ -286,20 +328,20 @@ export function SummerConfigEditor({
   const [baseFee, setBaseFee] = useState(0);
   const [registrationFee, setRegistrationFee] = useState(0);
   const [discounts, setDiscounts] = useState<
-    Array<{
+    Array<WithId<{
       code: string;
       name_zh: string;
       name_en: string;
       amount: number;
       conditions: Record<string, unknown>;
-    }>
+    }>>
   >([]);
-  const [locations, setLocations] = useState<SummerLocation[]>([]);
-  const [grades, setGrades] = useState<SummerBilingualOption[]>([]);
+  const [locations, setLocations] = useState<WithId<SummerLocation>[]>([]);
+  const [grades, setGrades] = useState<WithId<SummerBilingualOption>[]>([]);
   const [existingStudentOptions, setExistingStudentOptions] = useState<
-    SummerBilingualOption[]
+    WithId<SummerBilingualOption>[]
   >([]);
-  const [centerOptions, setCenterOptions] = useState<SummerBilingualOption[]>(
+  const [centerOptions, setCenterOptions] = useState<WithId<SummerBilingualOption>[]>(
     []
   );
   const [textContent, setTextContent] = useState<Record<string, string>>({});
@@ -383,11 +425,11 @@ export function SummerConfigEditor({
                 setTotalLessons(parsed.total_lessons);
                 setBaseFee(parsed.pricing_config?.base_fee || 0);
                 setRegistrationFee(parsed.pricing_config?.registration_fee || 0);
-                setDiscounts(parsed.pricing_config?.discounts || []);
-                setLocations(parsed.locations || []);
-                setGrades(parsed.available_grades || []);
-                setExistingStudentOptions(parsed.existing_student_options || []);
-                setCenterOptions(parsed.center_options || []);
+                setDiscounts(stampIds(parsed.pricing_config?.discounts || [], "d"));
+                setLocations(stampIds(parsed.locations || [], "l"));
+                setGrades(stampIds(parsed.available_grades || [], "g"));
+                setExistingStudentOptions(stampIds(parsed.existing_student_options || [], "o"));
+                setCenterOptions(stampIds(parsed.center_options || [], "c"));
                 setTextContent(parsed.text_content || {});
               },
             });
@@ -437,6 +479,7 @@ export function SummerConfigEditor({
         setRegistrationFee(config.pricing_config.registration_fee || 0);
         setDiscounts(
           (config.pricing_config.discounts || []).map((d) => ({
+            _id: genId("d"),
             code: d.code,
             name_zh: d.name_zh,
             name_en: d.name_en,
@@ -444,10 +487,10 @@ export function SummerConfigEditor({
             conditions: d.conditions || {},
           }))
         );
-        setLocations(config.locations);
-        setGrades(config.available_grades);
-        setExistingStudentOptions(config.existing_student_options || []);
-        setCenterOptions(config.center_options || []);
+        setLocations(stampIds(config.locations, "l"));
+        setGrades(stampIds(config.available_grades, "g"));
+        setExistingStudentOptions(stampIds(config.existing_student_options || [], "o"));
+        setCenterOptions(stampIds(config.center_options || [], "c"));
         setTextContent(config.text_content || {});
       } catch {
         showToast("Failed to load config", "error");
@@ -542,12 +585,12 @@ export function SummerConfigEditor({
     }
 
     // Locations
-    const expandLocs = new Set<number>();
+    const expandLocs = new Set<string>();
     locations.forEach((loc, i) => {
       if (!loc.name.trim() && !loc.name_en.trim()) {
         errors[`locationName_${i}`] = "Location name is required";
         sectionsWithErrors.add("locations");
-        expandLocs.add(i);
+        expandLocs.add(loc._id);
       }
       const days = loc.open_days || [];
       days.forEach((day) => {
@@ -556,7 +599,7 @@ export function SummerConfigEditor({
         if (bad.length > 0) {
           errors[`timeSlot_${i}_${day}`] = `Invalid format: ${bad.join(", ")}`;
           sectionsWithErrors.add("locations");
-          expandLocs.add(i);
+          expandLocs.add(loc._id);
         }
       });
     });
@@ -633,110 +676,72 @@ export function SummerConfigEditor({
   const deleteWithUndo = <T,>(
     items: T[],
     index: number,
-    setter: (items: T[]) => void,
+    setter: (valOrFn: T[] | ((prev: T[]) => T[])) => void,
     label: string
   ) => {
     const removed = items[index];
-    const next = items.filter((_, j) => j !== index);
-    setter(next);
+    setter(items.filter((_, j) => j !== index));
     showToast(`${label} deleted`, "info", {
       label: "Undo",
       onClick: () => {
-        const restored = [...next];
-        restored.splice(index, 0, removed);
-        setter(restored);
+        setter((current: T[]) => {
+          const restored = [...current];
+          restored.splice(index, 0, removed);
+          return restored;
+        });
       },
     });
   };
 
-  // Move array item up or down
-  const moveItem = <T,>(items: T[], from: number, to: number, setter: (items: T[]) => void) => {
-    if (to < 0 || to >= items.length) return;
-    const next = [...items];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setter(next);
-  };
-
-  // Track which locations are expanded (by index)
-  const [expandedLocations, setExpandedLocations] = useState<Set<number>>(new Set());
-  const toggleLocation = (idx: number) => {
+  // Track which locations are expanded (by stable _id)
+  const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
+  const toggleLocation = (id: string) => {
     setExpandedLocations((prev) => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
 
+  const [expandedStudentOptions, setExpandedStudentOptions] = useState<Set<string>>(new Set());
+  const toggleStudentOption = (id: string) => {
+    setExpandedStudentOptions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Pre-compute center grouping per student option (avoids O(N*M) in render loop)
+  const centerGrouping = useMemo(() => {
+    const centerIdxMap = new Map(centerOptions.map((c, i) => [c._id, i]));
+    return existingStudentOptions.map(opt => {
+      const isNone = opt.name_en.toLowerCase() === "none" || opt.name.includes("皆非");
+      if (isNone) return { isNone: true as const, optionCenters: [] as WithId<SummerBilingualOption>[], groupFlatIndices: [] as number[] };
+      const prefixMatched = opt.name_en
+        ? centerOptions.filter(c => c.name_en.startsWith(opt.name_en))
+        : [];
+      let optionCenters: WithId<SummerBilingualOption>[];
+      if (prefixMatched.length > 0) {
+        optionCenters = prefixMatched;
+      } else {
+        const allPrefixed = new Set(
+          existingStudentOptions.filter(o => o.name_en)
+            .flatMap(o => centerOptions.filter(c => c.name_en.startsWith(o.name_en)))
+            .map(c => c._id)
+        );
+        optionCenters = centerOptions.filter(c => !allPrefixed.has(c._id));
+      }
+      return {
+        isNone: false as const,
+        optionCenters,
+        groupFlatIndices: optionCenters.map(c => centerIdxMap.get(c._id) ?? -1),
+      };
+    });
+  }, [existingStudentOptions, centerOptions]);
+
   const [previewStep, setPreviewStep] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
-
-  // Shared renderer for bilingual option lists (existingStudentOptions, centerOptions)
-  const renderBilingualList = (
-    label: string,
-    items: SummerBilingualOption[],
-    setItems: (items: SummerBilingualOption[]) => void,
-    deleteLabel: string,
-    addLabel: string,
-  ) => (
-    <div>
-      <Label>{label}</Label>
-      {items.map((opt, i) => (
-        <div key={i} className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 mb-2 items-end">
-          {!isReadOnly && (
-            <div className="flex flex-col gap-0.5">
-              <button type="button" onClick={() => moveItem(items, i, i - 1, setItems)} disabled={i === 0} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-              <button type="button" onClick={() => moveItem(items, i, i + 1, setItems)} disabled={i === items.length - 1} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
-            </div>
-          )}
-          <div>
-            {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
-            <input
-              value={opt.name}
-              onChange={(e) => {
-                const next = [...items];
-                next[i] = { ...opt, name: e.target.value };
-                setItems(next);
-              }}
-              className={inputClass}
-              disabled={isReadOnly}
-            />
-          </div>
-          <div>
-            {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
-            <input
-              value={opt.name_en}
-              onChange={(e) => {
-                const next = [...items];
-                next[i] = { ...opt, name_en: e.target.value };
-                setItems(next);
-              }}
-              className={inputClass}
-              disabled={isReadOnly}
-            />
-          </div>
-          {!isReadOnly && (
-            <button
-              type="button"
-              onClick={() => deleteWithUndo(items, i, setItems, deleteLabel)}
-              className="p-2 text-red-500 hover:text-red-700"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      ))}
-      {!isReadOnly && (
-        <button
-          type="button"
-          onClick={() => setItems([...items, { name: "", name_en: "" }])}
-          className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
-        >
-          <Plus className="h-3 w-3" /> {addLabel}
-        </button>
-      )}
-    </div>
-  );
 
   if (loading) {
     return (
@@ -964,17 +969,18 @@ export function SummerConfigEditor({
         {/* Discounts */}
         <div>
           <Label>Discounts</Label>
-          <div className="space-y-3">
+          <Reorder.Group axis="y" values={discounts.map(d => d._id)} onReorder={(newOrder) => setDiscounts(reorderByIds(discounts, newOrder))} className="space-y-3">
           {discounts.map((d, i) => (
-            <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-3">
+            <ReorderableItem key={d._id} value={d._id} disabled={isReadOnly}>
+            {(dragControls) => (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{d.code || `Discount ${i + 1}`}</span>
+                <div className="flex items-center gap-2">
+                  <DragHandle controls={dragControls} />
+                  <span className="text-xs font-medium text-muted-foreground">{d.code || `Discount ${i + 1}`}</span>
+                </div>
                 {!isReadOnly && (
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => moveItem(discounts, i, i - 1, setDiscounts)} disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                    <button type="button" onClick={() => moveItem(discounts, i, i + 1, setDiscounts)} disabled={i === discounts.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
-                    <button type="button" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} className="p-1 text-red-500 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
-                  </div>
+                  <button type="button" onClick={() => deleteWithUndo(discounts, i, setDiscounts, "Discount")} className="p-1 text-red-500 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
                 )}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1037,15 +1043,17 @@ export function SummerConfigEditor({
                 </div>
               </details>
             </div>
+            )}
+            </ReorderableItem>
           ))}
-          </div>
+          </Reorder.Group>
           {!isReadOnly && (
             <button
               type="button"
               onClick={() =>
                 setDiscounts([
                   ...discounts,
-                  { code: "", name_zh: "", name_en: "", amount: 0, conditions: {} },
+                  { _id: genId("d"), code: "", name_zh: "", name_en: "", amount: 0, conditions: {} },
                 ])
               }
               className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
@@ -1058,14 +1066,12 @@ export function SummerConfigEditor({
 
       {/* Section 4: Grades → Step 1 */}
       <Section title="Grades" subtitle="Step 1" status={{ filled: grades.length > 0, count: grades.length > 0 ? `${grades.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
+        <Reorder.Group axis="y" values={grades.map(g => g._id)} onReorder={(newOrder) => setGrades(reorderByIds(grades, newOrder))} className="space-y-0">
         {grades.map((g, i) => (
-          <div key={i} className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
-            {!isReadOnly && (
-              <div className="flex flex-col gap-0.5">
-                <button type="button" onClick={() => moveItem(grades, i, i - 1, setGrades)} disabled={i === 0} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                <button type="button" onClick={() => moveItem(grades, i, i + 1, setGrades)} disabled={i === grades.length - 1} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
-              </div>
-            )}
+          <ReorderableItem key={g._id} value={g._id} disabled={isReadOnly}>
+          {(dragControls) => (
+          <div className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
+            <DragHandle controls={dragControls} />
             <div>
               {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
               <input
@@ -1115,12 +1121,15 @@ export function SummerConfigEditor({
               </button>
             )}
           </div>
+          )}
+          </ReorderableItem>
         ))}
+        </Reorder.Group>
         {!isReadOnly && (
           <button
             type="button"
             onClick={() =>
-              setGrades([...grades, { name: "", name_en: "", value: "" }])
+              setGrades([...grades, { _id: genId("g"), name: "", name_en: "", value: "" }])
             }
             className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
           >
@@ -1131,37 +1140,181 @@ export function SummerConfigEditor({
 
       {/* Section 5: Student Options → Step 2 */}
       <Section title="Student Options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
-        <div className="space-y-4">
-          {renderBilingualList(
-            "Existing Student Options",
-            existingStudentOptions,
-            setExistingStudentOptions,
-            "Option",
-            "Add Option",
-          )}
-          {renderBilingualList(
-            "Center Options",
-            centerOptions,
-            setCenterOptions,
-            "Center",
-            "Add Center",
-          )}
-        </div>
+        <Label>Existing Student Options & Centers</Label>
+        <p className="text-[10px] text-muted-foreground mb-2">Each student type shows its associated centers below. Centers are matched by name prefix.</p>
+        <Reorder.Group axis="y" values={existingStudentOptions.map(o => o._id)} onReorder={(newOrder) => {
+          setExistingStudentOptions(reorderByIds(existingStudentOptions, newOrder));
+        }} className="space-y-2">
+          {existingStudentOptions.map((opt, oi) => {
+            const { isNone, optionCenters, groupFlatIndices } = centerGrouping[oi] || { isNone: false, optionCenters: [], groupFlatIndices: [] };
+            const optExpanded = expandedStudentOptions.has(opt._id);
+            return (
+              <ReorderableItem key={opt._id} value={opt._id} disabled={isReadOnly}>
+              {(dragControls) => (
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                {/* Student option row */}
+                <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 px-3 py-2 items-center bg-gray-50 dark:bg-gray-800/50">
+                  <DragHandle controls={dragControls} />
+                  <div>
+                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+                    <input
+                      value={opt.name}
+                      onChange={(e) => {
+                        const next = [...existingStudentOptions];
+                        next[oi] = { ...opt, name: e.target.value };
+                        setExistingStudentOptions(next);
+                      }}
+                      className={inputClass}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div>
+                    {oi === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+                    <input
+                      value={opt.name_en}
+                      onChange={(e) => {
+                        const next = [...existingStudentOptions];
+                        next[oi] = { ...opt, name_en: e.target.value };
+                        setExistingStudentOptions(next);
+                      }}
+                      className={inputClass}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => deleteWithUndo(existingStudentOptions, oi, setExistingStudentOptions, "Option")}
+                      className="p-2 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {/* Nested centers */}
+                {isNone ? (
+                  <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
+                    <span className="text-[10px] text-muted-foreground italic">No centers (students not enrolled)</span>
+                  </div>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => toggleStudentOption(opt._id)} className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${optExpanded ? "rotate-180" : ""}`} />
+                      <span className="text-[10px] text-muted-foreground font-medium">Centers</span>
+                      <span className="text-[10px] text-muted-foreground">({optionCenters.length})</span>
+                    </button>
+                    {optExpanded && (
+                    <div className="ml-4 border-l-2 border-primary/20 px-3 py-2">
+                      {optionCenters.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground italic">No centers yet</p>
+                      ) : (
+                        <Reorder.Group axis="y" values={optionCenters.map(c => c._id)} onReorder={(newKeys) => {
+                          const reordered = reorderByIds(optionCenters, newKeys);
+                          setCenterOptions((current) => {
+                            const newFlat = [...current];
+                            groupFlatIndices.forEach((flatPos, idx) => { newFlat[flatPos] = reordered[idx]; });
+                            return newFlat;
+                          });
+                        }} className="space-y-0">
+                        {optionCenters.map((center, ci) => {
+                          const flatIdx = groupFlatIndices[ci];
+                          return (
+                            <ReorderableItem key={center._id} value={center._id} disabled={isReadOnly}>
+                            {(centerDragControls) => (
+                            <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 mt-1.5 items-center">
+                              <DragHandle controls={centerDragControls} />
+                              <input
+                                value={center.name}
+                                onChange={(e) => {
+                                  const next = [...centerOptions];
+                                  next[flatIdx] = { ...center, name: e.target.value };
+                                  setCenterOptions(next);
+                                }}
+                                className={inputClass}
+                                disabled={isReadOnly}
+                                placeholder="Name (ZH)"
+                              />
+                              <input
+                                value={center.name_en}
+                                onChange={(e) => {
+                                  const next = [...centerOptions];
+                                  next[flatIdx] = { ...center, name_en: e.target.value };
+                                  setCenterOptions(next);
+                                }}
+                                className={inputClass}
+                                disabled={isReadOnly}
+                                placeholder="Name (EN)"
+                              />
+                              {!isReadOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteWithUndo(centerOptions, flatIdx, setCenterOptions, "Center")}
+                                  className="p-2 text-red-500 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            )}
+                            </ReorderableItem>
+                          );
+                        })}
+                        </Reorder.Group>
+                      )}
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const insertAt = groupFlatIndices.length > 0
+                              ? groupFlatIndices[groupFlatIndices.length - 1] + 1
+                              : centerOptions.length;
+                            const next = [...centerOptions];
+                            next.splice(insertAt, 0, { _id: genId("c"), name: "", name_en: "" });
+                            setCenterOptions(next);
+                          }}
+                          className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+                        >
+                          <Plus className="h-3 w-3" /> Add Center
+                        </button>
+                      )}
+                    </div>
+                    )}
+                  </>
+                )}
+              </div>
+              )}
+              </ReorderableItem>
+            );
+          })}
+        </Reorder.Group>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() => setExistingStudentOptions([...existingStudentOptions, { _id: genId("o"), name: "", name_en: "" }])}
+            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+          >
+            <Plus className="h-3 w-3" /> Add Student Option
+          </button>
+        )}
       </Section>
 
       {/* Section 6: Locations → Step 3 */}
       <Section title="Locations & Time Slots" subtitle="Step 3" status={{ filled: locations.length > 0, count: locations.length > 0 ? `${locations.length}` : undefined }} forceOpen={errorSections.has("locations")} onOpen={() => setPreviewStep(3)}>
+        <Reorder.Group axis="y" values={locations.map(l => l._id)} onReorder={(newOrder) => {
+          setLocations(reorderByIds(locations, newOrder));
+        }} className="space-y-3">
         {locations.map((loc, i) => {
-          const locExpanded = expandedLocations.has(i);
+          const locExpanded = expandedLocations.has(loc._id);
           const locDisplayName = loc.name || loc.name_en || `Location ${i + 1}`;
           return (
+          <ReorderableItem key={loc._id} value={loc._id} disabled={isReadOnly}>
+          {(dragControls) => (
           <div
-            key={i}
             className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
           >
             {/* Collapsible location header */}
             <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50">
-              <button type="button" onClick={() => toggleLocation(i)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+              <button type="button" onClick={() => toggleLocation(loc._id)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${locExpanded ? "rotate-180" : ""}`} />
                 <span className="text-xs font-medium text-foreground truncate">{locDisplayName}</span>
                 {!locExpanded && loc.open_days.length > 0 && (
@@ -1170,8 +1323,7 @@ export function SummerConfigEditor({
               </button>
               {!isReadOnly && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <button type="button" onClick={() => moveItem(locations, i, i - 1, setLocations)} disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
-                  <button type="button" onClick={() => moveItem(locations, i, i + 1, setLocations)} disabled={i === locations.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+                  <DragHandle controls={dragControls} />
                   <button type="button" onClick={() => deleteWithUndo(locations, i, setLocations, "Location")} className="p-1 text-red-500 hover:text-red-700"><Trash2 className="h-3 w-3" /></button>
                 </div>
               )}
@@ -1392,17 +1544,21 @@ export function SummerConfigEditor({
           </div>
             )}
           </div>
+          )}
+          </ReorderableItem>
           );
         })}
+        </Reorder.Group>
         {!isReadOnly && (
           <button
             type="button"
             onClick={() => {
+              const newId = genId("l");
               setLocations([
                 ...locations,
-                { name: "", name_en: "", address: "", open_days: [] },
+                { _id: newId, name: "", name_en: "", address: "", open_days: [] },
               ]);
-              setExpandedLocations((prev) => new Set(prev).add(locations.length));
+              setExpandedLocations((prev) => new Set(prev).add(newId));
             }}
             className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
           >
