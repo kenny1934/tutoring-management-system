@@ -585,6 +585,7 @@ export default function EnrollmentDetailPage() {
                         : "hover:bg-gray-100 dark:hover:bg-gray-800"
                     )}
                     title={isReadOnly ? "Read-only access" : "Edit schedule"}
+                    aria-label="Edit schedule"
                   >
                     <Pencil className={cn(
                       "h-3.5 w-3.5",

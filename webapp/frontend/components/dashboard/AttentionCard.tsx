@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import Link from "next/link";
 import { useCalendarEvents } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ interface AttentionCardProps {
   isMobile?: boolean;
 }
 
-export function AttentionCard({ pendingPayments, className, isMobile = false }: AttentionCardProps) {
+export const AttentionCard = memo(function AttentionCard({ pendingPayments, className, isMobile = false }: AttentionCardProps) {
   // Fetch calendar events for upcoming tests
   const { data: events = [] } = useCalendarEvents(7); // Next 7 days
 
@@ -168,4 +168,4 @@ export function AttentionCard({ pendingPayments, className, isMobile = false }: 
       </div>
     </div>
   );
-}
+});

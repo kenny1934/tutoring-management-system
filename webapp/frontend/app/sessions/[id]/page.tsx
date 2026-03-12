@@ -102,13 +102,13 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
   return (
     <div className="flex items-center gap-0.5 flex-shrink-0">
       <button type="button" onClick={handleOpen} disabled={openState === 'loading'}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file">
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Open file" aria-label="Open file">
         {openState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
          openState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
          <ExternalLink className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
       </button>
       <button type="button" onClick={handlePrint} disabled={printState === 'loading'}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file">
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Print file" aria-label="Print file">
         {printState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> :
          printState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
          <Printer className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
@@ -491,7 +491,7 @@ export default function SessionDetailPage() {
       <div>
         {/* Mobile: Navigation bar with back + context */}
         <div className="sm:hidden flex items-center gap-2 mb-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={goBack}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={goBack} aria-label="Back to sessions">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground">Session</span>
@@ -500,7 +500,7 @@ export default function SessionDetailPage() {
 
         {/* Desktop: Side-by-side layout */}
         <div className="hidden sm:flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={goBack}>
+          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={goBack} aria-label="Back to sessions">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">

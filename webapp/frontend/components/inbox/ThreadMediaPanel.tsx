@@ -306,6 +306,7 @@ export default function ThreadMediaPanel({ thread, onClose, onJumpToMessage }: T
           onClick={onClose}
           className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title="Close"
+          aria-label="Close media panel"
         >
           <X className="h-4 w-4" />
         </button>
