@@ -25,6 +25,7 @@ interface ProgressReportProps {
   dateRangeLabel: string;
   tutorComment?: string;
   generatedBy?: string;
+  showRating?: boolean;
 }
 
 export function ProgressReport({
@@ -34,6 +35,7 @@ export function ProgressReport({
   dateRangeLabel,
   tutorComment,
   generatedBy,
+  showRating = true,
 }: ProgressReportProps) {
   return (
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
@@ -66,11 +68,11 @@ export function ProgressReport({
             <ReportRatingChart data={progress.ratings} />
           </div>
         </div>
-      ) : (
+      ) : showRating ? (
         <div className="mb-6">
           <ReportRatingChart data={progress.ratings} />
         </div>
-      )}
+      ) : null}
 
       {progress.exercises.details && progress.exercises.details.length > 0 && (
         <div className="mb-6">
