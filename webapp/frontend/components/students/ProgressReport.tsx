@@ -19,12 +19,14 @@ import { ReportFooter } from "./report/ReportFooter";
 export type ReportMode = "internal" | "parent";
 
 export interface ReportSectionToggles {
+  showAttendance: boolean;
   showRating: boolean;
   showConceptMap: boolean;
   showTopics: boolean;
   showTests: boolean;
   showActivity: boolean;
   showEnrollment: boolean;
+  showContacts: boolean;
 }
 
 interface ProgressReportProps {
@@ -47,12 +49,14 @@ export function ProgressReport({
   sections,
 }: ProgressReportProps) {
   const {
+    showAttendance = true,
     showRating = true,
     showConceptMap = true,
     showTopics = true,
     showTests = true,
     showActivity = true,
     showEnrollment = true,
+    showContacts = true,
   } = sections ?? {};
   return (
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
@@ -77,14 +81,20 @@ export function ProgressReport({
 
       {/* Charts row */}
       {mode === "internal" ? (
-        <div className="flex gap-6 mb-6">
-          <div className="flex-1 min-w-0">
-            <ReportAttendanceChart data={progress.attendance} />
+        (showAttendance || showRating) && (
+          <div className="flex gap-6 mb-6">
+            {showAttendance && (
+              <div className="flex-1 min-w-0">
+                <ReportAttendanceChart data={progress.attendance} />
+              </div>
+            )}
+            {showRating && (
+              <div className="flex-1 min-w-0">
+                <ReportRatingChart data={progress.ratings} />
+              </div>
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <ReportRatingChart data={progress.ratings} />
-          </div>
-        </div>
+        )
       ) : showRating ? (
         <div className="mb-6">
           <ReportRatingChart data={progress.ratings} />
@@ -118,7 +128,7 @@ export function ProgressReport({
         </div>
       )}
 
-      {mode === "internal" && (
+      {mode === "internal" && showContacts && (
         <div className="mb-6">
           <ReportContactSummary data={progress.contacts} />
         </div>

@@ -29,6 +29,7 @@ import {
   FileText,
   Sparkles,
   Loader2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -37,6 +38,7 @@ import { StickyNote } from "@/lib/design-system";
 import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { Modal } from "@/components/ui/modal";
+import { useCooldown } from "@/lib/ui-hooks";
 import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
 import { studentsAPI } from "@/lib/api";
 import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
@@ -567,28 +569,32 @@ function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { 
 
 type SectionKey = keyof ReportSectionToggles;
 
-const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean }[] = [
+const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean; modes?: ReportMode[] }[] = [
+  { key: "showAttendance", label: "Attendance", modes: ["internal"] },
   { key: "showRating", label: "Rating" },
   { key: "showConceptMap", label: "Concept Map", ai: true },
   { key: "showTopics", label: "Topics Covered" },
   { key: "showTests", label: "Tests & Exams" },
   { key: "showActivity", label: "Monthly Activity" },
   { key: "showEnrollment", label: "Enrollment History" },
+  { key: "showContacts", label: "Contact Summary", modes: ["internal"] },
 ];
 
 export const DEFAULT_SECTIONS: ReportSectionToggles = {
+  showAttendance: true,
   showRating: true,
   showConceptMap: true,
   showTopics: true,
   showTests: true,
   showActivity: true,
   showEnrollment: true,
+  showContacts: true,
 };
 
 function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number; enrollmentStart?: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<ReportMode>("parent");
-  const [preset, setPreset] = useState<DatePreset>("12m");
+  const [preset, setPreset] = useState<DatePreset>("1m");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [comment, setComment] = useState("");
@@ -596,6 +602,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [narrative, setNarrative] = useState("");
   const [aiInsights, setAiInsights] = useState<Record<string, unknown> | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isCoolingDown, triggerCooldown] = useCooldown(5000);
+  const [aiError, setAiError] = useState("");
   const [sections, setSections] = useState<ReportSectionToggles>(DEFAULT_SECTIONS);
 
   const toggleSection = useCallback((key: SectionKey) => {
@@ -604,19 +612,23 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
   const handleGenerateAI = useCallback(async () => {
     setIsGeneratingAI(true);
+    setAiError("");
     try {
       const dates = preset === "custom"
         ? { start: customStart || undefined, end: customEnd || undefined }
         : getPresetDates(preset, enrollmentStart);
-      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language);
+      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language, true);
       if (progress.insights) {
         if (progress.insights.narrative) setNarrative(progress.insights.narrative);
         setAiInsights(progress.insights as Record<string, unknown>);
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to generate AI insights";
+      setAiError(msg);
       console.error("Failed to generate AI insights:", err);
     } finally {
       setIsGeneratingAI(false);
+      triggerCooldown();
     }
   }, [studentId, preset, customStart, customEnd, enrollmentStart, language]);
 
@@ -650,9 +662,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
     if (language !== "en") params.set("language", language);
 
-    // Section toggles (parent mode only, opt-out convention)
-    if (mode === "parent") {
-      for (const { key } of SECTION_TOGGLES) {
+    // Section toggles — opt-out convention (write "0" for unchecked)
+    for (const { key, modes } of SECTION_TOGGLES) {
+      if (!modes || modes.includes(mode)) {
         if (!sections[key]) params.set(key, "0");
       }
     }
@@ -708,19 +720,15 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             </div>
           </div>
 
-          {/* Learning Summary */}
+          {/* AI Generation */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+              AI Content <span className="text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
-            <textarea
-              value={narrative}
-              onChange={(e) => setNarrative(e.target.value)}
-              placeholder="Write a summary or generate with AI..."
-              rows={3}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
-            />
-            <div className="flex items-center gap-2 mt-1.5">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">
+              Generates a learning summary and concept map from student data.
+            </p>
+            <div className="flex items-center gap-2">
               <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
                   <button
@@ -739,13 +747,18 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               </div>
               <button
                 onClick={handleGenerateAI}
-                disabled={isGeneratingAI}
+                disabled={isGeneratingAI || isCoolingDown}
                 className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
               >
                 {isGeneratingAI ? (
                   <>
                     <Loader2 className="w-3 h-3 animate-spin" />
                     Generating...
+                  </>
+                ) : isCoolingDown ? (
+                  <>
+                    <Check className="w-3 h-3 text-green-600" />
+                    Generated
                   </>
                 ) : (
                   <>
@@ -755,14 +768,32 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                 )}
               </button>
             </div>
+            {aiError && (
+              <p className="text-[10px] text-red-500 mt-1">{aiError}</p>
+            )}
           </div>
 
-          {/* Section toggles — parent mode only */}
-          {mode === "parent" && (
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
-              <div className="space-y-1.5">
-                {SECTION_TOGGLES.map(({ key, label, ai }) => (
+          {/* Learning Summary */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
+              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+            </label>
+            <textarea
+              value={narrative}
+              onChange={(e) => setNarrative(e.target.value)}
+              placeholder="Write a summary or use AI to generate one..."
+              rows={3}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+            />
+          </div>
+
+          {/* Section toggles */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
+            <div className="space-y-1.5">
+              {SECTION_TOGGLES
+                .filter(({ modes }) => !modes || modes.includes(mode))
+                .map(({ key, label, ai }) => (
                   <label key={key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -776,9 +807,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                     </span>
                   </label>
                 ))}
-              </div>
             </div>
-          )}
+          </div>
 
           {/* Date range */}
           <div>

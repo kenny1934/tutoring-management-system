@@ -41,6 +41,9 @@ RATE_LIMITS = {
     "message_like": {"limit": 60, "window": 60},        # 60 likes/min
     "message_read": {"limit": 120, "window": 60},       # 120 mark-read/min
 
+    # AI operations - strict to control external API costs
+    "progress_insights": {"limit": 5, "window": 60},    # 5 AI calls/min
+
     # Default fallback
     "default": {"limit": 100, "window": 60},
 }
