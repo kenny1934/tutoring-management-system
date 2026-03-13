@@ -6,7 +6,8 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { useStudent } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { studentsAPI } from "@/lib/api";
-import { ProgressReport, type ReportMode } from "@/components/students/ProgressReport";
+import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
+import { DEFAULT_SECTIONS } from "@/components/students/StudentProgressTab";
 import type { StudentProgress } from "@/types";
 import useSWR from "swr";
 
@@ -22,11 +23,11 @@ function StudentReportPageInner() {
   const commentKey = searchParams.get("commentKey");
   const insightsKey = searchParams.get("insightsKey");
   const language = searchParams.get("language") || "en";
-  const showRating = searchParams.get("showRating") !== "0";
-  const showTopics = searchParams.get("showTopics") !== "0";
-  const showTests = searchParams.get("showTests") !== "0";
-  const showActivity = searchParams.get("showActivity") !== "0";
-  const showEnrollment = searchParams.get("showEnrollment") !== "0";
+  const sections = Object.fromEntries(
+    (Object.keys(DEFAULT_SECTIONS) as (keyof ReportSectionToggles)[]).map((key) => [
+      key, searchParams.get(key) !== "0",
+    ])
+  ) as ReportSectionToggles;
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -144,7 +145,7 @@ function StudentReportPageInner() {
           dateRangeLabel={dateRangeLabel}
           tutorComment={tutorComment}
           generatedBy={user?.name}
-          sections={{ showRating, showTopics, showTests, showActivity, showEnrollment }}
+          sections={sections}
         />
       </div>
     </div>

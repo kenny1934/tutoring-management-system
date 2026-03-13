@@ -567,16 +567,18 @@ function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { 
 
 type SectionKey = keyof ReportSectionToggles;
 
-const SECTION_TOGGLES: readonly { key: SectionKey; label: string }[] = [
+const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean }[] = [
   { key: "showRating", label: "Rating" },
+  { key: "showConceptMap", label: "Concept Map", ai: true },
   { key: "showTopics", label: "Topics Covered" },
   { key: "showTests", label: "Tests & Exams" },
   { key: "showActivity", label: "Monthly Activity" },
   { key: "showEnrollment", label: "Enrollment History" },
 ];
 
-const DEFAULT_SECTIONS: ReportSectionToggles = {
+export const DEFAULT_SECTIONS: ReportSectionToggles = {
   showRating: true,
+  showConceptMap: true,
   showTopics: true,
   showTests: true,
   showActivity: true,
@@ -706,12 +708,61 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             </div>
           </div>
 
+          {/* Learning Summary */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
+              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+            </label>
+            <textarea
+              value={narrative}
+              onChange={(e) => setNarrative(e.target.value)}
+              placeholder="Write a summary or generate with AI..."
+              rows={3}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+            />
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setLanguage(val); setAiInsights(null); }}
+                    className={cn(
+                      "text-[10px] px-2 py-1 font-medium transition-colors",
+                      language === val
+                        ? "bg-[#a0704b] text-white"
+                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleGenerateAI}
+                disabled={isGeneratingAI}
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
+              >
+                {isGeneratingAI ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3" />
+                    Generate with AI
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* Section toggles — parent mode only */}
           {mode === "parent" && (
             <div>
               <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
               <div className="space-y-1.5">
-                {SECTION_TOGGLES.map(({ key, label }) => (
+                {SECTION_TOGGLES.map(({ key, label, ai }) => (
                   <label key={key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -719,7 +770,10 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       onChange={() => toggleSection(key)}
                       className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
                     />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                      {label}
+                      {ai && <Sparkles className="w-3 h-3 text-amber-500" />}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -771,58 +825,6 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               rows={3}
               className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
-          </div>
-
-          {/* Learning Summary */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
-            </label>
-            <textarea
-              value={narrative}
-              onChange={(e) => setNarrative(e.target.value)}
-              placeholder="Write a summary or generate with AI..."
-              rows={3}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
-            />
-            <div className="flex items-center gap-2 mt-1.5">
-              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
-                {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => { setLanguage(val); setAiInsights(null); }}
-                    className={cn(
-                      "text-[10px] px-2 py-1 font-medium transition-colors",
-                      language === val
-                        ? "bg-[#a0704b] text-white"
-                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={handleGenerateAI}
-                disabled={isGeneratingAI}
-                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
-              >
-                {isGeneratingAI ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3" />
-                    Generate with AI
-                  </>
-                )}
-              </button>
-            </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 italic mt-1.5">
-              AI adds a concept map and enriched summary. Without AI, the report includes metrics, charts, topics, and enrollment data.
-            </p>
           </div>
         </div>
       </Modal>
