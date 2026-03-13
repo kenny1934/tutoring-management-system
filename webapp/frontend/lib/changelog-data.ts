@@ -67,6 +67,15 @@ const changelogData = [
           },
           {
             "description": "**Exam revision slot protection** — slot update and delete endpoints now require JWT authentication"
+          },
+          {
+            "description": "**Document processing authentication** — PDF handwriting removal endpoints now require JWT authentication"
+          },
+          {
+            "description": "**Dashboard data protection** — stats, locations, active students, and activity feed endpoints now require authenticated users"
+          },
+          {
+            "description": "**Backend URL hardening** — moved Cloud Run backend URL from source code to environment variable"
           }
         ]
       }
