@@ -2003,11 +2003,18 @@ export interface TestEvent {
   start_date: string;
   end_date?: string;
   event_type?: string;
+  description?: string;
 }
 
 export interface TopicCount {
   topic: string;
   count: number;
+}
+
+export interface ConceptNode {
+  label: string;
+  count: number;
+  category?: string;
 }
 
 export interface ProgressInsights {
@@ -2016,6 +2023,7 @@ export interface ProgressInsights {
   cw_count: number;
   hw_count: number;
   narrative: string;
+  concept_nodes?: ConceptNode[];
 }
 
 export interface StudentProgress {
