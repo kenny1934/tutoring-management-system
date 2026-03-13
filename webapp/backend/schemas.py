@@ -2009,6 +2009,8 @@ class AttendanceSummary(BaseModel):
     cancelled: int = 0
     total_past_sessions: int = 0
     attendance_rate: float = 0.0
+    recent_rate: Optional[float] = None      # last 30 days
+    previous_rate: Optional[float] = None    # 31-60 days ago
 
 
 class RatingMonth(BaseModel):
@@ -2023,6 +2025,7 @@ class RatingSummary(BaseModel):
     overall_avg: float = 0.0
     total_rated: int = 0
     monthly_trend: List[RatingMonth] = []
+    recent_avg: Optional[float] = None       # last 30 days avg rating
 
 
 class ExerciseSummary(BaseModel):
