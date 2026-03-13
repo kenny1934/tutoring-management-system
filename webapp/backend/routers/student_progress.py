@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from auth.dependencies import get_current_user
 from database import get_db
+from utils.rate_limiter import check_user_rate_limit
 from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent
 from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
 from schemas import (
@@ -29,6 +30,7 @@ def get_student_progress(
     start_date: Optional[date] = Query(None, description="Filter sessions from this date"),
     end_date: Optional[date] = Query(None, description="Filter sessions up to this date"),
     generate_insights: bool = Query(False, description="Generate AI insights (costs tokens)"),
+    force_refresh: bool = Query(False, description="Bypass AI cache and regenerate"),
     language: Literal["en", "zh-hant"] = Query("en", description="Language for AI narrative"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -308,6 +310,8 @@ def get_student_progress(
     if generate_insights:
         from services.progress_insights import generate_progress_insights
 
+        check_user_rate_limit(current_user.id, "progress_insights")
+
         date_range = (start_date, end_date) if start_date and end_date else None
         insights = generate_progress_insights(
             student=student,
@@ -317,6 +321,7 @@ def get_student_progress(
             ratings=ratings,
             date_range=date_range,
             language=language,
+            force_refresh=force_refresh,
         )
 
     return StudentProgressResponse(
