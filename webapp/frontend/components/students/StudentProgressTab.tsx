@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
 import { formatShortDate } from "@/lib/formatters";
 import { StickyNote } from "@/lib/design-system";
+import { Tooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import type { StudentProgress, MonthlyActivity } from "@/types";
 
@@ -61,10 +62,10 @@ function formatMonthLabel(month: string): string {
 
 // --- Trend Delta Badge ---
 
-function DeltaBadge({ delta, format }: { delta: number; format: (v: number) => string }) {
+function DeltaBadge({ delta, format, tooltip }: { delta: number; format: (v: number) => string; tooltip?: string }) {
   if (delta === 0) return null;
   const isUp = delta > 0;
-  return (
+  const badge = (
     <span className={cn(
       "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
       isUp ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
@@ -73,6 +74,8 @@ function DeltaBadge({ delta, format }: { delta: number; format: (v: number) => s
       {format(Math.abs(delta))}
     </span>
   );
+  if (tooltip) return <Tooltip content={tooltip}>{badge}</Tooltip>;
+  return badge;
 }
 
 // --- Tooltip Components ---
@@ -341,7 +344,7 @@ function MonthlyActivityChart({ data }: { data: MonthlyActivity[] }) {
 
 // --- Enrollment Timeline ---
 
-function EnrollmentTimelineList({ data }: { data: StudentProgress["enrollment_timeline"] }) {
+function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["enrollment_timeline"]; onViewAll?: () => void }) {
   if (data.length === 0) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
@@ -350,9 +353,12 @@ function EnrollmentTimelineList({ data }: { data: StudentProgress["enrollment_ti
     );
   }
 
+  const displayed = data.slice(0, 2);
+  const hasMore = data.length > 2;
+
   return (
     <div className="space-y-0">
-      {data.map((e, i) => (
+      {displayed.map((e, i) => (
         <div key={e.id} className="flex gap-3">
           {/* Timeline line + dot */}
           <div className="flex flex-col items-center">
@@ -366,7 +372,7 @@ function EnrollmentTimelineList({ data }: { data: StudentProgress["enrollment_ti
                     : "bg-amber-500"
               )}
             />
-            {i < data.length - 1 && (
+            {i < displayed.length - 1 && (
               <div className="w-px flex-1 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
             )}
           </div>
@@ -427,6 +433,14 @@ function EnrollmentTimelineList({ data }: { data: StudentProgress["enrollment_ti
           </div>
         </div>
       ))}
+      {hasMore && onViewAll && (
+        <button
+          onClick={onViewAll}
+          className="text-xs text-[#a0704b] hover:text-[#8b6140] font-medium mt-1 transition-colors"
+        >
+          View all {data.length} enrollments →
+        </button>
+      )}
     </div>
   );
 }
@@ -535,7 +549,7 @@ function ProgressSkeleton() {
 
 // --- Main Component ---
 
-type ProgressNavTarget = "sessions" | "ratings" | "courseware";
+type ProgressNavTarget = "sessions" | "ratings" | "courseware" | "profile";
 
 export function StudentProgressDrawer({
   studentId,
@@ -587,7 +601,11 @@ export function StudentProgressDrawer({
           subtitle={`${attendance.attended} attended, ${attendance.no_show} no-show${attendance.no_show !== 1 ? "s" : ""}`}
           color={ATTENDANCE_COLORS.attended}
           delta={attendance.recent_rate != null && attendance.previous_rate != null
-            ? <DeltaBadge delta={Math.round((attendance.recent_rate - attendance.previous_rate) * 10) / 10} format={(v) => `${v}%`} />
+            ? <DeltaBadge
+                delta={Math.round((attendance.recent_rate - attendance.previous_rate) * 10) / 10}
+                format={(v) => `${v}%`}
+                tooltip={`Last 30 days: ${attendance.recent_rate}% vs previous 30 days: ${attendance.previous_rate}%`}
+              />
             : undefined}
           onClick={() => onNavigateTab("sessions")}
         />
@@ -598,7 +616,11 @@ export function StudentProgressDrawer({
           subtitle={ratings.total_rated > 0 ? `${ratings.total_rated} rated sessions` : "No ratings yet"}
           color={CHART_COLORS.rating}
           delta={ratings.recent_avg != null && ratings.overall_avg > 0
-            ? <DeltaBadge delta={Math.round((ratings.recent_avg - ratings.overall_avg) * 100) / 100} format={(v) => v.toFixed(1)} />
+            ? <DeltaBadge
+                delta={Math.round((ratings.recent_avg - ratings.overall_avg) * 100) / 100}
+                format={(v) => v.toFixed(1)}
+                tooltip={`Last 30 days: ${ratings.recent_avg.toFixed(1)} vs overall: ${ratings.overall_avg.toFixed(1)}`}
+              />
             : undefined}
           onClick={() => onNavigateTab("ratings")}
         />
@@ -638,7 +660,7 @@ export function StudentProgressDrawer({
       {/* Bottom Row: Timeline + Contacts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartSection title="Enrollment History">
-          <EnrollmentTimelineList data={enrollment_timeline} />
+          <EnrollmentTimelineList data={enrollment_timeline} onViewAll={() => onNavigateTab("profile")} />
         </ChartSection>
         <ChartSection title="Parent Contact Summary">
           <ContactSummaryCard data={contacts} />
