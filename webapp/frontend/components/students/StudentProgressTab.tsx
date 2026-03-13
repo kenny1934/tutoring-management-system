@@ -593,7 +593,7 @@ export function StudentProgressDrawer({
         <SummaryCard
           icon={Calendar}
           label="Total Sessions"
-          value={attendance.total_past_sessions}
+          value={attendance.attended + attendance.no_show}
           subtitle={`${attendance.no_show} no-show${attendance.no_show !== 1 ? "s" : ""}`}
           color={CHART_COLORS.sessions}
           onClick={() => onNavigateTab("sessions")}
