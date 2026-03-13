@@ -20,6 +20,7 @@ export type ReportMode = "internal" | "parent";
 
 export interface ReportSectionToggles {
   showRating: boolean;
+  showConceptMap: boolean;
   showTopics: boolean;
   showTests: boolean;
   showActivity: boolean;
@@ -47,6 +48,7 @@ export function ProgressReport({
 }: ProgressReportProps) {
   const {
     showRating = true,
+    showConceptMap = true,
     showTopics = true,
     showTests = true,
     showActivity = true,
@@ -65,7 +67,7 @@ export function ProgressReport({
       )}
 
       {/* Concept map — AI-extracted topics */}
-      {progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0 && (
+      {showConceptMap && progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0 && (
         <div className="mb-6">
           <ReportConceptMap data={progress.insights.concept_nodes} />
         </div>
