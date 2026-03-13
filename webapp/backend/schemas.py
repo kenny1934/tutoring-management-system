@@ -1997,6 +1997,80 @@ class CreateCheckpointRequest(BaseModel):
     label: Optional[str] = Field(None, max_length=255)
 
 
+# ============================================
+# Student Progress Schemas
+# ============================================
+
+class AttendanceSummary(BaseModel):
+    """Attendance breakdown for a student"""
+    attended: int = 0
+    no_show: int = 0
+    rescheduled: int = 0
+    cancelled: int = 0
+    total_past_sessions: int = 0
+    attendance_rate: float = 0.0
+
+
+class RatingMonth(BaseModel):
+    """Average rating for a single month"""
+    month: str
+    avg_rating: float
+    count: int
+
+
+class RatingSummary(BaseModel):
+    """Rating trend and overall stats"""
+    overall_avg: float = 0.0
+    total_rated: int = 0
+    monthly_trend: List[RatingMonth] = []
+
+
+class ExerciseSummary(BaseModel):
+    """Exercise count breakdown"""
+    total: int = 0
+    classwork: int = 0
+    homework: int = 0
+
+
+class EnrollmentTimeline(BaseModel):
+    """Single enrollment in timeline view"""
+    id: int
+    tutor_name: Optional[str] = None
+    enrollment_type: Optional[str] = None
+    payment_status: str
+    first_lesson_date: Optional[date] = None
+    location: Optional[str] = None
+    assigned_day: Optional[str] = None
+    assigned_time: Optional[str] = None
+    lessons_paid: Optional[int] = None
+
+
+class ContactSummary(BaseModel):
+    """Parent contact summary stats"""
+    total_contacts: int = 0
+    last_contact_date: Optional[datetime] = None
+    by_method: Dict[str, int] = {}
+    by_type: Dict[str, int] = {}
+
+
+class MonthlyActivity(BaseModel):
+    """Activity data for a single month"""
+    month: str
+    sessions_attended: int = 0
+    exercises_assigned: int = 0
+
+
+class StudentProgressResponse(BaseModel):
+    """Complete progress analytics for a student"""
+    student_id: int
+    attendance: AttendanceSummary
+    ratings: RatingSummary
+    exercises: ExerciseSummary
+    enrollment_timeline: List[EnrollmentTimeline] = []
+    contacts: ContactSummary
+    monthly_activity: List[MonthlyActivity] = []
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

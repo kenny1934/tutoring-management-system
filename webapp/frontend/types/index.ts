@@ -1930,3 +1930,69 @@ export interface DocumentVersionDetail extends DocumentVersion {
   content?: Record<string, unknown> | null;
   page_layout?: DocumentMetadata | null;
 }
+
+// ============================================
+// Student Progress Analytics Types
+// ============================================
+
+export interface AttendanceSummary {
+  attended: number;
+  no_show: number;
+  rescheduled: number;
+  cancelled: number;
+  total_past_sessions: number;
+  attendance_rate: number;
+}
+
+export interface RatingMonth {
+  month: string;
+  avg_rating: number;
+  count: number;
+}
+
+export interface RatingSummary {
+  overall_avg: number;
+  total_rated: number;
+  monthly_trend: RatingMonth[];
+}
+
+export interface ExerciseSummary {
+  total: number;
+  classwork: number;
+  homework: number;
+}
+
+export interface EnrollmentTimelineItem {
+  id: number;
+  tutor_name: string | null;
+  enrollment_type: string | null;
+  payment_status: string;
+  first_lesson_date: string | null;
+  location: string | null;
+  assigned_day: string | null;
+  assigned_time: string | null;
+  lessons_paid: number | null;
+}
+
+export interface ContactSummary {
+  total_contacts: number;
+  last_contact_date: string | null;
+  by_method: Record<string, number>;
+  by_type: Record<string, number>;
+}
+
+export interface MonthlyActivity {
+  month: string;
+  sessions_attended: number;
+  exercises_assigned: number;
+}
+
+export interface StudentProgress {
+  student_id: number;
+  attendance: AttendanceSummary;
+  ratings: RatingSummary;
+  exercises: ExerciseSummary;
+  enrollment_timeline: EnrollmentTimelineItem[];
+  contacts: ContactSummary;
+  monthly_activity: MonthlyActivity[];
+}

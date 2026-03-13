@@ -320,7 +320,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
@@ -347,6 +347,7 @@ app.include_router(wecom.router, prefix="/api", tags=["wecom"])
 app.include_router(tutor_memos.router, prefix="/api", tags=["tutor-memos"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(push_notifications.router, prefix="/api", tags=["push-notifications"])
+app.include_router(student_progress.router, prefix="/api", tags=["student-progress"])
 
 
 if __name__ == "__main__":

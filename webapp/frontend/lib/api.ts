@@ -132,6 +132,7 @@ import type {
   TutorMemoUpdate,
   TutorMemoImportRequest,
   ExerciseHistoryResponse,
+  StudentProgress,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -353,6 +354,10 @@ export const studentsAPI = {
 
   getCoupon: (studentId: number) => {
     return fetchAPI<StudentCouponResponse>(`/students/${studentId}/coupon`);
+  },
+
+  getProgress: (studentId: number) => {
+    return fetchAPI<StudentProgress>(`/students/${studentId}/progress`);
   },
 };
 

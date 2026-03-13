@@ -15,7 +15,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download
+Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download, TrendingUp
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -42,6 +42,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
+import { StudentProgressTab } from "@/components/students/StudentProgressTab";
 import {
   useFloating,
   autoUpdate,
@@ -54,7 +55,7 @@ import {
 } from "@floating-ui/react";
 
 // Tab types
-type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
+type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "progress" | "contacts";
 
 interface Tab {
   id: TabId;
@@ -68,6 +69,7 @@ const TABS: Tab[] = [
   { id: "courseware", label: "Courseware", icon: BookMarked },
   { id: "tests", label: "Tests", icon: BookOpen },
   { id: "ratings", label: "Ratings", icon: Star },
+  { id: "progress", label: "Progress", icon: TrendingUp },
   { id: "contacts", label: "Parent Contacts", icon: Phone },
 ];
 
@@ -616,6 +618,11 @@ export default function StudentDetailPage() {
                     setPopoverSession(session);
                   }}
                 />
+              )}
+
+              {/* Progress Tab */}
+              {activeTab === "progress" && (
+                <StudentProgressTab studentId={studentId!} isMobile={isMobile} />
               )}
 
               {/* Parent Contacts Tab */}
