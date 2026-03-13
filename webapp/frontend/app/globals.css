@@ -3270,4 +3270,21 @@ body.student-print .print-answer-key {
     size: A4;
     margin: 25mm;
   }
+
+  /* 9. Student progress report */
+  .report-toolbar { display: none !important; }
+  .report-container {
+    color: #1a1a1a !important;
+    background: white !important;
+    max-width: none !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .report-container svg {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .report-section { break-inside: avoid; }
+  .report-page-break { break-before: page; }
 }

@@ -5,7 +5,8 @@ parent contacts, and monthly activity for a single student.
 """
 from collections import defaultdict
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session, joinedload
 
@@ -24,6 +25,8 @@ router = APIRouter()
 @router.get("/students/{student_id}/progress", response_model=StudentProgressResponse)
 def get_student_progress(
     student_id: int,
+    start_date: Optional[date] = Query(None, description="Filter sessions from this date"),
+    end_date: Optional[date] = Query(None, description="Filter sessions up to this date"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
@@ -33,11 +36,13 @@ def get_student_progress(
         raise HTTPException(status_code=404, detail="Student not found")
 
     today = date.today()
+    # Use end_date as the anchor for trend windows when date range is specified
+    anchor = end_date or today
 
     # --- Q1: Attendance summary (includes 30/60-day trend windows) ---
     all_rescheduled = PENDING_MAKEUP_STATUSES + MAKEUP_BOOKED_STATUSES
-    thirty_days_ago = today - timedelta(days=30)
-    sixty_days_ago = today - timedelta(days=60)
+    thirty_days_ago = anchor - timedelta(days=30)
+    sixty_days_ago = anchor - timedelta(days=60)
     attended_or_noshow = COMPLETED_STATUSES + [SessionStatus.NO_SHOW.value]
 
     row = db.query(
@@ -78,7 +83,8 @@ def get_student_progress(
         )).label("prev_total"),
     ).filter(
         SessionLog.student_id == student_id,
-        SessionLog.session_date <= today,
+        SessionLog.session_date <= anchor,
+        *([SessionLog.session_date >= start_date] if start_date else []),
     ).first()
 
     attended = int(row.attended or 0)
@@ -115,6 +121,8 @@ def get_student_progress(
         SessionLog.student_id == student_id,
         SessionLog.performance_rating.isnot(None),
         SessionLog.performance_rating != "",
+        *([SessionLog.session_date >= start_date] if start_date else []),
+        *([SessionLog.session_date <= end_date] if end_date else []),
     ).order_by(SessionLog.session_date).all()
 
     monthly_ratings: dict[str, list[int]] = defaultdict(list)
@@ -150,6 +158,8 @@ def get_student_progress(
         )).label("homework"),
     ).join(SessionLog, SessionExercise.session_id == SessionLog.id).filter(
         SessionLog.student_id == student_id,
+        *([SessionLog.session_date >= start_date] if start_date else []),
+        *([SessionLog.session_date <= end_date] if end_date else []),
     ).first()
 
     exercises = ExerciseSummary(
@@ -207,14 +217,18 @@ def get_student_progress(
         by_type={r.contact_type: r.cnt for r in type_rows},
     )
 
-    # --- Q6: Monthly activity (last 12 months) ---
-    # Calculate 12 months ago (first day of that month)
-    m = today.month - 11
-    y = today.year
-    if m <= 0:
-        m += 12
-        y -= 1
-    twelve_months_ago = date(y, m, 1)
+    # --- Q6: Monthly activity ---
+    # Use date range if provided, otherwise default to last 12 months
+    if start_date:
+        activity_start = date(start_date.year, start_date.month, 1)
+    else:
+        m = today.month - 11
+        y = today.year
+        if m <= 0:
+            m += 12
+            y -= 1
+        activity_start = date(y, m, 1)
+    activity_end = end_date or today
 
     # Single query: sessions attended + exercises per month (LEFT JOIN)
     month_col = func.date_format(SessionLog.session_date, "%Y-%m").label("month")
@@ -226,13 +240,14 @@ def get_student_progress(
         func.count(SessionExercise.id).label("exercises"),
     ).outerjoin(SessionExercise, SessionExercise.session_id == SessionLog.id).filter(
         SessionLog.student_id == student_id,
-        SessionLog.session_date >= twelve_months_ago,
+        SessionLog.session_date >= activity_start,
+        SessionLog.session_date <= activity_end,
     ).group_by(month_col).all()
 
-    # Fill all 12 months
+    # Fill all months in range
     activity_map: dict[str, dict] = {}
-    d = twelve_months_ago
-    while d <= today:
+    d = activity_start
+    while d <= activity_end:
         key = d.strftime("%Y-%m")
         activity_map[key] = {"sessions_attended": 0, "exercises_assigned": 0}
         if d.month == 12:
