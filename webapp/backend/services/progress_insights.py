@@ -74,7 +74,7 @@ Guidelines for concepts:
 Return ONLY valid JSON, no markdown code fences."""
 
 LANGUAGE_INSTRUCTION = {
-    "zh-hant": "\n\nIMPORTANT: Write the narrative in Traditional Chinese (繁體中文). Keep JSON keys and category values in English, but write the narrative and concept labels in Traditional Chinese.",
+    "zh-hant": "\n\nIMPORTANT: Write the narrative in Traditional Chinese (繁體中文). Keep JSON keys and category values in English, but write the narrative and concept labels in Traditional Chinese. IMPORTANT: Keep all proper nouns (especially student names, school names) in their original form — do NOT transliterate them into Chinese.",
 }
 
 
