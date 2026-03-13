@@ -11,7 +11,6 @@ export function ReportAttendanceChart({ data }: ReportAttendanceChartProps) {
     { name: "Attended", value: data.attended, fill: ATTENDANCE_COLORS.attended },
     { name: "No Show", value: data.no_show, fill: ATTENDANCE_COLORS.no_show },
     { name: "Rescheduled", value: data.rescheduled, fill: ATTENDANCE_COLORS.rescheduled },
-    { name: "Cancelled", value: data.cancelled, fill: ATTENDANCE_COLORS.cancelled },
   ].filter((d) => d.value > 0);
 
   if (data.total_past_sessions === 0) {
