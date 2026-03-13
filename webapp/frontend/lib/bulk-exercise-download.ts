@@ -143,7 +143,8 @@ export async function bulkDownloadByStudent(
  * Each page is stamped with the correct student's info.
  */
 export async function bulkPrintAllStudents(
-  groups: StudentExerciseGroup[]
+  groups: StudentExerciseGroup[],
+  paperlessSearch?: (path: string) => Promise<number | null>,
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
   const fsSupported = isFileSystemAccessSupported();
   if (!fsSupported) {
@@ -168,7 +169,7 @@ export async function bulkPrintAllStudents(
   const fsUtils = createFsUtils();
   const results = await Promise.all(
     allExercisesWithStamps.map(({ exercise }) =>
-      fetchPdfData(exercise, fsUtils, searchPaperlessByPath, '[BulkPrintAll]')
+      fetchPdfData(exercise, fsUtils, paperlessSearch ?? searchPaperlessByPath, '[BulkPrintAll]')
     )
   );
 

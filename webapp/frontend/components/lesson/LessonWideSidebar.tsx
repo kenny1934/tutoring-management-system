@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/exercise-utils";
-import { getPageLabel, getStudentIdDisplay } from "@/lib/lesson-utils";
+import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, SessionExercise } from "@/types";
@@ -30,8 +30,8 @@ interface LessonWideSidebarProps {
   onPrintFileGroup?: (group: FileGroup) => void;
   onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
   onBulkAssign?: (type: "CW" | "HW", sessionIds?: number[]) => void;
-  /** ID of exercise currently being printed (negative for bulk: -1 = bulk all, -2 = file group, -sessionId = per-student) */
-  printingId?: number | null;
+  /** Bundled printing state: which exercise ID is printing + progress message. */
+  printing?: PrintingState;
 }
 
 // --- By-Student mode components ---
@@ -43,6 +43,7 @@ function StudentExerciseItem({
   hasAnnotations,
   onPrint,
   isPrinting,
+  printProgress,
 }: {
   entry: StudentExerciseEntry;
   isSelected: boolean;
@@ -50,6 +51,7 @@ function StudentExerciseItem({
   hasAnnotations?: boolean;
   onPrint?: (entry: StudentExerciseEntry) => void;
   isPrinting?: boolean;
+  printProgress?: string | null;
 }) {
   const displayName = getDisplayName(entry.exercise.pdf_name);
   const pageLabel = getPageLabel(entry.exercise);
@@ -85,7 +87,7 @@ function StudentExerciseItem({
               "p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors flex-shrink-0",
               isPrinting ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
-            title={isPrinting ? "Printing..." : "Print"}
+            title={getPrintButtonTitle(!!isPrinting, printProgress, "Print")}
           >
             {isPrinting ? (
               <Loader2 className="h-3 w-3 animate-spin text-[#a0906e] dark:text-[#8a7a60]" />
@@ -114,7 +116,7 @@ function StudentBlock({
   defaultExpanded,
   onPrint,
   onBulkPrintStudent,
-  printingId,
+  printing,
 }: {
   session: Session;
   entries: StudentExerciseEntry[];
@@ -127,7 +129,7 @@ function StudentBlock({
   defaultExpanded: boolean;
   onPrint?: (entry: StudentExerciseEntry) => void;
   onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
-  printingId?: number | null;
+  printing?: PrintingState;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
@@ -157,7 +159,7 @@ function StudentBlock({
           <User className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             {studentId && (
-              <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60]">{studentId}</span>
+              <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
             )}
             <span className="text-xs font-semibold text-[#6b5a42] dark:text-[#c4a882] truncate">
               {session.student_name}
@@ -176,7 +178,7 @@ function StudentBlock({
           </span>
         </button>
         {onBulkPrintStudent && (() => {
-          const isBulkPrinting = printingId === -session.id;
+          const isBulkPrinting = printing?.id === -session.id;
           return (
           <div className={cn(
             "flex items-center gap-0.5 mr-1 flex-shrink-0",
@@ -187,7 +189,7 @@ function StudentBlock({
                 onClick={() => { if (!isBulkPrinting) onBulkPrintStudent(session, 'CW'); }}
                 disabled={isBulkPrinting}
                 className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
-                title={isBulkPrinting ? "Printing..." : `Print all CW (${cwEntries.length})`}
+                title={getPrintButtonTitle(!!isBulkPrinting, printing?.progress, `Print all CW (${cwEntries.length})`)}
               >
                 {isBulkPrinting ? (
                   <Loader2 className="h-3 w-3 animate-spin text-rose-400 dark:text-rose-300" />
@@ -201,7 +203,7 @@ function StudentBlock({
                 onClick={() => { if (!isBulkPrinting) onBulkPrintStudent(session, 'HW'); }}
                 disabled={isBulkPrinting}
                 className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
-                title={isBulkPrinting ? "Printing..." : `Print all HW (${hwEntries.length})`}
+                title={getPrintButtonTitle(!!isBulkPrinting, printing?.progress, `Print all HW (${hwEntries.length})`)}
               >
                 {isBulkPrinting ? (
                   <Loader2 className="h-3 w-3 animate-spin text-blue-400 dark:text-blue-300" />
@@ -237,7 +239,7 @@ function StudentBlock({
                   isReadOnly={isReadOnly}
                   hasAnnotations={hasAnnotations}
                   onPrint={onPrint}
-                  printingId={printingId}
+                  printing={printing}
                 />
               )}
               {hwEntries.length > 0 && (
@@ -252,7 +254,7 @@ function StudentBlock({
                   isReadOnly={isReadOnly}
                   hasAnnotations={hasAnnotations}
                   onPrint={onPrint}
-                  printingId={printingId}
+                  printing={printing}
                 />
               )}
               {cwEntries.length === 0 && hwEntries.length === 0 && (
@@ -279,7 +281,7 @@ function ExerciseTypeSection({
   isReadOnly,
   hasAnnotations,
   onPrint,
-  printingId,
+  printing,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -291,7 +293,7 @@ function ExerciseTypeSection({
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
   onPrint?: (entry: StudentExerciseEntry) => void;
-  printingId?: number | null;
+  printing?: PrintingState;
 }) {
   return (
     <div>
@@ -325,7 +327,8 @@ function ExerciseTypeSection({
             onClick={() => onEntrySelect(entry)}
             hasAnnotations={hasAnnotations?.(entry.exercise.id)}
             onPrint={onPrint}
-            isPrinting={printingId === entry.exercise.id}
+            isPrinting={printing?.id === entry.exercise.id}
+            printProgress={printing?.id === entry.exercise.id ? printing.progress : undefined}
           />
         ))}
       </div>
@@ -412,7 +415,7 @@ function StudentPickerPopover({
                 <Square className="h-3.5 w-3.5 flex-shrink-0" />
               )}
               {studentId && (
-                <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60]">{studentId}</span>
+                <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
               )}
               <span className="truncate">{session.student_name}</span>
               {session.grade && (
@@ -455,7 +458,7 @@ function FileGroupItem({
   selectedLocation,
   onPrint,
   onPrintFileGroup,
-  printingId,
+  printing,
 }: {
   group: FileGroup;
   selectedEntry: StudentExerciseEntry | null;
@@ -464,7 +467,7 @@ function FileGroupItem({
   selectedLocation: string;
   onPrint?: (entry: StudentExerciseEntry) => void;
   onPrintFileGroup?: (group: FileGroup) => void;
-  printingId?: number | null;
+  printing?: PrintingState;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -490,7 +493,7 @@ function FileGroupItem({
           </span>
         </button>
         {onPrintFileGroup && group.entries.length > 0 && (() => {
-          const isGroupPrinting = printingId === -2;
+          const isGroupPrinting = printing?.id === -2;
           return (
           <button
             onClick={() => { if (!isGroupPrinting) onPrintFileGroup(group); }}
@@ -499,7 +502,7 @@ function FileGroupItem({
               "p-1 mr-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors flex-shrink-0",
               isGroupPrinting ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
-            title={isGroupPrinting ? "Printing..." : `Print for all ${group.entries.length} students`}
+            title={getPrintButtonTitle(!!isGroupPrinting, printing?.progress, `Print for all ${group.entries.length} students`)}
           >
             {isGroupPrinting ? (
               <Loader2 className="h-3 w-3 animate-spin text-[#a0906e] dark:text-[#8a7a60]" />
@@ -545,7 +548,7 @@ function FileGroupItem({
                     <div className="flex items-center gap-1.5 min-w-0">
                       <User className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
                       {studentId && (
-                        <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60]">{studentId}</span>
+                        <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
                       )}
                       <span className={cn(
                         "truncate font-medium",
@@ -568,7 +571,7 @@ function FileGroupItem({
                       )}
                       <div className="flex-1" />
                       {entry.exercise.pdf_name && onPrint && (() => {
-                        const isEntryPrinting = printingId === entry.exercise.id;
+                        const isEntryPrinting = printing?.id === entry.exercise.id;
                         return (
                         <button
                           onClick={(e) => { e.stopPropagation(); if (!isEntryPrinting) onPrint(entry); }}
@@ -577,7 +580,7 @@ function FileGroupItem({
                             "p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors flex-shrink-0",
                             isEntryPrinting ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           )}
-                          title={isEntryPrinting ? "Printing..." : "Print"}
+                          title={getPrintButtonTitle(!!isEntryPrinting, printing?.progress, "Print")}
                         >
                           {isEntryPrinting ? (
                             <Loader2 className="h-3 w-3 animate-spin text-[#a0906e] dark:text-[#8a7a60]" />
@@ -621,7 +624,7 @@ export function LessonWideSidebar({
   onPrintFileGroup,
   onBulkPrintStudent,
   onBulkAssign,
-  printingId,
+  printing,
 }: LessonWideSidebarProps) {
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
@@ -719,7 +722,7 @@ export function LessonWideSidebar({
                   defaultExpanded
                   onPrint={onPrint}
                   onBulkPrintStudent={onBulkPrintStudent}
-                  printingId={printingId}
+                  printing={printing}
                 />
               );
             })}
@@ -746,7 +749,7 @@ export function LessonWideSidebar({
                       selectedLocation={selectedLocation}
                       onPrint={onPrint}
                       onPrintFileGroup={onPrintFileGroup}
-                      printingId={printingId}
+                      printing={printing}
                     />
                   ))}
                 </div>
@@ -771,7 +774,7 @@ export function LessonWideSidebar({
                       selectedLocation={selectedLocation}
                       onPrint={onPrint}
                       onPrintFileGroup={onPrintFileGroup}
-                      printingId={printingId}
+                      printing={printing}
                     />
                   ))}
                 </div>

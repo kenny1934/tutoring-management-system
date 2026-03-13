@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -209,6 +209,15 @@ export function LessonWideMode({
         map.set(key, group);
       }
       group.entries.push(entry);
+    }
+    // Sort entries within each group by student ID, then name (match "by student" tab order)
+    for (const group of map.values()) {
+      group.entries.sort((a, b) => {
+        const idA = a.studentId || "";
+        const idB = b.studentId || "";
+        if (idA !== idB) return idA.localeCompare(idB);
+        return (a.studentName || "").localeCompare(b.studentName || "");
+      });
     }
     // Sort: CW first, then HW; within each type, alphabetical by displayName
     return Array.from(map.values()).sort((a, b) => {
@@ -579,13 +588,20 @@ export function LessonWideMode({
   }, [onSessionDataChange]);
 
   // --- Print ---
-  // Track which exercise is currently printing for spinner feedback
-  const [printingId, setPrintingId] = useState<number | null>(null);
+  // Bundled state: which exercise is printing + progress message
+  const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
+  const setPrintProgress = useCallback((msg: string) => {
+    setPrinting(prev => ({ ...prev, progress: msg }));
+  }, []);
+  const paperlessSearchWithProgress = useCallback(
+    (p: string) => searchPaperlessByPath(p, setPrintProgress),
+    [setPrintProgress]
+  );
 
   const handlePrint = useCallback(async (entry?: StudentExerciseEntry) => {
     const target = entry || selectedEntry;
     if (!target?.exercise?.pdf_name) return;
-    setPrintingId(target.exercise.id);
+    setPrinting({ id: target.exercise.id, progress: null });
     try {
       const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
       const entryStamp: PrintStampInfo = {
@@ -601,12 +617,12 @@ export function LessonWideMode({
         target.exercise.page_end,
         complexPages || undefined,
         entryStamp,
-        searchPaperlessByPath
+        paperlessSearchWithProgress
       );
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [selectedEntry]);
+  }, [selectedEntry, paperlessSearchWithProgress]);
 
   // --- Bulk print ---
   const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -617,16 +633,16 @@ export function LessonWideMode({
       showToast(`No ${type} exercises found`, 'info');
       return;
     }
-    setPrintingId(-1);
+    setPrinting({ id: -1, progress: null });
     try {
-      const error = await bulkPrintAllStudents(groups);
+      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
       if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
       else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
       else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [sessions, showToast]);
+  }, [sessions, showToast, paperlessSearchWithProgress]);
 
   // --- Print file group (one file, all students) ---
   const handlePrintFileGroup = useCallback(async (group: FileGroup) => {
@@ -634,7 +650,7 @@ export function LessonWideMode({
       handlePrint(group.entries[0]);
       return;
     }
-    setPrintingId(-2);
+    setPrinting({ id: -2, progress: null });
     try {
       const groups: StudentExerciseGroup[] = group.entries
         .filter(e => e.exercise.pdf_name?.trim())
@@ -664,14 +680,14 @@ export function LessonWideMode({
         };
         });
       if (groups.length === 0) return;
-      const error = await bulkPrintAllStudents(groups);
+      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
       if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
       else if (error === 'no_valid_files') showToast('No valid PDF files found', 'error');
       else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [handlePrint, showToast]);
+  }, [handlePrint, showToast, paperlessSearchWithProgress]);
 
   // --- Bulk print all CW or HW for a single student ---
   const handleBulkPrintStudent = useCallback(async (session: Session, type: 'CW' | 'HW') => {
@@ -680,16 +696,16 @@ export function LessonWideMode({
       showToast(`No ${type} exercises found`, 'info');
       return;
     }
-    setPrintingId(-session.id);
+    setPrinting({ id: -session.id, progress: null });
     try {
-      const error = await bulkPrintAllStudents(groups);
+      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
       if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
       else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
       else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [showToast]);
+  }, [showToast, paperlessSearchWithProgress]);
 
   // --- Save annotated PDF ---
   const handleSaveAnnotated = useCallback(async () => {
@@ -1031,15 +1047,15 @@ export function LessonWideMode({
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
-            onClick={() => { if (printingId === null) setShowPrintMenu(v => !v); }}
-            disabled={printingId !== null}
+            onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
+            disabled={printing.id !== null}
             className={cn(
               "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
-              printingId !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+              printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
-            title={printingId !== null ? "Printing..." : "Print all exercises"}
+            title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print all exercises")}
           >
-            {printingId !== null ? (
+            {printing.id !== null ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Printer className="h-3.5 w-3.5" />
@@ -1127,7 +1143,7 @@ export function LessonWideMode({
     onPrintFileGroup: handlePrintFileGroup,
     onBulkPrintStudent: handleBulkPrintStudent,
     onBulkAssign: handleBulkAssign,
-    printingId,
+    printing,
   };
 
   return (

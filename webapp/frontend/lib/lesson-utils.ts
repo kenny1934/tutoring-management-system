@@ -42,3 +42,19 @@ export function getStudentIdDisplay(session: Session, selectedLocation: string):
     ? `${session.location}-${session.school_student_id}`
     : session.school_student_id;
 }
+
+// --- Print state helpers ---
+
+/** Bundled state for print operations: which exercise is printing + progress message. */
+export interface PrintingState {
+  /** ID of exercise currently being printed (negative for bulk: -1 = bulk all, -2 = file group, -sessionId = per-student). */
+  id: number | null;
+  /** Progress message from Paperless search (e.g. "Searching by filename…"). */
+  progress: string | null;
+}
+
+/** Return the appropriate tooltip title for a print button. */
+export function getPrintButtonTitle(isPrinting: boolean, progress: string | null | undefined, defaultTitle: string): string {
+  if (!isPrinting) return defaultTitle;
+  return progress || "Printing...";
+}

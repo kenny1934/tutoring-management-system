@@ -12,7 +12,7 @@ import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -503,11 +503,18 @@ export function LessonMode({
   }, [selectedExercise]);
 
   // Print: single exercise from sidebar
-  const [printingId, setPrintingId] = useState<number | null>(null);
+  const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
+  const setPrintProgress = useCallback((msg: string) => {
+    setPrinting(prev => ({ ...prev, progress: msg }));
+  }, []);
+  const paperlessSearchWithProgress = useCallback(
+    (p: string) => searchPaperlessByPath(p, setPrintProgress),
+    [setPrintProgress]
+  );
 
   const handlePrintExercise = useCallback(async (exercise: SessionExercise) => {
     if (!exercise.pdf_name) return;
-    setPrintingId(exercise.id);
+    setPrinting({ id: exercise.id, progress: null });
     try {
       const { complexPages } = parseExerciseRemarks(exercise.remarks);
       await printFileFromPathWithFallback(
@@ -516,12 +523,12 @@ export function LessonMode({
         exercise.page_end,
         complexPages || undefined,
         stamp,
-        searchPaperlessByPath
+        paperlessSearchWithProgress
       );
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [stamp]);
+  }, [stamp, paperlessSearchWithProgress]);
 
   // Print: bulk print all CW or HW
   const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -529,16 +536,16 @@ export function LessonMode({
     setShowPrintMenu(false);
     const groups = groupExercisesByStudent([session], type);
     if (groups.length === 0) return;
-    setPrintingId(-1);
+    setPrinting({ id: -1, progress: null });
     try {
-      const error = await bulkPrintAllStudents(groups);
+      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
       if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
       else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
       else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
     } finally {
-      setPrintingId(null);
+      setPrinting({ id: null, progress: null });
     }
-  }, [session, showToast]);
+  }, [session, showToast, paperlessSearchWithProgress]);
 
   // Annotation handlers
   const handleAnnotationsChange = useCallback((annotations: PageAnnotations) => {
@@ -913,15 +920,15 @@ export function LessonMode({
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
-            onClick={() => { if (printingId === null) setShowPrintMenu(v => !v); }}
-            disabled={printingId !== null}
+            onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
+            disabled={printing.id !== null}
             className={cn(
               "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
-              printingId !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+              printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
-            title={printingId !== null ? "Printing..." : "Print exercises"}
+            title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print exercises")}
           >
-            {printingId !== null ? (
+            {printing.id !== null ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Printer className="h-3.5 w-3.5" />
@@ -1072,7 +1079,7 @@ export function LessonMode({
                 hasAnnotations={checkHasAnnotations}
                 homeworkCompletion={session.homework_completion}
                 onPrint={handlePrintExercise}
-                printingId={printingId}
+                printing={printing}
               />
             </div>
 
@@ -1245,7 +1252,7 @@ export function LessonMode({
                     hasAnnotations={checkHasAnnotations}
                     homeworkCompletion={session.homework_completion}
                     onPrint={handlePrintExercise}
-                    printingId={printingId}
+                    printing={printing}
                   />
                 </motion.div>
               )}
@@ -1309,7 +1316,7 @@ export function LessonMode({
           hasAnnotations={checkHasAnnotations}
           homeworkCompletion={session.homework_completion}
           onPrint={handlePrintExercise}
-          printingId={printingId}
+          printing={printing}
         />
       </MobileBottomSheet>
     </motion.div>
