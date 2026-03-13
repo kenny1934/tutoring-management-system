@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
 import { formatShortDate } from "@/lib/formatters";
 import { StickyNote } from "@/lib/design-system";
+import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import type { StudentProgress, MonthlyActivity } from "@/types";
 
 // Sepia palette matching dashboard theme
@@ -375,18 +376,27 @@ function EnrollmentTimelineList({ data }: { data: StudentProgress["enrollment_ti
               {e.tutor_name && (
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{e.tutor_name}</span>
               )}
-              {e.enrollment_type && e.enrollment_type !== "Regular" && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
+              {e.enrollment_type && (
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                  e.enrollment_type === "Trial"
+                    ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                    : e.enrollment_type === "One-Time"
+                      ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
+                      : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                )}>
                   {e.enrollment_type}
                 </span>
               )}
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded font-medium",
-                e.payment_status === "Paid" || e.payment_status === "Active"
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                e.payment_status === "Paid"
+                  ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                   : e.payment_status === "Cancelled"
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                    : e.payment_status === "Overdue"
+                      ? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+                      : "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
               )}>
                 {e.payment_status}
               </span>
@@ -472,8 +482,9 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
             {Object.entries(data.by_method).map(([method, count]) => (
               <span
                 key={method}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] text-gray-700 dark:text-gray-300"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] text-gray-700 dark:text-gray-300"
               >
+                {getMethodIcon(method, "h-3 w-3")}
                 {method}: {count}
               </span>
             ))}
@@ -487,8 +498,9 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
             {Object.entries(data.by_type).map(([type, count]) => (
               <span
                 key={type}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/50 dark:bg-black/10 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] text-gray-700 dark:text-gray-300"
+                className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium", getContactTypeColor(type))}
               >
+                {getContactTypeIcon(type, "h-2.5 w-2.5")}
                 {type}: {count}
               </span>
             ))}
