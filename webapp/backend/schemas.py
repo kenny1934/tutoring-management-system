@@ -2072,6 +2072,29 @@ class MonthlyActivity(BaseModel):
     exercises_assigned: int = 0
 
 
+class TestEvent(BaseModel):
+    """Test or exam event relevant to the student"""
+    title: str
+    start_date: date
+    end_date: Optional[date] = None
+    event_type: Optional[str] = None
+
+
+class TopicCount(BaseModel):
+    """Topic frequency from exercise names"""
+    topic: str
+    count: int
+
+
+class ProgressInsights(BaseModel):
+    """AI-generated + rule-based progress insights"""
+    top_topics: List[TopicCount] = []
+    total_exercises: int = 0
+    cw_count: int = 0
+    hw_count: int = 0
+    narrative: str = ""
+
+
 class StudentProgressResponse(BaseModel):
     """Complete progress analytics for a student"""
     student_id: int
@@ -2081,6 +2104,8 @@ class StudentProgressResponse(BaseModel):
     enrollment_timeline: List[EnrollmentTimeline] = []
     contacts: ContactSummary
     monthly_activity: List[MonthlyActivity] = []
+    test_events: List[TestEvent] = []
+    insights: Optional[ProgressInsights] = None
 
 
 # Enable forward references for nested models

@@ -3,11 +3,13 @@
 import type { Student, StudentProgress } from "@/types";
 import { ReportHeader } from "./report/ReportHeader";
 import { ReportStudentInfo } from "./report/ReportStudentInfo";
+import { ReportInsights } from "./report/ReportInsights";
 import { ReportMetrics } from "./report/ReportMetrics";
 import { ReportAttendanceChart } from "./report/ReportAttendanceChart";
 import { ReportRatingChart } from "./report/ReportRatingChart";
-import { ReportActivityChart } from "./report/ReportActivityChart";
 import { ReportTopicsCovered } from "./report/ReportTopicsCovered";
+import { ReportTestTimeline } from "./report/ReportTestTimeline";
+import { ReportActivityChart } from "./report/ReportActivityChart";
 import { ReportEnrollmentTable } from "./report/ReportEnrollmentTable";
 import { ReportContactSummary } from "./report/ReportContactSummary";
 import { ReportTutorComment } from "./report/ReportTutorComment";
@@ -36,6 +38,14 @@ export function ProgressReport({
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
       <ReportHeader dateRangeLabel={dateRangeLabel} />
       <ReportStudentInfo student={student} />
+
+      {/* AI insights — headline section */}
+      {progress.insights && (
+        <div className="mb-6">
+          <ReportInsights data={progress.insights} />
+        </div>
+      )}
+
       <ReportMetrics progress={progress} mode={mode} />
 
       {/* Charts row */}
@@ -57,6 +67,12 @@ export function ProgressReport({
       {progress.exercises.details && progress.exercises.details.length > 0 && (
         <div className="mb-6">
           <ReportTopicsCovered data={progress.exercises.details} />
+        </div>
+      )}
+
+      {progress.test_events && progress.test_events.length > 0 && (
+        <div className="mb-6">
+          <ReportTestTimeline data={progress.test_events} />
         </div>
       )}
 

@@ -12,11 +12,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from auth.dependencies import get_current_user
 from database import get_db
-from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication
+from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent
 from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
+    TestEvent, ProgressInsights,
 )
 
 router = APIRouter()
@@ -27,6 +28,7 @@ def get_student_progress(
     student_id: int,
     start_date: Optional[date] = Query(None, description="Filter sessions from this date"),
     end_date: Optional[date] = Query(None, description="Filter sessions up to this date"),
+    generate_insights: bool = Query(False, description="Generate AI insights (costs tokens)"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
@@ -272,6 +274,46 @@ def get_student_progress(
         for m, vals in sorted(activity_map.items())
     ]
 
+    # --- Q8: Tests/exams during period ---
+    test_events = []
+    if student.school and student.grade:
+        test_start = start_date or activity_start
+        test_end = end_date or today
+        from routers.stats import EXAM_EVENT_TYPES
+
+        test_rows = db.query(CalendarEvent).filter(
+            CalendarEvent.school == student.school,
+            CalendarEvent.grade == student.grade,
+            CalendarEvent.event_type.in_(EXAM_EVENT_TYPES),
+            CalendarEvent.start_date >= test_start,
+            CalendarEvent.start_date <= test_end,
+        ).order_by(CalendarEvent.start_date).all()
+
+        test_events = [
+            TestEvent(
+                title=t.title,
+                start_date=t.start_date,
+                end_date=t.end_date,
+                event_type=t.event_type,
+            )
+            for t in test_rows
+        ]
+
+    # --- Q9: AI insights (optional, on-demand) ---
+    insights = None
+    if generate_insights:
+        from services.progress_insights import generate_progress_insights
+
+        date_range = (start_date, end_date) if start_date and end_date else None
+        insights = generate_progress_insights(
+            student=student,
+            exercises=exercises.details,
+            test_events=test_events,
+            attendance=attendance,
+            ratings=ratings,
+            date_range=date_range,
+        )
+
     return StudentProgressResponse(
         student_id=student_id,
         attendance=attendance,
@@ -280,4 +322,6 @@ def get_student_progress(
         enrollment_timeline=enrollment_timeline,
         contacts=contacts,
         monthly_activity=monthly_activity,
+        test_events=test_events,
+        insights=insights,
     )
