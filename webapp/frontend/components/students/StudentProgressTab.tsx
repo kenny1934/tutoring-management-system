@@ -27,6 +27,8 @@ import {
   ArrowDown,
   MessageSquare,
   FileText,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -35,6 +37,7 @@ import { StickyNote } from "@/lib/design-system";
 import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { Popover } from "@/components/ui/popover";
+import { studentsAPI } from "@/lib/api";
 import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress, MonthlyActivity } from "@/types";
 
@@ -563,6 +566,25 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [comment, setComment] = useState("");
+  const [aiNarrative, setAiNarrative] = useState("");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  const handleGenerateAI = useCallback(async () => {
+    setIsGeneratingAI(true);
+    try {
+      const dates = preset === "custom"
+        ? { start: customStart || undefined, end: customEnd || undefined }
+        : getPresetDates(preset, enrollmentStart);
+      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true);
+      if (progress.insights?.narrative) {
+        setAiNarrative(progress.insights.narrative);
+      }
+    } catch (err) {
+      console.error("Failed to generate AI insights:", err);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  }, [studentId, preset, customStart, customEnd, enrollmentStart]);
 
   const handleGenerate = useCallback(() => {
     const params = new URLSearchParams();
@@ -582,8 +604,14 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       params.set("commentKey", key);
     }
 
+    if (aiNarrative.trim()) {
+      const aiKey = crypto.randomUUID();
+      localStorage.setItem(`report-ai-narrative-${aiKey}`, aiNarrative.trim());
+      params.set("aiNarrativeKey", aiKey);
+    }
+
     window.open(`/students/${studentId}/report?${params}`, "_blank");
-  }, [studentId, mode, preset, customStart, customEnd, comment, enrollmentStart]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, aiNarrative, enrollmentStart]);
 
   return (
     <Popover
@@ -663,6 +691,39 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               rows={3}
               className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
             />
+          </div>
+
+          {/* AI Learning Summary */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
+              AI Learning Summary
+            </label>
+            {!aiNarrative ? (
+              <button
+                onClick={handleGenerateAI}
+                disabled={isGeneratingAI}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
+              >
+                {isGeneratingAI ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Generate AI Summary
+                  </>
+                )}
+              </button>
+            ) : (
+              <textarea
+                value={aiNarrative}
+                onChange={(e) => setAiNarrative(e.target.value)}
+                rows={4}
+                className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 resize-none"
+              />
+            )}
           </div>
 
           {/* Generate button */}

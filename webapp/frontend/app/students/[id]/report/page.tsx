@@ -20,6 +20,7 @@ function StudentReportPageInner() {
   const startDate = searchParams.get("startDate") || undefined;
   const endDate = searchParams.get("endDate") || undefined;
   const commentKey = searchParams.get("commentKey");
+  const aiNarrativeKey = searchParams.get("aiNarrativeKey");
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -33,6 +34,18 @@ function StudentReportPageInner() {
       }
     }
   }, [commentKey]);
+
+  // Retrieve AI narrative from localStorage (previewed/edited in popover)
+  const [aiNarrative, setAiNarrative] = useState("");
+  useEffect(() => {
+    if (aiNarrativeKey) {
+      const stored = localStorage.getItem(`report-ai-narrative-${aiNarrativeKey}`);
+      if (stored) {
+        setAiNarrative(stored);
+        localStorage.removeItem(`report-ai-narrative-${aiNarrativeKey}`);
+      }
+    }
+  }, [aiNarrativeKey]);
 
   // Fetch student data
   const { data: student, isLoading: studentLoading } = useStudent(studentId);
@@ -110,7 +123,12 @@ function StudentReportPageInner() {
       <div className="py-8 print:py-0">
         <ProgressReport
           student={student}
-          progress={progress}
+          progress={aiNarrative && progress ? {
+            ...progress,
+            insights: progress.insights
+              ? { ...progress.insights, narrative: aiNarrative }
+              : { top_topics: [], total_exercises: 0, cw_count: 0, hw_count: 0, narrative: aiNarrative },
+          } : progress}
           mode={mode}
           dateRangeLabel={dateRangeLabel}
           tutorComment={tutorComment}
