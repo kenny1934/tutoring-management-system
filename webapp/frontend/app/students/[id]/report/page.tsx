@@ -20,7 +20,7 @@ function StudentReportPageInner() {
   const startDate = searchParams.get("startDate") || undefined;
   const endDate = searchParams.get("endDate") || undefined;
   const commentKey = searchParams.get("commentKey");
-  const aiNarrativeKey = searchParams.get("aiNarrativeKey");
+  const insightsKey = searchParams.get("insightsKey");
   const language = searchParams.get("language") || "en";
   const autoPrint = searchParams.get("print") === "1";
 
@@ -36,25 +36,25 @@ function StudentReportPageInner() {
     }
   }, [commentKey]);
 
-  // Retrieve AI narrative from localStorage (previewed/edited in popover)
-  const [aiNarrative, setAiNarrative] = useState("");
+  // Retrieve insights (narrative + concept_nodes) from localStorage
+  const [storedInsights, setStoredInsights] = useState<Record<string, unknown> | null>(null);
   useEffect(() => {
-    if (aiNarrativeKey) {
-      const stored = localStorage.getItem(`report-ai-narrative-${aiNarrativeKey}`);
+    if (insightsKey) {
+      const stored = localStorage.getItem(`report-insights-${insightsKey}`);
       if (stored) {
-        setAiNarrative(stored);
-        localStorage.removeItem(`report-ai-narrative-${aiNarrativeKey}`);
+        try { setStoredInsights(JSON.parse(stored)); } catch { /* ignore */ }
+        localStorage.removeItem(`report-insights-${insightsKey}`);
       }
     }
-  }, [aiNarrativeKey]);
+  }, [insightsKey]);
 
   // Fetch student data
   const { data: student, isLoading: studentLoading } = useStudent(studentId);
 
-  // Fetch progress data with date range + AI insights
+  // Fetch progress data (no AI — insights come from localStorage if user generated them)
   const { data: progress, isLoading: progressLoading } = useSWR<StudentProgress>(
-    studentId ? ["student-progress-report", studentId, startDate, endDate, language] : null,
-    () => studentsAPI.getProgress(studentId, startDate, endDate, true, language),
+    studentId ? ["student-progress-report", studentId, startDate, endDate] : null,
+    () => studentsAPI.getProgress(studentId, startDate, endDate, false),
     { revalidateOnFocus: false }
   );
 
@@ -124,11 +124,16 @@ function StudentReportPageInner() {
       <div className="py-8 print:py-0">
         <ProgressReport
           student={student}
-          progress={aiNarrative && progress ? {
+          progress={storedInsights && progress ? {
             ...progress,
-            insights: progress.insights
-              ? { ...progress.insights, narrative: aiNarrative }
-              : { top_topics: [], total_exercises: 0, cw_count: 0, hw_count: 0, narrative: aiNarrative },
+            insights: {
+              top_topics: [],
+              total_exercises: progress.exercises?.total || 0,
+              cw_count: progress.exercises?.classwork || 0,
+              hw_count: progress.exercises?.homework || 0,
+              ...progress.insights,
+              ...storedInsights,
+            } as StudentProgress["insights"],
           } : progress}
           mode={mode}
           dateRangeLabel={dateRangeLabel}
