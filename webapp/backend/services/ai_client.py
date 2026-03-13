@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-MODEL_ID = "gemini-2.5-flash"
+MODEL_ID = "gemini-3.1-flash-lite-preview"
 
 _client = None
 
