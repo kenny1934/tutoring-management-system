@@ -134,6 +134,16 @@ export const SUMMER_GRADE_TEXT: Record<string, string> = {
   F3: "text-orange-600 dark:text-orange-400",
 };
 
+export const DAY_ABBREV: Record<string, string> = {
+  Monday: "Mon",
+  Tuesday: "Tue",
+  Wednesday: "Wed",
+  Thursday: "Thu",
+  Friday: "Fri",
+  Saturday: "Sat",
+  Sunday: "Sun",
+};
+
 /** Map summer config Chinese location names → internal system codes. */
 export const LOCATION_TO_CODE: Record<string, string> = {
   "華士古分校": "MSA",

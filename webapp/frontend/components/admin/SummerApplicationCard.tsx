@@ -145,6 +145,12 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           {app.is_existing_student && app.is_existing_student !== "None" && (
             <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">Existing</span>
           )}
+          {app.placements && app.placements.length > 0 && (
+            <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
+              Placed
+              {app.placements.length > 1 ? ` ×${app.placements.length}` : ""}
+            </span>
+          )}
           {app.admin_notes && (
             <StickyNote className="h-3 w-3 text-amber-500 shrink-0" title={app.admin_notes} />
           )}

@@ -15,7 +15,7 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink,
-  Clock,
+  Clock, Grid3X3,
 } from "lucide-react";
 import type { SummerApplication, SummerApplicationUpdate, SummerLocation } from "@/types";
 
@@ -761,6 +761,51 @@ export function SummerApplicationDetailModal({
               </div>
             </div>
           )}
+
+          {/* Placement Info */}
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-lg shrink-0">
+              <Grid3X3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
+              {app.placements && app.placements.length > 0 ? (
+                <div className="space-y-1 mt-0.5">
+                  {app.placements.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        {p.slot_day} {p.time_slot}
+                      </span>
+                      {p.grade && (
+                        <span className="text-[10px] px-1 rounded bg-gray-100 dark:bg-gray-700 text-muted-foreground">
+                          {p.grade}
+                        </span>
+                      )}
+                      {p.tutor_name && (
+                        <span className="text-xs text-muted-foreground">
+                          {p.tutor_name}
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                          p.placement_status === "Confirmed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : p.placement_status === "Tentative"
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        )}
+                      >
+                        {p.placement_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">Not yet placed</div>
+              )}
+            </div>
+          </div>
 
           {/* Buddy Group */}
           {(app.buddy_group_id || app.buddy_names) && (

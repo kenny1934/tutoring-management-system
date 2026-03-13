@@ -116,8 +116,9 @@ export function SummerAutoSuggestModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col m-4">
+    <div className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 transition-[left] duration-350">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-card dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4 border border-border dark:border-gray-700">
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border dark:border-gray-700">
           <Wand2 className="h-5 w-5 text-primary" />

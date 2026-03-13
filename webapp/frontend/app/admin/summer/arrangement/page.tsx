@@ -6,16 +6,18 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, Wand2, CheckCheck } from "lucide-react";
+import { Grid3X3, Wand2, CheckCheck, Users2, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
+import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { LOCATION_TO_CODE } from "@/lib/summer-utils";
-import type { SummerSlotUpdate, SummerApplication } from "@/types";
+import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
 export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
@@ -26,6 +28,8 @@ export default function SummerArrangementPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
+  const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     pref1?: { day: string; time: string };
@@ -93,6 +97,45 @@ export default function SummerArrangementPage() {
     configId && location ? ["summer-unassigned", configId, location] : null,
     () => summerAPI.getUnassigned({ config_id: configId!, location }),
     { refreshInterval: 30000 }
+  );
+
+  // Fetch active tutors and duties
+  const { data: activeTutors } = useSWR(
+    canView ? "summer-active-tutors" : null,
+    () => summerAPI.getActiveTutors()
+  );
+
+  const {
+    data: tutorDuties,
+    mutate: mutateDuties,
+  } = useSWR(
+    configId && location ? ["summer-duties", configId, location] : null,
+    () => summerAPI.getTutorDuties(configId!, location)
+  );
+
+  // Pre-index duties by "day|timeSlot" → Set<tutor_id>
+  const dutyMap = useMemo(() => {
+    const m = new Map<string, Set<number>>();
+    for (const d of tutorDuties ?? []) {
+      const key = `${d.duty_day}|${d.time_slot}`;
+      if (!m.has(key)) m.set(key, new Set());
+      m.get(key)!.add(d.tutor_id);
+    }
+    return m;
+  }, [tutorDuties]);
+
+  // Compute available tutors for a given cell (day, timeSlot)
+  const getAvailableTutors = useCallback(
+    (day: string, timeSlot: string): AvailableTutor[] => {
+      if (!activeTutors) return [];
+      const dutySet = dutyMap.get(`${day}|${timeSlot}`);
+      return activeTutors.map((t) => ({
+        id: t.id,
+        name: t.tutor_name,
+        onDuty: dutySet?.has(t.id) ?? false,
+      }));
+    },
+    [activeTutors, dutyMap]
   );
 
   // Fetch selected application for detail modal
@@ -245,6 +288,15 @@ export default function SummerArrangementPage() {
 
           {/* Actions */}
           <button
+            onClick={() => setDutyModalOpen(true)}
+            disabled={!location}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Users2 className="h-3.5 w-3.5" />
+            Tutor Duties
+          </button>
+
+          <button
             onClick={() => setAutoSuggestOpen(true)}
             disabled={!unassigned?.length || !slots?.length}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -275,33 +327,81 @@ export default function SummerArrangementPage() {
             Loading configuration...
           </div>
         ) : (
-          <div className="flex gap-4 flex-1 min-h-0">
-            <div className="flex-1 min-w-0 overflow-auto">
-              <SummerArrangementGrid
-                days={openDays}
-                timeSlots={timeSlots}
-                demand={demand?.cells ?? []}
-                slots={slots ?? []}
-                grades={grades}
-                onCreateSlot={handleCreateSlot}
-                onUpdateSlot={handleUpdateSlot}
-                onDeleteSlot={handleDeleteSlot}
-                onDropStudent={handleDropStudent}
-                onRemovePlacement={handleRemovePlacement}
-                onClickStudent={setSelectedAppId}
-                onDropFailed={(reason) => showToast(reason, "error")}
-                dragPrefs={dragPrefs}
-              />
+          <>
+            <div className="flex gap-4 flex-1 min-h-0">
+              <div className="flex-1 min-w-0 overflow-auto">
+                <SummerArrangementGrid
+                  days={openDays}
+                  timeSlots={timeSlots}
+                  demand={demand?.cells ?? []}
+                  slots={slots ?? []}
+                  grades={grades}
+                  onCreateSlot={handleCreateSlot}
+                  onUpdateSlot={handleUpdateSlot}
+                  onDeleteSlot={handleDeleteSlot}
+                  onDropStudent={handleDropStudent}
+                  onRemovePlacement={handleRemovePlacement}
+                  onClickStudent={setSelectedAppId}
+                  onDropFailed={(reason) => showToast(reason, "error")}
+                  dragPrefs={dragPrefs}
+                  getAvailableTutors={getAvailableTutors}
+                />
+              </div>
+              {/* Desktop: always visible */}
+              <div className="hidden md:flex">
+                <SummerUnassignedPanel
+                  applications={unassigned ?? []}
+                  grades={grades}
+                  loading={!unassigned && !!configId}
+                  onClickStudent={setSelectedAppId}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                />
+              </div>
             </div>
-            <SummerUnassignedPanel
-              applications={unassigned ?? []}
-              grades={grades}
-              loading={!unassigned && !!configId}
-              onClickStudent={setSelectedAppId}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            />
-          </div>
+
+            {/* Mobile: floating toggle button */}
+            <button
+              className="md:hidden fixed bottom-4 right-4 z-40 rounded-full bg-primary text-primary-foreground p-3 shadow-lg"
+              onClick={() => setMobilePanelOpen(true)}
+            >
+              <Users className="h-5 w-5" />
+              {totalUnassigned > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                  {totalUnassigned}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile: panel overlay (always mounted for slide animation) */}
+            <div className={cn(
+              "md:hidden fixed inset-0 z-50",
+              mobilePanelOpen ? "pointer-events-auto" : "pointer-events-none"
+            )}>
+              <div
+                className={cn(
+                  "fixed inset-0 bg-black/50 transition-opacity duration-300",
+                  mobilePanelOpen ? "opacity-100" : "opacity-0"
+                )}
+                onClick={() => setMobilePanelOpen(false)}
+              />
+              <div className={cn(
+                "fixed top-14 right-0 bottom-0 w-72 z-50 shadow-xl transition-transform duration-300 ease-out",
+                mobilePanelOpen ? "translate-x-0" : "translate-x-full"
+              )}>
+                <SummerUnassignedPanel
+                  className="w-full h-full rounded-none border-0 border-l"
+                  hideCollapse
+                  applications={unassigned ?? []}
+                  grades={grades}
+                  loading={!unassigned && !!configId}
+                  onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                />
+              </div>
+            </div>
+          </>
         )}
 
         {/* Auto-suggest modal */}
@@ -312,6 +412,19 @@ export default function SummerArrangementPage() {
             configId={configId}
             location={location}
             onAccepted={refreshAll}
+          />
+        )}
+
+        {/* Tutor duty modal */}
+        {dutyModalOpen && configId && (
+          <SummerTutorDutyModal
+            isOpen={dutyModalOpen}
+            onClose={() => setDutyModalOpen(false)}
+            configId={configId}
+            location={location}
+            days={openDays}
+            timeSlots={timeSlots}
+            onSaved={() => mutateDuties()}
           />
         )}
 
