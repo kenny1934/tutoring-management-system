@@ -3,19 +3,19 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
-import { StatusBadge, ALL_STATUSES, STATUS_COLORS } from "./SummerApplicationCard";
+import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
 import { summerAPI, studentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, X, Search, UserCheck, Unlink,
-  User, Phone, MapPin, FileText, Users,
-  Eye, Send, CheckCircle, CreditCard, BadgeCheck, GraduationCap, Clock, LogOut, XCircle, FileInput,
-  type LucideIcon,
+  User, Phone, MapPin, FileText, Users, ExternalLink,
+  Clock,
 } from "lucide-react";
 import type { SummerApplication, SummerApplicationUpdate, SummerLocation } from "@/types";
 
@@ -28,25 +28,6 @@ const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Placement Confirmed": ["Fee Sent"],
   "Fee Sent":            ["Paid"],
   "Paid":                ["Enrolled"],
-};
-
-// Summer config Chinese name → system location code
-const LOCATION_TO_CODE: Record<string, string> = {
-  "華士古分校": "MSA",
-  "二龍喉分校": "MSB",
-};
-
-const STATUS_ICONS: Record<string, LucideIcon> = {
-  "Submitted":           FileInput,
-  "Under Review":        Eye,
-  "Placement Offered":   Send,
-  "Placement Confirmed": CheckCircle,
-  "Fee Sent":            CreditCard,
-  "Paid":                BadgeCheck,
-  "Enrolled":            GraduationCap,
-  "Waitlisted":          Clock,
-  "Withdrawn":           LogOut,
-  "Rejected":            XCircle,
 };
 
 function FieldValue({ label, value, mono, copyable }: { label: string; value?: string | null; mono?: boolean; copyable?: boolean }) {
@@ -118,6 +99,7 @@ interface SummerApplicationDetailModalProps {
   totalCount?: number;
   locations?: SummerLocation[];
   allApplications?: SummerApplication[];
+  onSelectApplication?: (app: SummerApplication) => void;
 }
 
 export function SummerApplicationDetailModal({
@@ -134,6 +116,7 @@ export function SummerApplicationDetailModal({
   totalCount,
   locations,
   allApplications,
+  onSelectApplication,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -317,8 +300,8 @@ export function SummerApplicationDetailModal({
   };
 
   const { pref1, pref2 } = formatPreferences(app);
-  const submittedDate = app.submitted_at ? new Date(app.submitted_at).toLocaleString() : "—";
-  const reviewedDate = app.reviewed_at ? new Date(app.reviewed_at).toLocaleString() : null;
+  const submittedDate = app.submitted_at ? parseHKTimestamp(app.submitted_at).toLocaleString() : "—";
+  const reviewedDate = app.reviewed_at ? parseHKTimestamp(app.reviewed_at).toLocaleString() : null;
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
   const locationConfig = locations?.find(l => l.name === app.preferred_location);
 
@@ -553,7 +536,7 @@ export function SummerApplicationDetailModal({
               /* Loading linked student */
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Loading student #{studentId}...</span>
+                <span>Loading linked student...</span>
                 <button onClick={handleUnlink} className="ml-auto text-xs hover:underline">Unlink</button>
               </div>
             ) : (
@@ -793,7 +776,33 @@ export function SummerApplicationDetailModal({
                   <div className="mt-1 space-y-0.5">
                     <span className="text-[10px] text-muted-foreground">Members:</span>
                     {buddyMembers.map(b => (
-                      <div key={b.id} className="text-sm text-foreground">{b.student_name}</div>
+                      <div
+                        key={b.id}
+                        className="flex items-center gap-2 py-1 text-sm px-1 -mx-1"
+                      >
+                        <span className="text-foreground">{b.student_name}</span>
+                        {b.reference_code && (
+                          <span className="text-[10px] font-mono text-muted-foreground">{b.reference_code}</span>
+                        )}
+                        {b.school && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                            {b.school}
+                          </span>
+                        )}
+                        {b.grade && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
+                            {b.grade}
+                          </span>
+                        )}
+                        <StatusBadge status={b.application_status} />
+                        <button
+                          onClick={() => onSelectApplication?.(b)}
+                          className="ml-auto p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                          title="View application"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : app.buddy_group_id ? (

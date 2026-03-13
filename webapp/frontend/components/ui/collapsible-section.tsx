@@ -11,6 +11,7 @@ export interface CollapsibleSectionProps {
   colorTheme: 'red' | 'orange' | 'purple' | 'gray';
   isCollapsed: boolean;
   onToggle: () => void;
+  annotation?: React.ReactNode;
   // Batch selection props
   showCheckbox?: boolean;
   isAllChecked?: boolean;
@@ -51,6 +52,7 @@ export const CollapsibleSection = React.memo(function CollapsibleSection({
   label,
   count,
   colorTheme,
+  annotation,
   isCollapsed,
   onToggle,
   showCheckbox = false,
@@ -99,6 +101,9 @@ export const CollapsibleSection = React.memo(function CollapsibleSection({
         <span className={cn("font-semibold", colors.text)}>
           {label} ({count})
         </span>
+        {annotation && (
+          <span className="text-xs font-normal text-muted-foreground ml-1.5">{annotation}</span>
+        )}
       </button>
       {!isCollapsed && (
         <div className="space-y-2 mt-2">
