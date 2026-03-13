@@ -25,7 +25,7 @@ const DAY_ABBREV: Record<string, string> = {
   Sunday: "Sun",
 };
 
-type SortMode = "name" | "grade";
+type SortMode = "name" | "grade" | "pref";
 
 function formatPref(day?: string | null, time?: string | null): string {
   if (!day || !time) return "-";
@@ -60,6 +60,14 @@ export function SummerUnassignedPanel({
     }
     // Sort
     result = [...result].sort((a, b) => {
+      if (sort === "pref") {
+        // Students with preferences first, then by grade
+        const aPref = a.preference_1_day ? 0 : 1;
+        const bPref = b.preference_1_day ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+        const cmp = a.grade.localeCompare(b.grade);
+        return cmp !== 0 ? cmp : a.student_name.localeCompare(b.student_name);
+      }
       if (sort === "grade") {
         const cmp = a.grade.localeCompare(b.grade);
         return cmp !== 0 ? cmp : a.student_name.localeCompare(b.student_name);
@@ -147,9 +155,9 @@ export function SummerUnassignedPanel({
             </button>
           ))}
           <button
-            onClick={() => setSort(sort === "name" ? "grade" : "name")}
+            onClick={() => setSort(sort === "name" ? "grade" : sort === "grade" ? "pref" : "name")}
             className="ml-auto p-0.5 text-muted-foreground hover:text-foreground"
-            title={`Sort by ${sort === "name" ? "grade" : "name"}`}
+            title={`Sort by ${sort === "name" ? "grade" : sort === "grade" ? "preference" : "name"}`}
           >
             <ArrowUpDown className="h-3 w-3" />
           </button>

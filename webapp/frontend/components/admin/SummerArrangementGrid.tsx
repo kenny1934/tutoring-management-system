@@ -103,13 +103,13 @@ export function SummerArrangementGrid({
         }}
       >
         {/* Header row: empty corner + day headers */}
-        <div className="bg-surface-variant flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 z-10">
+        <div className="bg-surface-variant flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
           Time
         </div>
         {days.map((day) => (
           <div
             key={day}
-            className="bg-surface-variant flex items-center justify-center text-sm font-medium"
+            className="bg-surface-variant flex items-center justify-center text-sm font-medium sticky top-0 z-10"
           >
             {DAY_ABBREV[day] || day}
           </div>
