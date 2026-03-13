@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import (
@@ -353,7 +353,7 @@ def list_applications(
     db: Session = Depends(get_db),
 ):
     """List summer applications with optional filters."""
-    q = db.query(SummerApplication)
+    q = db.query(SummerApplication).options(joinedload(SummerApplication.buddy_group))
 
     if config_id:
         q = q.filter(SummerApplication.config_id == config_id)
@@ -424,7 +424,9 @@ def get_application(
     db: Session = Depends(get_db),
 ):
     """Get a single application by ID."""
-    app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
+    app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.buddy_group)
+    ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
     return app

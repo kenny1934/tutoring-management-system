@@ -801,6 +801,8 @@ export default function SummerApplicationsPage() {
             hasNext={selectedAppIndex !== null && selectedAppIndex < navigableItems.length - 1}
             currentIndex={selectedAppIndex ?? undefined}
             totalCount={navigableItems.length}
+            locations={configs?.find(c => c.id === configId)?.locations}
+            allApplications={applications}
           />
 
           {/* Keyboard shortcut hint button */}
