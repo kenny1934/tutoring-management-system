@@ -17,7 +17,7 @@ export function ReportFooter({ generatedBy, mode }: ReportFooterProps) {
         {generatedBy && mode === "internal" && ` by ${generatedBy}`}
       </span>
       <span>
-        {mode === "internal" ? "Confidential — Internal Use Only" : "Math Concept Secondary"}
+        {mode === "internal" ? "Confidential — Internal Use Only" : "MathConcept Secondary Academy"}
       </span>
     </div>
   );
