@@ -5,7 +5,7 @@ parent contacts, and monthly activity for a single student.
 """
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Optional
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session, joinedload
@@ -29,6 +29,7 @@ def get_student_progress(
     start_date: Optional[date] = Query(None, description="Filter sessions from this date"),
     end_date: Optional[date] = Query(None, description="Filter sessions up to this date"),
     generate_insights: bool = Query(False, description="Generate AI insights (costs tokens)"),
+    language: Literal["en", "zh-hant"] = Query("en", description="Language for AI narrative"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
@@ -182,6 +183,8 @@ def get_student_progress(
         joinedload(Enrollment.tutor)
     ).filter(
         Enrollment.student_id == student_id,
+        *([Enrollment.first_lesson_date >= start_date] if start_date else []),
+        *([Enrollment.first_lesson_date <= end_date] if end_date else []),
     ).order_by(Enrollment.first_lesson_date.desc()).all()
 
     enrollment_timeline = [
@@ -295,6 +298,7 @@ def get_student_progress(
                 start_date=t.start_date,
                 end_date=t.end_date,
                 event_type=t.event_type,
+                description=t.description,
             )
             for t in test_rows
         ]
@@ -312,6 +316,7 @@ def get_student_progress(
             attendance=attendance,
             ratings=ratings,
             date_range=date_range,
+            language=language,
         )
 
     return StudentProgressResponse(

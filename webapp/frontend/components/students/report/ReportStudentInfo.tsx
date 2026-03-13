@@ -2,14 +2,16 @@ import type { Student } from "@/types";
 
 interface ReportStudentInfoProps {
   student: Student;
+  generatedBy?: string;
 }
 
-export function ReportStudentInfo({ student }: ReportStudentInfoProps) {
+export function ReportStudentInfo({ student, generatedBy }: ReportStudentInfoProps) {
   const fields = [
     { label: "Student ID", value: student.school_student_id },
     { label: "Grade", value: student.grade },
     { label: "School", value: student.school },
     { label: "Stream", value: student.lang_stream },
+    ...(generatedBy ? [{ label: "Prepared by", value: generatedBy }] : []),
   ].filter((f) => f.value);
 
   return (

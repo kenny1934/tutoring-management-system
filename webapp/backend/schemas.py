@@ -2078,12 +2078,20 @@ class TestEvent(BaseModel):
     start_date: date
     end_date: Optional[date] = None
     event_type: Optional[str] = None
+    description: Optional[str] = None
 
 
 class TopicCount(BaseModel):
     """Topic frequency from exercise names"""
     topic: str
     count: int
+
+
+class ConceptNode(BaseModel):
+    """Concept extracted from exercise names by AI"""
+    label: str
+    count: int = 1
+    category: Optional[str] = None
 
 
 class ProgressInsights(BaseModel):
@@ -2093,6 +2101,7 @@ class ProgressInsights(BaseModel):
     cw_count: int = 0
     hw_count: int = 0
     narrative: str = ""
+    concept_nodes: List[ConceptNode] = []
 
 
 class StudentProgressResponse(BaseModel):

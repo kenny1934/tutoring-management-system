@@ -566,6 +566,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [comment, setComment] = useState("");
+  const [language, setLanguage] = useState<"en" | "zh-hant">("en");
   const [aiNarrative, setAiNarrative] = useState("");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
@@ -575,7 +576,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       const dates = preset === "custom"
         ? { start: customStart || undefined, end: customEnd || undefined }
         : getPresetDates(preset, enrollmentStart);
-      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true);
+      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language);
       if (progress.insights?.narrative) {
         setAiNarrative(progress.insights.narrative);
       }
@@ -584,7 +585,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
     } finally {
       setIsGeneratingAI(false);
     }
-  }, [studentId, preset, customStart, customEnd, enrollmentStart]);
+  }, [studentId, preset, customStart, customEnd, enrollmentStart, language]);
 
   const handleGenerate = useCallback(() => {
     const params = new URLSearchParams();
@@ -610,8 +611,10 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       params.set("aiNarrativeKey", aiKey);
     }
 
+    if (language !== "en") params.set("language", language);
+
     window.open(`/students/${studentId}/report?${params}`, "_blank");
-  }, [studentId, mode, preset, customStart, customEnd, comment, aiNarrative, enrollmentStart]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, aiNarrative, language, enrollmentStart]);
 
   return (
     <Popover
@@ -642,6 +645,27 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   )}
                 >
                   {m === "parent" ? "For Parents" : "Internal"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Language toggle */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">AI Language</label>
+            <div className="flex rounded-lg overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              {([["en", "English"], ["zh-hant", "繁體中文"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => { setLanguage(val); setAiNarrative(""); }}
+                  className={cn(
+                    "flex-1 text-xs py-1.5 font-medium transition-colors",
+                    language === val
+                      ? "bg-[#a0704b] text-white"
+                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  )}
+                >
+                  {label}
                 </button>
               ))}
             </div>
