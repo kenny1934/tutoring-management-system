@@ -583,7 +583,7 @@ const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean; 
 export const DEFAULT_SECTIONS: ReportSectionToggles = {
   showAttendance: true,
   showRating: true,
-  showConceptMap: true,
+  showConceptMap: false,
   showTopics: true,
   showTests: true,
   showActivity: true,
@@ -621,6 +621,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       if (progress.insights) {
         if (progress.insights.narrative) setNarrative(progress.insights.narrative);
         setAiInsights(progress.insights as Record<string, unknown>);
+        if (progress.insights.concept_nodes?.length) {
+          setSections((prev) => ({ ...prev, showConceptMap: true }));
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to generate AI insights";
