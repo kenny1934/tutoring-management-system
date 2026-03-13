@@ -1,11 +1,12 @@
 import { ATTENDANCE_COLORS, CHART_COLORS } from "@/lib/progress-constants";
+import { cn } from "@/lib/utils";
 import type { StudentProgress } from "@/types";
-
-type ReportMode = "internal" | "parent";
+import type { ReportMode } from "../ProgressReport";
 
 interface ReportMetricsProps {
   progress: StudentProgress;
   mode: ReportMode;
+  showRating?: boolean;
 }
 
 function MetricCard({ label, value, subtitle, color }: {
@@ -23,24 +24,26 @@ function MetricCard({ label, value, subtitle, color }: {
   );
 }
 
-export function ReportMetrics({ progress, mode }: ReportMetricsProps) {
+export function ReportMetrics({ progress, mode, showRating = true }: ReportMetricsProps) {
   const { attendance, ratings, exercises } = progress;
 
   if (mode === "parent") {
     return (
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className={cn("grid gap-4 mb-6", showRating ? "grid-cols-3" : "grid-cols-2")}>
         <MetricCard
           label="Sessions Attended"
           value={attendance.attended}
           subtitle={`out of ${attendance.attended + attendance.no_show} scheduled`}
           color={CHART_COLORS.sessions}
         />
-        <MetricCard
-          label="Avg Rating"
-          value={ratings.overall_avg > 0 ? ratings.overall_avg.toFixed(1) : "-"}
-          subtitle={ratings.total_rated > 0 ? `${ratings.total_rated} rated sessions` : "No ratings yet"}
-          color={CHART_COLORS.rating}
-        />
+        {showRating && (
+          <MetricCard
+            label="Avg Rating"
+            value={ratings.overall_avg > 0 ? ratings.overall_avg.toFixed(1) : "-"}
+            subtitle={ratings.total_rated > 0 ? `${ratings.total_rated} rated sessions` : "No ratings yet"}
+            color={CHART_COLORS.rating}
+          />
+        )}
         <MetricCard
           label="Exercises"
           value={exercises.total}
