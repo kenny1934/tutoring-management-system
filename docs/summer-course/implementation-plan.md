@@ -360,13 +360,123 @@ Mobile-first design (parents share link via WeChat). Controlled components with 
 
 ---
 
-## Phases 3-5 (Late April — deferred detail)
+## Phase 3: Timetable Arrangement
 
-### Phase 3: Timetable Arrangement
-- Slot CRUD (admin creates slots per location/day/time/grade)
-- Drag-and-drop assignment UI (assign applications to slots)
-- Auto-suggest algorithm (greedy heuristic, least flexible first)
-- Class Type A/B assignment per slot (determines lesson number offset)
+### Overview
+
+Admin arranges 150+ applications into class slots via an interactive grid UI. The workflow is **demand-driven**: grade and class structure emerge from where students actually want to go, not from a pre-defined timetable.
+
+**Key insight**: Admin looks at preference clusters, identifies natural groupings (e.g., 6 F1 students all want MSA Mon 10:00), creates a slot for that, assigns students, then repeats. The tool should make this pattern fast and visual.
+
+### Design Decisions (from interview)
+
+- **Grade emerges from demand** — slots start grade-less; admin assigns grade after seeing who wants the slot
+- **Fixed capacity**: 6–8 students per class (configurable per slot, default 6)
+- **Parallel classes**: Multiple slots at same location/day/time (e.g., F1 + F2 + F3, or F1(a) + F1(b))
+- **Class Type A/B**: A = standard lessons 1–8, B = offset lessons 5–8 then 1–4. Type B is for twice-a-week students and make-up scheduling
+- **Tutor auto-suggest**: Based on students' current enrollment tutors (who already knows these kids?)
+- **Buddy group**: Discount-only, not a hard placement constraint — but nice to place together when possible
+
+### Unified Grid UI
+
+The arrangement page uses a **single grid view** where demand and placement information are layered together. There are not separate "stages" — the grid evolves as the admin works:
+
+**Grid layout** (follows existing `WeeklyGridView` / `MyStudentsWeeklyGrid` pattern):
+- **Columns**: Days of the week (only open days for selected location)
+- **Rows**: Discrete time slots (from config, e.g., 10:00–11:30, 14:00–15:30, 16:15–17:45)
+- **Empty columns collapse** like the existing weekly grid
+- **Location selector** filters the whole view
+
+**Cell states evolve as work progresses:**
+
+1. **Demand only** (no slots created yet):
+   - Heat-colored background based on total student preference count
+   - Grade breakdown inside cell (F1: 6, F2: 4, F3: 2)
+   - Click to see individual students
+
+2. **Slot created** (slot card appears in cell):
+   - Slot card shows: grade, course type (A/B), fill level (3/6), tutor name
+   - Multiple slot cards stack vertically for parallel classes
+   - Remaining unplaced demand count still visible above/below slots
+
+3. **Students placed** (names appear in slot cards):
+   - Placed students listed inside their slot card
+   - Students placed from a different preference marked (e.g., "2nd choice" or "reassigned")
+   - Demand count ticks down as students are placed — becomes a live "still-to-do" counter
+   - A student placed in Wed disappears from Mon's demand (where they originally wanted to go)
+
+4. **Fully arranged**:
+   - All demand counts at 0, all slots show full capacity
+   - Ready for bulk confirm (Tentative → Confirmed)
+
+**Right panel**: Unassigned students list
+- Filterable by grade, preference match, buddy group
+- Drag student → drop onto slot card in grid, or click-assign
+- Shows each student's 1st/2nd preferences for quick reference
+
+### Auto-Suggest Algorithm
+
+Greedy, least-flexible-first approach:
+1. Score each unassigned student by flexibility (fewer matching open slots = higher priority)
+2. For each student (least flexible first), find best slot: 1st preference > 2nd preference > any open slot of matching grade
+3. Tie-break by buddy group proximity (place near buddy if possible)
+4. Return proposals with confidence scores — admin reviews in a modal before accepting
+5. Admin can cherry-pick which suggestions to accept
+
+### Schema Change
+
+The existing `UNIQUE(config_id, slot_day, time_slot, location)` constraint on `summer_course_slots` must be **dropped** — it prevents parallel classes at the same location/day/time (F1 + F2, or F1(a) + F1(b)). The slot identity is the row `id`; uniqueness is managed by admin judgment, not a DB constraint.
+
+```sql
+-- Migration 075
+ALTER TABLE summer_course_slots DROP INDEX uq_slot;
+```
+
+### Backend Endpoints
+
+**Slot CRUD** (require_admin_write):
+```
+GET    /api/summer/slots?config_id=X              → list all slots with placement counts
+POST   /api/summer/slots                           → create slot
+PATCH  /api/summer/slots/{id}                      → update grade/tutor/capacity/course_type
+DELETE /api/summer/slots/{id}                       → delete (only if no confirmed placements)
+```
+
+**Placement CRUD** (require_admin_write):
+```
+POST   /api/summer/placements                      → assign student to slot (Tentative)
+PATCH  /api/summer/placements/{id}                  → update status (Tentative → Confirmed)
+DELETE /api/summer/placements/{id}                   → unassign student
+```
+
+**Demand & suggestions** (require_admin_view):
+```
+GET    /api/summer/demand?config_id=X&location=Y   → demand heatmap data (preference counts by day×time×grade)
+POST   /api/summer/auto-suggest                     → run algorithm, return ranked proposals
+```
+
+### Frontend Route & Components
+
+New tab "Arrangement" in `/admin/summer/layout.tsx`:
+```
+app/admin/summer/
+├── arrangement/
+│   └── page.tsx          ← main arrangement page
+```
+
+Components (in `webapp/frontend/components/admin/`):
+- `SummerArrangementGrid.tsx` — the weekly-style grid (days × time slots), renders cells
+- `SummerSlotCell.tsx` — single cell: demand overlay + slot cards
+- `SummerSlotCard.tsx` — a slot within a cell: grade badge, fill bar, student list, tutor
+- `SummerUnassignedPanel.tsx` — right sidebar: filterable student list, drag source
+- `SummerAutoSuggestModal.tsx` — review & accept/reject algorithm proposals
+
+### Key Existing Code to Reuse
+
+- `WeeklyGridView.tsx` / `MyStudentsWeeklyGrid.tsx` — grid layout pattern, empty column collapse, CSS grid approach
+- `MonthlyCalendarView.tsx` — heat color scaling for demand intensity
+- `calendar-utils.ts` — `parseTimeSlot()`, time slot handling utilities
+- `SummerApplicationCard.tsx` — student card styling for the unassigned panel
 
 ### Phase 4: Enrollment Conversion & Session Generation
 - **Session generation logic** (from current Apps Script `generatePaidStudentCourseSessions()`):
