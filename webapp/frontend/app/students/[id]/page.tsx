@@ -320,11 +320,13 @@ export default function StudentDetailPage() {
             <div className="flex-1" />
             {/* Enrollment count */}
             <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            {/* Progress button */}
+            <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse hidden sm:block" />
           </div>
 
-          {/* Tabs Skeleton - 5 tabs */}
+          {/* Tabs Skeleton - 6 tabs */}
           <div className="flex gap-1 overflow-x-auto pb-1">
-            {[1, 2, 3, 4, 5].map(i => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <div
                 key={i}
                 className={cn(
