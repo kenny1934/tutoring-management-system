@@ -87,7 +87,11 @@ jobs:
             --region asia-east2 \
             --project csm-database-project \
             --max-instances=1 \
-            --timeout=900
+            --timeout=900 \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --ingress=all
 
   deploy-frontend:
     needs: [changes, test-frontend]
@@ -119,7 +123,11 @@ jobs:
             --region asia-east2 \
             --project csm-database-project \
             --max-instances=1 \
-            --timeout=60
+            --timeout=60 \
+            --memory=256Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --ingress=all
 
   summary:
     needs: [changes, deploy-backend, deploy-frontend]

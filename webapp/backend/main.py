@@ -3,6 +3,7 @@ FastAPI main application for tutoring management system.
 Provides read-only API endpoints for MVP testing.
 """
 import logging
+import time
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,25 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log method, path, status, and duration for every request."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        start = time.monotonic()
+        response = await call_next(request)
+        duration_ms = (time.monotonic() - start) * 1000
+        # Skip noisy health checks and SSE streams
+        if request.url.path not in ("/", "/health") and not request.url.path.endswith("/stream"):
+            logger.info(
+                "%s %s %d %.0fms",
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration_ms,
+            )
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -43,6 +63,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Referrer Policy
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Restrict browser features the app doesn't need
+        response.headers["Permissions-Policy"] = "camera=(), geolocation=(), payment=()"
+
+        # Isolate browsing context to prevent Spectre-style attacks
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
 
         # Content Security Policy - adjust as needed for your app
         # Allow iframe embedding only for paperless preview/thumbnail routes
@@ -239,6 +265,7 @@ else:
 
 # Add security headers middleware first
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Configure CORS with specific allowed headers (not wildcard)
 app.add_middleware(
