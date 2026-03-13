@@ -9,9 +9,11 @@ import logging
 import base64
 from enum import Enum
 from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from auth.dependencies import get_current_user
+from models import Tutor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -390,7 +392,7 @@ def process_pdf_page(page_pixmap,
 
 
 @router.post("/document-processing/remove-handwriting", response_model=HandwritingRemovalResponse)
-async def remove_handwriting(request: HandwritingRemovalRequest):
+async def remove_handwriting(request: HandwritingRemovalRequest, current_user: Tutor = Depends(get_current_user)):
     """
     Remove handwriting from a PDF document.
 
@@ -505,7 +507,8 @@ async def remove_handwriting_file(
     remove_pencil: bool = Query(True, description="Remove pencil marks"),
     pencil_threshold: int = Query(200, ge=150, le=240, description="Pencil detection threshold"),
     remove_black_ink: bool = Query(False, description="Remove black/dark ink using stroke analysis"),
-    black_ink_mode: ProcessingMode = Query(ProcessingMode.BALANCED, description="Black ink removal aggressiveness")
+    black_ink_mode: ProcessingMode = Query(ProcessingMode.BALANCED, description="Black ink removal aggressiveness"),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """
     Remove handwriting from an uploaded PDF file.
@@ -568,7 +571,7 @@ async def remove_handwriting_file(
 
 
 @router.get("/document-processing/status")
-async def get_status():
+async def get_status(current_user: Tutor = Depends(get_current_user)):
     """
     Check if document processing is available.
     Returns status of required dependencies.

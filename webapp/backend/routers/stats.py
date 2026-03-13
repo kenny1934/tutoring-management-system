@@ -12,7 +12,7 @@ from constants import BASE_FEE_PER_LESSON
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent
-from auth.dependencies import get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
+from auth.dependencies import get_current_user, reject_guest, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.query_helpers import enrollment_with_student_tutor
 
 EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/locations", response_model=List[str])
-async def get_locations(response: Response, db: Session = Depends(get_db)):
+async def get_locations(response: Response, db: Session = Depends(get_db), _: Tutor = Depends(reject_guest)):
     """
     Get list of all unique locations from enrollments and sessions.
 
@@ -56,7 +56,8 @@ async def get_locations(response: Response, db: Session = Depends(get_db)):
 async def get_dashboard_stats(
     location: Optional[str] = Query(None, description="Filter stats by location"),
     tutor_id: Optional[int] = Query(None, description="Filter stats by tutor (for 'My View' mode)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_guest),
 ):
     """
     Get dashboard summary statistics, optionally filtered by location.
@@ -198,7 +199,8 @@ async def get_dashboard_stats(
 async def get_active_students(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_guest),
 ):
     """
     Get list of active students (students with sessions in ±14 day window).
@@ -420,7 +422,8 @@ async def get_activity_feed(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
     limit: int = Query(50, ge=1, le=100, description="Max events to return"),
     offset: int = Query(0, ge=0, description="Number of events to skip for pagination"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_guest),
 ):
     """
     Get recent activity events for dashboard feed.

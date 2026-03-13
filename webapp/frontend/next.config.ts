@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
   // - Production: proxy to Cloud Run backend (fallback when not going through Cloudflare Worker)
   async rewrites() {
     const backendUrl = process.env.NODE_ENV === 'production'
-      ? 'https://tutoring-backend-284725664511.asia-east2.run.app/api/:path*'
+      ? (process.env.BACKEND_REWRITE_URL || 'http://localhost:8000') + '/api/:path*'
       : 'http://localhost:8000/api/:path*';
     return [
       {
