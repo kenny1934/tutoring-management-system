@@ -1941,7 +1941,6 @@ export interface AttendanceSummary {
   rescheduled: number;
   recent_rate?: number | null;
   previous_rate?: number | null;
-  cancelled: number;
   total_past_sessions: number;
   attendance_rate: number;
 }
@@ -1959,10 +1958,19 @@ export interface RatingSummary {
   recent_avg?: number | null;
 }
 
+export interface ExerciseDetail {
+  session_date: string;
+  exercise_type: string;
+  pdf_name: string;
+  page_start?: number;
+  page_end?: number;
+}
+
 export interface ExerciseSummary {
   total: number;
   classwork: number;
   homework: number;
+  details?: ExerciseDetail[];
 }
 
 export interface EnrollmentTimelineItem {
