@@ -112,6 +112,21 @@ export function useDeleteConfirmation(onDelete: (index: number) => void) {
   };
 }
 
+/**
+ * Hook for a cooldown timer (e.g., after an AI generation call).
+ * Returns [isCoolingDown, triggerCooldown].
+ */
+export function useCooldown(ms: number): [boolean, () => void] {
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const trigger = useCallback(() => {
+    setIsCoolingDown(true);
+    timerRef.current = setTimeout(() => setIsCoolingDown(false), ms);
+  }, [ms]);
+  return [isCoolingDown, trigger];
+}
+
 // ============================================================================
 // File Action Hooks
 // ============================================================================
