@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
   Maximize2, Minimize2, PencilLine, ChevronDown,
-  AlertTriangle, LayoutList, PenTool, BookOpen,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -503,17 +503,24 @@ export function LessonMode({
   }, [selectedExercise]);
 
   // Print: single exercise from sidebar
+  const [printingId, setPrintingId] = useState<number | null>(null);
+
   const handlePrintExercise = useCallback(async (exercise: SessionExercise) => {
     if (!exercise.pdf_name) return;
-    const { complexPages } = parseExerciseRemarks(exercise.remarks);
-    await printFileFromPathWithFallback(
-      exercise.pdf_name,
-      exercise.page_start,
-      exercise.page_end,
-      complexPages || undefined,
-      stamp,
-      searchPaperlessByPath
-    );
+    setPrintingId(exercise.id);
+    try {
+      const { complexPages } = parseExerciseRemarks(exercise.remarks);
+      await printFileFromPathWithFallback(
+        exercise.pdf_name,
+        exercise.page_start,
+        exercise.page_end,
+        complexPages || undefined,
+        stamp,
+        searchPaperlessByPath
+      );
+    } finally {
+      setPrintingId(null);
+    }
   }, [stamp]);
 
   // Print: bulk print all CW or HW
@@ -522,10 +529,15 @@ export function LessonMode({
     setShowPrintMenu(false);
     const groups = groupExercisesByStudent([session], type);
     if (groups.length === 0) return;
-    const error = await bulkPrintAllStudents(groups);
-    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    setPrintingId(-1);
+    try {
+      const error = await bulkPrintAllStudents(groups);
+      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    } finally {
+      setPrintingId(null);
+    }
   }, [session, showToast]);
 
   // Annotation handlers
@@ -901,14 +913,19 @@ export function LessonMode({
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
-            onClick={() => setShowPrintMenu(v => !v)}
+            onClick={() => { if (printingId === null) setShowPrintMenu(v => !v); }}
+            disabled={printingId !== null}
             className={cn(
               "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
-              showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+              printingId !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
-            title="Print exercises"
+            title={printingId !== null ? "Printing..." : "Print exercises"}
           >
-            <Printer className="h-3.5 w-3.5" />
+            {printingId !== null ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Printer className="h-3.5 w-3.5" />
+            )}
             <ChevronDown className="h-2.5 w-2.5" />
           </button>
           <AnimatePresence>
@@ -1055,6 +1072,7 @@ export function LessonMode({
                 hasAnnotations={checkHasAnnotations}
                 homeworkCompletion={session.homework_completion}
                 onPrint={handlePrintExercise}
+                printingId={printingId}
               />
             </div>
 
@@ -1227,6 +1245,7 @@ export function LessonMode({
                     hasAnnotations={checkHasAnnotations}
                     homeworkCompletion={session.homework_completion}
                     onPrint={handlePrintExercise}
+                    printingId={printingId}
                   />
                 </motion.div>
               )}
@@ -1290,6 +1309,7 @@ export function LessonMode({
           hasAnnotations={checkHasAnnotations}
           homeworkCompletion={session.homework_completion}
           onPrint={handlePrintExercise}
+          printingId={printingId}
         />
       </MobileBottomSheet>
     </motion.div>

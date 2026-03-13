@@ -40,13 +40,14 @@ import {
 import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
-const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name: string; page_start?: number; page_end?: number }; stamp?: PrintStampInfo }) {
+const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
+  const { complexPages } = parseExerciseRemarks(exercise.remarks);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -89,7 +90,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
       exercise.pdf_name,
       exercise.page_start,
       exercise.page_end,
-      undefined,
+      complexPages || undefined,
       stamp,
       (p) => searchPaperlessByPath(p, setProgressMessage)
     );
@@ -103,11 +104,13 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   };
 
   const displayName = getDisplayName(exercise.pdf_name);
-  const pageInfo = exercise.page_start
-    ? exercise.page_end && exercise.page_end !== exercise.page_start
-      ? ` (p${exercise.page_start}-${exercise.page_end})`
-      : ` (p${exercise.page_start})`
-    : '';
+  const pageInfo = complexPages
+    ? ` (p${complexPages})`
+    : exercise.page_start
+      ? exercise.page_end && exercise.page_end !== exercise.page_start
+        ? ` (p${exercise.page_start}-${exercise.page_end})`
+        : ` (p${exercise.page_start})`
+      : '';
 
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0 overflow-hidden flex-1">
@@ -179,13 +182,14 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   return (
     prevProps.exercise.pdf_name === nextProps.exercise.pdf_name &&
     prevProps.exercise.page_start === nextProps.exercise.page_start &&
-    prevProps.exercise.page_end === nextProps.exercise.page_end
+    prevProps.exercise.page_end === nextProps.exercise.page_end &&
+    prevProps.exercise.remarks === nextProps.exercise.remarks
   );
 });
 
 // Exercises list component
 function ExercisesList({ exercises, session }: {
-  exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number }>;
+  exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number; remarks?: string }>;
   session: Session;
 }) {
   const [cwPrintState, setCwPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -224,11 +228,15 @@ function ExercisesList({ exercises, session }: {
     if (exerciseList.length === 0) return;
     setLoading('loading');
 
-    const bulkExercises = exerciseList.map(ex => ({
-      pdf_name: ex.pdf_name,
-      page_start: ex.page_start,
-      page_end: ex.page_end,
-    }));
+    const bulkExercises = exerciseList.map(ex => {
+      const { complexPages } = parseExerciseRemarks(ex.remarks);
+      return {
+        pdf_name: ex.pdf_name,
+        page_start: ex.page_start,
+        page_end: ex.page_end,
+        complex_pages: complexPages || undefined,
+      };
+    });
 
     const title = `${type}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
     const stamp = {
@@ -255,11 +263,15 @@ function ExercisesList({ exercises, session }: {
     if (exerciseList.length === 0) return;
     setLoading('loading');
 
-    const bulkExercises = exerciseList.map(ex => ({
-      pdf_name: ex.pdf_name,
-      page_start: ex.page_start,
-      page_end: ex.page_end,
-    }));
+    const bulkExercises = exerciseList.map(ex => {
+      const { complexPages } = parseExerciseRemarks(ex.remarks);
+      return {
+        pdf_name: ex.pdf_name,
+        page_start: ex.page_start,
+        page_end: ex.page_end,
+        complex_pages: complexPages || undefined,
+      };
+    });
 
     const filename = `${type}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
     const stamp = {

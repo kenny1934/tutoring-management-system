@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown,
   Maximize2, Minimize2, PencilLine, Users,
-  AlertTriangle, LayoutList, PenTool, BookOpen,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -12,6 +12,7 @@ import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
@@ -578,24 +579,33 @@ export function LessonWideMode({
   }, [onSessionDataChange]);
 
   // --- Print ---
+  // Track which exercise is currently printing for spinner feedback
+  const [printingId, setPrintingId] = useState<number | null>(null);
+
   const handlePrint = useCallback(async (entry?: StudentExerciseEntry) => {
     const target = entry || selectedEntry;
     if (!target?.exercise?.pdf_name) return;
-    const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
-    const entryStamp: PrintStampInfo = {
-      location: target.session.location,
-      schoolStudentId: target.session.school_student_id,
-      studentName: target.session.student_name,
-      sessionDate: target.session.session_date,
-      sessionTime: target.session.time_slot,
-    };
-    await printFileFromPathWithFallback(
-      target.exercise.pdf_name,
-      target.exercise.page_start,
-      target.exercise.page_end,
-      complexPages || undefined,
-      entryStamp
-    );
+    setPrintingId(target.exercise.id);
+    try {
+      const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
+      const entryStamp: PrintStampInfo = {
+        location: target.session.location,
+        schoolStudentId: target.session.school_student_id,
+        studentName: target.session.student_name,
+        sessionDate: target.session.session_date,
+        sessionTime: target.session.time_slot,
+      };
+      await printFileFromPathWithFallback(
+        target.exercise.pdf_name,
+        target.exercise.page_start,
+        target.exercise.page_end,
+        complexPages || undefined,
+        entryStamp,
+        searchPaperlessByPath
+      );
+    } finally {
+      setPrintingId(null);
+    }
   }, [selectedEntry]);
 
   // --- Bulk print ---
@@ -607,10 +617,15 @@ export function LessonWideMode({
       showToast(`No ${type} exercises found`, 'info');
       return;
     }
-    const error = await bulkPrintAllStudents(groups);
-    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    setPrintingId(-1);
+    try {
+      const error = await bulkPrintAllStudents(groups);
+      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    } finally {
+      setPrintingId(null);
+    }
   }, [sessions, showToast]);
 
   // --- Print file group (one file, all students) ---
@@ -619,35 +634,43 @@ export function LessonWideMode({
       handlePrint(group.entries[0]);
       return;
     }
-    const groups: StudentExerciseGroup[] = group.entries
-      .filter(e => e.exercise.pdf_name?.trim())
-      .map(entry => ({
-        studentId: entry.session.student_id,
-        studentName: entry.session.student_name ?? 'Unknown',
-        schoolStudentId: entry.session.school_student_id ?? '',
-        location: entry.session.location ?? '',
-        sessionDate: entry.session.session_date,
-        timeSlot: entry.session.time_slot,
-        exercises: [{
-          pdf_name: entry.exercise.pdf_name,
-          page_start: entry.exercise.page_start,
-          page_end: entry.exercise.page_end,
-          remarks: entry.exercise.remarks,
-        }],
-        stamp: {
-          location: entry.session.location,
-          schoolStudentId: entry.session.school_student_id,
-          studentName: entry.session.student_name,
+    setPrintingId(-2);
+    try {
+      const groups: StudentExerciseGroup[] = group.entries
+        .filter(e => e.exercise.pdf_name?.trim())
+        .map(entry => {
+          const { complexPages } = parseExerciseRemarks(entry.exercise.remarks);
+          return {
+          studentId: entry.session.student_id,
+          studentName: entry.session.student_name ?? 'Unknown',
+          schoolStudentId: entry.session.school_student_id ?? '',
+          location: entry.session.location ?? '',
           sessionDate: entry.session.session_date,
-          sessionTime: entry.session.time_slot,
-        },
-        filename: `${group.exerciseType}_${entry.session.school_student_id || ''}_${entry.session.student_name}`,
-      }));
-    if (groups.length === 0) return;
-    const error = await bulkPrintAllStudents(groups);
-    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-    else if (error === 'no_valid_files') showToast('No valid PDF files found', 'error');
-    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+          timeSlot: entry.session.time_slot,
+          exercises: [{
+            pdf_name: entry.exercise.pdf_name,
+            page_start: entry.exercise.page_start,
+            page_end: entry.exercise.page_end,
+            complex_pages: complexPages || undefined,
+          }],
+          stamp: {
+            location: entry.session.location,
+            schoolStudentId: entry.session.school_student_id,
+            studentName: entry.session.student_name,
+            sessionDate: entry.session.session_date,
+            sessionTime: entry.session.time_slot,
+          },
+          filename: `${group.exerciseType}_${entry.session.school_student_id || ''}_${entry.session.student_name}`,
+        };
+        });
+      if (groups.length === 0) return;
+      const error = await bulkPrintAllStudents(groups);
+      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+      else if (error === 'no_valid_files') showToast('No valid PDF files found', 'error');
+      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    } finally {
+      setPrintingId(null);
+    }
   }, [handlePrint, showToast]);
 
   // --- Bulk print all CW or HW for a single student ---
@@ -657,10 +680,15 @@ export function LessonWideMode({
       showToast(`No ${type} exercises found`, 'info');
       return;
     }
-    const error = await bulkPrintAllStudents(groups);
-    if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-    else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-    else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    setPrintingId(-session.id);
+    try {
+      const error = await bulkPrintAllStudents(groups);
+      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
+      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+    } finally {
+      setPrintingId(null);
+    }
   }, [showToast]);
 
   // --- Save annotated PDF ---
@@ -1003,14 +1031,19 @@ export function LessonWideMode({
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
-            onClick={() => setShowPrintMenu(v => !v)}
+            onClick={() => { if (printingId === null) setShowPrintMenu(v => !v); }}
+            disabled={printingId !== null}
             className={cn(
               "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
-              showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+              printingId !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
-            title="Print all exercises"
+            title={printingId !== null ? "Printing..." : "Print all exercises"}
           >
-            <Printer className="h-3.5 w-3.5" />
+            {printingId !== null ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Printer className="h-3.5 w-3.5" />
+            )}
             <ChevronDown className="h-2.5 w-2.5" />
           </button>
           <AnimatePresence>
@@ -1094,6 +1127,7 @@ export function LessonWideMode({
     onPrintFileGroup: handlePrintFileGroup,
     onBulkPrintStudent: handleBulkPrintStudent,
     onBulkAssign: handleBulkAssign,
+    printingId,
   };
 
   return (
