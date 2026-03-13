@@ -780,7 +780,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             </label>
             <textarea
               value={narrative}
-              onChange={(e) => { setNarrative(e.target.value); if (aiInsights) setAiInsights(null); }}
+              onChange={(e) => setNarrative(e.target.value)}
               placeholder="Write a summary or generate with AI..."
               rows={3}
               className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
