@@ -72,10 +72,17 @@ export function SummerUnassignedPanel({
     return result;
   }, [applications, gradeFilter, search, sort]);
 
-  // Collapsed state: thin vertical strip
-  if (collapsed) {
-    return (
-      <div className={cn("w-8 flex-shrink-0 flex flex-col items-center border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 py-3 gap-2", className)}>
+  return (
+    <div className={cn(
+      "relative flex-shrink-0 flex flex-col border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 overflow-hidden transition-[width] duration-300 ease-in-out",
+      collapsed ? "w-8" : "w-64",
+      className
+    )}>
+      {/* Collapsed state overlay */}
+      <div className={cn(
+        "absolute inset-0 flex flex-col items-center py-3 gap-2 transition-opacity duration-200",
+        collapsed ? "opacity-100 delay-100" : "opacity-0 pointer-events-none"
+      )}>
         <button
           onClick={() => setCollapsed(false)}
           className="p-1 text-muted-foreground hover:text-foreground"
@@ -87,11 +94,12 @@ export function SummerUnassignedPanel({
           {applications.length}
         </span>
       </div>
-    );
-  }
 
-  return (
-    <div className={cn("w-64 flex-shrink-0 flex flex-col border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 overflow-hidden", className)}>
+      {/* Expanded content */}
+      <div className={cn(
+        "flex flex-col flex-1 min-h-0 min-w-[256px] transition-opacity duration-200",
+        collapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
+      )}>
       {/* Header */}
       <div className="px-3 py-2 border-b border-border dark:border-gray-700 space-y-2">
         <div className="flex items-center gap-2">
@@ -221,6 +229,7 @@ export function SummerUnassignedPanel({
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
