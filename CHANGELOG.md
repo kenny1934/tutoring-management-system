@@ -27,6 +27,9 @@
 * **Messages router authentication** — all 39 messaging endpoints now require JWT authentication with tutor ownership verification, preventing unauthorized access via spoofed tutor_id parameters
 * **Parent communications write protection** — POST, PUT, and DELETE endpoints now require authenticated non-read-only users
 * **Exam revision slot protection** — slot update and delete endpoints now require JWT authentication
+* **Document processing authentication** — PDF handwriting removal endpoints now require JWT authentication
+* **Dashboard data protection** — stats, locations, active students, and activity feed endpoints now require authenticated users
+* **Backend URL hardening** — moved Cloud Run backend URL from source code to environment variable
 
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
 
