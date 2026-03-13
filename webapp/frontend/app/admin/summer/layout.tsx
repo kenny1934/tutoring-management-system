@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { name: "Applications", href: "/admin/summer/applications" },
+  { name: "Arrangement", href: "/admin/summer/arrangement" },
   { name: "Config", href: "/admin/summer/config" },
 ];
 
