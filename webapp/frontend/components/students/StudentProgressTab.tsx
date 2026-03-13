@@ -18,16 +18,11 @@ import {
 } from "recharts";
 import {
   CheckCircle2,
-  XCircle,
-  RefreshCw,
-  Ban,
   Star,
   Calendar,
   PenTool,
-  Phone,
   MapPin,
   Clock,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -49,6 +44,16 @@ const CHART_COLORS = {
   rating: "#f59e0b",
   grid: "#e8d4b8",
 };
+
+const DATA_KEY_LABELS: Record<string, string> = {
+  sessions_attended: "Sessions",
+  exercises_assigned: "Exercises",
+  avg_rating: "Avg Rating",
+};
+
+function formatMonthLabel(month: string): string {
+  return month.slice(2).replace("-", "/"); // "2025-01" -> "25/01"
+}
 
 // --- Tooltip Components ---
 
@@ -88,7 +93,7 @@ function ChartTooltip({
       {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
-          <span className="capitalize">{entry.dataKey === "sessions_attended" ? "Sessions" : entry.dataKey === "exercises_assigned" ? "Exercises" : entry.dataKey === "avg_rating" ? "Avg Rating" : entry.dataKey}:</span>
+          <span className="capitalize">{DATA_KEY_LABELS[entry.dataKey] ?? entry.dataKey}:</span>
           <span className="font-medium text-gray-900 dark:text-gray-100">
             {entry.dataKey === "avg_rating" ? entry.value.toFixed(1) : entry.value}
           </span>
@@ -157,7 +162,7 @@ function AttendanceDonut({ data }: { data: StudentProgress["attendance"] }) {
       { name: "Cancelled", value: data.cancelled, fill: ATTENDANCE_COLORS.cancelled },
     ];
     return items.filter((d) => d.value > 0);
-  }, [data]);
+  }, [data.attended, data.no_show, data.rescheduled, data.cancelled]);
 
   if (data.total_past_sessions === 0) {
     return (
@@ -223,7 +228,7 @@ function RatingTrendChart({ data }: { data: StudentProgress["ratings"] }) {
 
   const chartData = data.monthly_trend.map((d) => ({
     ...d,
-    label: d.month.slice(2).replace("-", "/"),  // "2025-01" -> "25/01"
+    label: formatMonthLabel(d.month),
   }));
 
   return (
@@ -268,38 +273,36 @@ function MonthlyActivityChart({ data }: { data: MonthlyActivity[] }) {
 
   const chartData = data.map((d) => ({
     ...d,
-    label: d.month.slice(2).replace("-", "/"),
+    label: formatMonthLabel(d.month),
   }));
 
   return (
-    <>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: "#8b7355" }}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: "#8b7355" }}
-            tickLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip content={<ChartTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 11 }}
-            formatter={(value: string) => (
-              <span className="text-gray-600 dark:text-gray-400 capitalize">
-                {value === "sessions_attended" ? "Sessions" : "Exercises"}
-              </span>
-            )}
-          />
-          <Bar dataKey="sessions_attended" fill={CHART_COLORS.sessions} radius={[2, 2, 0, 0]} />
-          <Bar dataKey="exercises_assigned" fill={CHART_COLORS.exercises} radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </>
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 11, fill: "#8b7355" }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: "#8b7355" }}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip content={<ChartTooltip />} />
+        <Legend
+          wrapperStyle={{ fontSize: 11 }}
+          formatter={(value: string) => (
+            <span className="text-gray-600 dark:text-gray-400 capitalize">
+              {DATA_KEY_LABELS[value] ?? value}
+            </span>
+          )}
+        />
+        <Bar dataKey="sessions_attended" fill={CHART_COLORS.sessions} radius={[2, 2, 0, 0]} />
+        <Bar dataKey="exercises_assigned" fill={CHART_COLORS.exercises} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -471,10 +474,8 @@ function ProgressSkeleton() {
 
 export function StudentProgressTab({
   studentId,
-  isMobile,
 }: {
   studentId: number;
-  isMobile: boolean;
 }) {
   const { data: progress, error, isLoading } = useStudentProgress(studentId);
 

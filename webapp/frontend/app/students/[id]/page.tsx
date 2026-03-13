@@ -622,7 +622,7 @@ export default function StudentDetailPage() {
 
               {/* Progress Tab */}
               {activeTab === "progress" && (
-                <StudentProgressTab studentId={studentId!} isMobile={isMobile} />
+                <StudentProgressTab studentId={studentId!} />
               )}
 
               {/* Parent Contacts Tab */}

@@ -4,7 +4,7 @@ Aggregates attendance, ratings, exercises, enrollment history,
 parent contacts, and monthly activity for a single student.
 """
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session, joinedload
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from auth.dependencies import get_current_user
 from database import get_db
 from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication
-from constants import COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
+from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, EnrollmentTimeline, ContactSummary, MonthlyActivity,
@@ -41,13 +41,13 @@ def get_student_progress(
             (SessionLog.session_status.in_(COMPLETED_STATUSES), 1), else_=0
         )).label("attended"),
         func.sum(case(
-            (SessionLog.session_status == "No Show", 1), else_=0
+            (SessionLog.session_status == SessionStatus.NO_SHOW.value, 1), else_=0
         )).label("no_show"),
         func.sum(case(
             (SessionLog.session_status.in_(all_rescheduled), 1), else_=0
         )).label("rescheduled"),
         func.sum(case(
-            (SessionLog.session_status == "Cancelled", 1), else_=0
+            (SessionLog.session_status == SessionStatus.CANCELLED.value, 1), else_=0
         )).label("cancelled"),
         func.count().label("total"),
     ).filter(
@@ -141,24 +141,31 @@ def get_student_progress(
         for e in enrollments
     ]
 
-    # --- Q5: Parent contact summary ---
-    contacts_list = db.query(ParentCommunication).filter(
-        ParentCommunication.student_id == student_id,
-    ).order_by(ParentCommunication.contact_date.desc()).all()
+    # --- Q5: Parent contact summary (SQL aggregation, no full ORM load) ---
+    contact_totals = db.query(
+        func.count().label("total"),
+        func.max(ParentCommunication.contact_date).label("last_date"),
+    ).filter(ParentCommunication.student_id == student_id).first()
 
-    by_method: dict[str, int] = defaultdict(int)
-    by_type: dict[str, int] = defaultdict(int)
-    for c in contacts_list:
-        if c.contact_method:
-            by_method[c.contact_method] += 1
-        if c.contact_type:
-            by_type[c.contact_type] += 1
+    method_rows = db.query(
+        ParentCommunication.contact_method, func.count().label("cnt"),
+    ).filter(
+        ParentCommunication.student_id == student_id,
+        ParentCommunication.contact_method.isnot(None),
+    ).group_by(ParentCommunication.contact_method).all()
+
+    type_rows = db.query(
+        ParentCommunication.contact_type, func.count().label("cnt"),
+    ).filter(
+        ParentCommunication.student_id == student_id,
+        ParentCommunication.contact_type.isnot(None),
+    ).group_by(ParentCommunication.contact_type).all()
 
     contacts = ContactSummary(
-        total_contacts=len(contacts_list),
-        last_contact_date=contacts_list[0].contact_date if contacts_list else None,
-        by_method=dict(by_method),
-        by_type=dict(by_type),
+        total_contacts=contact_totals.total or 0,
+        last_contact_date=contact_totals.last_date,
+        by_method={r.contact_method: r.cnt for r in method_rows},
+        by_type={r.contact_type: r.cnt for r in type_rows},
     )
 
     # --- Q6: Monthly activity (last 12 months) ---
@@ -170,40 +177,33 @@ def get_student_progress(
         y -= 1
     twelve_months_ago = date(y, m, 1)
 
-    session_monthly = db.query(
-        func.date_format(SessionLog.session_date, "%Y-%m").label("month"),
-        func.count().label("sessions"),
-    ).filter(
-        SessionLog.student_id == student_id,
-        SessionLog.session_status.in_(COMPLETED_STATUSES),
-        SessionLog.session_date >= twelve_months_ago,
-    ).group_by("month").all()
-
-    exercise_monthly = db.query(
-        func.date_format(SessionLog.session_date, "%Y-%m").label("month"),
-        func.count().label("exercises"),
-    ).join(SessionExercise, SessionExercise.session_id == SessionLog.id).filter(
+    # Single query: sessions attended + exercises per month (LEFT JOIN)
+    month_col = func.date_format(SessionLog.session_date, "%Y-%m").label("month")
+    activity_rows = db.query(
+        month_col,
+        func.count(case(
+            (SessionLog.session_status.in_(COMPLETED_STATUSES), SessionLog.id), else_=None
+        ).distinct()).label("sessions"),
+        func.count(SessionExercise.id).label("exercises"),
+    ).outerjoin(SessionExercise, SessionExercise.session_id == SessionLog.id).filter(
         SessionLog.student_id == student_id,
         SessionLog.session_date >= twelve_months_ago,
-    ).group_by("month").all()
+    ).group_by(month_col).all()
 
-    # Merge into a dict keyed by month, fill all 12 months
+    # Fill all 12 months
     activity_map: dict[str, dict] = {}
     d = twelve_months_ago
     while d <= today:
         key = d.strftime("%Y-%m")
         activity_map[key] = {"sessions_attended": 0, "exercises_assigned": 0}
-        # Advance to next month
         if d.month == 12:
             d = date(d.year + 1, 1, 1)
         else:
             d = date(d.year, d.month + 1, 1)
 
-    for row in session_monthly:
+    for row in activity_rows:
         if row.month in activity_map:
             activity_map[row.month]["sessions_attended"] = row.sessions
-    for row in exercise_monthly:
-        if row.month in activity_map:
             activity_map[row.month]["exercises_assigned"] = row.exercises
 
     monthly_activity = [
