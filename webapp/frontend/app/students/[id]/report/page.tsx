@@ -21,6 +21,7 @@ function StudentReportPageInner() {
   const endDate = searchParams.get("endDate") || undefined;
   const commentKey = searchParams.get("commentKey");
   const aiNarrativeKey = searchParams.get("aiNarrativeKey");
+  const language = searchParams.get("language") || "en";
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -52,8 +53,8 @@ function StudentReportPageInner() {
 
   // Fetch progress data with date range + AI insights
   const { data: progress, isLoading: progressLoading } = useSWR<StudentProgress>(
-    studentId ? ["student-progress-report", studentId, startDate, endDate] : null,
-    () => studentsAPI.getProgress(studentId, startDate, endDate, true),
+    studentId ? ["student-progress-report", studentId, startDate, endDate, language] : null,
+    () => studentsAPI.getProgress(studentId, startDate, endDate, true, language),
     { revalidateOnFocus: false }
   );
 
