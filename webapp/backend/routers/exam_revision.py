@@ -555,7 +555,8 @@ async def sync_revision_slot(
 async def update_revision_slot(
     slot_id: int,
     update: ExamRevisionSlotUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """
     Update a revision slot's details.
@@ -684,7 +685,8 @@ async def update_revision_slot(
 async def delete_revision_slot(
     slot_id: int,
     force: bool = Query(False, description="Force delete: unenroll all students first"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """
     Delete a revision slot.
