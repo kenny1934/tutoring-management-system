@@ -46,7 +46,7 @@ export default function SummerAdminLayout({ children }: { children: React.ReactN
           </a>
         </nav>
       </div>
-      {children}
+      <div className="flex-1 min-h-0">{children}</div>
     </div>
   );
 }
