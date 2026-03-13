@@ -617,7 +617,17 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       const dates = preset === "custom"
         ? { start: customStart || undefined, end: customEnd || undefined }
         : getPresetDates(preset, enrollmentStart);
-      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language, true);
+
+      // Build exclude list from unchecked sections (topics always included — core to AI)
+      const excludeMap: Record<string, string> = {
+        showRating: "rating", showAttendance: "attendance", showTests: "tests",
+      };
+      const exclude = Object.entries(excludeMap)
+        .filter(([key]) => !sections[key as SectionKey])
+        .map(([, val]) => val)
+        .join(",");
+
+      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language, true, exclude || undefined);
       if (progress.insights) {
         if (progress.insights.narrative) setNarrative(progress.insights.narrative);
         setAiInsights(progress.insights as Record<string, unknown>);
@@ -633,7 +643,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       setIsGeneratingAI(false);
       triggerCooldown();
     }
-  }, [studentId, preset, customStart, customEnd, enrollmentStart, language]);
+  }, [studentId, preset, customStart, customEnd, enrollmentStart, language, sections]);
 
   const handleGenerate = useCallback(() => {
     const params = new URLSearchParams();
