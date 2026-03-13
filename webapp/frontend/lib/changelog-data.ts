@@ -76,6 +76,15 @@ const changelogData = [
           },
           {
             "description": "**Backend URL hardening** — moved Cloud Run backend URL from source code to environment variable"
+          },
+          {
+            "description": "**Security headers** — added Permissions-Policy (restricts camera, geolocation, payment) and Cross-Origin-Opener-Policy (Spectre protection)"
+          },
+          {
+            "description": "**Request logging** — all API requests now log method, path, status code, and duration for observability"
+          },
+          {
+            "description": "**Explicit Cloud Run settings** — memory, CPU, concurrency, and ingress now set explicitly in deploy config"
           }
         ]
       }
