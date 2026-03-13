@@ -243,11 +243,21 @@ export function SummerApplicationDetailModal({
     return results;
   }, [duplicateMatches, nameMatches, studentId, app?.contact_phone, systemLocation]);
 
-  // Buddy group members (filter from all applications)
+  // Fetch buddy group members when allApplications is not provided
+  const { data: fetchedBuddyMembers } = useSWR(
+    app?.buddy_group_id && !allApplications
+      ? ["summer-buddy-group", app.buddy_group_id]
+      : null,
+    () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! })
+  );
+
+  // Buddy group members (filter from all applications or fetched data)
   const buddyMembers = useMemo(() => {
-    if (!app?.buddy_group_id || !allApplications) return [];
-    return allApplications.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
-  }, [app?.buddy_group_id, app?.id, allApplications]);
+    if (!app?.buddy_group_id) return [];
+    const source = allApplications ?? fetchedBuddyMembers;
+    if (!source) return [];
+    return source.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
+  }, [app?.buddy_group_id, app?.id, allApplications, fetchedBuddyMembers]);
 
   if (!app) return null;
 

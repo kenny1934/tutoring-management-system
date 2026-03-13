@@ -405,6 +405,7 @@ def list_applications(
     grade: Optional[str] = None,
     location: Optional[str] = None,
     search: Optional[str] = None,
+    buddy_group_id: Optional[int] = None,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
@@ -424,6 +425,8 @@ def list_applications(
         q = q.filter(SummerApplication.grade == grade)
     if location:
         q = q.filter(SummerApplication.preferred_location == location)
+    if buddy_group_id:
+        q = q.filter(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
         pattern = f"%{search}%"
         q = q.filter(
