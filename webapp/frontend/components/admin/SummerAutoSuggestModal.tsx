@@ -117,10 +117,10 @@ export function SummerAutoSuggestModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col m-4">
+      <div className="bg-card dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col m-4">
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-          <Wand2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-border dark:border-gray-700">
+          <Wand2 className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold flex-1">Auto-Suggest Placements</h2>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -131,7 +131,7 @@ export function SummerAutoSuggestModal({
         <div className="flex-1 overflow-y-auto p-5">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">Running algorithm...</p>
             </div>
           ) : !data || data.proposals.length === 0 ? (
@@ -169,7 +169,7 @@ export function SummerAutoSuggestModal({
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
                       selected.has(p.application_id)
-                        ? "bg-amber-50 dark:bg-amber-900/20"
+                        ? "bg-primary/5"
                         : "hover:bg-gray-50 dark:hover:bg-gray-800"
                     )}
                   >
@@ -237,7 +237,7 @@ export function SummerAutoSuggestModal({
             <button
               onClick={handleAccept}
               disabled={selected.size === 0 || accepting}
-              className="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {accepting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
