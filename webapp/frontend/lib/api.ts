@@ -356,10 +356,11 @@ export const studentsAPI = {
     return fetchAPI<StudentCouponResponse>(`/students/${studentId}/coupon`);
   },
 
-  getProgress: (studentId: number, startDate?: string, endDate?: string) => {
+  getProgress: (studentId: number, startDate?: string, endDate?: string, generateInsights?: boolean) => {
     const params = new URLSearchParams();
     if (startDate) params.set("start_date", startDate);
     if (endDate) params.set("end_date", endDate);
+    if (generateInsights) params.set("generate_insights", "true");
     const qs = params.toString();
     return fetchAPI<StudentProgress>(`/students/${studentId}/progress${qs ? `?${qs}` : ""}`);
   },

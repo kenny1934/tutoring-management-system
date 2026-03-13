@@ -1998,6 +1998,26 @@ export interface MonthlyActivity {
   exercises_assigned: number;
 }
 
+export interface TestEvent {
+  title: string;
+  start_date: string;
+  end_date?: string;
+  event_type?: string;
+}
+
+export interface TopicCount {
+  topic: string;
+  count: number;
+}
+
+export interface ProgressInsights {
+  top_topics: TopicCount[];
+  total_exercises: number;
+  cw_count: number;
+  hw_count: number;
+  narrative: string;
+}
+
 export interface StudentProgress {
   student_id: number;
   attendance: AttendanceSummary;
@@ -2006,4 +2026,6 @@ export interface StudentProgress {
   enrollment_timeline: EnrollmentTimelineItem[];
   contacts: ContactSummary;
   monthly_activity: MonthlyActivity[];
+  test_events?: TestEvent[];
+  insights?: ProgressInsights;
 }
