@@ -3292,4 +3292,15 @@ body.student-print .print-answer-key {
   }
   .report-section { break-inside: avoid; }
   .report-page-break { break-before: page; }
+
+  /* Reset LayoutShell scroll constraints for printing */
+  div:has(> #main-content),
+  div:has(> div > #main-content) {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  #main-content {
+    overflow: visible !important;
+  }
 }
