@@ -530,7 +530,7 @@ function ProgressSkeleton() {
 
 // --- Report Config ---
 
-type DatePreset = "3m" | "6m" | "12m" | "enrollment" | "custom";
+type DatePreset = "1m" | "3m" | "6m" | "12m" | "enrollment" | "custom";
 
 function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { start?: string; end?: string } {
   const today = new Date();
@@ -538,6 +538,11 @@ function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { 
   const end = fmt(today);
 
   switch (preset) {
+    case "1m": {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 1);
+      return { start: fmt(d), end };
+    }
     case "3m": {
       const d = new Date(today);
       d.setMonth(d.getMonth() - 3);
@@ -729,6 +734,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               onChange={(e) => setPreset(e.target.value as DatePreset)}
               className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
             >
+              <option value="1m">Last month</option>
               <option value="3m">Last 3 months</option>
               <option value="6m">Last 6 months</option>
               <option value="12m">Last 12 months</option>
