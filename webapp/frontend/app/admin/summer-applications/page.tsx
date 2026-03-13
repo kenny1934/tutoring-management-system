@@ -700,9 +700,26 @@ export default function SummerApplicationsPage() {
 
             {/* Application list */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
-              {appsLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              {appsLoading || !applications ? (
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-28 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        <div className="h-3.5 w-20 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="ml-auto h-5 w-24 rounded-full animate-pulse bg-gray-200 dark:bg-gray-700" />
+                      </div>
+                      <div className="flex items-center gap-1.5 pl-6">
+                        <div className="h-5 w-8 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-5 w-8 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-5 w-12 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                      <div className="flex items-center gap-2 pl-6">
+                        <div className="h-3 w-36 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                        <div className="ml-auto h-3 w-12 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : sortedApplications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
