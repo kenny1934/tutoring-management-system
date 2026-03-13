@@ -5,6 +5,26 @@ const changelogData = [
     "date": "2026-03-14",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Student progress report** — printable progress report accessible from the student detail page's progress drawer; configurable date range (presets: 1 month, 3 months, 6 months, 12 months, all time) with two modes: internal (full data) and parent (shareable summary)"
+          },
+          {
+            "description": "**AI learning summary** — generate a natural-language summary of student progress using Gemini, with concept map visualization; supports English and Traditional Chinese"
+          },
+          {
+            "description": "**Concept map** — interactive treemap of math concepts extracted from exercise filenames, categorized by topic (Algebra, Geometry, Trigonometry, etc.)"
+          },
+          {
+            "description": "**Report section toggles** — choose which sections to include in the report (attendance, rating, topics, tests, activity, enrollment, contacts); mode-aware toggles show/hide sections relevant to each report type"
+          },
+          {
+            "description": "**Test & exam timeline** — shows upcoming and past tests/exams matching the student's school and grade within the report period, with syllabus details"
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {
@@ -15,6 +35,12 @@ const changelogData = [
           },
           {
             "description": "**Session popover print** — individual and bulk print from the session detail popover now respects custom page ranges"
+          },
+          {
+            "description": "**Report print clipping** — fixed right-edge content being cut off when printing reports"
+          },
+          {
+            "description": "**Chinese proper nouns** — AI summaries in Traditional Chinese now preserve student and school names in their original form instead of transliterating"
           }
         ]
       },
@@ -29,6 +55,15 @@ const changelogData = [
           },
           {
             "description": "**File tab sorting** — students in the \"by file\" tab are now sorted to match the \"by student\" tab order"
+          },
+          {
+            "description": "**AI cost safeguards** — 30-second cooldown between AI generations, backend rate limit (5 calls/minute), and in-memory result caching (1-hour TTL) to prevent accidental overuse"
+          },
+          {
+            "description": "**AI context filtering** — unchecked report sections are excluded from the AI prompt context, so narratives only reference data the user chose to include"
+          },
+          {
+            "description": "**Report config modal** — report configuration moved from inline panel to a dedicated modal for cleaner UX; AI content section clearly separated from report sections"
           }
         ]
       }

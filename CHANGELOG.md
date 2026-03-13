@@ -2,17 +2,30 @@
 
 ## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
 
+### New Features
+
+* **Student progress report** — printable progress report accessible from the student detail page's progress drawer; configurable date range (presets: 1 month, 3 months, 6 months, 12 months, all time) with two modes: internal (full data) and parent (shareable summary)
+* **AI learning summary** — generate a natural-language summary of student progress using Gemini, with concept map visualization; supports English and Traditional Chinese
+* **Concept map** — interactive treemap of math concepts extracted from exercise filenames, categorized by topic (Algebra, Geometry, Trigonometry, etc.)
+* **Report section toggles** — choose which sections to include in the report (attendance, rating, topics, tests, activity, enrollment, contacts); mode-aware toggles show/hide sections relevant to each report type
+* **Test & exam timeline** — shows upcoming and past tests/exams matching the student's school and grade within the report period, with syllabus details
+
 ### Bug Fixes
 
 * **Bulk print custom pages** — printing CW/HW in bulk now correctly uses custom page ranges (e.g. "pages 1,3,5-7") instead of ignoring them
 * **Print fallback** — print buttons in lesson modes now properly search Shelv when a file isn't found locally
 * **Session popover print** — individual and bulk print from the session detail popover now respects custom page ranges
+* **Report print clipping** — fixed right-edge content being cut off when printing reports
+* **Chinese proper nouns** — AI summaries in Traditional Chinese now preserve student and school names in their original form instead of transliterating
 
 ### Improvements
 
 * **Print button feedback** — print buttons now show a spinner while working and display what's happening in the tooltip (e.g. "Searching by filename...")
 * **Student ID layout** — student IDs (MSA-XXXX) in the lesson sidebar no longer wrap to a second line
 * **File tab sorting** — students in the "by file" tab are now sorted to match the "by student" tab order
+* **AI cost safeguards** — 30-second cooldown between AI generations, backend rate limit (5 calls/minute), and in-memory result caching (1-hour TTL) to prevent accidental overuse
+* **AI context filtering** — unchecked report sections are excluded from the AI prompt context, so narratives only reference data the user chose to include
+* **Report config modal** — report configuration moved from inline panel to a dedicated modal for cleaner UX; AI content section clearly separated from report sections
 
 ## [2.0.31](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.31) (2026-03-13)
 
