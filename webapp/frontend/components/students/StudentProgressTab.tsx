@@ -726,9 +726,10 @@ export function StudentProgressDrawer({
   const latestEnrollmentStart = enrollment_timeline[0]?.first_lesson_date || null;
 
   return (
-    <div className="space-y-4 relative">
-      {/* Report button — overlays top-right */}
-      <div className="absolute right-0 -top-1 z-10">
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Overview</h3>
         <ReportConfigButton studentId={studentId} enrollmentStart={latestEnrollmentStart} />
       </div>
 

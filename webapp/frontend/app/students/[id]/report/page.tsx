@@ -37,10 +37,10 @@ function StudentReportPageInner() {
   // Fetch student data
   const { data: student, isLoading: studentLoading } = useStudent(studentId);
 
-  // Fetch progress data with date range
+  // Fetch progress data with date range + AI insights
   const { data: progress, isLoading: progressLoading } = useSWR<StudentProgress>(
     studentId ? ["student-progress-report", studentId, startDate, endDate] : null,
-    () => studentsAPI.getProgress(studentId, startDate, endDate),
+    () => studentsAPI.getProgress(studentId, startDate, endDate, true),
     { revalidateOnFocus: false }
   );
 
@@ -76,7 +76,9 @@ function StudentReportPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 print:bg-white">
+    <div className="report-page min-h-screen bg-gray-100 print:bg-white print:min-h-0 print:overflow-visible">
+      {/* Report-specific @page — overrides global fallback */}
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4; margin: 15mm; }" }} />
       {/* Toolbar — hidden in print */}
       <div className="report-toolbar sticky top-0 bg-white border-b shadow-sm px-4 py-2 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">

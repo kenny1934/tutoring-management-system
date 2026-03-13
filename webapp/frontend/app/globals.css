@@ -3273,6 +3273,11 @@ body.student-print .print-answer-key {
 
   /* 9. Student progress report */
   .report-toolbar { display: none !important; }
+  .report-page {
+    min-height: auto !important;
+    background: white !important;
+    overflow: visible !important;
+  }
   .report-container {
     color: #1a1a1a !important;
     background: white !important;
