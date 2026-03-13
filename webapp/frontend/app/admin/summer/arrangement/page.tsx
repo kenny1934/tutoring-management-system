@@ -6,16 +6,16 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, Wand2, CheckCheck, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Grid3X3, Wand2, CheckCheck } from "lucide-react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
+import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { LOCATION_TO_CODE } from "@/lib/summer-utils";
-import type { SummerSlotCreate, SummerSlotUpdate } from "@/types";
+import type { SummerSlotUpdate, SummerApplication } from "@/types";
 
 export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
@@ -26,6 +26,11 @@ export default function SummerArrangementPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
+  const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  const [dragPrefs, setDragPrefs] = useState<{
+    pref1?: { day: string; time: string };
+    pref2?: { day: string; time: string };
+  } | null>(null);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -88,6 +93,12 @@ export default function SummerArrangementPage() {
     configId && location ? ["summer-unassigned", configId, location] : null,
     () => summerAPI.getUnassigned({ config_id: configId!, location }),
     { refreshInterval: 30000 }
+  );
+
+  // Fetch selected application for detail modal
+  const { data: selectedApp } = useSWR(
+    selectedAppId ? ["summer-app", selectedAppId] : null,
+    () => summerAPI.getApplication(selectedAppId!)
   );
 
   // Handlers
@@ -161,8 +172,23 @@ export default function SummerArrangementPage() {
     }
   }, [configId, location, mutateSlots, showToast]);
 
+  // Drag preference highlighting
+  const handleDragStart = useCallback((app: SummerApplication) => {
+    setDragPrefs({
+      pref1: app.preference_1_day && app.preference_1_time
+        ? { day: app.preference_1_day, time: app.preference_1_time }
+        : undefined,
+      pref2: app.preference_2_day && app.preference_2_time
+        ? { day: app.preference_2_day, time: app.preference_2_time }
+        : undefined,
+    });
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragPrefs(null);
+  }, []);
+
   // Stats
-  const totalPlaced = slots?.reduce((sum, s) => sum + s.placement_count, 0) ?? 0;
   const totalUnassigned = unassigned?.length ?? 0;
   const totalTentative = slots?.reduce(
     (sum, s) => sum + s.placements.filter((p) => p.placement_status === "Tentative").length,
@@ -191,7 +217,7 @@ export default function SummerArrangementPage() {
         {/* Header */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <Grid3X3 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <Grid3X3 className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Timetable Arrangement</h1>
           </div>
 
@@ -199,7 +225,7 @@ export default function SummerArrangementPage() {
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground"
+            className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
           >
             {locations.map((loc) => (
               <option key={loc.name} value={loc.name}>
@@ -221,7 +247,7 @@ export default function SummerArrangementPage() {
           <button
             onClick={() => setAutoSuggestOpen(true)}
             disabled={!unassigned?.length || !slots?.length}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Wand2 className="h-3.5 w-3.5" />
             Auto-Suggest
@@ -262,13 +288,18 @@ export default function SummerArrangementPage() {
                 onDeleteSlot={handleDeleteSlot}
                 onDropStudent={handleDropStudent}
                 onRemovePlacement={handleRemovePlacement}
+                onClickStudent={setSelectedAppId}
                 onDropFailed={(reason) => showToast(reason, "error")}
+                dragPrefs={dragPrefs}
               />
             </div>
             <SummerUnassignedPanel
               applications={unassigned ?? []}
               grades={grades}
               loading={!unassigned && !!configId}
+              onClickStudent={setSelectedAppId}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
             />
           </div>
         )}
@@ -283,6 +314,15 @@ export default function SummerArrangementPage() {
             onAccepted={refreshAll}
           />
         )}
+
+        {/* Application detail modal */}
+        <SummerApplicationDetailModal
+          application={selectedApp ?? null}
+          isOpen={selectedAppId !== null}
+          onClose={() => setSelectedAppId(null)}
+          onUpdated={refreshAll}
+          locations={locations}
+        />
       </PageTransition>
     </DeskSurface>
   );

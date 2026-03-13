@@ -120,6 +120,20 @@ export const RequiredMark = () => (
   <span className="text-red-500 ml-0.5">*</span>
 );
 
+/** Grade badge colors for arrangement grid components. */
+export const SUMMER_GRADE_BG: Record<string, string> = {
+  F1: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  F2: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  F3: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+};
+
+/** Grade text-only colors for demand breakdowns. */
+export const SUMMER_GRADE_TEXT: Record<string, string> = {
+  F1: "text-blue-600 dark:text-blue-400",
+  F2: "text-purple-600 dark:text-purple-400",
+  F3: "text-orange-600 dark:text-orange-400",
+};
+
 /** Map summer config Chinese location names → internal system codes. */
 export const LOCATION_TO_CODE: Record<string, string> = {
   "華士古分校": "MSA",
