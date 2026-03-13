@@ -1939,6 +1939,8 @@ export interface AttendanceSummary {
   attended: number;
   no_show: number;
   rescheduled: number;
+  recent_rate?: number | null;
+  previous_rate?: number | null;
   cancelled: number;
   total_past_sessions: number;
   attendance_rate: number;
@@ -1954,6 +1956,7 @@ export interface RatingSummary {
   overall_avg: number;
   total_rated: number;
   monthly_trend: RatingMonth[];
+  recent_avg?: number | null;
 }
 
 export interface ExerciseSummary {

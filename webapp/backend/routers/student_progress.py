@@ -4,7 +4,7 @@ Aggregates attendance, ratings, exercises, enrollment history,
 parent contacts, and monthly activity for a single student.
 """
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session, joinedload
@@ -34,8 +34,12 @@ def get_student_progress(
 
     today = date.today()
 
-    # --- Q1: Attendance summary ---
+    # --- Q1: Attendance summary (includes 30/60-day trend windows) ---
     all_rescheduled = PENDING_MAKEUP_STATUSES + MAKEUP_BOOKED_STATUSES
+    thirty_days_ago = today - timedelta(days=30)
+    sixty_days_ago = today - timedelta(days=60)
+    attended_or_noshow = COMPLETED_STATUSES + [SessionStatus.NO_SHOW.value]
+
     row = db.query(
         func.sum(case(
             (SessionLog.session_status.in_(COMPLETED_STATUSES), 1), else_=0
@@ -50,6 +54,28 @@ def get_student_progress(
             (SessionLog.session_status == SessionStatus.CANCELLED.value, 1), else_=0
         )).label("cancelled"),
         func.count().label("total"),
+        # Trend: recent 30 days
+        func.sum(case(
+            (SessionLog.session_date > thirty_days_ago, case(
+                (SessionLog.session_status.in_(COMPLETED_STATUSES), 1), else_=0
+            )), else_=0
+        )).label("recent_attended"),
+        func.sum(case(
+            (SessionLog.session_date > thirty_days_ago, case(
+                (SessionLog.session_status.in_(attended_or_noshow), 1), else_=0
+            )), else_=0
+        )).label("recent_total"),
+        # Trend: previous 30 days (31-60 days ago)
+        func.sum(case(
+            (SessionLog.session_date.between(sixty_days_ago, thirty_days_ago), case(
+                (SessionLog.session_status.in_(COMPLETED_STATUSES), 1), else_=0
+            )), else_=0
+        )).label("prev_attended"),
+        func.sum(case(
+            (SessionLog.session_date.between(sixty_days_ago, thirty_days_ago), case(
+                (SessionLog.session_status.in_(attended_or_noshow), 1), else_=0
+            )), else_=0
+        )).label("prev_total"),
     ).filter(
         SessionLog.student_id == student_id,
         SessionLog.session_date <= today,
@@ -63,6 +89,13 @@ def get_student_progress(
     denominator = attended + no_show
     attendance_rate = round(attended / denominator * 100, 1) if denominator > 0 else 0.0
 
+    recent_attended = int(row.recent_attended or 0)
+    recent_total = int(row.recent_total or 0)
+    prev_attended = int(row.prev_attended or 0)
+    prev_total = int(row.prev_total or 0)
+    recent_rate = round(recent_attended / recent_total * 100, 1) if recent_total > 0 else None
+    previous_rate = round(prev_attended / prev_total * 100, 1) if prev_total > 0 else None
+
     attendance = AttendanceSummary(
         attended=attended,
         no_show=no_show,
@@ -70,6 +103,8 @@ def get_student_progress(
         cancelled=cancelled,
         total_past_sessions=total_past,
         attendance_rate=attendance_rate,
+        recent_rate=recent_rate,
+        previous_rate=previous_rate,
     )
 
     # --- Q2: Rating trend ---
@@ -84,12 +119,15 @@ def get_student_progress(
 
     monthly_ratings: dict[str, list[int]] = defaultdict(list)
     all_ratings: list[int] = []
+    recent_ratings: list[int] = []
     for session_date, rating_str in rated_rows:
         stars = rating_str.count("⭐")
         if stars > 0:
             month_key = session_date.strftime("%Y-%m")
             monthly_ratings[month_key].append(stars)
             all_ratings.append(stars)
+            if session_date > thirty_days_ago:
+                recent_ratings.append(stars)
 
     ratings = RatingSummary(
         overall_avg=round(sum(all_ratings) / len(all_ratings), 2) if all_ratings else 0.0,
@@ -98,6 +136,7 @@ def get_student_progress(
             RatingMonth(month=m, avg_rating=round(sum(r) / len(r), 2), count=len(r))
             for m, r in sorted(monthly_ratings.items())
         ],
+        recent_avg=round(sum(recent_ratings) / len(recent_ratings), 2) if recent_ratings else None,
     )
 
     # --- Q3: Exercise summary ---

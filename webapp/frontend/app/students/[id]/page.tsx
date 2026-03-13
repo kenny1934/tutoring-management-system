@@ -42,7 +42,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
-import { StudentProgressTab } from "@/components/students/StudentProgressTab";
+import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
 import {
   useFloating,
   autoUpdate,
@@ -55,7 +55,7 @@ import {
 } from "@floating-ui/react";
 
 // Tab types
-type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "progress" | "contacts";
+type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
 
 interface Tab {
   id: TabId;
@@ -69,7 +69,6 @@ const TABS: Tab[] = [
   { id: "courseware", label: "Courseware", icon: BookMarked },
   { id: "tests", label: "Tests", icon: BookOpen },
   { id: "ratings", label: "Ratings", icon: Star },
-  { id: "progress", label: "Progress", icon: TrendingUp },
   { id: "contacts", label: "Parent Contacts", icon: Phone },
 ];
 
@@ -84,6 +83,7 @@ export default function StudentDetailPage() {
   const initialTab = (searchParams.get('tab') as TabId) || 'profile';
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
 
   // Toast notifications
   const { showToast } = useToast();
@@ -464,7 +464,43 @@ export default function StudentDetailPage() {
               <BookOpen className="h-4 w-4" />
               <span>{activeEnrollments.length} enrollment{activeEnrollments.length !== 1 ? 's' : ''}</span>
             </div>
+
+            {/* Progress drawer toggle */}
+            <button
+              onClick={() => setProgressOpen(prev => !prev)}
+              className={cn(
+                "flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-md transition-colors",
+                progressOpen
+                  ? "bg-[#a0704b] text-white"
+                  : "text-[#a0704b] hover:bg-[#d4a574]/20"
+              )}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Progress</span>
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", progressOpen && "rotate-180")} />
+            </button>
           </motion.div>
+
+          {/* Progress Drawer */}
+          <AnimatePresence>
+            {progressOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden py-2"
+              >
+                <StudentProgressDrawer
+                  studentId={studentId!}
+                  onNavigateTab={(tab) => {
+                    handleTabChange(tab);
+                    setProgressOpen(false);
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Horizontal Tab Navigation */}
           <motion.div
@@ -618,11 +654,6 @@ export default function StudentDetailPage() {
                     setPopoverSession(session);
                   }}
                 />
-              )}
-
-              {/* Progress Tab */}
-              {activeTab === "progress" && (
-                <StudentProgressTab studentId={studentId!} />
               )}
 
               {/* Parent Contacts Tab */}

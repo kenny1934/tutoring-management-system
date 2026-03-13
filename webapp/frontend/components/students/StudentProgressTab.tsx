@@ -23,6 +23,9 @@ import {
   PenTool,
   MapPin,
   Clock,
+  ArrowUp,
+  ArrowDown,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -53,6 +56,22 @@ const DATA_KEY_LABELS: Record<string, string> = {
 
 function formatMonthLabel(month: string): string {
   return month.slice(2).replace("-", "/"); // "2025-01" -> "25/01"
+}
+
+// --- Trend Delta Badge ---
+
+function DeltaBadge({ delta, format }: { delta: number; format: (v: number) => string }) {
+  if (delta === 0) return null;
+  const isUp = delta > 0;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+      isUp ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+    )}>
+      {isUp ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+      {format(Math.abs(delta))}
+    </span>
+  );
 }
 
 // --- Tooltip Components ---
@@ -111,20 +130,33 @@ function SummaryCard({
   value,
   subtitle,
   color,
+  delta,
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
   value: string | number;
   subtitle?: string;
   color: string;
+  delta?: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
-    <div className="bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4">
+    <div
+      onClick={onClick}
+      className={cn(
+        "bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-[#d4a574]/50 transition-all"
+      )}
+    >
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-4 h-4" style={{ color }} />
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
       </div>
-      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</div>
+      <div className="flex items-center gap-2">
+        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</div>
+        {delta}
+      </div>
       {subtitle && (
         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</div>
       )}
@@ -400,6 +432,18 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
     );
   }
 
+  // Days since last contact with color coding
+  const daysSinceContact = data.last_contact_date
+    ? Math.floor((Date.now() - new Date(data.last_contact_date).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const contactFreshness = daysSinceContact == null
+    ? null
+    : daysSinceContact <= 14
+      ? "text-green-600 dark:text-green-400"
+      : daysSinceContact <= 30
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-red-600 dark:text-red-400";
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -409,9 +453,16 @@ function ContactSummaryCard({ data }: { data: StudentProgress["contacts"] }) {
       {data.last_contact_date && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600 dark:text-gray-400">Last contact</span>
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {formatShortDate(data.last_contact_date)}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {formatShortDate(data.last_contact_date)}
+            </span>
+            {daysSinceContact != null && (
+              <span className={cn("text-xs font-medium", contactFreshness)}>
+                ({daysSinceContact === 0 ? "today" : `${daysSinceContact}d ago`})
+              </span>
+            )}
+          </div>
         </div>
       )}
       {Object.keys(data.by_method).length > 0 && (
@@ -472,10 +523,14 @@ function ProgressSkeleton() {
 
 // --- Main Component ---
 
-export function StudentProgressTab({
+type ProgressNavTarget = "sessions" | "ratings" | "courseware";
+
+export function StudentProgressDrawer({
   studentId,
+  onNavigateTab,
 }: {
   studentId: number;
+  onNavigateTab: (tab: ProgressNavTarget) => void;
 }) {
   const { data: progress, error, isLoading } = useStudentProgress(studentId);
 
@@ -497,6 +552,18 @@ export function StudentProgressTab({
 
   const { attendance, ratings, exercises, enrollment_timeline, contacts, monthly_activity } = progress;
 
+  // Consolidated empty state for brand new students
+  const isNewStudent = attendance.total_past_sessions === 0 && exercises.total === 0 && enrollment_timeline.length === 0;
+  if (isNewStudent) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <MessageSquare className="w-10 h-10 text-[#d4a574] mb-3" />
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No progress data yet</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Progress will appear here once sessions are recorded.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
@@ -505,8 +572,12 @@ export function StudentProgressTab({
           icon={CheckCircle2}
           label="Attendance"
           value={`${attendance.attendance_rate}%`}
-          subtitle={`${attendance.attended} of ${attendance.attended + attendance.no_show} sessions`}
+          subtitle={`${attendance.attended} attended, ${attendance.no_show} no-show${attendance.no_show !== 1 ? "s" : ""}`}
           color={ATTENDANCE_COLORS.attended}
+          delta={attendance.recent_rate != null && attendance.previous_rate != null
+            ? <DeltaBadge delta={Math.round((attendance.recent_rate - attendance.previous_rate) * 10) / 10} format={(v) => `${v}%`} />
+            : undefined}
+          onClick={() => onNavigateTab("sessions")}
         />
         <SummaryCard
           icon={Star}
@@ -514,13 +585,18 @@ export function StudentProgressTab({
           value={ratings.overall_avg > 0 ? ratings.overall_avg.toFixed(1) : "-"}
           subtitle={ratings.total_rated > 0 ? `${ratings.total_rated} rated sessions` : "No ratings yet"}
           color={CHART_COLORS.rating}
+          delta={ratings.recent_avg != null && ratings.overall_avg > 0
+            ? <DeltaBadge delta={Math.round((ratings.recent_avg - ratings.overall_avg) * 100) / 100} format={(v) => v.toFixed(1)} />
+            : undefined}
+          onClick={() => onNavigateTab("ratings")}
         />
         <SummaryCard
           icon={Calendar}
           label="Total Sessions"
           value={attendance.total_past_sessions}
-          subtitle={`${attendance.no_show} no-shows`}
+          subtitle={`${attendance.no_show} no-show${attendance.no_show !== 1 ? "s" : ""}`}
           color={CHART_COLORS.sessions}
+          onClick={() => onNavigateTab("sessions")}
         />
         <SummaryCard
           icon={PenTool}
@@ -528,6 +604,7 @@ export function StudentProgressTab({
           value={exercises.total}
           subtitle={`${exercises.classwork} CW / ${exercises.homework} HW`}
           color={CHART_COLORS.exercises}
+          onClick={() => onNavigateTab("courseware")}
         />
       </div>
 
