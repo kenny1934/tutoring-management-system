@@ -90,25 +90,25 @@ function StudentReportPageInner() {
   }
 
   return (
-    <div className="report-page min-h-screen bg-gray-100 dark:bg-gray-950 print:bg-white print:min-h-0 print:overflow-visible">
+    <div className="report-page min-h-screen bg-background print:bg-white print:min-h-0 print:overflow-visible">
       {/* Report-specific @page — overrides global fallback */}
       <style dangerouslySetInnerHTML={{ __html: "@page { size: A4; margin: 15mm; }" }} />
       {/* Toolbar — hidden in print */}
-      <div className="report-toolbar sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-4 py-2 flex items-center justify-between z-10">
+      <div className="report-toolbar sticky top-0 bg-surface/80 backdrop-blur-md border-b border-border shadow-sm px-4 py-2 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.close()}
-            className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Close
           </button>
-          <span className="text-sm text-gray-400 dark:text-gray-600">|</span>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
+          <span className="text-sm text-border">|</span>
+          <span className="text-sm text-foreground">
             {student.student_name} — {mode === "parent" ? "Parent Report" : "Internal Report"}
           </span>
           {dateRangeLabel !== "All Time" && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">({dateRangeLabel})</span>
+            <span className="text-xs text-muted-foreground">({dateRangeLabel})</span>
           )}
         </div>
         <button

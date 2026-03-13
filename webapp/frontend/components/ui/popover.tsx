@@ -13,6 +13,7 @@ interface PopoverProps {
 
 export function Popover({ trigger, content, className, align = "left" }: PopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [positioned, setPositioned] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -24,11 +25,15 @@ export function Popover({ trigger, content, className, align = "left" }: Popover
       top: rect.bottom + 8,
       left: align === "right" ? rect.right : rect.left,
     });
+    setPositioned(true);
   }, [align]);
 
   // Recalculate position on scroll/resize while open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setPositioned(false);
+      return;
+    }
     updatePosition();
     window.addEventListener("scroll", updatePosition, true);
     window.addEventListener("resize", updatePosition);
@@ -98,9 +103,9 @@ export function Popover({ trigger, content, className, align = "left" }: Popover
             )}
             style={{
               top: position.top,
-              ...(align === "right"
-                ? { right: window.innerWidth - position.left }
-                : { left: position.left }),
+              left: position.left,
+              transform: align === "right" ? "translateX(-100%)" : undefined,
+              opacity: positioned ? 1 : 0,
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
           >
