@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
+
+### Bug Fixes
+
+* **Bulk print custom pages** — printing CW/HW in bulk now correctly uses custom page ranges (e.g. "pages 1,3,5-7") instead of ignoring them
+* **Print fallback** — print buttons in lesson modes now properly search Paperless when a file isn't found locally
+* **Session popover print** — individual and bulk print from the session detail popover now respects custom page ranges
+
+### Improvements
+
+* **Print button feedback** — print buttons now show a spinner while working and display what's happening in the tooltip (e.g. "Searching by filename...")
+* **Student ID layout** — student IDs (MSA-XXXX) in the lesson sidebar no longer wrap to a second line
+* **File tab sorting** — students in the "by file" tab are now sorted to match the "by student" tab order
+
 ## [2.0.31](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.31) (2026-03-13)
 
 ### New Features
