@@ -19,7 +19,9 @@ export function ReportEnrollmentTable({ data, mode }: ReportEnrollmentTableProps
         <thead>
           <tr className="border-b-2 border-[#e8d4b8]">
             <th className="text-left py-1.5 font-semibold text-gray-600">Tutor</th>
-            <th className="text-left py-1.5 font-semibold text-gray-600">Type</th>
+            {mode === "internal" && (
+              <th className="text-left py-1.5 font-semibold text-gray-600">Type</th>
+            )}
             {mode === "internal" && (
               <th className="text-left py-1.5 font-semibold text-gray-600">Status</th>
             )}
@@ -33,7 +35,9 @@ export function ReportEnrollmentTable({ data, mode }: ReportEnrollmentTableProps
           {data.map((e) => (
             <tr key={e.id} className="border-b border-[#e8d4b8]/50">
               <td className="py-1.5 text-gray-900">{e.tutor_name || "-"}</td>
-              <td className="py-1.5 text-gray-700">{e.enrollment_type || "-"}</td>
+              {mode === "internal" && (
+                <td className="py-1.5 text-gray-700">{e.enrollment_type || "-"}</td>
+              )}
               {mode === "internal" && (
                 <td className="py-1.5 text-gray-700">{e.payment_status}</td>
               )}
