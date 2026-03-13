@@ -97,7 +97,7 @@ function StudentReportPageInner() {
   return (
     <div className="report-page min-h-screen bg-background print:bg-white print:min-h-0 print:overflow-visible">
       {/* Report-specific @page — overrides global fallback */}
-      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4; margin: 15mm; }" }} />
+      <style dangerouslySetInnerHTML={{ __html: "@page { size: A4; margin: 15mm 16mm 15mm 15mm; }" }} />
       {/* Toolbar — hidden in print */}
       <div className="report-toolbar sticky top-0 bg-surface/80 backdrop-blur-md border-b border-border shadow-sm px-4 py-2 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
