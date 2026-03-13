@@ -2006,7 +2006,6 @@ class AttendanceSummary(BaseModel):
     attended: int = 0
     no_show: int = 0
     rescheduled: int = 0
-    cancelled: int = 0
     total_past_sessions: int = 0
     attendance_rate: float = 0.0
     recent_rate: Optional[float] = None      # last 30 days
@@ -2028,11 +2027,21 @@ class RatingSummary(BaseModel):
     recent_avg: Optional[float] = None       # last 30 days avg rating
 
 
+class ExerciseDetail(BaseModel):
+    """Single exercise entry for topic list"""
+    session_date: date
+    exercise_type: str
+    pdf_name: str
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+
+
 class ExerciseSummary(BaseModel):
     """Exercise count breakdown"""
     total: int = 0
     classwork: int = 0
     homework: int = 0
+    details: List[ExerciseDetail] = []
 
 
 class EnrollmentTimeline(BaseModel):

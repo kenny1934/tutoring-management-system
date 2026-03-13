@@ -173,10 +173,9 @@ function AttendanceDonut({ data }: { data: StudentProgress["attendance"] }) {
       { name: "Attended", value: data.attended, fill: ATTENDANCE_COLORS.attended },
       { name: "No Show", value: data.no_show, fill: ATTENDANCE_COLORS.no_show },
       { name: "Rescheduled", value: data.rescheduled, fill: ATTENDANCE_COLORS.rescheduled },
-      { name: "Cancelled", value: data.cancelled, fill: ATTENDANCE_COLORS.cancelled },
     ];
     return items.filter((d) => d.value > 0);
-  }, [data.attended, data.no_show, data.rescheduled, data.cancelled]);
+  }, [data.attended, data.no_show, data.rescheduled]);
 
   if (data.total_past_sessions === 0) {
     return (
@@ -727,9 +726,9 @@ export function StudentProgressDrawer({
   const latestEnrollmentStart = enrollment_timeline[0]?.first_lesson_date || null;
 
   return (
-    <div className="space-y-4">
-      {/* Report button */}
-      <div className="flex justify-end">
+    <div className="space-y-4 relative">
+      {/* Report button — overlays top-right */}
+      <div className="absolute right-0 -top-1 z-10">
         <ReportConfigButton studentId={studentId} enrollmentStart={latestEnrollmentStart} />
       </div>
 

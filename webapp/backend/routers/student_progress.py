@@ -16,7 +16,7 @@ from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, Pare
 from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
-    ExerciseSummary, EnrollmentTimeline, ContactSummary, MonthlyActivity,
+    ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
 )
 
 router = APIRouter()
@@ -55,9 +55,6 @@ def get_student_progress(
         func.sum(case(
             (SessionLog.session_status.in_(all_rescheduled), 1), else_=0
         )).label("rescheduled"),
-        func.sum(case(
-            (SessionLog.session_status == SessionStatus.CANCELLED.value, 1), else_=0
-        )).label("cancelled"),
         func.count().label("total"),
         # Trend: recent 30 days
         func.sum(case(
@@ -90,7 +87,6 @@ def get_student_progress(
     attended = int(row.attended or 0)
     no_show = int(row.no_show or 0)
     rescheduled = int(row.rescheduled or 0)
-    cancelled = int(row.cancelled or 0)
     total_past = int(row.total or 0)
     denominator = attended + no_show
     attendance_rate = round(attended / denominator * 100, 1) if denominator > 0 else 0.0
@@ -106,7 +102,6 @@ def get_student_progress(
         attended=attended,
         no_show=no_show,
         rescheduled=rescheduled,
-        cancelled=cancelled,
         total_past_sessions=total_past,
         attendance_rate=attendance_rate,
         recent_rate=recent_rate,
@@ -147,25 +142,37 @@ def get_student_progress(
         recent_avg=round(sum(recent_ratings) / len(recent_ratings), 2) if recent_ratings else None,
     )
 
-    # --- Q3: Exercise summary ---
-    ex_row = db.query(
-        func.count().label("total"),
-        func.sum(case(
-            (SessionExercise.exercise_type.in_(["Classwork", "CW"]), 1), else_=0
-        )).label("classwork"),
-        func.sum(case(
-            (SessionExercise.exercise_type.in_(["Homework", "HW"]), 1), else_=0
-        )).label("homework"),
+    # --- Q3: Exercise details + counts (single query) ---
+    exercise_rows = db.query(
+        SessionLog.session_date,
+        SessionExercise.exercise_type,
+        SessionExercise.pdf_name,
+        SessionExercise.page_start,
+        SessionExercise.page_end,
     ).join(SessionLog, SessionExercise.session_id == SessionLog.id).filter(
         SessionLog.student_id == student_id,
+        SessionLog.session_status.in_(COMPLETED_STATUSES),
         *([SessionLog.session_date >= start_date] if start_date else []),
         *([SessionLog.session_date <= end_date] if end_date else []),
-    ).first()
+    ).order_by(SessionLog.session_date.desc()).all()
+
+    classwork = sum(1 for r in exercise_rows if r.exercise_type in ("CW", "Classwork"))
+    homework = sum(1 for r in exercise_rows if r.exercise_type in ("HW", "Homework"))
 
     exercises = ExerciseSummary(
-        total=int(ex_row.total or 0),
-        classwork=int(ex_row.classwork or 0),
-        homework=int(ex_row.homework or 0),
+        total=len(exercise_rows),
+        classwork=classwork,
+        homework=homework,
+        details=[
+            ExerciseDetail(
+                session_date=r.session_date,
+                exercise_type=r.exercise_type or "CW",
+                pdf_name=r.pdf_name or "",
+                page_start=r.page_start,
+                page_end=r.page_end,
+            )
+            for r in exercise_rows
+        ],
     )
 
     # --- Q4: Enrollment timeline ---

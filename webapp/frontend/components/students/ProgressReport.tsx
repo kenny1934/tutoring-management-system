@@ -7,6 +7,7 @@ import { ReportMetrics } from "./report/ReportMetrics";
 import { ReportAttendanceChart } from "./report/ReportAttendanceChart";
 import { ReportRatingChart } from "./report/ReportRatingChart";
 import { ReportActivityChart } from "./report/ReportActivityChart";
+import { ReportTopicsCovered } from "./report/ReportTopicsCovered";
 import { ReportEnrollmentTable } from "./report/ReportEnrollmentTable";
 import { ReportContactSummary } from "./report/ReportContactSummary";
 import { ReportTutorComment } from "./report/ReportTutorComment";
@@ -50,6 +51,12 @@ export function ProgressReport({
       ) : (
         <div className="mb-6">
           <ReportRatingChart data={progress.ratings} />
+        </div>
+      )}
+
+      {progress.exercises.details && progress.exercises.details.length > 0 && (
+        <div className="mb-6">
+          <ReportTopicsCovered data={progress.exercises.details} />
         </div>
       )}
 

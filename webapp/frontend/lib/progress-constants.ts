@@ -4,7 +4,6 @@ export const ATTENDANCE_COLORS = {
   attended: "#a0704b",
   no_show: "#dc2626",
   rescheduled: "#d97706",
-  cancelled: "#9ca3af",
 } as const;
 
 export const CHART_COLORS = {
