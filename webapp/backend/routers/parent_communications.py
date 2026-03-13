@@ -23,7 +23,7 @@ from schemas import (
     LocationSettingsUpdate
 )
 
-from auth.dependencies import reject_guest
+from auth.dependencies import reject_guest, reject_read_only
 
 router = APIRouter()
 
@@ -702,7 +702,8 @@ async def create_communication(
     data: ParentCommunicationCreate,
     tutor_id: int = Query(..., description="Tutor ID creating this record"),
     created_by: str = Query(..., description="Email of user creating this record"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
 ):
     """
     Create a new parent communication record.
@@ -759,7 +760,8 @@ async def create_communication(
 async def update_communication(
     communication_id: int,
     data: ParentCommunicationUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
 ):
     """
     Update an existing parent communication record.
@@ -815,7 +817,8 @@ async def update_communication(
 async def delete_communication(
     communication_id: int,
     deleted_by: Optional[str] = Query(None, description="Email of user deleting this record"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
 ):
     """
     Delete a parent communication record.
@@ -886,7 +889,8 @@ async def get_location_settings(
 async def update_location_settings(
     location: str,
     data: LocationSettingsUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
 ):
     """
     Update settings for a specific location.

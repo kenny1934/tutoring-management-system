@@ -46,8 +46,15 @@ from schemas import (
 )
 from utils.rate_limiter import check_user_rate_limit
 from services.image_storage import upload_image
+from auth.dependencies import get_current_user
 
 router = APIRouter()
+
+
+def _check_tutor_access(current_user: Tutor, tutor_id: int):
+    """Verify authenticated user matches tutor_id or is Super Admin (for impersonation)."""
+    if current_user.id != tutor_id and current_user.role != "Super Admin":
+        raise HTTPException(status_code=403, detail="Access denied")
 
 # Group message sentinel value
 GROUP_MESSAGE_SENTINEL = -1
@@ -678,12 +685,14 @@ async def _run_periodic_checks():
 async def message_stream(
     tutor_id: int = Query(..., description="Tutor ID to stream events for"),
     request: Request = None,
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Server-Sent Events stream for real-time message delivery.
 
     Pushes events: new_message, message_read, reaction, typing, presence.
     Client connects via EventSource and receives JSON payloads.
     """
+    _check_tutor_access(current_user, tutor_id)
     queue = sse_manager.connect(tutor_id)
 
     async def event_generator():
@@ -722,8 +731,10 @@ async def send_typing_indicator(
     tutor_id: int = Query(..., description="Tutor who is typing"),
     thread_id: int = Query(..., description="Root message ID of the thread"),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Broadcast a typing indicator to thread participants via SSE."""
+    _check_tutor_access(current_user, tutor_id)
     # Get sender name
     sender = db.query(Tutor.tutor_name).filter(Tutor.id == tutor_id).first()
     if not sender:
@@ -768,7 +779,7 @@ async def send_typing_indicator(
 
 
 @router.get("/messages/presence")
-async def get_presence():
+async def get_presence(current_user: Tutor = Depends(get_current_user)):
     """Return currently online tutors and their last-seen timestamps."""
     online = sse_manager.get_online_tutors(within_seconds=300)
     return {
@@ -781,8 +792,10 @@ async def get_presence():
 async def get_templates(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get message templates (personal + global)."""
+    _check_tutor_access(current_user, tutor_id)
     templates = db.query(MessageTemplate).filter(
         or_(MessageTemplate.tutor_id == tutor_id, MessageTemplate.is_global == True)
     ).order_by(MessageTemplate.is_global.desc(), MessageTemplate.title).all()
@@ -794,8 +807,10 @@ async def create_template(
     template: MessageTemplateCreate,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Create a personal message template."""
+    _check_tutor_access(current_user, tutor_id)
     db_template = MessageTemplate(
         tutor_id=tutor_id,
         title=template.title,
@@ -815,8 +830,10 @@ async def update_template(
     template: MessageTemplateUpdate,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Update a personal message template."""
+    _check_tutor_access(current_user, tutor_id)
     db_template = db.query(MessageTemplate).filter(
         MessageTemplate.id == template_id,
         MessageTemplate.tutor_id == tutor_id,
@@ -839,8 +856,10 @@ async def delete_template(
     template_id: int,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Delete a personal message template."""
+    _check_tutor_access(current_user, tutor_id)
     db_template = db.query(MessageTemplate).filter(
         MessageTemplate.id == template_id,
         MessageTemplate.tutor_id == tutor_id,
@@ -857,8 +876,10 @@ async def mute_threads(
     request: PinRequest,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Mute threads to suppress notifications."""
+    _check_tutor_access(current_user, tutor_id)
     count = 0
     for mid in request.message_ids:
         exists = db.query(ThreadMute).filter(
@@ -876,8 +897,10 @@ async def unmute_threads(
     request: PinRequest,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Unmute threads."""
+    _check_tutor_access(current_user, tutor_id)
     count = db.query(ThreadMute).filter(
         ThreadMute.message_id.in_(request.message_ids),
         ThreadMute.tutor_id == tutor_id
@@ -891,8 +914,10 @@ async def snooze_threads(
     request: SnoozeRequest,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Snooze threads until a specified time."""
+    _check_tutor_access(current_user, tutor_id)
     count = 0
     for mid in request.message_ids:
         existing = db.query(MessageSnooze).filter(
@@ -912,8 +937,10 @@ async def unsnooze_threads(
     request: PinRequest,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Unsnooze threads immediately."""
+    _check_tutor_access(current_user, tutor_id)
     count = db.query(MessageSnooze).filter(
         MessageSnooze.message_id.in_(request.message_ids),
         MessageSnooze.tutor_id == tutor_id
@@ -926,8 +953,10 @@ async def unsnooze_threads(
 async def get_snoozed_threads(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get currently snoozed/reminded threads as full messages."""
+    _check_tutor_access(current_user, tutor_id)
     snooze_rows = db.query(MessageSnooze).filter(
         MessageSnooze.tutor_id == tutor_id,
         MessageSnooze.snooze_until > func.now()
@@ -949,8 +978,10 @@ async def get_snoozed_threads(
 async def get_scheduled_messages(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get messages scheduled for future delivery by this tutor."""
+    _check_tutor_access(current_user, tutor_id)
     messages = (
         db.query(TutorMessage)
         .options(joinedload(TutorMessage.from_tutor), joinedload(TutorMessage.to_tutor))
@@ -970,8 +1001,10 @@ async def cancel_scheduled_message(
     message_id: int,
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Cancel a scheduled message (delete from DB)."""
+    _check_tutor_access(current_user, tutor_id)
     message = db.query(TutorMessage).filter(
         TutorMessage.id == message_id,
         TutorMessage.from_tutor_id == tutor_id,
@@ -997,9 +1030,11 @@ async def get_message_threads(
     broadcast_only: bool = Query(False, description="Only return broadcast messages (to_tutor_id IS NULL)"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get message threads with batched queries for performance."""
+    _check_tutor_access(current_user, tutor_id)
 
     # Lazy delivery of scheduled messages that are now due
     _deliver_due_scheduled_messages(tutor_id, db)
@@ -1288,9 +1323,11 @@ async def get_sent_messages(
     tutor_id: int = Query(..., description="Tutor ID to get sent messages for"),
     limit: int = Query(50, ge=1, le=500, description="Maximum messages to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get messages sent by the specified tutor."""
+    _check_tutor_access(current_user, tutor_id)
     messages = (
         db.query(TutorMessage)
         .options(
@@ -1311,9 +1348,11 @@ async def get_sent_messages(
 @router.get("/messages/unread-count", response_model=UnreadCountResponse)
 async def get_unread_count(
     tutor_id: int = Query(..., description="Tutor ID to get unread count for"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get the count of unread messages for a tutor."""
+    _check_tutor_access(current_user, tutor_id)
     # Exclude archived messages for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
         MessageArchive.tutor_id == tutor_id
@@ -1336,9 +1375,11 @@ async def get_unread_count(
 @router.get("/messages/unread-counts-by-category", response_model=CategoryUnreadCountsResponse)
 async def get_unread_counts_by_category(
     tutor_id: int = Query(..., description="Tutor ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get per-category unread message counts for sidebar badges."""
+    _check_tutor_access(current_user, tutor_id)
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
         MessageArchive.tutor_id == tutor_id
     ).scalar_subquery()
@@ -1404,9 +1445,11 @@ async def get_mentioned_threads(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get threads where current tutor is @mentioned."""
+    _check_tutor_access(current_user, tutor_id)
     # Find root thread IDs for messages mentioning this tutor
     mentioned_msg_ids_subq = db.query(MessageMention.message_id).filter(
         MessageMention.mentioned_tutor_id == tutor_id
@@ -1500,9 +1543,11 @@ async def get_mentioned_threads(
 async def get_thread(
     message_id: int,
     tutor_id: int = Query(..., description="Current tutor ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get a full thread by root message ID."""
+    _check_tutor_access(current_user, tutor_id)
     root = (
         db.query(TutorMessage)
         .options(
@@ -1568,9 +1613,11 @@ async def get_thread(
 async def create_message(
     message_data: MessageCreate,
     from_tutor_id: int = Query(..., description="Sender tutor ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Create a new message or reply."""
+    _check_tutor_access(current_user, from_tutor_id)
     # Rate limit check - most critical endpoint for spam prevention
     check_user_rate_limit(from_tutor_id, "message_create")
 
@@ -1712,13 +1759,15 @@ async def create_message(
 @router.post("/messages/upload-image")
 async def upload_message_image(
     file: UploadFile = File(...),
-    tutor_id: int = Query(..., description="Tutor ID for authentication")
+    tutor_id: int = Query(..., description="Tutor ID for authentication"),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """
     Upload an image for message attachment.
     Returns the public URL of the uploaded image.
     Images are automatically resized (max 1920px) and compressed.
     """
+    _check_tutor_access(current_user, tutor_id)
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -1739,13 +1788,15 @@ async def upload_message_image(
 @router.post("/messages/upload-file")
 async def upload_message_file(
     file: UploadFile = File(...),
-    tutor_id: int = Query(..., description="Tutor ID for authentication")
+    tutor_id: int = Query(..., description="Tutor ID for authentication"),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """
     Upload a file (image or document) for message attachment.
     Images are resized/compressed; documents are stored as-is.
     Returns URL, filename, and content_type.
     """
+    _check_tutor_access(current_user, tutor_id)
     content_type = file.content_type or ""
     contents = await file.read()
 
@@ -1771,9 +1822,11 @@ async def upload_message_file(
 async def mark_all_read(
     request: MarkAllReadRequest,
     tutor_id: int = Query(..., description="Tutor marking messages as read"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Mark all visible unread messages as read in one operation."""
+    _check_tutor_access(current_user, tutor_id)
     from sqlalchemy.dialects.mysql import insert as mysql_insert
 
     check_user_rate_limit(tutor_id, "message_read")
@@ -1834,9 +1887,11 @@ async def mark_all_read(
 async def archive_messages(
     request: ArchiveRequest,
     tutor_id: int = Query(..., description="Tutor archiving messages"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Archive multiple messages for the current tutor (bulk operation)."""
+    _check_tutor_access(current_user, tutor_id)
     count = _bulk_insert_ignore(db, MessageArchive, request.message_ids, tutor_id)
     return ArchiveResponse(success=True, count=count)
 
@@ -1845,9 +1900,11 @@ async def archive_messages(
 async def unarchive_messages(
     request: ArchiveRequest,
     tutor_id: int = Query(..., description="Tutor unarchiving messages"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Unarchive multiple messages for the current tutor."""
+    _check_tutor_access(current_user, tutor_id)
     count = db.query(MessageArchive).filter(
         MessageArchive.message_id.in_(request.message_ids),
         MessageArchive.tutor_id == tutor_id
@@ -1862,9 +1919,11 @@ async def get_archived_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get archived message threads for the current tutor."""
+    _check_tutor_access(current_user, tutor_id)
 
 
     # Get archived message IDs for this tutor
@@ -2063,9 +2122,11 @@ async def get_archived_messages(
 async def pin_messages(
     request: PinRequest,
     tutor_id: int = Query(..., description="Tutor pinning messages"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Pin/star multiple messages for the current tutor (bulk operation)."""
+    _check_tutor_access(current_user, tutor_id)
     count = _bulk_insert_ignore(db, MessagePin, request.message_ids, tutor_id)
     return PinResponse(success=True, count=count)
 
@@ -2074,9 +2135,11 @@ async def pin_messages(
 async def unpin_messages(
     request: PinRequest,
     tutor_id: int = Query(..., description="Tutor unpinning messages"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Unpin/unstar multiple messages for the current tutor."""
+    _check_tutor_access(current_user, tutor_id)
     count = db.query(MessagePin).filter(
         MessagePin.message_id.in_(request.message_ids),
         MessagePin.tutor_id == tutor_id
@@ -2090,9 +2153,11 @@ async def unpin_messages(
 async def thread_pin_messages(
     request: PinRequest,
     tutor_id: int = Query(..., description="Tutor pinning threads"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Pin threads to top of thread list (separate from star/favorite)."""
+    _check_tutor_access(current_user, tutor_id)
     count = _bulk_insert_ignore(db, ThreadPin, request.message_ids, tutor_id)
     return PinResponse(success=True, count=count)
 
@@ -2101,9 +2166,11 @@ async def thread_pin_messages(
 async def thread_unpin_messages(
     request: PinRequest,
     tutor_id: int = Query(..., description="Tutor unpinning threads"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Unpin threads from top of thread list."""
+    _check_tutor_access(current_user, tutor_id)
     count = db.query(ThreadPin).filter(
         ThreadPin.message_id.in_(request.message_ids),
         ThreadPin.tutor_id == tutor_id
@@ -2118,9 +2185,11 @@ async def get_pinned_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Get pinned/starred message threads for the current tutor."""
+    _check_tutor_access(current_user, tutor_id)
 
 
     # Get pinned message IDs for this tutor
@@ -2221,9 +2290,11 @@ async def get_pinned_messages(
 async def mark_as_read(
     message_id: int,
     tutor_id: int = Query(..., description="Tutor marking as read"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Mark a message as read by the current tutor."""
+    _check_tutor_access(current_user, tutor_id)
     check_user_rate_limit(tutor_id, "message_read")
 
     from sqlalchemy.dialects.mysql import insert
@@ -2252,9 +2323,11 @@ async def mark_as_read(
 async def mark_as_unread(
     message_id: int,
     tutor_id: int = Query(..., description="Tutor marking as unread"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Mark a message as unread by removing the read receipt."""
+    _check_tutor_access(current_user, tutor_id)
     check_user_rate_limit(tutor_id, "message_read")
 
     deleted = db.query(MessageReadReceipt).filter(
@@ -2271,9 +2344,11 @@ async def toggle_like(
     message_id: int,
     tutor_id: int = Query(..., description="Tutor toggling like"),
     emoji: str = Query("❤️", description="Reaction emoji"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Toggle a reaction (emoji) on a message."""
+    _check_tutor_access(current_user, tutor_id)
     check_user_rate_limit(tutor_id, "message_like")
 
     # Get current like status for this specific emoji
@@ -2331,9 +2406,11 @@ async def update_message(
     message_id: int,
     update_data: MessageUpdate,
     tutor_id: int = Query(..., description="Requesting tutor ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Update a message (only by the sender)."""
+    _check_tutor_access(current_user, tutor_id)
     check_user_rate_limit(tutor_id, "message_update")
 
     message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
@@ -2389,9 +2466,11 @@ async def update_message(
 async def delete_message(
     message_id: int,
     tutor_id: int = Query(..., description="Requesting tutor ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Delete a message (only by the sender)."""
+    _check_tutor_access(current_user, tutor_id)
     check_user_rate_limit(tutor_id, "message_delete")
 
     message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
@@ -2478,6 +2557,7 @@ async def _giphy_fetch(path: str, params: dict) -> list:
 async def gif_trending(
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Proxy trending GIFs from GIPHY."""
     return await _giphy_fetch("trending", {"limit": limit, "offset": offset})
@@ -2488,6 +2568,7 @@ async def gif_search(
     q: str = Query(..., min_length=1, max_length=100),
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
+    current_user: Tutor = Depends(get_current_user),
 ):
     """Proxy GIF search from GIPHY."""
     return await _giphy_fetch("search", {"q": q, "limit": limit, "offset": offset})
