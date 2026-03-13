@@ -570,6 +570,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [narrative, setNarrative] = useState("");
   const [aiInsights, setAiInsights] = useState<Record<string, unknown> | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showRating, setShowRating] = useState(true);
 
   const handleGenerateAI = useCallback(async () => {
     setIsGeneratingAI(true);
@@ -618,9 +619,10 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
     }
 
     if (language !== "en") params.set("language", language);
+    if (mode === "parent" && !showRating) params.set("showRating", "0");
 
     window.open(`/students/${studentId}/report?${params}`, "_blank");
-  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, showRating]);
 
   return (
     <Popover
@@ -656,6 +658,19 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               ))}
             </div>
           </div>
+
+          {/* Rating toggle — parent mode only */}
+          {mode === "parent" && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showRating}
+                onChange={(e) => setShowRating(e.target.checked)}
+                className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+              />
+              <span className="text-xs text-gray-600 dark:text-gray-400">Include Rating Chart</span>
+            </label>
+          )}
 
           {/* Date range */}
           <div>
