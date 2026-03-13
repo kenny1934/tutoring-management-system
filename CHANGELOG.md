@@ -22,6 +22,12 @@
 * **Smaller Docker image** — replaced dev headers with runtime-only library in backend production image
 * **Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules
 
+### Security
+
+* **Messages router authentication** — all 39 messaging endpoints now require JWT authentication with tutor ownership verification, preventing unauthorized access via spoofed tutor_id parameters
+* **Parent communications write protection** — POST, PUT, and DELETE endpoints now require authenticated non-read-only users
+* **Exam revision slot protection** — slot update and delete endpoints now require JWT authentication
+
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
 
 ### New Features
