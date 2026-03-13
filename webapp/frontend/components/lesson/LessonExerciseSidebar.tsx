@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X, Printer,
+  Check, X, Printer, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName } from "@/lib/exercise-utils";
@@ -25,6 +25,8 @@ interface LessonExerciseSidebarProps {
   homeworkCompletion?: HomeworkCompletion[];
   /** Print a single exercise. */
   onPrint?: (exercise: SessionExercise) => void;
+  /** ID of exercise currently being printed (for spinner feedback). */
+  printingId?: number | null;
 }
 
 function ExerciseItem({
@@ -34,6 +36,7 @@ function ExerciseItem({
   hasAnnotations,
   completionStatus,
   onPrint,
+  isPrinting,
 }: {
   exercise: SessionExercise;
   isSelected: boolean;
@@ -41,6 +44,7 @@ function ExerciseItem({
   hasAnnotations?: boolean;
   completionStatus?: "submitted" | "not_submitted";
   onPrint?: (exercise: SessionExercise) => void;
+  isPrinting?: boolean;
 }) {
   const displayName = getDisplayName(exercise.pdf_name);
   const pageLabel = getPageLabel(exercise);
@@ -82,12 +86,20 @@ function ExerciseItem({
             <div
               role="button"
               tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); onPrint(exercise); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPrint(exercise); } }}
-              className="p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-pointer"
-              title="Print"
+              onClick={(e) => { e.stopPropagation(); if (!isPrinting) onPrint(exercise); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!isPrinting) onPrint(exercise); } }}
+              className={cn(
+                "p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors flex-shrink-0 cursor-pointer",
+                isPrinting ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}
+              title={isPrinting ? "Printing..." : "Print"}
+              aria-disabled={isPrinting}
             >
-              <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+              {isPrinting ? (
+                <Loader2 className="h-3 w-3 animate-spin text-[#a0906e] dark:text-[#8a7a60]" />
+              ) : (
+                <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+              )}
             </div>
           )}
           {completionStatus === "submitted" && (
@@ -118,6 +130,7 @@ function ExerciseSection({
   hasAnnotations,
   homeworkCompletion,
   onPrint,
+  printingId,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -131,6 +144,7 @@ function ExerciseSection({
   hasAnnotations?: (exerciseId: number) => boolean;
   homeworkCompletion?: HomeworkCompletion[];
   onPrint?: (exercise: SessionExercise) => void;
+  printingId?: number | null;
 }) {
   return (
     <div>
@@ -168,6 +182,7 @@ function ExerciseSection({
                 hasAnnotations={hasAnnotations?.(ex.id)}
                 completionStatus={hwc ? (hwc.submitted ? "submitted" : "not_submitted") : undefined}
                 onPrint={onPrint}
+                isPrinting={printingId === ex.id}
               />
             );
           })}
@@ -204,6 +219,7 @@ function SessionBlock({
   hasAnnotations,
   homeworkCompletion,
   onPrint,
+  printingId,
 }: {
   session: Session;
   label: string;
@@ -215,6 +231,7 @@ function SessionBlock({
   hasAnnotations?: (exerciseId: number) => boolean;
   homeworkCompletion?: HomeworkCompletion[];
   onPrint?: (exercise: SessionExercise) => void;
+  printingId?: number | null;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -284,6 +301,7 @@ function SessionBlock({
                 session={session}
                 hasAnnotations={hasAnnotations}
                 onPrint={onPrint}
+                printingId={printingId}
               />
               <ExerciseSection
                 label="Homework"
@@ -298,6 +316,7 @@ function SessionBlock({
                 hasAnnotations={hasAnnotations}
                 homeworkCompletion={homeworkCompletion}
                 onPrint={onPrint}
+                printingId={printingId}
               />
             </div>
           </motion.div>
@@ -317,6 +336,7 @@ export function LessonExerciseSidebar({
   hasAnnotations,
   homeworkCompletion,
   onPrint,
+  printingId,
 }: LessonExerciseSidebarProps) {
   const hasAnySessions = currentSession || previousSession;
 
@@ -348,6 +368,7 @@ export function LessonExerciseSidebar({
           defaultExpanded
           hasAnnotations={hasAnnotations}
           onPrint={onPrint}
+          printingId={printingId}
         />
       )}
 
@@ -366,6 +387,7 @@ export function LessonExerciseSidebar({
             hasAnnotations={hasAnnotations}
             homeworkCompletion={homeworkCompletion}
             onPrint={onPrint}
+            printingId={printingId}
           />
         </>
       )}

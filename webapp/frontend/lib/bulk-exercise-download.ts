@@ -6,6 +6,7 @@
 
 import type { Session, SessionExercise } from '@/types';
 import type { BulkPrintExercise } from './bulk-pdf-helpers';
+import { parseExerciseRemarks } from './exercise-utils';
 import type { PrintStampInfo, BulkPrintItem } from './pdf-utils';
 import { getPageNumbers, fetchPdfData, FileSystemUtils } from './bulk-pdf-helpers';
 import { extractBulkPagesForPrint } from './pdf-utils';
@@ -220,10 +221,12 @@ export async function bulkPrintAllStudents(
 
 /** Convert SessionExercise to BulkPrintExercise format */
 function toBulkExercise(ex: SessionExercise): BulkPrintExercise {
+  const { complexPages, remarks } = parseExerciseRemarks(ex.remarks);
   return {
     pdf_name: ex.pdf_name,
     page_start: ex.page_start,
     page_end: ex.page_end,
-    remarks: ex.remarks,
+    complex_pages: complexPages || undefined,
+    remarks,
   };
 }
