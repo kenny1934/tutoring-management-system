@@ -23,6 +23,10 @@ function StudentReportPageInner() {
   const insightsKey = searchParams.get("insightsKey");
   const language = searchParams.get("language") || "en";
   const showRating = searchParams.get("showRating") !== "0";
+  const showTopics = searchParams.get("showTopics") !== "0";
+  const showTests = searchParams.get("showTests") !== "0";
+  const showActivity = searchParams.get("showActivity") !== "0";
+  const showEnrollment = searchParams.get("showEnrollment") !== "0";
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -140,7 +144,7 @@ function StudentReportPageInner() {
           dateRangeLabel={dateRangeLabel}
           tutorComment={tutorComment}
           generatedBy={user?.name}
-          showRating={showRating}
+          sections={{ showRating, showTopics, showTests, showActivity, showEnrollment }}
         />
       </div>
     </div>

@@ -18,6 +18,14 @@ import { ReportFooter } from "./report/ReportFooter";
 
 export type ReportMode = "internal" | "parent";
 
+export interface ReportSectionToggles {
+  showRating: boolean;
+  showTopics: boolean;
+  showTests: boolean;
+  showActivity: boolean;
+  showEnrollment: boolean;
+}
+
 interface ProgressReportProps {
   student: Student;
   progress: StudentProgress;
@@ -25,7 +33,7 @@ interface ProgressReportProps {
   dateRangeLabel: string;
   tutorComment?: string;
   generatedBy?: string;
-  showRating?: boolean;
+  sections?: Partial<ReportSectionToggles>;
 }
 
 export function ProgressReport({
@@ -35,8 +43,15 @@ export function ProgressReport({
   dateRangeLabel,
   tutorComment,
   generatedBy,
-  showRating = true,
+  sections,
 }: ProgressReportProps) {
+  const {
+    showRating = true,
+    showTopics = true,
+    showTests = true,
+    showActivity = true,
+    showEnrollment = true,
+  } = sections ?? {};
   return (
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
       <ReportHeader dateRangeLabel={dateRangeLabel} />
@@ -56,7 +71,7 @@ export function ProgressReport({
         </div>
       )}
 
-      <ReportMetrics progress={progress} mode={mode} />
+      <ReportMetrics progress={progress} mode={mode} showRating={showRating} />
 
       {/* Charts row */}
       {mode === "internal" ? (
@@ -74,28 +89,32 @@ export function ProgressReport({
         </div>
       ) : null}
 
-      {progress.exercises.details && progress.exercises.details.length > 0 && (
+      {showTopics && progress.exercises.details && progress.exercises.details.length > 0 && (
         <div className="mb-6">
           <ReportTopicsCovered data={progress.exercises.details} />
         </div>
       )}
 
-      {progress.test_events && progress.test_events.length > 0 && (
+      {showTests && progress.test_events && progress.test_events.length > 0 && (
         <div className="mb-6">
           <ReportTestTimeline data={progress.test_events} />
         </div>
       )}
 
-      {/* Page break hint before activity chart */}
-      <div className="report-page-break" />
+      {showActivity && (
+        <>
+          <div className="report-page-break" />
+          <div className="mb-6">
+            <ReportActivityChart data={progress.monthly_activity} />
+          </div>
+        </>
+      )}
 
-      <div className="mb-6">
-        <ReportActivityChart data={progress.monthly_activity} />
-      </div>
-
-      <div className="mb-6">
-        <ReportEnrollmentTable data={progress.enrollment_timeline} mode={mode} />
-      </div>
+      {showEnrollment && (
+        <div className="mb-6">
+          <ReportEnrollmentTable data={progress.enrollment_timeline} mode={mode} />
+        </div>
+      )}
 
       {mode === "internal" && (
         <div className="mb-6">
