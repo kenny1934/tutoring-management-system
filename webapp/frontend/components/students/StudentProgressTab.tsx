@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
 import { formatShortDate } from "@/lib/formatters";
 import { StickyNote } from "@/lib/design-system";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import type { StudentProgress, MonthlyActivity } from "@/types";
 
@@ -74,7 +74,7 @@ function DeltaBadge({ delta, format, tooltip }: { delta: number; format: (v: num
       {format(Math.abs(delta))}
     </span>
   );
-  if (tooltip) return <Tooltip content={tooltip}>{badge}</Tooltip>;
+  if (tooltip) return <UITooltip content={tooltip}>{badge}</UITooltip>;
   return badge;
 }
 
