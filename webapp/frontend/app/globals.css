@@ -3282,7 +3282,7 @@ body.student-print .print-answer-key {
     color: #1a1a1a !important;
     background: white !important;
     max-width: none !important;
-    padding: 0 !important;
+    padding: 0 1mm !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
