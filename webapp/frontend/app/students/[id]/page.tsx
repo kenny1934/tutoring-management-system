@@ -84,8 +84,6 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
-  const [progressAnimDone, setProgressAnimDone] = useState(false);
-
   // Toast notifications
   const { showToast } = useToast();
 
@@ -492,9 +490,7 @@ export default function StudentDetailPage() {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                onAnimationComplete={() => { if (progressOpen) setProgressAnimDone(true); }}
-                onAnimationStart={() => setProgressAnimDone(false)}
-                className={cn("py-2", progressAnimDone ? "overflow-visible" : "overflow-hidden")}
+                className="py-2 overflow-hidden"
               >
                 <StudentProgressDrawer
                   studentId={studentId!}
