@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { Users, StickyNote, CheckCircle2, Copy, Check } from "lucide-react";
+import {
+  Users, StickyNote, Copy, Check,
+  FileInput, Eye, Send, CheckCircle, CreditCard, BadgeCheck,
+  GraduationCap, Clock, LogOut, XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
@@ -25,13 +30,27 @@ const ALL_STATUSES = [
   "Fee Sent", "Paid", "Enrolled", "Waitlisted", "Withdrawn", "Rejected",
 ];
 
-export { STATUS_COLORS, ALL_STATUSES };
+const STATUS_ICONS: Record<string, LucideIcon> = {
+  "Submitted":           FileInput,
+  "Under Review":        Eye,
+  "Placement Offered":   Send,
+  "Placement Confirmed": CheckCircle,
+  "Fee Sent":            CreditCard,
+  "Paid":                BadgeCheck,
+  "Enrolled":            GraduationCap,
+  "Waitlisted":          Clock,
+  "Withdrawn":           LogOut,
+  "Rejected":            XCircle,
+};
+
+export { STATUS_COLORS, ALL_STATUSES, STATUS_ICONS };
 
 function StatusBadge({ status }: { status: string }) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS["Submitted"];
+  const Icon = STATUS_ICONS[status];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium", colors.bg, colors.text)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
+    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", colors.bg, colors.text)}>
+      {Icon ? <Icon className="h-3 w-3" /> : <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
       {status}
     </span>
   );
@@ -111,10 +130,6 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
             </button>
           </span>
-          {/* Reviewed indicator */}
-          {app.reviewed_by && (
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" title={`Reviewed by ${app.reviewed_by}`} />
-          )}
           <div className="ml-auto shrink-0">
             <StatusBadge status={app.application_status} />
           </div>
@@ -125,7 +140,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           {app.grade && <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{app.grade}</span>}
           {app.lang_stream && <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{app.lang_stream}</span>}
           {app.preferred_location && (
-            <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded truncate max-w-[200px]">{app.preferred_location}</span>
+            <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded truncate max-w-[200px]">{displayLocation(app.preferred_location)}</span>
           )}
           {app.is_existing_student && app.is_existing_student !== "None" && (
             <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">Existing</span>

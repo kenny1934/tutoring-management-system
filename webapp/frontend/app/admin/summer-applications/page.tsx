@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { ClipboardList, Search, X, Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { ClipboardList, Search, X, Loader2, ListFilter, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -16,13 +16,50 @@ import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicati
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
+import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { useLocation } from "@/contexts/LocationContext";
 import type { SummerApplication } from "@/types";
+
+const CODE_TO_LOCATION = Object.fromEntries(
+  Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k])
+);
 
 const PIPELINE_STATUSES = [
   "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
   "Fee Sent", "Paid", "Enrolled",
 ];
 const EXIT_STATUSES = ["Waitlisted", "Withdrawn", "Rejected"];
+
+type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot";
+
+const VIEW_PRESET_CONFIG: Record<ViewPreset, {
+  label: string;
+  groupBy: null | "status" | "location" | "grade" | "time_slot";
+  sortField: "submitted" | "name" | "status" | "grade" | "location" | "time_slot";
+  defaultDirection: "asc" | "desc";
+}> = {
+  latest:       { label: "View: Latest",       groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
+  pipeline:     { label: "View: Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
+  by_location:  { label: "View: By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
+  by_grade:     { label: "View: By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
+  by_time_slot: { label: "View: By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
+};
+
+const STATUS_GROUP_COLORS: Record<string, "red" | "orange" | "purple" | "gray"> = {
+  Rejected: "red",
+  Waitlisted: "orange",
+  Withdrawn: "orange",
+  "Placement Offered": "purple",
+  "Placement Confirmed": "purple",
+  "Fee Sent": "orange",
+  Paid: "orange",
+};
+
+function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
+  if (preset === "latest") return dir === "desc" ? "↓ newest" : "↑ oldest";
+  if (preset === "pipeline") return dir === "asc" ? "↓ flow" : "↑ reverse";
+  return dir === "asc" ? "↑ A-Z" : "↓ Z-A";
+}
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground";
 
@@ -57,6 +94,7 @@ export default function SummerApplicationsPage() {
   usePageTitle("Summer Applications");
   const { isAdmin, isSuperAdmin } = useAuth();
   const { showToast } = useToast();
+  const { selectedLocation } = useLocation();
   const canViewAdminPages = isAdmin || isSuperAdmin;
   const readOnly = !isAdmin && !isSuperAdmin;
 
@@ -70,10 +108,12 @@ export default function SummerApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
-  // Sorting
-  type SortField = "submitted" | "name" | "status" | "grade" | "location";
-  const [sortField, setSortField] = useState<SortField>("submitted");
+  // View preset (replaces separate sort + group controls)
+  const [viewPreset, setViewPreset] = useState<ViewPreset>("latest");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const presetConfig = VIEW_PRESET_CONFIG[viewPreset];
+  const sortField = presetConfig.sortField;
+  const groupBy = presetConfig.groupBy;
 
   // UI state
   const [selectedAppIndex, setSelectedAppIndex] = useState<number | null>(null);
@@ -83,16 +123,16 @@ export default function SummerApplicationsPage() {
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
 
-  // Group-by
-  type GroupByField = null | "location" | "grade";
-  const [groupBy, setGroupBy] = useState<GroupByField>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // Keyboard nav
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -182,6 +222,7 @@ export default function SummerApplicationsPage() {
 
   // Filters active?
   const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch;
+  const activeFilterCount = [gradeFilter, locationFilter].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setGradeFilter(null);
@@ -189,9 +230,47 @@ export default function SummerApplicationsPage() {
     setSearchQuery("");
   }, []);
 
+  // Close filter popover on click outside / escape
+  useEffect(() => {
+    if (!filterOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node) &&
+        filterButtonRef.current && !filterButtonRef.current.contains(e.target as Node)
+      ) {
+        setFilterOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setFilterOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [filterOpen]);
+
   // Grade/location options from stats
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
-  const locationOptions = useMemo(() => Object.keys(stats?.by_location || {}).sort(), [stats]);
+  const locationOptions = useMemo(
+    () => Object.keys(stats?.by_location || {}).sort((a, b) => displayLocation(a).localeCompare(displayLocation(b))),
+    [stats]
+  );
+
+  // Initialize location filter from user's app-wide location setting (one-time)
+  const [locationInitialized, setLocationInitialized] = useState(false);
+  useEffect(() => {
+    if (locationInitialized || !stats) return;
+    setLocationInitialized(true);
+    if (selectedLocation && selectedLocation !== "All Locations") {
+      const chineseName = CODE_TO_LOCATION[selectedLocation];
+      if (chineseName && stats.by_location?.[chineseName] !== undefined) {
+        setLocationFilter(chineseName);
+      }
+    }
+  }, [stats, selectedLocation, locationInitialized]);
 
   // Client-side sorting
   const sortedApplications = useMemo(() => {
@@ -207,7 +286,12 @@ export default function SummerApplicationsPage() {
         case "grade":
           return dir * (a.grade || "").localeCompare(b.grade || "");
         case "location":
-          return dir * (a.preferred_location || "").localeCompare(b.preferred_location || "");
+          return dir * displayLocation(a.preferred_location).localeCompare(displayLocation(b.preferred_location));
+        case "time_slot": {
+          const aSlot = [a.preference_1_day || "", a.preference_1_time || ""].join(" ");
+          const bSlot = [b.preference_1_day || "", b.preference_1_time || ""].join(" ");
+          return dir * aSlot.localeCompare(bSlot);
+        }
         case "submitted":
         default:
           return dir * ((a.submitted_at || "").localeCompare(b.submitted_at || ""));
@@ -216,15 +300,47 @@ export default function SummerApplicationsPage() {
     return sorted;
   }, [applications, sortField, sortDirection]);
 
+  // Preset change handler
+  const handlePresetChange = useCallback((preset: ViewPreset) => {
+    setViewPreset(preset);
+    setSortDirection(VIEW_PRESET_CONFIG[preset].defaultDirection);
+    setCollapsedGroups(new Set());
+  }, []);
+
   // Group-by computation
   const groupedApplications = useMemo(() => {
     if (!groupBy) return null;
     const groups = new Map<string, SummerApplication[]>();
+
+    // Pre-seed status groups in pipeline order
+    if (groupBy === "status") {
+      for (const s of [...PIPELINE_STATUSES, ...EXIT_STATUSES]) {
+        groups.set(s, []);
+      }
+    }
+
     for (const app of sortedApplications) {
-      const key = (groupBy === "location" ? app.preferred_location : app.grade) || "Unknown";
+      let key: string;
+      if (groupBy === "status") {
+        key = app.application_status;
+      } else if (groupBy === "time_slot") {
+        key = [app.preference_1_day, app.preference_1_time].filter(Boolean).join(" ") || "No preference";
+      } else if (groupBy === "location") {
+        key = app.preferred_location || "Unknown";
+      } else {
+        key = app.grade || "Unknown";
+      }
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(app);
     }
+
+    // Remove empty status groups
+    if (groupBy === "status") {
+      for (const [key, apps] of groups) {
+        if (apps.length === 0) groups.delete(key);
+      }
+    }
+
     return groups;
   }, [sortedApplications, groupBy]);
 
@@ -266,9 +382,9 @@ export default function SummerApplicationsPage() {
     return map;
   }, [navigableItems]);
 
-  // Preference demand summary (computed from ALL apps, not filtered)
-  const demandBySlot = useMemo(() => {
-    if (!applications || applications.length === 0) return [];
+  // Demand map for time slot group headers (1st + 2nd preference counts)
+  const demandMap = useMemo(() => {
+    if (groupBy !== "time_slot" || !applications) return null;
     const counts = new Map<string, number>();
     for (const app of applications) {
       if (app.preference_1_day && app.preference_1_time) {
@@ -280,9 +396,8 @@ export default function SummerApplicationsPage() {
         counts.set(key, (counts.get(key) || 0) + 1);
       }
     }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [applications]);
-  const [showDemand, setShowDemand] = useState(false);
+    return counts;
+  }, [groupBy, applications]);
 
   // Select-all indeterminate state
   const [allVisibleChecked, someVisibleChecked] = useMemo(() => {
@@ -374,7 +489,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [sortField, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, groupBy, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, collapsedGroups]);
 
   // Scroll focused card into view
   useEffect(() => {
@@ -462,47 +577,10 @@ export default function SummerApplicationsPage() {
               </div>
             )}
 
-            {/* Preference demand summary */}
-            {demandBySlot.length > 0 && (
-              <div className="px-4 sm:px-6 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-                <button
-                  onClick={() => setShowDemand((d) => !d)}
-                  className="w-full py-1.5 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showDemand ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  <span className="font-medium">Slot Demand</span>
-                  <span className="text-muted-foreground/60">({demandBySlot.length} slots)</span>
-                </button>
-                {showDemand && (
-                  <div className="flex flex-wrap gap-1.5 pb-2">
-                    {demandBySlot.map(([slot, count]) => {
-                      const maxCount = demandBySlot[0]?.[1] || 1;
-                      const intensity = Math.min(count / maxCount, 1);
-                      return (
-                        <span
-                          key={slot}
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs",
-                            intensity > 0.7
-                              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium"
-                              : intensity > 0.4
-                              ? "bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                              : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"
-                          )}
-                        >
-                          {slot} <span className="font-semibold">({count})</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Filter bar */}
+            {/* Filter bar + view controls */}
             <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
               <div className="flex flex-col sm:flex-row gap-2">
-                {/* Search */}
+                {/* Search + Filter */}
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
@@ -511,114 +589,114 @@ export default function SummerApplicationsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder='Search name, phone, ref code... (press "/")'
-                    className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                    className="w-full pl-9 pr-16 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+                      className="absolute right-8 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                </div>
-                {/* Dropdowns */}
-                <div className="flex gap-2">
-                  <select
-                    value={gradeFilter || ""}
-                    onChange={(e) => setGradeFilter(e.target.value || null)}
-                    className={selectClass}
+                  {/* Filter button (inside search bar) */}
+                  <button
+                    ref={filterButtonRef}
+                    onClick={() => setFilterOpen(!filterOpen)}
+                    className={cn(
+                      "absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 p-1 rounded transition-colors",
+                      activeFilterCount > 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Filter by grade/location"
                   >
-                    <option value="">All grades</option>
-                    {gradeOptions.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={locationFilter || ""}
-                    onChange={(e) => setLocationFilter(e.target.value || null)}
-                    className={selectClass}
-                  >
-                    <option value="">All locations</option>
-                    {locationOptions.map((l) => (
-                      <option key={l} value={l}>{l}</option>
-                    ))}
-                  </select>
-                  {hasFilters && (
-                    <button
-                      onClick={clearFilters}
-                      className="px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg"
+                    <ListFilter className="h-3.5 w-3.5" />
+                    {activeFilterCount > 0 && (
+                      <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+                  {/* Filter popover */}
+                  {filterOpen && (
+                    <div
+                      ref={filterPopoverRef}
+                      className="absolute top-full mt-1.5 right-0 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 min-w-[200px] space-y-3"
                     >
-                      Clear
-                    </button>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+                        <select
+                          value={locationFilter || ""}
+                          onChange={(e) => setLocationFilter(e.target.value || null)}
+                          className={cn(selectClass, "w-full")}
+                        >
+                          <option value="">All locations</option>
+                          {locationOptions.map((l) => (
+                            <option key={l} value={l}>{displayLocation(l)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Grade</label>
+                        <select
+                          value={gradeFilter || ""}
+                          onChange={(e) => setGradeFilter(e.target.value || null)}
+                          className={cn(selectClass, "w-full")}
+                        >
+                          <option value="">All grades</option>
+                          {gradeOptions.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {activeFilterCount > 0 && (
+                        <button
+                          onClick={() => { setGradeFilter(null); setLocationFilter(null); }}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* View + Sort controls */}
+                <div className="flex items-center gap-2">
+                  {/* View dropdown */}
+                  <select
+                    value={viewPreset}
+                    onChange={(e) => handlePresetChange(e.target.value as ViewPreset)}
+                    className="px-2.5 py-1.5 text-sm rounded-lg font-medium border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground"
+                  >
+                    {(Object.entries(VIEW_PRESET_CONFIG) as [ViewPreset, typeof VIEW_PRESET_CONFIG[ViewPreset]][]).map(([key, cfg]) => (
+                      <option key={key} value={key} className="bg-white dark:bg-gray-800">{cfg.label}</option>
+                    ))}
+                  </select>
+                  {/* Sort direction */}
+                  <button
+                    onClick={() => setSortDirection((d) => d === "asc" ? "desc" : "asc")}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title={getDirectionLabel(viewPreset, sortDirection)}
+                  >
+                    {sortDirection === "asc"
+                      ? <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+                      : <ArrowDownNarrowWide className="h-3.5 w-3.5" />}
+                  </button>
+                  {/* Select-all (only during batch selection) */}
+                  {showCheckboxes && (
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allVisibleChecked}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                      title={allVisibleChecked ? "Deselect all" : "Select all"}
+                    />
                   )}
                 </div>
               </div>
             </div>
-
-            {/* Sort controls + select-all */}
-            {sortedApplications.length > 0 && (
-              <div className="px-4 sm:px-6 py-1.5 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-2">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1">Sort</span>
-                {(["submitted", "name", "status", "grade", "location"] as SortField[]).map((field) => (
-                  <button
-                    key={field}
-                    onClick={() => {
-                      if (sortField === field) {
-                        setSortDirection((d) => d === "asc" ? "desc" : "asc");
-                      } else {
-                        setSortField(field);
-                        setSortDirection(field === "submitted" ? "desc" : "asc");
-                      }
-                    }}
-                    className={cn(
-                      "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs transition-all",
-                      sortField === field
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
-                  >
-                    {field === "submitted" ? "Date" : field.charAt(0).toUpperCase() + field.slice(1)}
-                    {sortField === field && (
-                      sortDirection === "asc"
-                        ? <ChevronUp className="h-3 w-3" />
-                        : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </button>
-                ))}
-                {/* Divider */}
-                <span className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-                {/* Group-by toggle */}
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Group</span>
-                {([null, "location", "grade"] as GroupByField[]).map((field) => (
-                  <button
-                    key={field ?? "none"}
-                    onClick={() => { setGroupBy(field); setCollapsedGroups(new Set()); }}
-                    className={cn(
-                      "px-2 py-0.5 rounded-full text-xs transition-all",
-                      groupBy === field
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
-                  >
-                    {field === null ? "None" : field.charAt(0).toUpperCase() + field.slice(1)}
-                  </button>
-                ))}
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {sortedApplications.length} result{sortedApplications.length !== 1 ? "s" : ""}
-                  </span>
-                  <input
-                    ref={selectAllRef}
-                    type="checkbox"
-                    checked={allVisibleChecked}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                    title={allVisibleChecked ? "Deselect all" : "Select all"}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Application list */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
@@ -651,9 +729,14 @@ export default function SummerApplicationsPage() {
                       <CollapsibleSection
                         key={groupKey}
                         id={groupKey}
-                        label={groupKey}
+                        label={groupBy === "location" ? displayLocation(groupKey) : groupKey}
                         count={groupApps.length}
-                        colorTheme="gray"
+                        colorTheme={groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray") : "gray"}
+                        annotation={
+                          demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
+                            ? `${demandMap.get(groupKey)} total prefs`
+                            : undefined
+                        }
                         isCollapsed={isCollapsed}
                         onToggle={() => setCollapsedGroups((prev) => {
                           const next = new Set(prev);
@@ -803,6 +886,7 @@ export default function SummerApplicationsPage() {
             totalCount={navigableItems.length}
             locations={configs?.find(c => c.id === configId)?.locations}
             allApplications={applications}
+            onSelectApplication={openDetail}
           />
 
           {/* Keyboard shortcut hint button */}

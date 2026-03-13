@@ -4,6 +4,7 @@ import { useState } from "react";
 import { summerAPI } from "@/lib/api";
 import type { SummerApplicationStatusResponse } from "@/types";
 import { type Lang, t, inputClass } from "@/lib/summer-utils";
+import { parseHKTimestamp } from "@/lib/formatters";
 
 const STATUS_STEPS = [
   "Submitted",
@@ -199,7 +200,7 @@ export default function SummerStatusPage() {
           {result.submitted_at && (
             <div className="text-xs text-muted-foreground text-center">
               {t("提交時間", "Submitted", lang)}:{" "}
-              {new Date(result.submitted_at).toLocaleDateString(
+              {parseHKTimestamp(result.submitted_at).toLocaleDateString(
                 lang === "zh" ? "zh-HK" : "en-US",
                 { year: "numeric", month: "long", day: "numeric" }
               )}

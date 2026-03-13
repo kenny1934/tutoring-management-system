@@ -140,9 +140,18 @@ export function formatShortDate(dateStr: string | null | undefined): string {
  * Format timestamp as relative time
  * Examples: "Just now", "5m ago", "2h ago", "Yesterday", "3d ago", "Jan 15"
  */
+/** Parse a datetime string, treating naive (no timezone) strings as HK time (UTC+8).
+ *  Our DB stores all timestamps in HK time via hk_now() / MySQL func.now(). */
+export function parseHKTimestamp(timestamp: string): Date {
+  if (timestamp.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(timestamp)) {
+    return new Date(timestamp);
+  }
+  return new Date(timestamp + "+08:00");
+}
+
 export function formatTimeAgo(timestamp: string): string {
   const now = new Date();
-  const date = new Date(timestamp);
+  const date = parseHKTimestamp(timestamp);
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);

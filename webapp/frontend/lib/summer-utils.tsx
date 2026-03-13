@@ -120,6 +120,18 @@ export const RequiredMark = () => (
   <span className="text-red-500 ml-0.5">*</span>
 );
 
+/** Map summer config Chinese location names → internal system codes. */
+export const LOCATION_TO_CODE: Record<string, string> = {
+  "華士古分校": "MSA",
+  "二龍喉分校": "MSB",
+};
+
+/** Display a location as its system code (MSA/MSB) for admin use. */
+export function displayLocation(location: string | null | undefined): string {
+  if (!location) return "";
+  return LOCATION_TO_CODE[location] || location;
+}
+
 /** Format preference day+time pairs from a summer application. */
 export function formatPreferences(app: {
   preference_1_day?: string | null;

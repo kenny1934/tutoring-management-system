@@ -44,6 +44,13 @@ def _get_active_config(db: Session) -> SummerCourseConfig | None:
     ).first()
 
 
+def _generate_reference_code(year: int) -> str:
+    """Generate a random reference code like SC2025-K7X3M (no ambiguous chars)."""
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # excludes O/0/I/1
+    code = "".join(secrets.choice(chars) for _ in range(5))
+    return f"SC{year}-{code}"
+
+
 def _generate_buddy_code() -> str:
     """Generate a 6-char alphanumeric buddy code like BG-7X3K."""
     chars = string.ascii_uppercase + string.digits
@@ -117,12 +124,21 @@ def submit_application(
         buddy_group_id=buddy_group_id,
         buddy_names=data.buddy_names,
         form_language=data.form_language or "zh",
+        submitted_at=hk_now(),
     )
-    db.add(app)
-    db.flush()  # get app.id
+    # Generate unique random reference code
+    for _ in range(10):
+        ref = _generate_reference_code(config.year)
+        existing = db.query(SummerApplication).filter(
+            SummerApplication.reference_code == ref
+        ).first()
+        if not existing:
+            break
+    else:
+        raise HTTPException(status_code=500, detail="Could not generate unique reference code")
 
-    # Generate reference code from ID
-    app.reference_code = f"SC{config.year}-{app.id:05d}"
+    app.reference_code = ref
+    db.add(app)
     db.commit()
 
     return SummerApplicationSubmitResponse(
@@ -448,7 +464,7 @@ def update_application(
 
     # Track reviewer when status changes
     if "application_status" in updates:
-        updates["reviewed_by"] = admin.email or "admin"
+        updates["reviewed_by"] = admin.tutor_name or "admin"
         updates["reviewed_at"] = hk_now()
 
     for field, value in updates.items():
