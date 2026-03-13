@@ -36,7 +36,8 @@ import { formatShortDate } from "@/lib/formatters";
 import { StickyNote } from "@/lib/design-system";
 import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
-import { Popover } from "@/components/ui/popover";
+import { Modal } from "@/components/ui/modal";
+import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
 import { studentsAPI } from "@/lib/api";
 import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress, MonthlyActivity } from "@/types";
@@ -529,7 +530,6 @@ function ProgressSkeleton() {
 
 // --- Report Config ---
 
-type ReportMode = "internal" | "parent";
 type DatePreset = "3m" | "6m" | "12m" | "enrollment" | "custom";
 
 function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { start?: string; end?: string } {
@@ -560,7 +560,26 @@ function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { 
   }
 }
 
+type SectionKey = keyof ReportSectionToggles;
+
+const SECTION_TOGGLES: readonly { key: SectionKey; label: string }[] = [
+  { key: "showRating", label: "Rating" },
+  { key: "showTopics", label: "Topics Covered" },
+  { key: "showTests", label: "Tests & Exams" },
+  { key: "showActivity", label: "Monthly Activity" },
+  { key: "showEnrollment", label: "Enrollment History" },
+];
+
+const DEFAULT_SECTIONS: ReportSectionToggles = {
+  showRating: true,
+  showTopics: true,
+  showTests: true,
+  showActivity: true,
+  showEnrollment: true,
+};
+
 function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number; enrollmentStart?: string | null }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<ReportMode>("parent");
   const [preset, setPreset] = useState<DatePreset>("12m");
   const [customStart, setCustomStart] = useState("");
@@ -570,7 +589,11 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [narrative, setNarrative] = useState("");
   const [aiInsights, setAiInsights] = useState<Record<string, unknown> | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [showRating, setShowRating] = useState(true);
+  const [sections, setSections] = useState<ReportSectionToggles>(DEFAULT_SECTIONS);
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    setSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const handleGenerateAI = useCallback(async () => {
     setIsGeneratingAI(true);
@@ -619,25 +642,44 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
     }
 
     if (language !== "en") params.set("language", language);
-    if (mode === "parent" && !showRating) params.set("showRating", "0");
+
+    // Section toggles (parent mode only, opt-out convention)
+    if (mode === "parent") {
+      for (const { key } of SECTION_TOGGLES) {
+        if (!sections[key]) params.set(key, "0");
+      }
+    }
 
     window.open(`/students/${studentId}/report?${params}`, "_blank");
-  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, showRating]);
+    setIsOpen(false);
+  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections]);
 
   return (
-    <Popover
-      className="w-[320px]"
-      align="right"
-      trigger={
-        <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors">
-          <FileText className="w-3.5 h-3.5" />
-          Generate Report
-        </button>
-      }
-      content={
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Report Settings</div>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+      >
+        <FileText className="w-3.5 h-3.5" />
+        Generate Report
+      </button>
 
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Report Settings"
+        size="sm"
+        footer={
+          <button
+            onClick={handleGenerate}
+            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Generate Report
+          </button>
+        }
+      >
+        <div className="space-y-3">
           {/* Mode toggle */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Report Type</label>
@@ -659,17 +701,24 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             </div>
           </div>
 
-          {/* Rating toggle — parent mode only */}
+          {/* Section toggles — parent mode only */}
           {mode === "parent" && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showRating}
-                onChange={(e) => setShowRating(e.target.checked)}
-                className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
-              />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Include Rating Chart</span>
-            </label>
+            <div>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
+              <div className="space-y-1.5">
+                {SECTION_TOGGLES.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sections[key]}
+                      onChange={() => toggleSection(key)}
+                      className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+                    />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Date range */}
@@ -769,18 +818,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               AI adds a concept map and enriched summary. Without AI, the report includes metrics, charts, topics, and enrollment data.
             </p>
           </div>
-
-          {/* Generate button */}
-          <button
-            onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Generate Report
-          </button>
         </div>
-      }
-    />
+      </Modal>
+    </>
   );
 }
 
