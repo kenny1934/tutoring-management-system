@@ -12,10 +12,9 @@ import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
@@ -503,14 +502,7 @@ export function LessonMode({
   }, [selectedExercise]);
 
   // Print: single exercise from sidebar
-  const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
-  const setPrintProgress = useCallback((msg: string) => {
-    setPrinting(prev => ({ ...prev, progress: msg }));
-  }, []);
-  const paperlessSearchWithProgress = useCallback(
-    (p: string) => searchPaperlessByPath(p, setPrintProgress),
-    [setPrintProgress]
-  );
+  const { printing, setPrinting, paperlessSearchWithProgress } = usePrintingState();
 
   const handlePrintExercise = useCallback(async (exercise: SessionExercise) => {
     if (!exercise.pdf_name) return;

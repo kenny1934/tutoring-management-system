@@ -9,10 +9,9 @@ import {
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
-import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
@@ -212,12 +211,7 @@ export function LessonWideMode({
     }
     // Sort entries within each group by student ID, then name (match "by student" tab order)
     for (const group of map.values()) {
-      group.entries.sort((a, b) => {
-        const idA = a.studentId || "";
-        const idB = b.studentId || "";
-        if (idA !== idB) return idA.localeCompare(idB);
-        return (a.studentName || "").localeCompare(b.studentName || "");
-      });
+      group.entries.sort((a, b) => compareByStudentId(a.studentId, a.studentName, b.studentId, b.studentName));
     }
     // Sort: CW first, then HW; within each type, alphabetical by displayName
     return Array.from(map.values()).sort((a, b) => {
@@ -232,12 +226,9 @@ export function LessonWideMode({
     for (const session of sessions) {
       seen.set(session.id, session);
     }
-    return Array.from(seen.values()).sort((a, b) => {
-      const idA = a.school_student_id || "";
-      const idB = b.school_student_id || "";
-      if (idA !== idB) return idA.localeCompare(idB);
-      return (a.student_name || "").localeCompare(b.student_name || "");
-    });
+    return Array.from(seen.values()).sort((a, b) =>
+      compareByStudentId(a.school_student_id, a.student_name, b.school_student_id, b.student_name)
+    );
   }, [sessions]);
 
   // Tutor name from first session
@@ -588,15 +579,7 @@ export function LessonWideMode({
   }, [onSessionDataChange]);
 
   // --- Print ---
-  // Bundled state: which exercise is printing + progress message
-  const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
-  const setPrintProgress = useCallback((msg: string) => {
-    setPrinting(prev => ({ ...prev, progress: msg }));
-  }, []);
-  const paperlessSearchWithProgress = useCallback(
-    (p: string) => searchPaperlessByPath(p, setPrintProgress),
-    [setPrintProgress]
-  );
+  const { printing, setPrinting, paperlessSearchWithProgress } = usePrintingState();
 
   const handlePrint = useCallback(async (entry?: StudentExerciseEntry) => {
     const target = entry || selectedEntry;

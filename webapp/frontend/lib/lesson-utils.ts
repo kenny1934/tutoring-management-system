@@ -1,5 +1,7 @@
+import { useState, useCallback } from "react";
 import { parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getPageNumbers } from "@/lib/bulk-pdf-helpers";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { Session, SessionExercise } from "@/types";
 
 /** Compute page numbers for an exercise (supports both simple and custom ranges). */
@@ -57,4 +59,27 @@ export interface PrintingState {
 export function getPrintButtonTitle(isPrinting: boolean, progress: string | null | undefined, defaultTitle: string): string {
   if (!isPrinting) return defaultTitle;
   return progress || "Printing...";
+}
+
+/** Compare two items by student ID (primary) then student name (secondary). */
+export function compareByStudentId(
+  idA: string | null | undefined, nameA: string | null | undefined,
+  idB: string | null | undefined, nameB: string | null | undefined,
+): number {
+  const a = idA || "", b = idB || "";
+  if (a !== b) return a.localeCompare(b);
+  return (nameA || "").localeCompare(nameB || "");
+}
+
+/** Hook that bundles printing state with a progress-aware Paperless search callback. */
+export function usePrintingState() {
+  const [printing, setPrinting] = useState<PrintingState>({ id: null, progress: null });
+  const setPrintProgress = useCallback((msg: string) => {
+    setPrinting(prev => prev.progress === msg ? prev : { ...prev, progress: msg });
+  }, []);
+  const paperlessSearchWithProgress = useCallback(
+    (p: string) => searchPaperlessByPath(p, setPrintProgress),
+    [setPrintProgress]
+  );
+  return { printing, setPrinting, paperlessSearchWithProgress } as const;
 }
