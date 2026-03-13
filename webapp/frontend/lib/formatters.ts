@@ -136,10 +136,6 @@ export function formatShortDate(dateStr: string | null | undefined): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/**
- * Format timestamp as relative time
- * Examples: "Just now", "5m ago", "2h ago", "Yesterday", "3d ago", "Jan 15"
- */
 /** Parse a datetime string, treating naive (no timezone) strings as HK time (UTC+8).
  *  Our DB stores all timestamps in HK time via hk_now() / MySQL func.now(). */
 export function parseHKTimestamp(timestamp: string): Date {
