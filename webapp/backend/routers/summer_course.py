@@ -7,7 +7,8 @@ import string
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
@@ -15,6 +16,8 @@ from models import (
     SummerCourseConfig,
     SummerBuddyGroup,
     SummerApplication,
+    SummerCourseSlot,
+    SummerPlacement,
     Tutor,
 )
 from schemas import (
@@ -28,6 +31,18 @@ from schemas import (
     SummerApplicationResponse,
     SummerApplicationUpdate,
     SummerApplicationStats,
+    SummerSlotCreate,
+    SummerSlotUpdate,
+    SummerSlotResponse,
+    SummerSlotPlacementInfo,
+    SummerPlacementCreate,
+    SummerPlacementUpdate,
+    SummerPlacementResponse,
+    SummerDemandResponse,
+    SummerDemandCell,
+    SummerSuggestRequest,
+    SummerSuggestResponse,
+    SummerSuggestionItem,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.rate_limiter import check_ip_rate_limit
@@ -473,3 +488,511 @@ def update_application(
     db.commit()
     db.refresh(app)
     return app
+
+
+# ─── Slot CRUD ───────────────────────────────────────────────────────────────
+
+def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
+    """Build a SummerSlotResponse from an ORM slot with loaded relationships."""
+    active_placements = [
+        p for p in slot.placements if p.placement_status != "Cancelled"
+    ]
+    return SummerSlotResponse(
+        id=slot.id,
+        config_id=slot.config_id,
+        slot_day=slot.slot_day,
+        time_slot=slot.time_slot,
+        location=slot.location,
+        grade=slot.grade,
+        slot_label=slot.slot_label,
+        course_type=slot.course_type,
+        tutor_id=slot.tutor_id,
+        tutor_name=slot.tutor.tutor_name if slot.tutor else None,
+        max_students=slot.max_students,
+        created_at=slot.created_at,
+        placement_count=len(active_placements),
+        placements=[
+            SummerSlotPlacementInfo(
+                id=p.id,
+                application_id=p.application_id,
+                student_name=p.application.student_name,
+                grade=p.application.grade,
+                placement_status=p.placement_status,
+            )
+            for p in active_placements
+        ],
+    )
+
+
+@router.get("/summer/slots", response_model=list[SummerSlotResponse])
+def list_slots(
+    config_id: int,
+    location: Optional[str] = None,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """List all slots for a config, optionally filtered by location."""
+    q = (
+        db.query(SummerCourseSlot)
+        .options(
+            joinedload(SummerCourseSlot.tutor),
+            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+        )
+        .filter(SummerCourseSlot.config_id == config_id)
+    )
+    if location:
+        q = q.filter(SummerCourseSlot.location == location)
+    slots = q.order_by(SummerCourseSlot.slot_day, SummerCourseSlot.time_slot).all()
+    return [_build_slot_response(s) for s in slots]
+
+
+@router.post("/summer/slots", response_model=SummerSlotResponse, status_code=201)
+def create_slot(
+    data: SummerSlotCreate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Create a new timetable slot."""
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == data.config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    slot = SummerCourseSlot(**data.model_dump())
+    db.add(slot)
+    db.commit()
+    db.refresh(slot)
+    # Reload with relationships
+    slot = (
+        db.query(SummerCourseSlot)
+        .options(
+            joinedload(SummerCourseSlot.tutor),
+            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+        )
+        .filter(SummerCourseSlot.id == slot.id)
+        .first()
+    )
+    return _build_slot_response(slot)
+
+
+@router.patch("/summer/slots/{slot_id}", response_model=SummerSlotResponse)
+def update_slot(
+    slot_id: int,
+    data: SummerSlotUpdate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Update a slot's grade, tutor, capacity, etc."""
+    slot = db.query(SummerCourseSlot).filter(SummerCourseSlot.id == slot_id).first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    updates = data.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(slot, field, value)
+    db.commit()
+
+    # Reload with relationships
+    slot = (
+        db.query(SummerCourseSlot)
+        .options(
+            joinedload(SummerCourseSlot.tutor),
+            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+        )
+        .filter(SummerCourseSlot.id == slot_id)
+        .first()
+    )
+    return _build_slot_response(slot)
+
+
+@router.delete("/summer/slots/{slot_id}")
+def delete_slot(
+    slot_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Delete a slot (only if no active placements)."""
+    slot = (
+        db.query(SummerCourseSlot)
+        .options(joinedload(SummerCourseSlot.placements))
+        .filter(SummerCourseSlot.id == slot_id)
+        .first()
+    )
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    active = [p for p in slot.placements if p.placement_status != "Cancelled"]
+    if active:
+        raise HTTPException(status_code=400, detail="Cannot delete slot with active placements")
+
+    db.delete(slot)
+    db.commit()
+    return {"success": True}
+
+
+# ─── Placement CRUD ──────────────────────────────────────────────────────────
+
+def _build_placement_response(p: SummerPlacement) -> SummerPlacementResponse:
+    """Build a SummerPlacementResponse from an ORM placement."""
+    return SummerPlacementResponse(
+        id=p.id,
+        application_id=p.application_id,
+        slot_id=p.slot_id,
+        lesson_number=p.lesson_number,
+        specific_date=p.specific_date,
+        placement_status=p.placement_status,
+        placed_at=p.placed_at,
+        placed_by=p.placed_by,
+        student_name=p.application.student_name if p.application else None,
+        student_grade=p.application.grade if p.application else None,
+    )
+
+
+@router.post("/summer/placements", response_model=SummerPlacementResponse, status_code=201)
+def create_placement(
+    data: SummerPlacementCreate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Assign a student (application) to a slot."""
+    slot = (
+        db.query(SummerCourseSlot)
+        .options(joinedload(SummerCourseSlot.placements))
+        .filter(SummerCourseSlot.id == data.slot_id)
+        .first()
+    )
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    app = db.query(SummerApplication).filter(SummerApplication.id == data.application_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Check capacity
+    active_count = sum(1 for p in slot.placements if p.placement_status != "Cancelled")
+    if active_count >= slot.max_students:
+        raise HTTPException(status_code=400, detail="Slot is full")
+
+    # Check duplicate
+    existing = next(
+        (p for p in slot.placements
+         if p.application_id == data.application_id and p.placement_status != "Cancelled"),
+        None,
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Application already placed in this slot")
+
+    placement = SummerPlacement(
+        application_id=data.application_id,
+        slot_id=data.slot_id,
+        placement_status="Tentative",
+        placed_by=admin.tutor_name or "admin",
+        placed_at=hk_now(),
+    )
+    db.add(placement)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Application already placed in this slot")
+    db.refresh(placement)
+
+    # Reload with application
+    placement = (
+        db.query(SummerPlacement)
+        .options(joinedload(SummerPlacement.application))
+        .filter(SummerPlacement.id == placement.id)
+        .first()
+    )
+    return _build_placement_response(placement)
+
+
+@router.patch("/summer/placements/{placement_id}", response_model=SummerPlacementResponse)
+def update_placement(
+    placement_id: int,
+    data: SummerPlacementUpdate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Update a placement's status."""
+    placement = (
+        db.query(SummerPlacement)
+        .options(joinedload(SummerPlacement.application))
+        .filter(SummerPlacement.id == placement_id)
+        .first()
+    )
+    if not placement:
+        raise HTTPException(status_code=404, detail="Placement not found")
+
+    # placement_status validated by Literal type in schema
+    placement.placement_status = data.placement_status
+    db.commit()
+    db.refresh(placement)
+    return _build_placement_response(placement)
+
+
+@router.delete("/summer/placements/{placement_id}")
+def delete_placement(
+    placement_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Remove a placement (unassign student from slot)."""
+    placement = db.query(SummerPlacement).filter(SummerPlacement.id == placement_id).first()
+    if not placement:
+        raise HTTPException(status_code=404, detail="Placement not found")
+
+    db.delete(placement)
+    db.commit()
+    return {"success": True}
+
+
+@router.post("/summer/placements/bulk-confirm")
+def bulk_confirm_placements(
+    config_id: int = Query(...),
+    location: Optional[str] = None,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Confirm all tentative placements for a config (optionally filtered by location)."""
+    q = (
+        db.query(SummerPlacement)
+        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerPlacement.placement_status == "Tentative",
+        )
+    )
+    if location:
+        q = q.filter(SummerCourseSlot.location == location)
+
+    count = q.update(
+        {SummerPlacement.placement_status: "Confirmed"},
+        synchronize_session="fetch",
+    )
+    db.commit()
+    return {"confirmed": count}
+
+
+# ─── Demand Heatmap ──────────────────────────────────────────────────────────
+
+@router.get("/summer/demand", response_model=SummerDemandResponse)
+def get_demand(
+    config_id: int,
+    location: str,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get demand heatmap: preference counts by day x time_slot x grade."""
+    apps = (
+        db.query(SummerApplication)
+        .filter(
+            SummerApplication.config_id == config_id,
+            SummerApplication.preferred_location == location,
+            SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+        )
+        .all()
+    )
+
+    cells: dict[tuple[str, str], dict] = {}
+
+    for app in apps:
+        # First preference
+        if app.preference_1_day and app.preference_1_time:
+            key = (app.preference_1_day, app.preference_1_time)
+            cell = cells.setdefault(key, {"first": {}, "second": {}})
+            cell["first"][app.grade] = cell["first"].get(app.grade, 0) + 1
+
+        # Second preference
+        if app.preference_2_day and app.preference_2_time:
+            key = (app.preference_2_day, app.preference_2_time)
+            cell = cells.setdefault(key, {"first": {}, "second": {}})
+            cell["second"][app.grade] = cell["second"].get(app.grade, 0) + 1
+
+    demand_cells = [
+        SummerDemandCell(
+            day=day,
+            time_slot=time,
+            total_first_pref=sum(data["first"].values()),
+            total_second_pref=sum(data["second"].values()),
+            by_grade_first=data["first"],
+            by_grade_second=data["second"],
+        )
+        for (day, time), data in sorted(cells.items())
+    ]
+
+    return SummerDemandResponse(location=location, cells=demand_cells)
+
+
+# ─── Unassigned Students ─────────────────────────────────────────────────────
+
+@router.get("/summer/unassigned", response_model=list[SummerApplicationResponse])
+def list_unassigned(
+    config_id: int,
+    location: Optional[str] = None,
+    grade: Optional[str] = None,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """List applications with no active placement for this config."""
+    placed_ids = (
+        select(SummerPlacement.application_id)
+        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        .where(
+            SummerPlacement.placement_status != "Cancelled",
+            SummerCourseSlot.config_id == config_id,
+        )
+        .distinct()
+        .scalar_subquery()
+    )
+
+    q = (
+        db.query(SummerApplication)
+        .options(joinedload(SummerApplication.buddy_group))
+        .filter(
+            SummerApplication.config_id == config_id,
+            SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+            SummerApplication.id.not_in(placed_ids),
+        )
+    )
+    if location:
+        q = q.filter(SummerApplication.preferred_location == location)
+    if grade:
+        q = q.filter(SummerApplication.grade == grade)
+
+    return q.order_by(SummerApplication.student_name).all()
+
+
+# ─── Auto-Suggest ────────────────────────────────────────────────────────────
+
+@router.post("/summer/auto-suggest", response_model=SummerSuggestResponse)
+def auto_suggest(
+    data: SummerSuggestRequest,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Run greedy least-flexible-first auto-suggest algorithm.
+
+    Note: unavailability_notes is free-text and not factored into the algorithm.
+    Admin should cross-check proposals against student unavailability manually.
+    """
+    # 1. Load unassigned applications for this config + location
+    placed_ids = (
+        select(SummerPlacement.application_id)
+        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        .where(
+            SummerPlacement.placement_status != "Cancelled",
+            SummerCourseSlot.config_id == data.config_id,
+        )
+        .distinct()
+        .scalar_subquery()
+    )
+    apps = (
+        db.query(SummerApplication)
+        .filter(
+            SummerApplication.config_id == data.config_id,
+            SummerApplication.preferred_location == data.location,
+            SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+            SummerApplication.id.not_in(placed_ids),
+        )
+        .all()
+    )
+
+    # 2. Load slots with current counts (eager-load placements + their applications for buddy tracking)
+    slots = (
+        db.query(SummerCourseSlot)
+        .options(
+            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application)
+        )
+        .filter(
+            SummerCourseSlot.config_id == data.config_id,
+            SummerCourseSlot.location == data.location,
+        )
+        .all()
+    )
+
+    # Build slot capacity map: slot_id -> remaining capacity
+    slot_capacity: dict[int, int] = {}
+    slot_buddy_groups: dict[int, set[int]] = {}  # slot_id -> set of buddy_group_ids
+    for s in slots:
+        active = [p for p in s.placements if p.placement_status != "Cancelled"]
+        slot_capacity[s.id] = s.max_students - len(active)
+        # Track buddy groups in each slot
+        for p in active:
+            if p.application and p.application.buddy_group_id:
+                slot_buddy_groups.setdefault(s.id, set()).add(p.application.buddy_group_id)
+
+    # 3. Score each application by flexibility (count matching open slots)
+    def count_matching(app: SummerApplication) -> int:
+        return sum(1 for s in slots if s.grade == app.grade and slot_capacity.get(s.id, 0) > 0)
+
+    sorted_apps = sorted(apps, key=count_matching)  # least flexible first
+
+    # 4. Greedy assignment
+    proposals: list[SummerSuggestionItem] = []
+    unplaceable: list[dict] = []
+
+    for app in sorted_apps:
+        available = [s for s in slots if s.grade == app.grade and slot_capacity.get(s.id, 0) > 0]
+        if not available:
+            unplaceable.append({
+                "application_id": app.id,
+                "student_name": app.student_name,
+                "reason": f"No open {app.grade} slots available",
+            })
+            continue
+
+        # Try matching preferences
+        best_slot = None
+        match_type = "any_open"
+        confidence = 0.3
+
+        for s in available:
+            is_first = (s.slot_day == app.preference_1_day and s.time_slot == app.preference_1_time)
+            is_second = (s.slot_day == app.preference_2_day and s.time_slot == app.preference_2_time)
+            has_buddy = (
+                app.buddy_group_id
+                and app.buddy_group_id in slot_buddy_groups.get(s.id, set())
+            )
+
+            if is_first:
+                score = 1.0 + (0.05 if has_buddy else 0)
+            elif is_second:
+                score = 0.7 + (0.05 if has_buddy else 0)
+            else:
+                # Prefer emptiest slot, buddy bonus
+                remaining = slot_capacity.get(s.id, 0)
+                score = 0.3 + (remaining / 20) + (0.1 if has_buddy else 0)
+
+            if best_slot is None or score > confidence:
+                best_slot = s
+                confidence = score
+                if is_first:
+                    match_type = "first_pref"
+                elif is_second:
+                    match_type = "second_pref"
+                else:
+                    match_type = "any_open"
+
+        if best_slot:
+            reason_parts = [f"{match_type.replace('_', ' ')} match"]
+            if app.buddy_group_id and app.buddy_group_id in slot_buddy_groups.get(best_slot.id, set()):
+                reason_parts.append("buddy in slot")
+            proposals.append(SummerSuggestionItem(
+                application_id=app.id,
+                student_name=app.student_name,
+                student_grade=app.grade,
+                slot_id=best_slot.id,
+                slot_day=best_slot.slot_day,
+                slot_time=best_slot.time_slot,
+                slot_grade=best_slot.grade,
+                slot_label=best_slot.slot_label,
+                match_type=match_type,
+                confidence=min(confidence, 1.0),
+                reason=", ".join(reason_parts),
+            ))
+            # Reserve capacity in memory
+            slot_capacity[best_slot.id] -= 1
+            if app.buddy_group_id:
+                slot_buddy_groups.setdefault(best_slot.id, set()).add(app.buddy_group_id)
+
+    return SummerSuggestResponse(proposals=proposals, unplaceable=unplaceable)
