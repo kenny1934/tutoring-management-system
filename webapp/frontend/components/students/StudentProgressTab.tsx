@@ -567,7 +567,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [customEnd, setCustomEnd] = useState("");
   const [comment, setComment] = useState("");
   const [language, setLanguage] = useState<"en" | "zh-hant">("en");
-  const [aiNarrative, setAiNarrative] = useState("");
+  const [narrative, setNarrative] = useState("");
+  const [aiInsights, setAiInsights] = useState<Record<string, unknown> | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   const handleGenerateAI = useCallback(async () => {
@@ -577,8 +578,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
         ? { start: customStart || undefined, end: customEnd || undefined }
         : getPresetDates(preset, enrollmentStart);
       const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language);
-      if (progress.insights?.narrative) {
-        setAiNarrative(progress.insights.narrative);
+      if (progress.insights) {
+        if (progress.insights.narrative) setNarrative(progress.insights.narrative);
+        setAiInsights(progress.insights as Record<string, unknown>);
       }
     } catch (err) {
       console.error("Failed to generate AI insights:", err);
@@ -605,16 +607,20 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       params.set("commentKey", key);
     }
 
-    if (aiNarrative.trim()) {
-      const aiKey = crypto.randomUUID();
-      localStorage.setItem(`report-ai-narrative-${aiKey}`, aiNarrative.trim());
-      params.set("aiNarrativeKey", aiKey);
+    // Store insights: full AI insights if available, or just manual narrative
+    if (narrative.trim() || aiInsights) {
+      const insightsKey = crypto.randomUUID();
+      const stored = aiInsights
+        ? { ...aiInsights, narrative: narrative.trim() }
+        : { narrative: narrative.trim() };
+      localStorage.setItem(`report-insights-${insightsKey}`, JSON.stringify(stored));
+      params.set("insightsKey", insightsKey);
     }
 
     if (language !== "en") params.set("language", language);
 
     window.open(`/students/${studentId}/report?${params}`, "_blank");
-  }, [studentId, mode, preset, customStart, customEnd, comment, aiNarrative, language, enrollmentStart]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart]);
 
   return (
     <Popover
@@ -646,27 +652,6 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   )}
                 >
                   {m === "parent" ? "For Parents" : "Internal"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Language toggle */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">AI Language</label>
-            <div className="flex rounded-lg overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
-              {([["en", "English"], ["zh-hant", "繁體中文"]] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => { setLanguage(val); setAiNarrative(""); }}
-                  className={cn(
-                    "flex-1 text-xs py-1.5 font-medium transition-colors",
-                    language === val
-                      ? "bg-[#a0704b] text-white"
-                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                  )}
-                >
-                  {label}
                 </button>
               ))}
             </div>
@@ -718,37 +703,56 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             />
           </div>
 
-          {/* AI Learning Summary */}
+          {/* Learning Summary */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
-              AI Learning Summary
+              Learning Summary <span className="text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
-            {!aiNarrative ? (
+            <textarea
+              value={narrative}
+              onChange={(e) => { setNarrative(e.target.value); if (aiInsights) setAiInsights(null); }}
+              placeholder="Write a summary or generate with AI..."
+              rows={3}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+            />
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                {([["en", "EN"], ["zh-hant", "中文"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setLanguage(val); setAiInsights(null); }}
+                    className={cn(
+                      "text-[10px] px-2 py-1 font-medium transition-colors",
+                      language === val
+                        ? "bg-[#a0704b] text-white"
+                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={handleGenerateAI}
                 disabled={isGeneratingAI}
-                className="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
               >
                 {isGeneratingAI ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3 h-3 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Generate AI Summary
+                    <Sparkles className="w-3 h-3" />
+                    Generate with AI
                   </>
                 )}
               </button>
-            ) : (
-              <textarea
-                value={aiNarrative}
-                onChange={(e) => setAiNarrative(e.target.value)}
-                rows={4}
-                className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 resize-none"
-              />
-            )}
+            </div>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 italic mt-1.5">
+              AI adds a concept map and enriched summary. Without AI, the report includes metrics, charts, topics, and enrollment data.
+            </p>
           </div>
 
           {/* Generate button */}
