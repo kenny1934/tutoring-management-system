@@ -102,7 +102,7 @@ export function SummerSlotCard({
           value={slot.grade || ""}
           onChange={(e) => onUpdate({ grade: e.target.value || null })}
           className={cn(
-            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-gray-100 dark:bg-gray-700",
+            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-gray-100 dark:bg-gray-700 appearance-none",
             slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
           )}
           title="Grade"
@@ -151,38 +151,7 @@ export function SummerSlotCard({
         </div>
       </div>
 
-      {/* Row 2: Capacity bar */}
-      <div className="flex items-center gap-1 px-1 pb-0.5">
-        <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-          <div
-            className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
-            style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
-          />
-        </div>
-        {editingMax ? (
-          <input
-            ref={maxRef}
-            type="number"
-            defaultValue={slot.max_students}
-            min={1}
-            max={20}
-            className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
-            autoFocus
-            onBlur={commitMax}
-            onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
-          />
-        ) : (
-          <button
-            onClick={() => setEditingMax(true)}
-            className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
-            title="Click to edit max students"
-          >
-            {slot.placement_count}/{slot.max_students}
-          </button>
-        )}
-      </div>
-
-      {/* Label + Tutor picker row */}
+      {/* Row 2: Label + Tutor picker */}
       <div className="px-1 pb-0.5 flex items-center gap-1">
         {(slot.slot_label || editingLabel) && (
           editingLabel ? (
@@ -211,7 +180,7 @@ export function SummerSlotCard({
             const val = e.target.value;
             onUpdate({ tutor_id: val ? parseInt(val) : null });
           }}
-          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-gray-100 dark:bg-gray-700 text-muted-foreground dark:text-gray-300 cursor-pointer"
+          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-gray-100 dark:bg-gray-700 text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
           title="Assign tutor"
         >
           <option value="">— tutor —</option>
@@ -221,6 +190,37 @@ export function SummerSlotCard({
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Row 3: Capacity bar */}
+      <div className="flex items-center gap-1 px-1 pb-0.5">
+        <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
+            style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
+          />
+        </div>
+        {editingMax ? (
+          <input
+            ref={maxRef}
+            type="number"
+            defaultValue={slot.max_students}
+            min={1}
+            max={20}
+            className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
+            autoFocus
+            onBlur={commitMax}
+            onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
+          />
+        ) : (
+          <button
+            onClick={() => setEditingMax(true)}
+            className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
+            title="Click to edit max students"
+          >
+            {slot.placement_count}/{slot.max_students}
+          </button>
+        )}
       </div>
 
       {/* Expanded: student list */}
