@@ -17,7 +17,7 @@ export function ReportStudentInfo({ student, generatedBy }: ReportStudentInfoPro
   return (
     <div className="bg-[#faf6f1] border border-[#e8d4b8] rounded-lg px-5 py-3 mb-6">
       <h3 className="text-lg font-bold text-gray-900 mb-1">{student.student_name}</h3>
-      <div className="flex items-center flex-wrap text-sm text-gray-600">
+      <div className="flex items-center flex-wrap text-xs text-gray-600">
         {fields.map((f, i) => (
           <span key={f.label} className="whitespace-nowrap">
             {i > 0 && <span className="mx-2 text-[#e8d4b8]">|</span>}

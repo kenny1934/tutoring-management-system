@@ -2,27 +2,25 @@
 
 import { Treemap, ResponsiveContainer } from "recharts";
 import type { ConceptNode } from "@/types";
-import { CONCEPT_CATEGORY_COLORS, getConceptCategoryColors } from "@/lib/progress-constants";
+import { getConceptCategoryColors } from "@/lib/progress-constants";
 
 interface ReportConceptMapProps {
   data: ConceptNode[];
 }
 
-// Custom renderer for treemap cells
-function TreemapCell(props: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  name: string;
-  count: number;
-  fill: string;
-  textColor: string;
-}) {
-  const { x, y, width, height, name, count, fill, textColor } = props;
+// Custom renderer for treemap cells — recharts spreads all data props onto this
+function TreemapCell(props: Record<string, unknown>) {
+  const x = props.x as number;
+  const y = props.y as number;
+  const width = props.width as number;
+  const height = props.height as number;
+  const name = props.name as string;
+  const count = (props.count as number) || 0;
+  const cellFill = (props.cellFill as string) || "#9ca3af";
+  const cellText = (props.cellText as string) || "#fff";
+
   if (width < 4 || height < 4) return null;
 
-  // Determine if there's enough space for text
   const showLabel = width > 40 && height > 24;
   const showCount = width > 50 && height > 36;
   const fontSize = Math.min(12, Math.max(9, Math.min(width / 8, height / 3)));
@@ -35,7 +33,7 @@ function TreemapCell(props: {
         width={width}
         height={height}
         rx={4}
-        fill={fill}
+        fill={cellFill}
         stroke="white"
         strokeWidth={2}
       />
@@ -45,7 +43,7 @@ function TreemapCell(props: {
           y={y + height / 2 + (showCount ? -4 : 0)}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={textColor}
+          fill={cellText}
           fontSize={fontSize}
           fontWeight={600}
         >
@@ -58,9 +56,9 @@ function TreemapCell(props: {
           y={y + height / 2 + fontSize - 2}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={textColor}
+          fill={cellText}
           fontSize={9}
-          opacity={0.6}
+          opacity={0.8}
         >
           {count}×
         </text>
@@ -90,9 +88,8 @@ export function ReportConceptMap({ data }: ReportConceptMapProps) {
           name: node.label,
           size: node.count,
           count: node.count,
-          fill: colors.bg,
-          textColor: colors.text,
-          stroke: colors.border,
+          cellFill: colors.border,
+          cellText: "#fff",
         })),
     };
   });
@@ -109,7 +106,7 @@ export function ReportConceptMap({ data }: ReportConceptMapProps) {
           dataKey="size"
           stroke="white"
           strokeWidth={2}
-          content={<TreemapCell x={0} y={0} width={0} height={0} name="" count={0} fill="" textColor="" />}
+          content={<TreemapCell />}
         />
       </ResponsiveContainer>
       {/* Category legend */}
@@ -120,7 +117,7 @@ export function ReportConceptMap({ data }: ReportConceptMapProps) {
             <span key={cat} className="inline-flex items-center gap-1.5 text-[11px]">
               <span
                 className="w-3 h-3 rounded-sm shrink-0"
-                style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}` }}
+                style={{ backgroundColor: colors.border }}
               />
               <span style={{ color: colors.text }} className="font-medium">{cat}</span>
             </span>
