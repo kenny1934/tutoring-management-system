@@ -260,17 +260,17 @@ export default function SummerApplicationsPage() {
   );
 
   // Initialize location filter from user's app-wide location setting (one-time)
-  const [locationInitialized, setLocationInitialized] = useState(false);
+  const locationInitialized = useRef(false);
   useEffect(() => {
-    if (locationInitialized || !stats) return;
-    setLocationInitialized(true);
+    if (locationInitialized.current || !stats) return;
+    locationInitialized.current = true;
     if (selectedLocation && selectedLocation !== "All Locations") {
       const chineseName = CODE_TO_LOCATION[selectedLocation];
       if (chineseName && stats.by_location?.[chineseName] !== undefined) {
         setLocationFilter(chineseName);
       }
     }
-  }, [stats, selectedLocation, locationInitialized]);
+  }, [stats, selectedLocation]);
 
   // Client-side sorting
   const sortedApplications = useMemo(() => {
@@ -357,12 +357,19 @@ export default function SummerApplicationsPage() {
   // Derive selectedApp from index
   const selectedApp = selectedAppIndex !== null ? navigableItems[selectedAppIndex] ?? null : null;
 
+  // O(1) lookup for navigable index (keyed by id, not object identity)
+  const navigableIndexMap = useMemo(() => {
+    const map = new Map<number, number>();
+    navigableItems.forEach((item, i) => map.set(item.id, i));
+    return map;
+  }, [navigableItems]);
+
   // Detail modal
   const openDetail = useCallback((app: SummerApplication) => {
-    const idx = navigableItems.findIndex((a) => a.id === app.id);
-    setSelectedAppIndex(idx >= 0 ? idx : null);
+    const idx = navigableIndexMap.get(app.id);
+    setSelectedAppIndex(idx !== undefined ? idx : null);
     setDetailOpen(true);
-  }, [navigableItems]);
+  }, [navigableIndexMap]);
 
   // Prev/Next navigation in modal
   const handlePrevApp = useCallback(() => {
@@ -374,13 +381,6 @@ export default function SummerApplicationsPage() {
       (prev !== null && prev < navigableItems.length - 1) ? prev + 1 : prev
     );
   }, [navigableItems.length]);
-
-  // O(1) lookup for navigable index (keyed by id, not object identity)
-  const navigableIndexMap = useMemo(() => {
-    const map = new Map<number, number>();
-    navigableItems.forEach((item, i) => map.set(item.id, i));
-    return map;
-  }, [navigableItems]);
 
   // Demand map for time slot group headers (1st + 2nd preference counts)
   const demandMap = useMemo(() => {
