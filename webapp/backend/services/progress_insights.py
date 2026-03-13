@@ -5,6 +5,7 @@ Student progress insights — rule-based topic analysis + Gemini narrative + con
 import json
 import logging
 import re
+import time
 from collections import Counter
 from datetime import date
 from typing import Optional
@@ -16,6 +17,18 @@ from schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# In-memory AI result cache  (student:start:end:lang → (result, timestamp))
+# ---------------------------------------------------------------------------
+_insights_cache: dict[str, tuple["ProgressInsights", float]] = {}
+_CACHE_TTL = 3600  # 1 hour
+
+
+def _cache_key(student_id: int, date_range: Optional[tuple[date, date]], language: str) -> str:
+    start = str(date_range[0]) if date_range else ""
+    end = str(date_range[1]) if date_range else ""
+    return f"{student_id}:{start}:{end}:{language}"
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +190,17 @@ def generate_progress_insights(
     ratings: RatingSummary,
     date_range: Optional[tuple[date, date]] = None,
     language: str = "en",
+    force_refresh: bool = False,
 ) -> ProgressInsights:
-    """Generate combined rule-based + AI insights."""
+    """Generate combined rule-based + AI insights (with caching)."""
+
+    # Check cache first (unless force refresh)
+    key = _cache_key(student.id, date_range, language)
+    if not force_refresh:
+        cached = _insights_cache.get(key)
+        if cached and (time.time() - cached[1]) < _CACHE_TTL:
+            logger.info("Progress insights cache hit for %s", key)
+            return cached[0]
 
     # Layer 1: Rule-based
     top_topics = _extract_topics(exercises)
@@ -206,7 +228,7 @@ def generate_progress_insights(
         except Exception as exc:
             logger.warning("AI insight generation failed, returning rule-based only: %s", exc)
 
-    return ProgressInsights(
+    result = ProgressInsights(
         top_topics=top_topics,
         total_exercises=len(exercises),
         cw_count=cw_count,
@@ -214,3 +236,12 @@ def generate_progress_insights(
         narrative=narrative,
         concept_nodes=concept_nodes,
     )
+
+    # Evict expired entries, then cache the result
+    now = time.time()
+    expired = [k for k, (_, ts) in _insights_cache.items() if now - ts >= _CACHE_TTL]
+    for k in expired:
+        del _insights_cache[k]
+    _insights_cache[key] = (result, now)
+
+    return result
