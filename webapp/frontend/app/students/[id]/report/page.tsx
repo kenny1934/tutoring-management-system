@@ -22,6 +22,7 @@ function StudentReportPageInner() {
   const commentKey = searchParams.get("commentKey");
   const insightsKey = searchParams.get("insightsKey");
   const language = searchParams.get("language") || "en";
+  const showRating = searchParams.get("showRating") !== "0";
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -139,6 +140,7 @@ function StudentReportPageInner() {
           dateRangeLabel={dateRangeLabel}
           tutorComment={tutorComment}
           generatedBy={user?.name}
+          showRating={showRating}
         />
       </div>
     </div>

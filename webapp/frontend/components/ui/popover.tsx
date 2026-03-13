@@ -13,38 +13,42 @@ interface PopoverProps {
 
 export function Popover({ trigger, content, className, align = "left" }: PopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [positioned, setPositioned] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const posRef = useRef({ top: 0, left: 0 });
 
-  const updatePosition = useCallback(() => {
+  const measurePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPosition({
+    posRef.current = {
       top: rect.bottom + 8,
       left: align === "right" ? rect.right : rect.left,
-    });
-    setPositioned(true);
+    };
   }, [align]);
 
-  // Recalculate position on scroll/resize while open
+  // Update position on scroll/resize while open
   useEffect(() => {
-    if (!isOpen) {
-      setPositioned(false);
-      return;
+    if (!isOpen) return;
+
+    function handleReposition() {
+      measurePosition();
+      if (popoverRef.current) {
+        popoverRef.current.style.top = `${posRef.current.top}px`;
+        popoverRef.current.style.left = `${posRef.current.left}px`;
+      }
     }
-    updatePosition();
-    window.addEventListener("scroll", updatePosition, true);
-    window.addEventListener("resize", updatePosition);
+
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
     return () => {
-      window.removeEventListener("scroll", updatePosition, true);
-      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
     };
-  }, [isOpen, updatePosition]);
+  }, [isOpen, measurePosition]);
 
   // Close on click outside
   useEffect(() => {
+    if (!isOpen) return;
     function handleClickOutside(event: MouseEvent) {
       if (
         popoverRef.current &&
@@ -55,36 +59,29 @@ export function Popover({ trigger, content, className, align = "left" }: Popover
         setIsOpen(false);
       }
     }
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   // Close on escape key
   useEffect(() => {
+    if (!isOpen) return;
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
+      if (event.key === "Escape") setIsOpen(false);
     }
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
-    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen]);
+
+  const handleToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    measurePosition();
+    setIsOpen((prev) => !prev);
+  }, [measurePosition]);
 
   return (
     <div className="relative inline-block">
-      <div
-        ref={triggerRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
-      >
+      <div ref={triggerRef} onClick={handleToggle}>
         {trigger}
       </div>
 
@@ -102,10 +99,9 @@ export function Popover({ trigger, content, className, align = "left" }: Popover
               className
             )}
             style={{
-              top: position.top,
-              left: position.left,
+              top: posRef.current.top,
+              left: posRef.current.left,
               transform: align === "right" ? "translateX(-100%)" : undefined,
-              opacity: positioned ? 1 : 0,
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
           >
