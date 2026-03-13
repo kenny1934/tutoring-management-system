@@ -618,7 +618,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
   return (
     <Popover
-      className="w-[320px] right-0 left-auto"
+      className="w-[320px]"
+      align="right"
       trigger={
         <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors">
           <FileText className="w-3.5 h-3.5" />
