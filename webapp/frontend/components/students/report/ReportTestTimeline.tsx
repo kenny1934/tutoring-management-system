@@ -30,14 +30,21 @@ export function ReportTestTimeline({ data }: ReportTestTimelineProps) {
           });
 
           return (
-            <div key={i} className="flex items-center gap-3 text-xs">
-              <div className="w-[52px] shrink-0 text-gray-500">{dateStr}</div>
-              {event.event_type && (
-                <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${getTypeStyle(event.event_type)}`}>
-                  {event.event_type}
-                </span>
-              )}
-              <span className="text-gray-700">{event.title}</span>
+            <div key={i} className="flex items-start gap-3 text-xs">
+              <div className="w-[52px] shrink-0 text-gray-500 pt-0.5">{dateStr}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {event.event_type && (
+                    <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${getTypeStyle(event.event_type)}`}>
+                      {event.event_type}
+                    </span>
+                  )}
+                  <span className="text-gray-700">{event.title}</span>
+                </div>
+                {event.description && (
+                  <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{event.description}</p>
+                )}
+              </div>
             </div>
           );
         })}

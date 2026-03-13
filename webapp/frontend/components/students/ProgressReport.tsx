@@ -4,6 +4,7 @@ import type { Student, StudentProgress } from "@/types";
 import { ReportHeader } from "./report/ReportHeader";
 import { ReportStudentInfo } from "./report/ReportStudentInfo";
 import { ReportInsights } from "./report/ReportInsights";
+import { ReportConceptMap } from "./report/ReportConceptMap";
 import { ReportMetrics } from "./report/ReportMetrics";
 import { ReportAttendanceChart } from "./report/ReportAttendanceChart";
 import { ReportRatingChart } from "./report/ReportRatingChart";
@@ -37,12 +38,19 @@ export function ProgressReport({
   return (
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
       <ReportHeader dateRangeLabel={dateRangeLabel} />
-      <ReportStudentInfo student={student} />
+      <ReportStudentInfo student={student} generatedBy={generatedBy} />
 
       {/* AI insights — headline section */}
       {progress.insights && (
         <div className="mb-6">
           <ReportInsights data={progress.insights} />
+        </div>
+      )}
+
+      {/* Concept map — AI-extracted topics */}
+      {progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0 && (
+        <div className="mb-6">
+          <ReportConceptMap data={progress.insights.concept_nodes} />
         </div>
       )}
 
