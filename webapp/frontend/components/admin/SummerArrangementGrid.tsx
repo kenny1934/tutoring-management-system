@@ -4,6 +4,11 @@ import { Fragment, useMemo } from "react";
 import { SummerSlotCell } from "./SummerSlotCell";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
+interface DragPrefs {
+  pref1?: { day: string; time: string };
+  pref2?: { day: string; time: string };
+}
+
 interface SummerArrangementGridProps {
   days: string[];
   timeSlots: string[];
@@ -15,7 +20,9 @@ interface SummerArrangementGridProps {
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
   onRemovePlacement: (placementId: number) => void;
+  onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
+  dragPrefs?: DragPrefs | null;
 }
 
 const DAY_ABBREV: Record<string, string> = {
@@ -39,7 +46,9 @@ export function SummerArrangementGrid({
   onDeleteSlot,
   onDropStudent,
   onRemovePlacement,
+  onClickStudent,
   onDropFailed,
+  dragPrefs,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -77,7 +86,7 @@ export function SummerArrangementGrid({
     <div className="space-y-3">
       {/* Getting started hint */}
       {!hasSlots && (
-        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        <div className="rounded-lg border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-900/20 px-4 py-3 text-sm text-orange-800 dark:text-orange-200">
           {hasDemand ? (
             <>Demand data loaded from applications. Click <strong>+ slot</strong> in any cell to create a class slot, then drag students from the panel on the right.</>
           ) : (
@@ -87,55 +96,60 @@ export function SummerArrangementGrid({
       )}
 
       <div
-        className="grid gap-px bg-gray-200 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
-      style={{
-        gridTemplateColumns: `80px repeat(${days.length}, minmax(140px, 1fr))`,
-        gridTemplateRows: `40px repeat(${timeSlots.length}, auto)`,
-      }}
-    >
-      {/* Header row: empty corner + day headers */}
-      <div className="bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-xs font-medium text-muted-foreground">
-        Time
-      </div>
-      {days.map((day) => (
-        <div
-          key={day}
-          className="bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-sm font-medium"
-        >
-          {DAY_ABBREV[day] || day}
+        className="grid gap-px bg-border dark:bg-gray-700 border border-border dark:border-gray-700 rounded-lg overflow-hidden"
+        style={{
+          gridTemplateColumns: `64px repeat(${days.length}, minmax(110px, 1fr))`,
+          gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
+        }}
+      >
+        {/* Header row: empty corner + day headers */}
+        <div className="bg-surface-variant flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 z-10">
+          Time
         </div>
-      ))}
-
-      {/* Data rows: time label + cells */}
-      {timeSlots.map((ts) => (
-        <Fragment key={ts}>
-          {/* Time label */}
-          <div className="bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-xs text-muted-foreground px-1 text-center">
-            {ts}
+        {days.map((day) => (
+          <div
+            key={day}
+            className="bg-surface-variant flex items-center justify-center text-sm font-medium"
+          >
+            {DAY_ABBREV[day] || day}
           </div>
+        ))}
 
-          {/* Cells for each day */}
-          {days.map((day) => {
-            const key = `${day}|${ts}`;
-            return (
-              <SummerSlotCell
-                key={key}
-                day={day}
-                timeSlot={ts}
-                demandCell={demandMap.get(key)}
-                slots={slotsMap.get(key) ?? []}
-                grades={grades}
-                onCreateSlot={() => onCreateSlot(day, ts)}
-                onUpdateSlot={onUpdateSlot}
-                onDeleteSlot={onDeleteSlot}
-                onDropStudent={onDropStudent}
-                onRemovePlacement={onRemovePlacement}
-                onDropFailed={onDropFailed}
-              />
-            );
-          })}
-        </Fragment>
-      ))}
+        {/* Data rows: time label + cells */}
+        {timeSlots.map((ts) => (
+          <Fragment key={ts}>
+            {/* Time label */}
+            <div className="bg-surface-variant flex items-center justify-center text-[11px] text-muted-foreground px-1 text-center sticky left-0 z-10">
+              {ts}
+            </div>
+
+            {/* Cells for each day */}
+            {days.map((day) => {
+              const key = `${day}|${ts}`;
+              const isPrefMatch =
+                (dragPrefs?.pref1?.day === day && dragPrefs?.pref1?.time === ts) ||
+                (dragPrefs?.pref2?.day === day && dragPrefs?.pref2?.time === ts);
+              return (
+                <SummerSlotCell
+                  key={key}
+                  day={day}
+                  timeSlot={ts}
+                  demandCell={demandMap.get(key)}
+                  slots={slotsMap.get(key) ?? []}
+                  grades={grades}
+                  onCreateSlot={() => onCreateSlot(day, ts)}
+                  onUpdateSlot={onUpdateSlot}
+                  onDeleteSlot={onDeleteSlot}
+                  onDropStudent={onDropStudent}
+                  onRemovePlacement={onRemovePlacement}
+                  onClickStudent={onClickStudent}
+                  onDropFailed={onDropFailed}
+                  prefHighlight={isPrefMatch}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
     </div>
   );

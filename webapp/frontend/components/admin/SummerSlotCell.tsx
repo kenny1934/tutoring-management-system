@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
 import { SummerSlotCard } from "./SummerSlotCard";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -17,21 +18,17 @@ interface SummerSlotCellProps {
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
   onRemovePlacement: (placementId: number) => void;
+  onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
+  prefHighlight?: boolean;
 }
 
-const GRADE_COLORS: Record<string, string> = {
-  F1: "text-blue-600 dark:text-blue-400",
-  F2: "text-purple-600 dark:text-purple-400",
-  F3: "text-orange-600 dark:text-orange-400",
-};
-
 function heatColor(count: number): string {
-  if (count === 0) return "bg-white dark:bg-gray-900";
-  if (count <= 3) return "bg-amber-50 dark:bg-amber-950/30";
-  if (count <= 6) return "bg-amber-100 dark:bg-amber-900/30";
-  if (count <= 10) return "bg-amber-200/70 dark:bg-amber-800/30";
-  return "bg-amber-300/60 dark:bg-amber-700/30";
+  if (count === 0) return "bg-background";
+  if (count <= 3) return "bg-orange-50/60 dark:bg-orange-950/20";
+  if (count <= 6) return "bg-orange-100/60 dark:bg-orange-900/25";
+  if (count <= 10) return "bg-orange-200/50 dark:bg-orange-800/25";
+  return "bg-orange-300/40 dark:bg-orange-700/25";
 }
 
 export function SummerSlotCell({
@@ -45,7 +42,9 @@ export function SummerSlotCell({
   onDeleteSlot,
   onDropStudent,
   onRemovePlacement,
+  onClickStudent,
   onDropFailed,
+  prefHighlight,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -80,7 +79,7 @@ export function SummerSlotCell({
         onDropFailed?.("Create a slot first");
       }
     },
-    [slots, onDropStudent]
+    [slots, onDropStudent, onDropFailed]
   );
 
   return (
@@ -88,7 +87,8 @@ export function SummerSlotCell({
       className={cn(
         "min-h-[80px] p-1.5 transition-colors relative",
         heatColor(remainingDemand),
-        dragOver && "ring-2 ring-inset ring-amber-400 dark:ring-amber-500"
+        dragOver && "ring-2 ring-inset ring-primary",
+        prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -118,7 +118,7 @@ export function SummerSlotCell({
                 combined[g] = (combined[g] ?? 0) + c;
               }
               return Object.entries(combined).map(([grade, count]) => (
-                <span key={grade} className={cn("font-medium", GRADE_COLORS[grade])}>
+                <span key={grade} className={cn("font-medium", SUMMER_GRADE_TEXT[grade])}>
                   {grade}:{count}
                 </span>
               ));
@@ -138,6 +138,7 @@ export function SummerSlotCell({
             onDelete={() => onDeleteSlot(slot.id)}
             onDropStudent={(appId) => onDropStudent(appId, slot.id)}
             onRemovePlacement={onRemovePlacement}
+            onClickStudent={onClickStudent}
           />
         ))}
       </div>
@@ -148,8 +149,8 @@ export function SummerSlotCell({
         className={cn(
           "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
           slots.length === 0
-            ? "py-2 text-xs border border-dashed border-gray-300 dark:border-gray-600 text-muted-foreground hover:text-foreground hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-            : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+            ? "py-2 text-xs border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
+            : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/5"
         )}
       >
         <Plus className={slots.length === 0 ? "h-3.5 w-3.5" : "h-3 w-3"} />

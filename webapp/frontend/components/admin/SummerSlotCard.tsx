@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
 interface SummerSlotCardProps {
@@ -12,18 +13,13 @@ interface SummerSlotCardProps {
   onDelete: () => void;
   onDropStudent: (applicationId: number) => void;
   onRemovePlacement: (placementId: number) => void;
+  onClickStudent?: (applicationId: number) => void;
 }
 
-const GRADE_BG: Record<string, string> = {
-  F1: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  F2: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  F3: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-};
-
 function fillBarColor(pct: number): string {
-  if (pct >= 1) return "bg-red-400 dark:bg-red-500";
-  if (pct >= 0.75) return "bg-yellow-400 dark:bg-yellow-500";
-  return "bg-green-400 dark:bg-green-500";
+  if (pct >= 1) return "bg-red-400 dark:bg-red-400/80";
+  if (pct >= 0.75) return "bg-yellow-400 dark:bg-yellow-400/80";
+  return "bg-green-400 dark:bg-green-400/80";
 }
 
 export function SummerSlotCard({
@@ -33,9 +29,14 @@ export function SummerSlotCard({
   onDelete,
   onDropStudent,
   onRemovePlacement,
+  onClickStudent,
 }: SummerSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [editingMax, setEditingMax] = useState(false);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const maxRef = useRef<HTMLInputElement>(null);
+  const labelRef = useRef<HTMLInputElement>(null);
   const isFull = slot.placement_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.placement_count / slot.max_students : 0;
 
@@ -62,13 +63,35 @@ export function SummerSlotCard({
     [isFull, onDropStudent]
   );
 
+  const commitMax = () => {
+    const val = parseInt(maxRef.current?.value ?? "");
+    if (!isNaN(val) && val >= 1 && val <= 20 && val !== slot.max_students) {
+      onUpdate({ max_students: val });
+    }
+    setEditingMax(false);
+  };
+
+  const commitLabel = () => {
+    const val = labelRef.current?.value?.trim() ?? "";
+    if (val !== (slot.slot_label ?? "")) {
+      onUpdate({ slot_label: val || undefined });
+    }
+    setEditingLabel(false);
+  };
+
+  // Grade mix dots for collapsed view
+  const gradeMix = slot.placements.reduce<Record<string, number>>((acc, p) => {
+    acc[p.grade] = (acc[p.grade] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div
       className={cn(
         "rounded border text-[11px] transition-all",
         dragOver
-          ? "border-amber-400 bg-amber-50/50 dark:border-amber-500 dark:bg-amber-900/20"
-          : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-850",
+          ? "border-primary bg-primary/5"
+          : "border-border bg-card dark:bg-gray-800",
         isFull && "opacity-80"
       )}
       onDragOver={handleDragOver}
@@ -83,7 +106,7 @@ export function SummerSlotCard({
           onChange={(e) => onUpdate({ grade: e.target.value || null })}
           className={cn(
             "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer appearance-none",
-            slot.grade ? GRADE_BG[slot.grade] || "bg-gray-100 dark:bg-gray-700" : "bg-gray-100 dark:bg-gray-700 text-muted-foreground"
+            slot.grade ? SUMMER_GRADE_BG[slot.grade] || "bg-gray-100 dark:bg-gray-700" : "bg-gray-100 dark:bg-gray-700 text-muted-foreground"
           )}
           title="Grade"
         >
@@ -93,18 +116,42 @@ export function SummerSlotCard({
           ))}
         </select>
 
-        {/* Course type badge */}
-        {slot.course_type && (
-          <span className="text-[9px] font-medium px-1 rounded bg-gray-100 dark:bg-gray-700">
-            {slot.course_type}
-          </span>
-        )}
+        {/* Course type toggle */}
+        <button
+          onClick={() => {
+            const next = slot.course_type === "A" ? "B" : slot.course_type === "B" ? null : "A";
+            onUpdate({ course_type: next });
+          }}
+          className={cn(
+            "text-[9px] font-medium px-1 rounded transition-colors",
+            slot.course_type
+              ? "bg-primary/10 text-primary dark:bg-primary/20"
+              : "bg-gray-100 dark:bg-gray-700 text-muted-foreground hover:text-foreground"
+          )}
+          title="Course type (click to toggle A/B)"
+        >
+          {slot.course_type || "·"}
+        </button>
 
-        {/* Label */}
-        {slot.slot_label && (
-          <span className="text-[9px] text-muted-foreground truncate max-w-[40px]">
-            {slot.slot_label}
-          </span>
+        {/* Label (click to edit) */}
+        {editingLabel ? (
+          <input
+            ref={labelRef}
+            defaultValue={slot.slot_label ?? ""}
+            className="text-[9px] w-10 px-0.5 rounded border border-border bg-card dark:bg-gray-700"
+            autoFocus
+            onBlur={commitLabel}
+            onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
+            placeholder="label"
+          />
+        ) : (
+          <button
+            onClick={() => setEditingLabel(true)}
+            className="text-[9px] text-muted-foreground truncate max-w-[40px] hover:text-foreground hover:underline"
+            title="Click to edit label"
+          >
+            {slot.slot_label || "…"}
+          </button>
         )}
 
         {/* Fill bar */}
@@ -115,10 +162,44 @@ export function SummerSlotCard({
               style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
             />
           </div>
-          <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-            {slot.placement_count}/{slot.max_students}
-          </span>
+          {/* Clickable count to edit max */}
+          {editingMax ? (
+            <input
+              ref={maxRef}
+              type="number"
+              defaultValue={slot.max_students}
+              min={1}
+              max={20}
+              className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
+              autoFocus
+              onBlur={commitMax}
+              onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
+            />
+          ) : (
+            <button
+              onClick={() => setEditingMax(true)}
+              className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
+              title="Click to edit max students"
+            >
+              {slot.placement_count}/{slot.max_students}
+            </button>
+          )}
         </div>
+
+        {/* Grade mix dots (collapsed) */}
+        {!expanded && slot.placement_count > 0 && (
+          <span className="flex gap-0.5">
+            {Object.entries(gradeMix).map(([g, c]) => (
+              <span
+                key={g}
+                className={cn("text-[8px] font-bold", SUMMER_GRADE_TEXT[g] || "text-muted-foreground")}
+                title={`${g}: ${c}`}
+              >
+                {c}
+              </span>
+            ))}
+          </span>
+        )}
 
         {/* Expand/collapse */}
         <button
@@ -160,15 +241,21 @@ export function SummerSlotCard({
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
                 p.placement_status === "Confirmed"
                   ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-gray-50 dark:bg-gray-800"
+                  : "bg-gray-50 dark:bg-gray-800/60"
               )}
             >
-              <span className="truncate flex-1">{p.student_name}</span>
-              <span className={cn("text-[8px]", GRADE_BG[p.grade] || "")}>
+              <button
+                onClick={() => onClickStudent?.(p.application_id)}
+                className="truncate flex-1 text-left hover:text-primary hover:underline"
+                title="View application details"
+              >
+                {p.student_name}
+              </button>
+              <span className={cn("text-[8px]", SUMMER_GRADE_BG[p.grade] || "")}>
                 {p.grade}
               </span>
               {p.placement_status === "Tentative" && (
-                <span className="text-[8px] text-yellow-600">T</span>
+                <span className="text-[8px] text-yellow-600 dark:text-yellow-400">T</span>
               )}
               <button
                 onClick={() => onRemovePlacement(p.id)}
