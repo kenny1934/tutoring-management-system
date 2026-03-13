@@ -31,6 +31,7 @@ def get_student_progress(
     end_date: Optional[date] = Query(None, description="Filter sessions up to this date"),
     generate_insights: bool = Query(False, description="Generate AI insights (costs tokens)"),
     force_refresh: bool = Query(False, description="Bypass AI cache and regenerate"),
+    exclude_from_ai: Optional[str] = Query(None, description="Comma-separated sections to exclude from AI context"),
     language: Literal["en", "zh-hant"] = Query("en", description="Language for AI narrative"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -313,6 +314,7 @@ def get_student_progress(
         check_user_rate_limit(current_user.id, "progress_insights")
 
         date_range = (start_date, end_date) if start_date and end_date else None
+        exclude = frozenset(exclude_from_ai.split(",")) if exclude_from_ai else frozenset()
         insights = generate_progress_insights(
             student=student,
             exercises=exercises.details,
@@ -322,6 +324,7 @@ def get_student_progress(
             date_range=date_range,
             language=language,
             force_refresh=force_refresh,
+            exclude=exclude,
         )
 
     return StudentProgressResponse(

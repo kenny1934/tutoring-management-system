@@ -25,10 +25,11 @@ _insights_cache: dict[str, tuple["ProgressInsights", float]] = {}
 _CACHE_TTL = 3600  # 1 hour
 
 
-def _cache_key(student_id: int, date_range: Optional[tuple[date, date]], language: str) -> str:
+def _cache_key(student_id: int, date_range: Optional[tuple[date, date]], language: str, exclude: frozenset[str] = frozenset()) -> str:
     start = str(date_range[0]) if date_range else ""
     end = str(date_range[1]) if date_range else ""
-    return f"{student_id}:{start}:{end}:{language}"
+    exc = ",".join(sorted(exclude)) if exclude else ""
+    return f"{student_id}:{start}:{end}:{language}:{exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ def _build_context(
     attendance: AttendanceSummary,
     ratings: RatingSummary,
     date_range: Optional[tuple[date, date]],
+    exclude: frozenset[str] = frozenset(),
 ) -> str:
     """Build plain-text context for the AI prompt."""
     lines = []
@@ -122,14 +124,16 @@ def _build_context(
         lines.append(f"Report period: {date_range[0]} to {date_range[1]}")
 
     # Attendance
-    lines.append(f"\nAttendance: {attendance.attended} attended, {attendance.no_show} no-show out of {attendance.attended + attendance.no_show} sessions")
-    lines.append(f"Attendance rate: {attendance.attendance_rate}%")
+    if "attendance" not in exclude:
+        lines.append(f"\nAttendance: {attendance.attended} attended, {attendance.no_show} no-show out of {attendance.attended + attendance.no_show} sessions")
+        lines.append(f"Attendance rate: {attendance.attendance_rate}%")
 
     # Ratings
-    if ratings.overall_avg > 0:
-        lines.append(f"Average performance rating: {ratings.overall_avg}/5 ({ratings.total_rated} rated sessions)")
-    if ratings.recent_avg is not None:
-        lines.append(f"Recent 30-day average: {ratings.recent_avg}/5")
+    if "rating" not in exclude:
+        if ratings.overall_avg > 0:
+            lines.append(f"Average performance rating: {ratings.overall_avg}/5 ({ratings.total_rated} rated sessions)")
+        if ratings.recent_avg is not None:
+            lines.append(f"Recent 30-day average: {ratings.recent_avg}/5")
 
     # Exercises
     if exercises:
@@ -143,7 +147,7 @@ def _build_context(
             lines.append(f"Topics covered: {', '.join(names[:20])}")
 
     # Tests
-    if test_events:
+    if "tests" not in exclude and test_events:
         lines.append(f"\nTests/exams during period:")
         for t in test_events[:10]:
             line = f"  - {t.start_date}: {t.title} ({t.event_type or 'Test'})"
@@ -191,11 +195,12 @@ def generate_progress_insights(
     date_range: Optional[tuple[date, date]] = None,
     language: str = "en",
     force_refresh: bool = False,
+    exclude: frozenset[str] = frozenset(),
 ) -> ProgressInsights:
     """Generate combined rule-based + AI insights (with caching)."""
 
     # Check cache first (unless force refresh)
-    key = _cache_key(student.id, date_range, language)
+    key = _cache_key(student.id, date_range, language, exclude)
     if not force_refresh:
         cached = _insights_cache.get(key)
         if cached and (time.time() - cached[1]) < _CACHE_TTL:
@@ -215,7 +220,7 @@ def generate_progress_insights(
             from services.ai_client import generate
 
             prompt = _apply_language(PROGRESS_INSIGHT_PROMPT, language)
-            context = _build_context(student, exercises, test_events, attendance, ratings, date_range)
+            context = _build_context(student, exercises, test_events, attendance, ratings, date_range, exclude)
             text, tokens, _ = generate(
                 prompt,
                 context,
