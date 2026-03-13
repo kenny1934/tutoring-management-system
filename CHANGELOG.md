@@ -5,7 +5,7 @@
 ### Bug Fixes
 
 * **Bulk print custom pages** — printing CW/HW in bulk now correctly uses custom page ranges (e.g. "pages 1,3,5-7") instead of ignoring them
-* **Print fallback** — print buttons in lesson modes now properly search Paperless when a file isn't found locally
+* **Print fallback** — print buttons in lesson modes now properly search Shelv when a file isn't found locally
 * **Session popover print** — individual and bulk print from the session detail popover now respects custom page ranges
 
 ### Improvements
