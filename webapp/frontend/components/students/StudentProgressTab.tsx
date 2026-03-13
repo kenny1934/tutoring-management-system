@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   PieChart,
   Pie,
@@ -26,6 +26,7 @@ import {
   ArrowUp,
   ArrowDown,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -33,32 +34,9 @@ import { formatShortDate } from "@/lib/formatters";
 import { StickyNote } from "@/lib/design-system";
 import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
+import { Popover } from "@/components/ui/popover";
+import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress, MonthlyActivity } from "@/types";
-
-// Sepia palette matching dashboard theme
-const ATTENDANCE_COLORS = {
-  attended: "#a0704b",
-  no_show: "#dc2626",
-  rescheduled: "#d97706",
-  cancelled: "#9ca3af",
-};
-
-const CHART_COLORS = {
-  sessions: "#a0704b",
-  exercises: "#cd853f",
-  rating: "#f59e0b",
-  grid: "#e8d4b8",
-};
-
-const DATA_KEY_LABELS: Record<string, string> = {
-  sessions_attended: "Sessions",
-  exercises_assigned: "Exercises",
-  avg_rating: "Avg Rating",
-};
-
-function formatMonthLabel(month: string): string {
-  return month.slice(2).replace("-", "/"); // "2025-01" -> "25/01"
-}
 
 // --- Trend Delta Badge ---
 
@@ -547,6 +525,161 @@ function ProgressSkeleton() {
   );
 }
 
+// --- Report Config ---
+
+type ReportMode = "internal" | "parent";
+type DatePreset = "3m" | "6m" | "12m" | "enrollment" | "custom";
+
+function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { start?: string; end?: string } {
+  const today = new Date();
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const end = fmt(today);
+
+  switch (preset) {
+    case "3m": {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 3);
+      return { start: fmt(d), end };
+    }
+    case "6m": {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 6);
+      return { start: fmt(d), end };
+    }
+    case "12m": {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 12);
+      return { start: fmt(d), end };
+    }
+    case "enrollment":
+      return enrollmentStart ? { start: enrollmentStart, end } : {};
+    case "custom":
+      return {};
+  }
+}
+
+function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number; enrollmentStart?: string | null }) {
+  const [mode, setMode] = useState<ReportMode>("parent");
+  const [preset, setPreset] = useState<DatePreset>("12m");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [comment, setComment] = useState("");
+
+  const handleGenerate = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set("mode", mode);
+    params.set("print", "1");
+
+    const dates = preset === "custom"
+      ? { start: customStart || undefined, end: customEnd || undefined }
+      : getPresetDates(preset, enrollmentStart);
+
+    if (dates.start) params.set("startDate", dates.start);
+    if (dates.end) params.set("endDate", dates.end);
+
+    if (comment.trim()) {
+      const key = crypto.randomUUID();
+      localStorage.setItem(`report-comment-${key}`, comment.trim());
+      params.set("commentKey", key);
+    }
+
+    window.open(`/students/${studentId}/report?${params}`, "_blank");
+  }, [studentId, mode, preset, customStart, customEnd, comment, enrollmentStart]);
+
+  return (
+    <Popover
+      className="w-[320px] right-0 left-auto"
+      trigger={
+        <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors">
+          <FileText className="w-3.5 h-3.5" />
+          Generate Report
+        </button>
+      }
+      content={
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Report Settings</div>
+
+          {/* Mode toggle */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Report Type</label>
+            <div className="flex rounded-lg overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              {(["internal", "parent"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "flex-1 text-xs py-1.5 font-medium transition-colors capitalize",
+                    mode === m
+                      ? "bg-[#a0704b] text-white"
+                      : "bg-white dark:bg-[#2d2618] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  )}
+                >
+                  {m === "parent" ? "For Parents" : "Internal"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date range */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Date Range</label>
+            <select
+              value={preset}
+              onChange={(e) => setPreset(e.target.value as DatePreset)}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+            >
+              <option value="3m">Last 3 months</option>
+              <option value="6m">Last 6 months</option>
+              <option value="12m">Last 12 months</option>
+              {enrollmentStart && <option value="enrollment">This enrollment</option>}
+              <option value="custom">Custom range</option>
+            </select>
+            {preset === "custom" && (
+              <div className="flex gap-2 mt-1.5">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                />
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Tutor comment */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
+              Tutor Comment <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+            </label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add observations or recommendations..."
+              rows={3}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 resize-none"
+            />
+          </div>
+
+          {/* Generate button */}
+          <button
+            onClick={handleGenerate}
+            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Generate Report
+          </button>
+        </div>
+      }
+    />
+  );
+}
+
 // --- Main Component ---
 
 type ProgressNavTarget = "sessions" | "ratings" | "courseware" | "profile";
@@ -590,8 +723,16 @@ export function StudentProgressDrawer({
     );
   }
 
+  // Find most recent enrollment start date for "This enrollment" preset
+  const latestEnrollmentStart = enrollment_timeline[0]?.first_lesson_date || null;
+
   return (
     <div className="space-y-4">
+      {/* Report button */}
+      <div className="flex justify-end">
+        <ReportConfigButton studentId={studentId} enrollmentStart={latestEnrollmentStart} />
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard
