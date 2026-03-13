@@ -18,6 +18,7 @@ from models import (
     SummerApplication,
     SummerCourseSlot,
     SummerPlacement,
+    SummerTutorDuty,
     Tutor,
 )
 from schemas import (
@@ -43,10 +44,13 @@ from schemas import (
     SummerSuggestRequest,
     SummerSuggestResponse,
     SummerSuggestionItem,
+    SummerTutorDutyBulkSet,
+    SummerTutorDutyResponse,
+    SummerApplicationPlacementInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.rate_limiter import check_ip_rate_limit
-from constants import hk_now
+from constants import hk_now, SummerApplicationStatus
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -373,6 +377,27 @@ def clone_config(
     return clone
 
 
+def _build_application_response(app: SummerApplication) -> SummerApplicationResponse:
+    """Build application response with embedded placement info."""
+    placements = []
+    for p in (app.placements or []):
+        if p.placement_status == "Cancelled":
+            continue
+        slot = p.slot
+        placements.append(SummerApplicationPlacementInfo(
+            id=p.id,
+            slot_id=p.slot_id,
+            slot_day=slot.slot_day if slot else "",
+            time_slot=slot.time_slot if slot else "",
+            grade=slot.grade if slot else None,
+            tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
+            placement_status=p.placement_status,
+        ))
+    data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
+    data["placements"] = placements
+    return SummerApplicationResponse.model_validate(data)
+
+
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])
 def list_applications(
     config_id: Optional[int] = None,
@@ -384,7 +409,12 @@ def list_applications(
     db: Session = Depends(get_db),
 ):
     """List summer applications with optional filters."""
-    q = db.query(SummerApplication).options(joinedload(SummerApplication.buddy_group))
+    q = db.query(SummerApplication).options(
+        joinedload(SummerApplication.buddy_group),
+        joinedload(SummerApplication.placements)
+            .joinedload(SummerPlacement.slot)
+            .joinedload(SummerCourseSlot.tutor),
+    )
 
     if config_id:
         q = q.filter(SummerApplication.config_id == config_id)
@@ -402,7 +432,8 @@ def list_applications(
             | (SummerApplication.contact_phone.ilike(pattern))
         )
 
-    return q.order_by(SummerApplication.submitted_at.desc()).all()
+    apps = q.order_by(SummerApplication.submitted_at.desc()).all()
+    return [_build_application_response(a) for a in apps]
 
 
 @router.get("/summer/applications/stats", response_model=SummerApplicationStats)
@@ -456,11 +487,14 @@ def get_application(
 ):
     """Get a single application by ID."""
     app = db.query(SummerApplication).options(
-        joinedload(SummerApplication.buddy_group)
+        joinedload(SummerApplication.buddy_group),
+        joinedload(SummerApplication.placements)
+            .joinedload(SummerPlacement.slot)
+            .joinedload(SummerCourseSlot.tutor),
     ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-    return app
+    return _build_application_response(app)
 
 
 @router.patch("/summer/applications/{app_id}", response_model=SummerApplicationResponse)
@@ -486,8 +520,17 @@ def update_application(
         setattr(app, field, value)
 
     db.commit()
-    db.refresh(app)
-    return app
+
+    # Reload with placements for response
+    app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.buddy_group),
+        joinedload(SummerApplication.placements)
+            .joinedload(SummerPlacement.slot)
+            .joinedload(SummerCourseSlot.tutor),
+    ).filter(SummerApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return _build_application_response(app)
 
 
 # ─── Slot CRUD ───────────────────────────────────────────────────────────────
@@ -587,6 +630,29 @@ def update_slot(
         raise HTTPException(status_code=404, detail="Slot not found")
 
     updates = data.model_dump(exclude_unset=True)
+
+    # Tutor conflict detection
+    new_tutor_id = updates.get("tutor_id")
+    if new_tutor_id is not None and new_tutor_id != slot.tutor_id:
+        conflict = (
+            db.query(SummerCourseSlot)
+            .filter(
+                SummerCourseSlot.config_id == slot.config_id,
+                SummerCourseSlot.slot_day == slot.slot_day,
+                SummerCourseSlot.time_slot == slot.time_slot,
+                SummerCourseSlot.tutor_id == new_tutor_id,
+                SummerCourseSlot.id != slot_id,
+            )
+            .first()
+        )
+        if conflict:
+            tutor = db.query(Tutor).filter(Tutor.id == new_tutor_id).first()
+            name = tutor.tutor_name if tutor else "Tutor"
+            raise HTTPException(
+                status_code=409,
+                detail=f"{name} is already assigned to another slot at {slot.slot_day} {slot.time_slot}",
+            )
+
     for field, value in updates.items():
         setattr(slot, field, value)
     db.commit()
@@ -696,6 +762,14 @@ def create_placement(
         raise HTTPException(status_code=409, detail="Application already placed in this slot")
     db.refresh(placement)
 
+    # Auto-sync: advance application status to Placement Offered
+    if app.application_status in (
+        SummerApplicationStatus.SUBMITTED,
+        SummerApplicationStatus.UNDER_REVIEW,
+    ):
+        app.application_status = SummerApplicationStatus.PLACEMENT_OFFERED
+        db.commit()
+
     # Reload with application
     placement = (
         db.query(SummerPlacement)
@@ -726,8 +800,36 @@ def update_placement(
     # placement_status validated by Literal type in schema
     placement.placement_status = data.placement_status
     db.commit()
+
+    # Auto-sync application status
+    app = placement.application
+    if app:
+        if data.placement_status == "Confirmed" and app.application_status == SummerApplicationStatus.PLACEMENT_OFFERED:
+            app.application_status = SummerApplicationStatus.PLACEMENT_CONFIRMED
+            db.commit()
+        elif data.placement_status == "Cancelled":
+            _maybe_revert_app_status(db, app)
+
     db.refresh(placement)
     return _build_placement_response(placement)
+
+
+def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
+    """If application has no remaining active placements, revert status to Under Review."""
+    remaining = (
+        db.query(SummerPlacement)
+        .filter(
+            SummerPlacement.application_id == app.id,
+            SummerPlacement.placement_status != "Cancelled",
+        )
+        .count()
+    )
+    if remaining == 0 and app.application_status in (
+        SummerApplicationStatus.PLACEMENT_OFFERED,
+        SummerApplicationStatus.PLACEMENT_CONFIRMED,
+    ):
+        app.application_status = SummerApplicationStatus.UNDER_REVIEW
+        db.commit()
 
 
 @router.delete("/summer/placements/{placement_id}")
@@ -737,12 +839,23 @@ def delete_placement(
     db: Session = Depends(get_db),
 ):
     """Remove a placement (unassign student from slot)."""
-    placement = db.query(SummerPlacement).filter(SummerPlacement.id == placement_id).first()
+    placement = (
+        db.query(SummerPlacement)
+        .options(joinedload(SummerPlacement.application))
+        .filter(SummerPlacement.id == placement_id)
+        .first()
+    )
     if not placement:
         raise HTTPException(status_code=404, detail="Placement not found")
 
+    app = placement.application
     db.delete(placement)
     db.commit()
+
+    # Auto-sync: revert app status if no placements remain
+    if app:
+        _maybe_revert_app_status(db, app)
+
     return {"success": True}
 
 
@@ -765,11 +878,26 @@ def bulk_confirm_placements(
     if location:
         q = q.filter(SummerCourseSlot.location == location)
 
+    # Get application IDs before updating so we can sync their statuses
+    placement_app_ids = [p.application_id for p in q.all()]
+
     count = q.update(
         {SummerPlacement.placement_status: "Confirmed"},
         synchronize_session="fetch",
     )
     db.commit()
+
+    # Auto-sync: advance application statuses to Placement Confirmed
+    if placement_app_ids:
+        db.query(SummerApplication).filter(
+            SummerApplication.id.in_(placement_app_ids),
+            SummerApplication.application_status == SummerApplicationStatus.PLACEMENT_OFFERED,
+        ).update(
+            {SummerApplication.application_status: SummerApplicationStatus.PLACEMENT_CONFIRMED},
+            synchronize_session="fetch",
+        )
+        db.commit()
+
     return {"confirmed": count}
 
 
@@ -996,3 +1124,78 @@ def auto_suggest(
                 slot_buddy_groups.setdefault(best_slot.id, set()).add(app.buddy_group_id)
 
     return SummerSuggestResponse(proposals=proposals, unplaceable=unplaceable)
+
+
+# ─── Tutor Duties ────────────────────────────────────────────────────────────
+
+@router.get("/summer/tutors/active")
+def get_active_tutors(
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Return active tutors for duty/slot assignment."""
+    tutors = (
+        db.query(Tutor)
+        .filter(Tutor.is_active_tutor == True)  # noqa: E712
+        .order_by(Tutor.tutor_name)
+        .all()
+    )
+    return [{"id": t.id, "tutor_name": t.tutor_name, "default_location": t.default_location} for t in tutors]
+
+
+@router.get("/summer/tutor-duties", response_model=list[SummerTutorDutyResponse])
+def get_tutor_duties(
+    config_id: int,
+    location: str,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get all tutor duties for a config+location."""
+    duties = (
+        db.query(SummerTutorDuty)
+        .options(joinedload(SummerTutorDuty.tutor))
+        .filter(
+            SummerTutorDuty.config_id == config_id,
+            SummerTutorDuty.location == location,
+        )
+        .all()
+    )
+    return [
+        SummerTutorDutyResponse(
+            id=d.id,
+            config_id=d.config_id,
+            tutor_id=d.tutor_id,
+            tutor_name=d.tutor.tutor_name if d.tutor else "",
+            location=d.location,
+            duty_day=d.duty_day,
+            time_slot=d.time_slot,
+        )
+        for d in duties
+    ]
+
+
+@router.post("/summer/tutor-duties/bulk-set")
+def bulk_set_tutor_duties(
+    data: SummerTutorDutyBulkSet,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Replace all tutor duties for a config+location with the given set."""
+    # Delete existing
+    db.query(SummerTutorDuty).filter(
+        SummerTutorDuty.config_id == data.config_id,
+        SummerTutorDuty.location == data.location,
+    ).delete()
+
+    # Insert new
+    for item in data.duties:
+        db.add(SummerTutorDuty(
+            config_id=data.config_id,
+            tutor_id=item.tutor_id,
+            location=data.location,
+            duty_day=item.duty_day,
+            time_slot=item.time_slot,
+        ))
+
+    db.commit()
+    return {"success": True, "count": len(data.duties)}

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
 import { SummerSlotCard } from "./SummerSlotCard";
+import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
 interface SummerSlotCellProps {
@@ -21,6 +22,7 @@ interface SummerSlotCellProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
+  availableTutors?: AvailableTutor[];
 }
 
 function heatColor(count: number): string {
@@ -45,6 +47,7 @@ export function SummerSlotCell({
   onClickStudent,
   onDropFailed,
   prefHighlight,
+  availableTutors,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -139,6 +142,7 @@ export function SummerSlotCell({
             onDropStudent={(appId) => onDropStudent(appId, slot.id)}
             onRemovePlacement={onRemovePlacement}
             onClickStudent={onClickStudent}
+            availableTutors={availableTutors}
           />
         ))}
       </div>

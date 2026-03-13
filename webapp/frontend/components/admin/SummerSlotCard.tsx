@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
+import type { AvailableTutor } from "@/types";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
 interface SummerSlotCardProps {
@@ -14,6 +15,7 @@ interface SummerSlotCardProps {
   onDropStudent: (applicationId: number) => void;
   onRemovePlacement: (placementId: number) => void;
   onClickStudent?: (applicationId: number) => void;
+  availableTutors?: AvailableTutor[];
 }
 
 function fillBarColor(pct: number): string {
@@ -30,6 +32,7 @@ export function SummerSlotCard({
   onDropStudent,
   onRemovePlacement,
   onClickStudent,
+  availableTutors,
 }: SummerSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -74,21 +77,15 @@ export function SummerSlotCard({
   const commitLabel = () => {
     const val = labelRef.current?.value?.trim() ?? "";
     if (val !== (slot.slot_label ?? "")) {
-      onUpdate({ slot_label: val || undefined });
+      onUpdate({ slot_label: val || null });
     }
     setEditingLabel(false);
   };
 
-  // Grade mix dots for collapsed view
-  const gradeMix = slot.placements.reduce<Record<string, number>>((acc, p) => {
-    acc[p.grade] = (acc[p.grade] ?? 0) + 1;
-    return acc;
-  }, {});
-
   return (
     <div
       className={cn(
-        "rounded border text-[11px] transition-all",
+        "rounded border text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/5"
           : "border-border bg-card dark:bg-gray-800",
@@ -98,21 +95,21 @@ export function SummerSlotCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Header row */}
-      <div className="flex items-center gap-1 px-1.5 py-1">
+      {/* Row 1: Identity + actions */}
+      <div className="flex items-center gap-0.5 px-1 py-0.5 min-w-0">
         {/* Grade badge */}
         <select
           value={slot.grade || ""}
           onChange={(e) => onUpdate({ grade: e.target.value || null })}
           className={cn(
-            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer appearance-none",
-            slot.grade ? SUMMER_GRADE_BG[slot.grade] || "bg-gray-100 dark:bg-gray-700" : "bg-gray-100 dark:bg-gray-700 text-muted-foreground"
+            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-gray-100 dark:bg-gray-700",
+            slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
           )}
           title="Grade"
         >
           <option value="">--</option>
           {grades.map((g) => (
-            <option key={g} value={g}>{g}</option>
+            <option key={g} value={g} className={SUMMER_GRADE_TEXT[g] || ""}>{g}</option>
           ))}
         </select>
 
@@ -133,102 +130,113 @@ export function SummerSlotCard({
           {slot.course_type || "·"}
         </button>
 
-        {/* Label (click to edit) */}
-        {editingLabel ? (
+        <div className="flex-1" />
+
+        {/* Action buttons — always visible */}
+        <div className="flex items-center shrink-0">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="p-0.5 text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+
+          <button
+            onClick={onDelete}
+            className="p-0.5 text-muted-foreground hover:text-red-500"
+            title="Delete slot"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2: Capacity bar */}
+      <div className="flex items-center gap-1 px-1 pb-0.5">
+        <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
+            style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
+          />
+        </div>
+        {editingMax ? (
           <input
-            ref={labelRef}
-            defaultValue={slot.slot_label ?? ""}
-            className="text-[9px] w-10 px-0.5 rounded border border-border bg-card dark:bg-gray-700"
+            ref={maxRef}
+            type="number"
+            defaultValue={slot.max_students}
+            min={1}
+            max={20}
+            className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
             autoFocus
-            onBlur={commitLabel}
-            onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
-            placeholder="label"
+            onBlur={commitMax}
+            onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
           />
         ) : (
           <button
-            onClick={() => setEditingLabel(true)}
-            className="text-[9px] text-muted-foreground truncate max-w-[40px] hover:text-foreground hover:underline"
-            title="Click to edit label"
+            onClick={() => setEditingMax(true)}
+            className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
+            title="Click to edit max students"
           >
-            {slot.slot_label || "…"}
+            {slot.placement_count}/{slot.max_students}
           </button>
         )}
+      </div>
 
-        {/* Fill bar */}
-        <div className="flex-1 flex items-center gap-1 ml-1">
-          <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-            <div
-              className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
-              style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
-            />
-          </div>
-          {/* Clickable count to edit max */}
-          {editingMax ? (
+      {/* Label + Tutor picker row */}
+      <div className="px-1 pb-0.5 flex items-center gap-1">
+        {(slot.slot_label || editingLabel) && (
+          editingLabel ? (
             <input
-              ref={maxRef}
-              type="number"
-              defaultValue={slot.max_students}
-              min={1}
-              max={20}
-              className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
+              ref={labelRef}
+              defaultValue={slot.slot_label ?? ""}
+              className="text-[9px] w-10 px-0.5 rounded border border-border bg-card dark:bg-gray-700 shrink-0"
               autoFocus
-              onBlur={commitMax}
-              onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
+              onBlur={commitLabel}
+              onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
+              placeholder="label"
             />
           ) : (
             <button
-              onClick={() => setEditingMax(true)}
-              className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
-              title="Click to edit max students"
+              onClick={() => setEditingLabel(true)}
+              className="text-[9px] text-muted-foreground shrink-0 hover:text-foreground hover:underline"
+              title="Click to edit label"
             >
-              {slot.placement_count}/{slot.max_students}
+              {slot.slot_label}
             </button>
-          )}
-        </div>
-
-        {/* Grade mix dots (collapsed) */}
-        {!expanded && slot.placement_count > 0 && (
-          <span className="flex gap-0.5">
-            {Object.entries(gradeMix).map(([g, c]) => (
-              <span
-                key={g}
-                className={cn("text-[8px] font-bold", SUMMER_GRADE_TEXT[g] || "text-muted-foreground")}
-                title={`${g}: ${c}`}
-              >
-                {c}
-              </span>
-            ))}
-          </span>
+          )
         )}
-
-        {/* Expand/collapse */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="p-0.5 text-muted-foreground hover:text-foreground"
+        <select
+          value={slot.tutor_id ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            onUpdate({ tutor_id: val ? parseInt(val) : null });
+          }}
+          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-gray-100 dark:bg-gray-700 text-muted-foreground dark:text-gray-300 cursor-pointer"
+          title="Assign tutor"
         >
-          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </button>
-
-        {/* Delete */}
-        <button
-          onClick={onDelete}
-          className="p-0.5 text-muted-foreground hover:text-red-500"
-          title="Delete slot"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+          <option value="">— tutor —</option>
+          {availableTutors?.filter((t) => t.onDuty).map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
-
-      {/* Tutor */}
-      {slot.tutor_name && (
-        <div className="px-1.5 pb-0.5 text-[9px] text-muted-foreground truncate">
-          {slot.tutor_name}
-        </div>
-      )}
 
       {/* Expanded: student list */}
       {expanded && (
         <div className="px-1.5 pb-1 space-y-0.5">
+          <input
+            defaultValue={slot.slot_label ?? ""}
+            key={slot.slot_label}
+            className="text-[9px] w-full px-1 py-0.5 rounded border border-border bg-card dark:bg-gray-700"
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });
+            }}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
+            placeholder="Add label..."
+          />
           {slot.placements.length === 0 && (
             <div className="text-[9px] text-muted-foreground italic py-1">
               No students placed yet. Drag here to assign.

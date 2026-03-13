@@ -2,6 +2,8 @@
 
 import { Fragment, useMemo } from "react";
 import { SummerSlotCell } from "./SummerSlotCell";
+import { DAY_ABBREV } from "@/lib/summer-utils";
+import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
 interface DragPrefs {
@@ -23,17 +25,9 @@ interface SummerArrangementGridProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   dragPrefs?: DragPrefs | null;
+  getAvailableTutors?: (day: string, timeSlot: string) => AvailableTutor[];
 }
 
-const DAY_ABBREV: Record<string, string> = {
-  Monday: "Mon",
-  Tuesday: "Tue",
-  Wednesday: "Wed",
-  Thursday: "Thu",
-  Friday: "Fri",
-  Saturday: "Sat",
-  Sunday: "Sun",
-};
 
 export function SummerArrangementGrid({
   days,
@@ -49,6 +43,7 @@ export function SummerArrangementGrid({
   onClickStudent,
   onDropFailed,
   dragPrefs,
+  getAvailableTutors,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -98,8 +93,9 @@ export function SummerArrangementGrid({
       <div
         className="grid gap-px bg-border dark:bg-gray-700 border border-border dark:border-gray-700 rounded-lg overflow-hidden"
         style={{
-          gridTemplateColumns: `64px repeat(${days.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: `40px repeat(${days.length}, minmax(110px, 1fr))`,
           gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
+          minWidth: `${40 + days.length * 110}px`,
         }}
       >
         {/* Header row: empty corner + day headers */}
@@ -119,7 +115,7 @@ export function SummerArrangementGrid({
         {timeSlots.map((ts) => (
           <Fragment key={ts}>
             {/* Time label */}
-            <div className="bg-surface-variant flex items-center justify-center text-[11px] text-muted-foreground px-1 text-center sticky left-0 z-10">
+            <div className="bg-surface-variant flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
               {ts}
             </div>
 
@@ -145,6 +141,7 @@ export function SummerArrangementGrid({
                   onClickStudent={onClickStudent}
                   onDropFailed={onDropFailed}
                   prefHighlight={isPrefMatch}
+                  availableTutors={getAvailableTutors?.(day, ts)}
                 />
               );
             })}

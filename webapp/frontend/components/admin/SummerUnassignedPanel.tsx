@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { DAY_ABBREV, SUMMER_GRADE_BG } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
 interface SummerUnassignedPanelProps {
@@ -13,17 +13,10 @@ interface SummerUnassignedPanelProps {
   onClickStudent?: (applicationId: number) => void;
   onDragStart?: (app: SummerApplication) => void;
   onDragEnd?: () => void;
+  className?: string;
+  hideCollapse?: boolean;
 }
 
-const DAY_ABBREV: Record<string, string> = {
-  Monday: "Mon",
-  Tuesday: "Tue",
-  Wednesday: "Wed",
-  Thursday: "Thu",
-  Friday: "Fri",
-  Saturday: "Sat",
-  Sunday: "Sun",
-};
 
 type SortMode = "name" | "grade" | "pref";
 
@@ -39,6 +32,8 @@ export function SummerUnassignedPanel({
   onClickStudent,
   onDragStart,
   onDragEnd,
+  className,
+  hideCollapse,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -80,7 +75,7 @@ export function SummerUnassignedPanel({
   // Collapsed state: thin vertical strip
   if (collapsed) {
     return (
-      <div className="w-8 flex-shrink-0 flex flex-col items-center border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 py-3 gap-2">
+      <div className={cn("w-8 flex-shrink-0 flex flex-col items-center border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 py-3 gap-2", className)}>
         <button
           onClick={() => setCollapsed(false)}
           className="p-1 text-muted-foreground hover:text-foreground"
@@ -96,7 +91,7 @@ export function SummerUnassignedPanel({
   }
 
   return (
-    <div className="w-64 flex-shrink-0 flex flex-col border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 overflow-hidden">
+    <div className={cn("w-64 flex-shrink-0 flex flex-col border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 overflow-hidden", className)}>
       {/* Header */}
       <div className="px-3 py-2 border-b border-border dark:border-gray-700 space-y-2">
         <div className="flex items-center gap-2">
@@ -106,13 +101,15 @@ export function SummerUnassignedPanel({
             {filtered.length}
             {filtered.length !== applications.length && ` / ${applications.length}`}
           </span>
-          <button
-            onClick={() => setCollapsed(true)}
-            className="p-0.5 text-muted-foreground hover:text-foreground"
-            title="Collapse panel"
-          >
-            <PanelRightClose className="h-3.5 w-3.5" />
-          </button>
+          {!hideCollapse && (
+            <button
+              onClick={() => setCollapsed(true)}
+              className="p-0.5 text-muted-foreground hover:text-foreground"
+              title="Collapse panel"
+            >
+              <PanelRightClose className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Search */}
