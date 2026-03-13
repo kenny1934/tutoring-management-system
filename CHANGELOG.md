@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.31](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.31) (2026-03-13)
+
+### New Features
+
+* **Student progress drawer** — expandable analytics panel in the student detail header showing attendance summary, performance rating trends, exercise breakdown, enrollment timeline, parent contact summary, and monthly activity charts
+* **Trend delta badges** — 30-day vs previous 30-day attendance comparison and recent vs overall rating comparison with arrow indicators and tooltips explaining each metric
+* **Clickable summary cards** — each metric card in the progress drawer navigates to the relevant tab (sessions, ratings, courseware, profile)
+
+### Improvements
+
+* **Optimized progress queries** — merged attendance trend calculation into a single SQL query instead of two separate round trips
+* **Consistent badge colors** — enrollment type and contact method/type badges in the progress drawer now match the colors used in the Profile and Parent Contacts tabs
+* **Enrollment timeline trimming** — shows 2 most recent enrollments with a "View all" link to the Profile tab
+
+### Bug Fixes
+
+* **Total sessions count** — progress drawer now correctly excludes rescheduled and cancelled sessions from the total
+* **Recharts tooltip collision** — resolved build error from duplicate Tooltip import between Recharts and UI tooltip component
+* **Loading skeleton** — added progress button placeholder and corrected tab count in the student detail loading state
+
 ## [2.0.30](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.30) (2026-03-12)
 
 ### Bug Fixes
