@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _insights_cache: dict[str, tuple["ProgressInsights", float]] = {}
 _CACHE_TTL = 3600  # 1 hour
+_MAX_CACHE_SIZE = 200
 
 
 def _cache_key(student_id: int, date_range: Optional[tuple[date, date]], language: str, exclude: frozenset[str] = frozenset()) -> str:
@@ -220,6 +221,7 @@ def generate_progress_insights(
     # Layer 2: AI narrative + concept extraction (skip if no exercises)
     narrative = ""
     concept_nodes: list[ConceptNode] = []
+    ai_error = False
     if exercises:
         try:
             from services.ai_client import generate
@@ -237,6 +239,7 @@ def generate_progress_insights(
             logger.info("Progress insights generated: %d tokens, %d concepts", tokens, len(concept_nodes))
         except Exception as exc:
             logger.warning("AI insight generation failed, returning rule-based only: %s", exc)
+            ai_error = True
 
     result = ProgressInsights(
         top_topics=top_topics,
@@ -245,13 +248,18 @@ def generate_progress_insights(
         hw_count=hw_count,
         narrative=narrative,
         concept_nodes=concept_nodes,
+        ai_error=ai_error,
     )
 
-    # Evict expired entries, then cache the result
+    # Evict expired entries, then enforce max cache size
     now = time.time()
     expired = [k for k, (_, ts) in _insights_cache.items() if now - ts >= _CACHE_TTL]
     for k in expired:
         del _insights_cache[k]
+    if len(_insights_cache) > _MAX_CACHE_SIZE:
+        sorted_keys = sorted(_insights_cache, key=lambda k: _insights_cache[k][1])
+        for k in sorted_keys[:len(_insights_cache) - _MAX_CACHE_SIZE]:
+            del _insights_cache[k]
     _insights_cache[key] = (result, now)
 
     return result

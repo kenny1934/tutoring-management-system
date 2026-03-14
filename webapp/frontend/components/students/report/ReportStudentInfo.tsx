@@ -10,7 +10,7 @@ export function ReportStudentInfo({ student, generatedBy }: ReportStudentInfoPro
     { label: "Student ID", value: student.school_student_id },
     { label: "Grade", value: student.grade },
     { label: "School", value: student.school },
-    { label: "Stream", value: student.lang_stream },
+    { label: "Stream", value: [student.lang_stream, student.academic_stream].filter(Boolean).join(" / ") || undefined },
     ...(generatedBy ? [{ label: "Prepared by", value: generatedBy }] : []),
   ].filter((f) => f.value);
 

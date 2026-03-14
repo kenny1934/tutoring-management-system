@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useParams } from "next/navigation";
 import useSWRImmutable from "swr/immutable";
 import { reportSharesAPI } from "@/lib/api";
+import { formatShortDate } from "@/lib/formatters";
 import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
 import type { Student, StudentProgress } from "@/types";
 
@@ -61,6 +62,9 @@ function SharedReportInner() {
           sections={config.sections}
         />
       </div>
+      <p className="text-xs text-gray-400 text-center pb-6 print:hidden">
+        This report is valid until {formatShortDate(data.expires_at)}
+      </p>
     </div>
   );
 }

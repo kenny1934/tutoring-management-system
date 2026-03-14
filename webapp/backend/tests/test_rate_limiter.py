@@ -43,7 +43,7 @@ class TestGetClientIp:
         assert get_client_ip(request) == "9.9.9.9"
 
     def test_with_forwarded_for(self):
-        """Extracts rightmost (last trusted proxy) IP from X-Forwarded-For."""
+        """Extracts rightmost IP from X-Forwarded-For (closest trusted proxy)."""
         request = MagicMock()
         request.headers = {"X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
         assert get_client_ip(request) == "5.6.7.8"

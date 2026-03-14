@@ -166,6 +166,7 @@ class SessionLog(Base):
         # Performance indexes for frequently filtered columns
         # Note: session_status already indexed via idx_location_date_status
         Index('idx_session_log_student', 'student_id'),
+        Index('idx_session_log_student_date', 'student_id', 'session_date'),
         Index('idx_session_log_tutor', 'tutor_id'),
         Index('idx_session_log_enrollment', 'enrollment_id'),
     )
@@ -1091,6 +1092,7 @@ class ReportShare(Base):
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String(36), unique=True, nullable=False, index=True)
     report_data = Column(JSON, nullable=False)
+    student_id = Column(Integer, nullable=True)
     created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     expires_at = Column(DateTime, nullable=False)

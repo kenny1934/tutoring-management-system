@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine } from "recharts";
 import { CHART_COLORS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress } from "@/types";
 
@@ -35,6 +35,15 @@ export function ReportRatingChart({ data }: ReportRatingChartProps) {
             strokeWidth={2}
             dot={{ fill: CHART_COLORS.rating, r: 3 }}
           />
+          {data.overall_avg > 0 && (
+            <ReferenceLine
+              y={data.overall_avg}
+              stroke="#a0704b"
+              strokeDasharray="4 4"
+              strokeWidth={1}
+              label={{ value: `Avg ${data.overall_avg.toFixed(1)}`, position: "right", fontSize: 9, fill: "#a0704b" }}
+            />
+          )}
         </LineChart>
       </ResponsiveContainer>
     </div>
