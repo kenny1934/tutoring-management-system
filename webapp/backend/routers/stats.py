@@ -8,14 +8,12 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta, time
-from constants import BASE_FEE_PER_LESSON
+from constants import BASE_FEE_PER_LESSON, EXAM_EVENT_TYPES
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent
 from auth.dependencies import get_current_user, reject_guest, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.query_helpers import enrollment_with_student_tutor
-
-EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
 
 router = APIRouter()
 

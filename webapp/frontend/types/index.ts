@@ -2024,6 +2024,7 @@ export interface ProgressInsights {
   hw_count: number;
   narrative: string;
   concept_nodes?: ConceptNode[];
+  ai_error?: boolean;
 }
 
 export interface StudentProgress {

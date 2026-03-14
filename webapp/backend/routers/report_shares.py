@@ -46,19 +46,28 @@ def create_report_share(
         student_data.pop(field, None)
 
     # Dedup: reuse recent share for same student by same tutor
+    now = datetime.utcnow()
+    cutoff = now - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+    dedup_filter = [
+        ReportShare.created_by == current_user.id,
+        ReportShare.created_at >= cutoff,
+        ReportShare.revoked_at.is_(None),
+        ReportShare.expires_at > now,
+    ]
+    if req.student_id:
+        dedup_filter.append(ReportShare.student_id == req.student_id)
     student_name = student_data.get("student_name")
-    if student_name:
-        cutoff = datetime.utcnow() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+    if req.student_id or student_name:
         existing = db.query(ReportShare).filter(
-            ReportShare.created_by == current_user.id,
-            ReportShare.created_at >= cutoff,
-            ReportShare.revoked_at.is_(None),
-            ReportShare.expires_at > datetime.utcnow(),
+            *dedup_filter
         ).order_by(ReportShare.created_at.desc()).first()
 
         if existing:
-            existing_name = existing.report_data.get("student", {}).get("student_name")
-            if existing_name == student_name:
+            match = req.student_id and existing.student_id == req.student_id
+            if not match:
+                existing_name = existing.report_data.get("student", {}).get("student_name")
+                match = existing_name == student_name
+            if match:
                 # Update snapshot so the link always serves the latest config
                 existing.report_data = req.report_data
                 db.commit()
@@ -73,6 +82,7 @@ def create_report_share(
     share = ReportShare(
         token=token,
         report_data=req.report_data,
+        student_id=req.student_id,
         created_by=current_user.id,
         expires_at=expires_at,
     )
@@ -94,8 +104,10 @@ def get_shared_report(token: str, request: Request, db: Session = Depends(get_db
     if not share or share.revoked_at or share.expires_at < datetime.utcnow():
         raise HTTPException(status_code=404, detail="Report not found or expired")
 
-    # Increment view count
-    share.view_count = (share.view_count or 0) + 1
+    # Increment view count atomically
+    db.query(ReportShare).filter(ReportShare.id == share.id).update(
+        {ReportShare.view_count: ReportShare.view_count + 1}
+    )
     db.commit()
 
     return SharedReportData(
