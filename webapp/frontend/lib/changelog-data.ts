@@ -25,6 +25,15 @@ const changelogData = [
             "description": "**Server stability** — fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention"
           },
           {
+            "description": "**AI insights reliability** — fixed an error that could occur when generating AI learning summaries under heavy load"
+          },
+          {
+            "description": "**Shared report date** — shared report links now show the original generation date instead of the date the parent opens it"
+          },
+          {
+            "description": "**Print charts** — charts in reports no longer collapse to blank when printing or saving as PDF"
+          },
+          {
             "description": "**Expired share cleanup** — expired report links are automatically cleaned up, keeping the database tidy"
           }
         ]
@@ -36,10 +45,10 @@ const changelogData = [
             "description": "**Mobile-friendly reports** — shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables"
           },
           {
-            "description": "**Rate limiting** — public share links are rate-limited to prevent abuse"
+            "description": "**Share link refresh** — re-sharing a report within the dedup window now updates the link with the latest report settings"
           },
           {
-            "description": "**Code quality** — internal refactoring for better maintainability"
+            "description": "**Rate limiting** — public share links are rate-limited to prevent abuse"
           }
         ]
       }
