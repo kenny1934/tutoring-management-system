@@ -15,6 +15,7 @@
 
 ### Improvements
 
+* **Mobile-friendly reports** — shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables
 * **Rate limiting** — public share links are rate-limited to prevent abuse
 * **Code quality** — internal refactoring for better maintainability
 
