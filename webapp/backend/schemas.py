@@ -2102,6 +2102,7 @@ class ProgressInsights(BaseModel):
     hw_count: int = 0
     narrative: str = ""
     concept_nodes: List[ConceptNode] = []
+    ai_error: bool = False
 
 
 class StudentProgressResponse(BaseModel):
@@ -2124,6 +2125,7 @@ class StudentProgressResponse(BaseModel):
 class CreateReportShareRequest(BaseModel):
     report_data: dict
     expires_in_days: int = 30
+    student_id: Optional[int] = None
 
 
 class ReportShareResponse(BaseModel):

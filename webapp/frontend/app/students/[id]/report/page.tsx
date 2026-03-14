@@ -84,7 +84,6 @@ function StudentReportPageInner() {
     return {
       ...progress,
       insights: {
-        top_topics: [],
         total_exercises: progress.exercises?.total || 0,
         cw_count: progress.exercises?.classwork || 0,
         hw_count: progress.exercises?.homework || 0,
@@ -98,6 +97,7 @@ function StudentReportPageInner() {
 
   // Share link state
   const [shareUrl, setShareUrl] = useState("");
+  const [shareToken, setShareToken] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareError, setShareError] = useState("");
@@ -108,24 +108,28 @@ function StudentReportPageInner() {
     setShareError("");
     try {
       const result = await reportSharesAPI.create({
-        student: {
-          student_name: student.student_name,
-          grade: student.grade,
-          school: student.school,
-          lang_stream: student.lang_stream,
-          academic_stream: student.academic_stream,
-          school_student_id: student.school_student_id,
+        report_data: {
+          student: {
+            student_name: student.student_name,
+            grade: student.grade,
+            school: student.school,
+            lang_stream: student.lang_stream,
+            academic_stream: student.academic_stream,
+            school_student_id: student.school_student_id,
+          },
+          progress: mergedProgress,
+          config: {
+            mode: mode === "internal" ? "parent" : mode,
+            sections,
+            dateRangeLabel,
+            tutorComment,
+            generatedBy: user?.name,
+          },
         },
-        progress: mergedProgress,
-        config: {
-          mode: mode === "internal" ? "parent" : mode,
-          sections,
-          dateRangeLabel,
-          tutorComment,
-          generatedBy: user?.name,
-        },
+        student_id: studentId,
       });
       const shareOrigin = process.env.NEXT_PUBLIC_SHARE_ORIGIN || window.location.origin;
+      setShareToken(result.token);
       setShareUrl(`${shareOrigin}/share/${result.token}`);
     } catch (err) {
       console.error("Failed to create share link:", err);
@@ -170,7 +174,10 @@ function StudentReportPageInner() {
       <div className="report-toolbar sticky top-0 bg-surface/80 backdrop-blur-md border-b border-border shadow-sm px-4 py-2 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => window.close()}
+            onClick={() => {
+              window.close();
+              setTimeout(() => { window.location.href = `/students/${studentId}`; }, 100);
+            }}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -185,15 +192,19 @@ function StudentReportPageInner() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleShare}
-            disabled={isSharing}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            {isSharing ? "Creating..." : "Share Link"}
-          </button>
-          {shareError && <span className="text-xs text-red-500">{shareError}</span>}
+          {mode !== "internal" && (
+            <>
+              <button
+                onClick={handleShare}
+                disabled={isSharing}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {isSharing ? "Creating..." : "Share Link"}
+              </button>
+              {shareError && <span className="text-xs text-red-500">{shareError}</span>}
+            </>
+          )}
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
@@ -215,6 +226,22 @@ function StudentReportPageInner() {
             className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors flex-shrink-0"
           >
             {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+          </button>
+          <button
+            onClick={async () => {
+              if (!window.confirm("Revoke this share link? Parents will no longer be able to access it.")) return;
+              try {
+                if (shareToken) await reportSharesAPI.revoke(shareToken);
+                setShareUrl("");
+                setShareToken("");
+              } catch {
+                setShareError("Failed to revoke link");
+                setTimeout(() => setShareError(""), 3000);
+              }
+            }}
+            className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium flex-shrink-0"
+          >
+            Revoke
           </button>
           <button
             onClick={() => setShareUrl("")}

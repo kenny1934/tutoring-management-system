@@ -14,7 +14,7 @@ from auth.dependencies import get_current_user
 from database import get_db
 from utils.rate_limiter import check_user_rate_limit
 from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent
-from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE
+from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE, EXAM_EVENT_TYPES
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
@@ -285,8 +285,6 @@ def get_student_progress(
     if student.school and student.grade:
         test_start = start_date or activity_start
         test_end = end_date or today
-        from routers.stats import EXAM_EVENT_TYPES
-
         test_rows = db.query(CalendarEvent).filter(
             CalendarEvent.school == student.school,
             CalendarEvent.grade == student.grade,

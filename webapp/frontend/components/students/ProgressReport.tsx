@@ -117,7 +117,7 @@ export function ProgressReport({
 
       {showActivity && (
         <>
-          <div className="report-page-break" />
+          {(showTopics || showTests) && <div className="report-page-break" />}
           <div className="mb-6">
             <ReportActivityChart data={progress.monthly_activity} />
           </div>

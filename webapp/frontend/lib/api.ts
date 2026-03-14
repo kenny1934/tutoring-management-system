@@ -371,10 +371,10 @@ export const studentsAPI = {
 
 // Report Shares API
 export const reportSharesAPI = {
-  create: (reportData: Record<string, unknown>) => {
+  create: (payload: { report_data: Record<string, unknown>; student_id?: number }) => {
     return fetchAPI<{ token: string; expires_at: string }>("/report-shares", {
       method: "POST",
-      body: JSON.stringify({ report_data: reportData }),
+      body: JSON.stringify(payload),
     });
   },
 

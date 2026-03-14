@@ -1,4 +1,5 @@
 import type { StudentProgress } from "@/types";
+import { formatShortDate } from "@/lib/formatters";
 
 interface ReportContactSummaryProps {
   data: StudentProgress["contacts"];
@@ -20,7 +21,7 @@ export function ReportContactSummary({ data }: ReportContactSummaryProps) {
         {data.last_contact_date && (
           <div>
             <span className="text-gray-500">Last contact:</span>{" "}
-            <span className="font-semibold text-gray-900">{data.last_contact_date}</span>
+            <span className="font-semibold text-gray-900">{formatShortDate(data.last_contact_date)}</span>
           </div>
         )}
         {Object.keys(data.by_method).length > 0 && (

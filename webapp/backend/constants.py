@@ -108,6 +108,9 @@ ALL_SESSION_STATUSES = [status.value for status in SessionStatus]
 CW_TYPE = "CW"
 HW_TYPE = "HW"
 
+# Calendar event types that represent tests/exams
+EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
+
 # Fee calculation
 BASE_FEE_PER_LESSON = 400
 REGISTRATION_FEE = 100
