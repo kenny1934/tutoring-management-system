@@ -94,6 +94,55 @@ docs/                 # Documentation and integration guides
 scripts/              # Automation and utility scripts
 ```
 
+## Deployment
+
+### CI/CD Pipeline
+
+Merging to `main` triggers `.github/workflows/deploy.yml`:
+
+1. **Path detection** — only rebuilds services whose files changed (`webapp/backend/**` or `webapp/frontend/**`)
+2. **Tests** — backend `pytest` and frontend `vitest` must pass before deploy
+3. **Build** — Cloud Build creates Docker images, pushes to Artifact Registry (`asia-east2`)
+4. **Deploy** — `gcloud run deploy` updates the Cloud Run service in-place
+
+Manual deploys can be triggered via `workflow_dispatch` on the Actions tab.
+
+### Cloud Run Services
+
+| Service | Memory | CPU | Max Instances | Concurrency | Timeout |
+|---------|--------|-----|---------------|-------------|---------|
+| `tutoring-backend` | 512 Mi | 1 | 1 | 80 | 900s |
+| `tutoring-frontend` | 256 Mi | 1 | 1 | 80 | 60s |
+
+Both services run in `asia-east2` under project `csm-database-project`.
+
+### Backend Health & Auto-Recovery
+
+The backend exposes `/health` which checks:
+- DB connection pool capacity (fails fast with 503 if pool is near exhaustion)
+- Database connectivity (runs `SELECT 1`)
+
+Cloud Run liveness probe hits `/health` every 30s and restarts the container after 3 consecutive failures. This prevents prolonged outages from pool exhaustion without manual intervention.
+
+**Connection pool** (SQLAlchemy `QueuePool`): `pool_size=15`, `max_overflow=25` (max 40 connections). Sized for 10+ concurrent users with SSE streams, polling endpoints, background tasks, and AI insight generation.
+
+### Networking
+
+```
+Browser → Cloudflare (Proxied DNS)
+       → cloud-run-proxy Worker
+       → /api/*  → tutoring-backend (Cloud Run)
+       → /*      → tutoring-frontend (Cloud Run)
+```
+
+Custom domains: `csm.mathconceptsecondary.academy`, `csm-pro.mathconceptsecondary.academy`
+
+**Reports subdomain** (`reports.mathconceptsecondary.academy`): Serves shareable parent report links. The Cloudflare Worker restricts this hostname to `/share`, `/api/report-shares/`, `/_next/`, and `/report-logo.png` only — all other paths return 404. This prevents exposing the internal tool on the public reports domain.
+
+### Versioning
+
+Semantic versioning via [release-please](https://github.com/googleapis/release-please). Merges to `main` auto-create a Release PR; merging that PR cuts a GitHub Release, updates `CHANGELOG.md`, and tags the version. The frontend bakes the version into the build via `NEXT_PUBLIC_APP_VERSION`.
+
 ## License
 
 All Rights Reserved. See [LICENSE](LICENSE) for details.
