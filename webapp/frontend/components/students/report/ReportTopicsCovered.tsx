@@ -47,7 +47,7 @@ export function ReportTopicsCovered({ data }: ReportTopicsCoveredProps) {
           return (
             <div key={dateStr} className="flex gap-3 text-xs">
               <div className="w-[72px] shrink-0 text-gray-500 pt-0.5">{formatted}</div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 min-w-0">
                 {exercises.map((ex, i) => {
                   const name = getDisplayName(ex.pdf_name);
                   const pages = formatPageRange(ex.page_start, ex.page_end);
@@ -56,13 +56,13 @@ export function ReportTopicsCovered({ data }: ReportTopicsCoveredProps) {
                   return (
                     <span
                       key={i}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border max-w-full ${
                         isCW
                           ? "bg-amber-50 border-amber-200 text-amber-800"
                           : "bg-blue-50 border-blue-200 text-blue-800"
                       }`}
                     >
-                      <span className="font-medium">{name || "Untitled"}</span>
+                      <span className="font-medium truncate">{name || "Untitled"}</span>
                       {pages && <span className="text-[10px] opacity-70">{pages}</span>}
                     </span>
                   );
