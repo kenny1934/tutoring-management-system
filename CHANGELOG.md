@@ -10,17 +10,21 @@
 
 ### Bug Fixes
 
+* **Share link creation** — fixed "Failed to create share link" error caused by a missing database column; added migration for `student_id` on `report_shares`
 * **Server stability** — fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention
 * **AI insights reliability** — fixed an error that could occur when generating AI learning summaries under heavy load
 * **Shared report date** — shared report links now show the original generation date instead of the date the parent opens it
 * **Print charts** — charts in reports no longer collapse to blank when printing or saving as PDF
 * **Expired share cleanup** — expired report links are automatically cleaned up, keeping the database tidy
+* **Topic chip overflow** — long topic names in report chips are now truncated to prevent layout overflow
+* **Share link revoke** — revoke button now surfaces errors and only clears the URL on success
 
 ### Improvements
 
 * **Mobile-friendly reports** — shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables
 * **Share link refresh** — re-sharing a report within the dedup window now updates the link with the latest report settings
 * **Rate limiting** — public share links are rate-limited to prevent abuse
+* **Test coverage** — added 37 new backend tests covering report shares and student progress endpoints
 
 ## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
 
