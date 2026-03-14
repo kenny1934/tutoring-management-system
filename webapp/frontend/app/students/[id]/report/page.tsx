@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Share2, Check, Copy } from "lucide-react";
 import { useStudent } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
-import { studentsAPI } from "@/lib/api";
+import { studentsAPI, reportSharesAPI } from "@/lib/api";
 import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
 import { DEFAULT_SECTIONS } from "@/components/students/StudentProgressTab";
 import type { StudentProgress } from "@/types";
@@ -79,6 +79,60 @@ function StudentReportPageInner() {
 
   const handlePrint = useCallback(() => window.print(), []);
 
+  // Share link state
+  const [shareUrl, setShareUrl] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    if (!student || !progress) return;
+    setIsSharing(true);
+    try {
+      // Build the merged progress with stored insights
+      const mergedProgress = storedInsights ? {
+        ...progress,
+        insights: {
+          top_topics: [],
+          total_exercises: progress.exercises?.total || 0,
+          cw_count: progress.exercises?.classwork || 0,
+          hw_count: progress.exercises?.homework || 0,
+          ...progress.insights,
+          ...storedInsights,
+        },
+      } : progress;
+
+      const result = await reportSharesAPI.create({
+        student: {
+          student_name: student.student_name,
+          grade: student.grade,
+          school: student.school,
+          lang_stream: student.lang_stream,
+          academic_stream: student.academic_stream,
+          school_student_id: student.school_student_id,
+        },
+        progress: mergedProgress,
+        config: {
+          mode: mode === "internal" ? "parent" : mode,
+          sections,
+          dateRangeLabel,
+          tutorComment,
+          generatedBy: user?.name,
+        },
+      });
+      setShareUrl(`${window.location.origin}/share/${result.token}`);
+    } catch (err) {
+      console.error("Failed to create share link:", err);
+    } finally {
+      setIsSharing(false);
+    }
+  }, [student, progress, storedInsights, mode, sections, dateRangeLabel, tutorComment, user?.name]);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [shareUrl]);
+
   if (studentLoading || progressLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -117,14 +171,45 @@ function StudentReportPageInner() {
             <span className="text-xs text-muted-foreground">({dateRangeLabel})</span>
           )}
         </div>
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          Print / Save PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            {isSharing ? "Creating..." : "Share Link"}
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Print / Save PDF
+          </button>
+        </div>
       </div>
+
+      {/* Share URL popup */}
+      {shareUrl && (
+        <div className="report-toolbar sticky top-[41px] z-10 bg-green-50 dark:bg-green-950/30 border-b border-green-200 dark:border-green-800 px-4 py-2 flex items-center gap-3">
+          <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+          <span className="text-sm text-green-800 dark:text-green-300 flex-shrink-0">Share link created (expires in 30 days):</span>
+          <code className="text-xs bg-white dark:bg-black/20 border border-green-200 dark:border-green-800 rounded px-2 py-1 truncate flex-1">{shareUrl}</code>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors flex-shrink-0"
+          >
+            {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+          </button>
+          <button
+            onClick={() => setShareUrl("")}
+            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 text-lg leading-none flex-shrink-0"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Report content */}
       <div className="py-8 print:py-0">
