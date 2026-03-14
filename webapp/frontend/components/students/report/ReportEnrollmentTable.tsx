@@ -15,20 +15,21 @@ export function ReportEnrollmentTable({ data, mode }: ReportEnrollmentTableProps
   return (
     <div className="report-section">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Enrollment History</h3>
+      <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b-2 border-[#e8d4b8]">
-            <th className="text-left py-1.5 font-semibold text-gray-600">Tutor</th>
+            <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Tutor</th>
             {mode === "internal" && (
-              <th className="text-left py-1.5 font-semibold text-gray-600">Type</th>
+              <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Type</th>
             )}
             {mode === "internal" && (
-              <th className="text-left py-1.5 font-semibold text-gray-600">Status</th>
+              <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Status</th>
             )}
-            <th className="text-left py-1.5 font-semibold text-gray-600">Start Date</th>
-            <th className="text-left py-1.5 font-semibold text-gray-600">Schedule</th>
-            <th className="text-left py-1.5 font-semibold text-gray-600">Location</th>
-            <th className="text-right py-1.5 font-semibold text-gray-600">Lessons</th>
+            <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Start Date</th>
+            <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Schedule</th>
+            <th className="text-left py-1.5 font-semibold text-gray-600 whitespace-nowrap">Location</th>
+            <th className="text-right py-1.5 font-semibold text-gray-600 whitespace-nowrap">Lessons</th>
           </tr>
         </thead>
         <tbody>
@@ -51,6 +52,7 @@ export function ReportEnrollmentTable({ data, mode }: ReportEnrollmentTableProps
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

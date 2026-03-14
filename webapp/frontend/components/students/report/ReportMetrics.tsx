@@ -18,7 +18,7 @@ function MetricCard({ label, value, subtitle, color }: {
   return (
     <div className="border border-[#e8d4b8] rounded-lg px-4 py-3 text-center">
       <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</div>
-      <div className="text-2xl font-bold" style={{ color }}>{value}</div>
+      <div className="text-xl md:text-2xl font-bold" style={{ color }}>{value}</div>
       {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
     </div>
   );
@@ -29,7 +29,7 @@ export function ReportMetrics({ progress, mode, showRating = true }: ReportMetri
 
   if (mode === "parent") {
     return (
-      <div className={cn("grid gap-4 mb-6", showRating ? "grid-cols-3" : "grid-cols-2")}>
+      <div className={cn("grid gap-4 mb-6", showRating ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2")}>
         <MetricCard
           label="Sessions Attended"
           value={attendance.attended}
@@ -55,7 +55,7 @@ export function ReportMetrics({ progress, mode, showRating = true }: ReportMetri
   }
 
   return (
-    <div className="grid grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       <MetricCard
         label="Attendance Rate"
         value={`${attendance.attendance_rate}%`}

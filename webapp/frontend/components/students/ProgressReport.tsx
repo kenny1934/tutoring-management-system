@@ -59,7 +59,7 @@ export function ProgressReport({
     showContacts = true,
   } = sections ?? {};
   return (
-    <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-[20mm] py-[15mm]">
+    <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-4 py-6 md:px-[20mm] md:py-[15mm]">
       <ReportHeader dateRangeLabel={dateRangeLabel} />
       <ReportStudentInfo student={student} generatedBy={generatedBy} />
 
@@ -82,7 +82,7 @@ export function ProgressReport({
       {/* Charts row */}
       {mode === "internal" ? (
         (showAttendance || showRating) && (
-          <div className="flex gap-6 mb-6">
+          <div className="flex flex-col md:flex-row gap-6 mb-6">
             {showAttendance && (
               <div className="flex-1 min-w-0">
                 <ReportAttendanceChart data={progress.attendance} />
