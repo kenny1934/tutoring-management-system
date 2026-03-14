@@ -1,6 +1,5 @@
 import type { StudentProgress } from "@/types";
-
-type ReportMode = "internal" | "parent";
+import type { ReportMode } from "../ProgressReport";
 
 interface ReportEnrollmentTableProps {
   data: StudentProgress["enrollment_timeline"];

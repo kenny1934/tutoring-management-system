@@ -100,10 +100,12 @@ function StudentReportPageInner() {
   const [shareUrl, setShareUrl] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState("");
 
   const handleShare = useCallback(async () => {
     if (!student || !mergedProgress) return;
     setIsSharing(true);
+    setShareError("");
     try {
       const result = await reportSharesAPI.create({
         student: {
@@ -127,15 +129,21 @@ function StudentReportPageInner() {
       setShareUrl(`${shareOrigin}/share/${result.token}`);
     } catch (err) {
       console.error("Failed to create share link:", err);
+      setShareError("Failed to create share link");
+      setTimeout(() => setShareError(""), 3000);
     } finally {
       setIsSharing(false);
     }
   }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name]);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard access denied — ignore silently
+    }
   }, [shareUrl]);
 
   if (studentLoading || progressLoading) {
@@ -185,6 +193,7 @@ function StudentReportPageInner() {
             <Share2 className="w-3.5 h-3.5" />
             {isSharing ? "Creating..." : "Share Link"}
           </button>
+          {shareError && <span className="text-xs text-red-500">{shareError}</span>}
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"

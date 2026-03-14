@@ -36,6 +36,7 @@ interface ProgressReportProps {
   dateRangeLabel: string;
   tutorComment?: string;
   generatedBy?: string;
+  generatedAt?: string;
   sections?: Partial<ReportSectionToggles>;
 }
 
@@ -46,6 +47,7 @@ export function ProgressReport({
   dateRangeLabel,
   tutorComment,
   generatedBy,
+  generatedAt,
   sections,
 }: ProgressReportProps) {
   const {
@@ -140,7 +142,7 @@ export function ProgressReport({
         </div>
       )}
 
-      <ReportFooter generatedBy={generatedBy} mode={mode} />
+      <ReportFooter generatedBy={generatedBy} generatedAt={generatedAt} mode={mode} />
     </div>
   );
 }

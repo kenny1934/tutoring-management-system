@@ -57,6 +57,7 @@ function SharedReportInner() {
           dateRangeLabel={config.dateRangeLabel}
           tutorComment={config.tutorComment}
           generatedBy={config.generatedBy}
+          generatedAt={data.created_at}
           sections={config.sections}
         />
       </div>

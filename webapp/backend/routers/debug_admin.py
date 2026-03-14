@@ -37,7 +37,7 @@ from app_config.debug_tables import (
     get_allowed_tables,
     is_table_allowed,
 )
-from utils.rate_limiter import check_user_rate_limit
+from utils.rate_limiter import check_user_rate_limit, get_client_ip
 
 
 router = APIRouter(prefix="/debug", tags=["Debug Admin"])
@@ -238,13 +238,6 @@ def redact_sensitive(data: Optional[dict]) -> Optional[dict]:
         for k, v in data.items()
     }
 
-
-def get_client_ip(request: Request) -> Optional[str]:
-    """Extract client IP from request, handling proxies."""
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.client.host if request.client else None
 
 
 def get_valid_columns(table_name: str) -> set[str]:
