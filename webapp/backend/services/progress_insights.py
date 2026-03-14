@@ -10,6 +10,7 @@ from collections import Counter
 from datetime import date
 from typing import Optional
 
+from constants import CW_TYPE, HW_TYPE
 from models import Student
 from schemas import (
     ExerciseDetail, TestEvent, AttendanceSummary, RatingSummary,
@@ -137,8 +138,8 @@ def _build_context(
 
     # Exercises
     if exercises:
-        cw = [e for e in exercises if e.exercise_type in ("CW", "Classwork")]
-        hw = [e for e in exercises if e.exercise_type in ("HW", "Homework")]
+        cw = [e for e in exercises if e.exercise_type == CW_TYPE]
+        hw = [e for e in exercises if e.exercise_type == HW_TYPE]
         lines.append(f"\nExercises assigned: {len(exercises)} total ({len(cw)} classwork, {len(hw)} homework)")
 
         # List unique exercise names
@@ -209,8 +210,8 @@ def generate_progress_insights(
 
     # Layer 1: Rule-based
     top_topics = _extract_topics(exercises)
-    cw_count = sum(1 for e in exercises if e.exercise_type in ("CW", "Classwork"))
-    hw_count = sum(1 for e in exercises if e.exercise_type in ("HW", "Homework"))
+    cw_count = sum(1 for e in exercises if e.exercise_type == CW_TYPE)
+    hw_count = sum(1 for e in exercises if e.exercise_type == HW_TYPE)
 
     # Layer 2: AI narrative + concept extraction (skip if no exercises)
     narrative = ""

@@ -4,11 +4,12 @@ Shareable parent report links — token-based, expiring snapshots.
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
+from utils.rate_limiter import check_ip_rate_limit
 from models import Tutor, ReportShare
 from schemas import CreateReportShareRequest, ReportShareResponse, SharedReportData
 
@@ -62,8 +63,9 @@ def create_report_share(
 
 
 @router.get("/report-shares/{token}", response_model=SharedReportData)
-def get_shared_report(token: str, db: Session = Depends(get_db)):
-    """Public endpoint — no auth required."""
+def get_shared_report(token: str, request: Request, db: Session = Depends(get_db)):
+    """Public endpoint — no auth required. IP rate-limited."""
+    check_ip_rate_limit(request, "report_share_view")
     share = db.query(ReportShare).filter(ReportShare.token == token).first()
 
     if not share or share.revoked_at or share.expires_at < datetime.utcnow():
