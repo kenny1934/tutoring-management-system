@@ -299,11 +299,25 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Detailed health check with database status"""
+    """Detailed health check with database status.
+    Uses a short pool timeout so it fails fast when the pool is exhausted,
+    allowing Cloud Run's liveness probe to restart the container."""
     from database import engine
     from sqlalchemy import text
+    from sqlalchemy.pool import QueuePool
     try:
-        # Test database connection
+        # Check pool status first — fail fast if pool is exhausted
+        pool = engine.pool
+        if isinstance(pool, QueuePool):
+            pool_status = pool.status()
+            # Pool overflow() returns how many connections are beyond pool_size
+            if pool.overflow() >= pool.size():
+                db_status = "error: connection pool near capacity"
+                is_healthy = False
+                body = {"status": "unhealthy", "database": db_status, "pool": pool_status}
+                return JSONResponse(content=body, status_code=503)
+
+        # Test database connection with short timeout
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         db_status = "connected"
