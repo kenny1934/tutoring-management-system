@@ -22,10 +22,10 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**DB connection pool exhaustion** — fixed critical production outage where AI insight generation held database connections while waiting for Gemini API responses, draining the SQLAlchemy connection pool and causing 429 errors on all requests"
+            "description": "**Server stability** — fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention"
           },
           {
-            "description": "**Expired share cleanup** — expired report share rows are automatically purged on each new share creation, preventing unbounded table growth"
+            "description": "**Expired share cleanup** — expired report links are automatically cleaned up, keeping the database tidy"
           }
         ]
       },
@@ -33,16 +33,10 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
-            "description": "**Exercise type constants** — extracted hardcoded \"CW\"/\"HW\" strings into shared constants"
+            "description": "**Rate limiting** — public share links are rate-limited to prevent abuse"
           },
           {
-            "description": "**API parameter cleanup** — `getProgress` API changed from 7 positional parameters to an options object for readability"
-          },
-          {
-            "description": "**Share page performance** — uses `useSWRImmutable` for frozen report snapshots to avoid unnecessary refetches"
-          },
-          {
-            "description": "**IP rate limiting** — public share endpoint is rate-limited to 30 requests/minute per IP to prevent scraping"
+            "description": "**Code quality** — internal refactoring for better maintainability"
           }
         ]
       }
