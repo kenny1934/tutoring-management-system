@@ -1082,3 +1082,19 @@ class PushSubscription(Base):
     created_at = Column(DateTime, default=func.now())
 
     tutor = relationship("Tutor")
+
+
+class ReportShare(Base):
+    """Shareable parent report snapshots with token-based access."""
+    __tablename__ = "report_shares"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(36), unique=True, nullable=False, index=True)
+    report_data = Column(JSON, nullable=False)
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    view_count = Column(Integer, default=0)
+
+    creator = relationship("Tutor")
