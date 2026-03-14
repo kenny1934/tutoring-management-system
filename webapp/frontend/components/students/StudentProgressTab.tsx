@@ -627,7 +627,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
         .map(([, val]) => val)
         .join(",");
 
-      const progress = await studentsAPI.getProgress(studentId, dates.start, dates.end, true, language, true, exclude || undefined);
+      const progress = await studentsAPI.getProgress(studentId, { startDate: dates.start, endDate: dates.end, generateInsights: true, language, forceRefresh: true, excludeFromAI: exclude || undefined });
       if (progress.insights) {
         if (progress.insights.narrative) setNarrative(progress.insights.narrative);
         setAiInsights(progress.insights as Record<string, unknown>);
