@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Treemap, ResponsiveContainer } from "recharts";
 import type { ConceptNode } from "@/types";
 import { CONCEPT_CATEGORY_COLORS, getConceptCategoryColors } from "@/lib/progress-constants";
@@ -82,34 +83,39 @@ function TreemapCell(props: Record<string, unknown> & { colorMap?: ColorMap }) {
 }
 
 export function ReportConceptMap({ data }: ReportConceptMapProps) {
-  if (data.length === 0) return null;
-
-  // Build color lookup map
-  const colorMap: ColorMap = new Map();
-  const groups = new Map<string, ConceptNode[]>();
-  for (const node of data) {
-    const cat = node.category || "Other";
-    if (!groups.has(cat)) {
-      groups.set(cat, []);
-      colorMap.set(cat, getConceptCategoryColors(cat));
+  const { colorMap, treemapData, categories, treemapContent } = useMemo(() => {
+    const cm: ColorMap = new Map();
+    const groups = new Map<string, ConceptNode[]>();
+    for (const node of data) {
+      const cat = node.category || "Other";
+      if (!groups.has(cat)) {
+        groups.set(cat, []);
+        cm.set(cat, getConceptCategoryColors(cat));
+      }
+      groups.get(cat)!.push(node);
     }
-    groups.get(cat)!.push(node);
-  }
 
-  // Flat data with category field for color lookup in renderer
-  const treemapData = [...groups.entries()].map(([category, nodes]) => ({
-    name: category,
-    children: [...nodes]
-      .sort((a, b) => b.count - a.count)
-      .map((node) => ({
-        name: node.label,
-        size: node.count,
-        count: node.count,
-        category,
-      })),
-  }));
+    const td = [...groups.entries()].map(([category, nodes]) => ({
+      name: category,
+      children: [...nodes]
+        .sort((a, b) => b.count - a.count)
+        .map((node) => ({
+          name: node.label,
+          size: node.count,
+          count: node.count,
+          category,
+        })),
+    }));
 
-  const categories = [...groups.keys()];
+    return {
+      colorMap: cm,
+      treemapData: td,
+      categories: [...groups.keys()],
+      treemapContent: <TreemapCell colorMap={cm} />,
+    };
+  }, [data]);
+
+  if (data.length === 0) return null;
 
   return (
     <div className="report-section">
@@ -118,14 +124,14 @@ export function ReportConceptMap({ data }: ReportConceptMapProps) {
         <Treemap
           data={treemapData}
           dataKey="size"
-          content={<TreemapCell colorMap={colorMap} />}
+          content={treemapContent}
           isAnimationActive={false}
         />
       </ResponsiveContainer>
       {/* Category legend */}
       <div className="flex flex-wrap gap-3 mt-2 justify-center">
         {categories.map((cat) => {
-          const colors = getConceptCategoryColors(cat);
+          const colors = colorMap.get(cat) || CONCEPT_CATEGORY_COLORS.Other;
           return (
             <span key={cat} className="inline-flex items-center gap-1.5 text-[11px]">
               <span

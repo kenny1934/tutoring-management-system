@@ -3292,6 +3292,7 @@ body.student-print .print-answer-key {
     print-color-adjust: exact !important;
   }
   .report-section { break-inside: avoid; }
+  .report-section .recharts-responsive-container { min-width: 500px !important; }
   .report-page-break { break-before: page; }
 
   /* Reset LayoutShell scroll constraints for printing */

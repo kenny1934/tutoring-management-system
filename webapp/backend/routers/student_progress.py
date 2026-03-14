@@ -316,11 +316,20 @@ def get_student_progress(
         date_range = (start_date, end_date) if start_date and end_date else None
         exclude = frozenset(exclude_from_ai.split(",")) if exclude_from_ai else frozenset()
 
+        # Extract scalars before releasing DB — ORM objects expire after close()
+        s_id = student.id
+        s_name = student.student_name
+        s_grade = student.grade
+        s_school = student.school
+
         # Release DB connection before calling external AI API to prevent pool exhaustion
         db.close()
 
         insights = generate_progress_insights(
-            student=student,
+            student_id=s_id,
+            student_name=s_name,
+            student_grade=s_grade,
+            student_school=s_school,
             exercises=exercises.details,
             test_events=test_events,
             attendance=attendance,
