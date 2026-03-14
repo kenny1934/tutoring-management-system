@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.33](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.33) (2026-03-14)
+
+### New Features
+
+* **Shareable parent reports** — tutors can generate a secure link to share progress reports with parents; parents open the link in any browser without login, seeing the same HTML report with full charts and formatting
+* **Reports subdomain** — shared reports are served from `reports.mathconceptsecondary.academy`, keeping the internal tool domain hidden from parents
+* **Share link deduplication** — clicking "Share Link" multiple times within 5 minutes reuses the same link instead of creating duplicates
+
+### Bug Fixes
+
+* **DB connection pool exhaustion** — fixed critical production outage where AI insight generation held database connections while waiting for Gemini API responses, draining the SQLAlchemy connection pool and causing 429 errors on all requests
+* **Expired share cleanup** — expired report share rows are automatically purged on each new share creation, preventing unbounded table growth
+
+### Improvements
+
+* **Exercise type constants** — extracted hardcoded "CW"/"HW" strings into shared constants
+* **API parameter cleanup** — `getProgress` API changed from 7 positional parameters to an options object for readability
+* **Share page performance** — uses `useSWRImmutable` for frozen report snapshots to avoid unnecessary refetches
+* **IP rate limiting** — public share endpoint is rate-limited to 30 requests/minute per IP to prevent scraping
+
 ## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
 
 ### New Features
