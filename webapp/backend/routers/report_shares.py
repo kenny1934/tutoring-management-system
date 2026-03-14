@@ -16,6 +16,7 @@ from schemas import CreateReportShareRequest, ReportShareResponse, SharedReportD
 router = APIRouter()
 
 MAX_EXPIRY_DAYS = 90
+DEDUP_WINDOW_MINUTES = 5
 
 # Fields to strip from student data before storing
 SENSITIVE_STUDENT_FIELDS = {
@@ -43,6 +44,25 @@ def create_report_share(
     student_data = req.report_data.get("student", {})
     for field in SENSITIVE_STUDENT_FIELDS:
         student_data.pop(field, None)
+
+    # Dedup: reuse recent share for same student by same tutor
+    student_name = student_data.get("student_name")
+    if student_name:
+        cutoff = datetime.utcnow() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+        existing = db.query(ReportShare).filter(
+            ReportShare.created_by == current_user.id,
+            ReportShare.created_at >= cutoff,
+            ReportShare.revoked_at.is_(None),
+            ReportShare.expires_at > datetime.utcnow(),
+        ).order_by(ReportShare.created_at.desc()).first()
+
+        if existing:
+            existing_name = existing.report_data.get("student", {}).get("student_name")
+            if existing_name == student_name:
+                return ReportShareResponse(token=existing.token, expires_at=existing.expires_at)
+
+    # Purge expired rows (lightweight, runs on create only)
+    db.query(ReportShare).filter(ReportShare.expires_at < datetime.utcnow()).delete()
 
     token = str(uuid.uuid4())
     expires_at = datetime.utcnow() + timedelta(days=days)
