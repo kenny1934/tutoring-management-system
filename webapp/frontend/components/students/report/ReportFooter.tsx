@@ -11,7 +11,7 @@ export function ReportFooter({ generatedBy, mode }: ReportFooterProps) {
   });
 
   return (
-    <div className="mt-8 pt-3 border-t border-[#e8d4b8] text-xs text-gray-400 flex justify-between">
+    <div className="mt-8 pt-3 border-t border-[#e8d4b8] text-xs text-gray-400 flex flex-col gap-1 md:flex-row md:justify-between">
       <span>
         Generated on {now}
         {generatedBy && mode === "internal" && ` by ${generatedBy}`}

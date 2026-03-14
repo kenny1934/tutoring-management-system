@@ -24,15 +24,15 @@ export function ReportAttendanceChart({ data }: ReportAttendanceChartProps) {
   return (
     <div className="report-section">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Attendance Breakdown</h3>
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col items-center gap-3 md:flex-row md:items-center md:gap-6">
         <div className="relative">
-          <PieChart width={180} height={180}>
+          <PieChart width={150} height={150}>
             <Pie
               data={chartData}
-              cx={90}
-              cy={90}
-              innerRadius={50}
-              outerRadius={75}
+              cx={75}
+              cy={75}
+              innerRadius={42}
+              outerRadius={63}
               paddingAngle={2}
               dataKey="value"
             >
