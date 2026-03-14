@@ -43,8 +43,8 @@ else:
 # Create database engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
-    pool_size=5,
-    max_overflow=10,
+    pool_size=15,
+    max_overflow=25,
     pool_timeout=30,
     pool_recycle=3600,
     pool_pre_ping=True,  # Re-enabled for connection health checks
