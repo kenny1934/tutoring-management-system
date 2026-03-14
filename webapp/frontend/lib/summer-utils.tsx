@@ -35,6 +35,12 @@ const DAY_NAMES_ZH: Record<string, string> = {
 export const dayLabel = (day: string, lang: Lang) =>
   lang === "zh" ? DAY_NAMES_ZH[day] || day : day;
 
+/** Bilingual label for sessions-per-week frequency. */
+export const frequencyLabel = (n: number, lang: Lang) =>
+  n === 1
+    ? t("每星期一次（標準）", "Once per week (standard)", lang)
+    : t("每星期兩次", "Twice per week", lang);
+
 /** Format a date string like "2025-07-05" to localized display. */
 export function formatDate(dateStr: string, lang: Lang): string {
   const d = new Date(dateStr + "T00:00:00");

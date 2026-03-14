@@ -40,6 +40,7 @@ export default function SummerApplyPage() {
   const [isExistingStudent, setIsExistingStudent] = useState("");
   const [currentCenters, setCurrentCenters] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState("");
+  const [sessionsPerWeek, setSessionsPerWeek] = useState(1);
   const [pref1Day, setPref1Day] = useState("");
   const [pref1Time, setPref1Time] = useState("");
   const [pref2Day, setPref2Day] = useState("");
@@ -236,6 +237,7 @@ export default function SummerApplyPage() {
         buddyMode === "code" && buddyCodeValid ? buddyCode.trim() : null,
       buddy_names: buddyMode === "names" ? buddyNames : null,
       form_language: lang,
+      sessions_per_week: sessionsPerWeek,
     };
 
     try {
@@ -390,6 +392,8 @@ export default function SummerApplyPage() {
             lang={lang}
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
+            sessionsPerWeek={sessionsPerWeek}
+            setSessionsPerWeek={setSessionsPerWeek}
             pref1Day={pref1Day}
             setPref1Day={setPref1Day}
             pref1Time={pref1Time}
@@ -435,6 +439,7 @@ export default function SummerApplyPage() {
             isExistingStudent={isExistingStudent}
             currentCenters={currentCenters}
             selectedLocation={selectedLocation}
+            sessionsPerWeek={sessionsPerWeek}
             pref1Day={pref1Day}
             pref1Time={pref1Time}
             pref2Day={pref2Day}

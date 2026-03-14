@@ -1,5 +1,5 @@
 import type { SummerCourseFormConfig } from "@/types";
-import { type Lang, t, dayLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
+import { type Lang, t, dayLabel, frequencyLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;
@@ -20,6 +20,7 @@ interface ReviewSubmitStepProps {
   isExistingStudent: string;
   currentCenters: string[];
   selectedLocation: string;
+  sessionsPerWeek: number;
   pref1Day: string;
   pref1Time: string;
   pref2Day: string;
@@ -43,6 +44,7 @@ export function ReviewSubmitStep({
   isExistingStudent,
   currentCenters,
   selectedLocation,
+  sessionsPerWeek,
   pref1Day,
   pref1Time,
   pref2Day,
@@ -121,6 +123,10 @@ export function ReviewSubmitStep({
           <SummaryRow
             label={t("分校", "Branch", lang)}
             value={locationLabel}
+          />
+          <SummaryRow
+            label={t("每星期上課次數", "Sessions per week", lang)}
+            value={frequencyLabel(sessionsPerWeek, lang)}
           />
           <SummaryRow
             label={t("第一志願", "1st Preference", lang)}

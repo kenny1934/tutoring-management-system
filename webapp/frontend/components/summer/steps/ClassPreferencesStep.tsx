@@ -5,6 +5,7 @@ import {
   type Lang,
   t,
   dayLabel,
+  frequencyLabel,
   inputClass,
   sectionClass,
   labelClass,
@@ -25,6 +26,8 @@ interface ClassPreferencesStepProps {
   lang: Lang;
   selectedLocation: string;
   setSelectedLocation: (v: string) => void;
+  sessionsPerWeek: number;
+  setSessionsPerWeek: (v: number) => void;
   pref1Day: string;
   setPref1Day: (v: string) => void;
   pref1Time: string;
@@ -42,6 +45,8 @@ export function ClassPreferencesStep({
   lang,
   selectedLocation,
   setSelectedLocation,
+  sessionsPerWeek,
+  setSessionsPerWeek,
   pref1Day,
   setPref1Day,
   pref1Time,
@@ -140,6 +145,52 @@ export function ClassPreferencesStep({
               </label>
             );
           })}
+        </div>
+      </div>
+
+      {/* Frequency selector — animated expand */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+          selectedLocation ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className={sectionClass}>
+            <h2 className="text-base font-semibold text-foreground leading-snug">
+              {t(
+                "每星期上課次數",
+                "Sessions per week",
+                lang
+              )}
+              <RequiredMark />
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "每星期一次為標準安排（8周完成8堂），每星期兩次可於4周內完成課程。",
+                "Once per week is the standard arrangement (8 lessons over 8 weeks). Twice per week completes the course in 4 weeks.",
+                lang
+              )}
+            </p>
+            <div className={radioGroupClass}>
+              {[1, 2].map((n) => (
+                <label
+                  key={n}
+                  className={radioLabelClass(sessionsPerWeek === n)}
+                >
+                  <input
+                    type="radio"
+                    name="sessionsPerWeek"
+                    value={n}
+                    checked={sessionsPerWeek === n}
+                    onChange={() => setSessionsPerWeek(n)}
+                    className="sr-only"
+                  />
+                  {sessionsPerWeek === n && <RadioCheck />}
+                  {frequencyLabel(n, lang)}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

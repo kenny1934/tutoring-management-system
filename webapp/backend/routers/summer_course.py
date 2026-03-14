@@ -4,12 +4,13 @@ Summer course router: public application form + admin management endpoints.
 import logging
 import secrets
 import string
+from datetime import date as date_type, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, contains_eager
 
 from database import get_db
 from models import (
@@ -18,6 +19,7 @@ from models import (
     SummerApplication,
     SummerCourseSlot,
     SummerPlacement,
+    SummerSession,
     SummerTutorDuty,
     Tutor,
 )
@@ -39,6 +41,11 @@ from schemas import (
     SummerPlacementCreate,
     SummerPlacementUpdate,
     SummerPlacementResponse,
+    SummerSessionResponse,
+    SummerSessionUpdate,
+    SummerSessionCalendarEntry,
+    SummerSessionCalendarResponse,
+    SummerFindSlotResult,
     SummerDemandResponse,
     SummerDemandCell,
     SummerSuggestRequest,
@@ -1202,3 +1209,272 @@ def bulk_set_tutor_duties(
 
     db.commit()
     return {"success": True, "count": len(data.duties)}
+
+
+# ─── Session Helpers ─────────────────────────────────────────────────────────
+
+DAY_TO_WEEKDAY = {
+    "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
+    "Friday": 4, "Saturday": 5, "Sunday": 6,
+}
+
+
+def get_slot_dates(slot_day: str, start: date_type, end: date_type) -> list[date_type]:
+    """Return all occurrences of slot_day within [start, end]."""
+    target = DAY_TO_WEEKDAY.get(slot_day)
+    if target is None:
+        return []
+    dates: list[date_type] = []
+    d = start
+    # Advance to first occurrence
+    while d.weekday() != target:
+        d += timedelta(days=1)
+    while d <= end:
+        dates.append(d)
+        d += timedelta(days=7)
+    return dates
+
+
+def compute_lesson_number(course_type: str | None, week: int) -> int:
+    """Compute initial lesson number from course type and week (1-indexed).
+    Type A: 1,2,3,...,8
+    Type B: 5,6,7,8,1,2,3,4
+    Default (None): same as A
+    """
+    if course_type == "B":
+        return ((week - 1 + 4) % 8) + 1
+    return week
+
+
+# ─── Sessions (materialized instances) ──────────────────────────────────────
+
+@router.post("/summer/sessions/generate")
+def generate_sessions(
+    config_id: int,
+    location: str,
+    slot_id: int | None = None,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Generate SummerSession rows for slots. Uses course_type to seed lesson numbers.
+    If slot_id is given, generates for that slot only. Otherwise for all slots in config+location.
+    Skips slots that already have sessions.
+    """
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    q = db.query(SummerCourseSlot).filter(
+        SummerCourseSlot.config_id == config_id,
+        SummerCourseSlot.location == location,
+    )
+    if slot_id:
+        q = q.filter(SummerCourseSlot.id == slot_id)
+
+    slots = q.all()
+    created = 0
+    skipped = 0
+
+    # Batch check which slots already have sessions (avoids N+1)
+    slot_ids = [s.id for s in slots]
+    existing_slot_ids = {
+        row[0]
+        for row in db.query(SummerSession.slot_id)
+        .filter(SummerSession.slot_id.in_(slot_ids))
+        .distinct()
+        .all()
+    } if slot_ids else set()
+
+    for slot in slots:
+        if slot.id in existing_slot_ids:
+            skipped += 1
+            continue
+
+        dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
+        for i, d in enumerate(dates):
+            week = i + 1
+            lesson = compute_lesson_number(slot.course_type, week)
+            db.add(SummerSession(
+                slot_id=slot.id,
+                session_date=d,
+                lesson_number=lesson,
+                session_status="Scheduled",
+            ))
+            created += 1
+
+    db.commit()
+    return {"success": True, "sessions_created": created, "slots_skipped": skipped}
+
+
+@router.get("/summer/sessions", response_model=list[SummerSessionResponse])
+def list_sessions(
+    slot_id: int,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """List all sessions for a slot, ordered by date."""
+    return (
+        db.query(SummerSession)
+        .filter(SummerSession.slot_id == slot_id)
+        .order_by(SummerSession.session_date)
+        .all()
+    )
+
+
+@router.patch("/summer/sessions/{session_id}", response_model=SummerSessionResponse)
+def update_session(
+    session_id: int,
+    data: SummerSessionUpdate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Update a session's lesson_number, status, or notes."""
+    session = db.query(SummerSession).filter(SummerSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if data.lesson_number is not None:
+        session.lesson_number = data.lesson_number
+    if data.session_status is not None:
+        session.session_status = data.session_status
+    if data.notes is not None:
+        session.notes = data.notes
+
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+@router.get("/summer/sessions/calendar", response_model=SummerSessionCalendarResponse)
+def get_session_calendar(
+    config_id: int,
+    location: str,
+    week_start: date_type,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get sessions for one week with slot info and placements, for calendar view."""
+    week_end = week_start + timedelta(days=6)
+
+    sessions = (
+        db.query(SummerSession)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
+        .options(
+            contains_eager(SummerSession.slot).contains_eager(SummerCourseSlot.tutor),
+            joinedload(SummerSession.placements).joinedload(SummerPlacement.application),
+        )
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+            SummerSession.session_date >= week_start,
+            SummerSession.session_date <= week_end,
+        )
+        .order_by(SummerSession.session_date, SummerCourseSlot.time_slot)
+        .all()
+    )
+
+    entries = []
+    for s in sessions:
+        slot = s.slot
+        active_placements = [
+            SummerSlotPlacementInfo(
+                id=p.id,
+                application_id=p.application_id,
+                student_name=p.application.student_name if p.application else "",
+                grade=p.application.grade if p.application else "",
+                placement_status=p.placement_status,
+            )
+            for p in s.placements
+            if p.placement_status != "Cancelled"
+        ]
+        entries.append(SummerSessionCalendarEntry(
+            session_id=s.id,
+            slot_id=slot.id,
+            slot_day=slot.slot_day,
+            time_slot=slot.time_slot,
+            grade=slot.grade,
+            course_type=slot.course_type,
+            lesson_number=s.lesson_number,
+            session_status=s.session_status,
+            tutor_id=slot.tutor_id,
+            tutor_name=slot.tutor.tutor_name if slot.tutor else None,
+            max_students=slot.max_students,
+            date=s.session_date,
+            notes=s.notes,
+            placements=active_placements,
+        ))
+
+    return SummerSessionCalendarResponse(
+        week_start=week_start,
+        week_end=week_end,
+        sessions=entries,
+    )
+
+
+@router.get("/summer/sessions/find-slot", response_model=list[SummerFindSlotResult])
+def find_slot(
+    config_id: int,
+    location: str,
+    grade: str,
+    lesson_number: int,
+    after_date: date_type | None = None,
+    before_date: date_type | None = None,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Find sessions matching grade + lesson_number within a date range.
+    Returns candidates sorted by: exact lesson match first, then by date.
+    """
+    # Subquery: count active placements per session (avoids loading full placement objects)
+    active_count_sub = (
+        select(func.count(SummerPlacement.id))
+        .where(
+            SummerPlacement.session_id == SummerSession.id,
+            SummerPlacement.placement_status != "Cancelled",
+        )
+        .correlate(SummerSession)
+        .scalar_subquery()
+        .label("active_count")
+    )
+
+    q = (
+        db.query(SummerSession, active_count_sub)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
+        .options(
+            contains_eager(SummerSession.slot).contains_eager(SummerCourseSlot.tutor),
+        )
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+            SummerCourseSlot.grade == grade,
+            SummerSession.session_status != "Cancelled",
+            active_count_sub < SummerCourseSlot.max_students,
+        )
+    )
+    if after_date:
+        q = q.filter(SummerSession.session_date >= after_date)
+    if before_date:
+        q = q.filter(SummerSession.session_date <= before_date)
+
+    rows = q.order_by(SummerSession.session_date).all()
+
+    results = []
+    for s, active_count in rows:
+        slot = s.slot
+        results.append(SummerFindSlotResult(
+            session_id=s.id,
+            slot_id=slot.id,
+            date=s.session_date,
+            time_slot=slot.time_slot,
+            tutor_name=slot.tutor.tutor_name if slot.tutor else None,
+            current_count=active_count,
+            max_students=slot.max_students,
+            lesson_number=s.lesson_number,
+            lesson_match=s.lesson_number == lesson_number,
+        ))
+
+    # Sort: matches first, then by date
+    results.sort(key=lambda r: (not r.lesson_match, r.date))
+    return results
