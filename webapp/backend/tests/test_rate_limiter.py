@@ -36,11 +36,17 @@ def clean_rate_limits():
 class TestGetClientIp:
     """Test suite for get_client_ip function."""
 
+    def test_cf_connecting_ip_preferred(self):
+        """Prefers CF-Connecting-IP over X-Forwarded-For."""
+        request = MagicMock()
+        request.headers = {"CF-Connecting-IP": "9.9.9.9", "X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
+        assert get_client_ip(request) == "9.9.9.9"
+
     def test_with_forwarded_for(self):
-        """Extracts first IP from X-Forwarded-For."""
+        """Extracts rightmost (last trusted proxy) IP from X-Forwarded-For."""
         request = MagicMock()
         request.headers = {"X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
-        assert get_client_ip(request) == "1.2.3.4"
+        assert get_client_ip(request) == "5.6.7.8"
 
     def test_without_forwarded_for(self):
         """Falls back to request.client.host."""
