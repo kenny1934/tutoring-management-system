@@ -10,15 +10,13 @@
 
 ### Bug Fixes
 
-* **DB connection pool exhaustion** — fixed critical production outage where AI insight generation held database connections while waiting for Gemini API responses, draining the SQLAlchemy connection pool and causing 429 errors on all requests
-* **Expired share cleanup** — expired report share rows are automatically purged on each new share creation, preventing unbounded table growth
+* **Server stability** — fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention
+* **Expired share cleanup** — expired report links are automatically cleaned up, keeping the database tidy
 
 ### Improvements
 
-* **Exercise type constants** — extracted hardcoded "CW"/"HW" strings into shared constants
-* **API parameter cleanup** — `getProgress` API changed from 7 positional parameters to an options object for readability
-* **Share page performance** — uses `useSWRImmutable` for frozen report snapshots to avoid unnecessary refetches
-* **IP rate limiting** — public share endpoint is rate-limited to 30 requests/minute per IP to prevent scraping
+* **Rate limiting** — public share links are rate-limited to prevent abuse
+* **Code quality** — internal refactoring for better maintainability
 
 ## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
 
