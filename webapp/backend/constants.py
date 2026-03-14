@@ -104,6 +104,10 @@ NON_COUNTABLE_STATUS_PATTERNS = [
 # All valid session status values (for validation)
 ALL_SESSION_STATUSES = [status.value for status in SessionStatus]
 
+# Exercise type identifiers (DB always stores short form)
+CW_TYPE = "CW"
+HW_TYPE = "HW"
+
 # Fee calculation
 BASE_FEE_PER_LESSON = 400
 REGISTRATION_FEE = 100

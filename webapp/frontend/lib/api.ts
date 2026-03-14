@@ -356,14 +356,14 @@ export const studentsAPI = {
     return fetchAPI<StudentCouponResponse>(`/students/${studentId}/coupon`);
   },
 
-  getProgress: (studentId: number, startDate?: string, endDate?: string, generateInsights?: boolean, language?: string, forceRefresh?: boolean, excludeFromAI?: string) => {
+  getProgress: (studentId: number, opts?: { startDate?: string; endDate?: string; generateInsights?: boolean; language?: string; forceRefresh?: boolean; excludeFromAI?: string }) => {
     const params = new URLSearchParams();
-    if (startDate) params.set("start_date", startDate);
-    if (endDate) params.set("end_date", endDate);
-    if (generateInsights) params.set("generate_insights", "true");
-    if (forceRefresh) params.set("force_refresh", "true");
-    if (excludeFromAI) params.set("exclude_from_ai", excludeFromAI);
-    if (language) params.set("language", language);
+    if (opts?.startDate) params.set("start_date", opts.startDate);
+    if (opts?.endDate) params.set("end_date", opts.endDate);
+    if (opts?.generateInsights) params.set("generate_insights", "true");
+    if (opts?.forceRefresh) params.set("force_refresh", "true");
+    if (opts?.excludeFromAI) params.set("exclude_from_ai", opts.excludeFromAI);
+    if (opts?.language) params.set("language", opts.language);
     const qs = params.toString();
     return fetchAPI<StudentProgress>(`/students/${studentId}/progress${qs ? `?${qs}` : ""}`);
   },

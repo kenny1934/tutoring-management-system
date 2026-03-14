@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, Share2, Check, Copy } from "lucide-react";
 import { useStudent } from "@/lib/hooks";
@@ -23,11 +23,11 @@ function StudentReportPageInner() {
   const commentKey = searchParams.get("commentKey");
   const insightsKey = searchParams.get("insightsKey");
   const language = searchParams.get("language") || "en";
-  const sections = Object.fromEntries(
+  const sections = useMemo(() => Object.fromEntries(
     (Object.keys(DEFAULT_SECTIONS) as (keyof ReportSectionToggles)[]).map((key) => [
       key, searchParams.get(key) !== "0",
     ])
-  ) as ReportSectionToggles;
+  ) as ReportSectionToggles, [searchParams]);
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -60,7 +60,7 @@ function StudentReportPageInner() {
   // Fetch progress data (no AI — insights come from localStorage if user generated them)
   const { data: progress, isLoading: progressLoading } = useSWR<StudentProgress>(
     studentId ? ["student-progress-report", studentId, startDate, endDate] : null,
-    () => studentsAPI.getProgress(studentId, startDate, endDate, false),
+    () => studentsAPI.getProgress(studentId, { startDate, endDate }),
     { revalidateOnFocus: false }
   );
 
@@ -77,6 +77,23 @@ function StudentReportPageInner() {
   // Build date range label
   const dateRangeLabel = buildDateRangeLabel(startDate, endDate);
 
+  // Merge stored AI insights into progress data (used for both rendering and sharing)
+  const mergedProgress = useMemo(() => {
+    if (!progress) return progress;
+    if (!storedInsights) return progress;
+    return {
+      ...progress,
+      insights: {
+        top_topics: [],
+        total_exercises: progress.exercises?.total || 0,
+        cw_count: progress.exercises?.classwork || 0,
+        hw_count: progress.exercises?.homework || 0,
+        ...progress.insights,
+        ...storedInsights,
+      } as StudentProgress["insights"],
+    };
+  }, [progress, storedInsights]);
+
   const handlePrint = useCallback(() => window.print(), []);
 
   // Share link state
@@ -85,22 +102,9 @@ function StudentReportPageInner() {
   const [copied, setCopied] = useState(false);
 
   const handleShare = useCallback(async () => {
-    if (!student || !progress) return;
+    if (!student || !mergedProgress) return;
     setIsSharing(true);
     try {
-      // Build the merged progress with stored insights
-      const mergedProgress = storedInsights ? {
-        ...progress,
-        insights: {
-          top_topics: [],
-          total_exercises: progress.exercises?.total || 0,
-          cw_count: progress.exercises?.classwork || 0,
-          hw_count: progress.exercises?.homework || 0,
-          ...progress.insights,
-          ...storedInsights,
-        },
-      } : progress;
-
       const result = await reportSharesAPI.create({
         student: {
           student_name: student.student_name,
@@ -119,13 +123,14 @@ function StudentReportPageInner() {
           generatedBy: user?.name,
         },
       });
-      setShareUrl(`${window.location.origin}/share/${result.token}`);
+      const shareOrigin = process.env.NEXT_PUBLIC_SHARE_ORIGIN || window.location.origin;
+      setShareUrl(`${shareOrigin}/share/${result.token}`);
     } catch (err) {
       console.error("Failed to create share link:", err);
     } finally {
       setIsSharing(false);
     }
-  }, [student, progress, storedInsights, mode, sections, dateRangeLabel, tutorComment, user?.name]);
+  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name]);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(shareUrl);
@@ -215,17 +220,7 @@ function StudentReportPageInner() {
       <div className="py-8 print:py-0">
         <ProgressReport
           student={student}
-          progress={storedInsights && progress ? {
-            ...progress,
-            insights: {
-              top_topics: [],
-              total_exercises: progress.exercises?.total || 0,
-              cw_count: progress.exercises?.classwork || 0,
-              hw_count: progress.exercises?.homework || 0,
-              ...progress.insights,
-              ...storedInsights,
-            } as StudentProgress["insights"],
-          } : progress}
+          progress={mergedProgress!}
           mode={mode}
           dateRangeLabel={dateRangeLabel}
           tutorComment={tutorComment}
