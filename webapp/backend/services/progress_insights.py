@@ -11,7 +11,6 @@ from datetime import date
 from typing import Optional
 
 from constants import CW_TYPE, HW_TYPE
-from models import Student
 from schemas import (
     ExerciseDetail, TestEvent, AttendanceSummary, RatingSummary,
     ProgressInsights, TopicCount, ConceptNode,
@@ -102,7 +101,9 @@ def _apply_language(prompt: str, language: str) -> str:
 
 
 def _build_context(
-    student: Student,
+    student_name: str,
+    student_grade: str | None,
+    student_school: str | None,
     exercises: list[ExerciseDetail],
     test_events: list[TestEvent],
     attendance: AttendanceSummary,
@@ -114,11 +115,11 @@ def _build_context(
     lines = []
 
     # Student info
-    lines.append(f"Student: {student.student_name}")
-    if student.grade:
-        lines.append(f"Grade: {student.grade}")
-    if student.school:
-        lines.append(f"School: {student.school}")
+    lines.append(f"Student: {student_name}")
+    if student_grade:
+        lines.append(f"Grade: {student_grade}")
+    if student_school:
+        lines.append(f"School: {student_school}")
 
     # Date range
     if date_range:
@@ -188,7 +189,10 @@ def _parse_ai_response(text: str) -> tuple[str, list[ConceptNode]]:
 
 
 def generate_progress_insights(
-    student: Student,
+    student_id: int,
+    student_name: str,
+    student_grade: str | None,
+    student_school: str | None,
     exercises: list[ExerciseDetail],
     test_events: list[TestEvent],
     attendance: AttendanceSummary,
@@ -201,7 +205,7 @@ def generate_progress_insights(
     """Generate combined rule-based + AI insights (with caching)."""
 
     # Check cache first (unless force refresh)
-    key = _cache_key(student.id, date_range, language, exclude)
+    key = _cache_key(student_id, date_range, language, exclude)
     if not force_refresh:
         cached = _insights_cache.get(key)
         if cached and (time.time() - cached[1]) < _CACHE_TTL:
@@ -221,7 +225,7 @@ def generate_progress_insights(
             from services.ai_client import generate
 
             prompt = _apply_language(PROGRESS_INSIGHT_PROMPT, language)
-            context = _build_context(student, exercises, test_events, attendance, ratings, date_range, exclude)
+            context = _build_context(student_name, student_grade, student_school, exercises, test_events, attendance, ratings, date_range, exclude)
             text, tokens, _ = generate(
                 prompt,
                 context,

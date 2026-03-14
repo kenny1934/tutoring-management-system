@@ -59,6 +59,9 @@ def create_report_share(
         if existing:
             existing_name = existing.report_data.get("student", {}).get("student_name")
             if existing_name == student_name:
+                # Update snapshot so the link always serves the latest config
+                existing.report_data = req.report_data
+                db.commit()
                 return ReportShareResponse(token=existing.token, expires_at=existing.expires_at)
 
     # Purge expired rows (lightweight, runs on create only)

@@ -53,10 +53,15 @@ RATE_LIMITS = {
 
 
 def get_client_ip(request: Request) -> str:
-    """Extract client IP from request, handling proxies."""
+    """Extract client IP from request, handling proxies.
+    Prefers CF-Connecting-IP (set by Cloudflare, not spoofable by clients),
+    then rightmost X-Forwarded-For (last trusted proxy append), then direct."""
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        return forwarded_for.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -77,12 +82,14 @@ def check_user_rate_limit(user_id: int, operation: str) -> None:
     now = time.time()
 
     # Clean old entries outside the window
-    _user_request_counts[key] = [
-        t for t in _user_request_counts[key] if now - t < window
-    ]
+    entries = [t for t in _user_request_counts[key] if now - t < window]
+    if entries:
+        _user_request_counts[key] = entries
+    else:
+        _user_request_counts.pop(key, None)
 
-    if len(_user_request_counts[key]) >= limit:
-        retry_after = int(window - (now - _user_request_counts[key][0]))
+    if len(entries) >= limit:
+        retry_after = int(window - (now - entries[0]))
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
@@ -110,12 +117,14 @@ def check_ip_rate_limit(request: Request, operation: str) -> None:
     now = time.time()
 
     # Clean old entries outside the window
-    _ip_request_counts[key] = [
-        t for t in _ip_request_counts[key] if now - t < window
-    ]
+    entries = [t for t in _ip_request_counts[key] if now - t < window]
+    if entries:
+        _ip_request_counts[key] = entries
+    else:
+        _ip_request_counts.pop(key, None)
 
-    if len(_ip_request_counts[key]) >= limit:
-        retry_after = int(window - (now - _ip_request_counts[key][0]))
+    if len(entries) >= limit:
+        retry_after = int(window - (now - entries[0]))
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many requests. Try again in {retry_after} seconds.",

@@ -5,7 +5,7 @@ interface ReportInsightsProps {
 }
 
 export function ReportInsights({ data }: ReportInsightsProps) {
-  if (!data.narrative.trim()) return null;
+  if (!data.narrative?.trim()) return null;
 
   return (
     <div className="report-section">
