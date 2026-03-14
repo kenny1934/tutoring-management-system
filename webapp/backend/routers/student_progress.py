@@ -14,7 +14,7 @@ from auth.dependencies import get_current_user
 from database import get_db
 from utils.rate_limiter import check_user_rate_limit
 from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent
-from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES
+from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
@@ -162,8 +162,8 @@ def get_student_progress(
         *([SessionLog.session_date <= end_date] if end_date else []),
     ).order_by(SessionLog.session_date.desc()).all()
 
-    classwork = sum(1 for r in exercise_rows if r.exercise_type in ("CW", "Classwork"))
-    homework = sum(1 for r in exercise_rows if r.exercise_type in ("HW", "Homework"))
+    classwork = sum(1 for r in exercise_rows if r.exercise_type == CW_TYPE)
+    homework = sum(1 for r in exercise_rows if r.exercise_type == HW_TYPE)
 
     exercises = ExerciseSummary(
         total=len(exercise_rows),
@@ -172,7 +172,7 @@ def get_student_progress(
         details=[
             ExerciseDetail(
                 session_date=r.session_date,
-                exercise_type=r.exercise_type or "CW",
+                exercise_type=r.exercise_type or CW_TYPE,
                 pdf_name=r.pdf_name or "",
                 page_start=r.page_start,
                 page_end=r.page_end,

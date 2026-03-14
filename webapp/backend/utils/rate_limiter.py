@@ -44,6 +44,9 @@ RATE_LIMITS = {
     # AI operations - strict to control external API costs
     "progress_insights": {"limit": 5, "window": 60},    # 5 AI calls/min
 
+    # Public endpoints - IP-based, prevent scraping
+    "report_share_view": {"limit": 30, "window": 60},   # 30 views/min per IP
+
     # Default fallback
     "default": {"limit": 100, "window": 60},
 }
