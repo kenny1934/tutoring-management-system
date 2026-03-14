@@ -315,6 +315,10 @@ def get_student_progress(
 
         date_range = (start_date, end_date) if start_date and end_date else None
         exclude = frozenset(exclude_from_ai.split(",")) if exclude_from_ai else frozenset()
+
+        # Release DB connection before calling external AI API to prevent pool exhaustion
+        db.close()
+
         insights = generate_progress_insights(
             student=student,
             exercises=exercises.details,

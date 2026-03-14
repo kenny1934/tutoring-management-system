@@ -369,6 +369,26 @@ export const studentsAPI = {
   },
 };
 
+// Report Shares API
+export const reportSharesAPI = {
+  create: (reportData: Record<string, unknown>) => {
+    return fetchAPI<{ token: string; expires_at: string }>("/report-shares", {
+      method: "POST",
+      body: JSON.stringify({ report_data: reportData }),
+    });
+  },
+
+  get: async (token: string) => {
+    const res = await fetch(`/api/report-shares/${token}`);
+    if (!res.ok) throw new Error("Report not found or expired");
+    return res.json() as Promise<{ report_data: Record<string, unknown>; created_at: string; expires_at: string }>;
+  },
+
+  revoke: (token: string) => {
+    return fetchAPI<void>(`/report-shares/${token}`, { method: "DELETE" });
+  },
+};
+
 // Discounts API
 export const discountsAPI = {
   getAll: () => {

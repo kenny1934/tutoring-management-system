@@ -17,7 +17,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const { open: openCommandPalette } = useCommandPalette();
 
   // Zen mode: render without any shell (also applies to standalone report pages)
-  if (pathname?.startsWith("/zen") || pathname?.match(/^\/students\/\d+\/report/)) {
+  if (pathname?.startsWith("/zen") || pathname?.match(/^\/students\/\d+\/report/) || pathname?.startsWith("/share")) {
     return <>{children}</>;
   }
 
