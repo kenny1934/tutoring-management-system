@@ -37,10 +37,10 @@ class TestGetClientIp:
     """Test suite for get_client_ip function."""
 
     def test_with_forwarded_for(self):
-        """Extracts first IP from X-Forwarded-For."""
+        """Extracts rightmost IP from X-Forwarded-For (closest trusted proxy)."""
         request = MagicMock()
         request.headers = {"X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
-        assert get_client_ip(request) == "1.2.3.4"
+        assert get_client_ip(request) == "5.6.7.8"
 
     def test_without_forwarded_for(self):
         """Falls back to request.client.host."""

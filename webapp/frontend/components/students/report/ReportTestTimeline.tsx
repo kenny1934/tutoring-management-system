@@ -27,11 +27,12 @@ export function ReportTestTimeline({ data }: ReportTestTimelineProps) {
           const dateStr = new Date(event.start_date + "T00:00:00").toLocaleDateString("en-GB", {
             day: "numeric",
             month: "short",
+            year: "numeric",
           });
 
           return (
             <div key={i} className="flex items-start gap-3 text-xs">
-              <div className="w-[52px] shrink-0 text-gray-500 pt-0.5">{dateStr}</div>
+              <div className="w-[80px] shrink-0 text-gray-500 pt-0.5">{dateStr}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   {event.event_type && (

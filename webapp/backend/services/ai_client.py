@@ -42,7 +42,7 @@ def _get_thinking_level(level: ThinkingLevelStr):
     level_map = {
         "minimal": types.ThinkingLevel.MINIMAL,
         "low": types.ThinkingLevel.LOW,
-        "medium": types.ThinkingLevel.LOW,
+        "medium": types.ThinkingLevel.MEDIUM,
         "high": types.ThinkingLevel.HIGH,
     }
     return level_map.get(level, types.ThinkingLevel.LOW)

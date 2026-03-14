@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Treemap, ResponsiveContainer } from "recharts";
+import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import type { ConceptNode } from "@/types";
 import { CONCEPT_CATEGORY_COLORS, getConceptCategoryColors } from "@/lib/progress-constants";
 
@@ -126,7 +126,20 @@ export function ReportConceptMap({ data }: ReportConceptMapProps) {
           dataKey="size"
           content={treemapContent}
           isAnimationActive={false}
-        />
+        >
+          <Tooltip
+            content={({ payload }) => {
+              const item = payload?.[0]?.payload;
+              if (!item?.name || !item?.count) return null;
+              return (
+                <div className="bg-white border border-gray-200 rounded px-2 py-1 shadow-sm text-xs">
+                  <div className="font-medium">{item.name}</div>
+                  <div className="text-gray-500">{item.category} · {item.count} session{item.count !== 1 ? "s" : ""}</div>
+                </div>
+              );
+            }}
+          />
+        </Treemap>
       </ResponsiveContainer>
       {/* Category legend */}
       <div className="flex flex-wrap gap-3 mt-2 justify-center">
