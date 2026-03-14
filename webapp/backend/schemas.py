@@ -2117,6 +2117,26 @@ class StudentProgressResponse(BaseModel):
     insights: Optional[ProgressInsights] = None
 
 
+# ---------------------------------------------------------------------------
+# Report Shares
+# ---------------------------------------------------------------------------
+
+class CreateReportShareRequest(BaseModel):
+    report_data: dict
+    expires_in_days: int = 30
+
+
+class ReportShareResponse(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class SharedReportData(BaseModel):
+    report_data: dict
+    created_at: datetime
+    expires_at: datetime
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
