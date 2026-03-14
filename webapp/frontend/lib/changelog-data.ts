@@ -33,6 +33,9 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
+            "description": "**Mobile-friendly reports** — shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables"
+          },
+          {
             "description": "**Rate limiting** — public share links are rate-limited to prevent abuse"
           },
           {
