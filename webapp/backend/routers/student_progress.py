@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session, joinedload
 from auth.dependencies import get_current_user
 from database import get_db
 from utils.rate_limiter import check_user_rate_limit
-from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent
+from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent, StudentRadarConfig
 from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE, EXAM_EVENT_TYPES
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
-    TestEvent, ProgressInsights,
+    TestEvent, ProgressInsights, RadarChartConfig, StudentRadarConfigResponse,
 )
 
 router = APIRouter()
@@ -349,3 +349,52 @@ def get_student_progress(
         test_events=test_events,
         insights=insights,
     )
+
+
+@router.get("/students/{student_id}/radar-config", response_model=StudentRadarConfigResponse)
+def get_radar_config(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
+):
+    config = db.query(StudentRadarConfig).filter(
+        StudentRadarConfig.student_id == student_id
+    ).first()
+    if not config:
+        return StudentRadarConfigResponse(student_id=student_id, config=RadarChartConfig())
+    return StudentRadarConfigResponse(
+        student_id=student_id,
+        config=RadarChartConfig(**config.config),
+        updated_at=config.updated_at,
+    )
+
+
+@router.put("/students/{student_id}/radar-config")
+def upsert_radar_config(
+    student_id: int,
+    body: RadarChartConfig,
+    db: Session = Depends(get_db),
+    current_user: Tutor = Depends(get_current_user),
+):
+    if len(body.axes) < 4 or len(body.axes) > 8:
+        raise HTTPException(status_code=400, detail="Radar chart requires 4-8 axes")
+    if any(not a.label.strip() for a in body.axes):
+        raise HTTPException(status_code=400, detail="All axis labels must be non-empty")
+    labels = [a.label.strip().lower() for a in body.axes]
+    if len(set(labels)) != len(labels):
+        raise HTTPException(status_code=400, detail="Axis labels must be unique")
+
+    existing = db.query(StudentRadarConfig).filter(
+        StudentRadarConfig.student_id == student_id
+    ).first()
+    if existing:
+        existing.config = body.model_dump()
+        existing.tutor_id = current_user.id
+    else:
+        db.add(StudentRadarConfig(
+            student_id=student_id,
+            tutor_id=current_user.id,
+            config=body.model_dump(),
+        ))
+    db.commit()
+    return {"ok": True}

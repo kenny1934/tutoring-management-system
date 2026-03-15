@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   PieChart,
   Pie,
@@ -30,6 +30,8 @@ import {
   Sparkles,
   Loader2,
   Check,
+  Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -42,7 +44,7 @@ import { useCooldown } from "@/lib/ui-hooks";
 import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
 import { studentsAPI } from "@/lib/api";
 import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
-import type { StudentProgress, MonthlyActivity } from "@/types";
+import type { StudentProgress, MonthlyActivity, RadarChartConfig } from "@/types";
 
 // --- Trend Delta Badge ---
 
@@ -578,6 +580,7 @@ const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean; 
   { key: "showActivity", label: "Monthly Activity" },
   { key: "showEnrollment", label: "Enrollment History" },
   { key: "showContacts", label: "Contact Summary", modes: ["internal"] },
+  { key: "showRadarChart", label: "Skills Radar" },
 ];
 
 export const DEFAULT_SECTIONS: ReportSectionToggles = {
@@ -589,6 +592,7 @@ export const DEFAULT_SECTIONS: ReportSectionToggles = {
   showActivity: true,
   showEnrollment: true,
   showContacts: true,
+  showRadarChart: false,
 };
 
 function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number; enrollmentStart?: string | null }) {
@@ -605,6 +609,23 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [isCoolingDown, triggerCooldown] = useCooldown(5000);
   const [aiError, setAiError] = useState("");
   const [sections, setSections] = useState<ReportSectionToggles>(DEFAULT_SECTIONS);
+  const [radarConfig, setRadarConfig] = useState<RadarChartConfig>({
+    axes: Array.from({ length: 6 }, () => ({ label: "", score: 3 })),
+    displayMode: "numerical",
+  });
+  const [radarLoaded, setRadarLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && !radarLoaded) {
+      studentsAPI.getRadarConfig(studentId).then((res) => {
+        if (res.config.axes.length > 0) {
+          setRadarConfig(res.config);
+          setSections((prev) => ({ ...prev, showRadarChart: true }));
+        }
+        setRadarLoaded(true);
+      }).catch(() => setRadarLoaded(true));
+    }
+  }, [isOpen, radarLoaded, studentId]);
 
   const toggleSection = useCallback((key: SectionKey) => {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -682,9 +703,27 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       }
     }
 
+    // Radar chart data
+    if (sections.showRadarChart) {
+      const validAxes = radarConfig.axes.filter((a) => a.label.trim());
+      if (validAxes.length >= 4) {
+        const radarKey = crypto.randomUUID();
+        localStorage.setItem(`report-radar-${radarKey}`, JSON.stringify({
+          axes: validAxes,
+          displayMode: radarConfig.displayMode,
+        }));
+        params.set("radarKey", radarKey);
+        // Save to backend for next time (fire-and-forget)
+        studentsAPI.saveRadarConfig(studentId, {
+          axes: validAxes,
+          displayMode: radarConfig.displayMode,
+        }).catch(() => {});
+      }
+    }
+
     window.open(`/students/${studentId}/report?${params}`, "_blank");
     setIsOpen(false);
-  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections, radarConfig]);
 
   return (
     <>
@@ -822,6 +861,103 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                 ))}
             </div>
           </div>
+
+          {/* Radar chart config */}
+          {sections.showRadarChart && (
+            <div>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Skills Radar</label>
+              <div className="flex rounded-md overflow-hidden border border-[#e8d4b8] dark:border-[#6b5a4a] mb-2 w-fit">
+                {([["numerical", "1-5"], ["labeled", "Labels"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setRadarConfig((prev) => ({ ...prev, displayMode: val }))}
+                    className={cn(
+                      "text-[10px] px-2.5 py-1 font-medium transition-colors",
+                      radarConfig.displayMode === val
+                        ? "bg-[#a0704b] text-white"
+                        : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                {radarConfig.axes.map((axis, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={axis.label}
+                      onChange={(e) => {
+                        const next = [...radarConfig.axes];
+                        next[i] = { ...next[i], label: e.target.value };
+                        setRadarConfig((prev) => ({ ...prev, axes: next }));
+                      }}
+                      placeholder={`Attribute ${i + 1}`}
+                      className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
+                    />
+                    {radarConfig.displayMode === "numerical" ? (
+                      <select
+                        value={axis.score}
+                        onChange={(e) => {
+                          const next = [...radarConfig.axes];
+                          next[i] = { ...next[i], score: Number(e.target.value) };
+                          setRadarConfig((prev) => ({ ...prev, axes: next }));
+                        }}
+                        className="w-14 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                      >
+                        {[1, 2, 3, 4, 5].map((v) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        value={axis.score}
+                        onChange={(e) => {
+                          const next = [...radarConfig.axes];
+                          next[i] = { ...next[i], score: Number(e.target.value) };
+                          setRadarConfig((prev) => ({ ...prev, axes: next }));
+                        }}
+                        className="w-28 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                      >
+                        <option value={1}>Needs Work</option>
+                        <option value={2}>Fair</option>
+                        <option value={3}>Good</option>
+                        <option value={4}>Excellent</option>
+                        <option value={5}>Outstanding</option>
+                      </select>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (radarConfig.axes.length <= 4) return;
+                        const next = radarConfig.axes.filter((_, j) => j !== i);
+                        setRadarConfig((prev) => ({ ...prev, axes: next }));
+                      }}
+                      disabled={radarConfig.axes.length <= 4}
+                      className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {radarConfig.axes.length < 8 && (
+                <button
+                  onClick={() => setRadarConfig((prev) => ({
+                    ...prev,
+                    axes: [...prev.axes, { label: "", score: 3 }],
+                  }))}
+                  className="flex items-center gap-1 text-[10px] text-[#a0704b] hover:text-[#8b6140] font-medium mt-1.5 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add attribute
+                </button>
+              )}
+              {radarConfig.axes.filter((a) => a.label.trim()).length < 4 && radarConfig.axes.some((a) => a.label.trim()) && (
+                <p className="text-[10px] text-amber-600 mt-1">At least 4 attributes required</p>
+              )}
+            </div>
+          )}
 
           {/* Date range */}
           <div>

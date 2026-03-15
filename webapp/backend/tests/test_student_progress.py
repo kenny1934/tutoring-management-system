@@ -20,7 +20,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from models import Tutor, Student, Enrollment, SessionLog, SessionExercise, ParentCommunication
+from models import Tutor, Student, Enrollment, SessionLog, SessionExercise, ParentCommunication, StudentRadarConfig
 from tests.helpers import make_auth_token
 
 
@@ -342,3 +342,136 @@ class TestProgressInsightsGating:
             cookies={"access_token": token},
         )
         assert resp.json()["insights"] is None
+
+
+def _valid_radar_config(n=6):
+    """Return a valid radar config with n axes."""
+    labels = ["Problem Solving", "Homework", "Participation", "Understanding", "Focus", "Improvement", "Creativity", "Communication"]
+    return {
+        "axes": [{"label": labels[i], "score": 3} for i in range(n)],
+        "display_mode": "numerical",
+    }
+
+
+class TestRadarConfigEndpoints:
+    """GET/PUT /api/students/{id}/radar-config"""
+
+    def test_get_empty_config(self, client, db_session):
+        """Returns empty config when none saved."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        resp = client.get("/api/students/1/radar-config", cookies={"access_token": token})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["student_id"] == 1
+        assert data["config"]["axes"] == []
+        assert data["config"]["display_mode"] == "numerical"
+
+    def test_save_and_retrieve(self, client, db_session):
+        """PUT saves config, GET retrieves it."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+        config = _valid_radar_config(6)
+
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        resp = client.get("/api/students/1/radar-config", cookies={"access_token": token})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["config"]["axes"]) == 6
+        assert data["config"]["axes"][0]["label"] == "Problem Solving"
+        assert data["updated_at"] is not None
+
+    def test_upsert_updates_existing(self, client, db_session):
+        """PUT on existing config updates it."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        client.put("/api/students/1/radar-config", json=_valid_radar_config(5), cookies={"access_token": token})
+        new_config = _valid_radar_config(4)
+        new_config["axes"][0]["score"] = 5
+        resp = client.put("/api/students/1/radar-config", json=new_config, cookies={"access_token": token})
+        assert resp.status_code == 200
+
+        resp = client.get("/api/students/1/radar-config", cookies={"access_token": token})
+        assert len(resp.json()["config"]["axes"]) == 4
+        assert resp.json()["config"]["axes"][0]["score"] == 5
+
+    def test_rejects_fewer_than_4_axes(self, client, db_session):
+        """Validation: at least 4 axes required."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        resp = client.put("/api/students/1/radar-config", json=_valid_radar_config(3), cookies={"access_token": token})
+        assert resp.status_code == 400
+        assert "4-8" in resp.json()["detail"]
+
+    def test_rejects_more_than_8_axes(self, client, db_session):
+        """Validation: at most 8 axes allowed."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        config = {
+            "axes": [{"label": f"Axis {i}", "score": 3} for i in range(9)],
+            "display_mode": "numerical",
+        }
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 400
+
+    def test_rejects_empty_labels(self, client, db_session):
+        """Validation: empty labels not allowed."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        config = _valid_radar_config(4)
+        config["axes"][2]["label"] = "  "
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 400
+        assert "non-empty" in resp.json()["detail"]
+
+    def test_rejects_duplicate_labels(self, client, db_session):
+        """Validation: duplicate labels not allowed."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        config = _valid_radar_config(4)
+        config["axes"][1]["label"] = config["axes"][0]["label"]
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 400
+        assert "unique" in resp.json()["detail"]
+
+    def test_rejects_score_out_of_range(self, client, db_session):
+        """Validation: scores must be 1-5."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        config = _valid_radar_config(4)
+        config["axes"][0]["score"] = 6
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 422  # Pydantic validation
+
+    def test_labeled_display_mode(self, client, db_session):
+        """display_mode can be set to labeled."""
+        _seed_basics(db_session)
+        token = make_auth_token(1)
+
+        config = _valid_radar_config(4)
+        config["display_mode"] = "labeled"
+        resp = client.put("/api/students/1/radar-config", json=config, cookies={"access_token": token})
+        assert resp.status_code == 200
+
+        resp = client.get("/api/students/1/radar-config", cookies={"access_token": token})
+        assert resp.json()["config"]["display_mode"] == "labeled"
+
+    def test_requires_auth(self, client, db_session):
+        """Both endpoints require authentication."""
+        _seed_basics(db_session)
+
+        resp = client.get("/api/students/1/radar-config")
+        assert resp.status_code == 401
+
+        resp = client.put("/api/students/1/radar-config", json=_valid_radar_config(4))
+        assert resp.status_code == 401
