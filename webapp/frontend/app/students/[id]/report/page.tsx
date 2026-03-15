@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { studentsAPI, reportSharesAPI } from "@/lib/api";
 import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
 import { DEFAULT_SECTIONS } from "@/components/students/StudentProgressTab";
-import type { StudentProgress } from "@/types";
+import type { StudentProgress, RadarChartConfig } from "@/types";
 import useSWR from "swr";
 
 function StudentReportPageInner() {
@@ -22,6 +22,7 @@ function StudentReportPageInner() {
   const endDate = searchParams.get("endDate") || undefined;
   const commentKey = searchParams.get("commentKey");
   const insightsKey = searchParams.get("insightsKey");
+  const radarKey = searchParams.get("radarKey");
   const language = searchParams.get("language") || "en";
   const sections = useMemo(() => Object.fromEntries(
     (Object.keys(DEFAULT_SECTIONS) as (keyof ReportSectionToggles)[]).map((key) => [
@@ -53,6 +54,18 @@ function StudentReportPageInner() {
       }
     }
   }, [insightsKey]);
+
+  // Retrieve radar chart config from localStorage
+  const [radarData, setRadarData] = useState<RadarChartConfig | null>(null);
+  useEffect(() => {
+    if (radarKey) {
+      const stored = localStorage.getItem(`report-radar-${radarKey}`);
+      if (stored) {
+        try { setRadarData(JSON.parse(stored)); } catch { /* ignore */ }
+        localStorage.removeItem(`report-radar-${radarKey}`);
+      }
+    }
+  }, [radarKey]);
 
   // Fetch student data
   const { data: student, isLoading: studentLoading } = useStudent(studentId);
@@ -124,6 +137,7 @@ function StudentReportPageInner() {
             dateRangeLabel,
             tutorComment,
             generatedBy: user?.name,
+            radarData,
           },
         },
         student_id: studentId,
@@ -262,6 +276,7 @@ function StudentReportPageInner() {
           tutorComment={tutorComment}
           generatedBy={user?.name}
           sections={sections}
+          radarData={radarData || undefined}
         />
       </div>
     </div>

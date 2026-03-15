@@ -6,7 +6,7 @@ import useSWRImmutable from "swr/immutable";
 import { reportSharesAPI } from "@/lib/api";
 import { formatShortDate } from "@/lib/formatters";
 import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
-import type { Student, StudentProgress } from "@/types";
+import type { Student, StudentProgress, RadarChartConfig } from "@/types";
 
 function SharedReportInner() {
   const params = useParams();
@@ -45,6 +45,7 @@ function SharedReportInner() {
     dateRangeLabel: string;
     tutorComment?: string;
     generatedBy?: string;
+    radarData?: RadarChartConfig;
   };
 
   return (
@@ -60,6 +61,7 @@ function SharedReportInner() {
           generatedBy={config.generatedBy}
           generatedAt={data.created_at}
           sections={config.sections}
+          radarData={config.radarData}
         />
       </div>
       <p className="text-xs text-gray-400 text-center pb-6 print:hidden">

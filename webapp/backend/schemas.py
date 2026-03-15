@@ -3,7 +3,7 @@ Pydantic schemas for API request/response validation.
 These define the structure of data sent to and from the API.
 """
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List, Dict
+from typing import Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -2121,6 +2121,24 @@ class StudentProgressResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Report Shares
 # ---------------------------------------------------------------------------
+
+class RadarAxis(BaseModel):
+    label: str
+    score: int = Field(ge=1, le=5)
+
+
+class RadarChartConfig(BaseModel):
+    axes: List[RadarAxis] = []
+    display_mode: Literal["numerical", "labeled"] = "numerical"
+
+
+class StudentRadarConfigResponse(BaseModel):
+    student_id: int
+    config: RadarChartConfig
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class CreateReportShareRequest(BaseModel):
     report_data: dict
