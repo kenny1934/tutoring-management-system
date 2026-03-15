@@ -901,6 +901,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                         });
                       }}
                       placeholder={`Attribute ${i + 1}`}
+                      maxLength={30}
                       className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
                     />
                     <select
