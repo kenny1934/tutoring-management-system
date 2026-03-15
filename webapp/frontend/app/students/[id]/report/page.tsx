@@ -33,6 +33,7 @@ function StudentReportPageInner() {
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
   const [tutorComment, setTutorComment] = useState("");
+  const [commentReady, setCommentReady] = useState(!commentKey);
   useEffect(() => {
     if (commentKey) {
       const stored = localStorage.getItem(`report-comment-${commentKey}`);
@@ -40,11 +41,13 @@ function StudentReportPageInner() {
         setTutorComment(stored);
         localStorage.removeItem(`report-comment-${commentKey}`);
       }
+      setCommentReady(true);
     }
   }, [commentKey]);
 
   // Retrieve insights (narrative + concept_nodes) from localStorage
   const [storedInsights, setStoredInsights] = useState<Record<string, unknown> | null>(null);
+  const [insightsReady, setInsightsReady] = useState(!insightsKey);
   useEffect(() => {
     if (insightsKey) {
       const stored = localStorage.getItem(`report-insights-${insightsKey}`);
@@ -52,6 +55,7 @@ function StudentReportPageInner() {
         try { setStoredInsights(JSON.parse(stored)); } catch { /* ignore */ }
         localStorage.removeItem(`report-insights-${insightsKey}`);
       }
+      setInsightsReady(true);
     }
   }, [insightsKey]);
 
@@ -80,7 +84,7 @@ function StudentReportPageInner() {
   );
 
   // Auto-print after render — wait for localStorage data to load
-  const localStorageReady = radarReady;
+  const localStorageReady = commentReady && insightsReady && radarReady;
   const [printed, setPrinted] = useState(false);
   useEffect(() => {
     if (autoPrint && student && progress && localStorageReady && !printed) {
@@ -155,7 +159,7 @@ function StudentReportPageInner() {
     } finally {
       setIsSharing(false);
     }
-  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name]);
+  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name, radarData, studentId]);
 
   const handleCopy = useCallback(async () => {
     try {

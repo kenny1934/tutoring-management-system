@@ -57,7 +57,7 @@ export function ReportRadarChart({ data }: ReportRadarChartProps) {
             <tbody>
               {axes.map((axis, i) => (
                 <tr key={i} className="border-b border-[#e8d4b8] last:border-0">
-                  <td className="py-1.5 text-gray-600 font-medium">{axis.label}</td>
+                  <td className="py-1.5 text-gray-600 font-medium max-w-[120px] truncate">{axis.label}</td>
                   <td className="py-1.5 text-right text-gray-500 whitespace-nowrap">
                     {display_mode === "labeled"
                       ? SCORE_LABELS[axis.score] || axis.score

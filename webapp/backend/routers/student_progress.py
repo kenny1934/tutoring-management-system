@@ -357,6 +357,8 @@ def get_radar_config(
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
+    if not db.query(Student).filter(Student.id == student_id).first():
+        raise HTTPException(status_code=404, detail="Student not found")
     config = db.query(StudentRadarConfig).filter(
         StudentRadarConfig.student_id == student_id
     ).first()
@@ -376,6 +378,8 @@ def upsert_radar_config(
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
+    if not db.query(Student).filter(Student.id == student_id).first():
+        raise HTTPException(status_code=404, detail="Student not found")
     if len(body.axes) < 4 or len(body.axes) > 8:
         raise HTTPException(status_code=400, detail="Radar chart requires 4-8 axes")
     if any(not a.label.strip() for a in body.axes):

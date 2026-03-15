@@ -2123,7 +2123,7 @@ class StudentProgressResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RadarAxis(BaseModel):
-    label: str
+    label: str = Field(max_length=50)
     score: int = Field(ge=1, le=5)
 
 
