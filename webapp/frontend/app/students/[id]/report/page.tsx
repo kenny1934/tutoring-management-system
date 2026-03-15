@@ -56,7 +56,7 @@ function StudentReportPageInner() {
   }, [insightsKey]);
 
   // Retrieve radar chart config from localStorage
-  const [radarData, setRadarData] = useState<RadarChartConfig | null>(null);
+  const [radarData, setRadarData] = useState<RadarChartConfig | undefined>();
   useEffect(() => {
     if (radarKey) {
       const stored = localStorage.getItem(`report-radar-${radarKey}`);
@@ -276,7 +276,7 @@ function StudentReportPageInner() {
           tutorComment={tutorComment}
           generatedBy={user?.name}
           sections={sections}
-          radarData={radarData || undefined}
+          radarData={radarData}
         />
       </div>
     </div>
