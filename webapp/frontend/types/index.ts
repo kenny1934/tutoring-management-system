@@ -2027,6 +2027,16 @@ export interface ProgressInsights {
   ai_error?: boolean;
 }
 
+export interface RadarAxis {
+  label: string;
+  score: number;
+}
+
+export interface RadarChartConfig {
+  axes: RadarAxis[];
+  displayMode: "numerical" | "labeled";
+}
+
 export interface StudentProgress {
   student_id: number;
   attendance: AttendanceSummary;

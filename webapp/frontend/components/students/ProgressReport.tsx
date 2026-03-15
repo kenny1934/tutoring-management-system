@@ -1,6 +1,6 @@
 "use client";
 
-import type { Student, StudentProgress } from "@/types";
+import type { Student, StudentProgress, RadarChartConfig } from "@/types";
 import { ReportHeader } from "./report/ReportHeader";
 import { ReportStudentInfo } from "./report/ReportStudentInfo";
 import { ReportInsights } from "./report/ReportInsights";
@@ -15,6 +15,7 @@ import { ReportEnrollmentTable } from "./report/ReportEnrollmentTable";
 import { ReportContactSummary } from "./report/ReportContactSummary";
 import { ReportTutorComment } from "./report/ReportTutorComment";
 import { ReportFooter } from "./report/ReportFooter";
+import { ReportRadarChart } from "./report/ReportRadarChart";
 
 export type ReportMode = "internal" | "parent";
 
@@ -27,6 +28,7 @@ export interface ReportSectionToggles {
   showActivity: boolean;
   showEnrollment: boolean;
   showContacts: boolean;
+  showRadarChart: boolean;
 }
 
 interface ProgressReportProps {
@@ -38,6 +40,7 @@ interface ProgressReportProps {
   generatedBy?: string;
   generatedAt?: string;
   sections?: Partial<ReportSectionToggles>;
+  radarData?: RadarChartConfig;
 }
 
 export function ProgressReport({
@@ -49,6 +52,7 @@ export function ProgressReport({
   generatedBy,
   generatedAt,
   sections,
+  radarData,
 }: ProgressReportProps) {
   const {
     showAttendance = true,
@@ -59,6 +63,7 @@ export function ProgressReport({
     showActivity = true,
     showEnrollment = true,
     showContacts = true,
+    showRadarChart = false,
   } = sections ?? {};
   return (
     <div className="report-container bg-white text-gray-900 max-w-[210mm] mx-auto px-4 py-6 md:px-[20mm] md:py-[15mm]">
@@ -80,6 +85,13 @@ export function ProgressReport({
       )}
 
       <ReportMetrics progress={progress} mode={mode} showRating={showRating} />
+
+      {/* Radar chart */}
+      {showRadarChart && radarData && radarData.axes.length >= 4 && (
+        <div className="mb-6">
+          <ReportRadarChart data={radarData} />
+        </div>
+      )}
 
       {/* Charts row */}
       {mode === "internal" ? (
