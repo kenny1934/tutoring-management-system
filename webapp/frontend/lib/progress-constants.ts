@@ -36,3 +36,11 @@ export const CONCEPT_CATEGORY_COLORS: Record<string, { bg: string; border: strin
 export function getConceptCategoryColors(category?: string) {
   return CONCEPT_CATEGORY_COLORS[category || "Other"] || CONCEPT_CATEGORY_COLORS.Other;
 }
+
+export const SCORE_LABELS: Record<number, string> = {
+  1: "Needs Work",
+  2: "Fair",
+  3: "Good",
+  4: "Excellent",
+  5: "Outstanding",
+};

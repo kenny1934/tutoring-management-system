@@ -43,7 +43,7 @@ import { Modal } from "@/components/ui/modal";
 import { useCooldown } from "@/lib/ui-hooks";
 import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
 import { studentsAPI } from "@/lib/api";
-import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, formatMonthLabel } from "@/lib/progress-constants";
+import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, SCORE_LABELS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress, MonthlyActivity, RadarChartConfig } from "@/types";
 
 // --- Trend Delta Badge ---
@@ -611,9 +611,11 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [sections, setSections] = useState<ReportSectionToggles>(DEFAULT_SECTIONS);
   const [radarConfig, setRadarConfig] = useState<RadarChartConfig>({
     axes: Array.from({ length: 6 }, () => ({ label: "", score: 3 })),
-    displayMode: "numerical",
+    display_mode: "numerical",
   });
   const [radarLoaded, setRadarLoaded] = useState(false);
+
+  useEffect(() => { setRadarLoaded(false); }, [studentId]);
 
   useEffect(() => {
     if (isOpen && !radarLoaded) {
@@ -710,13 +712,13 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
         const radarKey = crypto.randomUUID();
         localStorage.setItem(`report-radar-${radarKey}`, JSON.stringify({
           axes: validAxes,
-          displayMode: radarConfig.displayMode,
+          display_mode: radarConfig.display_mode,
         }));
         params.set("radarKey", radarKey);
         // Save to backend for next time (fire-and-forget)
         studentsAPI.saveRadarConfig(studentId, {
           axes: validAxes,
-          displayMode: radarConfig.displayMode,
+          display_mode: radarConfig.display_mode,
         }).catch(() => {});
       }
     }
@@ -870,10 +872,10 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                 {([["numerical", "1-5"], ["labeled", "Labels"]] as const).map(([val, label]) => (
                   <button
                     key={val}
-                    onClick={() => setRadarConfig((prev) => ({ ...prev, displayMode: val }))}
+                    onClick={() => setRadarConfig((prev) => ({ ...prev, display_mode: val }))}
                     className={cn(
                       "text-[10px] px-2.5 py-1 font-medium transition-colors",
-                      radarConfig.displayMode === val
+                      radarConfig.display_mode === val
                         ? "bg-[#a0704b] text-white"
                         : "bg-white dark:bg-[#2d2618] text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                     )}
@@ -889,49 +891,43 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                       type="text"
                       value={axis.label}
                       onChange={(e) => {
-                        const next = [...radarConfig.axes];
-                        next[i] = { ...next[i], label: e.target.value };
-                        setRadarConfig((prev) => ({ ...prev, axes: next }));
+                        const val = e.target.value;
+                        setRadarConfig((prev) => {
+                          const next = [...prev.axes];
+                          next[i] = { ...next[i], label: val };
+                          return { ...prev, axes: next };
+                        });
                       }}
                       placeholder={`Attribute ${i + 1}`}
                       className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 placeholder-gray-400 min-w-0"
                     />
-                    {radarConfig.displayMode === "numerical" ? (
-                      <select
-                        value={axis.score}
-                        onChange={(e) => {
-                          const next = [...radarConfig.axes];
-                          next[i] = { ...next[i], score: Number(e.target.value) };
-                          setRadarConfig((prev) => ({ ...prev, axes: next }));
-                        }}
-                        className="w-14 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
-                      >
-                        {[1, 2, 3, 4, 5].map((v) => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <select
-                        value={axis.score}
-                        onChange={(e) => {
-                          const next = [...radarConfig.axes];
-                          next[i] = { ...next[i], score: Number(e.target.value) };
-                          setRadarConfig((prev) => ({ ...prev, axes: next }));
-                        }}
-                        className="w-28 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
-                      >
-                        <option value={1}>Needs Work</option>
-                        <option value={2}>Fair</option>
-                        <option value={3}>Good</option>
-                        <option value={4}>Excellent</option>
-                        <option value={5}>Outstanding</option>
-                      </select>
-                    )}
+                    <select
+                      value={axis.score}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setRadarConfig((prev) => {
+                          const next = [...prev.axes];
+                          next[i] = { ...next[i], score: val };
+                          return { ...prev, axes: next };
+                        });
+                      }}
+                      className={cn(
+                        "text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-1 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                        radarConfig.display_mode === "numerical" ? "w-14" : "w-28"
+                      )}
+                    >
+                      {Object.entries(SCORE_LABELS).map(([v, label]) => (
+                        <option key={v} value={v}>
+                          {radarConfig.display_mode === "numerical" ? v : label}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => {
-                        if (radarConfig.axes.length <= 4) return;
-                        const next = radarConfig.axes.filter((_, j) => j !== i);
-                        setRadarConfig((prev) => ({ ...prev, axes: next }));
+                        setRadarConfig((prev) => ({
+                          ...prev,
+                          axes: prev.axes.filter((_, j) => j !== i),
+                        }));
                       }}
                       disabled={radarConfig.axes.length <= 4}
                       className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"

@@ -1,23 +1,15 @@
 "use client";
 
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
-import { CHART_COLORS } from "@/lib/progress-constants";
+import { CHART_COLORS, SCORE_LABELS } from "@/lib/progress-constants";
 import type { RadarChartConfig } from "@/types";
-
-const SCORE_LABELS: Record<number, string> = {
-  1: "Needs Work",
-  2: "Fair",
-  3: "Good",
-  4: "Excellent",
-  5: "Outstanding",
-};
 
 interface ReportRadarChartProps {
   data: RadarChartConfig;
 }
 
 export function ReportRadarChart({ data }: ReportRadarChartProps) {
-  const { axes, displayMode } = data;
+  const { axes, display_mode } = data;
 
   if (axes.length < 4) return null;
 
@@ -67,7 +59,7 @@ export function ReportRadarChart({ data }: ReportRadarChartProps) {
                 <tr key={i} className="border-b border-[#e8d4b8] last:border-0">
                   <td className="py-1.5 text-gray-600 font-medium">{axis.label}</td>
                   <td className="py-1.5 text-right text-gray-500 whitespace-nowrap">
-                    {displayMode === "labeled"
+                    {display_mode === "labeled"
                       ? SCORE_LABELS[axis.score] || axis.score
                       : `${axis.score}/5`}
                   </td>
