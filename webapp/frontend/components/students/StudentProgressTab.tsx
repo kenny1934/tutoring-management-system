@@ -622,7 +622,6 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       studentsAPI.getRadarConfig(studentId).then((res) => {
         if (res.config.axes.length > 0) {
           setRadarConfig(res.config);
-          setSections((prev) => ({ ...prev, showRadarChart: true }));
         }
         setRadarLoaded(true);
       }).catch(() => setRadarLoaded(true));
@@ -727,6 +726,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
     setIsOpen(false);
   }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections, radarConfig]);
 
+  const radarValid = !sections.showRadarChart || radarConfig.axes.filter((a) => a.label.trim()).length >= 4;
+
   return (
     <>
       <button
@@ -745,7 +746,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
         footer={
           <button
             onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors"
+            disabled={!radarValid}
+            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8b6140] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileText className="w-3.5 h-3.5" />
             Generate Report
@@ -949,8 +951,8 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                   Add attribute
                 </button>
               )}
-              {radarConfig.axes.filter((a) => a.label.trim()).length < 4 && radarConfig.axes.some((a) => a.label.trim()) && (
-                <p className="text-[10px] text-amber-600 mt-1">At least 4 attributes required</p>
+              {!radarValid && (
+                <p className="text-[10px] text-amber-600 mt-1">Fill in at least 4 attributes to include the radar chart</p>
               )}
             </div>
           )}

@@ -57,6 +57,7 @@ function StudentReportPageInner() {
 
   // Retrieve radar chart config from localStorage
   const [radarData, setRadarData] = useState<RadarChartConfig | undefined>();
+  const [radarReady, setRadarReady] = useState(!radarKey);
   useEffect(() => {
     if (radarKey) {
       const stored = localStorage.getItem(`report-radar-${radarKey}`);
@@ -64,6 +65,7 @@ function StudentReportPageInner() {
         try { setRadarData(JSON.parse(stored)); } catch { /* ignore */ }
         localStorage.removeItem(`report-radar-${radarKey}`);
       }
+      setRadarReady(true);
     }
   }, [radarKey]);
 
@@ -77,15 +79,16 @@ function StudentReportPageInner() {
     { revalidateOnFocus: false }
   );
 
-  // Auto-print after render
+  // Auto-print after render — wait for localStorage data to load
+  const localStorageReady = radarReady;
   const [printed, setPrinted] = useState(false);
   useEffect(() => {
-    if (autoPrint && student && progress && !printed) {
+    if (autoPrint && student && progress && localStorageReady && !printed) {
       setPrinted(true);
       const timer = setTimeout(() => window.print(), 600);
       return () => clearTimeout(timer);
     }
-  }, [autoPrint, student, progress, printed]);
+  }, [autoPrint, student, progress, localStorageReady, printed]);
 
   // Build date range label
   const dateRangeLabel = buildDateRangeLabel(startDate, endDate);
