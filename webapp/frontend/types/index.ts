@@ -2034,7 +2034,7 @@ export interface RadarAxis {
 
 export interface RadarChartConfig {
   axes: RadarAxis[];
-  displayMode: "numerical" | "labeled";
+  display_mode: "numerical" | "labeled";
 }
 
 export interface StudentProgress {
