@@ -133,6 +133,7 @@ import type {
   TutorMemoImportRequest,
   ExerciseHistoryResponse,
   StudentProgress,
+  RadarChartConfig,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -366,6 +367,19 @@ export const studentsAPI = {
     if (opts?.language) params.set("language", opts.language);
     const qs = params.toString();
     return fetchAPI<StudentProgress>(`/students/${studentId}/progress${qs ? `?${qs}` : ""}`);
+  },
+
+  getRadarConfig: (studentId: number) => {
+    return fetchAPI<{ student_id: number; config: RadarChartConfig; updated_at?: string }>(
+      `/students/${studentId}/radar-config`
+    );
+  },
+
+  saveRadarConfig: (studentId: number, config: RadarChartConfig) => {
+    return fetchAPI<{ ok: boolean }>(`/students/${studentId}/radar-config`, {
+      method: "PUT",
+      body: JSON.stringify(config),
+    });
   },
 };
 

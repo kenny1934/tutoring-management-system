@@ -1100,3 +1100,17 @@ class ReportShare(Base):
     view_count = Column(Integer, default=0)
 
     creator = relationship("Tutor")
+
+
+class StudentRadarConfig(Base):
+    """Per-student radar chart attribute/score presets."""
+    __tablename__ = "student_radar_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, unique=True)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    config = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    student = relationship("Student")
+    tutor = relationship("Tutor")
