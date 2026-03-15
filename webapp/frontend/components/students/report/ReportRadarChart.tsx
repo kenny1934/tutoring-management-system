@@ -23,7 +23,7 @@ export function ReportRadarChart({ data }: ReportRadarChartProps) {
     <div className="report-section">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Skills Assessment</h3>
       <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="flex-1 min-w-0">
+        <div className="w-full md:flex-1 md:min-w-0">
           <ResponsiveContainer width="100%" height={280}>
             <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="75%">
               <PolarGrid stroke={CHART_COLORS.grid} />
