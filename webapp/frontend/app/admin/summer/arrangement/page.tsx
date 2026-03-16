@@ -6,11 +6,12 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, Wand2, CheckCheck, Users2, Users } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, CheckCheck, Users2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
+import { SummerSessionCalendar } from "@/components/admin/SummerSessionCalendar";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
@@ -25,6 +26,8 @@ export default function SummerArrangementPage() {
   const { showToast } = useToast();
   const canView = isAdmin || isSuperAdmin;
 
+  const { mutate: globalMutate } = useSWRConfig();
+  const [activeTab, setActiveTab] = useState<"slots" | "calendar">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
@@ -199,10 +202,22 @@ export default function SummerArrangementPage() {
       await summerAPI.deleteSession(sessionId);
       mutateSlots();
       mutateUnassigned();
+      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
     } catch (e: any) {
       showToast(e.message || "Failed to remove session", "error");
     }
-  }, [mutateSlots, mutateUnassigned, showToast]);
+  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
+
+  const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
+    try {
+      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
+      mutateSlots();
+      mutateUnassigned();
+      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+    } catch (e: any) {
+      showToast(e.message || "Failed to place student", "error");
+    }
+  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
 
   const handleBulkConfirm = useCallback(async () => {
     if (!configId) return;
@@ -321,7 +336,35 @@ export default function SummerArrangementPage() {
           />
         </div>
 
-        {/* Main content: grid + unassigned panel */}
+        {/* View tabs */}
+        <div className="flex items-center gap-1 border-b border-border -mb-2">
+          <button
+            onClick={() => setActiveTab("slots")}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+              activeTab === "slots"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Grid3X3 className="h-3.5 w-3.5" />
+            Slot Setup
+          </button>
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+              activeTab === "calendar"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            Calendar
+          </button>
+        </div>
+
+        {/* Main content: grid/calendar + unassigned panel */}
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
             Loading configuration...
@@ -330,22 +373,37 @@ export default function SummerArrangementPage() {
           <>
             <div className="flex gap-4 flex-1 min-h-0">
               <div className="flex-1 min-w-0 overflow-auto">
-                <SummerArrangementGrid
-                  days={openDays}
-                  timeSlots={timeSlots}
-                  demand={demand?.cells ?? []}
-                  slots={slots ?? []}
-                  grades={grades}
-                  onCreateSlot={handleCreateSlot}
-                  onUpdateSlot={handleUpdateSlot}
-                  onDeleteSlot={handleDeleteSlot}
-                  onDropStudent={handleDropStudent}
-                  onRemoveSession={handleRemoveSession}
-                  onClickStudent={setSelectedAppId}
-                  onDropFailed={(reason) => showToast(reason, "error")}
-                  dragPrefs={dragPrefs}
-                  getAvailableTutors={getAvailableTutors}
-                />
+                {activeTab === "slots" ? (
+                  <SummerArrangementGrid
+                    days={openDays}
+                    timeSlots={timeSlots}
+                    demand={demand?.cells ?? []}
+                    slots={slots ?? []}
+                    grades={grades}
+                    onCreateSlot={handleCreateSlot}
+                    onUpdateSlot={handleUpdateSlot}
+                    onDeleteSlot={handleDeleteSlot}
+                    onDropStudent={handleDropStudent}
+                    onRemoveSession={handleRemoveSession}
+                    onClickStudent={setSelectedAppId}
+                    onDropFailed={(reason) => showToast(reason, "error")}
+                    dragPrefs={dragPrefs}
+                    getAvailableTutors={getAvailableTutors}
+                  />
+                ) : (
+                  <SummerSessionCalendar
+                    configId={configId!}
+                    location={location}
+                    courseStartDate={activeConfig!.course_start_date}
+                    courseEndDate={activeConfig!.course_end_date}
+                    openDays={openDays}
+                    timeSlots={timeSlots}
+                    onDropStudent={handleDropStudentCalendar}
+                    onRemoveSession={handleRemoveSession}
+                    onClickStudent={setSelectedAppId}
+                    dragPrefs={dragPrefs}
+                  />
+                )}
               </div>
               {/* Desktop: always visible */}
               <div className="hidden md:flex">
