@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.34](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.34) (2026-03-17)
+
+### New Features
+
+* **Skills radar chart** — add a configurable spider chart to progress reports showing 4-8 custom skill attributes scored 1-5; choose between numerical or labeled display; saved per student so scores carry over to future reports
+* **Save & view reports** — save progress reports internally with a single click; access past reports from a new "History" button next to "Generate Report" with auto-generated labels and one-click open or delete
+* **Reorderable report sections** — drag-and-drop section order in the report config modal; the custom order applies to the generated report, shared links, and saved reports
+* **Date range moved to top** — date range is now the first option in the report config modal for faster access
+
+### Bug Fixes
+
+* **Share link creation** — fixed "Failed to create share link" error after deployment
+* **Radar chart on mobile** — fixed chart not appearing on small screens
+* **Report print timing** — fixed reports occasionally printing before all data finished loading
+* **Radar chart display mode** — fixed score display preference (numerical vs labels) not being remembered between sessions
+* **Concept map error feedback** — concept map now shows a message when AI generation fails instead of silently disappearing
+* **Delete and revoke feedback** — fixed false "failed" error messages when deleting saved reports or revoking share links
+* **Share link revoke** — revoke button now shows proper error feedback instead of failing silently
+
+### Improvements
+
+* **Faster report history loading** — optimized database query for listing saved reports
+* **Instant delete** — deleting a saved report removes it from the list immediately without waiting for a server response
+* **Radar label limits** — attribute names are capped to prevent layout overflow in print/PDF
+* **28 new backend tests** covering radar chart configuration and saved reports
+
 ## [2.0.33](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.33) (2026-03-14)
 
 ### New Features
