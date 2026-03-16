@@ -1114,3 +1114,17 @@ class StudentRadarConfig(Base):
 
     student = relationship("Student")
     tutor = relationship("Tutor")
+
+
+class SavedReport(Base):
+    """Internal saved report snapshots for tutor reference."""
+    __tablename__ = "saved_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    report_data = Column(JSON, nullable=False)
+    label = Column(String(200), nullable=True)
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+    creator = relationship("Tutor")
