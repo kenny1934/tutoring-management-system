@@ -35,7 +35,9 @@ import {
   History,
   ExternalLink,
   Trash2,
+  GripVertical,
 } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
 import { formatShortDate } from "@/lib/formatters";
@@ -44,7 +46,7 @@ import { Tooltip as UITooltip } from "@/components/ui/tooltip";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { Modal } from "@/components/ui/modal";
 import { useCooldown } from "@/lib/ui-hooks";
-import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
+import { type ReportMode, type ReportSectionToggles, type SectionKey } from "./ProgressReport";
 import { studentsAPI, savedReportsAPI } from "@/lib/api";
 import useSWR from "swr";
 import type { SavedReportSummary } from "@/types";
@@ -574,8 +576,6 @@ function getPresetDates(preset: DatePreset, enrollmentStart?: string | null): { 
   }
 }
 
-type SectionKey = keyof ReportSectionToggles;
-
 const SECTION_TOGGLES: readonly { key: SectionKey; label: string; ai?: boolean; modes?: ReportMode[] }[] = [
   { key: "showAttendance", label: "Attendance", modes: ["internal"] },
   { key: "showRating", label: "Rating" },
@@ -599,6 +599,44 @@ export const DEFAULT_SECTIONS: ReportSectionToggles = {
   showContacts: true,
   showRadarChart: false,
 };
+
+function SectionToggleItem({ sectionKey, label, ai, checked, onToggle }: {
+  sectionKey: string;
+  label: string;
+  ai?: boolean;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={sectionKey}
+      dragListener={false}
+      dragControls={controls}
+      style={{ listStyle: "none" }}
+      className="flex items-center gap-1.5"
+    >
+      <div
+        className="cursor-grab active:cursor-grabbing touch-none p-0.5"
+        onPointerDown={(e) => controls.start(e)}
+      >
+        <GripVertical className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer flex-1">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+          className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+        />
+        <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+          {label}
+          {ai && <Sparkles className="w-3 h-3 text-amber-500" />}
+        </span>
+      </label>
+    </Reorder.Item>
+  );
+}
 
 function ReportHistoryButton({ studentId }: { studentId: number }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -711,6 +749,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
   const [isCoolingDown, triggerCooldown] = useCooldown(5000);
   const [aiError, setAiError] = useState("");
   const [sections, setSections] = useState<ReportSectionToggles>(DEFAULT_SECTIONS);
+  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(
+    SECTION_TOGGLES.map(({ key }) => key)
+  );
   const [radarConfig, setRadarConfig] = useState<RadarChartConfig>({
     axes: Array.from({ length: 6 }, () => ({ label: "", score: 3 })),
     display_mode: "numerical",
@@ -806,6 +847,9 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       }
     }
 
+    // Custom section order
+    params.set("sectionOrder", sectionOrder.join(","));
+
     // Radar chart data
     if (sections.showRadarChart) {
       const validAxes = radarConfig.axes.filter((a) => a.label.trim());
@@ -826,7 +870,7 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
 
     window.open(`/students/${studentId}/report?${params}`, "_blank");
     setIsOpen(false);
-  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections, radarConfig]);
+  }, [studentId, mode, preset, customStart, customEnd, comment, narrative, aiInsights, language, enrollmentStart, sections, sectionOrder, radarConfig]);
 
   const radarValid = !sections.showRadarChart || radarConfig.axes.filter((a) => a.label.trim()).length >= 4;
 
@@ -876,6 +920,39 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Date range */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Date Range</label>
+            <select
+              value={preset}
+              onChange={(e) => setPreset(e.target.value as DatePreset)}
+              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+            >
+              <option value="1m">Last month</option>
+              <option value="3m">Last 3 months</option>
+              <option value="6m">Last 6 months</option>
+              <option value="12m">Last 12 months</option>
+              {enrollmentStart && <option value="enrollment">This enrollment</option>}
+              <option value="custom">Custom range</option>
+            </select>
+            {preset === "custom" && (
+              <div className="flex gap-2 mt-1.5">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                />
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                />
+              </div>
+            )}
           </div>
 
           {/* AI Generation */}
@@ -945,27 +1022,29 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
             />
           </div>
 
-          {/* Section toggles */}
+          {/* Section toggles (reorderable) */}
           <div>
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Sections to Include</label>
-            <div className="space-y-1.5">
-              {SECTION_TOGGLES
-                .filter(({ modes }) => !modes || modes.includes(mode))
+            <Reorder.Group
+              axis="y"
+              values={sectionOrder}
+              onReorder={setSectionOrder}
+              className="space-y-1"
+            >
+              {sectionOrder
+                .map((key) => SECTION_TOGGLES.find((t) => t.key === key)!)
+                .filter((t) => t && (!t.modes || t.modes.includes(mode)))
                 .map(({ key, label, ai }) => (
-                  <label key={key} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={sections[key]}
-                      onChange={() => toggleSection(key)}
-                      className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
-                    />
-                    <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                      {label}
-                      {ai && <Sparkles className="w-3 h-3 text-amber-500" />}
-                    </span>
-                  </label>
+                  <SectionToggleItem
+                    key={key}
+                    sectionKey={key}
+                    label={label}
+                    ai={ai}
+                    checked={sections[key]}
+                    onToggle={() => toggleSection(key)}
+                  />
                 ))}
-            </div>
+            </Reorder.Group>
           </div>
 
           {/* Radar chart config */}
@@ -1059,39 +1138,6 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
               )}
             </div>
           )}
-
-          {/* Date range */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Date Range</label>
-            <select
-              value={preset}
-              onChange={(e) => setPreset(e.target.value as DatePreset)}
-              className="w-full text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
-            >
-              <option value="1m">Last month</option>
-              <option value="3m">Last 3 months</option>
-              <option value="6m">Last 6 months</option>
-              <option value="12m">Last 12 months</option>
-              {enrollmentStart && <option value="enrollment">This enrollment</option>}
-              <option value="custom">Custom range</option>
-            </select>
-            {preset === "custom" && (
-              <div className="flex gap-2 mt-1.5">
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
-                />
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="flex-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded px-2 py-1 bg-white dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
-                />
-              </div>
-            )}
-          </div>
 
           {/* Tutor comment */}
           <div>
