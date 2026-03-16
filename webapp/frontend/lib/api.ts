@@ -279,6 +279,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       throw new Error(detailMessage || `HTTP error! status: ${response.status}`);
     }
 
+    if (response.status === 204) return undefined as T;
     return await response.json();
   } catch (error) {
     throw error;
