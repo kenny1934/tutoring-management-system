@@ -31,6 +31,15 @@ export interface ReportSectionToggles {
   showRadarChart: boolean;
 }
 
+export interface ReportConfig {
+  mode: ReportMode;
+  sections: Partial<ReportSectionToggles>;
+  dateRangeLabel: string;
+  tutorComment?: string;
+  generatedBy?: string;
+  radarData?: RadarChartConfig;
+}
+
 interface ProgressReportProps {
   student: Student;
   progress: StudentProgress;
