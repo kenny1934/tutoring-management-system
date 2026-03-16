@@ -21,7 +21,7 @@ interface SummerArrangementGridProps {
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
-  onRemovePlacement: (placementId: number) => void;
+  onRemoveSession: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   dragPrefs?: DragPrefs | null;
@@ -39,7 +39,7 @@ export function SummerArrangementGrid({
   onUpdateSlot,
   onDeleteSlot,
   onDropStudent,
-  onRemovePlacement,
+  onRemoveSession,
   onClickStudent,
   onDropFailed,
   dragPrefs,
@@ -137,7 +137,7 @@ export function SummerArrangementGrid({
                   onUpdateSlot={onUpdateSlot}
                   onDeleteSlot={onDeleteSlot}
                   onDropStudent={onDropStudent}
-                  onRemovePlacement={onRemovePlacement}
+                  onRemoveSession={onRemoveSession}
                   onClickStudent={onClickStudent}
                   onDropFailed={onDropFailed}
                   prefHighlight={isPrefMatch}

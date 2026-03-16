@@ -18,7 +18,7 @@ interface SummerSlotCellProps {
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
-  onRemovePlacement: (placementId: number) => void;
+  onRemoveSession: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
@@ -43,7 +43,7 @@ export function SummerSlotCell({
   onUpdateSlot,
   onDeleteSlot,
   onDropStudent,
-  onRemovePlacement,
+  onRemoveSession,
   onClickStudent,
   onDropFailed,
   prefHighlight,
@@ -52,7 +52,7 @@ export function SummerSlotCell({
   const [dragOver, setDragOver] = useState(false);
 
   const totalDemand = (demandCell?.total_first_pref ?? 0) + (demandCell?.total_second_pref ?? 0);
-  const totalPlaced = slots.reduce((sum, s) => sum + s.placement_count, 0);
+  const totalPlaced = slots.reduce((sum, s) => sum + s.session_count, 0);
   const remainingDemand = Math.max(0, totalDemand - totalPlaced);
 
   // Drop target for the whole cell (assigns to first non-full slot)
@@ -73,7 +73,7 @@ export function SummerSlotCell({
       if (isNaN(appId)) return;
 
       // Find first non-full slot in this cell
-      const target = slots.find((s) => s.placement_count < s.max_students);
+      const target = slots.find((s) => s.session_count < s.max_students);
       if (target) {
         onDropStudent(appId, target.id);
       } else if (slots.length > 0) {
@@ -140,7 +140,7 @@ export function SummerSlotCell({
             onUpdate={(data) => onUpdateSlot(slot.id, data)}
             onDelete={() => onDeleteSlot(slot.id)}
             onDropStudent={(appId) => onDropStudent(appId, slot.id)}
-            onRemovePlacement={onRemovePlacement}
+            onRemoveSession={onRemoveSession}
             onClickStudent={onClickStudent}
             availableTutors={availableTutors}
           />
