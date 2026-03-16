@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import useSWRImmutable from "swr/immutable";
 import { reportSharesAPI } from "@/lib/api";
 import { formatShortDate } from "@/lib/formatters";
-import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
-import type { Student, StudentProgress, RadarChartConfig } from "@/types";
+import { ProgressReport, type ReportConfig } from "@/components/students/ProgressReport";
+import type { Student, StudentProgress } from "@/types";
 
 function SharedReportInner() {
   const params = useParams();
@@ -39,14 +39,7 @@ function SharedReportInner() {
   const { report_data } = data;
   const student = report_data.student as Student;
   const progress = report_data.progress as StudentProgress;
-  const config = report_data.config as {
-    mode: ReportMode;
-    sections: Partial<ReportSectionToggles>;
-    dateRangeLabel: string;
-    tutorComment?: string;
-    generatedBy?: string;
-    radarData?: RadarChartConfig;
-  };
+  const config = report_data.config as ReportConfig;
 
   return (
     <div className="report-page min-h-screen bg-background print:bg-white print:min-h-0 print:overflow-visible">
