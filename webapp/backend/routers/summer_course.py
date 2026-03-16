@@ -760,6 +760,7 @@ def create_session(
     session = SummerSession(
         application_id=data.application_id,
         slot_id=data.slot_id,
+        lesson_id=data.lesson_id,
         session_status="Tentative",
         placed_by=admin.tutor_name or "admin",
         placed_at=hk_now(),
