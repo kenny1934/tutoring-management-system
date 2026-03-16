@@ -32,6 +32,9 @@ import {
   Check,
   Plus,
   X,
+  History,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStudentProgress } from "@/lib/hooks";
@@ -42,7 +45,9 @@ import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/compon
 import { Modal } from "@/components/ui/modal";
 import { useCooldown } from "@/lib/ui-hooks";
 import { type ReportMode, type ReportSectionToggles } from "./ProgressReport";
-import { studentsAPI } from "@/lib/api";
+import { studentsAPI, savedReportsAPI } from "@/lib/api";
+import useSWR from "swr";
+import type { SavedReportSummary } from "@/types";
 import { ATTENDANCE_COLORS, CHART_COLORS, DATA_KEY_LABELS, SCORE_LABELS, formatMonthLabel } from "@/lib/progress-constants";
 import type { StudentProgress, MonthlyActivity, RadarChartConfig } from "@/types";
 
@@ -595,6 +600,97 @@ export const DEFAULT_SECTIONS: ReportSectionToggles = {
   showRadarChart: false,
 };
 
+function ReportHistoryButton({ studentId }: { studentId: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: reports, mutate } = useSWR<SavedReportSummary[]>(
+    isOpen ? `saved-reports-${studentId}` : null,
+    () => savedReportsAPI.list(studentId),
+  );
+
+  const handleDelete = useCallback(async (id: number) => {
+    if (!window.confirm("Delete this saved report?")) return;
+    try {
+      await savedReportsAPI.delete(id);
+      mutate();
+    } catch {
+      // ignore
+    }
+  }, [mutate]);
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+      >
+        <History className="w-3.5 h-3.5" />
+        History
+      </button>
+
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Report History"
+        size="sm"
+      >
+        {!reports ? (
+          <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+        ) : reports.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">
+            No saved reports yet. Generate a report and click Save to keep a record.
+          </p>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {reports.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2d2618]"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      r.mode === "parent"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {r.mode === "parent" ? "Parent" : "Internal"}
+                    </span>
+                    {r.date_range_label && (
+                      <span className="text-[10px] text-gray-400">{r.date_range_label}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 truncate">{r.label}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {formatShortDate(r.created_at)}
+                    {r.creator_name && ` by ${r.creator_name}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => window.open(`/students/${studentId}/report/saved/${r.id}`, "_blank")}
+                    className="p-1.5 text-gray-400 hover:text-[#a0704b] transition-colors"
+                    title="Open report"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Delete report"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
 function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number; enrollmentStart?: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<ReportMode>("parent");
@@ -1061,7 +1157,10 @@ export function StudentProgressDrawer({
       {/* Header row */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Overview</h3>
-        <ReportConfigButton studentId={studentId} enrollmentStart={latestEnrollmentStart} />
+        <div className="flex items-center gap-2">
+          <ReportHistoryButton studentId={studentId} />
+          <ReportConfigButton studentId={studentId} enrollmentStart={latestEnrollmentStart} />
+        </div>
       </div>
 
       {/* Summary Cards */}
