@@ -847,8 +847,11 @@ function ReportConfigButton({ studentId, enrollmentStart }: { studentId: number;
       }
     }
 
-    // Custom section order
-    params.set("sectionOrder", sectionOrder.join(","));
+    // Custom section order — only write when different from default
+    const defaultOrder = SECTION_TOGGLES.map(({ key }) => key);
+    if (!sectionOrder.every((k, i) => k === defaultOrder[i])) {
+      params.set("sectionOrder", sectionOrder.join(","));
+    }
 
     // Radar chart data
     if (sections.showRadarChart) {

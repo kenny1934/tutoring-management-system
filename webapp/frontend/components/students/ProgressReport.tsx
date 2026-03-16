@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { Student, StudentProgress, RadarChartConfig } from "@/types";
 import { ReportHeader } from "./report/ReportHeader";
 import { ReportStudentInfo } from "./report/ReportStudentInfo";
@@ -45,8 +45,8 @@ export interface ReportConfig {
 }
 
 const DEFAULT_SECTION_ORDER: SectionKey[] = [
-  "showRadarChart", "showAttendance", "showRating", "showTopics",
-  "showTests", "showActivity", "showEnrollment", "showContacts",
+  "showAttendance", "showRating", "showConceptMap", "showTopics",
+  "showTests", "showActivity", "showEnrollment", "showContacts", "showRadarChart",
 ];
 
 interface ProgressReportProps {
@@ -119,7 +119,10 @@ export function ProgressReport({
       mode === "internal" && showContacts
         ? <div className="mb-6"><ReportContactSummary data={progress.contacts} /></div>
         : null,
-    showConceptMap: () => null, // Rendered separately above metrics
+    showConceptMap: () =>
+      showConceptMap && progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0
+        ? <div className="mb-6"><ReportConceptMap data={progress.insights.concept_nodes} /></div>
+        : null,
   };
 
   const order = sectionOrder ?? DEFAULT_SECTION_ORDER;
@@ -136,20 +139,12 @@ export function ProgressReport({
         </div>
       )}
 
-      {/* Concept map — AI-extracted topics */}
-      {showConceptMap && progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0 && (
-        <div className="mb-6">
-          <ReportConceptMap data={progress.insights.concept_nodes} />
-        </div>
-      )}
-
       <ReportMetrics progress={progress} mode={mode} showRating={showRating} />
 
       {/* Sections in custom order */}
-      {order.map((key) => {
-        const render = sectionRenderers[key];
-        return render ? <div key={key}>{render()}</div> : null;
-      })}
+      {order.map((key) => (
+        <Fragment key={key}>{sectionRenderers[key]?.()}</Fragment>
+      ))}
 
       {tutorComment && (
         <div className="mb-6">
