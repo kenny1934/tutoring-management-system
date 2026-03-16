@@ -602,6 +602,7 @@ export const DEFAULT_SECTIONS: ReportSectionToggles = {
 
 function ReportHistoryButton({ studentId }: { studentId: number }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const { data: reports, mutate } = useSWR<SavedReportSummary[]>(
     isOpen ? `saved-reports-${studentId}` : null,
     () => savedReportsAPI.list(studentId),
@@ -609,11 +610,13 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
 
   const handleDelete = useCallback(async (id: number) => {
     if (!window.confirm("Delete this saved report?")) return;
+    setDeleteError("");
     try {
+      mutate((current) => current?.filter((r) => r.id !== id), { revalidate: false });
       await savedReportsAPI.delete(id);
-      mutate();
     } catch {
-      // ignore
+      setDeleteError("Failed to delete report");
+      mutate(); // revert optimistic removal
     }
   }, [mutate]);
 
@@ -633,6 +636,9 @@ function ReportHistoryButton({ studentId }: { studentId: number }) {
         title="Report History"
         size="sm"
       >
+        {deleteError && (
+          <p className="text-xs text-red-500 mb-2">{deleteError}</p>
+        )}
         {!reports ? (
           <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
         ) : reports.length === 0 ? (

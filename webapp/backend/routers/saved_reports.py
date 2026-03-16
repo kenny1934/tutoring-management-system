@@ -4,7 +4,7 @@ Internal saved report snapshots — tutors can save and retrieve past reports.
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from auth.dependencies import get_current_user
 from database import get_db
@@ -61,7 +61,9 @@ def list_saved_reports(
     if not db.query(Student).filter(Student.id == student_id).first():
         raise HTTPException(status_code=404, detail="Student not found")
 
-    reports = db.query(SavedReport).filter(
+    reports = db.query(SavedReport).options(
+        joinedload(SavedReport.creator),
+    ).filter(
         SavedReport.student_id == student_id,
     ).order_by(SavedReport.created_at.desc()).all()
 
