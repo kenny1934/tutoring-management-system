@@ -186,7 +186,7 @@ export default function SummerArrangementPage() {
 
   const handleDropStudent = useCallback(async (applicationId: number, slotId: number) => {
     try {
-      await summerAPI.createPlacement({ application_id: applicationId, slot_id: slotId });
+      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId });
       mutateSlots();
       mutateUnassigned();
     } catch (e: any) {
@@ -194,21 +194,21 @@ export default function SummerArrangementPage() {
     }
   }, [mutateSlots, mutateUnassigned, showToast]);
 
-  const handleRemovePlacement = useCallback(async (placementId: number) => {
+  const handleRemoveSession = useCallback(async (sessionId: number) => {
     try {
-      await summerAPI.deletePlacement(placementId);
+      await summerAPI.deleteSession(sessionId);
       mutateSlots();
       mutateUnassigned();
     } catch (e: any) {
-      showToast(e.message || "Failed to remove placement", "error");
+      showToast(e.message || "Failed to remove session", "error");
     }
   }, [mutateSlots, mutateUnassigned, showToast]);
 
   const handleBulkConfirm = useCallback(async () => {
     if (!configId) return;
     try {
-      const result = await summerAPI.bulkConfirmPlacements(configId, location);
-      showToast(`Confirmed ${result.confirmed} placements`, "success");
+      const result = await summerAPI.bulkConfirmSessions(configId, location);
+      showToast(`Confirmed ${result.confirmed} sessions`, "success");
       mutateSlots();
     } catch (e: any) {
       showToast(e.message || "Failed to confirm", "error");
@@ -234,11 +234,11 @@ export default function SummerArrangementPage() {
   // Stats
   const totalUnassigned = unassigned?.length ?? 0;
   const totalTentative = slots?.reduce(
-    (sum, s) => sum + s.placements.filter((p) => p.placement_status === "Tentative").length,
+    (sum, s) => sum + s.sessions.filter((p) => p.session_status === "Tentative").length,
     0
   ) ?? 0;
   const totalConfirmed = slots?.reduce(
-    (sum, s) => sum + s.placements.filter((p) => p.placement_status === "Confirmed").length,
+    (sum, s) => sum + s.sessions.filter((p) => p.session_status === "Confirmed").length,
     0
   ) ?? 0;
 
@@ -340,7 +340,7 @@ export default function SummerArrangementPage() {
                   onUpdateSlot={handleUpdateSlot}
                   onDeleteSlot={handleDeleteSlot}
                   onDropStudent={handleDropStudent}
-                  onRemovePlacement={handleRemovePlacement}
+                  onRemoveSession={handleRemoveSession}
                   onClickStudent={setSelectedAppId}
                   onDropFailed={(reason) => showToast(reason, "error")}
                   dragPrefs={dragPrefs}

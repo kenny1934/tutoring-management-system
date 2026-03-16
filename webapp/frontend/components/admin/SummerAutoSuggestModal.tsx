@@ -92,7 +92,7 @@ export function SummerAutoSuggestModal({
 
     for (const proposal of toPlace) {
       try {
-        await summerAPI.createPlacement({
+        await summerAPI.createSession({
           application_id: proposal.application_id,
           slot_id: proposal.slot_id,
         });

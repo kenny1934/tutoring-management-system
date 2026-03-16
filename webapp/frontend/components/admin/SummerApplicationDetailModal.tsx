@@ -779,9 +779,9 @@ export function SummerApplicationDetailModal({
             </div>
             <div className="min-w-0">
               <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
-              {app.placements && app.placements.length > 0 ? (
+              {app.sessions && app.sessions.length > 0 ? (
                 <div className="space-y-1 mt-0.5">
-                  {app.placements.map((p) => (
+                  {app.sessions.map((p) => (
                     <div key={p.id} className="flex items-center gap-2 text-sm">
                       <span className="font-medium text-foreground">
                         {p.slot_day} {p.time_slot}
@@ -799,14 +799,14 @@ export function SummerApplicationDetailModal({
                       <span
                         className={cn(
                           "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                          p.placement_status === "Confirmed"
+                          p.session_status === "Confirmed"
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                            : p.placement_status === "Tentative"
+                            : p.session_status === "Tentative"
                               ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
                               : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                         )}
                       >
-                        {p.placement_status}
+                        {p.session_status}
                       </span>
                     </div>
                   ))}

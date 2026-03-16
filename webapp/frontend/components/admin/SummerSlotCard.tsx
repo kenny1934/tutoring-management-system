@@ -13,7 +13,7 @@ interface SummerSlotCardProps {
   onUpdate: (data: SummerSlotUpdate) => void;
   onDelete: () => void;
   onDropStudent: (applicationId: number) => void;
-  onRemovePlacement: (placementId: number) => void;
+  onRemoveSession: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
   availableTutors?: AvailableTutor[];
 }
@@ -30,7 +30,7 @@ export function SummerSlotCard({
   onUpdate,
   onDelete,
   onDropStudent,
-  onRemovePlacement,
+  onRemoveSession,
   onClickStudent,
   availableTutors,
 }: SummerSlotCardProps) {
@@ -40,8 +40,8 @@ export function SummerSlotCard({
   const [editingLabel, setEditingLabel] = useState(false);
   const maxRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
-  const isFull = slot.placement_count >= slot.max_students;
-  const fillPct = slot.max_students > 0 ? slot.placement_count / slot.max_students : 0;
+  const isFull = slot.session_count >= slot.max_students;
+  const fillPct = slot.max_students > 0 ? slot.session_count / slot.max_students : 0;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -218,7 +218,7 @@ export function SummerSlotCard({
             className="text-[9px] text-muted-foreground whitespace-nowrap hover:text-foreground hover:underline"
             title="Click to edit max students"
           >
-            {slot.placement_count}/{slot.max_students}
+            {slot.session_count}/{slot.max_students}
           </button>
         )}
       </div>
@@ -237,17 +237,17 @@ export function SummerSlotCard({
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
             placeholder="Add label..."
           />
-          {slot.placements.length === 0 && (
+          {slot.sessions.length === 0 && (
             <div className="text-[9px] text-muted-foreground italic py-1">
               No students placed yet. Drag here to assign.
             </div>
           )}
-          {slot.placements.map((p) => (
+          {slot.sessions.map((p) => (
             <div
               key={p.id}
               className={cn(
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
-                p.placement_status === "Confirmed"
+                p.session_status === "Confirmed"
                   ? "bg-green-50 dark:bg-green-900/20"
                   : "bg-gray-50 dark:bg-gray-800/60"
               )}
@@ -262,11 +262,11 @@ export function SummerSlotCard({
               <span className={cn("text-[8px]", SUMMER_GRADE_BG[p.grade] || "")}>
                 {p.grade}
               </span>
-              {p.placement_status === "Tentative" && (
+              {p.session_status === "Tentative" && (
                 <span className="text-[8px] text-yellow-600 dark:text-yellow-400">T</span>
               )}
               <button
-                onClick={() => onRemovePlacement(p.id)}
+                onClick={() => onRemoveSession(p.id)}
                 className="p-0 text-muted-foreground hover:text-red-500"
                 title="Remove"
               >

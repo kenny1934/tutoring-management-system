@@ -18,8 +18,8 @@ from models import (
     SummerBuddyGroup,
     SummerApplication,
     SummerCourseSlot,
-    SummerPlacement,
     SummerSession,
+    SummerLesson,
     SummerTutorDuty,
     Tutor,
 )
@@ -37,14 +37,14 @@ from schemas import (
     SummerSlotCreate,
     SummerSlotUpdate,
     SummerSlotResponse,
-    SummerSlotPlacementInfo,
-    SummerPlacementCreate,
-    SummerPlacementUpdate,
-    SummerPlacementResponse,
+    SummerSlotSessionInfo,
+    SummerSessionCreate,
+    SummerSessionStatusUpdate,
     SummerSessionResponse,
-    SummerSessionUpdate,
-    SummerSessionCalendarEntry,
-    SummerSessionCalendarResponse,
+    SummerLessonResponse,
+    SummerLessonUpdate,
+    SummerLessonCalendarEntry,
+    SummerLessonCalendarResponse,
     SummerFindSlotResult,
     SummerDemandResponse,
     SummerDemandCell,
@@ -53,7 +53,7 @@ from schemas import (
     SummerSuggestionItem,
     SummerTutorDutyBulkSet,
     SummerTutorDutyResponse,
-    SummerApplicationPlacementInfo,
+    SummerApplicationSessionInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.rate_limiter import check_ip_rate_limit
@@ -385,23 +385,23 @@ def clone_config(
 
 
 def _build_application_response(app: SummerApplication) -> SummerApplicationResponse:
-    """Build application response with embedded placement info."""
-    placements = []
-    for p in (app.placements or []):
-        if p.placement_status == "Cancelled":
+    """Build application response with embedded session info."""
+    sessions = []
+    for s in (app.sessions or []):
+        if s.session_status == "Cancelled":
             continue
-        slot = p.slot
-        placements.append(SummerApplicationPlacementInfo(
-            id=p.id,
-            slot_id=p.slot_id,
+        slot = s.slot
+        sessions.append(SummerApplicationSessionInfo(
+            id=s.id,
+            slot_id=s.slot_id,
             slot_day=slot.slot_day if slot else "",
             time_slot=slot.time_slot if slot else "",
             grade=slot.grade if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
-            placement_status=p.placement_status,
+            session_status=s.session_status,
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
-    data["placements"] = placements
+    data["sessions"] = sessions
     return SummerApplicationResponse.model_validate(data)
 
 
@@ -419,8 +419,8 @@ def list_applications(
     """List summer applications with optional filters."""
     q = db.query(SummerApplication).options(
         joinedload(SummerApplication.buddy_group),
-        joinedload(SummerApplication.placements)
-            .joinedload(SummerPlacement.slot)
+        joinedload(SummerApplication.sessions)
+            .joinedload(SummerSession.slot)
             .joinedload(SummerCourseSlot.tutor),
     )
 
@@ -498,8 +498,8 @@ def get_application(
     """Get a single application by ID."""
     app = db.query(SummerApplication).options(
         joinedload(SummerApplication.buddy_group),
-        joinedload(SummerApplication.placements)
-            .joinedload(SummerPlacement.slot)
+        joinedload(SummerApplication.sessions)
+            .joinedload(SummerSession.slot)
             .joinedload(SummerCourseSlot.tutor),
     ).filter(SummerApplication.id == app_id).first()
     if not app:
@@ -531,11 +531,11 @@ def update_application(
 
     db.commit()
 
-    # Reload with placements for response
+    # Reload with sessions for response
     app = db.query(SummerApplication).options(
         joinedload(SummerApplication.buddy_group),
-        joinedload(SummerApplication.placements)
-            .joinedload(SummerPlacement.slot)
+        joinedload(SummerApplication.sessions)
+            .joinedload(SummerSession.slot)
             .joinedload(SummerCourseSlot.tutor),
     ).filter(SummerApplication.id == app_id).first()
     if not app:
@@ -547,8 +547,8 @@ def update_application(
 
 def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
     """Build a SummerSlotResponse from an ORM slot with loaded relationships."""
-    active_placements = [
-        p for p in slot.placements if p.placement_status != "Cancelled"
+    active_sessions = [
+        s for s in slot.sessions if s.session_status != "Cancelled"
     ]
     return SummerSlotResponse(
         id=slot.id,
@@ -563,16 +563,16 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         tutor_name=slot.tutor.tutor_name if slot.tutor else None,
         max_students=slot.max_students,
         created_at=slot.created_at,
-        placement_count=len(active_placements),
-        placements=[
-            SummerSlotPlacementInfo(
-                id=p.id,
-                application_id=p.application_id,
-                student_name=p.application.student_name,
-                grade=p.application.grade,
-                placement_status=p.placement_status,
+        session_count=len(active_sessions),
+        sessions=[
+            SummerSlotSessionInfo(
+                id=s.id,
+                application_id=s.application_id,
+                student_name=s.application.student_name,
+                grade=s.application.grade,
+                session_status=s.session_status,
             )
-            for p in active_placements
+            for s in active_sessions
         ],
     )
 
@@ -589,7 +589,7 @@ def list_slots(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
         )
         .filter(SummerCourseSlot.config_id == config_id)
     )
@@ -619,7 +619,7 @@ def create_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
         )
         .filter(SummerCourseSlot.id == slot.id)
         .first()
@@ -672,7 +672,7 @@ def update_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application),
+            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
         )
         .filter(SummerCourseSlot.id == slot_id)
         .first()
@@ -686,53 +686,53 @@ def delete_slot(
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Delete a slot (only if no active placements)."""
+    """Delete a slot (only if no active sessions)."""
     slot = (
         db.query(SummerCourseSlot)
-        .options(joinedload(SummerCourseSlot.placements))
+        .options(joinedload(SummerCourseSlot.sessions))
         .filter(SummerCourseSlot.id == slot_id)
         .first()
     )
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
 
-    active = [p for p in slot.placements if p.placement_status != "Cancelled"]
+    active = [s for s in slot.sessions if s.session_status != "Cancelled"]
     if active:
-        raise HTTPException(status_code=400, detail="Cannot delete slot with active placements")
+        raise HTTPException(status_code=400, detail="Cannot delete slot with active sessions")
 
     db.delete(slot)
     db.commit()
     return {"success": True}
 
 
-# ─── Placement CRUD ──────────────────────────────────────────────────────────
+# ─── Session CRUD ────────────────────────────────────────────────────────────
 
-def _build_placement_response(p: SummerPlacement) -> SummerPlacementResponse:
-    """Build a SummerPlacementResponse from an ORM placement."""
-    return SummerPlacementResponse(
-        id=p.id,
-        application_id=p.application_id,
-        slot_id=p.slot_id,
-        lesson_number=p.lesson_number,
-        specific_date=p.specific_date,
-        placement_status=p.placement_status,
-        placed_at=p.placed_at,
-        placed_by=p.placed_by,
-        student_name=p.application.student_name if p.application else None,
-        student_grade=p.application.grade if p.application else None,
+def _build_session_response(s: SummerSession) -> SummerSessionResponse:
+    """Build a SummerSessionResponse from an ORM session."""
+    return SummerSessionResponse(
+        id=s.id,
+        application_id=s.application_id,
+        slot_id=s.slot_id,
+        lesson_number=s.lesson_number,
+        specific_date=s.specific_date,
+        session_status=s.session_status,
+        placed_at=s.placed_at,
+        placed_by=s.placed_by,
+        student_name=s.application.student_name if s.application else None,
+        student_grade=s.application.grade if s.application else None,
     )
 
 
-@router.post("/summer/placements", response_model=SummerPlacementResponse, status_code=201)
-def create_placement(
-    data: SummerPlacementCreate,
+@router.post("/summer/sessions", response_model=SummerSessionResponse, status_code=201)
+def create_session(
+    data: SummerSessionCreate,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
     """Assign a student (application) to a slot."""
     slot = (
         db.query(SummerCourseSlot)
-        .options(joinedload(SummerCourseSlot.placements))
+        .options(joinedload(SummerCourseSlot.sessions))
         .filter(SummerCourseSlot.id == data.slot_id)
         .first()
     )
@@ -744,33 +744,33 @@ def create_placement(
         raise HTTPException(status_code=404, detail="Application not found")
 
     # Check capacity
-    active_count = sum(1 for p in slot.placements if p.placement_status != "Cancelled")
+    active_count = sum(1 for s in slot.sessions if s.session_status != "Cancelled")
     if active_count >= slot.max_students:
         raise HTTPException(status_code=400, detail="Slot is full")
 
     # Check duplicate
     existing = next(
-        (p for p in slot.placements
-         if p.application_id == data.application_id and p.placement_status != "Cancelled"),
+        (s for s in slot.sessions
+         if s.application_id == data.application_id and s.session_status != "Cancelled"),
         None,
     )
     if existing:
         raise HTTPException(status_code=400, detail="Application already placed in this slot")
 
-    placement = SummerPlacement(
+    session = SummerSession(
         application_id=data.application_id,
         slot_id=data.slot_id,
-        placement_status="Tentative",
+        session_status="Tentative",
         placed_by=admin.tutor_name or "admin",
         placed_at=hk_now(),
     )
-    db.add(placement)
+    db.add(session)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Application already placed in this slot")
-    db.refresh(placement)
+    db.refresh(session)
 
     # Auto-sync: advance application status to Placement Offered
     if app.application_status in (
@@ -781,56 +781,56 @@ def create_placement(
         db.commit()
 
     # Reload with application
-    placement = (
-        db.query(SummerPlacement)
-        .options(joinedload(SummerPlacement.application))
-        .filter(SummerPlacement.id == placement.id)
+    session = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.application))
+        .filter(SummerSession.id == session.id)
         .first()
     )
-    return _build_placement_response(placement)
+    return _build_session_response(session)
 
 
-@router.patch("/summer/placements/{placement_id}", response_model=SummerPlacementResponse)
-def update_placement(
-    placement_id: int,
-    data: SummerPlacementUpdate,
+@router.patch("/summer/sessions/{session_id}", response_model=SummerSessionResponse)
+def update_session_status(
+    session_id: int,
+    data: SummerSessionStatusUpdate,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Update a placement's status."""
-    placement = (
-        db.query(SummerPlacement)
-        .options(joinedload(SummerPlacement.application))
-        .filter(SummerPlacement.id == placement_id)
+    """Update a session's status."""
+    session = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.application))
+        .filter(SummerSession.id == session_id)
         .first()
     )
-    if not placement:
-        raise HTTPException(status_code=404, detail="Placement not found")
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    # placement_status validated by Literal type in schema
-    placement.placement_status = data.placement_status
+    # session_status validated by Literal type in schema
+    session.session_status = data.session_status
     db.commit()
 
     # Auto-sync application status
-    app = placement.application
+    app = session.application
     if app:
-        if data.placement_status == "Confirmed" and app.application_status == SummerApplicationStatus.PLACEMENT_OFFERED:
+        if data.session_status == "Confirmed" and app.application_status == SummerApplicationStatus.PLACEMENT_OFFERED:
             app.application_status = SummerApplicationStatus.PLACEMENT_CONFIRMED
             db.commit()
-        elif data.placement_status == "Cancelled":
+        elif data.session_status == "Cancelled":
             _maybe_revert_app_status(db, app)
 
-    db.refresh(placement)
-    return _build_placement_response(placement)
+    db.refresh(session)
+    return _build_session_response(session)
 
 
 def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
-    """If application has no remaining active placements, revert status to Under Review."""
+    """If application has no remaining active sessions, revert status to Under Review."""
     remaining = (
-        db.query(SummerPlacement)
+        db.query(SummerSession)
         .filter(
-            SummerPlacement.application_id == app.id,
-            SummerPlacement.placement_status != "Cancelled",
+            SummerSession.application_id == app.id,
+            SummerSession.session_status != "Cancelled",
         )
         .count()
     )
@@ -842,65 +842,65 @@ def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
         db.commit()
 
 
-@router.delete("/summer/placements/{placement_id}")
-def delete_placement(
-    placement_id: int,
+@router.delete("/summer/sessions/{session_id}")
+def delete_session(
+    session_id: int,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Remove a placement (unassign student from slot)."""
-    placement = (
-        db.query(SummerPlacement)
-        .options(joinedload(SummerPlacement.application))
-        .filter(SummerPlacement.id == placement_id)
+    """Remove a session (unassign student from slot)."""
+    session = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.application))
+        .filter(SummerSession.id == session_id)
         .first()
     )
-    if not placement:
-        raise HTTPException(status_code=404, detail="Placement not found")
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    app = placement.application
-    db.delete(placement)
+    app = session.application
+    db.delete(session)
     db.commit()
 
-    # Auto-sync: revert app status if no placements remain
+    # Auto-sync: revert app status if no sessions remain
     if app:
         _maybe_revert_app_status(db, app)
 
     return {"success": True}
 
 
-@router.post("/summer/placements/bulk-confirm")
-def bulk_confirm_placements(
+@router.post("/summer/sessions/bulk-confirm")
+def bulk_confirm_sessions(
     config_id: int = Query(...),
     location: Optional[str] = None,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Confirm all tentative placements for a config (optionally filtered by location)."""
+    """Confirm all tentative sessions for a config (optionally filtered by location)."""
     q = (
-        db.query(SummerPlacement)
-        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        db.query(SummerSession)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .filter(
             SummerCourseSlot.config_id == config_id,
-            SummerPlacement.placement_status == "Tentative",
+            SummerSession.session_status == "Tentative",
         )
     )
     if location:
         q = q.filter(SummerCourseSlot.location == location)
 
     # Get application IDs before updating so we can sync their statuses
-    placement_app_ids = [p.application_id for p in q.all()]
+    session_app_ids = [s.application_id for s in q.all()]
 
     count = q.update(
-        {SummerPlacement.placement_status: "Confirmed"},
+        {SummerSession.session_status: "Confirmed"},
         synchronize_session="fetch",
     )
     db.commit()
 
     # Auto-sync: advance application statuses to Placement Confirmed
-    if placement_app_ids:
+    if session_app_ids:
         db.query(SummerApplication).filter(
-            SummerApplication.id.in_(placement_app_ids),
+            SummerApplication.id.in_(session_app_ids),
             SummerApplication.application_status == SummerApplicationStatus.PLACEMENT_OFFERED,
         ).update(
             {SummerApplication.application_status: SummerApplicationStatus.PLACEMENT_CONFIRMED},
@@ -971,12 +971,12 @@ def list_unassigned(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List applications with no active placement for this config."""
+    """List applications with no active session for this config."""
     placed_ids = (
-        select(SummerPlacement.application_id)
-        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        select(SummerSession.application_id)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .where(
-            SummerPlacement.placement_status != "Cancelled",
+            SummerSession.session_status != "Cancelled",
             SummerCourseSlot.config_id == config_id,
         )
         .distinct()
@@ -1015,10 +1015,10 @@ def auto_suggest(
     """
     # 1. Load unassigned applications for this config + location
     placed_ids = (
-        select(SummerPlacement.application_id)
-        .join(SummerCourseSlot, SummerPlacement.slot_id == SummerCourseSlot.id)
+        select(SummerSession.application_id)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .where(
-            SummerPlacement.placement_status != "Cancelled",
+            SummerSession.session_status != "Cancelled",
             SummerCourseSlot.config_id == data.config_id,
         )
         .distinct()
@@ -1035,11 +1035,11 @@ def auto_suggest(
         .all()
     )
 
-    # 2. Load slots with current counts (eager-load placements + their applications for buddy tracking)
+    # 2. Load slots with current counts (eager-load sessions + their applications for buddy tracking)
     slots = (
         db.query(SummerCourseSlot)
         .options(
-            joinedload(SummerCourseSlot.placements).joinedload(SummerPlacement.application)
+            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application)
         )
         .filter(
             SummerCourseSlot.config_id == data.config_id,
@@ -1052,12 +1052,12 @@ def auto_suggest(
     slot_capacity: dict[int, int] = {}
     slot_buddy_groups: dict[int, set[int]] = {}  # slot_id -> set of buddy_group_ids
     for s in slots:
-        active = [p for p in s.placements if p.placement_status != "Cancelled"]
+        active = [sess for sess in s.sessions if sess.session_status != "Cancelled"]
         slot_capacity[s.id] = s.max_students - len(active)
         # Track buddy groups in each slot
-        for p in active:
-            if p.application and p.application.buddy_group_id:
-                slot_buddy_groups.setdefault(s.id, set()).add(p.application.buddy_group_id)
+        for sess in active:
+            if sess.application and sess.application.buddy_group_id:
+                slot_buddy_groups.setdefault(s.id, set()).add(sess.application.buddy_group_id)
 
     # 3. Score each application by flexibility (count matching open slots)
     def count_matching(app: SummerApplication) -> int:
@@ -1211,7 +1211,7 @@ def bulk_set_tutor_duties(
     return {"success": True, "count": len(data.duties)}
 
 
-# ─── Session Helpers ─────────────────────────────────────────────────────────
+# ─── Lesson Helpers ──────────────────────────────────────────────────────────
 
 DAY_TO_WEEKDAY = {
     "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
@@ -1246,19 +1246,19 @@ def compute_lesson_number(course_type: str | None, week: int) -> int:
     return week
 
 
-# ─── Sessions (materialized instances) ──────────────────────────────────────
+# ─── Lessons (materialized instances) ────────────────────────────────────────
 
-@router.post("/summer/sessions/generate")
-def generate_sessions(
+@router.post("/summer/lessons/generate")
+def generate_lessons(
     config_id: int,
     location: str,
     slot_id: int | None = None,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Generate SummerSession rows for slots. Uses course_type to seed lesson numbers.
+    """Generate SummerLesson rows for slots. Uses course_type to seed lesson numbers.
     If slot_id is given, generates for that slot only. Otherwise for all slots in config+location.
-    Skips slots that already have sessions.
+    Skips slots that already have lessons.
     """
     config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
     if not config:
@@ -1275,12 +1275,12 @@ def generate_sessions(
     created = 0
     skipped = 0
 
-    # Batch check which slots already have sessions (avoids N+1)
+    # Batch check which slots already have lessons (avoids N+1)
     slot_ids = [s.id for s in slots]
     existing_slot_ids = {
         row[0]
-        for row in db.query(SummerSession.slot_id)
-        .filter(SummerSession.slot_id.in_(slot_ids))
+        for row in db.query(SummerLesson.slot_id)
+        .filter(SummerLesson.slot_id.in_(slot_ids))
         .distinct()
         .all()
     } if slot_ids else set()
@@ -1293,126 +1293,126 @@ def generate_sessions(
         dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
         for i, d in enumerate(dates):
             week = i + 1
-            lesson = compute_lesson_number(slot.course_type, week)
-            db.add(SummerSession(
+            lesson_num = compute_lesson_number(slot.course_type, week)
+            db.add(SummerLesson(
                 slot_id=slot.id,
-                session_date=d,
-                lesson_number=lesson,
-                session_status="Scheduled",
+                lesson_date=d,
+                lesson_number=lesson_num,
+                lesson_status="Scheduled",
             ))
             created += 1
 
     db.commit()
-    return {"success": True, "sessions_created": created, "slots_skipped": skipped}
+    return {"success": True, "lessons_created": created, "slots_skipped": skipped}
 
 
-@router.get("/summer/sessions", response_model=list[SummerSessionResponse])
-def list_sessions(
+@router.get("/summer/lessons", response_model=list[SummerLessonResponse])
+def list_lessons(
     slot_id: int,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List all sessions for a slot, ordered by date."""
+    """List all lessons for a slot, ordered by date."""
     return (
-        db.query(SummerSession)
-        .filter(SummerSession.slot_id == slot_id)
-        .order_by(SummerSession.session_date)
+        db.query(SummerLesson)
+        .filter(SummerLesson.slot_id == slot_id)
+        .order_by(SummerLesson.lesson_date)
         .all()
     )
 
 
-@router.patch("/summer/sessions/{session_id}", response_model=SummerSessionResponse)
-def update_session(
-    session_id: int,
-    data: SummerSessionUpdate,
+@router.patch("/summer/lessons/{lesson_id}", response_model=SummerLessonResponse)
+def update_lesson(
+    lesson_id: int,
+    data: SummerLessonUpdate,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Update a session's lesson_number, status, or notes."""
-    session = db.query(SummerSession).filter(SummerSession.id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    """Update a lesson's lesson_number, status, or notes."""
+    lesson = db.query(SummerLesson).filter(SummerLesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
 
     if data.lesson_number is not None:
-        session.lesson_number = data.lesson_number
-    if data.session_status is not None:
-        session.session_status = data.session_status
+        lesson.lesson_number = data.lesson_number
+    if data.lesson_status is not None:
+        lesson.lesson_status = data.lesson_status
     if data.notes is not None:
-        session.notes = data.notes
+        lesson.notes = data.notes
 
     db.commit()
-    db.refresh(session)
-    return session
+    db.refresh(lesson)
+    return lesson
 
 
-@router.get("/summer/sessions/calendar", response_model=SummerSessionCalendarResponse)
-def get_session_calendar(
+@router.get("/summer/lessons/calendar", response_model=SummerLessonCalendarResponse)
+def get_lesson_calendar(
     config_id: int,
     location: str,
     week_start: date_type,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Get sessions for one week with slot info and placements, for calendar view."""
+    """Get lessons for one week with slot info and sessions, for calendar view."""
     week_end = week_start + timedelta(days=6)
 
-    sessions = (
-        db.query(SummerSession)
-        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+    lessons = (
+        db.query(SummerLesson)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
         .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
         .options(
-            contains_eager(SummerSession.slot).contains_eager(SummerCourseSlot.tutor),
-            joinedload(SummerSession.placements).joinedload(SummerPlacement.application),
+            contains_eager(SummerLesson.slot).contains_eager(SummerCourseSlot.tutor),
+            joinedload(SummerLesson.sessions).joinedload(SummerSession.application),
         )
         .filter(
             SummerCourseSlot.config_id == config_id,
             SummerCourseSlot.location == location,
-            SummerSession.session_date >= week_start,
-            SummerSession.session_date <= week_end,
+            SummerLesson.lesson_date >= week_start,
+            SummerLesson.lesson_date <= week_end,
         )
-        .order_by(SummerSession.session_date, SummerCourseSlot.time_slot)
+        .order_by(SummerLesson.lesson_date, SummerCourseSlot.time_slot)
         .all()
     )
 
     entries = []
-    for s in sessions:
-        slot = s.slot
-        active_placements = [
-            SummerSlotPlacementInfo(
-                id=p.id,
-                application_id=p.application_id,
-                student_name=p.application.student_name if p.application else "",
-                grade=p.application.grade if p.application else "",
-                placement_status=p.placement_status,
+    for lesson in lessons:
+        slot = lesson.slot
+        active_sessions = [
+            SummerSlotSessionInfo(
+                id=s.id,
+                application_id=s.application_id,
+                student_name=s.application.student_name if s.application else "",
+                grade=s.application.grade if s.application else "",
+                session_status=s.session_status,
             )
-            for p in s.placements
-            if p.placement_status != "Cancelled"
+            for s in lesson.sessions
+            if s.session_status != "Cancelled"
         ]
-        entries.append(SummerSessionCalendarEntry(
-            session_id=s.id,
+        entries.append(SummerLessonCalendarEntry(
+            lesson_id=lesson.id,
             slot_id=slot.id,
             slot_day=slot.slot_day,
             time_slot=slot.time_slot,
             grade=slot.grade,
             course_type=slot.course_type,
-            lesson_number=s.lesson_number,
-            session_status=s.session_status,
+            lesson_number=lesson.lesson_number,
+            lesson_status=lesson.lesson_status,
             tutor_id=slot.tutor_id,
             tutor_name=slot.tutor.tutor_name if slot.tutor else None,
             max_students=slot.max_students,
-            date=s.session_date,
-            notes=s.notes,
-            placements=active_placements,
+            date=lesson.lesson_date,
+            notes=lesson.notes,
+            sessions=active_sessions,
         ))
 
-    return SummerSessionCalendarResponse(
+    return SummerLessonCalendarResponse(
         week_start=week_start,
         week_end=week_end,
-        sessions=entries,
+        lessons=entries,
     )
 
 
-@router.get("/summer/sessions/find-slot", response_model=list[SummerFindSlotResult])
+@router.get("/summer/lessons/find-slot", response_model=list[SummerFindSlotResult])
 def find_slot(
     config_id: int,
     location: str,
@@ -1423,56 +1423,56 @@ def find_slot(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Find sessions matching grade + lesson_number within a date range.
+    """Find lessons matching grade + lesson_number within a date range.
     Returns candidates sorted by: exact lesson match first, then by date.
     """
-    # Subquery: count active placements per session (avoids loading full placement objects)
+    # Subquery: count active sessions per lesson (avoids loading full session objects)
     active_count_sub = (
-        select(func.count(SummerPlacement.id))
+        select(func.count(SummerSession.id))
         .where(
-            SummerPlacement.session_id == SummerSession.id,
-            SummerPlacement.placement_status != "Cancelled",
+            SummerSession.lesson_id == SummerLesson.id,
+            SummerSession.session_status != "Cancelled",
         )
-        .correlate(SummerSession)
+        .correlate(SummerLesson)
         .scalar_subquery()
         .label("active_count")
     )
 
     q = (
-        db.query(SummerSession, active_count_sub)
-        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        db.query(SummerLesson, active_count_sub)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
         .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
         .options(
-            contains_eager(SummerSession.slot).contains_eager(SummerCourseSlot.tutor),
+            contains_eager(SummerLesson.slot).contains_eager(SummerCourseSlot.tutor),
         )
         .filter(
             SummerCourseSlot.config_id == config_id,
             SummerCourseSlot.location == location,
             SummerCourseSlot.grade == grade,
-            SummerSession.session_status != "Cancelled",
+            SummerLesson.lesson_status != "Cancelled",
             active_count_sub < SummerCourseSlot.max_students,
         )
     )
     if after_date:
-        q = q.filter(SummerSession.session_date >= after_date)
+        q = q.filter(SummerLesson.lesson_date >= after_date)
     if before_date:
-        q = q.filter(SummerSession.session_date <= before_date)
+        q = q.filter(SummerLesson.lesson_date <= before_date)
 
-    rows = q.order_by(SummerSession.session_date).all()
+    rows = q.order_by(SummerLesson.lesson_date).all()
 
     results = []
-    for s, active_count in rows:
-        slot = s.slot
+    for lesson, active_count in rows:
+        slot = lesson.slot
         results.append(SummerFindSlotResult(
-            session_id=s.id,
+            lesson_id=lesson.id,
             slot_id=slot.id,
-            date=s.session_date,
+            date=lesson.lesson_date,
             time_slot=slot.time_slot,
             tutor_name=slot.tutor.tutor_name if slot.tutor else None,
             current_count=active_count,
             max_students=slot.max_students,
-            lesson_number=s.lesson_number,
-            lesson_match=s.lesson_number == lesson_number,
+            lesson_number=lesson.lesson_number,
+            lesson_match=lesson.lesson_number == lesson_number,
         ))
 
     # Sort: matches first, then by date
