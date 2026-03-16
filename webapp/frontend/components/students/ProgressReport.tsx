@@ -119,10 +119,21 @@ export function ProgressReport({
       mode === "internal" && showContacts
         ? <div className="mb-6"><ReportContactSummary data={progress.contacts} /></div>
         : null,
-    showConceptMap: () =>
-      showConceptMap && progress.insights?.concept_nodes && progress.insights.concept_nodes.length > 0
-        ? <div className="mb-6"><ReportConceptMap data={progress.insights.concept_nodes} /></div>
-        : null,
+    showConceptMap: () => {
+      if (!showConceptMap) return null;
+      if (progress.insights?.concept_nodes?.length) {
+        return <div className="mb-6"><ReportConceptMap data={progress.insights.concept_nodes} /></div>;
+      }
+      if (progress.insights?.ai_error) {
+        return (
+          <div className="mb-6 report-section">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Concept Map</h3>
+            <p className="text-sm text-gray-400 italic">Concept map unavailable. Please try regenerating.</p>
+          </div>
+        );
+      }
+      return null;
+    },
   };
 
   const order = sectionOrder ?? DEFAULT_SECTION_ORDER;
