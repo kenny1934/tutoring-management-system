@@ -2048,3 +2048,24 @@ export interface StudentProgress {
   test_events?: TestEvent[];
   insights?: ProgressInsights;
 }
+
+export interface SavedReportSummary {
+  id: number;
+  student_id: number;
+  label: string | null;
+  created_by: number;
+  creator_name: string | null;
+  created_at: string;
+  mode: string | null;
+  date_range_label: string | null;
+}
+
+export interface SavedReportDetail {
+  id: number;
+  student_id: number;
+  report_data: Record<string, unknown>;
+  label: string | null;
+  created_by: number;
+  creator_name: string | null;
+  created_at: string;
+}

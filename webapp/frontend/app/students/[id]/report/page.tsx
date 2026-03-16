@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft, Share2, Check, Copy } from "lucide-react";
+import { Printer, ArrowLeft, Share2, Check, Copy, BookmarkPlus } from "lucide-react";
 import { useStudent } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
-import { studentsAPI, reportSharesAPI } from "@/lib/api";
+import { studentsAPI, reportSharesAPI, savedReportsAPI } from "@/lib/api";
 import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
 import { DEFAULT_SECTIONS } from "@/components/students/StudentProgressTab";
 import type { StudentProgress, RadarChartConfig } from "@/types";
@@ -115,6 +115,47 @@ function StudentReportPageInner() {
 
   const handlePrint = useCallback(() => window.print(), []);
 
+  // Save report state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const buildReportData = useCallback(() => {
+    if (!student || !mergedProgress) return null;
+    return {
+      student: {
+        student_name: student.student_name,
+        grade: student.grade,
+        school: student.school,
+        lang_stream: student.lang_stream,
+        academic_stream: student.academic_stream,
+        school_student_id: student.school_student_id,
+      },
+      progress: mergedProgress,
+      config: {
+        mode,
+        sections,
+        dateRangeLabel,
+        tutorComment,
+        generatedBy: user?.name,
+        radarData,
+      },
+    };
+  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name, radarData]);
+
+  const handleSave = useCallback(async () => {
+    const reportData = buildReportData();
+    if (!reportData) return;
+    setIsSaving(true);
+    try {
+      await savedReportsAPI.save(studentId, { report_data: reportData });
+      setSaved(true);
+    } catch (err) {
+      console.error("Failed to save report:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [buildReportData, studentId]);
+
   // Share link state
   const [shareUrl, setShareUrl] = useState("");
   const [shareToken, setShareToken] = useState("");
@@ -123,30 +164,18 @@ function StudentReportPageInner() {
   const [shareError, setShareError] = useState("");
 
   const handleShare = useCallback(async () => {
-    if (!student || !mergedProgress) return;
+    const reportData = buildReportData();
+    if (!reportData) return;
     setIsSharing(true);
     setShareError("");
     try {
+      // Force parent mode for share links
+      const shareData = {
+        ...reportData,
+        config: { ...reportData.config, mode: mode === "internal" ? "parent" : mode },
+      };
       const result = await reportSharesAPI.create({
-        report_data: {
-          student: {
-            student_name: student.student_name,
-            grade: student.grade,
-            school: student.school,
-            lang_stream: student.lang_stream,
-            academic_stream: student.academic_stream,
-            school_student_id: student.school_student_id,
-          },
-          progress: mergedProgress,
-          config: {
-            mode: mode === "internal" ? "parent" : mode,
-            sections,
-            dateRangeLabel,
-            tutorComment,
-            generatedBy: user?.name,
-            radarData,
-          },
-        },
+        report_data: shareData,
         student_id: studentId,
       });
       const shareOrigin = process.env.NEXT_PUBLIC_SHARE_ORIGIN || window.location.origin;
@@ -159,7 +188,7 @@ function StudentReportPageInner() {
     } finally {
       setIsSharing(false);
     }
-  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name, radarData, studentId]);
+  }, [buildReportData, mode, studentId]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -213,6 +242,17 @@ function StudentReportPageInner() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={isSaving || saved}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {saved ? (
+              <><Check className="w-3.5 h-3.5 text-green-600" /> Saved</>
+            ) : isSaving ? "Saving..." : (
+              <><BookmarkPlus className="w-3.5 h-3.5" /> Save</>
+            )}
+          </button>
           {mode !== "internal" && (
             <>
               <button

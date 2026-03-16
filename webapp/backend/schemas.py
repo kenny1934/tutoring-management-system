@@ -2157,6 +2157,40 @@ class SharedReportData(BaseModel):
     expires_at: datetime
 
 
+# ---------------------------------------------------------------------------
+# Saved Reports
+# ---------------------------------------------------------------------------
+
+class CreateSavedReportRequest(BaseModel):
+    report_data: dict
+    label: Optional[str] = Field(None, max_length=200)
+
+
+class SavedReportResponse(BaseModel):
+    id: int
+    student_id: int
+    label: Optional[str] = None
+    created_by: int
+    creator_name: Optional[str] = None
+    created_at: datetime
+    mode: Optional[str] = None
+    date_range_label: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SavedReportDetailResponse(BaseModel):
+    id: int
+    student_id: int
+    report_data: dict
+    label: Optional[str] = None
+    created_by: int
+    creator_name: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
