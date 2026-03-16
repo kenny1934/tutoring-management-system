@@ -6,7 +6,7 @@ import { Printer, ArrowLeft, Share2, Check, Copy, BookmarkPlus } from "lucide-re
 import { useStudent } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { studentsAPI, reportSharesAPI, savedReportsAPI } from "@/lib/api";
-import { ProgressReport, type ReportMode, type ReportSectionToggles } from "@/components/students/ProgressReport";
+import { ProgressReport, type ReportMode, type ReportSectionToggles, type SectionKey } from "@/components/students/ProgressReport";
 import { DEFAULT_SECTIONS } from "@/components/students/StudentProgressTab";
 import type { StudentProgress, RadarChartConfig } from "@/types";
 import useSWR from "swr";
@@ -29,6 +29,10 @@ function StudentReportPageInner() {
       key, searchParams.get(key) !== "0",
     ])
   ) as ReportSectionToggles, [searchParams]);
+  const sectionOrder = useMemo(() => {
+    const raw = searchParams.get("sectionOrder");
+    return raw ? raw.split(",") as SectionKey[] : undefined;
+  }, [searchParams]);
   const autoPrint = searchParams.get("print") === "1";
 
   // Retrieve tutor comment from localStorage (shared across tabs, unlike sessionStorage)
@@ -134,13 +138,14 @@ function StudentReportPageInner() {
       config: {
         mode,
         sections,
+        sectionOrder,
         dateRangeLabel,
         tutorComment,
         generatedBy: user?.name,
         radarData,
       },
     };
-  }, [student, mergedProgress, mode, sections, dateRangeLabel, tutorComment, user?.name, radarData]);
+  }, [student, mergedProgress, mode, sections, sectionOrder, dateRangeLabel, tutorComment, user?.name, radarData]);
 
   const handleSave = useCallback(async () => {
     const reportData = buildReportData();
@@ -323,6 +328,7 @@ function StudentReportPageInner() {
           tutorComment={tutorComment}
           generatedBy={user?.name}
           sections={sections}
+          sectionOrder={sectionOrder}
           radarData={radarData}
         />
       </div>

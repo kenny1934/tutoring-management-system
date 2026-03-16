@@ -85,6 +85,7 @@ function SavedReportInner() {
           generatedBy={config.generatedBy}
           generatedAt={data.created_at}
           sections={config.sections}
+          sectionOrder={config.sectionOrder}
           radarData={config.radarData}
         />
       </div>
