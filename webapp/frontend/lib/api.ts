@@ -134,6 +134,8 @@ import type {
   ExerciseHistoryResponse,
   StudentProgress,
   RadarChartConfig,
+  SavedReportSummary,
+  SavedReportDetail,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -400,6 +402,28 @@ export const reportSharesAPI = {
 
   revoke: (token: string) => {
     return fetchAPI<void>(`/report-shares/${token}`, { method: "DELETE" });
+  },
+};
+
+// Saved Reports API
+export const savedReportsAPI = {
+  save: (studentId: number, payload: { report_data: Record<string, unknown>; label?: string }) => {
+    return fetchAPI<SavedReportSummary>(`/students/${studentId}/saved-reports`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  list: (studentId: number) => {
+    return fetchAPI<SavedReportSummary[]>(`/students/${studentId}/saved-reports`);
+  },
+
+  get: (reportId: number) => {
+    return fetchAPI<SavedReportDetail>(`/saved-reports/${reportId}`);
+  },
+
+  delete: (reportId: number) => {
+    return fetchAPI<void>(`/saved-reports/${reportId}`, { method: "DELETE" });
   },
 };
 
