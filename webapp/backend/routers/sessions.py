@@ -664,7 +664,7 @@ async def mark_session_rescheduled(
     Mark a session as Rescheduled - Pending Make-up.
 
     Updates session status to indicate it needs a make-up class scheduled.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
     """
     session = db.query(SessionLog).options(
         *session_with_relations()
@@ -672,9 +672,6 @@ async def mark_session_rescheduled(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Validate current status
     valid_statuses = ATTENDABLE_STATUSES
@@ -711,7 +708,7 @@ async def mark_session_sick_leave(
     Mark a session as Sick Leave - Pending Make-up.
 
     Updates session status to indicate student was sick and needs make-up.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
     """
     session = db.query(SessionLog).options(
         *session_with_relations()
@@ -719,9 +716,6 @@ async def mark_session_sick_leave(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Validate current status
     valid_statuses = ATTENDABLE_STATUSES
@@ -758,7 +752,7 @@ async def mark_session_weather_cancelled(
     Mark a session as Weather Cancelled - Pending Make-up.
 
     Updates session status to indicate class was cancelled due to weather.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
     """
     session = db.query(SessionLog).options(
         *session_with_relations()
@@ -766,9 +760,6 @@ async def mark_session_weather_cancelled(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Validate current status
     valid_statuses = ATTENDABLE_STATUSES
@@ -810,7 +801,7 @@ async def undo_session_status(
 
     Reverts session_status to previous_session_status and clears the undo history.
     Cannot undo if a make-up has been booked (use cancel-makeup instead).
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
 
     Returns the session with `undone_from_status` field indicating what was undone.
     """
@@ -820,9 +811,6 @@ async def undo_session_status(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Validate we have something to undo
     if not session.previous_session_status:
@@ -875,7 +863,7 @@ async def redo_session_status(
     Redo a recently undone status change (called from toast).
 
     Restores the session to the specified status and stores current as previous.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
     """
     session = db.query(SessionLog).options(
         *session_with_relations()
@@ -883,9 +871,6 @@ async def redo_session_status(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Store current status as previous (for undo again if needed)
     session.previous_session_status = session.session_status
@@ -1149,7 +1134,7 @@ async def schedule_makeup(
 
     Creates a new session with status "Make-up Class" and links it to the original.
     Updates the original session status from "X - Pending Make-up" to "X - Make-up Booked".
-    Requires authentication. Tutors can only schedule makeups for their own sessions.
+    Requires authentication.
 
     Validates:
     - Original session is in "Pending Make-up" status
@@ -1165,12 +1150,6 @@ async def schedule_makeup(
 
     if not original_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership - only original session owner or admin can schedule makeup
-    is_owner = original_session.tutor_id == current_user.id
-    is_admin = current_user.role in ADMIN_WRITE_ROLES
-    if not (is_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only schedule makeups for your own sessions")
 
     # Validate status
     if "Pending Make-up" not in original_session.session_status:
