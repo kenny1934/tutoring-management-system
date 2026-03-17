@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.35](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.35) (2026-03-18)
+
+### Bug Fixes
+
+* **Reschedule & make-up for other tutors** — tutors can now reschedule sessions, schedule make-ups, and cancel make-ups for any student, not just their own sessions
+* **Sick leave & weather cancellation** — same fix applied to sick leave and weather cancelled actions
+* **Undo/redo across tutors** — undo and redo status changes now work regardless of which tutor owns the session
+
+### Improvements
+
+* **Read-only role enforcement** — Guest and Supervisor accounts are now properly blocked from all session changes on the server side, not just hidden in the interface
+* **11 new backend tests** covering cross-tutor actions, ownership restrictions on attendance, and read-only role access control
+
 ## [2.0.34](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.34) (2026-03-17)
 
 ### New Features
