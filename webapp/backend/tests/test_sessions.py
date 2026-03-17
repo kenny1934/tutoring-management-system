@@ -860,3 +860,106 @@ class TestVerifySessionOwnership:
         with pytest.raises(HTTPException) as exc_info:
             _verify_session_ownership(session, other_tutor, action="rate")
         assert "rate" in exc_info.value.detail
+
+
+# ============================================================================
+# Non-Owner Tutor Action Tests (Integration)
+# ============================================================================
+
+class TestNonOwnerTutorActions:
+    """
+    Integration tests verifying any authenticated tutor can perform
+    reschedule/sick-leave/weather-cancelled/undo/schedule-makeup
+    on sessions they don't own.
+    """
+
+    def _seed(self, db_session):
+        """Create owner tutor, non-owner tutor, student, enrollment, and a scheduled session."""
+        from tests.helpers import make_auth_token
+
+        owner = Tutor(
+            user_email="owner@test.com", tutor_name="Owner Tutor",
+            role="Tutor", default_location="Main Center",
+        )
+        other = Tutor(
+            user_email="other@test.com", tutor_name="Other Tutor",
+            role="Tutor", default_location="Main Center",
+        )
+        student = Student(
+            school_student_id="STU999", student_name="Test Student",
+            grade="F4", phone="12345678", school="Test School",
+        )
+        db_session.add_all([owner, other, student])
+        db_session.commit()
+        db_session.refresh(owner)
+        db_session.refresh(other)
+        db_session.refresh(student)
+
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=owner.id,
+            assigned_day="Monday", assigned_time="15:00-16:00",
+            location="Main Center", lessons_paid=10,
+            payment_date=date.today(), first_lesson_date=date.today(),
+            payment_status="Paid", enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+        db_session.refresh(enrollment)
+
+        session = SessionLog(
+            enrollment_id=enrollment.id, student_id=student.id,
+            tutor_id=owner.id, session_date=date.today(),
+            time_slot="15:00-16:00", location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        token = make_auth_token(other.id)
+        return session, token
+
+    def test_non_owner_can_reschedule(self, client, db_session):
+        """Non-owner tutor should be able to reschedule another tutor's session."""
+        session, token = self._seed(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}/reschedule",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert "Pending Make-up" in resp.json()["session_status"]
+
+    def test_non_owner_can_mark_sick_leave(self, client, db_session):
+        """Non-owner tutor should be able to mark sick leave on another tutor's session."""
+        session, token = self._seed(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}/sick-leave",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert "Sick Leave" in resp.json()["session_status"]
+
+    def test_non_owner_can_mark_weather_cancelled(self, client, db_session):
+        """Non-owner tutor should be able to mark weather cancelled on another tutor's session."""
+        session, token = self._seed(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}/weather-cancelled",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert "Weather Cancelled" in resp.json()["session_status"]
+
+    def test_non_owner_can_undo(self, client, db_session):
+        """Non-owner tutor should be able to undo status on another tutor's session."""
+        session, token = self._seed(db_session)
+        # First set a previous status so undo has something to revert
+        session.previous_session_status = "Scheduled"
+        session.session_status = "Rescheduled - Pending Make-up"
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}/undo",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["session_status"] == "Scheduled"
