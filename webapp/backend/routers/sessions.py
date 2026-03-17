@@ -18,7 +18,7 @@ from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTEN
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
-from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write, ADMIN_WRITE_ROLES
+from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write, reject_read_only, ADMIN_WRITE_ROLES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -544,7 +544,7 @@ async def get_session_detail(
 @router.patch("/sessions/{session_id}/attended", response_model=SessionResponse)
 async def mark_session_attended(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -610,7 +610,7 @@ async def mark_session_attended(
 @router.patch("/sessions/{session_id}/no-show", response_model=SessionResponse)
 async def mark_session_no_show(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -657,7 +657,7 @@ async def mark_session_no_show(
 @router.patch("/sessions/{session_id}/reschedule", response_model=SessionResponse)
 async def mark_session_rescheduled(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -701,7 +701,7 @@ async def mark_session_rescheduled(
 @router.patch("/sessions/{session_id}/sick-leave", response_model=SessionResponse)
 async def mark_session_sick_leave(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -745,7 +745,7 @@ async def mark_session_sick_leave(
 @router.patch("/sessions/{session_id}/weather-cancelled", response_model=SessionResponse)
 async def mark_session_weather_cancelled(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -793,7 +793,7 @@ async def mark_session_weather_cancelled(
 @router.patch("/sessions/{session_id}/undo", response_model=SessionResponse)
 async def undo_session_status(
     session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -856,7 +856,7 @@ async def undo_session_status(
 async def redo_session_status(
     session_id: int,
     status: str = Query(..., description="Status to restore"),
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1126,7 +1126,7 @@ async def get_makeup_suggestions(
 async def schedule_makeup(
     session_id: int,
     request: ScheduleMakeupRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1271,7 +1271,7 @@ async def schedule_makeup(
 @router.delete("/sessions/{makeup_session_id}/cancel-makeup", response_model=SessionResponse)
 async def cancel_makeup(
     makeup_session_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1279,7 +1279,7 @@ async def cancel_makeup(
 
     Deletes the make-up session and reverts the original session status
     from "X - Make-up Booked" back to "X - Pending Make-up".
-    Requires authentication. Tutors can only cancel makeups for their own sessions.
+    Requires authentication.
 
     Can only cancel make-up sessions that haven't been attended yet.
     """
@@ -1288,17 +1288,6 @@ async def cancel_makeup(
 
     if not makeup_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {makeup_session_id} not found")
-
-    # Check ownership - makeup owner, original session owner, or admin can cancel
-    original_session_tutor_id = db.query(SessionLog.tutor_id).filter(
-        SessionLog.id == makeup_session.make_up_for_id
-    ).scalar() if makeup_session.make_up_for_id else None
-
-    is_owner = makeup_session.tutor_id == current_user.id
-    is_original_owner = original_session_tutor_id == current_user.id
-    is_admin = current_user.role in ADMIN_WRITE_ROLES
-    if not (is_owner or is_original_owner or is_admin):
-        raise HTTPException(status_code=403, detail="You can only cancel makeups for your own sessions")
 
     # Validate this is a make-up session
     if makeup_session.session_status != "Make-up Class":
@@ -1346,7 +1335,7 @@ async def cancel_makeup(
 async def save_session_exercises(
     session_id: int,
     request: ExerciseSaveRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1411,7 +1400,7 @@ async def save_session_exercises(
 @router.post("/sessions/bulk-assign-exercises", response_model=BulkExerciseAssignResponse)
 async def bulk_assign_exercises(
     request: BulkExerciseAssignRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1482,7 +1471,7 @@ async def bulk_assign_exercises(
 async def rate_session(
     session_id: int,
     request: RateSessionRequest,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1526,7 +1515,7 @@ async def rate_session(
 async def update_session(
     session_id: int,
     request: SessionUpdate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1875,7 +1864,7 @@ async def get_calendar_events(
 @router.post("/calendar/events", response_model=CalendarEventResponse)
 async def create_calendar_event(
     request: CalendarEventCreate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1936,7 +1925,7 @@ async def create_calendar_event(
 async def update_calendar_event(
     event_id: int,
     request: CalendarEventUpdate,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """
@@ -1996,7 +1985,7 @@ async def update_calendar_event(
 @router.delete("/calendar/events/{event_id}")
 async def delete_calendar_event(
     event_id: int,
-    current_user: Tutor = Depends(get_current_user),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db)
 ):
     """

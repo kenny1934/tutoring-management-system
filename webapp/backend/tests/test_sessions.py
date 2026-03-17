@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from models import SessionLog, Student, Tutor, Enrollment
 from routers.sessions import _find_root_original_session, _verify_session_ownership
 from utils.response_builders import _find_root_original_session_date, batch_find_root_original_session_dates
+from tests.helpers import make_auth_token
 
 
 # ============================================================================
@@ -863,6 +864,58 @@ class TestVerifySessionOwnership:
 
 
 # ============================================================================
+# Shared Helper for Integration Tests
+# ============================================================================
+
+def _seed_session_with_actor(db_session, actor_role="Tutor"):
+    """Create owner tutor, actor tutor (with given role), student, enrollment, and a scheduled session.
+
+    Returns (session, token) where token authenticates as the actor.
+    """
+    owner = Tutor(
+        user_email="owner@test.com", tutor_name="Owner Tutor",
+        role="Tutor", default_location="Main Center",
+    )
+    actor = Tutor(
+        user_email=f"{actor_role.lower()}@test.com", tutor_name=f"Test {actor_role}",
+        role=actor_role, default_location="Main Center",
+    )
+    student = Student(
+        school_student_id="STU999", student_name="Test Student",
+        grade="F4", phone="12345678", school="Test School",
+    )
+    db_session.add_all([owner, actor, student])
+    db_session.commit()
+    db_session.refresh(owner)
+    db_session.refresh(actor)
+    db_session.refresh(student)
+
+    enrollment = Enrollment(
+        student_id=student.id, tutor_id=owner.id,
+        assigned_day="Monday", assigned_time="15:00-16:00",
+        location="Main Center", lessons_paid=10,
+        payment_date=date.today(), first_lesson_date=date.today(),
+        payment_status="Paid", enrollment_type="Regular",
+    )
+    db_session.add(enrollment)
+    db_session.commit()
+    db_session.refresh(enrollment)
+
+    session = SessionLog(
+        enrollment_id=enrollment.id, student_id=student.id,
+        tutor_id=owner.id, session_date=date.today(),
+        time_slot="15:00-16:00", location="Main Center",
+        session_status="Scheduled",
+    )
+    db_session.add(session)
+    db_session.commit()
+    db_session.refresh(session)
+
+    token = make_auth_token(actor.id)
+    return session, token
+
+
+# ============================================================================
 # Non-Owner Tutor Action Tests (Integration)
 # ============================================================================
 
@@ -873,55 +926,9 @@ class TestNonOwnerTutorActions:
     on sessions they don't own.
     """
 
-    def _seed(self, db_session):
-        """Create owner tutor, non-owner tutor, student, enrollment, and a scheduled session."""
-        from tests.helpers import make_auth_token
-
-        owner = Tutor(
-            user_email="owner@test.com", tutor_name="Owner Tutor",
-            role="Tutor", default_location="Main Center",
-        )
-        other = Tutor(
-            user_email="other@test.com", tutor_name="Other Tutor",
-            role="Tutor", default_location="Main Center",
-        )
-        student = Student(
-            school_student_id="STU999", student_name="Test Student",
-            grade="F4", phone="12345678", school="Test School",
-        )
-        db_session.add_all([owner, other, student])
-        db_session.commit()
-        db_session.refresh(owner)
-        db_session.refresh(other)
-        db_session.refresh(student)
-
-        enrollment = Enrollment(
-            student_id=student.id, tutor_id=owner.id,
-            assigned_day="Monday", assigned_time="15:00-16:00",
-            location="Main Center", lessons_paid=10,
-            payment_date=date.today(), first_lesson_date=date.today(),
-            payment_status="Paid", enrollment_type="Regular",
-        )
-        db_session.add(enrollment)
-        db_session.commit()
-        db_session.refresh(enrollment)
-
-        session = SessionLog(
-            enrollment_id=enrollment.id, student_id=student.id,
-            tutor_id=owner.id, session_date=date.today(),
-            time_slot="15:00-16:00", location="Main Center",
-            session_status="Scheduled",
-        )
-        db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
-
-        token = make_auth_token(other.id)
-        return session, token
-
     def test_non_owner_can_reschedule(self, client, db_session):
         """Non-owner tutor should be able to reschedule another tutor's session."""
-        session, token = self._seed(db_session)
+        session, token = _seed_session_with_actor(db_session)
         resp = client.patch(
             f"/api/sessions/{session.id}/reschedule",
             cookies={"access_token": token},
@@ -931,7 +938,7 @@ class TestNonOwnerTutorActions:
 
     def test_non_owner_can_mark_sick_leave(self, client, db_session):
         """Non-owner tutor should be able to mark sick leave on another tutor's session."""
-        session, token = self._seed(db_session)
+        session, token = _seed_session_with_actor(db_session)
         resp = client.patch(
             f"/api/sessions/{session.id}/sick-leave",
             cookies={"access_token": token},
@@ -941,7 +948,7 @@ class TestNonOwnerTutorActions:
 
     def test_non_owner_can_mark_weather_cancelled(self, client, db_session):
         """Non-owner tutor should be able to mark weather cancelled on another tutor's session."""
-        session, token = self._seed(db_session)
+        session, token = _seed_session_with_actor(db_session)
         resp = client.patch(
             f"/api/sessions/{session.id}/weather-cancelled",
             cookies={"access_token": token},
@@ -951,7 +958,7 @@ class TestNonOwnerTutorActions:
 
     def test_non_owner_can_undo(self, client, db_session):
         """Non-owner tutor should be able to undo status on another tutor's session."""
-        session, token = self._seed(db_session)
+        session, token = _seed_session_with_actor(db_session)
         # First set a previous status so undo has something to revert
         session.previous_session_status = "Scheduled"
         session.session_status = "Rescheduled - Pending Make-up"
@@ -963,3 +970,99 @@ class TestNonOwnerTutorActions:
         )
         assert resp.status_code == 200
         assert resp.json()["session_status"] == "Scheduled"
+
+    def test_non_owner_cannot_mark_attended(self, client, db_session):
+        """Non-owner tutor should NOT be able to mark attended on another tutor's session."""
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}/attended",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_non_owner_cannot_mark_no_show(self, client, db_session):
+        """Non-owner tutor should NOT be able to mark no-show on another tutor's session."""
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}/no-show",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_non_owner_can_cancel_makeup(self, client, db_session):
+        """Non-owner tutor should be able to cancel a makeup on another tutor's session."""
+        session, token = _seed_session_with_actor(db_session)
+        # Set up original session as rescheduled with makeup booked
+        session.previous_session_status = "Scheduled"
+        session.session_status = "Rescheduled - Make-up Booked"
+        db_session.commit()
+        db_session.refresh(session)
+
+        # Create makeup session linked to original
+        makeup = SessionLog(
+            enrollment_id=session.enrollment_id, student_id=session.student_id,
+            tutor_id=session.tutor_id, session_date=date.today(),
+            time_slot="16:00-17:00", location="Main Center",
+            session_status="Make-up Class", make_up_for_id=session.id,
+        )
+        db_session.add(makeup)
+        db_session.commit()
+        db_session.refresh(makeup)
+
+        # Link original to makeup
+        session.rescheduled_to_id = makeup.id
+        db_session.commit()
+
+        resp = client.delete(
+            f"/api/sessions/{makeup.id}/cancel-makeup",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert "Pending Make-up" in resp.json()["session_status"]
+
+
+# ============================================================================
+# Read-Only Role Restriction Tests (Integration)
+# ============================================================================
+
+class TestReadOnlyRoleRestrictions:
+    """
+    Spot-checks that read-only roles (Guest, Supervisor) are rejected on
+    representative session mutation endpoints via reject_read_only dependency.
+    """
+
+    def test_guest_cannot_reschedule(self, client, db_session):
+        """Guest role should not be able to reschedule sessions."""
+        session, token = _seed_session_with_actor(db_session, "Guest")
+        resp = client.patch(
+            f"/api/sessions/{session.id}/reschedule",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_supervisor_cannot_reschedule(self, client, db_session):
+        """Supervisor role should not be able to reschedule sessions."""
+        session, token = _seed_session_with_actor(db_session, "Supervisor")
+        resp = client.patch(
+            f"/api/sessions/{session.id}/reschedule",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_guest_cannot_mark_attended(self, client, db_session):
+        """Guest role should not be able to mark sessions attended."""
+        session, token = _seed_session_with_actor(db_session, "Guest")
+        resp = client.patch(
+            f"/api/sessions/{session.id}/attended",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_supervisor_cannot_mark_attended(self, client, db_session):
+        """Supervisor role should not be able to mark sessions attended."""
+        session, token = _seed_session_with_actor(db_session, "Supervisor")
+        resp = client.patch(
+            f"/api/sessions/{session.id}/attended",
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
