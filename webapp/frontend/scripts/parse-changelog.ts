@@ -20,10 +20,10 @@ interface ChangelogRelease {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outputPath = resolve(__dirname, "../lib/changelog-data.ts");
 
-// Look for CHANGELOG.md: local copy first (Docker build), then repo root (local dev)
-const localPath = resolve(__dirname, "../CHANGELOG.md");
+// Look for CHANGELOG.md: repo root first (local dev), then local copy (Docker build)
 const repoRootPath = resolve(__dirname, "../../../CHANGELOG.md");
-const changelogPath = existsSync(localPath) ? localPath : repoRootPath;
+const localPath = resolve(__dirname, "../CHANGELOG.md");
+const changelogPath = existsSync(repoRootPath) ? repoRootPath : localPath;
 
 function parseChangelog(markdown: string): ChangelogRelease[] {
   const releases: ChangelogRelease[] = [];
