@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DAY_ABBREV } from "@/lib/summer-utils";
@@ -22,8 +22,6 @@ interface SummerSessionCalendarProps {
   courseEndDate: string;
   openDays: string[];
   timeSlots: string[];
-  onDropStudent: (applicationId: number, slotId: number, lessonId: number) => void;
-  onRemoveSession: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
   dragPrefs?: {
     pref1?: { day: string; time: string };
@@ -59,19 +57,20 @@ export function SummerSessionCalendar({
   courseEndDate,
   openDays,
   timeSlots,
-  onDropStudent,
-  onRemoveSession,
   onClickStudent,
   dragPrefs,
 }: SummerSessionCalendarProps) {
   const { showToast } = useToast();
   const { mutate: globalMutate } = useSWRConfig();
 
-  // Week navigation state
-  const initialWeek = useMemo(
-    () => getWeekStartStr(courseStartDate),
-    [courseStartDate]
-  );
+  // Week navigation state — start from the first weekday on or after courseStartDate
+  const initialWeek = useMemo(() => {
+    const d = new Date(courseStartDate + "T00:00:00");
+    // If courseStartDate is a weekend, advance to next Monday's week
+    if (d.getDay() === 0) d.setDate(d.getDate() + 1); // Sunday → Monday
+    else if (d.getDay() === 6) d.setDate(d.getDate() + 2); // Saturday → Monday
+    return getWeekStartStr(toDateString(d));
+  }, [courseStartDate]);
   const [weekStart, setWeekStart] = useState(initialWeek);
 
   // Compute dates for this week, filtered to openDays
@@ -93,9 +92,10 @@ export function SummerSessionCalendar({
   // Navigation bounds
   const canGoPrev = weekStart > getWeekStartStr(courseStartDate);
   const canGoNext = (() => {
-    const nextStart = new Date(weekStart + "T00:00:00");
-    nextStart.setDate(nextStart.getDate() + 7);
-    return toDateString(nextStart) <= getWeekStartStr(courseEndDate);
+    // Allow navigating as long as the current week end hasn't passed courseEndDate
+    const currentEnd = new Date(weekStart + "T00:00:00");
+    currentEnd.setDate(currentEnd.getDate() + 6);
+    return toDateString(currentEnd) < courseEndDate;
   })();
 
   const goPrev = () => {
@@ -174,22 +174,7 @@ export function SummerSessionCalendar({
     return null;
   };
 
-  // Empty state
-  if (!isLoading && lessons.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground">
-        <p className="text-sm">No lessons generated yet for this location.</p>
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-        >
-          <Sparkles className="h-4 w-4" />
-          {generating ? "Generating..." : "Generate Lessons"}
-        </button>
-      </div>
-    );
-  }
+  const isEmpty = !isLoading && lessons.length === 0;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -214,7 +199,13 @@ export function SummerSessionCalendar({
         </button>
       </div>
 
-      {/* Grid */}
+      {/* Empty state for this week */}
+      {isEmpty ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+          <p className="text-sm">No lessons this week.</p>
+        </div>
+      ) : (
+      /* Grid */
       <div className="flex-1 overflow-auto">
         <div
           className="gap-px bg-gray-200 dark:bg-gray-700"
@@ -245,10 +236,9 @@ export function SummerSessionCalendar({
 
           {/* Time slot rows */}
           {timeSlots.map((ts) => (
-            <>
+            <React.Fragment key={ts}>
               {/* Time label */}
               <div
-                key={`label-${ts}`}
                 className="bg-surface-variant dark:bg-gray-800 flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
               >
                 {ts.split(" - ")[0]}
@@ -274,18 +264,17 @@ export function SummerSessionCalendar({
                         key={l.lesson_id}
                         lesson={l}
                         onUpdateLesson={handleUpdateLesson}
-                        onDropStudent={onDropStudent}
-                        onRemoveSession={onRemoveSession}
                         onClickStudent={onClickStudent}
                       />
                     ))}
                   </div>
                 );
               })}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

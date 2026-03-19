@@ -547,9 +547,17 @@ def update_application(
 
 def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
     """Build a SummerSlotResponse from an ORM slot with loaded relationships."""
-    active_sessions = [
-        s for s in slot.sessions if s.session_status != "Cancelled"
-    ]
+    # Deduplicate: one entry per student (a student may have 8 session rows, one per lesson)
+    seen: set[int] = set()
+    unique_sessions = []
+    for s in slot.sessions:
+        if s.session_status == "Cancelled":
+            continue
+        if s.application_id in seen:
+            continue
+        seen.add(s.application_id)
+        unique_sessions.append(s)
+
     return SummerSlotResponse(
         id=slot.id,
         config_id=slot.config_id,
@@ -563,7 +571,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         tutor_name=slot.tutor.tutor_name if slot.tutor else None,
         max_students=slot.max_students,
         created_at=slot.created_at,
-        session_count=len(active_sessions),
+        session_count=len(unique_sessions),
         sessions=[
             SummerSlotSessionInfo(
                 id=s.id,
@@ -572,7 +580,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
                 grade=s.application.grade,
                 session_status=s.session_status,
             )
-            for s in active_sessions
+            for s in unique_sessions
         ],
     )
 
@@ -663,9 +671,23 @@ def update_slot(
                 detail=f"{name} is already assigned to another slot at {slot.slot_day} {slot.time_slot}",
             )
 
+    # Detect course_type change → reset lesson numbers
+    old_course_type = slot.course_type
     for field, value in updates.items():
         setattr(slot, field, value)
     db.commit()
+
+    if "course_type" in updates and updates["course_type"] != old_course_type:
+        # Re-seed lesson numbers from the new course_type formula
+        lessons = (
+            db.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot_id)
+            .order_by(SummerLesson.lesson_date)
+            .all()
+        )
+        for i, lesson in enumerate(lessons):
+            lesson.lesson_number = compute_lesson_number(updates["course_type"], i + 1)
+        db.commit()
 
     # Reload with relationships
     slot = (
@@ -729,7 +751,11 @@ def create_session(
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Assign a student (application) to a slot."""
+    """Assign a student (application) to a slot.
+
+    If lesson_id is provided: creates a single session for that lesson (calendar drop).
+    If lesson_id is None: creates one session per lesson for the slot (Slot Setup drop).
+    """
     slot = (
         db.query(SummerCourseSlot)
         .options(joinedload(SummerCourseSlot.sessions))
@@ -743,35 +769,56 @@ def create_session(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Check capacity
-    active_count = sum(1 for s in slot.sessions if s.session_status != "Cancelled")
-    if active_count >= slot.max_students:
+    # Check capacity (count distinct active students, not total session rows)
+    active_students = {s.application_id for s in slot.sessions if s.session_status != "Cancelled"}
+    if len(active_students) >= slot.max_students:
         raise HTTPException(status_code=400, detail="Slot is full")
 
     # Check duplicate
-    existing = next(
-        (s for s in slot.sessions
-         if s.application_id == data.application_id and s.session_status != "Cancelled"),
-        None,
-    )
-    if existing:
+    if data.application_id in active_students:
         raise HTTPException(status_code=400, detail="Application already placed in this slot")
 
-    session = SummerSession(
-        application_id=data.application_id,
-        slot_id=data.slot_id,
-        lesson_id=data.lesson_id,
-        session_status="Tentative",
-        placed_by=admin.tutor_name or "admin",
-        placed_at=hk_now(),
-    )
-    db.add(session)
+    now = hk_now()
+    placed_by = admin.tutor_name or "admin"
+
+    if data.lesson_id:
+        # Calendar drop — single session for a specific lesson
+        session = SummerSession(
+            application_id=data.application_id,
+            slot_id=data.slot_id,
+            lesson_id=data.lesson_id,
+            session_status="Tentative",
+            placed_by=placed_by,
+            placed_at=now,
+        )
+        db.add(session)
+    else:
+        # Slot Setup drop — one session per lesson
+        _ensure_lessons_for_slot(slot, db)
+        lessons = (
+            db.query(SummerLesson)
+            .filter(SummerLesson.slot_id == data.slot_id)
+            .order_by(SummerLesson.lesson_date)
+            .all()
+        )
+        sessions = [
+            SummerSession(
+                application_id=data.application_id,
+                slot_id=data.slot_id,
+                lesson_id=lesson.id,
+                session_status="Tentative",
+                placed_by=placed_by,
+                placed_at=now,
+            )
+            for lesson in lessons
+        ]
+        db.add_all(sessions)
+
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Application already placed in this slot")
-    db.refresh(session)
 
     # Auto-sync: advance application status to Placement Offered
     if app.application_status in (
@@ -781,14 +828,25 @@ def create_session(
         app.application_status = SummerApplicationStatus.PLACEMENT_OFFERED
         db.commit()
 
-    # Reload with application
-    session = (
-        db.query(SummerSession)
-        .options(joinedload(SummerSession.application))
-        .filter(SummerSession.id == session.id)
-        .first()
-    )
-    return _build_session_response(session)
+    # Reload and return one session for the response
+    if data.lesson_id:
+        result = (
+            db.query(SummerSession)
+            .options(joinedload(SummerSession.application))
+            .filter(SummerSession.id == session.id)
+            .first()
+        )
+    else:
+        result = (
+            db.query(SummerSession)
+            .options(joinedload(SummerSession.application))
+            .filter(
+                SummerSession.application_id == data.application_id,
+                SummerSession.slot_id == data.slot_id,
+            )
+            .first()
+        )
+    return _build_session_response(result)
 
 
 @router.patch("/summer/sessions/{session_id}", response_model=SummerSessionResponse)
@@ -849,7 +907,7 @@ def delete_session(
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Remove a session (unassign student from slot)."""
+    """Remove a session and all sibling sessions for the same student+slot."""
     session = (
         db.query(SummerSession)
         .options(joinedload(SummerSession.application))
@@ -860,7 +918,11 @@ def delete_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     app = session.application
-    db.delete(session)
+    # Delete ALL sessions for this student+slot (cascades the Slot Setup bulk-create)
+    db.query(SummerSession).filter(
+        SummerSession.application_id == session.application_id,
+        SummerSession.slot_id == session.slot_id,
+    ).delete()
     db.commit()
 
     # Auto-sync: revert app status if no sessions remain
@@ -889,9 +951,12 @@ def bulk_confirm_sessions(
     if location:
         q = q.filter(SummerCourseSlot.location == location)
 
-    # Get application IDs before updating so we can sync their statuses
-    session_app_ids = [s.application_id for s in q.all()]
+    # Collect application IDs with scalar query (no ORM object loading)
+    session_app_ids = [
+        row[0] for row in q.with_entities(SummerSession.application_id).distinct().all()
+    ]
 
+    # Single bulk UPDATE
     count = q.update(
         {SummerSession.session_status: "Confirmed"},
         synchronize_session="fetch",
@@ -1249,6 +1314,24 @@ def compute_lesson_number(course_type: str | None, week: int) -> int:
 
 # ─── Lessons (materialized instances) ────────────────────────────────────────
 
+def _ensure_lessons_for_slot(slot: SummerCourseSlot, db: Session) -> int:
+    """Generate SummerLesson rows for a slot if none exist. Returns count created."""
+    existing = db.query(SummerLesson).filter(SummerLesson.slot_id == slot.id).first()
+    if existing:
+        return 0
+    config = slot.config
+    dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
+    for i, d in enumerate(dates):
+        db.add(SummerLesson(
+            slot_id=slot.id,
+            lesson_date=d,
+            lesson_number=compute_lesson_number(slot.course_type, i + 1),
+            lesson_status="Scheduled",
+        ))
+    db.flush()
+    return len(dates)
+
+
 @router.post("/summer/lessons/generate")
 def generate_lessons(
     config_id: int,
@@ -1265,7 +1348,9 @@ def generate_lessons(
     if not config:
         raise HTTPException(status_code=404, detail="Config not found")
 
-    q = db.query(SummerCourseSlot).filter(
+    q = db.query(SummerCourseSlot).options(
+        joinedload(SummerCourseSlot.config),
+    ).filter(
         SummerCourseSlot.config_id == config_id,
         SummerCourseSlot.location == location,
     )
@@ -1276,32 +1361,12 @@ def generate_lessons(
     created = 0
     skipped = 0
 
-    # Batch check which slots already have lessons (avoids N+1)
-    slot_ids = [s.id for s in slots]
-    existing_slot_ids = {
-        row[0]
-        for row in db.query(SummerLesson.slot_id)
-        .filter(SummerLesson.slot_id.in_(slot_ids))
-        .distinct()
-        .all()
-    } if slot_ids else set()
-
     for slot in slots:
-        if slot.id in existing_slot_ids:
+        count = _ensure_lessons_for_slot(slot, db)
+        if count:
+            created += count
+        else:
             skipped += 1
-            continue
-
-        dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
-        for i, d in enumerate(dates):
-            week = i + 1
-            lesson_num = compute_lesson_number(slot.course_type, week)
-            db.add(SummerLesson(
-                slot_id=slot.id,
-                lesson_date=d,
-                lesson_number=lesson_num,
-                lesson_status="Scheduled",
-            ))
-            created += 1
 
     db.commit()
     return {"success": True, "lessons_created": created, "slots_skipped": skipped}
