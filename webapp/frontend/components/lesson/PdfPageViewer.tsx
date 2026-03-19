@@ -23,15 +23,14 @@ import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 function formatCompactPageRange(pages: number[]): string {
   if (pages.length === 0) return "";
   if (pages.length === 1) return String(pages[0]);
-  const sorted = [...pages].sort((a, b) => a - b);
   const groups: string[] = [];
-  let start = sorted[0], end = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === end + 1) {
-      end = sorted[i];
+  let start = pages[0], end = pages[0];
+  for (let i = 1; i < pages.length; i++) {
+    if (pages[i] === end + 1) {
+      end = pages[i];
     } else {
       groups.push(start === end ? String(start) : `${start}-${end}`);
-      start = end = sorted[i];
+      start = end = pages[i];
     }
   }
   groups.push(start === end ? String(start) : `${start}-${end}`);

@@ -164,7 +164,7 @@ export function parsePageRange(range: string): number[] {
     }
   }
 
-  return Array.from(pages).sort((a, b) => a - b);
+  return Array.from(pages);
 }
 
 /**
