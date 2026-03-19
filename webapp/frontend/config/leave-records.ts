@@ -2,6 +2,11 @@
 // Update these URLs annually when new sheets are created
 // Last updated: 2025-2026 school year
 
+// ARK HR app leave URLs (will fully replace Google Sheets once migration is complete)
+export const ARK_BASE_URL = "https://ark.mathconceptsecondary.academy";
+export const ARK_MY_LEAVE_URL = `${ARK_BASE_URL}/my/leave`;    // Staff self-service
+export const ARK_ADMIN_LEAVE_URL = `${ARK_BASE_URL}/leave`;     // Admin view
+
 export interface LeaveRecordEntry {
   tutorName: string;  // Must match tutor_name in database
   sheetUrl: string;   // Google Sheet URL
