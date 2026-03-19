@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
@@ -9,8 +9,6 @@ import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 interface SummerLessonCardProps {
   lesson: SummerLessonCalendarEntry;
   onUpdateLesson: (lessonId: number, data: SummerLessonUpdate) => void;
-  onDropStudent: (applicationId: number, slotId: number, lessonId: number) => void;
-  onRemoveSession: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
 }
 
@@ -23,41 +21,16 @@ function fillBarColor(pct: number): string {
 export function SummerLessonCard({
   lesson,
   onUpdateLesson,
-  onDropStudent,
-  onRemoveSession,
   onClickStudent,
 }: SummerLessonCardProps) {
-  const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingLesson, setEditingLesson] = useState(false);
   const lessonRef = useRef<HTMLInputElement>(null);
 
   const activeSessions = lesson.sessions;
   const sessionCount = activeSessions.length;
-  const isFull = sessionCount >= lesson.max_students;
   const fillPct = lesson.max_students > 0 ? sessionCount / lesson.max_students : 0;
   const isCancelled = lesson.lesson_status === "Cancelled";
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isFull && !isCancelled) setDragOver(true);
-  }, [isFull, isCancelled]);
-
-  const handleDragLeave = useCallback(() => setDragOver(false), []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDragOver(false);
-      const appId = parseInt(e.dataTransfer.getData("application-id"));
-      if (!isNaN(appId) && !isFull && !isCancelled) {
-        onDropStudent(appId, lesson.slot_id, lesson.lesson_id);
-      }
-    },
-    [isFull, isCancelled, onDropStudent, lesson.slot_id, lesson.lesson_id]
-  );
 
   const commitLessonNumber = () => {
     const val = parseInt(lessonRef.current?.value ?? "");
@@ -72,13 +45,8 @@ export function SummerLessonCard({
       className={cn(
         "rounded border text-[11px] transition-all overflow-hidden",
         isCancelled && "opacity-50",
-        dragOver
-          ? "border-primary bg-primary/5"
-          : "border-border bg-card dark:bg-gray-800",
+        "border-border bg-card dark:bg-gray-800",
       )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
       {/* Row 1: Lesson badge + grade + tutor + expand */}
       <div className="flex items-center gap-1 px-1 py-0.5 min-w-0">
@@ -167,7 +135,7 @@ export function SummerLessonCard({
         <div className="px-1.5 pb-1 space-y-0.5">
           {activeSessions.length === 0 && (
             <div className="text-[9px] text-muted-foreground italic py-1">
-              No students. Drag here to assign.
+              No students assigned.
             </div>
           )}
           {activeSessions.map((s) => (
@@ -195,13 +163,6 @@ export function SummerLessonCard({
               >
                 {s.grade}
               </span>
-              <button
-                onClick={() => onRemoveSession(s.id)}
-                className="p-0 text-muted-foreground hover:text-red-500 shrink-0"
-                title="Remove"
-              >
-                <X className="h-3 w-3" />
-              </button>
             </div>
           ))}
         </div>

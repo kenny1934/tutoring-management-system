@@ -6,7 +6,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, CalendarDays, Wand2, CheckCheck, Users2, Users } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, Users2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -192,10 +192,11 @@ export default function SummerArrangementPage() {
       await summerAPI.createSession({ application_id: applicationId, slot_id: slotId });
       mutateSlots();
       mutateUnassigned();
+      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
     } catch (e: any) {
       showToast(e.message || "Failed to place student", "error");
     }
-  }, [mutateSlots, mutateUnassigned, showToast]);
+  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
 
   const handleRemoveSession = useCallback(async (sessionId: number) => {
     try {
@@ -208,27 +209,6 @@ export default function SummerArrangementPage() {
     }
   }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
 
-  const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
-    try {
-      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
-      mutateSlots();
-      mutateUnassigned();
-      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
-    } catch (e: any) {
-      showToast(e.message || "Failed to place student", "error");
-    }
-  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
-
-  const handleBulkConfirm = useCallback(async () => {
-    if (!configId) return;
-    try {
-      const result = await summerAPI.bulkConfirmSessions(configId, location);
-      showToast(`Confirmed ${result.confirmed} sessions`, "success");
-      mutateSlots();
-    } catch (e: any) {
-      showToast(e.message || "Failed to confirm", "error");
-    }
-  }, [configId, location, mutateSlots, showToast]);
 
   // Drag preference highlighting
   const handleDragStart = useCallback((app: SummerApplication) => {
@@ -320,16 +300,6 @@ export default function SummerArrangementPage() {
             Auto-Suggest
           </button>
 
-          {totalTentative > 0 && (
-            <button
-              onClick={handleBulkConfirm}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 transition-colors"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Confirm All
-            </button>
-          )}
-
           <RefreshButton
             onClick={refreshAll}
             isRefreshing={slotsValidating}
@@ -398,8 +368,6 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
-                    onDropStudent={handleDropStudentCalendar}
-                    onRemoveSession={handleRemoveSession}
                     onClickStudent={setSelectedAppId}
                     dragPrefs={dragPrefs}
                   />
