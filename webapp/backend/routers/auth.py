@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from database import get_db
 from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
-from auth.jwt_handler import create_access_token, create_refreshed_token, get_token_time_remaining, ACCESS_TOKEN_EXPIRE_HOURS
+from auth.jwt_handler import create_access_token, create_refreshed_token, create_handoff_token, get_token_time_remaining, ACCESS_TOKEN_EXPIRE_HOURS
 from auth.dependencies import get_current_user
 from utils.rate_limiter import check_ip_rate_limit
 
@@ -270,3 +270,18 @@ async def refresh_token(request: Request, response: Response):
         expires_in=expires_in,
         message="Token refreshed successfully"
     )
+
+
+@router.get("/auth/handoff-token")
+async def get_handoff_token(
+    current_user: Tutor = Depends(get_current_user),
+):
+    """
+    Generate a short-lived handoff token for cross-app SSO.
+
+    The token is signed with a shared secret so that the target app
+    (ARK) can validate it and create its own session without requiring
+    the user to log in again via OAuth.
+    """
+    token = create_handoff_token(current_user.user_email, current_user.tutor_name)
+    return {"token": token}

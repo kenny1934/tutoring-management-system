@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
 import useSWR from "swr";
-import { parentCommunicationsAPI } from "@/lib/api";
+import { parentCommunicationsAPI, authAPI } from "@/lib/api";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
 import { usefulTools } from "@/config/useful-tools";
-import { leaveRecords, getLeaveRecordUrl, ARK_MY_LEAVE_URL, ARK_ADMIN_LEAVE_URL } from "@/config/leave-records";
+import { leaveRecords, getLeaveRecordUrl, ARK_BASE_URL, ARK_MY_LEAVE_URL, ARK_ADMIN_LEAVE_URL } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
@@ -126,6 +126,22 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     getReferenceProps: getLeaveReferenceProps,
     getFloatingProps: getLeaveFloatingProps,
   } = useDropdown(leaveOpen, setLeaveOpen);
+
+  // Cross-app SSO: fetch handoff token then open ARK with it
+  const handleArkLeaveClick = useCallback(async (e: React.MouseEvent, arkPath: string) => {
+    e.preventDefault();
+    setLeaveOpen(false);
+    try {
+      const { token } = await authAPI.getHandoffToken();
+      window.open(
+        `${ARK_BASE_URL}/api/auth/cross-app-login?token=${token}&redirect=${encodeURIComponent(arkPath)}`,
+        '_blank'
+      );
+    } catch {
+      // Fallback: open ARK directly (user will need to OAuth)
+      window.open(`${ARK_BASE_URL}${arkPath}`, '_blank');
+    }
+  }, []);
 
   return (
     <div className={cn(
@@ -387,13 +403,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
                       >
-                        {/* ARK link */}
+                        {/* ARK link — uses handoff token for seamless SSO */}
                         <a
                           href={isMyView ? ARK_MY_LEAVE_URL : ARK_ADMIN_LEAVE_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
-                          onClick={() => setLeaveOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group cursor-pointer"
+                          onClick={(e) => handleArkLeaveClick(e, isMyView ? '/my/leave' : '/leave')}
                         >
                           <ArkIcon className="w-6 h-6 flex-shrink-0" />
                           <div className="flex-1 min-w-0">

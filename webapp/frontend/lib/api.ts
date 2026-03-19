@@ -2063,6 +2063,10 @@ const wecomAPI = {
   },
 };
 
+export const authAPI = {
+  getHandoffToken: () => fetchAPI<{ token: string }>('/auth/handoff-token'),
+};
+
 export const memosAPI = {
   getAll: (params?: {
     student_id?: number;
@@ -2146,4 +2150,5 @@ export const api = {
   discounts: discountsAPI,
   wecom: wecomAPI,
   memos: memosAPI,
+  auth: authAPI,
 };
