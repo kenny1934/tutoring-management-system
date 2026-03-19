@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -360,8 +361,8 @@ export function BulkRateModal({
         </div>
       </Modal>
 
-      {/* Close Confirmation Dialog */}
-      {showCloseConfirm && (
+      {/* Close Confirmation Dialog - uses createPortal to render above modal */}
+      {showCloseConfirm && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
           <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
@@ -376,7 +377,8 @@ export function BulkRateModal({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

@@ -5,6 +5,7 @@
 ### Bug Fixes
 
 * **Custom page order preserved** — entering page ranges like "8-15,5-6,16-18" now keeps pages in that exact order when viewing, printing, and downloading, instead of sorting them numerically
+* **Rate & Comment modal cancel button** — fixed confirmation dialog appearing behind the modal when discarding unsaved changes
 
 ## [2.0.35](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.35) (2026-03-18)
 

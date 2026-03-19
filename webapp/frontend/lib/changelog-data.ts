@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Custom page order preserved** — entering page ranges like \"8-15,5-6,16-18\" now keeps pages in that exact order when viewing, printing, and downloading, instead of sorting them numerically"
+          },
+          {
+            "description": "**Rate & Comment modal cancel button** — fixed confirmation dialog appearing behind the modal when discarding unsaved changes"
           }
         ]
       }
