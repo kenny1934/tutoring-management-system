@@ -43,8 +43,16 @@ describe('parsePageRange', () => {
     expect(parsePageRange('1,1,2,2')).toEqual([1, 2]);
   });
 
-  it('returns sorted result', () => {
-    expect(parsePageRange('5,1,3')).toEqual([1, 3, 5]);
+  it('preserves input order', () => {
+    expect(parsePageRange('5,1,3')).toEqual([5, 1, 3]);
+  });
+
+  it('preserves order across mixed ranges', () => {
+    expect(parsePageRange('8-10,5-6,16-18')).toEqual([8, 9, 10, 5, 6, 16, 17, 18]);
+  });
+
+  it('deduplicates overlapping ranges preserving first occurrence order', () => {
+    expect(parsePageRange('8-15,12-18')).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
   });
 
   it('ignores zero (negative sign parsed as range separator)', () => {
