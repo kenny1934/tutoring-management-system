@@ -10,6 +10,7 @@ from jose import jwt, JWTError
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
+CROSS_APP_SECRET = os.getenv("CROSS_APP_HANDOFF_SECRET", "")
 ALGORITHM = "HS256"
 
 # Security validation: Fail startup in production if using default secret key
@@ -130,6 +131,30 @@ def can_refresh_token(token: str) -> bool:
         return time_remaining > -grace_period_seconds
     except JWTError:
         return False
+
+
+def create_handoff_token(email: str, name: str) -> str:
+    """
+    Create a short-lived JWT for cross-app SSO handoff.
+
+    Signed with CROSS_APP_HANDOFF_SECRET (shared between CSM and ARK)
+    so the receiving app can validate without calling back.
+
+    Args:
+        email: User's email address (identity key in both systems)
+        name: User's display name
+
+    Returns:
+        Encoded JWT token string (60s TTL)
+    """
+    payload = {
+        "email": email,
+        "name": name,
+        "type": "cross-app-handoff",
+        "exp": datetime.now(timezone.utc) + timedelta(seconds=60),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, CROSS_APP_SECRET, algorithm=ALGORITHM)
 
 
 def create_refreshed_token(old_token: str) -> Optional[str]:

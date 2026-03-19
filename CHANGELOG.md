@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.37](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.37) (2026-03-19)
+
+### New Features
+
+* **ARK leave quick link** — dashboard "Leave Record" now links to ARK's leave management with the ARK brand icon, Google Sheet links kept as fallback during transition
+* **Cross-app SSO** — clicking the ARK leave link passes a handoff token so you're automatically logged in without needing to re-authenticate
+
 ## [2.0.36](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.36) (2026-03-19)
 
 ### Bug Fixes
