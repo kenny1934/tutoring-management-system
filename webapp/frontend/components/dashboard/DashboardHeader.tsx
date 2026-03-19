@@ -10,7 +10,7 @@ import { parentCommunicationsAPI } from "@/lib/api";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
 import { usefulTools } from "@/config/useful-tools";
-import { leaveRecords, getLeaveRecordUrl } from "@/config/leave-records";
+import { leaveRecords, getLeaveRecordUrl, ARK_MY_LEAVE_URL, ARK_ADMIN_LEAVE_URL } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
@@ -25,6 +25,21 @@ import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
 
+
+/** ARK vessel icon — favicon variant (white on indigo), copied from ark/components/ArkIcon.tsx */
+function ArkIcon({ className }: { className?: string }) {
+  return (
+    <div className={cn("bg-indigo-600 rounded flex items-center justify-center", className)}>
+      <svg viewBox="0 0 64 64" fill="none" className="w-[75%] h-[75%]">
+        <path d="M18 23 L21 14 L27 9 L32 7 L37 9 L43 14 L46 23 L41 23 L39 16 L35 12 L32 11 L29 12 L25 16 L23 23 Z" fill="#ffffff" />
+        <path d="M32 57 L7 43 L13 27 L32 22 Z" fill="#ffffff" />
+        <path d="M32 57 L57 43 L51 29 L32 24 Z" fill="#c7d2fe" />
+        <line x1="4" y1="43" x2="7" y2="43" stroke="#e0e7ff" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="57" y1="43" x2="60" y2="43" stroke="#e0e7ff" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -334,32 +349,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               return <TrialsQuickLink key={link.id} />;
             }
 
-            // Special handling for Leave Record
+            // Special handling for Leave Record — always a dropdown
             if (link.id === 'leave') {
-              // In my-view mode, render as direct link to current user's sheet
-              if (viewMode === 'my-view' && currentUserLeaveUrl) {
-                return (
-                  <a
-                    key={link.id}
-                    href={currentUserLeaveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-                      "text-[#a0704b] dark:text-[#cd853f]",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden xs:inline">{link.label}</span>
-                    <span className="xs:hidden">Leave</span>
-                    <ExternalLink className="h-3 w-3 opacity-50" />
-                  </a>
-                );
-              }
-
-              // In center-view mode, render as dropdown
+              const isMyView = viewMode === 'my-view';
               return (
                 <div key={link.id} className="relative">
                   <button
@@ -373,7 +365,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                       leaveOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <ArkIcon className="h-5 w-5" />
                     <span className="hidden xs:inline">{link.label}</span>
                     <span className="xs:hidden">Leave</span>
                     <ChevronDown className={cn(
@@ -395,36 +387,86 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
                       >
-                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                          {location && location !== "All Locations" ? location : "All Tutors"}
-                        </div>
-                        {tutorsWithLeaveRecords.map((tutor) => (
-                          <a
-                            key={tutor.id}
-                            href={tutor.sheetUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
-                            onClick={() => setLeaveOpen(false)}
-                          >
-                            <FileSpreadsheet className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {tutor.tutor_name}
-                              </div>
-                              {tutor.default_location && location === "All Locations" && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {tutor.default_location}
-                                </div>
-                              )}
+                        {/* ARK link */}
+                        <a
+                          href={isMyView ? ARK_MY_LEAVE_URL : ARK_ADMIN_LEAVE_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
+                          onClick={() => setLeaveOpen(false)}
+                        >
+                          <ArkIcon className="w-6 h-6 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {isMyView ? "My Leave" : "ARK Leave"}
                             </div>
-                            <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </a>
-                        ))}
-                        {tutorsWithLeaveRecords.length === 0 && (
-                          <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                            No leave records configured
-                          </p>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {isMyView ? "Requests, balances & calendar" : "Leave requests & balances"}
+                            </div>
+                          </div>
+                          <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+
+                        {/* Google Sheet — my-view shows current user's sheet, center-view shows all tutors */}
+                        {isMyView ? (
+                          currentUserLeaveUrl && (
+                            <>
+                              <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                              <a
+                                href={currentUserLeaveUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
+                                onClick={() => setLeaveOpen(false)}
+                              >
+                                <FileSpreadsheet className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    Google Sheet
+                                  </div>
+                                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                                    Legacy leave record
+                                  </div>
+                                </div>
+                                <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                              {location && location !== "All Locations" ? location : "All Tutors"} — Google Sheets
+                            </div>
+                            {tutorsWithLeaveRecords.map((tutor) => (
+                              <a
+                                key={tutor.id}
+                                href={tutor.sheetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
+                                onClick={() => setLeaveOpen(false)}
+                              >
+                                <FileSpreadsheet className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                    {tutor.tutor_name}
+                                  </div>
+                                  {tutor.default_location && location === "All Locations" && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {tutor.default_location}
+                                    </div>
+                                  )}
+                                </div>
+                                <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            ))}
+                            {tutorsWithLeaveRecords.length === 0 && (
+                              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                No leave records configured
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     </FloatingPortal>
