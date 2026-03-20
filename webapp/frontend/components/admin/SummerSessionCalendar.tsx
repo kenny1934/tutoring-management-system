@@ -214,7 +214,7 @@ export function SummerSessionCalendar({
       /* Grid */
       <div className="flex-1 overflow-auto">
         <div
-          className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40"
+          className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
           style={{
             display: "grid",
             gridTemplateColumns: `40px repeat(${weekDates.length}, minmax(110px, 1fr))`,
@@ -223,7 +223,9 @@ export function SummerSessionCalendar({
           }}
         >
           {/* Top-left corner */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10" />
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10 flex items-center justify-center text-xs font-medium text-muted-foreground">
+            Time
+          </div>
 
           {/* Day headers */}
           {weekDates.map((dateStr) => {

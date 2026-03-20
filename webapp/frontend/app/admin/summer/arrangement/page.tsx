@@ -44,7 +44,7 @@ export default function SummerArrangementPage() {
     lessonNumber: number; afterDate?: string; beforeDate?: string;
   } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{
-    type: "session" | "slot"; id: number; name: string; cascade: boolean;
+    type: "session" | "slot"; id: number; name: string; cascade: boolean; consequences?: string[];
   } | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     pref1?: { day: string; time: string };
@@ -198,8 +198,21 @@ export default function SummerArrangementPage() {
   }, [mutateSlots, showToast]);
 
   const handleDeleteSlot = useCallback((slotId: number) => {
-    setPendingDelete({ type: "slot", id: slotId, name: "this slot", cascade: false });
-  }, []);
+    const slot = slots?.find(s => s.id === slotId);
+    const label = slot
+      ? `${DAY_ABBREV[slot.slot_day] || slot.slot_day} ${slot.time_slot}${slot.grade ? ` ${slot.grade}` : ""}`
+      : "this slot";
+    const studentCount = slot?.session_count ?? 0;
+    setPendingDelete({
+      type: "slot",
+      id: slotId,
+      name: label,
+      cascade: false,
+      consequences: studentCount > 0
+        ? [`This slot has ${studentCount} student${studentCount > 1 ? "s" : ""} — remove them first before deleting`]
+        : undefined,
+    });
+  }, [slots]);
 
   // Slot Setup drop → open mode selector
   const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
@@ -596,9 +609,10 @@ export default function SummerArrangementPage() {
           onCancel={() => setPendingDelete(null)}
           title={pendingDelete?.type === "slot" ? "Delete Slot" : "Remove Student"}
           message={`Are you sure you want to remove ${pendingDelete?.name ?? ""}?`}
-          consequences={pendingDelete?.cascade
-            ? ["This will remove all lesson sessions for this student in this slot"]
-            : undefined}
+          consequences={
+            pendingDelete?.consequences
+            ?? (pendingDelete?.cascade ? ["This will remove all lesson sessions for this student in this slot"] : undefined)
+          }
           variant="danger"
           confirmText="Remove"
         />
