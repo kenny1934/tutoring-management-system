@@ -219,7 +219,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         ) : stats ? (
           <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
-        <div className="px-4 sm:px-6 flex items-center gap-2">
+        <div className="ml-auto px-4 sm:px-6 flex items-center gap-2">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
           {onRefresh && (
             <div className="hidden sm:flex">
