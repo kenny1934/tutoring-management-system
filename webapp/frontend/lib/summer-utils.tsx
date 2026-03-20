@@ -41,20 +41,16 @@ export const frequencyLabel = (n: number, lang: Lang) =>
     ? t("每星期一次（標準）", "Once per week (standard)", lang)
     : t("每星期兩次", "Twice per week", lang);
 
-/** Format a date string like "2025-07-05" to compact "M/D" (e.g., "7/5"). */
+/** Format a date string like "2025-07-05" to compact "Jul 5". */
 export function formatCompactDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** Format a date string like "2025-07-05" to short "Mon 7 Jul". */
+/** Format a date string like "2025-07-05" to "Mon, Jul 5". */
 export function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
 /** Format a date string like "2025-07-05" to localized display. */
@@ -147,6 +143,19 @@ export const SUMMER_GRADE_BG: Record<string, string> = {
   F1: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   F2: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   F3: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+};
+
+/** Course type A/B color scheme. */
+export const COURSE_TYPE_COLORS: Record<string, string> = {
+  A: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  B: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+};
+
+/** Lesson number badge colors by grade (for calendar view). */
+export const LESSON_BADGE_COLORS: Record<string, string> = {
+  F1: "bg-blue-500 text-white dark:bg-blue-600",
+  F2: "bg-purple-500 text-white dark:bg-purple-600",
+  F3: "bg-orange-500 text-white dark:bg-orange-600",
 };
 
 /** Grade text-only colors for demand breakdowns. */

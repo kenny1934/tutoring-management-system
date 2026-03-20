@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, formatCompactDate } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, formatCompactDate, formatShortDate } from "@/lib/summer-utils";
 import { ArrowUpDown, Search } from "lucide-react";
 import type { SummerStudentLessonsRow } from "@/types";
 
@@ -189,14 +189,14 @@ export function SummerStudentLessonsTable({
       <div className="overflow-x-auto border border-border dark:border-gray-700 rounded-lg">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800/50">
-              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-left px-2 py-1.5 border-b border-border dark:border-gray-700 min-w-[120px]">
+            <tr className="bg-gray-50/80 dark:bg-gray-800/90">
+              <th className="sticky left-0 z-10 bg-gray-50/80 dark:bg-gray-800/90 text-[11px] font-medium text-left px-2 py-1.5 border-b border-border dark:border-gray-700 min-w-[120px]">
                 Student
               </th>
-              <th className="sticky left-[120px] z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 w-10">
+              <th className="sticky left-[120px] z-10 bg-gray-50/80 dark:bg-gray-800/90 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 w-10">
                 Grade
               </th>
-              <th className="sticky left-[160px] z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[72px]">
+              <th className="sticky left-[160px] z-10 bg-gray-50/80 dark:bg-gray-800/90 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[72px]">
                 Progress
               </th>
               {lessonColumns.map((n) => (
@@ -257,7 +257,7 @@ export function SummerStudentLessonsTable({
                     className="border-b border-border/50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
                   >
                     {/* Student name — sticky */}
-                    <td className="sticky left-0 z-10 bg-card dark:bg-gray-900 px-2 py-1 border-r border-border/30 dark:border-gray-700/30">
+                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-2 py-1 border-r border-border/30 dark:border-gray-700/30">
                       <button
                         onClick={() =>
                           onClickStudent?.(student.application_id)
@@ -270,7 +270,7 @@ export function SummerStudentLessonsTable({
                     </td>
 
                     {/* Grade badge — sticky */}
-                    <td className="sticky left-[120px] z-10 bg-card dark:bg-gray-900 text-center px-1 py-1 border-r border-border/30 dark:border-gray-700/30">
+                    <td className="sticky left-[120px] z-10 bg-white dark:bg-gray-900 text-center px-1 py-1 border-r border-border/30 dark:border-gray-700/30">
                       <span
                         className={cn(
                           "text-[10px] font-bold px-1 rounded",
@@ -283,7 +283,7 @@ export function SummerStudentLessonsTable({
                     </td>
 
                     {/* Progress bar — sticky */}
-                    <td className="sticky left-[160px] z-10 bg-card dark:bg-gray-900 px-1 py-1 border-r border-border/30 dark:border-gray-700/30">
+                    <td className="sticky left-[160px] z-10 bg-white dark:bg-gray-900 px-1 py-1 border-r border-border/30 dark:border-gray-700/30">
                       <div className="flex items-center gap-1">
                         <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
@@ -327,7 +327,7 @@ export function SummerStudentLessonsTable({
                               "text-center px-1 py-1",
                               bgColor
                             )}
-                            title={`${lesson.lesson_date} ${lesson.time_slot ?? ""} (${status ?? "Unknown"})`}
+                            title={`${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})`}
                           >
                             <span className="text-[11px] tabular-nums">
                               {formatCompactDate(lesson.lesson_date)}

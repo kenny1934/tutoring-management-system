@@ -308,9 +308,10 @@ export default function SummerArrangementPage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6 gap-4">
+      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <div className="flex items-center gap-2">
             <Grid3X3 className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Timetable Arrangement</h1>
@@ -364,7 +365,7 @@ export default function SummerArrangementPage() {
         </div>
 
         {/* View tabs */}
-        <div className="flex items-center gap-1 border-b border-border -mb-2">
+        <div className="flex items-center gap-1 px-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
           <button
             onClick={() => setActiveTab("slots")}
             className={cn(
@@ -410,7 +411,7 @@ export default function SummerArrangementPage() {
           </div>
         ) : (
           <>
-            <div className="flex gap-4 flex-1 min-h-0">
+            <div className="flex gap-4 flex-1 min-h-0 p-4">
               <div className="flex-1 min-w-0 overflow-auto">
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
@@ -510,6 +511,7 @@ export default function SummerArrangementPage() {
             </div>
           </>
         )}
+        </div>{/* end paper card */}
 
         {/* Auto-suggest modal */}
         {autoSuggestOpen && configId && (

@@ -99,13 +99,13 @@ export function SummerArrangementGrid({
         }}
       >
         {/* Header row: empty corner + day headers */}
-        <div className="bg-surface-variant flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
+        <div className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
           Time
         </div>
         {days.map((day) => (
           <div
             key={day}
-            className="bg-surface-variant flex items-center justify-center text-sm font-medium sticky top-0 z-10"
+            className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-sm font-medium sticky top-0 z-10"
           >
             {DAY_ABBREV[day] || day}
           </div>
@@ -115,7 +115,7 @@ export function SummerArrangementGrid({
         {timeSlots.map((ts) => (
           <Fragment key={ts}>
             {/* Time label */}
-            <div className="bg-surface-variant flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
+            <div className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
               {ts}
             </div>
 
