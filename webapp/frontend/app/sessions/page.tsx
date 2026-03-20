@@ -121,7 +121,7 @@ export default function SessionsPage() {
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -276,7 +276,7 @@ export default function SessionsPage() {
   }, [tutors]);
 
   const isAdminRole = effectiveRole === "Admin" || effectiveRole === "Super Admin";
-  const { data: pendingMemoData } = usePendingMemoCount(isAdminRole ? undefined : currentTutorId || undefined);
+  const { data: pendingMemoData } = usePendingMemoCount(isAdminRole ? undefined : currentTutorId || undefined, !isGuest);
 
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {

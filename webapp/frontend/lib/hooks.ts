@@ -321,8 +321,8 @@ export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
  * @param location - Filter by location
  * @param tutorId - Filter by tutor (for 'My View' mode)
  */
-export function useDashboardStats(location?: string, tutorId?: number) {
-  const key = ['dashboard-stats', location || 'all', tutorId || 'all'];
+export function useDashboardStats(location?: string, tutorId?: number, enabled = true) {
+  const key = enabled ? ['dashboard-stats', location || 'all', tutorId || 'all'] : null;
 
   return useSWR<DashboardStats>(
     key,
@@ -339,8 +339,8 @@ export function useDashboardStats(location?: string, tutorId?: number) {
  * @param limit - Max number of events to return (default 50, max 100)
  * @param offset - Number of events to skip for pagination
  */
-export function useActivityFeed(location?: string, tutorId?: number, limit?: number, offset?: number) {
-  const key = ['activity-feed', location || 'all', tutorId || 'all', limit || 'default', offset || 0];
+export function useActivityFeed(location?: string, tutorId?: number, limit?: number, offset?: number, enabled = true) {
+  const key = enabled ? ['activity-feed', location || 'all', tutorId || 'all', limit || 'default', offset || 0] : null;
 
   return useSWR<ActivityEvent[]>(
     key,
@@ -543,10 +543,10 @@ export function useTerminationTrends(location?: string, tutorId?: number, enable
  * Used for dashboard badge and notification bell during review period
  * Polls every 60 seconds when tab is visible
  */
-export function useTerminationReviewCount(location?: string, tutorId?: number) {
+export function useTerminationReviewCount(location?: string, tutorId?: number, enabled = true) {
   const refreshInterval = useVisibilityAwareInterval(60000);
   return useSWR<TerminationReviewCount>(
-    ['termination-review-count', location || 'all', tutorId || 'all'],
+    enabled ? ['termination-review-count', location || 'all', tutorId || 'all'] : null,
     () => terminationsAPI.getReviewNeededCount(location, tutorId),
     { refreshInterval, revalidateOnFocus: false }
   );
@@ -1494,9 +1494,9 @@ export function useMemoForSession(sessionId: number | null | undefined) {
 /**
  * Hook for fetching pending memo count (for notification badges).
  */
-export function usePendingMemoCount(tutorId?: number) {
+export function usePendingMemoCount(tutorId?: number, enabled = true) {
   return useSWR<CountResponse>(
-    ['tutor-memos-pending-count', tutorId],
+    enabled ? ['tutor-memos-pending-count', tutorId] : null,
     () => memosAPI.getPendingCount(tutorId)
   );
 }

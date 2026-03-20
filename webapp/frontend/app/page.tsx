@@ -29,7 +29,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { user, impersonatedTutor } = useAuth();
+  const { user, impersonatedTutor, isGuest } = useAuth();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
@@ -41,7 +41,7 @@ export default function DashboardPage() {
     ? impersonatedTutor?.id ?? user?.id
     : undefined;
 
-  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId);
+  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId, !isGuest);
 
   // Fetch ALL students once (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             <p className="text-lg font-semibold text-red-700 dark:text-red-300 mb-2">
               Something went wrong
             </p>
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{error instanceof Error ? error.message : String(error)}</p>
           </div>
         </PageTransition>
       </DeskSurface>
@@ -207,19 +207,21 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
-        {/* Activity Feed */}
-        <motion.div
-          initial={{ opacity: 0, y: 16, rotate: -0.4 }}
-          animate={{ opacity: 1, y: 0, rotate: -0.4 }}
-          whileHover={{ y: -2, rotate: -0.4, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
-          transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
-          role="complementary"
-          aria-label="Recent activity"
-        >
-          <CompactErrorBoundary>
-            <ActivityFeed isMobile={isMobile} tutorId={effectiveTutorId} />
-          </CompactErrorBoundary>
-        </motion.div>
+        {/* Activity Feed (hidden for guests — endpoint is guest-blocked) */}
+        {!isGuest && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, rotate: -0.4 }}
+            animate={{ opacity: 1, y: 0, rotate: -0.4 }}
+            whileHover={{ y: -2, rotate: -0.4, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
+            role="complementary"
+            aria-label="Recent activity"
+          >
+            <CompactErrorBoundary>
+              <ActivityFeed isMobile={isMobile} tutorId={effectiveTutorId} />
+            </CompactErrorBoundary>
+          </motion.div>
+        )}
       </PageTransition>
     </DeskSurface>
   );

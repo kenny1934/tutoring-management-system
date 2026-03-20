@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount } from "@/lib/hooks";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle } from "lucide-react";
@@ -38,10 +39,11 @@ interface NotificationItem {
 export function NotificationBell({ pendingPayments, location, tutorId, showOverduePayments = false }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { viewMode } = useRole();
+  const { isGuest } = useAuth();
 
-  // Fetch contact-needed count
+  // Fetch contact-needed count (skip for guests — endpoint is guest-blocked)
   const { data: contactNeeded } = useSWR(
-    ['contact-needed-count', tutorId, location],
+    isGuest ? null : ['contact-needed-count', tutorId, location],
     () => parentCommunicationsAPI.getContactNeededCount(tutorId, location)
   );
 
@@ -63,8 +65,8 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   const uncheckedAttendanceTutorId = (showOverduePayments && viewMode === 'center-view') ? undefined : tutorId;
   const { data: uncheckedAttendance } = useUncheckedAttendanceCount(location, uncheckedAttendanceTutorId);
 
-  // Fetch termination review count (all users)
-  const { data: reviewCount } = useTerminationReviewCount(location, tutorId);
+  // Fetch termination review count (skip for guests — endpoint is guest-blocked)
+  const { data: reviewCount } = useTerminationReviewCount(location, tutorId, !isGuest);
 
   // Fetch aged pending makeups count (all users with tutorId)
   const { data: agedMakeups } = useAgedPendingMakeupsCount(tutorId);
