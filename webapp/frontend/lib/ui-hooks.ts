@@ -229,6 +229,7 @@ import {
   offset,
   flip,
   shift,
+  size,
   useClick,
   useDismiss,
   useInteractions,
@@ -253,8 +254,16 @@ export function useDropdown(
     onOpenChange,
     middleware: [
       offset(8),
-      flip({ fallbackAxisSideDirection: "end" }),
+      flip({ fallbackAxisSideDirection: "end", padding: 8 }),
       shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          Object.assign(elements.floating.style, {
+            maxHeight: `${availableHeight}px`,
+          });
+        },
+      }),
     ],
     placement,
   });
