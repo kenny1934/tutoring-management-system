@@ -191,15 +191,15 @@ export function SummerFindSlotDialog({
 
                             {/* Fill bar */}
                             <div className="flex items-center gap-2 mt-1.5">
-                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div
                                   className={cn(
                                     "h-full rounded-full transition-all",
                                     pct >= 100
-                                      ? "bg-red-500"
+                                      ? "bg-red-400 dark:bg-red-400/80"
                                       : pct >= 75
-                                        ? "bg-amber-500"
-                                        : "bg-emerald-500"
+                                        ? "bg-yellow-400 dark:bg-yellow-400/80"
+                                        : "bg-green-400 dark:bg-green-400/80"
                                   )}
                                   style={{ width: `${Math.min(pct, 100)}%` }}
                                 />
