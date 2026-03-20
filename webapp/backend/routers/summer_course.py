@@ -46,6 +46,9 @@ from schemas import (
     SummerLessonCalendarEntry,
     SummerLessonCalendarResponse,
     SummerFindSlotResult,
+    SummerStudentLessonEntry,
+    SummerStudentLessonsRow,
+    SummerStudentLessonsResponse,
     SummerDemandResponse,
     SummerDemandCell,
     SummerSuggestRequest,
@@ -932,10 +935,11 @@ def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
 @router.delete("/summer/sessions/{session_id}")
 def delete_session(
     session_id: int,
+    cascade: bool = True,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Remove a session and all sibling sessions for the same student+slot."""
+    """Remove a session. cascade=true deletes all sibling sessions for the same student+slot."""
     session = (
         db.query(SummerSession)
         .options(joinedload(SummerSession.application))
@@ -946,11 +950,15 @@ def delete_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     app = session.application
-    # Delete ALL sessions for this student+slot (cascades the Slot Setup bulk-create)
-    db.query(SummerSession).filter(
-        SummerSession.application_id == session.application_id,
-        SummerSession.slot_id == session.slot_id,
-    ).delete()
+    if cascade:
+        # Delete ALL sessions for this student+slot (Slot Setup removal)
+        db.query(SummerSession).filter(
+            SummerSession.application_id == session.application_id,
+            SummerSession.slot_id == session.slot_id,
+        ).delete()
+    else:
+        # Delete only this specific session (Calendar lesson removal)
+        db.delete(session)
     db.commit()
 
     # Auto-sync: revert app status if no sessions remain
@@ -1103,6 +1111,85 @@ def list_unassigned(
 
     apps = q.order_by(SummerApplication.student_name).all()
     return [_build_application_response(a) for a in apps]
+
+
+# ─── Student Lessons Progress ────────────────────────────────────────────────
+
+@router.get("/summer/students/lessons", response_model=SummerStudentLessonsResponse)
+def get_student_lessons(
+    config_id: int,
+    location: Optional[str] = None,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get per-student lesson progress for all applications in a config+location."""
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    total = config.total_lessons
+
+    # Load all applications with their sessions+lessons
+    q = (
+        db.query(SummerApplication)
+        .options(
+            joinedload(SummerApplication.sessions)
+                .joinedload(SummerSession.lesson),
+            joinedload(SummerApplication.sessions)
+                .joinedload(SummerSession.slot),
+        )
+        .filter(
+            SummerApplication.config_id == config_id,
+            SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+        )
+    )
+    if location:
+        q = q.filter(SummerApplication.preferred_location == location)
+
+    apps = q.order_by(SummerApplication.student_name).all()
+
+    rows = []
+    for app in apps:
+        # Build a map: lesson_number → session info
+        placed_by_lesson: dict[int, SummerSession] = {}
+        for s in app.sessions:
+            if s.session_status == "Cancelled":
+                continue
+            lesson = s.lesson
+            if lesson and lesson.lesson_number not in placed_by_lesson:
+                placed_by_lesson[lesson.lesson_number] = s
+
+        # Build 1..total entries
+        entries = []
+        for ln in range(1, total + 1):
+            s = placed_by_lesson.get(ln)
+            if s and s.lesson:
+                entries.append(SummerStudentLessonEntry(
+                    lesson_number=ln,
+                    placed=True,
+                    session_id=s.id,
+                    lesson_id=s.lesson_id,
+                    lesson_date=s.lesson.lesson_date,
+                    time_slot=s.slot.time_slot if s.slot else None,
+                    slot_id=s.slot_id,
+                    session_status=s.session_status,
+                ))
+            else:
+                entries.append(SummerStudentLessonEntry(lesson_number=ln, placed=False))
+
+        placed_count = len(placed_by_lesson)
+        rows.append(SummerStudentLessonsRow(
+            application_id=app.id,
+            student_name=app.student_name,
+            grade=app.grade,
+            sessions_per_week=app.sessions_per_week,
+            placed_count=placed_count,
+            total_lessons=total,
+            lessons=entries,
+        ))
+
+    # Sort: least complete first
+    rows.sort(key=lambda r: r.placed_count / r.total_lessons if r.total_lessons else 0)
+    return SummerStudentLessonsResponse(students=rows)
 
 
 # ─── Auto-Suggest ────────────────────────────────────────────────────────────

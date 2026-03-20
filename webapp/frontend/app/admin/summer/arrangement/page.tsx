@@ -6,7 +6,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, CalendarDays, Wand2, Users2, Users } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -17,6 +17,9 @@ import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModa
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
+import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
+import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
@@ -28,7 +31,7 @@ export default function SummerArrangementPage() {
   const canView = isAdmin || isSuperAdmin;
 
   const { mutate: globalMutate } = useSWRConfig();
-  const [activeTab, setActiveTab] = useState<"slots" | "calendar">("slots");
+  const [activeTab, setActiveTab] = useState<"slots" | "calendar" | "students">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
@@ -36,6 +39,13 @@ export default function SummerArrangementPage() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
+  const [findSlotTarget, setFindSlotTarget] = useState<{
+    applicationId: number; studentName: string; grade: string;
+    lessonNumber: number; afterDate?: string; beforeDate?: string;
+  } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    type: "session" | "slot"; id: number; name: string; cascade: boolean;
+  } | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     pref1?: { day: string; time: string };
     pref2?: { day: string; time: string };
@@ -149,12 +159,19 @@ export default function SummerArrangementPage() {
     () => summerAPI.getApplication(selectedAppId!)
   );
 
+  // SWR invalidation helpers
+  const mutateCalendar = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar"), [globalMutate]);
+  const mutateStudentLessons = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-student-lessons"), [globalMutate]);
+  const mutateFindSlot = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-find-slot"), [globalMutate]);
+
   // Handlers
   const refreshAll = useCallback(() => {
     mutateSlots();
     mutateDemand();
     mutateUnassigned();
-  }, [mutateSlots, mutateDemand, mutateUnassigned]);
+    mutateCalendar();
+    mutateStudentLessons();
+  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons]);
 
   const handleCreateSlot = useCallback(async (day: string, timeSlot: string) => {
     if (!configId) return;
@@ -180,14 +197,9 @@ export default function SummerArrangementPage() {
     }
   }, [mutateSlots, showToast]);
 
-  const handleDeleteSlot = useCallback(async (slotId: number) => {
-    try {
-      await summerAPI.deleteSlot(slotId);
-      mutateSlots();
-    } catch (e: any) {
-      showToast(e.message || "Failed to delete slot", "error");
-    }
-  }, [mutateSlots, showToast]);
+  const handleDeleteSlot = useCallback((slotId: number) => {
+    setPendingDelete({ type: "slot", id: slotId, name: "this slot", cascade: false });
+  }, []);
 
   // Slot Setup drop → open mode selector
   const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
@@ -203,14 +215,14 @@ export default function SummerArrangementPage() {
       await summerAPI.createSession({ application_id: appId, slot_id: slotId, mode });
       mutateSlots();
       mutateUnassigned();
-      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+      mutateCalendar();
       if (mode === "single") {
         showToast("Lessons ready — switch to Calendar to place individually", "success");
       }
     } catch (e: any) {
       showToast(e.message || "Failed to place student", "error");
     }
-  }, [pendingDrop, mutateSlots, mutateUnassigned, globalMutate, showToast]);
+  }, [pendingDrop, mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
 
   // Calendar drop → single session for a specific lesson
   const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
@@ -218,22 +230,41 @@ export default function SummerArrangementPage() {
       await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
       mutateSlots();
       mutateUnassigned();
-      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+      mutateCalendar();
     } catch (e: any) {
       showToast(e.message || "Failed to place student", "error");
     }
-  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
+  }, [mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
 
-  const handleRemoveSession = useCallback(async (sessionId: number) => {
+  // Slot Setup removal — cascade delete all sessions for student+slot
+  const handleRemoveSession = useCallback((sessionId: number) => {
+    setPendingDelete({ type: "session", id: sessionId, name: "student from this slot (all lessons)", cascade: true });
+  }, []);
+
+  // Calendar removal — delete only this specific lesson's session
+  const handleRemoveSessionFromCalendar = useCallback((sessionId: number) => {
+    setPendingDelete({ type: "session", id: sessionId, name: "student from this lesson", cascade: false });
+  }, []);
+
+  // Confirm delete action
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    const { type, id, cascade } = pendingDelete;
+    setPendingDelete(null);
     try {
-      await summerAPI.deleteSession(sessionId);
+      if (type === "slot") {
+        await summerAPI.deleteSlot(id);
+      } else {
+        await summerAPI.deleteSession(id, cascade);
+      }
       mutateSlots();
       mutateUnassigned();
-      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+      mutateCalendar();
+      mutateStudentLessons();
     } catch (e: any) {
-      showToast(e.message || "Failed to remove session", "error");
+      showToast(e.message || "Failed to delete", "error");
     }
-  }, [mutateSlots, mutateUnassigned, globalMutate, showToast]);
+  }, [pendingDelete, mutateSlots, mutateUnassigned, mutateCalendar, mutateStudentLessons, showToast]);
 
 
   // Drag preference highlighting
@@ -358,6 +389,18 @@ export default function SummerArrangementPage() {
             <CalendarDays className="h-3.5 w-3.5" />
             Calendar
           </button>
+          <button
+            onClick={() => setActiveTab("students")}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+              activeTab === "students"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <TableProperties className="h-3.5 w-3.5" />
+            Students
+          </button>
         </div>
 
         {/* Main content: grid/calendar + unassigned panel */}
@@ -386,7 +429,7 @@ export default function SummerArrangementPage() {
                     dragPrefs={dragPrefs}
                     getAvailableTutors={getAvailableTutors}
                   />
-                ) : (
+                ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
                     configId={configId!}
                     location={location}
@@ -395,9 +438,17 @@ export default function SummerArrangementPage() {
                     openDays={openDays}
                     timeSlots={timeSlots}
                     onDropStudent={handleDropStudentCalendar}
-                    onRemoveSession={handleRemoveSession}
+                    onRemoveSession={handleRemoveSessionFromCalendar}
                     onClickStudent={setSelectedAppId}
                     dragPrefs={dragPrefs}
+                  />
+                ) : (
+                  <SummerStudentLessonsTable
+                    configId={configId!}
+                    location={location}
+                    totalLessons={activeConfig!.total_lessons}
+                    onClickStudent={setSelectedAppId}
+                    onFindSlot={setFindSlotTarget}
                   />
                 )}
               </div>
@@ -506,6 +557,44 @@ export default function SummerArrangementPage() {
             return `${DAY_ABBREV[slot.slot_day] || slot.slot_day} ${slot.time_slot}${slot.grade ? ` ${slot.grade}` : ""}`;
           })()}
           totalLessons={activeConfig?.total_lessons ?? 8}
+        />
+
+        {/* Find Slot dialog */}
+        {findSlotTarget && configId && (
+          <SummerFindSlotDialog
+            isOpen={!!findSlotTarget}
+            onClose={() => setFindSlotTarget(null)}
+            configId={configId}
+            location={location}
+            applicationId={findSlotTarget.applicationId}
+            studentName={findSlotTarget.studentName}
+            grade={findSlotTarget.grade}
+            lessonNumber={findSlotTarget.lessonNumber}
+            afterDate={findSlotTarget.afterDate}
+            beforeDate={findSlotTarget.beforeDate}
+            onPlaced={() => {
+              setFindSlotTarget(null);
+              mutateSlots();
+              mutateUnassigned();
+              mutateCalendar();
+              mutateStudentLessons();
+              mutateFindSlot();
+            }}
+          />
+        )}
+
+        {/* Delete confirmation */}
+        <ConfirmDialog
+          isOpen={!!pendingDelete}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDelete(null)}
+          title={pendingDelete?.type === "slot" ? "Delete Slot" : "Remove Student"}
+          message={`Are you sure you want to remove ${pendingDelete?.name ?? ""}?`}
+          consequences={pendingDelete?.cascade
+            ? ["This will remove all lesson sessions for this student in this slot"]
+            : undefined}
+          variant="danger"
+          confirmText="Remove"
         />
       </PageTransition>
     </DeskSurface>
