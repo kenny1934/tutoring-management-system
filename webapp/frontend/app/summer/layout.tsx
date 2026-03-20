@@ -3,6 +3,7 @@ import { SummerFooter } from "@/components/summer/SummerFooter";
 
 export const metadata = {
   title: "Summer Course | MathConcept Secondary Academy",
+  icons: { icon: "/favicon-secondary.png" },
 };
 
 export default function SummerLayout({
