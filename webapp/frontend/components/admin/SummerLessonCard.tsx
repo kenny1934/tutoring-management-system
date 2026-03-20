@@ -10,7 +10,7 @@ interface SummerLessonCardProps {
   lesson: SummerLessonCalendarEntry;
   onUpdateLesson: (lessonId: number, data: SummerLessonUpdate) => void;
   onDropStudent?: (applicationId: number, slotId: number, lessonId: number) => void;
-  onRemoveSession?: (sessionId: number) => void;
+  onRemoveSession?: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
 }
 
@@ -203,7 +203,7 @@ export function SummerLessonCard({
               </span>
               {onRemoveSession && (
                 <button
-                  onClick={() => onRemoveSession(s.id)}
+                  onClick={() => onRemoveSession(s.id, s.student_name)}
                   className="p-0 text-muted-foreground hover:text-red-500 shrink-0"
                   title="Remove from this lesson"
                 >

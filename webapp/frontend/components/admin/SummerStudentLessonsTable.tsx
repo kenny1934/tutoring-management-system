@@ -290,6 +290,11 @@ export function SummerStudentLessonsTable({
                       <span className={cn("text-[10px] font-bold px-1 rounded", SUMMER_GRADE_BG[student.grade] || "bg-gray-100 dark:bg-gray-700")}>
                         {student.grade}
                       </span>
+                      {student.sessions_per_week > 1 && (
+                        <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 ml-0.5">
+                          {student.sessions_per_week}x
+                        </span>
+                      )}
                     </td>
 
                     {/* Progress bar — sticky */}

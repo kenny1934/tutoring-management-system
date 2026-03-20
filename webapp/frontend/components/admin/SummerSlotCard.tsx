@@ -13,7 +13,7 @@ interface SummerSlotCardProps {
   onUpdate: (data: SummerSlotUpdate) => void;
   onDelete: () => void;
   onDropStudent: (applicationId: number) => void;
-  onRemoveSession: (sessionId: number) => void;
+  onRemoveSession: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   availableTutors?: AvailableTutor[];
 }
@@ -267,7 +267,7 @@ export function SummerSlotCard({
                 <span className="text-[8px] text-yellow-600 dark:text-yellow-400">T</span>
               )}
               <button
-                onClick={() => onRemoveSession(p.id)}
+                onClick={() => onRemoveSession(p.id, p.student_name)}
                 className="p-0 text-muted-foreground hover:text-red-500"
                 title="Remove"
               >

@@ -216,6 +216,11 @@ export function SummerUnassignedPanel({
                   >
                     {app.grade}
                   </span>
+                  {(app.sessions_per_week ?? 1) > 1 && (
+                    <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-0.5 rounded">
+                      {app.sessions_per_week}x
+                    </span>
+                  )}
                   {(app.placed_count ?? 0) > 0 && (
                     <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
                       {app.placed_count}/{totalLessons}

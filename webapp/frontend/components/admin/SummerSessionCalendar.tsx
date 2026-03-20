@@ -23,7 +23,7 @@ interface SummerSessionCalendarProps {
   openDays: string[];
   timeSlots: string[];
   onDropStudent?: (applicationId: number, slotId: number, lessonId: number) => void;
-  onRemoveSession?: (sessionId: number) => void;
+  onRemoveSession?: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   dragPrefs?: {
     pref1?: { day: string; time: string };
