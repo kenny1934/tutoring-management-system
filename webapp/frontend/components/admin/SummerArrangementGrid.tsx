@@ -21,7 +21,7 @@ interface SummerArrangementGridProps {
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
-  onRemoveSession: (sessionId: number) => void;
+  onRemoveSession: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   dragPrefs?: DragPrefs | null;

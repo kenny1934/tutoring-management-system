@@ -237,13 +237,13 @@ export default function SummerArrangementPage() {
   }, [mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
 
   // Slot Setup removal — cascade delete all sessions for student+slot
-  const handleRemoveSession = useCallback((sessionId: number) => {
-    setPendingDelete({ type: "session", id: sessionId, name: "student from this slot (all lessons)", cascade: true });
+  const handleRemoveSession = useCallback((sessionId: number, studentName?: string) => {
+    setPendingDelete({ type: "session", id: sessionId, name: studentName ? `${studentName} from this slot` : "student from this slot", cascade: true });
   }, []);
 
   // Calendar removal — delete only this specific lesson's session
-  const handleRemoveSessionFromCalendar = useCallback((sessionId: number) => {
-    setPendingDelete({ type: "session", id: sessionId, name: "student from this lesson", cascade: false });
+  const handleRemoveSessionFromCalendar = useCallback((sessionId: number, studentName?: string) => {
+    setPendingDelete({ type: "session", id: sessionId, name: studentName ? `${studentName} from this lesson` : "student from this lesson", cascade: false });
   }, []);
 
   // Confirm delete action
