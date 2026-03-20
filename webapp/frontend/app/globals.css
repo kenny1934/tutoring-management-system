@@ -80,16 +80,6 @@
   --shadow-paper-lg: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10);
   --shadow-paper-curl: 2px 2px 4px rgba(0, 0, 0, 0.2);
 
-  /* ===== SPACING SYSTEM (4px grid) ===== */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
-  --spacing-3xl: 64px;
-  --spacing-4xl: 96px;
-
   /* ===== M3 EXPRESSIVE SHAPE SCALE (Corner Radius) ===== */
   --radius-extra-small: 4px;
   --radius-small: 8px;

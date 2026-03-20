@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays } from "@/lib/hooks";
 import type { Session, Enrollment, Tutor, Discount } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -282,6 +282,18 @@ export default function EnrollmentDetailPage() {
   const { data: locations = [] } = useLocations();
   const locationOptions = locations.filter(loc => loc !== "Various");
 
+  // Fetch holidays for extension preview calculation (mirrors backend logic)
+  // Use a generous fixed buffer so changing extension weeks doesn't trigger refetches
+  const holidayRangeEnd = useMemo(() => {
+    if (!enrollment?.first_lesson_date) return undefined;
+    const lessonsPaid = enrollment.lessons_paid || 0;
+    const bufferWeeks = Math.max(52, lessonsPaid * 2) + 52;
+    const end = new Date(enrollment.first_lesson_date + "T00:00:00Z");
+    end.setUTCDate(end.getUTCDate() + bufferWeeks * 7);
+    return end.toISOString().split("T")[0];
+  }, [enrollment?.first_lesson_date, enrollment?.lessons_paid]);
+  const { data: holidays } = useHolidays(enrollment?.first_lesson_date, holidayRangeEnd);
+
   // Sync discount selection when entering edit mode
   useEffect(() => {
     if (isEditingPayment && enrollment) {
@@ -295,16 +307,32 @@ export default function EnrollmentDetailPage() {
     }
   }, [isEditingPayment, enrollment, discounts]);
 
-  // Calculate preview effective end date when extension weeks change
+  // Calculate preview effective end date — mirrors backend _count_lesson_dates()
   const previewEffectiveEndDate = useMemo(() => {
     if (!enrollment?.first_lesson_date || !isEditingExtension) return null;
-    const firstLesson = new Date(enrollment.first_lesson_date + "T00:00:00Z");
     const lessonsPaid = enrollment.lessons_paid || 0;
-    const totalWeeks = lessonsPaid + extensionForm.weeks;
-    const endDate = new Date(firstLesson);
-    endDate.setUTCDate(endDate.getUTCDate() + totalWeeks * 7);
-    return endDate.toISOString().split("T")[0];
-  }, [enrollment?.first_lesson_date, enrollment?.lessons_paid, extensionForm.weeks, isEditingExtension]);
+    const totalLessonDates = lessonsPaid + extensionForm.weeks;
+    if (totalLessonDates <= 0) return enrollment.first_lesson_date;
+
+    const holidaySet = new Set((holidays || []).map(h => h.holiday_date));
+
+    // Walk weekly from first_lesson_date, skip holidays, count N lesson dates
+    const currentDate = new Date(enrollment.first_lesson_date + "T00:00:00Z");
+    let lessonsCounted = 0;
+    let effectiveEndStr = currentDate.toISOString().split("T")[0];
+    const maxIterations = totalLessonDates * 3;
+
+    for (let i = 0; i < maxIterations && lessonsCounted < totalLessonDates; i++) {
+      const dateStr = currentDate.toISOString().split("T")[0];
+      if (!holidaySet.has(dateStr)) {
+        lessonsCounted++;
+        effectiveEndStr = dateStr;
+      }
+      currentDate.setUTCDate(currentDate.getUTCDate() + 7);
+    }
+
+    return effectiveEndStr;
+  }, [enrollment?.first_lesson_date, enrollment?.lessons_paid, extensionForm.weeks, isEditingExtension, holidays]);
 
   // Filter tutors by selected location and sort by first name (ignoring Mr/Ms)
   const filteredTutors = useMemo(() => {
