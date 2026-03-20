@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, memo } from "react";
+import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse } from "@/types";
@@ -130,6 +130,12 @@ export default function StudentDetailPage() {
     studentId ? ['student-coupon', studentId] : null,
     () => studentsAPI.getCoupon(studentId!)
   );
+
+  // Shared callback to refresh enrollment-related data after status changes
+  const handleEnrollmentStatusChange = useCallback(() => {
+    mutate(['enrollments', studentId]);
+    mutate(['student-coupon', studentId]);
+  }, [studentId]);
 
   // Fetch all schools for autocomplete
   useEffect(() => {
@@ -588,10 +594,7 @@ export default function StudentDetailPage() {
                   selectedEnrollmentId={popoverEnrollment?.id}
                   couponInfo={couponInfo}
                   couponLoading={couponLoading}
-                  onEnrollmentStatusChange={() => {
-                    mutate(['enrollments', studentId]);
-                    mutate(['student-coupon', studentId]);
-                  }}
+                  onEnrollmentStatusChange={handleEnrollmentStatusChange}
                   // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
@@ -626,6 +629,7 @@ export default function StudentDetailPage() {
                   sessionProposalMap={sessionProposalMap}
                   onProposalClick={setSelectedProposal}
                   showToast={showToast}
+                  onEnrollmentStatusChange={handleEnrollmentStatusChange}
                 />
               )}
 
@@ -705,10 +709,7 @@ export default function StudentDetailPage() {
           isOpen={!!popoverEnrollment}
           onClose={() => setPopoverEnrollment(null)}
           clickPosition={enrollmentClickPosition}
-          onStatusChange={() => {
-            mutate(['enrollments', studentId]);
-            mutate(['student-coupon', studentId]);
-          }}
+          onStatusChange={handleEnrollmentStatusChange}
         />
       )}
 
@@ -1803,6 +1804,7 @@ function SessionsTab({
   sessionProposalMap,
   onProposalClick,
   showToast,
+  onEnrollmentStatusChange,
 }: {
   sessions: Session[];
   enrollments: Enrollment[];
@@ -1813,6 +1815,7 @@ function SessionsTab({
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  onEnrollmentStatusChange?: () => void;
 }) {
   // View mode and sort order state
   const [viewMode, setViewMode] = useState<SessionViewMode>('by-date');
