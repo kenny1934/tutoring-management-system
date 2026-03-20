@@ -275,7 +275,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                         style={floatingStyles}
                         {...getFloatingProps()}
                         className={cn(
-                          "z-50 w-80 sm:w-96 py-2 max-h-[70vh] overflow-y-auto",
+                          "z-50 w-80 sm:w-96 py-2 overflow-y-auto",
                           "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
@@ -398,7 +398,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                         style={leaveFloatingStyles}
                         {...getLeaveFloatingProps()}
                         className={cn(
-                          "z-50 w-72 py-2 max-h-[70vh] overflow-y-auto",
+                          "z-50 w-72 py-2 overflow-y-auto",
                           "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
