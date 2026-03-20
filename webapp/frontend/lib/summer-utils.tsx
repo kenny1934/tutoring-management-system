@@ -158,6 +158,13 @@ export const LESSON_BADGE_COLORS: Record<string, string> = {
   F3: "bg-orange-500 text-white dark:bg-orange-600",
 };
 
+/** Grade left-border colors for table rows. */
+export const SUMMER_GRADE_BORDER: Record<string, string> = {
+  F1: "border-l-blue-400",
+  F2: "border-l-purple-400",
+  F3: "border-l-orange-400",
+};
+
 /** Grade text-only colors for demand breakdowns. */
 export const SUMMER_GRADE_TEXT: Record<string, string> = {
   F1: "text-blue-600 dark:text-blue-400",

@@ -91,7 +91,7 @@ export function SummerArrangementGrid({
       )}
 
       <div
-        className="grid gap-px bg-border dark:bg-gray-700 border border-border dark:border-gray-700 rounded-lg overflow-hidden"
+        className="grid gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
         style={{
           gridTemplateColumns: `40px repeat(${days.length}, minmax(110px, 1fr))`,
           gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
@@ -99,13 +99,13 @@ export function SummerArrangementGrid({
         }}
       >
         {/* Header row: empty corner + day headers */}
-        <div className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
+        <div className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
           Time
         </div>
         {days.map((day) => (
           <div
             key={day}
-            className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-sm font-medium sticky top-0 z-10"
+            className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-sm font-medium sticky top-0 z-10"
           >
             {DAY_ABBREV[day] || day}
           </div>
@@ -115,7 +115,7 @@ export function SummerArrangementGrid({
         {timeSlots.map((ts) => (
           <Fragment key={ts}>
             {/* Time label */}
-            <div className="bg-gray-50/80 dark:bg-gray-800 flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
+            <div className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-[10px] text-muted-foreground px-0.5 text-center sticky left-0 z-10">
               {ts}
             </div>
 

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_ABBREV, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { DAY_ABBREV, SUMMER_GRADE_BG, SUMMER_GRADE_BORDER } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
 interface SummerUnassignedPanelProps {
@@ -76,7 +76,7 @@ export function SummerUnassignedPanel({
 
   return (
     <div className={cn(
-      "relative flex-shrink-0 flex flex-col border border-border dark:border-gray-700 rounded-lg bg-card dark:bg-gray-900 overflow-hidden transition-[width] duration-300 ease-in-out",
+      "relative flex-shrink-0 flex flex-col border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-[#fef9f3] dark:bg-[#1a1a1a] overflow-hidden transition-[width] duration-300 ease-in-out",
       collapsed ? "w-8" : "w-64",
       className
     )}>
@@ -103,7 +103,7 @@ export function SummerUnassignedPanel({
         collapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
       )}>
       {/* Header */}
-      <div className="px-3 py-2 border-b border-border dark:border-gray-700 space-y-2">
+      <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Unassigned</span>
@@ -130,7 +130,7 @@ export function SummerUnassignedPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search..."
-            className="w-full pl-7 pr-2 py-1 text-xs border border-border dark:border-gray-700 rounded bg-background dark:bg-gray-800"
+            className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
           />
         </div>
 
@@ -142,7 +142,7 @@ export function SummerUnassignedPanel({
               "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
               gradeFilter === null
                 ? "bg-primary text-primary-foreground"
-                : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
+                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
             )}
           >
             All
@@ -155,7 +155,7 @@ export function SummerUnassignedPanel({
                 "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
                 gradeFilter === g
                   ? "bg-primary text-primary-foreground"
-                  : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
               )}
             >
               {g}
@@ -195,7 +195,10 @@ export function SummerUnassignedPanel({
                   onDragStart?.(app);
                 }}
                 onDragEnd={() => onDragEnd?.()}
-                className="rounded border border-border px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-primary/5 transition-colors"
+                className={cn(
+                  "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                  SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
+                )}
               >
                 <div className="flex items-center gap-1.5">
                   <button

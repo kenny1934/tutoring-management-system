@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, COURSE_TYPE_COLORS } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS } from "@/lib/summer-utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -85,10 +85,11 @@ export function SummerSlotCard({
   return (
     <div
       className={cn(
-        "rounded border text-[11px] transition-all overflow-hidden",
+        "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/15"
-          : "border-border bg-card dark:bg-gray-800",
+          : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+        !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80"
       )}
       onDragOver={handleDragOver}
@@ -102,7 +103,7 @@ export function SummerSlotCard({
           value={slot.grade || ""}
           onChange={(e) => onUpdate({ grade: e.target.value || null })}
           className={cn(
-            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-gray-100 dark:bg-gray-700 appearance-none",
+            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
             slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
           )}
           title="Grade"
@@ -123,7 +124,7 @@ export function SummerSlotCard({
             "text-[9px] font-bold px-1 rounded transition-colors",
             slot.course_type
               ? COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
-              : "bg-gray-100 dark:bg-gray-700 text-muted-foreground hover:text-foreground"
+              : "bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground hover:text-foreground"
           )}
           title="Course type (click to toggle A/B)"
         >
@@ -158,7 +159,7 @@ export function SummerSlotCard({
             <input
               ref={labelRef}
               defaultValue={slot.slot_label ?? ""}
-              className="text-[9px] w-10 px-0.5 rounded border border-border bg-card dark:bg-gray-700 shrink-0"
+              className="text-[9px] w-10 px-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800 shrink-0"
               autoFocus
               onBlur={commitLabel}
               onKeyDown={(e) => { if (e.key === "Enter") commitLabel(); if (e.key === "Escape") setEditingLabel(false); }}
@@ -180,7 +181,7 @@ export function SummerSlotCard({
             const val = e.target.value;
             onUpdate({ tutor_id: val ? parseInt(val) : null });
           }}
-          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-gray-100 dark:bg-gray-700 text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
+          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
           title="Assign tutor"
         >
           <option value="">— tutor —</option>
@@ -194,7 +195,7 @@ export function SummerSlotCard({
 
       {/* Row 3: Capacity bar */}
       <div className="flex items-center gap-1 px-1 pb-0.5">
-        <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+        <div className="flex-1 h-1.5 rounded-full bg-[#fef9f3] dark:bg-[#2d2618] overflow-hidden">
           <div
             className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
             style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
@@ -207,7 +208,7 @@ export function SummerSlotCard({
             defaultValue={slot.max_students}
             min={1}
             max={20}
-            className="text-[9px] w-8 px-0.5 rounded border border-border bg-card dark:bg-gray-700 text-center"
+            className="text-[9px] w-8 px-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800 text-center"
             autoFocus
             onBlur={commitMax}
             onKeyDown={(e) => { if (e.key === "Enter") commitMax(); if (e.key === "Escape") setEditingMax(false); }}
@@ -229,7 +230,7 @@ export function SummerSlotCard({
           <input
             defaultValue={slot.slot_label ?? ""}
             key={slot.slot_label}
-            className="text-[9px] w-full px-1 py-0.5 rounded border border-border bg-card dark:bg-gray-700"
+            className="text-[9px] w-full px-1 py-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800"
             onBlur={(e) => {
               const val = e.target.value.trim();
               if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });

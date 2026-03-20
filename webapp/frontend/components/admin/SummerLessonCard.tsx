@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS } from "@/lib/summer-utils";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -72,11 +72,12 @@ export function SummerLessonCard({
   return (
     <div
       className={cn(
-        "rounded border text-[11px] transition-all overflow-hidden",
+        "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         isCancelled && "opacity-50",
         dragOver
           ? "border-primary bg-primary/15"
-          : "border-border bg-card dark:bg-gray-800",
+          : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
+        !dragOver && (SUMMER_GRADE_BORDER[lesson.grade ?? ""] || "border-l-gray-300"),
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -92,7 +93,7 @@ export function SummerLessonCard({
             defaultValue={lesson.lesson_number}
             min={1}
             max={20}
-            className="w-6 h-5 text-[10px] text-center rounded-full border border-primary bg-card dark:bg-gray-700"
+            className="w-6 h-5 text-[10px] text-center rounded-full border border-primary bg-white dark:bg-gray-800"
             autoFocus
             onBlur={commitLessonNumber}
             onKeyDown={(e) => {
@@ -120,7 +121,7 @@ export function SummerLessonCard({
           <span
             className={cn(
               "text-[9px] font-bold px-1 rounded",
-              SUMMER_GRADE_BG[lesson.grade] || "bg-gray-100 dark:bg-gray-700"
+              SUMMER_GRADE_BG[lesson.grade] || "bg-[#e8d4b8]/30 dark:bg-gray-700"
             )}
           >
             {lesson.grade}
@@ -156,7 +157,7 @@ export function SummerLessonCard({
 
       {/* Row 2: Capacity bar */}
       <div className="flex items-center gap-1 px-1 pb-0.5">
-        <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+        <div className="flex-1 h-1.5 rounded-full bg-[#e8d4b8]/30 dark:bg-gray-700 overflow-hidden">
           <div
             className={cn("h-full rounded-full transition-all", fillBarColor(fillPct))}
             style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
@@ -195,7 +196,7 @@ export function SummerLessonCard({
               <span
                 className={cn(
                   "text-[8px] font-bold px-0.5 rounded",
-                  SUMMER_GRADE_BG[s.grade] || "bg-gray-100 dark:bg-gray-700"
+                  SUMMER_GRADE_BG[s.grade] || "bg-[#e8d4b8]/30 dark:bg-gray-700"
                 )}
               >
                 {s.grade}

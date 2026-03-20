@@ -189,7 +189,7 @@ export function SummerSessionCalendar({
         <button
           onClick={goPrev}
           disabled={!canGoPrev}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -199,7 +199,7 @@ export function SummerSessionCalendar({
         <button
           onClick={goNext}
           disabled={!canGoNext}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -214,7 +214,7 @@ export function SummerSessionCalendar({
       /* Grid */
       <div className="flex-1 overflow-auto">
         <div
-          className="gap-px bg-gray-200 dark:bg-gray-700"
+          className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40"
           style={{
             display: "grid",
             gridTemplateColumns: `40px repeat(${weekDates.length}, minmax(110px, 1fr))`,
@@ -223,7 +223,7 @@ export function SummerSessionCalendar({
           }}
         >
           {/* Top-left corner */}
-          <div className="bg-gray-50/80 dark:bg-gray-800 sticky left-0 z-10" />
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10" />
 
           {/* Day headers */}
           {weekDates.map((dateStr) => {
@@ -232,7 +232,7 @@ export function SummerSessionCalendar({
             return (
               <div
                 key={dateStr}
-                className="bg-gray-50/80 dark:bg-gray-800 flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
+                className="bg-[#fef9f3] dark:bg-[#2d2618] flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
               >
                 <span>{DAY_ABBREV[dayName] || dayName}</span>
                 <span className="text-[10px]">{formatColumnDate(dateStr)}</span>
@@ -245,7 +245,7 @@ export function SummerSessionCalendar({
             <React.Fragment key={ts}>
               {/* Time label */}
               <div
-                className="bg-gray-50/80 dark:bg-gray-800 flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
+                className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
               >
                 {ts}
               </div>
@@ -260,7 +260,7 @@ export function SummerSessionCalendar({
                   <div
                     key={key}
                     className={cn(
-                      "bg-white/90 dark:bg-gray-900 p-0.5 min-h-[60px] space-y-0.5",
+                      "bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5",
                       pref === "pref1" && "ring-2 ring-inset ring-primary/40 bg-primary/5",
                       pref === "pref2" && "ring-2 ring-inset ring-orange-400/40 bg-orange-50/50 dark:bg-orange-900/10"
                     )}
