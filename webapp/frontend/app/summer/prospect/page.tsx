@@ -478,7 +478,7 @@ export default function ProspectPage() {
 
   if (!branch) {
     return (
-      <div className="max-w-lg mx-auto py-12">
+      <div className="max-w-lg mx-auto py-4">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8 sm:p-10 text-center space-y-6">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
             <GraduationCap className="h-7 w-7 text-primary" />
@@ -509,7 +509,7 @@ export default function ProspectPage() {
   // ---- Main Form ----
 
   return (
-    <div className="py-6 space-y-6 max-w-none">
+    <div className="space-y-6 max-w-none">
       {/* Header */}
       <div className="bg-primary/5 rounded-2xl p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
@@ -518,18 +518,13 @@ export default function ProspectPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">
-              {branch} — P6 Student Registration
+              {branch} — P6 Student Registration ({year})
             </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                &larr; Change branch
-              </a>
-            </div>
+            <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-0.5 inline-block">
+              &larr; Change branch
+            </a>
           </div>
         </div>
-        <span className="text-sm font-medium text-muted-foreground bg-primary/10 px-3 py-1.5 rounded-full">
-          {year}
-        </span>
       </div>
 
       {/* Result Alert */}
@@ -722,7 +717,7 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 bg-primary/[0.02] border-t border-dashed border-border">
+                          <td colSpan={9} className="px-3 py-3 bg-primary/[0.02] border-t border-dashed border-border">
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                               <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", v)} />
                               <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required />
@@ -932,7 +927,7 @@ export default function ProspectPage() {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-4 bg-primary/[0.02] border-t border-dashed border-border">
+                          <td colSpan={8} className="px-3 py-3 bg-primary/[0.02] border-t border-dashed border-border">
                             {isEditing ? (
                               <div className="space-y-3">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
