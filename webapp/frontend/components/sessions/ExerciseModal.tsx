@@ -1773,6 +1773,10 @@ export function ExerciseModal({
                         index={index}
                         radioNamePrefix="exercise"
                         pdfName={exercise.pdf_name}
+                        exercisePageMode={exercise.page_mode}
+                        exercisePageStart={exercise.page_start}
+                        exercisePageEnd={exercise.page_end}
+                        exerciseComplexPages={exercise.complex_pages}
                         answerPdfName={exercise.answer_pdf_name}
                         answerPageMode={exercise.answer_page_mode}
                         answerPageStart={exercise.answer_page_start}

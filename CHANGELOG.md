@@ -11,6 +11,10 @@
 * **Notification bell** — notification icon stays properly aligned when dashboard stats are hidden for guests
 * **Dropdown on mobile** — fixed dropdown menus going off-screen when opening upward on small screens
 
+### Improvements
+
+* **Answer search copies page range** — the answer search button now copies the exercise's page range (simple or complex) into the answer fields, instead of only filling the PDF path
+
 ## [2.0.37](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.37) (2026-03-19)
 
 ### New Features

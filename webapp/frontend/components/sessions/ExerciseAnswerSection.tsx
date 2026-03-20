@@ -17,6 +17,12 @@ interface ExerciseAnswerSectionProps {
   // Exercise PDF (for answer search)
   pdfName: string;
 
+  // Exercise page range (to copy into answer on search)
+  exercisePageMode: 'simple' | 'custom';
+  exercisePageStart: string;
+  exercisePageEnd: string;
+  exerciseComplexPages: string;
+
   // Answer field values
   answerPdfName: string;
   answerPageMode: 'simple' | 'custom';
@@ -43,6 +49,10 @@ export function ExerciseAnswerSection({
   index,
   radioNamePrefix,
   pdfName,
+  exercisePageMode,
+  exercisePageStart,
+  exercisePageEnd,
+  exerciseComplexPages,
   answerPdfName,
   answerPageMode,
   answerPageStart,
@@ -75,6 +85,11 @@ export function ExerciseAnswerSection({
         setSearchState('found');
         // Update the answer path
         onAnswerChange('answer_pdf_name', result.path);
+        // Copy exercise page range to answer
+        onAnswerChange('answer_page_mode', exercisePageMode);
+        onAnswerChange('answer_page_start', exercisePageStart);
+        onAnswerChange('answer_page_end', exercisePageEnd);
+        onAnswerChange('answer_complex_pages', exerciseComplexPages);
         // Auto-expand to show the result
         setExpanded(true);
       } else {
@@ -91,7 +106,7 @@ export function ExerciseAnswerSection({
         setSearchState(prev => prev === 'not_found' ? 'idle' : prev);
       }, 2000);
     }
-  }, [pdfName, onAnswerChange]);
+  }, [pdfName, exercisePageMode, exercisePageStart, exercisePageEnd, exerciseComplexPages, onAnswerChange]);
 
   // Open answer file
   const handleOpen = useCallback(async () => {
