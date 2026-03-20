@@ -136,24 +136,24 @@ function parsePastedData(text: string): ParsedRow[] {
 // ---- Color maps (hoisted for perf) ----
 
 const INTENTION_SELECT_COLORS: Record<ProspectIntention, string> = {
-  Yes: "bg-green-50 text-green-700 border-green-300",
-  No: "bg-red-50 text-red-700 border-red-300",
-  Considering: "bg-yellow-50 text-yellow-700 border-yellow-300",
+  Yes: "bg-green-50 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700",
+  No: "bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700",
+  Considering: "bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700",
 };
 
 const INTENTION_BADGE_COLORS: Record<string, string> = {
-  Yes: "bg-green-100 text-green-700",
-  No: "bg-red-100 text-red-700",
-  Considering: "bg-yellow-100 text-yellow-700",
+  Yes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  No: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  Considering: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
 const OUTREACH_BADGE_COLORS: Record<string, string> = {
-  "Not Started": "bg-gray-100 text-gray-600",
-  "WeChat - Not Found": "bg-red-100 text-red-700",
-  "WeChat - Cannot Add": "bg-orange-100 text-orange-700",
-  "WeChat - Added": "bg-green-100 text-green-700",
-  Called: "bg-blue-100 text-blue-700",
-  "No Response": "bg-yellow-100 text-yellow-700",
+  "Not Started": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  "WeChat - Not Found": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  "WeChat - Cannot Add": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  "WeChat - Added": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  Called: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  "No Response": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
 // ---- Small Components ----
@@ -263,7 +263,7 @@ function FieldInput({
         inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full ${inputSmall} ${required && !value.trim() ? "border-red-400 bg-red-50" : ""}`}
+        className={`w-full ${inputSmall} ${required && !value.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
         placeholder={placeholder}
       />
     </div>
@@ -511,20 +511,13 @@ export default function ProspectPage() {
   return (
     <div className="space-y-6 max-w-none">
       {/* Header */}
-      <div className="bg-primary/5 rounded-2xl p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <GraduationCap className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">
-              {branch} — P6 Student Registration ({year})
-            </h1>
-            <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-0.5 inline-block">
-              &larr; Change branch
-            </a>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-lg font-bold text-foreground">
+          {branch} — P6 Student Registration ({year})
+        </h1>
+        <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+          &larr; Change branch
+        </a>
       </div>
 
       {/* Result Alert */}
@@ -532,8 +525,8 @@ export default function ProspectPage() {
         <div
           className={`flex items-center gap-3 p-4 rounded-xl border-2 text-sm font-medium transition-all duration-300 ${
             submitResult.ok
-              ? "bg-green-50 text-green-700 border-green-200"
-              : "bg-red-50 text-red-700 border-red-200"
+              ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+              : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
           }`}
         >
           {submitResult.ok ? (
@@ -557,7 +550,7 @@ export default function ProspectPage() {
           /* Large paste zone — no rows yet */
           <div
             onClick={focusPasteArea}
-            className={`relative border-2 rounded-2xl p-10 transition-all duration-200 cursor-pointer text-center ${
+            className={`relative border-2 rounded-2xl p-6 sm:p-10 transition-all duration-200 cursor-pointer text-center ${
               pasteZoneFocused
                 ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                 : "border-dashed border-primary/30 bg-primary/[0.02] hover:bg-primary/5 hover:border-primary/50"
@@ -624,7 +617,7 @@ export default function ProspectPage() {
 
         {/* Parse info banner */}
         {parseInfo && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium transition-all duration-300">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 text-sm font-medium transition-all duration-300">
             <Info className="h-4 w-4 shrink-0" />
             {parseInfo}
           </div>
@@ -633,13 +626,14 @@ export default function ProspectPage() {
         {/* Parsed Table — compact main rows with expandable detail panels */}
         {parsedRows.length > 0 && (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground w-8">#</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Grade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Tutor</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">School</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer</th>
@@ -677,8 +671,8 @@ export default function ProspectPage() {
                             {row.student_name || <span className="text-red-400 italic">Name required</span>}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{row.grade}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{row.tutor_name || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.grade}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.tutor_name || "-"}</td>
                         <td className="px-3 py-2.5 text-xs">
                           <span
                             className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}
@@ -758,8 +752,9 @@ export default function ProspectPage() {
                 })}
               </tbody>
             </table>
+            </div>
 
-            <div className="p-4 border-t border-border bg-primary/5 flex items-center justify-between sticky bottom-0 z-10">
+            <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between sticky bottom-0 z-10 flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium text-xs">
@@ -844,15 +839,16 @@ export default function ProspectPage() {
           </div>
         ) : (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Grade</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">School</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">School</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Regular</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Regular</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Outreach</th>
                   <th className="px-3 py-2.5 w-24" />
                 </tr>
@@ -878,14 +874,14 @@ export default function ProspectPage() {
                         }}
                       >
                         <td className="px-3 py-2.5 font-medium text-foreground">{p.student_name}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{p.grade}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.grade}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground">
                           {p.phone_1}
                           {p.phone_1_relation && <span className="text-[10px] ml-0.5">({p.phone_1_relation})</span>}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{p.school || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
                         <td className="px-3 py-2.5"><IntentionBadge value={p.wants_summer} /></td>
-                        <td className="px-3 py-2.5"><IntentionBadge value={p.wants_regular} /></td>
+                        <td className="px-3 py-2.5 hidden sm:table-cell"><IntentionBadge value={p.wants_regular} /></td>
                         <td className="px-3 py-2.5"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
@@ -990,6 +986,7 @@ export default function ProspectPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </section>
