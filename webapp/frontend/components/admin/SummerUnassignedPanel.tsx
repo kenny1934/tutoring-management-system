@@ -15,6 +15,7 @@ interface SummerUnassignedPanelProps {
   onDragEnd?: () => void;
   className?: string;
   hideCollapse?: boolean;
+  totalLessons?: number;
 }
 
 
@@ -34,6 +35,7 @@ export function SummerUnassignedPanel({
   onDragEnd,
   className,
   hideCollapse,
+  totalLessons = 8,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -211,6 +213,11 @@ export function SummerUnassignedPanel({
                   >
                     {app.grade}
                   </span>
+                  {(app.placed_count ?? 0) > 0 && (
+                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
+                      {app.placed_count}/{totalLessons}
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
                   <span title="1st preference">
