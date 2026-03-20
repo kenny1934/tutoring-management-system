@@ -460,7 +460,7 @@ export default function SummerApplyPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
       {/* Progress bar with language toggle */}
       <FormProgressBar
         currentStep={currentStep}

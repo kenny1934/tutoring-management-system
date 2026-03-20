@@ -67,7 +67,7 @@ export default function SummerStatusPage() {
     : -1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto">
       {/* Language toggle */}
       <div className="flex justify-end">
         <button
