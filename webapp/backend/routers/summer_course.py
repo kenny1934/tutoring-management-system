@@ -402,6 +402,7 @@ def _build_application_response(app: SummerApplication) -> SummerApplicationResp
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
+    data["placed_count"] = len(sessions)
     return SummerApplicationResponse.model_validate(data)
 
 
@@ -769,20 +770,24 @@ def create_session(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Check capacity (count distinct active students, not total session rows)
-    active_students = {s.application_id for s in slot.sessions if s.session_status != "Cancelled"}
-    if len(active_students) >= slot.max_students:
-        raise HTTPException(status_code=400, detail="Slot is full")
-
-    # Check duplicate
-    if data.application_id in active_students:
-        raise HTTPException(status_code=400, detail="Application already placed in this slot")
-
     now = hk_now()
     placed_by = admin.tutor_name or "admin"
 
     if data.lesson_id:
-        # Calendar drop — single session for a specific lesson
+        # Calendar drop — per-lesson duplicate + capacity check (single query)
+        lesson_sessions = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == data.lesson_id,
+                SummerSession.session_status != "Cancelled",
+            )
+            .all()
+        )
+        if any(s.application_id == data.application_id for s in lesson_sessions):
+            raise HTTPException(status_code=400, detail="Already placed in this lesson")
+        if len(lesson_sessions) >= slot.max_students:
+            raise HTTPException(status_code=400, detail="Lesson is full")
+
         session = SummerSession(
             application_id=data.application_id,
             slot_id=data.slot_id,
@@ -793,7 +798,14 @@ def create_session(
         )
         db.add(session)
     else:
-        # Slot Setup drop — one session per lesson
+        # Slot Setup drop — per-slot checks
+        active_students = {s.application_id for s in slot.sessions if s.session_status != "Cancelled"}
+        if len(active_students) >= slot.max_students:
+            raise HTTPException(status_code=400, detail="Slot is full")
+        if data.application_id in active_students:
+            raise HTTPException(status_code=400, detail="Application already placed in this slot")
+
+        # Create sessions based on mode
         _ensure_lessons_for_slot(slot, db)
         lessons = (
             db.query(SummerLesson)
@@ -801,6 +813,22 @@ def create_session(
             .order_by(SummerLesson.lesson_date)
             .all()
         )
+
+        if data.mode == "first_half":
+            lessons = lessons[:len(lessons) // 2]
+        elif data.mode == "single":
+            # Just ensure lessons exist — admin places manually in Calendar
+            pass
+
+        if data.mode == "single":
+            # No sessions created — lessons are ready for manual Calendar placement
+            db.commit()
+            return SummerSessionResponse(
+                id=0, application_id=data.application_id, slot_id=data.slot_id,
+                session_status="Tentative", student_name=app.student_name,
+                student_grade=app.grade,
+            )
+
         sessions = [
             SummerSession(
                 application_id=data.application_id,
@@ -1037,25 +1065,35 @@ def list_unassigned(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List applications with no active session for this config."""
-    placed_ids = (
-        select(SummerSession.application_id)
+    """List applications with fewer than total_lessons active sessions (includes partially placed)."""
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
+    total_lessons = config.total_lessons if config else 8
+
+    # Count active sessions per application for this config
+    placed_count_sub = (
+        select(func.count(SummerSession.id))
         .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .where(
             SummerSession.session_status != "Cancelled",
             SummerCourseSlot.config_id == config_id,
+            SummerSession.application_id == SummerApplication.id,
         )
-        .distinct()
+        .correlate(SummerApplication)
         .scalar_subquery()
     )
 
     q = (
         db.query(SummerApplication)
-        .options(joinedload(SummerApplication.buddy_group))
+        .options(
+            joinedload(SummerApplication.buddy_group),
+            joinedload(SummerApplication.sessions)
+                .joinedload(SummerSession.slot)
+                .joinedload(SummerCourseSlot.tutor),
+        )
         .filter(
             SummerApplication.config_id == config_id,
             SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
-            SummerApplication.id.not_in(placed_ids),
+            placed_count_sub < total_lessons,
         )
     )
     if location:
@@ -1063,7 +1101,8 @@ def list_unassigned(
     if grade:
         q = q.filter(SummerApplication.grade == grade)
 
-    return q.order_by(SummerApplication.student_name).all()
+    apps = q.order_by(SummerApplication.student_name).all()
+    return [_build_application_response(a) for a in apps]
 
 
 # ─── Auto-Suggest ────────────────────────────────────────────────────────────
@@ -1420,6 +1459,23 @@ def get_lesson_calendar(
     db: Session = Depends(get_db),
 ):
     """Get lessons for one week with slot info and sessions, for calendar view."""
+    # Auto-generate lessons for slots that don't have any yet (single query with NOT EXISTS)
+    from sqlalchemy import exists as sa_exists
+    slots_needing_lessons = (
+        db.query(SummerCourseSlot)
+        .options(joinedload(SummerCourseSlot.config))
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+            ~sa_exists().where(SummerLesson.slot_id == SummerCourseSlot.id),
+        )
+        .all()
+    )
+    if slots_needing_lessons:
+        for slot in slots_needing_lessons:
+            _ensure_lessons_for_slot(slot, db)
+        db.commit()
+
     week_end = week_start + timedelta(days=6)
 
     lessons = (

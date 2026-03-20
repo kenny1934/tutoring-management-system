@@ -22,6 +22,8 @@ interface SummerSessionCalendarProps {
   courseEndDate: string;
   openDays: string[];
   timeSlots: string[];
+  onDropStudent?: (applicationId: number, slotId: number, lessonId: number) => void;
+  onRemoveSession?: (sessionId: number) => void;
   onClickStudent?: (applicationId: number) => void;
   dragPrefs?: {
     pref1?: { day: string; time: string };
@@ -57,6 +59,8 @@ export function SummerSessionCalendar({
   courseEndDate,
   openDays,
   timeSlots,
+  onDropStudent,
+  onRemoveSession,
   onClickStudent,
   dragPrefs,
 }: SummerSessionCalendarProps) {
@@ -264,6 +268,8 @@ export function SummerSessionCalendar({
                         key={l.lesson_id}
                         lesson={l}
                         onUpdateLesson={handleUpdateLesson}
+                        onDropStudent={onDropStudent}
+                        onRemoveSession={onRemoveSession}
                         onClickStudent={onClickStudent}
                       />
                     ))}

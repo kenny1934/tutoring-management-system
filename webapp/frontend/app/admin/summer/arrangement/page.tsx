@@ -16,8 +16,9 @@ import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel"
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import { LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
 export default function SummerArrangementPage() {
@@ -34,6 +35,7 @@ export default function SummerArrangementPage() {
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     pref1?: { day: string; time: string };
     pref2?: { day: string; time: string };
@@ -187,9 +189,33 @@ export default function SummerArrangementPage() {
     }
   }, [mutateSlots, showToast]);
 
-  const handleDropStudent = useCallback(async (applicationId: number, slotId: number) => {
+  // Slot Setup drop → open mode selector
+  const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
+    setPendingDrop({ appId: applicationId, slotId });
+  }, []);
+
+  // Mode selector confirmed → create sessions
+  const handleConfirmPlacement = useCallback(async (mode: "all" | "first_half" | "single") => {
+    if (!pendingDrop) return;
+    const { appId, slotId } = pendingDrop;
+    setPendingDrop(null);
     try {
-      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId });
+      await summerAPI.createSession({ application_id: appId, slot_id: slotId, mode });
+      mutateSlots();
+      mutateUnassigned();
+      globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+      if (mode === "single") {
+        showToast("Lessons ready — switch to Calendar to place individually", "success");
+      }
+    } catch (e: any) {
+      showToast(e.message || "Failed to place student", "error");
+    }
+  }, [pendingDrop, mutateSlots, mutateUnassigned, globalMutate, showToast]);
+
+  // Calendar drop → single session for a specific lesson
+  const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
+    try {
+      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
       mutateSlots();
       mutateUnassigned();
       globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
@@ -368,6 +394,8 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
+                    onDropStudent={handleDropStudentCalendar}
+                    onRemoveSession={handleRemoveSession}
                     onClickStudent={setSelectedAppId}
                     dragPrefs={dragPrefs}
                   />
@@ -382,6 +410,7 @@ export default function SummerArrangementPage() {
                   onClickStudent={setSelectedAppId}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
+                  totalLessons={activeConfig?.total_lessons ?? 8}
                 />
               </div>
             </div>
@@ -424,6 +453,7 @@ export default function SummerArrangementPage() {
                   onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
+                  totalLessons={activeConfig?.total_lessons ?? 8}
                 />
               </div>
             </div>
@@ -461,6 +491,21 @@ export default function SummerArrangementPage() {
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}
           locations={locations}
+        />
+
+        {/* Placement mode selector */}
+        <SummerPlacementModeModal
+          isOpen={!!pendingDrop}
+          onClose={() => setPendingDrop(null)}
+          onConfirm={handleConfirmPlacement}
+          studentName={unassigned?.find(a => a.id === pendingDrop?.appId)?.student_name ?? ""}
+          slotLabel={(() => {
+            if (!pendingDrop) return "";
+            const slot = slots?.find(s => s.id === pendingDrop.slotId);
+            if (!slot) return "";
+            return `${DAY_ABBREV[slot.slot_day] || slot.slot_day} ${slot.time_slot}${slot.grade ? ` ${slot.grade}` : ""}`;
+          })()}
+          totalLessons={activeConfig?.total_lessons ?? 8}
         />
       </PageTransition>
     </DeskSurface>
