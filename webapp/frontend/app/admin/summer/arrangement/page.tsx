@@ -574,6 +574,10 @@ export default function SummerArrangementPage() {
             lessonNumber={findSlotTarget.lessonNumber}
             afterDate={findSlotTarget.afterDate}
             beforeDate={findSlotTarget.beforeDate}
+            openDays={openDays}
+            courseStartDate={activeConfig?.course_start_date}
+            courseEndDate={activeConfig?.course_end_date}
+            timeSlots={timeSlots}
             onPlaced={() => {
               setFindSlotTarget(null);
               mutateSlots();
