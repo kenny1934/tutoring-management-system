@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
+
+### Bug Fixes
+
+* **Layout fix for modals and error pages** — fixed an issue where modals, dialogs, and full-page error messages appeared extremely narrow instead of their intended width
+* **Extension deadline preview** — the "New Effective End Date" shown when adjusting extension weeks now matches the actual calculated date, including holiday adjustments
+* **Sessions tab popover crash** — fixed an error when opening the enrollment detail popover from the sessions tab on a student page
+* **Guest dashboard** — guests no longer see failed network requests for admin-only data on the dashboard
+* **Notification bell** — notification icon stays properly aligned when dashboard stats are hidden for guests
+* **Dropdown on mobile** — fixed dropdown menus going off-screen when opening upward on small screens
+
 ## [2.0.37](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.37) (2026-03-19)
 
 ### New Features
