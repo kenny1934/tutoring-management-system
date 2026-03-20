@@ -41,6 +41,22 @@ export const frequencyLabel = (n: number, lang: Lang) =>
     ? t("每星期一次（標準）", "Once per week (standard)", lang)
     : t("每星期兩次", "Twice per week", lang);
 
+/** Format a date string like "2025-07-05" to compact "M/D" (e.g., "7/5"). */
+export function formatCompactDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+/** Format a date string like "2025-07-05" to short "Mon 7 Jul". */
+export function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
 /** Format a date string like "2025-07-05" to localized display. */
 export function formatDate(dateStr: string, lang: Lang): string {
   const d = new Date(dateStr + "T00:00:00");
