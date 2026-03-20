@@ -36,20 +36,22 @@ const DAY_NAME_FROM_NUM: Record<number, string> = {
   4: "Thursday", 5: "Friday", 6: "Saturday",
 };
 
-function formatShortDate(dateStr: string): string {
+function formatColumnDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function formatWeekRange(start: string, end: string): string {
+function formatWeekRange(start: string, end: string, courseStart: string): string {
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
-  const sMonth = s.toLocaleString("en", { month: "short" });
-  const eMonth = e.toLocaleString("en", { month: "short" });
-  if (sMonth === eMonth) {
-    return `${sMonth} ${s.getDate()} – ${e.getDate()}`;
-  }
-  return `${sMonth} ${s.getDate()} – ${eMonth} ${e.getDate()}`;
+  const cs = new Date(courseStart + "T00:00:00");
+  const weekNum = Math.floor((s.getTime() - cs.getTime()) / (7 * 86400000)) + 1;
+  const sMonth = s.toLocaleDateString("en-US", { month: "short" });
+  const eMonth = e.toLocaleDateString("en-US", { month: "short" });
+  const range = sMonth === eMonth
+    ? `${sMonth} ${s.getDate()} – ${e.getDate()}`
+    : `${sMonth} ${s.getDate()} – ${eMonth} ${e.getDate()}`;
+  return `Week ${weekNum}: ${range}`;
 }
 
 export function SummerSessionCalendar({
@@ -192,7 +194,7 @@ export function SummerSessionCalendar({
           <ChevronLeft className="h-4 w-4" />
         </button>
         <span className="text-sm font-medium min-w-[140px] text-center">
-          {formatWeekRange(weekDates[0] || weekStart, weekDates[weekDates.length - 1] || weekEnd)}
+          {formatWeekRange(weekDates[0] || weekStart, weekDates[weekDates.length - 1] || weekEnd, courseStartDate)}
         </span>
         <button
           onClick={goNext}
@@ -221,7 +223,7 @@ export function SummerSessionCalendar({
           }}
         >
           {/* Top-left corner */}
-          <div className="bg-surface-variant dark:bg-gray-800 sticky left-0 z-10" />
+          <div className="bg-gray-50/80 dark:bg-gray-800 sticky left-0 z-10" />
 
           {/* Day headers */}
           {weekDates.map((dateStr) => {
@@ -230,10 +232,10 @@ export function SummerSessionCalendar({
             return (
               <div
                 key={dateStr}
-                className="bg-surface-variant dark:bg-gray-800 flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
+                className="bg-gray-50/80 dark:bg-gray-800 flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
               >
                 <span>{DAY_ABBREV[dayName] || dayName}</span>
-                <span className="text-[10px]">{formatShortDate(dateStr)}</span>
+                <span className="text-[10px]">{formatColumnDate(dateStr)}</span>
               </div>
             );
           })}
@@ -243,9 +245,9 @@ export function SummerSessionCalendar({
             <React.Fragment key={ts}>
               {/* Time label */}
               <div
-                className="bg-surface-variant dark:bg-gray-800 flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
+                className="bg-gray-50/80 dark:bg-gray-800 flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
               >
-                {ts.split(" - ")[0]}
+                {ts}
               </div>
 
               {/* Cells */}
@@ -258,7 +260,7 @@ export function SummerSessionCalendar({
                   <div
                     key={key}
                     className={cn(
-                      "bg-card dark:bg-gray-900 p-0.5 min-h-[60px] space-y-0.5",
+                      "bg-white/90 dark:bg-gray-900 p-0.5 min-h-[60px] space-y-0.5",
                       pref === "pref1" && "ring-2 ring-inset ring-primary/40 bg-primary/5",
                       pref === "pref2" && "ring-2 ring-inset ring-orange-400/40 bg-orange-50/50 dark:bg-orange-900/10"
                     )}

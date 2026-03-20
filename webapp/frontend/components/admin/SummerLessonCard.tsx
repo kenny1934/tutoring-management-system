@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS } from "@/lib/summer-utils";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -75,7 +75,7 @@ export function SummerLessonCard({
         "rounded border text-[11px] transition-all overflow-hidden",
         isCancelled && "opacity-50",
         dragOver
-          ? "border-primary bg-primary/5"
+          ? "border-primary bg-primary/15"
           : "border-border bg-card dark:bg-gray-800",
       )}
       onDragOver={handleDragOver}
@@ -107,7 +107,7 @@ export function SummerLessonCard({
               "w-6 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors",
               isCancelled
                 ? "bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 line-through"
-                : "bg-primary text-primary-foreground hover:bg-primary/80"
+                : (LESSON_BADGE_COLORS[lesson.grade ?? ""] || "bg-primary text-primary-foreground") + " hover:opacity-80"
             )}
             title={`Lesson ${lesson.lesson_number} — click to edit`}
           >
@@ -129,7 +129,10 @@ export function SummerLessonCard({
 
         {/* Course type */}
         {lesson.course_type && (
-          <span className="text-[9px] text-primary/70 font-medium">
+          <span className={cn(
+            "text-[9px] font-bold px-0.5 rounded",
+            COURSE_TYPE_COLORS[lesson.course_type] || "text-primary/70"
+          )}>
             {lesson.course_type}
           </span>
         )}
@@ -179,7 +182,7 @@ export function SummerLessonCard({
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
                 s.session_status === "Confirmed"
                   ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-gray-50 dark:bg-gray-800/60"
+                  : "bg-yellow-50 dark:bg-yellow-900/20"
               )}
             >
               <button

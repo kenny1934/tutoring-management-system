@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, COURSE_TYPE_COLORS } from "@/lib/summer-utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -87,7 +87,7 @@ export function SummerSlotCard({
       className={cn(
         "rounded border text-[11px] transition-all overflow-hidden",
         dragOver
-          ? "border-primary bg-primary/5"
+          ? "border-primary bg-primary/15"
           : "border-border bg-card dark:bg-gray-800",
         isFull && "opacity-80"
       )}
@@ -120,9 +120,9 @@ export function SummerSlotCard({
             onUpdate({ course_type: next });
           }}
           className={cn(
-            "text-[9px] font-medium px-1 rounded transition-colors",
+            "text-[9px] font-bold px-1 rounded transition-colors",
             slot.course_type
-              ? "bg-primary/10 text-primary dark:bg-primary/20"
+              ? COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
               : "bg-gray-100 dark:bg-gray-700 text-muted-foreground hover:text-foreground"
           )}
           title="Course type (click to toggle A/B)"
@@ -249,7 +249,7 @@ export function SummerSlotCard({
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
                 p.session_status === "Confirmed"
                   ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-gray-50 dark:bg-gray-800/60"
+                  : "bg-yellow-50 dark:bg-yellow-900/20"
               )}
             >
               <button

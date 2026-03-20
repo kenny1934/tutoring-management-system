@@ -153,8 +153,8 @@ export function SummerSlotCell({
         className={cn(
           "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
           slots.length === 0
-            ? "py-2 text-xs border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
-            : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/5"
+            ? "py-2 text-xs border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
+            : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
         )}
       >
         <Plus className={slots.length === 0 ? "h-3.5 w-3.5" : "h-3 w-3"} />

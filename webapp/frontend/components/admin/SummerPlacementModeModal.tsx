@@ -107,7 +107,7 @@ export function SummerPlacementModeModal({
                     className={cn(
                       "flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
                       selected === mode.value
-                        ? "border-primary bg-primary/5"
+                        ? "border-primary bg-primary/15"
                         : "border-border hover:border-primary/50"
                     )}
                   >
