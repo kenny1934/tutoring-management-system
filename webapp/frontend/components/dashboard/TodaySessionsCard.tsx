@@ -42,7 +42,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, isGuest } = useAuth();
 
   // Fetch ALL sessions for today (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -72,7 +72,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   }, [tutors]);
 
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
-  const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined);
+  const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined, !isGuest);
 
   // Convert proposals to proposed sessions
   const proposedSessions = useMemo(() => {

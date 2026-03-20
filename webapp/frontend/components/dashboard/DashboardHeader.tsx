@@ -88,13 +88,14 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const currentTutorId = tutorId ?? user?.id;
 
   // Fetch contact-needed count for Parent Contacts badge (shares SWR cache with NotificationBell)
+  // Skip for guests — endpoint is guest-blocked
   const { data: contactNeeded } = useSWR(
-    ['contact-needed-count', currentTutorId, location],
+    isGuest ? null : ['contact-needed-count', currentTutorId, location],
     () => parentCommunicationsAPI.getContactNeededCount(currentTutorId, location)
   );
 
   // Fetch termination review count for Terminated Students badge
-  const { data: reviewCount } = useTerminationReviewCount(location, currentTutorId);
+  const { data: reviewCount } = useTerminationReviewCount(location, currentTutorId, !isGuest);
 
   // Current user's leave record URL (for my-view mode)
   const currentTutorName = tutors.find(t => t.id === currentTutorId)?.tutor_name;
