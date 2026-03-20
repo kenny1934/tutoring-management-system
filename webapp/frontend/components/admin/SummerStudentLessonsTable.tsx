@@ -172,11 +172,10 @@ export function SummerStudentLessonsTable({
         {/* Sort toggle */}
         <button
           onClick={() => setSort(sortLabel as SortMode)}
-          className="ml-auto flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          className="ml-auto p-0.5 text-muted-foreground hover:text-foreground"
           title={`Sort by ${sortLabel}`}
         >
           <ArrowUpDown className="h-3 w-3" />
-          <span className="capitalize">{sort}</span>
         </button>
 
         {/* Count */}
@@ -191,19 +190,19 @@ export function SummerStudentLessonsTable({
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800/50">
-              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-xs font-medium text-left px-2 py-1.5 border-b border-border dark:border-gray-700 min-w-[120px]">
+              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-left px-2 py-1.5 border-b border-border dark:border-gray-700 min-w-[120px]">
                 Student
               </th>
-              <th className="sticky left-[120px] z-10 bg-gray-50 dark:bg-gray-800/50 text-xs font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 w-10">
+              <th className="sticky left-[120px] z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 w-10">
                 Grade
               </th>
-              <th className="sticky left-[160px] z-10 bg-gray-50 dark:bg-gray-800/50 text-xs font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[72px]">
+              <th className="sticky left-[160px] z-10 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[72px]">
                 Progress
               </th>
               {lessonColumns.map((n) => (
                 <th
                   key={n}
-                  className="text-xs font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[48px]"
+                  className="text-[11px] font-medium text-center px-1 py-1.5 border-b border-border dark:border-gray-700 min-w-[48px]"
                 >
                   L{n}
                 </th>
@@ -291,9 +290,9 @@ export function SummerStudentLessonsTable({
                             className={cn(
                               "h-full rounded-full transition-all",
                               pct === 100
-                                ? "bg-green-500"
+                                ? "bg-green-400 dark:bg-green-400/80"
                                 : pct > 0
-                                  ? "bg-primary"
+                                  ? "bg-primary dark:bg-primary/80"
                                   : "bg-gray-300 dark:bg-gray-600"
                             )}
                             style={{ width: `${pct}%` }}
