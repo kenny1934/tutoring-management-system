@@ -108,39 +108,125 @@ function createEmptyRow(): ParsedRow {
   };
 }
 
-// ---- Parse pasted data ----
+// ---- Parse pasted data (smart column detection) ----
+
+const HEADER_PATTERNS: Record<string, RegExp> = {
+  id: /^(id|id#|student.?id|編號)$/i,
+  name: /^(name|student|student.?name|姓名)$/i,
+  grade: /^(grade|class|年級)$/i,
+  tutor: /^(tutor|instructor|teacher|導師)$/i,
+  phone: /^(phone|mobile|tel|電話)$/i,
+  school: /^(school|學校)$/i,
+};
+
+const IS_PHONE = /^\d{8}(\.0)?$/;
+const IS_ID = /^[A-Za-z]{1,4}\d{3,5}(\.0)?$/;
+const IS_GRADE = /^[PpFf]\d/;
+const IS_TUTOR = /^(mr|ms|miss)\s/i;
+
+function detectColumnMap(headerCols: string[]): Record<string, number> | null {
+  const map: Record<string, number> = {};
+  let matchCount = 0;
+  for (let i = 0; i < headerCols.length; i++) {
+    const col = headerCols[i].trim();
+    for (const [field, pattern] of Object.entries(HEADER_PATTERNS)) {
+      if (pattern.test(col) && !(field in map)) {
+        map[field] = i;
+        matchCount++;
+        break;
+      }
+    }
+  }
+  // Need at least 2 recognized headers to consider it a header row
+  return matchCount >= 2 ? map : null;
+}
+
+function detectColumnsFromData(cols: string[]): { id: string; name: string; grade: string; tutor: string; phone: string; school: string } {
+  let id = "", name = "", grade = "", tutor = "", phone = "", school = "";
+  const used = new Set<number>();
+
+  // Pass 1: Find phone (8-digit number, scan from end)
+  for (let i = cols.length - 1; i >= 0; i--) {
+    if (IS_PHONE.test(cols[i])) { phone = cols[i].replace(/\.0$/, ""); used.add(i); break; }
+  }
+
+  // Pass 2: Find ID (alphanumeric code pattern)
+  for (let i = 0; i < cols.length; i++) {
+    if (!used.has(i) && IS_ID.test(cols[i])) { id = cols[i].replace(/\.0$/, ""); used.add(i); break; }
+  }
+
+  // Pass 3: Find grade (P6, F1, F3/G9 etc.)
+  for (let i = 0; i < cols.length; i++) {
+    if (!used.has(i) && IS_GRADE.test(cols[i])) { grade = cols[i]; used.add(i); break; }
+  }
+
+  // Pass 4: Find tutor (Mr/Ms/Miss prefix)
+  for (let i = 0; i < cols.length; i++) {
+    if (!used.has(i) && IS_TUTOR.test(cols[i])) { tutor = cols[i]; used.add(i); break; }
+  }
+
+  // Pass 5: If no letter-prefixed ID found, use first column as ID (numeric IDs like "1001")
+  if (!id && cols[0] && /^\d{3,5}(\.0)?$/.test(cols[0]) && !used.has(0)) {
+    id = cols[0].replace(/\.0$/, "");
+    used.add(0);
+  }
+
+  // Pass 6: Name = first unused text column that's not empty/dash/date/numeric
+  for (let i = 0; i < cols.length; i++) {
+    if (!used.has(i) && cols[i] && cols[i] !== "--" && !/^\d+$/.test(cols[i]) && !/^\d{4}-\d{2}/.test(cols[i]) && !/^\[/.test(cols[i])) {
+      name = cols[i]; used.add(i); break;
+    }
+  }
+
+  return { id, name, grade, tutor, phone, school };
+}
 
 function parsePastedData(text: string): ParsedRow[] {
-  const lines = text.trim().split("\n").filter((l) => l.trim());
-  const rows: ParsedRow[] = [];
+  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return [];
 
-  for (const line of lines) {
-    const cols = line.split("\t");
+  const rows: ParsedRow[] = [];
+  let startIdx = 0;
+  let columnMap: Record<string, number> | null = null;
+
+  // Check if first line is a header
+  const firstCols = lines[0].split("\t").map((c) => c.trim());
+  columnMap = detectColumnMap(firstCols);
+  if (columnMap) startIdx = 1;
+
+  for (let lineIdx = startIdx; lineIdx < lines.length; lineIdx++) {
+    const cols = lines[lineIdx].split("\t").map((c) => c?.trim() ?? "");
     if (cols.length < 2) continue;
 
-    const [id, name, grade, tutor, phone, school] = cols.map((c) =>
-      c?.trim() ?? ""
-    );
+    let id: string, name: string, grade: string, tutor: string, phone: string, school: string;
+
+    if (columnMap) {
+      // Header-mapped parsing (guard against missing columns)
+      id = columnMap.id != null ? (cols[columnMap.id] || "").replace(/\.0$/, "") : "";
+      name = columnMap.name != null ? (cols[columnMap.name] || "") : "";
+      grade = columnMap.grade != null ? (cols[columnMap.grade] || "") : "";
+      tutor = columnMap.tutor != null ? (cols[columnMap.tutor] || "") : "";
+      phone = columnMap.phone != null ? (cols[columnMap.phone] || "").replace(/\.0$/, "") : "";
+      school = columnMap.school != null ? (cols[columnMap.school] || "") : "";
+    } else {
+      // Heuristic parsing
+      ({ id, name, grade, tutor, phone, school } = detectColumnsFromData(cols));
+    }
 
     // Filter out Bobby template row
-    if (
-      (id === "1001" || id === "1001.0") &&
-      (phone === "66666666" || phone === "66666666.0")
-    )
-      continue;
-    // Filter out header row
-    if (id.toLowerCase() === "id" && name.toLowerCase().includes("name"))
-      continue;
-
-    const cleanPhone = phone.replace(/\.0$/, "");
+    if ((id === "1001") && (phone === "66666666")) continue;
+    // Filter out header-like rows
+    if (/^id/i.test(id) && /name|student/i.test(name)) continue;
+    // Skip if no meaningful data
+    if (!name && !phone) continue;
 
     rows.push({
       ...createEmptyRow(),
-      primary_student_id: id.replace(/\.0$/, ""),
+      primary_student_id: id,
       student_name: name,
       grade: grade || "P6",
       tutor_name: tutor,
-      phone_1: cleanPhone,
+      phone_1: phone,
       school: school,
     });
   }
