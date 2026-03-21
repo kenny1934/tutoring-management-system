@@ -314,7 +314,7 @@ function BranchCheckboxes({
   onChange: (v: string[]) => void;
 }) {
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {SECONDARY_BRANCHES.map((b) => (
         <label
           key={b}
@@ -1026,39 +1026,124 @@ export default function ProspectPage() {
           </div>
         )}
 
-        {/* Parsed Table — compact main rows with expandable detail panels */}
+        {/* Parsed Students — card view (narrow) + table view (wide) */}
         {parsedRows.length > 0 && (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
+          {/* Card view (<md) */}
+          <div className="md:hidden space-y-2 p-2">
+            {sortedParsedIndices.map((idx) => {
+              const row = parsedRows[idx];
+              const w = rowWarnings[idx];
+              const isExpanded = parsedExpandedKeys.has(row._key);
+              return (
+                <div key={row._key} className={`border rounded-xl bg-card p-3 space-y-1.5 transition-colors ${isExpanded ? "border-primary/30" : "border-border"}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" className="rounded shrink-0" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
+                    <span className={`font-medium flex-1 truncate text-sm ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
+                      {row.student_name || <span className="text-red-400 italic">Name required</span>}
+                    </span>
+                    {(w?.duplicateInBatch || w?.alreadySubmitted) && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
+                    <button onClick={() => toggleExpand(row._key)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    <button onClick={() => removeRow(row._key)} className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
+                    <div>{[row.primary_student_id, row.school, row.grade, row.tutor_name].filter(Boolean).join(" · ") || "-"}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {row.phone_1 && <span title={row.phone_1_relation ? `${row.phone_1_relation}'s phone` : ""}>{row.phone_1}</span>}
+                      {row.wechat_id && <span className="inline-flex items-center gap-0.5"><WeChatIcon className="h-3 w-3 text-green-600" />{row.wechat_id}</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <BranchBadges branches={row.preferred_branches} />
+                      <span className="text-[10px] text-muted-foreground">S:</span><IntentionBadge value={row.wants_summer} />
+                      <span className="text-[10px] text-muted-foreground">R:</span><IntentionBadge value={row.wants_regular} />
+                    </div>
+                    {row.tutor_remark && <div className="text-muted-foreground italic truncate">{row.tutor_remark}</div>}
+                  </div>
+                  {isExpanded && (
+                    <div className="pt-2 border-t border-border">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <SectionDivider label="Student Info" />
+                        <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", normalizeStudentId(v, branch))} />
+                        <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required />
+                        <FieldInput label="School" value={row.school} onChange={(v) => updateRow(row._key, "school", v)} />
+                        <FieldInput label="Grade" value={row.grade} onChange={(v) => updateRow(row._key, "grade", v)} />
+                        <FieldInput label="Tutor" value={row.tutor_name} onChange={(v) => updateRow(row._key, "tutor_name", v)} />
+                        <SectionDivider label="Contact" />
+                        <FieldInput label="Phone" value={row.phone_1} onChange={(v) => updateRow(row._key, "phone_1", v)} type="tel" inputMode="numeric" />
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
+                          <select value={row.phone_1_relation} onChange={(e) => updateRow(row._key, "phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
+                            {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+                            <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
+                          </label>
+                          <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} />
+                        </div>
+                        <SectionDivider label="Preferences" />
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
+                          <BranchCheckboxes value={row.preferred_branches} onChange={(v) => updateRow(row._key, "preferred_branches", v)} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+                          <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
+                          <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
+                        </div>
+                        <SectionDivider label="Notes" />
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
+                          <textarea value={row.tutor_remark} onChange={(e) => updateRow(row._key, "tutor_remark", e.target.value)} className={`w-full ${inputSmall} resize-y`} rows={2} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table view (md+) */}
+          <div className="hidden md:block">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-sm min-w-[480px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
-                  <th className="px-3 py-2.5 w-8">
+                  <th className="px-2 py-2 w-8">
                     <input type="checkbox" className="rounded" ref={(el) => { if (el) el.indeterminate = selectedParsedKeys.size > 0 && selectedParsedKeys.size < parsedRows.length; }} checked={selectedParsedKeys.size === parsedRows.length && parsedRows.length > 0} onChange={toggleParsedSelectAll} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="ID" dir={parsedSort.field === "id" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "id"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium sticky left-0 z-10 bg-inherit">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="Name" dir={parsedSort.field === "name" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "name"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="School" dir={parsedSort.field === "school" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "school"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Branch</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
-                  <th className="px-3 py-2.5 w-20 sticky right-0 z-10 bg-inherit">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
+                  <th className="px-2 py-2 w-20">
                     <button
                       onClick={toggleExpandAll}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                       title={parsedExpandedKeys.size === parsedRows.length ? "Collapse all" : "Expand all"}
                     >
                       <ChevronsUpDown className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">All</span>
+                      All
                     </button>
                   </th>
                 </tr>
@@ -1075,16 +1160,16 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => toggleExpand(row._key)}
                       >
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" className="rounded" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">
+                        <td className="px-2 py-2 text-xs text-muted-foreground font-mono">
                           {row.primary_student_id || "-"}
                           {(w?.duplicateInBatch || w?.alreadySubmitted) && (
                             <AlertTriangle className="inline h-3 w-3 ml-0.5 text-yellow-500" />
                           )}
                         </td>
-                        <td className={`px-3 py-2.5 sticky left-0 z-10 ${isExpanded ? "bg-primary/[0.03]" : "bg-card"}`}>
+                        <td className="px-2 py-2">
                           {row.student_name ? (
                             <span className={`font-medium ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
                               <CopyableCell text={row.student_name} />
@@ -1093,15 +1178,15 @@ export default function ProspectPage() {
                             <span className="text-red-400 italic font-medium">Name required</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell"><CopyableCell text={row.school} /></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.grade}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.tutor_name || "-"}</td>
-                        <td className="px-3 py-2.5 text-xs">
+                        <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={row.school} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{row.grade}</td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{row.tutor_name || "-"}</td>
+                        <td className="px-2 py-2 text-xs">
                           <span className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}>
                             <CopyableCell text={row.phone_1} title={[row.phone_1_relation && `${row.phone_1_relation}'s phone`, w?.alreadySubmitted && "Already submitted", w?.duplicateInBatch && "Duplicate in batch", w?.invalidPhone && "Should be 8 digits"].filter(Boolean).join(" · ") || undefined} />
                           </span>
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-2 py-2">
                           <div className="space-y-0.5">
                             <BranchBadges branches={row.preferred_branches} />
                             <div className="flex items-center gap-1">
@@ -1114,9 +1199,9 @@ export default function ProspectPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[100px]"><CopyableCell text={row.wechat_id} /></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px]"><CopyableCell text={row.tutor_remark} /></td>
-                        <td className={`px-3 py-2.5 sticky right-0 z-10 ${isExpanded ? "bg-primary/[0.03]" : "bg-card"}`}>
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={row.wechat_id} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={row.tutor_remark} /></td>
+                        <td className="px-2 py-2">
                           <div className="flex items-center gap-1">
                             <button
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
@@ -1208,57 +1293,58 @@ export default function ProspectPage() {
             </table>
             </div>
 
-            <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium text-xs">
-                    {validCount}
-                  </span>
-                  <span className="ml-1.5">ready</span>
-                  {warningCount > 0 && (
-                    <>
-                      <span className="mx-1.5 text-muted-foreground/50">|</span>
-                      <span className="inline-flex items-center gap-1 text-yellow-600 text-xs font-medium">
-                        <AlertTriangle className="h-3 w-3" />
-                        {warningCount} warning{warningCount !== 1 ? "s" : ""}
-                      </span>
-                    </>
-                  )}
+          </div>
+
+          <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium text-xs">
+                  {validCount}
                 </span>
-                <button
-                  onClick={addEmptyRow}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add Row
-                </button>
-                <button
-                  onClick={clearAllRows}
-                  className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-2 py-0.5 hover:text-red-600 hover:border-red-300 transition-colors"
-                >
-                  Clear All
-                </button>
-              </div>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || validCount === 0}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium transition-colors duration-200"
-              >
-                {submitting ? (
+                <span className="ml-1.5">ready</span>
+                {warningCount > 0 && (
                   <>
-                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Submit All
+                    <span className="mx-1.5 text-muted-foreground/50">|</span>
+                    <span className="inline-flex items-center gap-1 text-yellow-600 text-xs font-medium">
+                      <AlertTriangle className="h-3 w-3" />
+                      {warningCount} warning{warningCount !== 1 ? "s" : ""}
+                    </span>
                   </>
                 )}
+              </span>
+              <button
+                onClick={addEmptyRow}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                Add Row
+              </button>
+              <button
+                onClick={clearAllRows}
+                className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-2 py-0.5 hover:text-red-600 hover:border-red-300 transition-colors"
+              >
+                Clear All
               </button>
             </div>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || validCount === 0}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium transition-colors duration-200"
+            >
+              {submitting ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Submit All
+                </>
+              )}
+            </button>
           </div>
-        )}
+        </div>)}
       </section>
 
       {/* Section B: Previously Submitted */}
@@ -1295,11 +1381,11 @@ export default function ProspectPage() {
               <option value="">Summer: All</option>
               {INTENTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
             </select>
-            <select value={submittedFilters.wants_regular} onChange={(e) => setSubmittedFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={`${inputSmall} hidden sm:inline`}>
+            <select value={submittedFilters.wants_regular} onChange={(e) => setSubmittedFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
               <option value="">Regular: All</option>
               {INTENTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
             </select>
-            <select value={submittedFilters.outreach_status} onChange={(e) => setSubmittedFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={`${inputSmall} hidden sm:inline`}>
+            <select value={submittedFilters.outreach_status} onChange={(e) => setSubmittedFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
               <option value="">Outreach: All</option>
               {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
             </select>
@@ -1332,39 +1418,148 @@ export default function ProspectPage() {
           </div>
         ) : (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
+          {/* Card view (<md) */}
+          <div className="md:hidden space-y-2 p-2">
+            {filteredExisting.map((p) => {
+              const isEditing = editingId === p.id;
+              const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
+              return (
+                <div key={p.id} className={`border rounded-xl bg-card p-3 space-y-1.5 transition-colors ${isOpen ? "border-primary/30" : "border-border"}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" className="rounded shrink-0" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
+                    <span className="font-medium flex-1 truncate text-sm">{p.student_name}</span>
+                    {lastSavedId === p.id && <span className="text-[10px] text-green-600 dark:text-green-400 font-medium"><Check className="h-3 w-3 inline" /></span>}
+                    <OutreachBadge status={p.outreach_status} />
+                    <button onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                      {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    {!isEditing && (
+                      <>
+                        <button onClick={() => startEdit(p)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handleDelete(p.id)} className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
+                    <div>{[p.primary_student_id, p.school, p.grade, p.tutor_name].filter(Boolean).join(" · ") || "-"}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {p.phone_1 && <span title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : ""}>{p.phone_1}</span>}
+                      {p.wechat_id && <span className="inline-flex items-center gap-0.5"><WeChatIcon className="h-3 w-3 text-green-600" />{p.wechat_id}</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <BranchBadges branches={p.preferred_branches || []} />
+                      <span className="text-[10px]">S:</span><IntentionBadge value={p.wants_summer} />
+                      <span className="text-[10px]">R:</span><IntentionBadge value={p.wants_regular} />
+                    </div>
+                    {p.tutor_remark && <div className="italic truncate">{p.tutor_remark}</div>}
+                  </div>
+                  {isOpen && (
+                    <div className="pt-2 border-t border-border">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                            <SectionDivider label="Student Info" />
+                            <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: normalizeStudentId(v, branch) }))} />
+                            <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required />
+                            <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
+                            <FieldInput label="Grade" value={editData.grade as string ?? p.grade ?? ""} onChange={(v) => setEditData((d) => ({ ...d, grade: v }))} />
+                            <FieldInput label="Tutor" value={editData.tutor_name as string ?? p.tutor_name ?? ""} onChange={(v) => setEditData((d) => ({ ...d, tutor_name: v }))} />
+                            <SectionDivider label="Contact" />
+                            <FieldInput label="Phone" value={editData.phone_1 as string ?? p.phone_1 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_1: v }))} type="tel" inputMode="numeric" />
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
+                              <select value={editData.phone_1_relation as string ?? p.phone_1_relation ?? "Mother"} onChange={(e) => setEditData((d) => ({ ...d, phone_1_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
+                                {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                              </select>
+                            </div>
+                            <FieldInput label="Phone 2" value={editData.phone_2 as string ?? p.phone_2 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_2: v }))} type="tel" inputMode="numeric" />
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
+                              <select value={editData.phone_2_relation as string ?? p.phone_2_relation ?? ""} onChange={(e) => setEditData((d) => ({ ...d, phone_2_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
+                                <option value="">—</option>
+                                {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+                                <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
+                              </label>
+                              <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} />
+                            </div>
+                            <SectionDivider label="Preferences" />
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
+                              <BranchCheckboxes value={(editData.preferred_branches as string[]) ?? p.preferred_branches ?? []} onChange={(v) => setEditData((d) => ({ ...d, preferred_branches: v }))} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+                              <IntentionSelect value={(editData.wants_summer as ProspectIntention) ?? (p.wants_summer as ProspectIntention) ?? "Considering"} onChange={(v) => setEditData((d) => ({ ...d, wants_summer: v }))} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Regular?</label>
+                              <IntentionSelect value={(editData.wants_regular as ProspectIntention) ?? (p.wants_regular as ProspectIntention) ?? "Considering"} onChange={(v) => setEditData((d) => ({ ...d, wants_regular: v }))} />
+                            </div>
+                            <FieldInput label="Time / Tutor Pref" value={editData.preferred_time_note as string ?? p.preferred_time_note ?? ""} onChange={(v) => setEditData((d) => ({ ...d, preferred_time_note: v }))} />
+                            <SectionDivider label="Notes" />
+                            <div className="col-span-2">
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
+                              <textarea value={editData.tutor_remark as string ?? p.tutor_remark ?? ""} onChange={(e) => setEditData((d) => ({ ...d, tutor_remark: e.target.value }))} className={`w-full ${inputSmall} resize-y`} rows={2} />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => saveEdit(p.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
+                            <button onClick={cancelEdit} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {p.phone_2 && <div>Phone 2: {p.phone_2}{p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}</div>}
+                          {p.preferred_time_note && <div>Time/Tutor Pref: {p.preferred_time_note}</div>}
+                          {p.submitted_at && <div className="text-[10px] pt-1">Submitted {new Date(p.submitted_at).toLocaleString()}</div>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table view (md+) */}
+          <div className="hidden md:block">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-sm min-w-[480px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
-                  <th className="px-3 py-2.5 w-8">
+                  <th className="px-2 py-2 w-8">
                     <input type="checkbox" className="rounded" ref={(el) => { if (el) el.indeterminate = selectedSubmittedIds.size > 0 && selectedSubmittedIds.size < filteredExisting.length; }} checked={selectedSubmittedIds.size === filteredExisting.length && filteredExisting.length > 0} onChange={toggleSubmittedSelectAll} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="ID" dir={submittedSort.field === "id" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "id"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium sticky left-0 z-10 bg-inherit">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="Name" dir={submittedSort.field === "name" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "name"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="School" dir={submittedSort.field === "school" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "school"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium">
                     <SortableHeader label="Tutor" dir={submittedSort.field === "tutor" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "tutor"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Branch</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Outreach</th>
-                  <th className="px-3 py-2.5 w-24 sticky right-0 z-10 bg-inherit">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
+                  <th className="px-2 py-2 w-24">
                     <button
                       onClick={toggleSubmittedExpandAll}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                       title="Expand/collapse all"
                     >
                       <ChevronsUpDown className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">All</span>
+                      All
                     </button>
                   </th>
                 </tr>
@@ -1379,11 +1574,11 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }}
                       >
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" className="rounded" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
-                        <td className={`px-3 py-2.5 font-medium text-foreground sticky left-0 z-10 ${isOpen ? "bg-primary/[0.03]" : "bg-card"}`}>
+                        <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>
+                        <td className="px-2 py-2 font-medium text-foreground">
                           <CopyableCell text={p.student_name} />
                           {lastSavedId === p.id && (
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400 font-medium animate-in fade-in">
@@ -1391,13 +1586,13 @@ export default function ProspectPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell"><CopyableCell text={p.school || ""} /></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.grade}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.tutor_name || "-"}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                        <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade}</td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">
                           <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-2 py-2">
                           <div className="space-y-0.5">
                             <BranchBadges branches={p.preferred_branches || []} />
                             <div className="flex items-center gap-1">
@@ -1410,10 +1605,10 @@ export default function ProspectPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
-                        <td className="px-3 py-2.5"><OutreachBadge status={p.outreach_status} /></td>
-                        <td className={`px-3 py-2.5 sticky right-0 z-10 ${isOpen ? "bg-primary/[0.03]" : "bg-card"}`} onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
+                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
@@ -1570,16 +1765,16 @@ export default function ProspectPage() {
             </table>
             </div>
 
-
-            <div className="px-3 py-2 border-t border-border bg-primary/5 flex items-center justify-between text-xs text-muted-foreground font-medium">
-              <span>{filteredExisting.length}{hasActiveFilters ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
-              <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors">
-                <Download className="h-3 w-3" />
-                Export CSV
-              </button>
-            </div>
           </div>
-        )}
+
+          <div className="px-3 py-2 border-t border-border bg-primary/5 flex items-center justify-between text-xs text-muted-foreground font-medium">
+            <span>{filteredExisting.length}{hasActiveFilters ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
+            <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors">
+              <Download className="h-3 w-3" />
+              Export CSV
+            </button>
+          </div>
+        </div>)}
       </section>
 
       {/* Floating bulk action bars */}
