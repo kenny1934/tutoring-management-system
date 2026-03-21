@@ -686,6 +686,7 @@ export default function ProspectPage() {
   // ---- Bulk actions ----
 
   const toggleParsedSelect = useCallback((key: string) => {
+    setSelectedSubmittedIds(new Set());
     setSelectedParsedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
@@ -694,6 +695,7 @@ export default function ProspectPage() {
   }, []);
 
   const toggleParsedSelectAll = useCallback(() => {
+    setSelectedSubmittedIds(new Set());
     setSelectedParsedKeys((prev) =>
       prev.size === parsedRows.length ? new Set() : new Set(parsedRows.map((r) => r._key))
     );
@@ -710,6 +712,7 @@ export default function ProspectPage() {
   }, [selectedParsedKeys]);
 
   const toggleSubmittedSelect = useCallback((id: number) => {
+    setSelectedParsedKeys(new Set());
     setSelectedSubmittedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -718,6 +721,7 @@ export default function ProspectPage() {
   }, []);
 
   const toggleSubmittedSelectAll = useCallback(() => {
+    setSelectedParsedKeys(new Set());
     setSelectedSubmittedIds((prev) =>
       prev.size === filteredExisting.length ? new Set() : new Set(filteredExisting.map((p) => p.id))
     );
@@ -1204,27 +1208,7 @@ export default function ProspectPage() {
             </table>
             </div>
 
-            {/* Bulk action bar */}
-            {selectedParsedKeys.size > 0 && (
-              <div className="p-3 border-t-2 border-primary/30 bg-card/95 dark:bg-card/90 backdrop-blur flex items-center gap-3 flex-wrap sticky bottom-12 z-20">
-                <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedParsedKeys.size}</span>
-                <span className="text-xs font-medium">selected</span>
-                <button onClick={bulkDeleteParsed} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                  <Trash2 className="h-3 w-3 inline mr-1" />Delete
-                </button>
-                <span className="text-xs text-muted-foreground">|</span>
-                <span className="text-xs text-muted-foreground">Summer:</span>
-                {INTENTIONS.map((i) => (
-                  <button key={`s-${i}`} onClick={() => bulkSetParsedIntention("wants_summer", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
-                ))}
-                <span className="text-xs text-muted-foreground">Regular:</span>
-                {INTENTIONS.map((i) => (
-                  <button key={`r-${i}`} onClick={() => bulkSetParsedIntention("wants_regular", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
-                ))}
-              </div>
-            )}
-
-            <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between sticky bottom-0 z-10 flex-wrap gap-2">
+            <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium text-xs">
@@ -1585,17 +1569,7 @@ export default function ProspectPage() {
               </tbody>
             </table>
             </div>
-            {/* Bulk action bar */}
-            {selectedSubmittedIds.size > 0 && (
-              <div className="p-3 border-t-2 border-primary/30 bg-card/95 dark:bg-card/90 backdrop-blur flex items-center gap-3 flex-wrap sticky bottom-0 z-20">
-                <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedSubmittedIds.size}</span>
-                <span className="text-xs font-medium">selected</span>
-                <button onClick={bulkDeleteSubmitted} disabled={bulkDeleting} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
-                  {bulkDeleting ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-red-300 border-t-red-600 inline-block mr-1 align-middle" /> : <Trash2 className="h-3 w-3 inline mr-1" />}
-                  {bulkDeleting ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            )}
+
 
             <div className="px-3 py-2 border-t border-border bg-primary/5 flex items-center justify-between text-xs text-muted-foreground font-medium">
               <span>{filteredExisting.length}{hasActiveFilters ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
@@ -1607,6 +1581,45 @@ export default function ProspectPage() {
           </div>
         )}
       </section>
+
+      {/* Floating bulk action bars */}
+      {selectedParsedKeys.size > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium">{selectedParsedKeys.size} selected</span>
+            <button onClick={bulkDeleteParsed} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              <Trash2 className="h-3 w-3 inline mr-1" />Delete
+            </button>
+            <span className="text-xs text-muted-foreground">|</span>
+            <span className="text-xs text-muted-foreground">Summer:</span>
+            {INTENTIONS.map((i) => (
+              <button key={`s-${i}`} onClick={() => bulkSetParsedIntention("wants_summer", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
+            ))}
+            <span className="text-xs text-muted-foreground">Regular:</span>
+            {INTENTIONS.map((i) => (
+              <button key={`r-${i}`} onClick={() => bulkSetParsedIntention("wants_regular", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
+            ))}
+            <button onClick={() => setSelectedParsedKeys(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedSubmittedIds.size > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
+            <span className="text-sm font-medium">{selectedSubmittedIds.size} selected</span>
+            <button onClick={bulkDeleteSubmitted} disabled={bulkDeleting} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+              {bulkDeleting ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-red-300 border-t-red-600 inline-block mr-1 align-middle" /> : <Trash2 className="h-3 w-3 inline mr-1" />}
+              {bulkDeleting ? "Deleting..." : "Delete"}
+            </button>
+            <button onClick={() => setSelectedSubmittedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
