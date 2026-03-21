@@ -8,6 +8,7 @@ Covers:
 """
 import pytest
 from datetime import date, timedelta
+from constants import hk_now
 from unittest.mock import MagicMock
 import sys
 import os
@@ -93,7 +94,7 @@ class TestIsSessionConsumable:
         """Create a mock SessionLog."""
         s = MagicMock()
         s.session_status = status
-        s.session_date = session_date or (date.today() + timedelta(days=7))
+        s.session_date = session_date or (hk_now().date() + timedelta(days=7))
         s.rescheduled_to_id = rescheduled_to_id
         return s
 
@@ -112,13 +113,13 @@ class TestIsSessionConsumable:
     def test_scheduled_future_consumable(self):
         """Scheduled session in the future is consumable."""
         for status in SCHEDULABLE_STATUSES:
-            session = self._mock_session(status, session_date=date.today() + timedelta(days=1))
+            session = self._mock_session(status, session_date=hk_now().date() + timedelta(days=1))
             assert _is_session_consumable(session) is True, f"Failed for {status}"
 
     def test_scheduled_past_not_consumable(self):
         """Scheduled session in the past is NOT consumable."""
         for status in SCHEDULABLE_STATUSES:
-            session = self._mock_session(status, session_date=date.today() - timedelta(days=1))
+            session = self._mock_session(status, session_date=hk_now().date() - timedelta(days=1))
             assert _is_session_consumable(session) is False, f"Failed for {status}"
 
     def test_attended_not_consumable(self):
