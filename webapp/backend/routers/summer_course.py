@@ -1326,9 +1326,10 @@ def _find_best_lesson_set(
 
     # --- For 1x/week students: try single-slot solution first ---
     if app.sessions_per_week == 1:
-        single_result = _try_single_slot(app, by_number, lesson_buddy_groups)
-        if single_result is not None:
-            assignments, match_type, confidence = single_result
+        single_results = _try_single_slot(app, by_number, lesson_buddy_groups)
+        if single_results:
+            # Return the best result; caller handles multiple options
+            assignments, match_type, confidence = single_results[0]
             return assignments, match_type, confidence
 
     # --- Cross-slot greedy assignment ---
@@ -1404,6 +1405,7 @@ def _find_best_lesson_set(
             "lesson_date": lesson.lesson_date,
             "time_slot": slot.time_slot,
             "slot_day": slot.slot_day,
+            "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
         }
         assigned_dates.append((ln, lesson.lesson_date))
 
@@ -1433,8 +1435,13 @@ def _try_single_slot(
     app: SummerApplication,
     by_number: dict[int, list],
     lesson_buddy_groups: dict[int, set[int]],
-) -> tuple[list, str, float] | None:
-    """For 1x/week students, try to find a single slot that covers all 8 lessons."""
+    max_options: int = 3,
+) -> list[tuple[list, str, float]]:
+    """For 1x/week students, find top N single-slot solutions.
+
+    Returns list of (assignments, match_type, confidence) tuples, best first.
+    Empty list if no single slot covers all 8 lessons.
+    """
     # Collect all slot_ids that appear across every lesson_number
     slot_sets = []
     for n in range(1, 9):
@@ -1443,19 +1450,14 @@ def _try_single_slot(
         slot_sets.append(slot_ids)
 
     if not slot_sets:
-        return None
+        return []
 
     # Slots that have all 8 lesson_numbers available
     common_slots = slot_sets[0]
     for s in slot_sets[1:]:
         common_slots = common_slots & s
     if not common_slots:
-        return None
-
-    # Score each common slot
-    best_slot_id = None
-    best_score = -1.0
-    best_match = "any_open"
+        return []
 
     # Build quick lookup: (slot_id, lesson_number) -> (lesson, slot)
     slot_lessons: dict[tuple[int, int], tuple] = {}
@@ -1464,6 +1466,8 @@ def _try_single_slot(
             if slot.id in common_slots:
                 slot_lessons[(slot.id, n)] = (lesson, slot)
 
+    # Score each common slot
+    scored: list[tuple[float, int, str]] = []  # (score, slot_id, match_type)
     for sid in common_slots:
         sample_lesson, sample_slot = slot_lessons.get((sid, 1), (None, None))
         if sample_slot is None:
@@ -1492,33 +1496,39 @@ def _try_single_slot(
                     buddy_bonus += 1
             score += 0.1 * (buddy_bonus / 8)
 
-        if score > best_score:
-            best_score = score
-            best_slot_id = sid
-            best_match = match
+        scored.append((score, sid, match))
 
-    if best_slot_id is None:
-        return None
+    if not scored:
+        return []
 
-    # Build assignments from best slot
-    assignments = []
-    for n in range(1, 9):
-        pair = slot_lessons.get((best_slot_id, n))
-        if pair is None:
-            return None
-        lesson, slot = pair
-        assignments.append({
-            "lesson_id": lesson.id,
-            "slot_id": slot.id,
-            "lesson_number": n,
-            "lesson_date": lesson.lesson_date,
-            "time_slot": slot.time_slot,
-            "slot_day": slot.slot_day,
-        })
+    # Sort by score descending, take top N
+    scored.sort(key=lambda x: x[0], reverse=True)
+    results: list[tuple[list, str, float]] = []
 
-    assignments.sort(key=lambda a: a["lesson_date"])
-    confidence = min(best_score, 1.0)
-    return assignments, best_match, confidence
+    for score, sid, match_type in scored[:max_options]:
+        assignments = []
+        valid = True
+        for n in range(1, 9):
+            pair = slot_lessons.get((sid, n))
+            if pair is None:
+                valid = False
+                break
+            lesson, slot = pair
+            assignments.append({
+                "lesson_id": lesson.id,
+                "slot_id": slot.id,
+                "lesson_number": n,
+                "lesson_date": lesson.lesson_date,
+                "time_slot": slot.time_slot,
+                "slot_day": slot.slot_day,
+                "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
+            })
+        if not valid:
+            continue
+        assignments.sort(key=lambda a: a["lesson_date"])
+        results.append((assignments, match_type, min(score, 1.0)))
+
+    return results
 
 
 @router.post("/summer/auto-suggest", response_model=SummerSuggestResponse)
@@ -1532,10 +1542,11 @@ def auto_suggest(
     Note: unavailability_notes is free-text and not factored into the algorithm.
     Admin should cross-check proposals against student unavailability manually.
     """
-    # 1. Load all lessons for config+location, joined with slots, with session counts
+    # 1. Load all lessons for config+location, joined with slots + tutor
     lessons_query = (
         db.query(SummerLesson, SummerCourseSlot)
         .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
+        .options(joinedload(SummerCourseSlot.tutor))
         .filter(
             SummerCourseSlot.config_id == data.config_id,
             SummerCourseSlot.location == data.location,
@@ -1657,6 +1668,19 @@ def auto_suggest(
         # Snapshot capacity before this student (so we can roll back if needed)
         cap_snapshot = {lid: cap for lid, cap in lesson_capacity.items()}
 
+        # For 1x students: try to get multiple single-slot options
+        option_labels = "ABCDEFGH"
+        alt_options: list[tuple[list, str, float]] = []
+        if app.sessions_per_week == 1:
+            by_num: dict[int, list] = {}
+            for lesson, slot in grade_lessons:
+                if lesson_capacity.get(lesson.id, 0) <= 0:
+                    continue
+                by_num.setdefault(lesson.lesson_number, []).append((lesson, slot))
+            if all(n in by_num for n in range(1, 9)):
+                alt_options = _try_single_slot(app, by_num, lesson_buddy_groups)
+
+        # Primary result from full algorithm
         result = _find_best_lesson_set(
             app, grade_lessons, lesson_capacity, lesson_buddy_groups,
         )
@@ -1672,39 +1696,62 @@ def auto_suggest(
             })
             continue
 
-        # Compute sequence score
-        chronological_numbers = [a["lesson_number"] for a in assignments]
-        seq_score = _score_sequence(chronological_numbers)
+        def _build_proposal(
+            assign_list: list, m_type: str, conf: float, label: str | None = None,
+        ) -> SummerSuggestionItem:
+            chronological_numbers = [a["lesson_number"] for a in assign_list]
+            seq_score = _score_sequence(chronological_numbers)
+            reason_parts = [f"{m_type.replace('_', ' ')} match"]
+            if app.buddy_group_id:
+                buddy_hits = sum(
+                    1 for a in assign_list
+                    if app.buddy_group_id in lesson_buddy_groups.get(a["lesson_id"], set())
+                )
+                if buddy_hits > 0:
+                    reason_parts.append(f"buddy in {buddy_hits}/{len(assign_list)} lessons")
+            if seq_score < 1.0:
+                reason_parts.append(f"sequence {seq_score:.0%}")
 
-        # Build reason
-        reason_parts = [f"{match_type.replace('_', ' ')} match"]
-        if app.buddy_group_id:
-            buddy_hits = sum(
-                1 for a in assignments
-                if app.buddy_group_id in lesson_buddy_groups.get(a["lesson_id"], set())
+            # Warn if 1x student ended up in multiple slots — replace match_type text
+            slot_ids = {a["slot_id"] for a in assign_list}
+            if app.sessions_per_week == 1 and len(slot_ids) > 1:
+                reason_parts[0] = "uses multiple slots (1x student)"
+
+            return SummerSuggestionItem(
+                application_id=app.id,
+                student_name=app.student_name,
+                student_grade=app.grade,
+                sessions_per_week=app.sessions_per_week,
+                lesson_assignments=[SummerLessonAssignment(**a) for a in assign_list],
+                sequence_score=seq_score,
+                match_type=m_type,
+                confidence=min(conf, 1.0),
+                reason=", ".join(reason_parts),
+                unavailability_notes=app.unavailability_notes,
+                option_label=label,
             )
-            if buddy_hits > 0:
-                reason_parts.append(f"buddy in {buddy_hits}/{len(assignments)} lessons")
-        if seq_score < 1.0:
-            reason_parts.append(f"sequence {seq_score:.0%}")
 
-        # Build lesson assignment objects
-        lesson_assign_objs = [
-            SummerLessonAssignment(**a) for a in assignments
-        ]
-
-        proposals.append(SummerSuggestionItem(
-            application_id=app.id,
-            student_name=app.student_name,
-            student_grade=app.grade,
-            sessions_per_week=app.sessions_per_week,
-            lesson_assignments=lesson_assign_objs,
-            sequence_score=seq_score,
-            match_type=match_type,
-            confidence=min(confidence, 1.0),
-            reason=", ".join(reason_parts),
-            unavailability_notes=app.unavailability_notes,
-        ))
+        # Build proposals: if we have multiple single-slot options, emit them
+        if len(alt_options) > 1:
+            # Dedupe: skip alt options that match the primary assignment's slot
+            primary_slot_ids = {a["slot_id"] for a in assignments}
+            emitted_slot_ids: set[frozenset] = set()
+            idx = 0
+            # Always include primary as Option A
+            proposals.append(_build_proposal(assignments, match_type, confidence, f"Option {option_labels[idx]}"))
+            emitted_slot_ids.add(frozenset(primary_slot_ids))
+            idx += 1
+            for alt_assign, alt_match, alt_conf in alt_options:
+                alt_slot_ids = frozenset(a["slot_id"] for a in alt_assign)
+                if alt_slot_ids in emitted_slot_ids:
+                    continue
+                if idx >= 3:
+                    break
+                proposals.append(_build_proposal(alt_assign, alt_match, alt_conf, f"Option {option_labels[idx]}"))
+                emitted_slot_ids.add(alt_slot_ids)
+                idx += 1
+        else:
+            proposals.append(_build_proposal(assignments, match_type, confidence))
 
         # Capacity already decremented during _find_best_lesson_set;
         # update buddy groups for subsequent students

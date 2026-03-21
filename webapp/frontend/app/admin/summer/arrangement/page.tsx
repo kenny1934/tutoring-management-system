@@ -539,6 +539,8 @@ export default function SummerArrangementPage() {
             onAccepted={refreshAll}
             applicationId={suggestForStudent?.id}
             studentName={suggestForStudent?.name}
+            courseStartDate={activeConfig?.course_start_date}
+            courseEndDate={activeConfig?.course_end_date}
           />
         )}
 
