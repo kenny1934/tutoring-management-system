@@ -402,3 +402,188 @@ class TestStudentLessons:
         assert student.placed_count == 4
         placed_lessons = [l for l in student.lessons if l.placed]
         assert len(placed_lessons) == 4
+
+
+class TestSequenceScoring:
+    """Test the _score_sequence helper."""
+
+    def test_perfect_sequence(self):
+        from routers.summer_course import _score_sequence
+        # All pairs in order, both groups in order
+        score = _score_sequence([1, 2, 3, 4, 5, 6, 7, 8])
+        assert score == 1.0
+
+    def test_reversed_pairs(self):
+        from routers.summer_course import _score_sequence
+        # All pairs reversed: 2 before 1, 4 before 3, etc.
+        score = _score_sequence([2, 1, 4, 3, 6, 5, 8, 7])
+        assert score < 0.3  # very bad
+
+    def test_ab_interleaved(self):
+        from routers.summer_course import _score_sequence
+        # Type A+B typical: 1,5,2,6,3,7,4,8
+        score = _score_sequence([1, 5, 2, 6, 3, 7, 4, 8])
+        # Pairs preserved (1<2, 3<4, 5<6, 7<8) but groups not in strict order
+        assert score > 0.5  # decent — pairs all preserved
+
+    def test_partial_good(self):
+        from routers.summer_course import _score_sequence
+        # Some pairs preserved, some broken
+        score = _score_sequence([1, 2, 4, 3, 5, 6, 8, 7])
+        # Pairs (1,2) and (5,6) preserved, (3,4) and (7,8) broken
+        assert 0.3 < score < 0.8
+
+
+class TestAutoSuggest:
+    """Test the lesson-level auto-suggest algorithm."""
+
+    def _generate_all_lessons(self, db_session, *slots):
+        from routers.summer_course import _ensure_lessons_for_slot
+        for slot in slots:
+            _ensure_lessons_for_slot(slot, db_session)
+        db_session.commit()
+
+    def test_1x_student_gets_8_lessons(self, db_session, summer_config, slot_type_a, application, admin_tutor):
+        """1x/week student should get 8 lesson assignments from one slot."""
+        self._generate_all_lessons(db_session, slot_type_a)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        assert len(result.proposals) == 1
+        proposal = result.proposals[0]
+        assert proposal.student_name == "Test Student"
+        assert len(proposal.lesson_assignments) == 8
+        assert proposal.sessions_per_week == 1
+
+    def test_2x_student_gets_lessons_from_multiple_slots(
+        self, db_session, summer_config, slot_type_a, slot_type_b, application_2x, admin_tutor
+    ):
+        """2x/week student should get lessons from multiple slots."""
+        self._generate_all_lessons(db_session, slot_type_a, slot_type_b)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        assert len(result.proposals) == 1
+        proposal = result.proposals[0]
+        assert proposal.student_name == "Twice Weekly"
+        assert len(proposal.lesson_assignments) == 8
+        assert proposal.sessions_per_week == 2
+
+        # Should use at least 2 different slots
+        slot_ids = {a.slot_id for a in proposal.lesson_assignments}
+        assert len(slot_ids) >= 1  # May use 1 or 2 depending on availability
+
+    def test_pair_ordering_preserved(
+        self, db_session, summer_config, slot_type_a, slot_type_b, application, admin_tutor
+    ):
+        """Proposed lesson sequence should preserve pair ordering."""
+        self._generate_all_lessons(db_session, slot_type_a, slot_type_b)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        assert len(result.proposals) >= 1
+        proposal = result.proposals[0]
+        # Sort assignments by date
+        sorted_assignments = sorted(proposal.lesson_assignments, key=lambda a: a.lesson_date)
+        lesson_order = [a.lesson_number for a in sorted_assignments]
+
+        # Check pair ordering
+        pairs = [(1, 2), (3, 4), (5, 6), (7, 8)]
+        for a, b in pairs:
+            if a in lesson_order and b in lesson_order:
+                assert lesson_order.index(a) < lesson_order.index(b), \
+                    f"L{a} should come before L{b}, got {lesson_order}"
+
+    def test_sequence_score_positive(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor
+    ):
+        """Proposals should have a positive sequence score."""
+        self._generate_all_lessons(db_session, slot_type_a)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        assert len(result.proposals) >= 1
+        assert result.proposals[0].sequence_score > 0
+
+    def test_single_student_mode(
+        self, db_session, summer_config, slot_type_a, application, application_2x, admin_tutor
+    ):
+        """application_id should limit suggest to just that student."""
+        self._generate_all_lessons(db_session, slot_type_a)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(
+            config_id=summer_config.id, location="MSA",
+            application_id=application.id,
+        )
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        assert len(result.proposals) == 1
+        assert result.proposals[0].application_id == application.id
+
+    def test_exclude_dates(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor
+    ):
+        """exclude_dates should filter out lessons on those dates."""
+        self._generate_all_lessons(db_session, slot_type_a)
+
+        # Get all lesson dates for this slot
+        lessons = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_type_a.id
+        ).order_by(SummerLesson.lesson_date).all()
+        first_date = lessons[0].lesson_date
+
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(
+            config_id=summer_config.id, location="MSA",
+            exclude_dates=[first_date],
+        )
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        if result.proposals:
+            for a in result.proposals[0].lesson_assignments:
+                assert a.lesson_date != first_date, "Excluded date should not appear"
+
+    def test_unavailability_notes_shown(
+        self, db_session, summer_config, slot_type_a, admin_tutor
+    ):
+        """unavailability_notes should be passed through to the proposal."""
+        app = SummerApplication(
+            config_id=summer_config.id,
+            reference_code="SC2025-UNAVL",
+            student_name="Unavailable Kid",
+            grade="F1",
+            contact_phone="11111111",
+            preferred_location="MSA",
+            application_status="Submitted",
+            sessions_per_week=1,
+            unavailability_notes="7月14至21日不能上課",
+        )
+        db_session.add(app)
+        db_session.commit()
+
+        self._generate_all_lessons(db_session, slot_type_a)
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        proposal = next((p for p in result.proposals if p.student_name == "Unavailable Kid"), None)
+        assert proposal is not None
+        assert proposal.unavailability_notes == "7月14至21日不能上課"

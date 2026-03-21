@@ -54,6 +54,7 @@ from schemas import (
     SummerSuggestRequest,
     SummerSuggestResponse,
     SummerSuggestionItem,
+    SummerLessonAssignment,
     SummerTutorDutyBulkSet,
     SummerTutorDutyResponse,
     SummerApplicationSessionInfo,
@@ -1194,136 +1195,459 @@ def get_student_lessons(
 
 # ─── Auto-Suggest ────────────────────────────────────────────────────────────
 
+
+def _score_sequence(lesson_numbers: list[int]) -> float:
+    """Score how well a list of lesson_numbers (in chronological order) preserves
+    the ideal curriculum sequence.
+
+    Pair ordering (weight 1.0 each): within pairs (1,2), (3,4), (5,6), (7,8),
+    is the first element scheduled before the second?
+
+    Group ordering (weight 0.5 each): within [1,2,3,4] and [5,6,7,8],
+    are elements in ascending order (pairwise)?
+    """
+    if not lesson_numbers:
+        return 0.0
+
+    # Map lesson_number -> position (index) in chronological order
+    pos: dict[int, int] = {}
+    for i, ln in enumerate(lesson_numbers):
+        if ln not in pos:  # first occurrence wins
+            pos[ln] = i
+
+    score = 0.0
+    total_weight = 0.0
+
+    # Pair ordering — weight 1.0 each
+    pairs = [(1, 2), (3, 4), (5, 6), (7, 8)]
+    for a, b in pairs:
+        if a in pos and b in pos:
+            total_weight += 1.0
+            if pos[a] < pos[b]:
+                score += 1.0
+
+    # Group ordering — weight 0.5 for each adjacent pair in group
+    groups = [[1, 2, 3, 4], [5, 6, 7, 8]]
+    for group in groups:
+        present = [ln for ln in group if ln in pos]
+        for i in range(len(present) - 1):
+            total_weight += 0.5
+            if pos[present[i]] < pos[present[i + 1]]:
+                score += 0.5
+
+    return score / total_weight if total_weight > 0 else 0.0
+
+
+def _find_best_lesson_set(
+    app: SummerApplication,
+    available_lessons: list,
+    lesson_capacity: dict[int, int],
+    lesson_buddy_groups: dict[int, set[int]],
+) -> tuple[list | None, str, float]:
+    """Find the best set of 8 lessons for a student.
+
+    Returns (assignments_list_or_None, match_type, confidence).
+    Each item in assignments is a dict with lesson info ready for SummerLessonAssignment.
+    """
+    # Group available lessons by lesson_number
+    by_number: dict[int, list] = {}
+    for lesson, slot in available_lessons:
+        if lesson_capacity.get(lesson.id, 0) <= 0:
+            continue
+        by_number.setdefault(lesson.lesson_number, []).append((lesson, slot))
+
+    needed = list(range(1, 9))  # lesson_numbers 1-8
+
+    # Check we have at least one candidate for every lesson_number
+    if not all(n in by_number for n in needed):
+        return None, "", 0.0
+
+    # --- For 1x/week students: try single-slot solution first ---
+    if app.sessions_per_week == 1:
+        single_result = _try_single_slot(app, by_number, lesson_buddy_groups)
+        if single_result is not None:
+            assignments, match_type, confidence = single_result
+            seq = [a["lesson_number"] for a in assignments]
+            return assignments, match_type, confidence
+
+    # --- Cross-slot greedy assignment ---
+    # Process order: 1, 5, 2, 6, 3, 7, 4, 8 (alternate algebra/geometry groups)
+    process_order = [1, 5, 2, 6, 3, 7, 4, 8]
+    assigned: dict[int, dict] = {}  # lesson_number -> assignment dict
+    assigned_dates: list[tuple[int, object]] = []  # (lesson_number, date) in assignment order
+
+    best_match = "any_open"
+    total_score = 0.0
+
+    for ln in process_order:
+        candidates = by_number.get(ln, [])
+        if not candidates:
+            return None, "", 0.0
+
+        best_candidate = None
+        best_cand_score = -1.0
+
+        for lesson, slot in candidates:
+            if lesson_capacity.get(lesson.id, 0) <= 0:
+                continue
+
+            cand_score = 0.0
+
+            # Preference match
+            is_first = (slot.slot_day == app.preference_1_day and slot.time_slot == app.preference_1_time)
+            is_second = (slot.slot_day == app.preference_2_day and slot.time_slot == app.preference_2_time)
+            if is_first:
+                cand_score += 1.0
+            elif is_second:
+                cand_score += 0.7
+            else:
+                cand_score += 0.3
+
+            # Buddy bonus
+            if app.buddy_group_id and app.buddy_group_id in lesson_buddy_groups.get(lesson.id, set()):
+                cand_score += 0.1
+
+            # Capacity: slight preference for less-full lessons (normalize to 0-0.05)
+            remaining = lesson_capacity.get(lesson.id, 0)
+            cand_score += min(remaining / 200.0, 0.05)
+
+            # Date ordering: prefer dates that maintain pair/group order
+            ordering_bonus = 0.0
+            if assigned_dates:
+                # Check if this date would maintain order with already-assigned lessons
+                lesson_date = lesson.lesson_date
+                good_order = 0
+                total_checks = 0
+                for prev_ln, prev_date in assigned_dates:
+                    # For pair partners and group members, correct order matters
+                    if (prev_ln < ln and prev_date <= lesson_date) or \
+                       (prev_ln > ln and prev_date >= lesson_date):
+                        good_order += 1
+                    total_checks += 1
+                if total_checks > 0:
+                    ordering_bonus = 0.2 * (good_order / total_checks)
+            cand_score += ordering_bonus
+
+            if cand_score > best_cand_score:
+                best_cand_score = cand_score
+                best_candidate = (lesson, slot, is_first, is_second)
+
+        if best_candidate is None:
+            return None, "", 0.0
+
+        lesson, slot, is_first, is_second = best_candidate
+        assigned[ln] = {
+            "lesson_id": lesson.id,
+            "slot_id": slot.id,
+            "lesson_number": ln,
+            "lesson_date": lesson.lesson_date,
+            "time_slot": slot.time_slot,
+            "slot_day": slot.slot_day,
+        }
+        assigned_dates.append((ln, lesson.lesson_date))
+
+        # Track match quality
+        if is_first:
+            total_score += 1.0
+            if best_match != "first_pref":
+                best_match = "first_pref" if best_match in ("any_open", "first_pref") else "mixed"
+        elif is_second:
+            total_score += 0.7
+            if best_match != "second_pref":
+                best_match = "second_pref" if best_match in ("any_open", "second_pref") else "mixed"
+        else:
+            total_score += 0.3
+
+        # Temporarily reserve capacity for greedy consistency
+        lesson_capacity[lesson.id] -= 1
+
+    # Build sorted assignment list (by date)
+    assignments = sorted(assigned.values(), key=lambda a: a["lesson_date"])
+    confidence = min(total_score / 8.0, 1.0)
+
+    return assignments, best_match, confidence
+
+
+def _try_single_slot(
+    app: SummerApplication,
+    by_number: dict[int, list],
+    lesson_buddy_groups: dict[int, set[int]],
+) -> tuple[list, str, float] | None:
+    """For 1x/week students, try to find a single slot that covers all 8 lessons."""
+    # Collect all slot_ids that appear across every lesson_number
+    slot_sets = []
+    for n in range(1, 9):
+        candidates = by_number.get(n, [])
+        slot_ids = {slot.id for _, slot in candidates}
+        slot_sets.append(slot_ids)
+
+    if not slot_sets:
+        return None
+
+    # Slots that have all 8 lesson_numbers available
+    common_slots = slot_sets[0]
+    for s in slot_sets[1:]:
+        common_slots = common_slots & s
+    if not common_slots:
+        return None
+
+    # Score each common slot
+    best_slot_id = None
+    best_score = -1.0
+    best_match = "any_open"
+
+    # Build quick lookup: (slot_id, lesson_number) -> (lesson, slot)
+    slot_lessons: dict[tuple[int, int], tuple] = {}
+    for n in range(1, 9):
+        for lesson, slot in by_number.get(n, []):
+            if slot.id in common_slots:
+                slot_lessons[(slot.id, n)] = (lesson, slot)
+
+    for sid in common_slots:
+        sample_lesson, sample_slot = slot_lessons.get((sid, 1), (None, None))
+        if sample_slot is None:
+            continue
+
+        score = 0.0
+        is_first = (sample_slot.slot_day == app.preference_1_day and sample_slot.time_slot == app.preference_1_time)
+        is_second = (sample_slot.slot_day == app.preference_2_day and sample_slot.time_slot == app.preference_2_time)
+
+        if is_first:
+            score += 1.0
+            match = "first_pref"
+        elif is_second:
+            score += 0.7
+            match = "second_pref"
+        else:
+            score += 0.3
+            match = "any_open"
+
+        # Buddy bonus (check across all 8 lessons)
+        buddy_bonus = 0
+        if app.buddy_group_id:
+            for n in range(1, 9):
+                pair = slot_lessons.get((sid, n))
+                if pair and app.buddy_group_id in lesson_buddy_groups.get(pair[0].id, set()):
+                    buddy_bonus += 1
+            score += 0.1 * (buddy_bonus / 8)
+
+        if score > best_score:
+            best_score = score
+            best_slot_id = sid
+            best_match = match
+
+    if best_slot_id is None:
+        return None
+
+    # Build assignments from best slot
+    assignments = []
+    for n in range(1, 9):
+        pair = slot_lessons.get((best_slot_id, n))
+        if pair is None:
+            return None
+        lesson, slot = pair
+        assignments.append({
+            "lesson_id": lesson.id,
+            "slot_id": slot.id,
+            "lesson_number": n,
+            "lesson_date": lesson.lesson_date,
+            "time_slot": slot.time_slot,
+            "slot_day": slot.slot_day,
+        })
+
+    assignments.sort(key=lambda a: a["lesson_date"])
+    confidence = min(best_score, 1.0)
+    return assignments, best_match, confidence
+
+
 @router.post("/summer/auto-suggest", response_model=SummerSuggestResponse)
 def auto_suggest(
     data: SummerSuggestRequest,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Run greedy least-flexible-first auto-suggest algorithm.
+    """Lesson-level greedy auto-suggest: least-flexible-first assignment.
 
     Note: unavailability_notes is free-text and not factored into the algorithm.
     Admin should cross-check proposals against student unavailability manually.
     """
-    # 1. Load unassigned applications for this config + location
-    placed_ids = (
-        select(SummerSession.application_id)
-        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
-        .where(
-            SummerSession.session_status != "Cancelled",
-            SummerCourseSlot.config_id == data.config_id,
-        )
-        .distinct()
-        .scalar_subquery()
-    )
-    apps = (
-        db.query(SummerApplication)
+    # 1. Load all lessons for config+location, joined with slots, with session counts
+    lessons_query = (
+        db.query(SummerLesson, SummerCourseSlot)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
         .filter(
-            SummerApplication.config_id == data.config_id,
-            SummerApplication.preferred_location == data.location,
-            SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
-            SummerApplication.id.not_in(placed_ids),
+            SummerCourseSlot.config_id == data.config_id,
+            SummerCourseSlot.location == data.location,
+            SummerLesson.lesson_status != "Cancelled",
         )
+    )
+    all_lessons: list[tuple] = lessons_query.all()
+
+    # Build lesson capacity: lesson_id -> remaining seats
+    # Count active sessions per lesson
+    session_counts = dict(
+        db.query(SummerSession.lesson_id, func.count(SummerSession.id))
+        .filter(SummerSession.session_status != "Cancelled")
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .filter(
+            SummerCourseSlot.config_id == data.config_id,
+            SummerCourseSlot.location == data.location,
+        )
+        .group_by(SummerSession.lesson_id)
         .all()
     )
+    lesson_capacity: dict[int, int] = {}
+    for lesson, slot in all_lessons:
+        count = session_counts.get(lesson.id, 0)
+        lesson_capacity[lesson.id] = slot.max_students - count
 
-    # 2. Load slots with current counts (eager-load sessions + their applications for buddy tracking)
-    slots = (
-        db.query(SummerCourseSlot)
-        .options(
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application)
+    # Track buddy groups per lesson (which buddy groups have students in each lesson)
+    lesson_buddy_groups: dict[int, set[int]] = {}
+    buddy_sessions = (
+        db.query(SummerSession.lesson_id, SummerApplication.buddy_group_id)
+        .join(SummerApplication, SummerSession.application_id == SummerApplication.id)
+        .filter(
+            SummerSession.session_status != "Cancelled",
+            SummerApplication.buddy_group_id.is_not(None),
         )
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .filter(
             SummerCourseSlot.config_id == data.config_id,
             SummerCourseSlot.location == data.location,
         )
         .all()
     )
+    for lesson_id, bg_id in buddy_sessions:
+        if lesson_id is not None and bg_id is not None:
+            lesson_buddy_groups.setdefault(lesson_id, set()).add(bg_id)
 
-    # Build slot capacity map: slot_id -> remaining capacity
-    slot_capacity: dict[int, int] = {}
-    slot_buddy_groups: dict[int, set[int]] = {}  # slot_id -> set of buddy_group_ids
-    for s in slots:
-        active = [sess for sess in s.sessions if sess.session_status != "Cancelled"]
-        slot_capacity[s.id] = s.max_students - len(active)
-        # Track buddy groups in each slot
-        for sess in active:
-            if sess.application and sess.application.buddy_group_id:
-                slot_buddy_groups.setdefault(s.id, set()).add(sess.application.buddy_group_id)
+    # 2. Load students
+    if data.application_id:
+        # Single student mode
+        app = db.query(SummerApplication).filter(SummerApplication.id == data.application_id).first()
+        if not app:
+            raise HTTPException(status_code=404, detail="Application not found")
+        apps = [app]
+    else:
+        # All unplaced students
+        placed_ids = (
+            select(SummerSession.application_id)
+            .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+            .where(
+                SummerSession.session_status != "Cancelled",
+                SummerCourseSlot.config_id == data.config_id,
+            )
+            .distinct()
+            .scalar_subquery()
+        )
+        apps = (
+            db.query(SummerApplication)
+            .filter(
+                SummerApplication.config_id == data.config_id,
+                SummerApplication.preferred_location == data.location,
+                SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+                SummerApplication.id.not_in(placed_ids),
+            )
+            .all()
+        )
 
-    # 3. Score each application by flexibility (count matching open slots)
-    def count_matching(app: SummerApplication) -> int:
-        return sum(1 for s in slots if s.grade == app.grade and slot_capacity.get(s.id, 0) > 0)
+    # 3. Apply date constraints
+    exclude_set = set(data.exclude_dates) if data.exclude_dates else set()
+    include_set = set(data.include_dates) if data.include_dates else None
 
-    sorted_apps = sorted(apps, key=count_matching)  # least flexible first
+    filtered_lessons = []
+    for lesson, slot in all_lessons:
+        if lesson.lesson_date in exclude_set:
+            continue
+        if include_set is not None and lesson.lesson_date not in include_set:
+            continue
+        filtered_lessons.append((lesson, slot))
 
-    # 4. Greedy assignment
+    # 4. Sort students by flexibility (fewer available grade-matching lessons = first)
+    def count_available(app: SummerApplication) -> int:
+        return sum(
+            1 for lesson, slot in filtered_lessons
+            if slot.grade == app.grade and lesson_capacity.get(lesson.id, 0) > 0
+        )
+
+    sorted_apps = sorted(apps, key=count_available)
+
+    # 5. Greedy assignment
     proposals: list[SummerSuggestionItem] = []
     unplaceable: list[dict] = []
 
     for app in sorted_apps:
-        available = [s for s in slots if s.grade == app.grade and slot_capacity.get(s.id, 0) > 0]
-        if not available:
+        # Filter lessons for this student's grade
+        grade_lessons = [
+            (lesson, slot) for lesson, slot in filtered_lessons
+            if slot.grade == app.grade
+        ]
+
+        if not grade_lessons:
             unplaceable.append({
                 "application_id": app.id,
                 "student_name": app.student_name,
-                "reason": f"No open {app.grade} slots available",
+                "reason": f"No {app.grade} lessons available",
             })
             continue
 
-        # Try matching preferences
-        best_slot = None
-        match_type = "any_open"
-        confidence = 0.3
+        # Snapshot capacity before this student (so we can roll back if needed)
+        cap_snapshot = {lid: cap for lid, cap in lesson_capacity.items()}
 
-        for s in available:
-            is_first = (s.slot_day == app.preference_1_day and s.time_slot == app.preference_1_time)
-            is_second = (s.slot_day == app.preference_2_day and s.time_slot == app.preference_2_time)
-            has_buddy = (
-                app.buddy_group_id
-                and app.buddy_group_id in slot_buddy_groups.get(s.id, set())
+        result = _find_best_lesson_set(
+            app, grade_lessons, lesson_capacity, lesson_buddy_groups,
+        )
+        assignments, match_type, confidence = result
+
+        if assignments is None:
+            # Roll back any capacity changes from partial greedy
+            lesson_capacity.update(cap_snapshot)
+            unplaceable.append({
+                "application_id": app.id,
+                "student_name": app.student_name,
+                "reason": f"Cannot fill all 8 lessons for {app.grade}",
+            })
+            continue
+
+        # Compute sequence score
+        chronological_numbers = [a["lesson_number"] for a in assignments]
+        seq_score = _score_sequence(chronological_numbers)
+
+        # Build reason
+        reason_parts = [f"{match_type.replace('_', ' ')} match"]
+        if app.buddy_group_id:
+            buddy_hits = sum(
+                1 for a in assignments
+                if app.buddy_group_id in lesson_buddy_groups.get(a["lesson_id"], set())
             )
+            if buddy_hits > 0:
+                reason_parts.append(f"buddy in {buddy_hits}/{len(assignments)} lessons")
+        if seq_score < 1.0:
+            reason_parts.append(f"sequence {seq_score:.0%}")
 
-            if is_first:
-                score = 1.0 + (0.05 if has_buddy else 0)
-            elif is_second:
-                score = 0.7 + (0.05 if has_buddy else 0)
-            else:
-                # Prefer emptiest slot, buddy bonus
-                remaining = slot_capacity.get(s.id, 0)
-                score = 0.3 + (remaining / 20) + (0.1 if has_buddy else 0)
+        # Build lesson assignment objects
+        lesson_assign_objs = [
+            SummerLessonAssignment(**a) for a in assignments
+        ]
 
-            if best_slot is None or score > confidence:
-                best_slot = s
-                confidence = score
-                if is_first:
-                    match_type = "first_pref"
-                elif is_second:
-                    match_type = "second_pref"
-                else:
-                    match_type = "any_open"
+        proposals.append(SummerSuggestionItem(
+            application_id=app.id,
+            student_name=app.student_name,
+            student_grade=app.grade,
+            sessions_per_week=app.sessions_per_week,
+            lesson_assignments=lesson_assign_objs,
+            sequence_score=seq_score,
+            match_type=match_type,
+            confidence=min(confidence, 1.0),
+            reason=", ".join(reason_parts),
+            unavailability_notes=app.unavailability_notes,
+        ))
 
-        if best_slot:
-            reason_parts = [f"{match_type.replace('_', ' ')} match"]
-            if app.buddy_group_id and app.buddy_group_id in slot_buddy_groups.get(best_slot.id, set()):
-                reason_parts.append("buddy in slot")
-            proposals.append(SummerSuggestionItem(
-                application_id=app.id,
-                student_name=app.student_name,
-                student_grade=app.grade,
-                slot_id=best_slot.id,
-                slot_day=best_slot.slot_day,
-                slot_time=best_slot.time_slot,
-                slot_grade=best_slot.grade,
-                slot_label=best_slot.slot_label,
-                match_type=match_type,
-                confidence=min(confidence, 1.0),
-                reason=", ".join(reason_parts),
-            ))
-            # Reserve capacity in memory
-            slot_capacity[best_slot.id] -= 1
-            if app.buddy_group_id:
-                slot_buddy_groups.setdefault(best_slot.id, set()).add(app.buddy_group_id)
+        # Capacity already decremented during _find_best_lesson_set;
+        # update buddy groups for subsequent students
+        if app.buddy_group_id:
+            for a in assignments:
+                lesson_buddy_groups.setdefault(a["lesson_id"], set()).add(app.buddy_group_id)
 
     return SummerSuggestResponse(proposals=proposals, unplaceable=unplaceable)
 
