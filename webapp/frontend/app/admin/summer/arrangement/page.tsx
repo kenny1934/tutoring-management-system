@@ -35,6 +35,7 @@ export default function SummerArrangementPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
+  const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
@@ -476,6 +477,7 @@ export default function SummerArrangementPage() {
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   totalLessons={activeConfig?.total_lessons ?? 8}
+                  onSuggestStudent={(id, name) => setSuggestForStudent({ id, name })}
                 />
               </div>
             </div>
@@ -519,6 +521,7 @@ export default function SummerArrangementPage() {
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   totalLessons={activeConfig?.total_lessons ?? 8}
+                  onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
                 />
               </div>
             </div>
@@ -527,13 +530,15 @@ export default function SummerArrangementPage() {
         </div>{/* end paper card */}
 
         {/* Auto-suggest modal */}
-        {autoSuggestOpen && configId && (
+        {(autoSuggestOpen || suggestForStudent) && configId && (
           <SummerAutoSuggestModal
-            isOpen={autoSuggestOpen}
-            onClose={() => setAutoSuggestOpen(false)}
+            isOpen={autoSuggestOpen || !!suggestForStudent}
+            onClose={() => { setAutoSuggestOpen(false); setSuggestForStudent(null); }}
             configId={configId}
             location={location}
             onAccepted={refreshAll}
+            applicationId={suggestForStudent?.id}
+            studentName={suggestForStudent?.name}
           />
         )}
 

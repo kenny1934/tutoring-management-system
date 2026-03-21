@@ -16,6 +16,7 @@ interface SummerUnassignedPanelProps {
   className?: string;
   hideCollapse?: boolean;
   totalLessons?: number;
+  onSuggestStudent?: (applicationId: number, studentName: string) => void;
 }
 
 
@@ -36,6 +37,7 @@ export function SummerUnassignedPanel({
   className,
   hideCollapse,
   totalLessons = 8,
+  onSuggestStudent,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -235,11 +237,22 @@ export function SummerUnassignedPanel({
                     ② {formatPref(app.preference_2_day, app.preference_2_time)}
                   </span>
                 </div>
-                {app.buddy_code && (
-                  <div className="text-[9px] text-primary/70 mt-0.5">
-                    Buddy: {app.buddy_code}
-                  </div>
-                )}
+                <div className="flex items-center gap-1 mt-0.5">
+                  {app.buddy_code && (
+                    <span className="text-[9px] text-primary/70">
+                      Buddy: {app.buddy_code}
+                    </span>
+                  )}
+                  {onSuggestStudent && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
+                      className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                      title="Auto-suggest placement for this student"
+                    >
+                      Suggest
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
