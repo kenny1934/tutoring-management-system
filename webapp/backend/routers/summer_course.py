@@ -1650,6 +1650,21 @@ def auto_suggest(
 
     sorted_apps = sorted(apps, key=count_available)
 
+    # Pre-compute placed_count per application (existing non-cancelled sessions)
+    app_placed_counts: dict[int, int] = {}
+    if sorted_apps:
+        app_ids = [a.id for a in sorted_apps]
+        placed_rows = (
+            db.query(SummerSession.application_id, func.count(SummerSession.id))
+            .filter(
+                SummerSession.application_id.in_(app_ids),
+                SummerSession.session_status != "Cancelled",
+            )
+            .group_by(SummerSession.application_id)
+            .all()
+        )
+        app_placed_counts = dict(placed_rows)
+
     # 5. Greedy assignment
     proposals: list[SummerSuggestionItem] = []
     unplaceable: list[dict] = []
@@ -1729,6 +1744,11 @@ def auto_suggest(
                 reason=", ".join(reason_parts),
                 unavailability_notes=app.unavailability_notes,
                 option_label=label,
+                preference_1_day=app.preference_1_day,
+                preference_1_time=app.preference_1_time,
+                preference_2_day=app.preference_2_day,
+                preference_2_time=app.preference_2_time,
+                placed_count=app_placed_counts.get(app.id, 0),
             )
 
         # Build proposals: if we have multiple single-slot options, emit them

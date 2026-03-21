@@ -416,7 +416,6 @@ export function SummerAutoSuggestModal({
   // For students with multiple options: which option_label is chosen per app_id
   const [selectedOption, setSelectedOption] = useState<Record<number, string>>({});
   const [accepting, setAccepting] = useState(false);
-  const [acceptProgress, setAcceptProgress] = useState({ current: 0, total: 0 });
   const [showAlgorithm, setShowAlgorithm] = useState(false);
   const [adjustingAppId, setAdjustingAppId] = useState<number | null>(null);
   const [dateConstraints, setDateConstraints] = useState<Record<number, DateConstraints>>({});
@@ -465,7 +464,6 @@ export function SummerAutoSuggestModal({
     setData(null);
     setSelected(new Set());
     setAccepting(false);
-    setAcceptProgress({ current: 0, total: 0 });
     setAdjustingAppId(null);
     setAdjustErrors({});
 
@@ -493,6 +491,16 @@ export function SummerAutoSuggestModal({
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, configId, location, applicationId]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isOpen]);
 
   const toggleItem = useCallback((appId: number) => {
     setSelected((prev) => {
@@ -580,11 +588,8 @@ export function SummerAutoSuggestModal({
       }))
     );
 
-    setAcceptProgress({ current: 0, total: bulkItems.length });
-
     try {
       const result = await summerAPI.bulkCreateSessions(bulkItems);
-      setAcceptProgress({ current: bulkItems.length, total: bulkItems.length });
 
       if (result.skipped > 0) {
         showToast(
@@ -754,7 +759,29 @@ export function SummerAutoSuggestModal({
                                     {p.sessions_per_week}x/wk
                                   </span>
                                 )}
+                                {(p.placed_count ?? 0) > 0 && (
+                                  <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
+                                    {p.placed_count}/8
+                                  </span>
+                                )}
                               </div>
+                              {/* Preference summary */}
+                              {(p.preference_1_day || p.preference_2_day) && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Pref:{" "}
+                                  {p.preference_1_day && (
+                                    <span>
+                                      {DAY_ABBREV[p.preference_1_day] || p.preference_1_day} {p.preference_1_time}
+                                    </span>
+                                  )}
+                                  {p.preference_1_day && p.preference_2_day && " · "}
+                                  {p.preference_2_day && (
+                                    <span>
+                                      {DAY_ABBREV[p.preference_2_day] || p.preference_2_day} {p.preference_2_time}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Options: show all as radio-selectable rows */}
                               {group.hasOptions ? (
@@ -916,12 +943,10 @@ export function SummerAutoSuggestModal({
         {/* Footer */}
         {data && data.proposals.length > 0 && (
           <div className="flex items-center gap-3 px-5 py-4 border-t border-[#e8d4b8] bg-[#fef9f3] dark:bg-[#2d2618] rounded-b-xl">
-            {accepting && acceptProgress.total > 0 && (
+            {accepting && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>
-                  {acceptProgress.current}/{acceptProgress.total} lessons
-                </span>
+                <span>Placing students...</span>
               </div>
             )}
             <button
