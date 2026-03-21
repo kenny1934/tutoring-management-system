@@ -24,6 +24,8 @@ interface SummerAutoSuggestModalProps {
   configId: number;
   location: string;
   onAccepted: () => void;
+  applicationId?: number | null;
+  studentName?: string;
 }
 
 const MATCH_COLORS: Record<string, { bg: string; text: string }> = {
@@ -96,6 +98,8 @@ export function SummerAutoSuggestModal({
   configId,
   location,
   onAccepted,
+  applicationId,
+  studentName,
 }: SummerAutoSuggestModalProps) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -115,7 +119,7 @@ export function SummerAutoSuggestModal({
     setAcceptProgress({ current: 0, total: 0 });
 
     summerAPI
-      .autoSuggest({ config_id: configId, location })
+      .autoSuggest({ config_id: configId, location, application_id: applicationId ?? undefined })
       .then((result) => {
         setData(result);
         // Default: select all proposals with confidence > 0.5
@@ -131,7 +135,7 @@ export function SummerAutoSuggestModal({
         onClose();
       })
       .finally(() => setLoading(false));
-  }, [isOpen, configId, location, showToast, onClose]);
+  }, [isOpen, configId, location, applicationId, showToast, onClose]);
 
   const toggleItem = (appId: number) => {
     setSelected((prev) => {
@@ -202,7 +206,7 @@ export function SummerAutoSuggestModal({
         <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e8d4b8] bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-xl">
           <Wand2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           <h2 className="text-base font-semibold flex-1">
-            Auto-Suggest Placements
+            {applicationId ? `Suggest for ${studentName || "Student"}` : "Auto-Suggest Placements"}
           </h2>
           <button
             onClick={onClose}
