@@ -108,6 +108,11 @@ export function SummerAutoSuggestModal({
   const [accepting, setAccepting] = useState(false);
   const [acceptProgress, setAcceptProgress] = useState({ current: 0, total: 0 });
   const [showAlgorithm, setShowAlgorithm] = useState(false);
+  const [adjustingAppId, setAdjustingAppId] = useState<number | null>(null);
+  const [adjustMode, setAdjustMode] = useState<"exclude" | "include">("exclude");
+  const [adjustDates, setAdjustDates] = useState<string[]>([]);
+  const [adjustDateInput, setAdjustDateInput] = useState("");
+  const [readjusting, setReadjusting] = useState(false);
 
   // Run auto-suggest on mount
   useEffect(() => {
@@ -379,19 +384,135 @@ export function SummerAutoSuggestModal({
                             )}
                           </div>
 
-                          {/* Adjust button (placeholder) */}
+                          {/* Adjust button */}
                           <button
-                            className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className={cn(
+                              "shrink-0 p-1.5 rounded-md transition-colors",
+                              adjustingAppId === p.application_id
+                                ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
+                                : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
+                            )}
                             title="Adjust date constraints"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Placeholder — full implementation later
+                              if (adjustingAppId === p.application_id) {
+                                setAdjustingAppId(null);
+                              } else {
+                                setAdjustingAppId(p.application_id);
+                                setAdjustDates([]);
+                                setAdjustDateInput("");
+                                setAdjustMode("exclude");
+                              }
                             }}
                           >
                             <SlidersHorizontal className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
+
+                      {/* Date constraint panel */}
+                      {adjustingAppId === p.application_id && (
+                        <div className="px-3 pb-3 pt-1 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setAdjustMode("exclude")}
+                              className={cn(
+                                "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+                                adjustMode === "exclude"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
+                              )}
+                            >
+                              Exclude dates
+                            </button>
+                            <button
+                              onClick={() => setAdjustMode("include")}
+                              className={cn(
+                                "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+                                adjustMode === "include"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                  : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
+                              )}
+                            >
+                              Include dates only
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="date"
+                              value={adjustDateInput}
+                              onChange={(e) => setAdjustDateInput(e.target.value)}
+                              className="text-[11px] px-1.5 py-0.5 border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
+                            />
+                            <button
+                              onClick={() => {
+                                if (adjustDateInput && !adjustDates.includes(adjustDateInput)) {
+                                  setAdjustDates([...adjustDates, adjustDateInput].sort());
+                                  setAdjustDateInput("");
+                                }
+                              }}
+                              disabled={!adjustDateInput}
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40"
+                            >
+                              Add
+                            </button>
+                          </div>
+
+                          {adjustDates.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {adjustDates.map((d) => (
+                                <span key={d} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20">
+                                  {formatCompactDate(d)}
+                                  <button
+                                    onClick={() => setAdjustDates(adjustDates.filter((x) => x !== d))}
+                                    className="text-muted-foreground hover:text-red-500"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            onClick={async () => {
+                              setReadjusting(true);
+                              try {
+                                const result = await summerAPI.autoSuggest({
+                                  config_id: configId,
+                                  location,
+                                  application_id: p.application_id,
+                                  exclude_dates: adjustMode === "exclude" ? adjustDates : undefined,
+                                  include_dates: adjustMode === "include" ? adjustDates : undefined,
+                                });
+                                if (result.proposals.length > 0 && data) {
+                                  // Replace the proposal for this student
+                                  const updated = data.proposals.map((existing) =>
+                                    existing.application_id === p.application_id
+                                      ? result.proposals[0]
+                                      : existing
+                                  );
+                                  setData({ ...data, proposals: updated });
+                                  showToast("Re-suggested with date constraints", "success");
+                                } else {
+                                  showToast("No placement found with these constraints", "error");
+                                }
+                              } catch (e: any) {
+                                showToast(e.message || "Re-suggest failed", "error");
+                              } finally {
+                                setReadjusting(false);
+                                setAdjustingAppId(null);
+                              }
+                            }}
+                            disabled={adjustDates.length === 0 || readjusting}
+                            className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            {readjusting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                            Re-suggest
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
