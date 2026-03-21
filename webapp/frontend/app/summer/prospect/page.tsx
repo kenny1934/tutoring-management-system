@@ -96,7 +96,7 @@ function createEmptyRow(): ParsedRow {
     tutor_name: "",
     phone_1: "",
     school: "",
-    phone_1_relation: "Mum",
+    phone_1_relation: "Mother",
     phone_2: "",
     phone_2_relation: "",
     wechat_id: "",
@@ -448,7 +448,10 @@ export default function ProspectPage() {
   const [parsedSort, setParsedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
   const [submittedSort, setSubmittedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
   const [submittedFilters, setSubmittedFilters] = useState({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" });
+  const [lastSavedId, setLastSavedId] = useState<number | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -458,9 +461,12 @@ export default function ProspectPage() {
     return () => clearTimeout(t);
   }, [submittedSearchInput]);
 
-  // Cleanup timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
-    return () => { if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current); };
+    return () => {
+      if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
+      if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
+    };
   }, []);
   const submittedRef = useRef<HTMLElement>(null);
 
@@ -496,6 +502,7 @@ export default function ProspectPage() {
 
   const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim()).length, [parsedRows]);
   const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
+  const hasActiveFilters = !!(submittedSearchInput || submittedFilters.branch || submittedFilters.wants_summer || submittedFilters.wants_regular || submittedFilters.outreach_status);
 
   // Sort helpers
   const sortByField = useCallback((a: Record<string, unknown>, b: Record<string, unknown>, field: Exclude<SortField, null>, dir: "asc" | "desc") => {
@@ -684,12 +691,18 @@ export default function ProspectPage() {
 
   const bulkDeleteSubmitted = useCallback(async () => {
     if (!confirm(`Delete ${selectedSubmittedIds.size} selected submissions?`)) return;
+    setBulkDeleting(true);
     try {
-      await Promise.all([...selectedSubmittedIds].map((id) => prospectsAPI.delete(id, branch!)));
+      const ids = [...selectedSubmittedIds];
+      for (let i = 0; i < ids.length; i += 5) {
+        await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!)));
+      }
       setSelectedSubmittedIds(new Set());
       if (swrKey) globalMutate(swrKey);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+    } finally {
+      setBulkDeleting(false);
     }
   }, [selectedSubmittedIds, branch, swrKey]);
 
@@ -771,8 +784,11 @@ export default function ProspectPage() {
   const startEdit = useCallback((prospect: PrimaryProspect) => {
     setEditingId(prospect.id);
     setEditData({
+      primary_student_id: prospect.primary_student_id ?? "",
       student_name: prospect.student_name,
       school: prospect.school ?? "",
+      grade: prospect.grade ?? "",
+      tutor_name: prospect.tutor_name ?? "",
       phone_1: prospect.phone_1 ?? "",
       phone_1_relation: prospect.phone_1_relation ?? "Mother",
       wechat_id: prospect.wechat_id ?? "",
@@ -796,6 +812,9 @@ export default function ProspectPage() {
       await prospectsAPI.update(id, branch!, editData);
       setEditingId(null);
       setEditData({});
+      if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
+      setLastSavedId(id);
+      lastSavedTimer.current = setTimeout(() => setLastSavedId(null), 2000);
       if (swrKey) globalMutate(swrKey);
     } catch (err) {
       alert(`Error saving: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -872,7 +891,10 @@ export default function ProspectPage() {
           ) : (
             <AlertCircle className="h-5 w-5 shrink-0" />
           )}
-          {submitResult.message}
+          <span className="flex-1">{submitResult.message}</span>
+          <button onClick={() => setSubmitResult(null)} className="p-0.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Dismiss">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -1251,6 +1273,14 @@ export default function ProspectPage() {
               <option value="">Outreach: All</option>
               {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
             </select>
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setSubmittedSearchInput(""); setSubmittedSearch(""); setSubmittedFilters({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" }); }}
+                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Clear all
+              </button>
+            )}
           </div>
         )}
 
@@ -1325,7 +1355,14 @@ export default function ProspectPage() {
                           <input type="checkbox" className="rounded" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
                         </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
-                        <td className="px-3 py-2.5 font-medium text-foreground">{p.student_name}</td>
+                        <td className="px-3 py-2.5 font-medium text-foreground">
+                          {p.student_name}
+                          {lastSavedId === p.id && (
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400 font-medium animate-in fade-in">
+                              <Check className="h-3 w-3" />Saved
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.grade}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.tutor_name || "-"}</td>
@@ -1376,11 +1413,11 @@ export default function ProspectPage() {
                               <div className="space-y-3">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                                   <SectionDivider label="Student Info" />
-                                  <FieldInput label="Student ID" value={p.primary_student_id || ""} onChange={() => {}} />
+                                  <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: v }))} />
                                   <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required span={3} />
                                   <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
-                                  <FieldInput label="Grade" value={p.grade || ""} onChange={() => {}} />
-                                  <FieldInput label="Tutor" value={p.tutor_name || ""} onChange={() => {}} />
+                                  <FieldInput label="Grade" value={editData.grade as string ?? p.grade ?? ""} onChange={(v) => setEditData((d) => ({ ...d, grade: v }))} />
+                                  <FieldInput label="Tutor" value={editData.tutor_name as string ?? p.tutor_name ?? ""} onChange={(v) => setEditData((d) => ({ ...d, tutor_name: v }))} />
 
                                   <SectionDivider label="Contact" />
                                   <FieldInput label="Phone" value={editData.phone_1 as string ?? p.phone_1 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_1: v }))} type="tel" inputMode="numeric" />
@@ -1452,11 +1489,19 @@ export default function ProspectPage() {
                               </div>
                             ) : (
                               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
-                                <SectionDivider label="Contact" />
-                                <div><span className="text-xs text-muted-foreground">Phone 2:</span> {p.phone_2 ? `${p.phone_2}${p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}` : "-"}</div>
+                                {p.phone_2 && (
+                                  <>
+                                    <SectionDivider label="Contact" />
+                                    <div><span className="text-xs text-muted-foreground">Phone 2:</span> {p.phone_2}{p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}</div>
+                                  </>
+                                )}
 
-                                <SectionDivider label="Preferences" />
-                                <div><span className="text-xs text-muted-foreground">Time/Tutor Pref:</span> {p.preferred_time_note || "-"}</div>
+                                {p.preferred_time_note && (
+                                  <>
+                                    <SectionDivider label="Preferences" />
+                                    <div><span className="text-xs text-muted-foreground">Time/Tutor Pref:</span> {p.preferred_time_note}</div>
+                                  </>
+                                )}
 
                                 {p.tutor_remark && (
                                   <>
@@ -1466,6 +1511,11 @@ export default function ProspectPage() {
                                     </div>
                                   </>
                                 )}
+
+                                {!p.phone_2 && !p.preferred_time_note && !p.tutor_remark && (
+                                  <div className="col-span-full text-xs text-muted-foreground italic">No additional details</div>
+                                )}
+
                                 {p.submitted_at && (
                                   <div className="col-span-full text-[10px] text-muted-foreground pt-1">
                                     Submitted {new Date(p.submitted_at).toLocaleString()}
@@ -1487,14 +1537,15 @@ export default function ProspectPage() {
               <div className="p-3 border-t-2 border-primary/30 bg-card/95 dark:bg-card/90 backdrop-blur flex items-center gap-3 flex-wrap sticky bottom-0 z-20">
                 <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedSubmittedIds.size}</span>
                 <span className="text-xs font-medium">selected</span>
-                <button onClick={bulkDeleteSubmitted} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                  <Trash2 className="h-3 w-3 inline mr-1" />Delete
+                <button onClick={bulkDeleteSubmitted} disabled={bulkDeleting} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+                  {bulkDeleting ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-red-300 border-t-red-600 inline-block mr-1 align-middle" /> : <Trash2 className="h-3 w-3 inline mr-1" />}
+                  {bulkDeleting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             )}
 
             <div className="px-3 py-2 border-t border-border bg-primary/5 flex items-center justify-between text-xs text-muted-foreground font-medium">
-              <span>{filteredExisting.length}{submittedSearch ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
+              <span>{filteredExisting.length}{hasActiveFilters ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
               <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors">
                 <Download className="h-3 w-3" />
                 Export CSV
