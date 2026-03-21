@@ -182,12 +182,13 @@ function detectColumnsFromData(cols: string[]): { id: string; name: string; grad
   return { id, name, grade, tutor, phone, school };
 }
 
-function parsePastedData(text: string): ParsedRow[] {
+function parsePastedData(text: string): { rows: ParsedRow[]; totalLines: number; skipped: number } {
   const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return [];
+  if (lines.length === 0) return { rows: [], totalLines: 0, skipped: 0 };
 
   const rows: ParsedRow[] = [];
   let startIdx = 0;
+  let skipped = 0;
   let columnMap: Record<string, number> | null = null;
 
   // Check if first line is a header
@@ -197,12 +198,11 @@ function parsePastedData(text: string): ParsedRow[] {
 
   for (let lineIdx = startIdx; lineIdx < lines.length; lineIdx++) {
     const cols = lines[lineIdx].split("\t").map((c) => c?.trim() ?? "");
-    if (cols.length < 2) continue;
+    if (cols.length < 2) { skipped++; continue; }
 
     let id: string, name: string, grade: string, tutor: string, phone: string, school: string;
 
     if (columnMap) {
-      // Header-mapped parsing (guard against missing columns)
       id = columnMap.id != null ? (cols[columnMap.id] || "").replace(/\.0$/, "") : "";
       name = columnMap.name != null ? (cols[columnMap.name] || "") : "";
       grade = columnMap.grade != null ? (cols[columnMap.grade] || "") : "";
@@ -210,16 +210,15 @@ function parsePastedData(text: string): ParsedRow[] {
       phone = columnMap.phone != null ? (cols[columnMap.phone] || "").replace(/\.0$/, "") : "";
       school = columnMap.school != null ? (cols[columnMap.school] || "") : "";
     } else {
-      // Heuristic parsing
       ({ id, name, grade, tutor, phone, school } = detectColumnsFromData(cols));
     }
 
     // Filter out Bobby template row
-    if ((id === "1001") && (phone === "66666666")) continue;
+    if ((id === "1001") && (phone === "66666666")) { skipped++; continue; }
     // Filter out header-like rows
-    if (/^id/i.test(id) && /name|student/i.test(name)) continue;
+    if (/^id/i.test(id) && /name|student/i.test(name)) { skipped++; continue; }
     // Skip if no meaningful data
-    if (!name && !phone) continue;
+    if (!name && !phone) { skipped++; continue; }
 
     rows.push({
       ...createEmptyRow(),
@@ -232,7 +231,9 @@ function parsePastedData(text: string): ParsedRow[] {
     });
   }
 
-  return rows;
+  // Header row counts as skipped if detected
+  if (columnMap) skipped++;
+  return { rows, totalLines: lines.length, skipped };
 }
 
 // ---- Color maps (hoisted for perf) ----
@@ -434,7 +435,7 @@ export default function ProspectPage() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [parseInfo, setParseInfo] = useState<string | null>(null);
+  const [parseInfo, setParseInfo] = useState<{ text: string; canUndo: boolean } | null>(null);
   const [pasteZoneFocused, setPasteZoneFocused] = useState(false);
   const [parsedExpandedKeys, setParsedExpandedKeys] = useState<Set<string>>(new Set());
   const [submittedExpandedKeys, setSubmittedExpandedKeys] = useState<Set<string>>(new Set());
@@ -448,6 +449,7 @@ export default function ProspectPage() {
   const [submittedSort, setSubmittedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
   const [submittedFilters, setSubmittedFilters] = useState({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" });
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
 
   // Debounce search input
@@ -560,13 +562,25 @@ export default function ProspectPage() {
   const handleClipboardPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = e.clipboardData.getData("text/plain");
     e.preventDefault();
-    const rows = parsePastedData(text);
+    const { rows, skipped } = parsePastedData(text);
     if (rows.length > 0) {
-      setParsedRows((prev) => [...prev, ...rows]);
+      setParsedRows((prev) => {
+        lastPasteSnapshot.current = prev;
+        return [...prev, ...rows];
+      });
       setSubmitResult(null);
-      setParseInfo(`Parsed ${rows.length} student${rows.length !== 1 ? "s" : ""} from clipboard`);
+      const msg = `Parsed ${rows.length} student${rows.length !== 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} row${skipped !== 1 ? "s" : ""} skipped)` : ""}`;
+      setParseInfo({ text: msg, canUndo: true });
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
-      parseInfoTimer.current = setTimeout(() => setParseInfo(null), 3000);
+      parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 5000);
+    }
+  }, []);
+
+  const undoLastPaste = useCallback(() => {
+    if (lastPasteSnapshot.current !== null) {
+      setParsedRows(lastPasteSnapshot.current);
+      lastPasteSnapshot.current = null;
+      setParseInfo(null);
     }
   }, []);
 
@@ -943,7 +957,12 @@ export default function ProspectPage() {
         {parseInfo && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 text-sm font-medium transition-all duration-300">
             <Info className="h-4 w-4 shrink-0" />
-            {parseInfo}
+            <span className="flex-1">{parseInfo.text}</span>
+            {parseInfo.canUndo && (
+              <button onClick={undoLastPaste} className="text-xs font-medium border border-blue-300 dark:border-blue-700 rounded-lg px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                Undo
+              </button>
+            )}
           </div>
         )}
 
