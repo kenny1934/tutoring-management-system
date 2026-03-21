@@ -25,6 +25,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Download,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -439,6 +440,8 @@ export default function ProspectPage() {
   const [submittedExpandedKeys, setSubmittedExpandedKeys] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<PrimaryProspect>>({});
+  const [selectedParsedKeys, setSelectedParsedKeys] = useState<Set<string>>(new Set());
+  const [selectedSubmittedIds, setSelectedSubmittedIds] = useState<Set<number>>(new Set());
   const [submittedSearchInput, setSubmittedSearchInput] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [parsedSort, setParsedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
@@ -624,6 +627,79 @@ export default function ProspectPage() {
       return new Set(allKeys);
     });
   }, [filteredExisting]);
+
+  // ---- Bulk actions ----
+
+  const toggleParsedSelect = useCallback((key: string) => {
+    setSelectedParsedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleParsedSelectAll = useCallback(() => {
+    setSelectedParsedKeys((prev) =>
+      prev.size === parsedRows.length ? new Set() : new Set(parsedRows.map((r) => r._key))
+    );
+  }, [parsedRows]);
+
+  const bulkDeleteParsed = useCallback(() => {
+    if (!confirm(`Delete ${selectedParsedKeys.size} selected rows?`)) return;
+    setParsedRows((prev) => prev.filter((r) => !selectedParsedKeys.has(r._key)));
+    setSelectedParsedKeys(new Set());
+  }, [selectedParsedKeys]);
+
+  const bulkSetParsedIntention = useCallback((field: "wants_summer" | "wants_regular", value: ProspectIntention) => {
+    setParsedRows((prev) => prev.map((r) => selectedParsedKeys.has(r._key) ? { ...r, [field]: value } : r));
+  }, [selectedParsedKeys]);
+
+  const toggleSubmittedSelect = useCallback((id: number) => {
+    setSelectedSubmittedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSubmittedSelectAll = useCallback(() => {
+    setSelectedSubmittedIds((prev) =>
+      prev.size === filteredExisting.length ? new Set() : new Set(filteredExisting.map((p) => p.id))
+    );
+  }, [filteredExisting]);
+
+  const bulkDeleteSubmitted = useCallback(async () => {
+    if (!confirm(`Delete ${selectedSubmittedIds.size} selected submissions?`)) return;
+    try {
+      await Promise.all([...selectedSubmittedIds].map((id) => prospectsAPI.delete(id, branch!)));
+      setSelectedSubmittedIds(new Set());
+      if (swrKey) globalMutate(swrKey);
+    } catch (err) {
+      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+    }
+  }, [selectedSubmittedIds, branch, swrKey]);
+
+  const exportCSV = useCallback(() => {
+    const data = filteredExisting;
+    if (!data.length) return;
+    const headers = ["ID", "Name", "School", "Grade", "Tutor", "Phone", "Phone Relation", "Phone 2", "WeChat", "Branch Pref", "Summer", "Regular", "Time/Tutor Pref", "Remark", "Outreach"];
+    const rows = data.map((p) => [
+      p.primary_student_id || "", p.student_name, p.school || "", p.grade || "", p.tutor_name || "",
+      p.phone_1 || "", p.phone_1_relation || "", p.phone_2 || "", p.wechat_id || "",
+      (p.preferred_branches || []).join(", "), p.wants_summer || "", p.wants_regular || "",
+      p.preferred_time_note || "", p.tutor_remark || "", p.outreach_status || "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prospects-${branch}-${CURRENT_YEAR}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }, [filteredExisting, branch]);
 
   // ---- Submit ----
 
@@ -878,6 +954,9 @@ export default function ProspectPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
+                  <th className="px-3 py-2.5 w-8">
+                    <input type="checkbox" className="rounded" ref={(el) => { if (el) el.indeterminate = selectedParsedKeys.size > 0 && selectedParsedKeys.size < parsedRows.length; }} checked={selectedParsedKeys.size === parsedRows.length && parsedRows.length > 0} onChange={toggleParsedSelectAll} />
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
                     <SortableHeader label="ID" dir={parsedSort.field === "id" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "id"))} />
                   </th>
@@ -919,6 +998,9 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => toggleExpand(row._key)}
                       >
+                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="rounded" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
+                        </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">
                           {row.primary_student_id || "-"}
                           {(w?.duplicateInBatch || w?.alreadySubmitted) && (
@@ -974,7 +1056,7 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                               <SectionDivider label="Student Info" />
                               <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", v)} />
@@ -1034,6 +1116,26 @@ export default function ProspectPage() {
               </tbody>
             </table>
             </div>
+
+            {/* Bulk action bar */}
+            {selectedParsedKeys.size > 0 && (
+              <div className="p-3 border-t-2 border-primary/30 bg-card/95 dark:bg-card/90 backdrop-blur flex items-center gap-3 flex-wrap sticky bottom-12 z-20">
+                <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedParsedKeys.size}</span>
+                <span className="text-xs font-medium">selected</span>
+                <button onClick={bulkDeleteParsed} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <Trash2 className="h-3 w-3 inline mr-1" />Delete
+                </button>
+                <span className="text-xs text-muted-foreground">|</span>
+                <span className="text-xs text-muted-foreground">Summer:</span>
+                {INTENTIONS.map((i) => (
+                  <button key={`s-${i}`} onClick={() => bulkSetParsedIntention("wants_summer", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
+                ))}
+                <span className="text-xs text-muted-foreground">Regular:</span>
+                {INTENTIONS.map((i) => (
+                  <button key={`r-${i}`} onClick={() => bulkSetParsedIntention("wants_regular", i)} className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors">{INTENTION_LABELS[i]}</button>
+                ))}
+              </div>
+            )}
 
             <div className="p-3 sm:p-4 border-t border-border bg-primary/5 flex items-center justify-between sticky bottom-0 z-10 flex-wrap gap-2">
               <div className="flex items-center gap-3">
@@ -1155,6 +1257,9 @@ export default function ProspectPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
+                  <th className="px-3 py-2.5 w-8">
+                    <input type="checkbox" className="rounded" ref={(el) => { if (el) el.indeterminate = selectedSubmittedIds.size > 0 && selectedSubmittedIds.size < filteredExisting.length; }} checked={selectedSubmittedIds.size === filteredExisting.length && filteredExisting.length > 0} onChange={toggleSubmittedSelectAll} />
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
                     <SortableHeader label="ID" dir={submittedSort.field === "id" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "id"))} />
                   </th>
@@ -1197,6 +1302,9 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }}
                       >
+                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="rounded" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
+                        </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
                         <td className="px-3 py-2.5 font-medium text-foreground">{p.student_name}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
@@ -1244,7 +1352,7 @@ export default function ProspectPage() {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={14} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             {isEditing ? (
                               <div className="space-y-3">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
@@ -1355,8 +1463,23 @@ export default function ProspectPage() {
               </tbody>
             </table>
             </div>
-            <div className="px-3 py-2 border-t border-border bg-primary/5 text-xs text-muted-foreground font-medium">
-              {filteredExisting.length}{submittedSearch ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}
+            {/* Bulk action bar */}
+            {selectedSubmittedIds.size > 0 && (
+              <div className="p-3 border-t-2 border-primary/30 bg-card/95 dark:bg-card/90 backdrop-blur flex items-center gap-3 flex-wrap sticky bottom-0 z-20">
+                <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedSubmittedIds.size}</span>
+                <span className="text-xs font-medium">selected</span>
+                <button onClick={bulkDeleteSubmitted} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <Trash2 className="h-3 w-3 inline mr-1" />Delete
+                </button>
+              </div>
+            )}
+
+            <div className="px-3 py-2 border-t border-border bg-primary/5 flex items-center justify-between text-xs text-muted-foreground font-medium">
+              <span>{filteredExisting.length}{submittedSearch ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}</span>
+              <button onClick={exportCSV} className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors">
+                <Download className="h-3 w-3" />
+                Export CSV
+              </button>
             </div>
           </div>
         )}
