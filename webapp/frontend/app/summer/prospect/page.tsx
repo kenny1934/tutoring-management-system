@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
@@ -21,6 +21,10 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -42,8 +46,18 @@ import {
 const CURRENT_YEAR = new Date().getFullYear();
 const PHONE_RELATIONS = ["Mother", "Father", "Guardian", "Other"] as const;
 const INTENTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
+const OUTREACH_OPTIONS: ProspectOutreachStatus[] = ["Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "WeChat - Added", "Called", "No Response"];
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 const PASTE_SHORTCUT = IS_MAC ? "Cmd+V" : "Ctrl+V";
+
+type SortField = "id" | "name" | "school" | "tutor" | null;
+
+const SORT_FIELD_KEYS: Record<Exclude<SortField, null>, string> = {
+  id: "primary_student_id",
+  name: "student_name",
+  school: "school",
+  tutor: "tutor_name",
+};
 
 // ---- Shared styles ----
 
@@ -272,6 +286,15 @@ function BranchBadges({ branches }: { branches: string[] }) {
   );
 }
 
+function SortableHeader({ label, dir, onToggle }: { label: string; dir: "asc" | "desc" | null; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className="inline-flex items-center gap-1 text-xs font-medium text-foreground hover:text-primary transition-colors">
+      {label}
+      {dir === "asc" ? <ArrowUp className="h-3 w-3" /> : dir === "desc" ? <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+    </button>
+  );
+}
+
 function SectionDivider({ label }: { label: string }) {
   return (
     <div className="col-span-full text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pt-2 first:pt-0 border-t border-border/50 dark:border-gray-700 first:border-0">
@@ -321,23 +344,39 @@ export default function ProspectPage() {
   const branchParam = searchParams.get("branch")?.toUpperCase() as ProspectBranch | undefined;
   const branch = branchParam && PROSPECT_BRANCHES.includes(branchParam) ? branchParam : null;
 
-  const year = CURRENT_YEAR;
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [parseInfo, setParseInfo] = useState<string | null>(null);
   const [pasteZoneFocused, setPasteZoneFocused] = useState(false);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [parsedExpandedKeys, setParsedExpandedKeys] = useState<Set<string>>(new Set());
+  const [submittedExpandedKeys, setSubmittedExpandedKeys] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<PrimaryProspect>>({});
+  const [submittedSearchInput, setSubmittedSearchInput] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState("");
+  const [parsedSort, setParsedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
+  const [submittedSort, setSubmittedSort] = useState<{ field: SortField; dir: "asc" | "desc" }>({ field: null, dir: "asc" });
+  const [submittedFilters, setSubmittedFilters] = useState({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" });
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setSubmittedSearch(submittedSearchInput), 300);
+    return () => clearTimeout(t);
+  }, [submittedSearchInput]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current); };
+  }, []);
   const submittedRef = useRef<HTMLElement>(null);
 
-  const swrKey = branch ? `prospects-${branch}-${year}` : null;
+  const swrKey = branch ? `prospects-${branch}-${CURRENT_YEAR}` : null;
   const { data: existing, isLoading } = useSWR(
     swrKey,
-    () => prospectsAPI.list(branch!, year),
+    () => prospectsAPI.list(branch!, CURRENT_YEAR),
     { revalidateOnFocus: false }
   );
 
@@ -364,8 +403,66 @@ export default function ProspectPage() {
     }));
   }, [parsedRows, existingPhones]);
 
-  const validCount = parsedRows.filter((r) => r.student_name.trim()).length;
-  const warningCount = rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length;
+  const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim()).length, [parsedRows]);
+  const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
+
+  // Sort helpers
+  const sortByField = useCallback((a: Record<string, unknown>, b: Record<string, unknown>, field: Exclude<SortField, null>, dir: "asc" | "desc") => {
+    const key = SORT_FIELD_KEYS[field];
+    const va = String(a[key] || "");
+    const vb = String(b[key] || "");
+    return dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  }, []);
+
+  const toggleSort = useCallback((current: { field: SortField; dir: "asc" | "desc" }, clickedField: Exclude<SortField, null>): { field: SortField; dir: "asc" | "desc" } => {
+    if (current.field === clickedField) {
+      return current.dir === "asc" ? { field: clickedField, dir: "desc" } : { field: null, dir: "asc" };
+    }
+    return { field: clickedField, dir: "asc" };
+  }, []);
+
+  // Sorted parsed rows (preserves original indices for warnings)
+  const sortedParsedIndices = useMemo(() => {
+    const indices = parsedRows.map((_, i) => i);
+    if (parsedSort.field) {
+      const f = parsedSort.field;
+      const d = parsedSort.dir;
+      indices.sort((a, b) => sortByField(parsedRows[a] as unknown as Record<string, unknown>, parsedRows[b] as unknown as Record<string, unknown>, f, d));
+    }
+    return indices;
+  }, [parsedRows, parsedSort, sortByField]);
+
+  // Filtered + sorted submitted students
+  const filteredExisting = useMemo(() => {
+    if (!existing) return [];
+    let list = existing;
+    if (submittedSearch) {
+      const term = submittedSearch.toLowerCase();
+      list = list.filter((p) =>
+        p.student_name.toLowerCase().includes(term) ||
+        (p.phone_1 && p.phone_1.includes(term)) ||
+        (p.primary_student_id && p.primary_student_id.toLowerCase().includes(term))
+      );
+    }
+    if (submittedFilters.branch) {
+      list = list.filter((p) => (p.preferred_branches || []).includes(submittedFilters.branch));
+    }
+    if (submittedFilters.wants_summer) {
+      list = list.filter((p) => p.wants_summer === submittedFilters.wants_summer);
+    }
+    if (submittedFilters.wants_regular) {
+      list = list.filter((p) => p.wants_regular === submittedFilters.wants_regular);
+    }
+    if (submittedFilters.outreach_status) {
+      list = list.filter((p) => p.outreach_status === submittedFilters.outreach_status);
+    }
+    if (submittedSort.field) {
+      const f = submittedSort.field;
+      const d = submittedSort.dir;
+      list = [...list].sort((a, b) => sortByField(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, f, d));
+    }
+    return list;
+  }, [existing, submittedSearch, submittedFilters, submittedSort, sortByField]);
 
   // ---- Paste & Parse ----
 
@@ -397,17 +494,17 @@ export default function ProspectPage() {
   const addEmptyRow = useCallback(() => {
     const row = createEmptyRow();
     setParsedRows((prev) => [...prev, row]);
-    setExpandedKeys((prev) => new Set([...prev, row._key]));
+    setParsedExpandedKeys((prev) => new Set([...prev, row._key]));
   }, []);
 
   const clearAllRows = useCallback(() => {
     if (!confirm("Clear all parsed rows?")) return;
     setParsedRows([]);
-    setExpandedKeys(new Set());
+    setParsedExpandedKeys(new Set());
   }, []);
 
   const toggleExpand = useCallback((key: string) => {
-    setExpandedKeys((prev) => {
+    setParsedExpandedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -416,12 +513,31 @@ export default function ProspectPage() {
   }, []);
 
   const toggleExpandAll = useCallback(() => {
-    setExpandedKeys((prev) =>
+    setParsedExpandedKeys((prev) =>
       prev.size === parsedRows.length
         ? new Set()
         : new Set(parsedRows.map((r) => r._key))
     );
   }, [parsedRows]);
+
+  const toggleSubmittedExpand = useCallback((id: number) => {
+    const key = `sub-${id}`;
+    setSubmittedExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleSubmittedExpandAll = useCallback(() => {
+    const allKeys = (filteredExisting || []).map((p) => `sub-${p.id}`);
+    setSubmittedExpandedKeys((prev) => {
+      const openCount = allKeys.filter((k) => prev.has(k)).length;
+      if (openCount === allKeys.length) return new Set();
+      return new Set(allKeys);
+    });
+  }, [filteredExisting]);
 
   // ---- Submit ----
 
@@ -457,14 +573,14 @@ export default function ProspectPage() {
       }));
 
       const result = await prospectsAPI.bulkCreate({
-        year,
+        year: CURRENT_YEAR,
         source_branch: branch,
         prospects,
       });
 
       setSubmitResult({ ok: true, message: `${result.created} students submitted successfully` });
       setParsedRows([]);
-      setExpandedKeys(new Set());
+      setParsedExpandedKeys(new Set());
       if (swrKey) globalMutate(swrKey);
       setTimeout(() => submittedRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
@@ -472,7 +588,7 @@ export default function ProspectPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [branch, parsedRows, year, swrKey]);
+  }, [branch, parsedRows, swrKey]);
 
   // ---- Inline edit ----
 
@@ -559,7 +675,7 @@ export default function ProspectPage() {
       {/* Header */}
       <div>
         <h1 className="text-lg font-bold text-foreground">
-          {branch} — P6 Student Registration ({year})
+          {branch} — P6 Student Registration ({CURRENT_YEAR})
         </h1>
         <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
           &larr; Change branch
@@ -676,10 +792,15 @@ export default function ProspectPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground w-8">#</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">ID</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">School</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                    <SortableHeader label="ID" dir={parsedSort.field === "id" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "id"))} />
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium">
+                    <SortableHeader label="Name" dir={parsedSort.field === "name" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "name"))} />
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                    <SortableHeader label="School" dir={parsedSort.field === "school" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "school"))} />
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
@@ -692,17 +813,19 @@ export default function ProspectPage() {
                     <button
                       onClick={toggleExpandAll}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                      title={expandedKeys.size === parsedRows.length ? "Collapse all" : "Expand all"}
+                      title={parsedExpandedKeys.size === parsedRows.length ? "Collapse all" : "Expand all"}
                     >
                       <ChevronsUpDown className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">All</span>
                     </button>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {parsedRows.map((row, idx) => {
+                {sortedParsedIndices.map((idx) => {
+                  const row = parsedRows[idx];
                   const w = rowWarnings[idx];
-                  const isExpanded = expandedKeys.has(row._key);
+                  const isExpanded = parsedExpandedKeys.has(row._key);
                   return (
                     <React.Fragment key={row._key}>
                       {/* Main row — read-only display */}
@@ -710,13 +833,12 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => toggleExpand(row._key)}
                       >
-                        <td className="px-3 py-2.5 text-muted-foreground text-xs font-mono">
-                          {idx + 1}
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">
+                          {row.primary_student_id || "-"}
                           {(w?.duplicateInBatch || w?.alreadySubmitted) && (
                             <AlertTriangle className="inline h-3 w-3 ml-0.5 text-yellow-500" />
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{row.primary_student_id || "-"}</td>
                         <td className="px-3 py-2.5">
                           <span className={`font-medium ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
                             {row.student_name || <span className="text-red-400 italic">Name required</span>}
@@ -732,6 +854,7 @@ export default function ProspectPage() {
                           >
                             {row.phone_1 || "-"}
                           </span>
+                          {row.phone_1 && row.phone_1_relation && <span className="text-[10px] text-muted-foreground ml-0.5">({row.phone_1_relation})</span>}
                         </td>
                         <td className="px-3 py-2.5 hidden sm:table-cell"><BranchBadges branches={row.preferred_branches} /></td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -765,7 +888,7 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                               <SectionDivider label="Student Info" />
                               <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", v)} />
@@ -845,14 +968,14 @@ export default function ProspectPage() {
                 </span>
                 <button
                   onClick={addEmptyRow}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors"
                 >
                   <Plus className="h-3 w-3" />
                   Add Row
                 </button>
                 <button
                   onClick={clearAllRows}
-                  className="text-xs font-medium text-muted-foreground hover:text-red-600 transition-colors"
+                  className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-2 py-0.5 hover:text-red-600 hover:border-red-300 transition-colors"
                 >
                   Clear All
                 </button>
@@ -893,6 +1016,37 @@ export default function ProspectPage() {
           </h2>
         </div>
 
+        {/* Search + Filters */}
+        {existing && existing.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                value={submittedSearchInput}
+                onChange={(e) => setSubmittedSearchInput(e.target.value)}
+                placeholder="Search..."
+                className={`${inputSmall} pl-8 w-40 sm:w-52`}
+              />
+            </div>
+            <select value={submittedFilters.branch} onChange={(e) => setSubmittedFilters((f) => ({ ...f, branch: e.target.value }))} className={inputSmall}>
+              <option value="">Branch: All</option>
+              {SECONDARY_BRANCHES.map((b) => (<option key={b} value={b}>{b}</option>))}
+            </select>
+            <select value={submittedFilters.wants_summer} onChange={(e) => setSubmittedFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
+              <option value="">Summer: All</option>
+              {INTENTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+            </select>
+            <select value={submittedFilters.wants_regular} onChange={(e) => setSubmittedFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={`${inputSmall} hidden sm:inline`}>
+              <option value="">Regular: All</option>
+              {INTENTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+            </select>
+            <select value={submittedFilters.outreach_status} onChange={(e) => setSubmittedFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={`${inputSmall} hidden sm:inline`}>
+              <option value="">Outreach: All</option>
+              {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
+            </select>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
@@ -903,7 +1057,7 @@ export default function ProspectPage() {
           <div className="text-center py-10">
             <FileSearch className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">
-              No students submitted yet for <strong>{branch}</strong> ({year}).
+              No students submitted yet for <strong>{branch}</strong> ({CURRENT_YEAR}).
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Paste student data above to get started.
@@ -915,11 +1069,19 @@ export default function ProspectPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">ID</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">School</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                    <SortableHeader label="ID" dir={submittedSort.field === "id" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "id"))} />
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium">
+                    <SortableHeader label="Name" dir={submittedSort.field === "name" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "name"))} />
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                    <SortableHeader label="School" dir={submittedSort.field === "school" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "school"))} />
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
+                    <SortableHeader label="Tutor" dir={submittedSort.field === "tutor" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "tutor"))} />
+                  </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Branch</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer?</th>
@@ -927,28 +1089,27 @@ export default function ProspectPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Outreach</th>
-                  <th className="px-3 py-2.5 w-24" />
+                  <th className="px-3 py-2.5 w-24">
+                    <button
+                      onClick={toggleSubmittedExpandAll}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                      title="Expand/collapse all"
+                    >
+                      <ChevronsUpDown className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">All</span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {existing.map((p) => {
+                {filteredExisting.map((p) => {
                   const isEditing = editingId === p.id;
-                  const isOpen = editingId === p.id || expandedKeys.has(`sub-${p.id}`);
+                  const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
                   return (
                     <React.Fragment key={p.id}>
                       <tr
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
-                        onClick={() => {
-                          if (!isEditing) {
-                            setExpandedKeys((prev) => {
-                              const key = `sub-${p.id}`;
-                              const next = new Set(prev);
-                              if (next.has(key)) next.delete(key);
-                              else next.add(key);
-                              return next;
-                            });
-                          }
-                        }}
+                        onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }}
                       >
                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
                         <td className="px-3 py-2.5 font-medium text-foreground">{p.student_name}</td>
@@ -970,15 +1131,7 @@ export default function ProspectPage() {
                             <button
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
                               title={isOpen ? "Collapse" : "Expand"}
-                              onClick={() => {
-                                setExpandedKeys((prev) => {
-                                  const key = `sub-${p.id}`;
-                                  const next = new Set(prev);
-                                  if (next.has(key)) next.delete(key);
-                                  else next.add(key);
-                                  return next;
-                                });
-                              }}
+                              onClick={() => toggleSubmittedExpand(p.id)}
                             >
                               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </button>
@@ -1042,26 +1195,10 @@ export default function ProspectPage() {
                                   <SectionDivider label="Preferences" />
                                   <div>
                                     <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
-                                    <div className="flex gap-2">
-                                      {SECONDARY_BRANCHES.map((b) => (
-                                        <label key={b} className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded-lg border-2 transition-all duration-200 font-medium ${
-                                          ((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b)
-                                            ? (BRANCH_COLORS[b]?.selected || "bg-primary/10 border-primary text-primary")
-                                            : "border-border hover:border-primary/50"
-                                        }`}>
-                                          <input type="checkbox" className="sr-only"
-                                            checked={((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b)}
-                                            onChange={(e) => {
-                                              const current = (editData.preferred_branches as string[]) ?? p.preferred_branches ?? [];
-                                              setEditData((d) => ({ ...d, preferred_branches: e.target.checked ? [...current, b] : current.filter((v: string) => v !== b) }));
-                                            }}
-                                          />
-                                          {((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b) && <Check className="h-3 w-3" />}
-                                          {b}
-                                          {(() => { const arr = (editData.preferred_branches as string[]) ?? p.preferred_branches ?? []; return arr.includes(b) && arr.length > 1 ? <span className="text-[9px] opacity-60">{arr.indexOf(b) === 0 ? "1st" : "2nd"}</span> : null; })()}
-                                        </label>
-                                      ))}
-                                    </div>
+                                    <BranchCheckboxes
+                                      value={(editData.preferred_branches as string[]) ?? p.preferred_branches ?? []}
+                                      onChange={(v) => setEditData((d) => ({ ...d, preferred_branches: v }))}
+                                    />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
@@ -1116,6 +1253,11 @@ export default function ProspectPage() {
                                     </div>
                                   </>
                                 )}
+                                {p.submitted_at && (
+                                  <div className="col-span-full text-[10px] text-muted-foreground pt-1">
+                                    Submitted {new Date(p.submitted_at).toLocaleString()}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -1126,6 +1268,9 @@ export default function ProspectPage() {
                 })}
               </tbody>
             </table>
+            </div>
+            <div className="px-3 py-2 border-t border-border bg-primary/5 text-xs text-muted-foreground font-medium">
+              {filteredExisting.length}{submittedSearch ? ` of ${existing?.length || 0}` : ""} student{filteredExisting.length !== 1 ? "s" : ""}
             </div>
           </div>
         )}
