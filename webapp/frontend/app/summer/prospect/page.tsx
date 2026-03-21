@@ -402,6 +402,8 @@ function SectionDivider({ label }: { label: string }) {
 
 function CopyableCell({ text, title: titleOverride }: { text: string; title?: string }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   if (!text) return <span className="text-muted-foreground">-</span>;
   return (
     <span className="group/copy inline-flex items-center gap-1 max-w-full">
@@ -412,7 +414,8 @@ function CopyableCell({ text, title: titleOverride }: { text: string; title?: st
           e.stopPropagation();
           navigator.clipboard.writeText(text);
           setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => setCopied(false), 1200);
         }}
         title="Copy"
       >
@@ -455,6 +458,157 @@ function FieldInput({
         className={`w-full ${inputSmall} ${required && !value.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
         placeholder={placeholder}
       />
+    </div>
+  );
+}
+
+// ---- Shared form components ----
+
+interface ProspectFormValues {
+  primary_student_id: string;
+  student_name: string;
+  school: string;
+  grade: string;
+  tutor_name: string;
+  phone_1: string;
+  phone_1_relation: string;
+  phone_2: string;
+  phone_2_relation: string;
+  wechat_id: string;
+  wants_summer: ProspectIntention;
+  wants_regular: ProspectIntention;
+  preferred_branches: string[];
+  preferred_time_note: string;
+  tutor_remark: string;
+}
+
+function mergeEditValues(editData: Partial<PrimaryProspect>, p: PrimaryProspect): ProspectFormValues {
+  return {
+    primary_student_id: (editData.primary_student_id as string) ?? p.primary_student_id ?? "",
+    student_name: (editData.student_name as string) ?? p.student_name,
+    school: (editData.school as string) ?? p.school ?? "",
+    grade: (editData.grade as string) ?? p.grade ?? "",
+    tutor_name: (editData.tutor_name as string) ?? p.tutor_name ?? "",
+    phone_1: (editData.phone_1 as string) ?? p.phone_1 ?? "",
+    phone_1_relation: (editData.phone_1_relation as string) ?? p.phone_1_relation ?? "Mother",
+    phone_2: (editData.phone_2 as string) ?? p.phone_2 ?? "",
+    phone_2_relation: (editData.phone_2_relation as string) ?? p.phone_2_relation ?? "",
+    wechat_id: (editData.wechat_id as string) ?? p.wechat_id ?? "",
+    wants_summer: (editData.wants_summer as ProspectIntention) ?? (p.wants_summer as ProspectIntention) ?? "Considering",
+    wants_regular: (editData.wants_regular as ProspectIntention) ?? (p.wants_regular as ProspectIntention) ?? "Considering",
+    preferred_branches: (editData.preferred_branches as string[]) ?? p.preferred_branches ?? [],
+    preferred_time_note: (editData.preferred_time_note as string) ?? p.preferred_time_note ?? "",
+    tutor_remark: (editData.tutor_remark as string) ?? p.tutor_remark ?? "",
+  };
+}
+
+function ProspectEditForm({
+  values,
+  onChange,
+  branch,
+  compact,
+  onSave,
+  onCancel,
+}: {
+  values: ProspectFormValues;
+  onChange: (field: string, value: unknown) => void;
+  branch: string | null;
+  compact?: boolean;
+  onSave?: () => void;
+  onCancel?: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className={`grid gap-x-3 gap-y-2 text-sm ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
+        <SectionDivider label="Student Info" />
+        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} />
+        <FieldInput label="Student Name" value={values.student_name} onChange={(v) => onChange("student_name", v)} required span={compact ? undefined : 3} />
+        <FieldInput label="School" value={values.school} onChange={(v) => onChange("school", v)} />
+        <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} />
+        <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} />
+
+        <SectionDivider label="Contact" />
+        <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" />
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
+          <select value={values.phone_1_relation} onChange={(e) => onChange("phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
+            {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+          </select>
+        </div>
+        <FieldInput label="Phone 2 (Optional)" value={values.phone_2} onChange={(v) => onChange("phone_2", v)} type="tel" inputMode="numeric" />
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
+          <select value={values.phone_2_relation} onChange={(e) => onChange("phone_2_relation", e.target.value)} className={`w-full ${inputSmall}`}>
+            <option value="">—</option>
+            {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+          </select>
+        </div>
+        <div>
+          <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+            <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
+          </label>
+          <input value={values.wechat_id} onChange={(e) => onChange("wechat_id", e.target.value)} className={`w-full ${inputSmall}`} />
+        </div>
+
+        <SectionDivider label="Preferences" />
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
+          <BranchCheckboxes value={values.preferred_branches} onChange={(v) => onChange("preferred_branches", v)} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+          <IntentionSelect value={values.wants_summer} onChange={(v) => onChange("wants_summer", v)} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
+          <IntentionSelect value={values.wants_regular} onChange={(v) => onChange("wants_regular", v)} />
+        </div>
+        <FieldInput label="Time / Tutor Preference" value={values.preferred_time_note} onChange={(v) => onChange("preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" span={compact ? undefined : 2} />
+
+        <SectionDivider label="Notes" />
+        <div className="col-span-full">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
+          <textarea value={values.tutor_remark} onChange={(e) => onChange("tutor_remark", e.target.value)} className={`w-full ${inputSmall} resize-y`} rows={2} placeholder="Notes about the student's ability, learning style, etc." />
+        </div>
+      </div>
+      {onSave && onCancel && (
+        <div className="flex gap-2">
+          <button onClick={onSave} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
+          <button onClick={onCancel} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProspectCardSummary({ data }: {
+  data: {
+    primary_student_id?: string | null;
+    school?: string | null;
+    grade?: string | null;
+    tutor_name?: string | null;
+    phone_1?: string | null;
+    phone_1_relation?: string | null;
+    wechat_id?: string | null;
+    preferred_branches?: string[] | null;
+    wants_summer?: string | null;
+    wants_regular?: string | null;
+    tutor_remark?: string | null;
+  };
+}) {
+  return (
+    <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
+      <div>{[data.primary_student_id, data.school, data.grade, data.tutor_name].filter(Boolean).join(" · ") || "-"}</div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {data.phone_1 && <span title={data.phone_1_relation ? `${data.phone_1_relation}'s phone` : ""}>{data.phone_1}</span>}
+        {data.wechat_id && <span className="inline-flex items-center gap-0.5"><WeChatIcon className="h-3 w-3 text-green-600" />{data.wechat_id}</span>}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+        <BranchBadges branches={data.preferred_branches || []} />
+        <span className="text-[10px] text-muted-foreground">S:</span><IntentionBadge value={data.wants_summer || null} />
+        <span className="text-[10px] text-muted-foreground">R:</span><IntentionBadge value={data.wants_regular || null} />
+      </div>
+      {data.tutor_remark && <div className="italic truncate">{data.tutor_remark}</div>}
     </div>
   );
 }
@@ -615,7 +769,7 @@ export default function ProspectPage() {
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 5000);
     }
-  }, []);
+  }, [branch]);
 
   const undoLastPaste = useCallback(() => {
     if (lastPasteSnapshot.current !== null) {
@@ -1050,61 +1204,15 @@ export default function ProspectPage() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
-                    <div>{[row.primary_student_id, row.school, row.grade, row.tutor_name].filter(Boolean).join(" · ") || "-"}</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {row.phone_1 && <span title={row.phone_1_relation ? `${row.phone_1_relation}'s phone` : ""}>{row.phone_1}</span>}
-                      {row.wechat_id && <span className="inline-flex items-center gap-0.5"><WeChatIcon className="h-3 w-3 text-green-600" />{row.wechat_id}</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                      <BranchBadges branches={row.preferred_branches} />
-                      <span className="text-[10px] text-muted-foreground">S:</span><IntentionBadge value={row.wants_summer} />
-                      <span className="text-[10px] text-muted-foreground">R:</span><IntentionBadge value={row.wants_regular} />
-                    </div>
-                    {row.tutor_remark && <div className="text-muted-foreground italic truncate">{row.tutor_remark}</div>}
-                  </div>
+                  <ProspectCardSummary data={row} />
                   {isExpanded && (
                     <div className="pt-2 border-t border-border">
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                        <SectionDivider label="Student Info" />
-                        <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", normalizeStudentId(v, branch))} />
-                        <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required />
-                        <FieldInput label="School" value={row.school} onChange={(v) => updateRow(row._key, "school", v)} />
-                        <FieldInput label="Grade" value={row.grade} onChange={(v) => updateRow(row._key, "grade", v)} />
-                        <FieldInput label="Tutor" value={row.tutor_name} onChange={(v) => updateRow(row._key, "tutor_name", v)} />
-                        <SectionDivider label="Contact" />
-                        <FieldInput label="Phone" value={row.phone_1} onChange={(v) => updateRow(row._key, "phone_1", v)} type="tel" inputMode="numeric" />
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
-                          <select value={row.phone_1_relation} onChange={(e) => updateRow(row._key, "phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
-                            {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
-                            <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
-                          </label>
-                          <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} />
-                        </div>
-                        <SectionDivider label="Preferences" />
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
-                          <BranchCheckboxes value={row.preferred_branches} onChange={(v) => updateRow(row._key, "preferred_branches", v)} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
-                          <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
-                          <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
-                        </div>
-                        <SectionDivider label="Notes" />
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
-                          <textarea value={row.tutor_remark} onChange={(e) => updateRow(row._key, "tutor_remark", e.target.value)} className={`w-full ${inputSmall} resize-y`} rows={2} />
-                        </div>
-                      </div>
+                      <ProspectEditForm
+                        values={row}
+                        onChange={(field, value) => updateRow(row._key, field as keyof ParsedRow, value)}
+                        branch={branch}
+                        compact
+                      />
                     </div>
                   )}
                 </div>
@@ -1225,64 +1333,11 @@ export default function ProspectPage() {
                       {isExpanded && (
                         <tr>
                           <td colSpan={11} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
-                              <SectionDivider label="Student Info" />
-                              <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", normalizeStudentId(v, branch))} />
-                              <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required span={3} />
-                              <FieldInput label="School" value={row.school} onChange={(v) => updateRow(row._key, "school", v)} />
-                              <FieldInput label="Grade" value={row.grade} onChange={(v) => updateRow(row._key, "grade", v)} />
-                              <FieldInput label="Tutor" value={row.tutor_name} onChange={(v) => updateRow(row._key, "tutor_name", v)} />
-
-                              <SectionDivider label="Contact" />
-                              <FieldInput label="Phone" value={row.phone_1} onChange={(v) => updateRow(row._key, "phone_1", v)} type="tel" inputMode="numeric" />
-                              <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
-                                <select value={row.phone_1_relation} onChange={(e) => updateRow(row._key, "phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
-                                  {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                                </select>
-                              </div>
-                              <FieldInput label="Phone 2 (Optional)" value={row.phone_2} onChange={(v) => updateRow(row._key, "phone_2", v)} type="tel" inputMode="numeric" />
-                              <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
-                                <select value={row.phone_2_relation} onChange={(e) => updateRow(row._key, "phone_2_relation", e.target.value)} className={`w-full ${inputSmall}`}>
-                                  <option value="">—</option>
-                                  {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                                </select>
-                              </div>
-                              <div>
-                                <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
-                                  <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
-                                </label>
-                                <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} />
-                              </div>
-
-                              <SectionDivider label="Preferences" />
-                              <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
-                                <BranchCheckboxes value={row.preferred_branches} onChange={(v) => updateRow(row._key, "preferred_branches", v)} />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
-                                <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
-                                <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
-                              </div>
-                              <FieldInput label="Time / Tutor Preference" value={row.preferred_time_note} onChange={(v) => updateRow(row._key, "preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" />
-
-                              <SectionDivider label="Notes" />
-                              <div className="col-span-full">
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
-                                <textarea
-                                  value={row.tutor_remark}
-                                  onChange={(e) => updateRow(row._key, "tutor_remark", e.target.value)}
-                                  className={`w-full ${inputSmall} resize-y`}
-                                  rows={2}
-                                  placeholder="Notes about the student's ability, learning style, etc."
-                                />
-                              </div>
-                            </div>
+                            <ProspectEditForm
+                              values={row}
+                              onChange={(field, value) => updateRow(row._key, field as keyof ParsedRow, value)}
+                              branch={branch}
+                            />
                           </td>
                         </tr>
                       )}
@@ -1440,77 +1495,18 @@ export default function ProspectPage() {
                       </>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
-                    <div>{[p.primary_student_id, p.school, p.grade, p.tutor_name].filter(Boolean).join(" · ") || "-"}</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {p.phone_1 && <span title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : ""}>{p.phone_1}</span>}
-                      {p.wechat_id && <span className="inline-flex items-center gap-0.5"><WeChatIcon className="h-3 w-3 text-green-600" />{p.wechat_id}</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                      <BranchBadges branches={p.preferred_branches || []} />
-                      <span className="text-[10px]">S:</span><IntentionBadge value={p.wants_summer} />
-                      <span className="text-[10px]">R:</span><IntentionBadge value={p.wants_regular} />
-                    </div>
-                    {p.tutor_remark && <div className="italic truncate">{p.tutor_remark}</div>}
-                  </div>
+                  <ProspectCardSummary data={p} />
                   {isOpen && (
                     <div className="pt-2 border-t border-border">
                       {isEditing ? (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                            <SectionDivider label="Student Info" />
-                            <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: normalizeStudentId(v, branch) }))} />
-                            <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required />
-                            <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
-                            <FieldInput label="Grade" value={editData.grade as string ?? p.grade ?? ""} onChange={(v) => setEditData((d) => ({ ...d, grade: v }))} />
-                            <FieldInput label="Tutor" value={editData.tutor_name as string ?? p.tutor_name ?? ""} onChange={(v) => setEditData((d) => ({ ...d, tutor_name: v }))} />
-                            <SectionDivider label="Contact" />
-                            <FieldInput label="Phone" value={editData.phone_1 as string ?? p.phone_1 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_1: v }))} type="tel" inputMode="numeric" />
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
-                              <select value={editData.phone_1_relation as string ?? p.phone_1_relation ?? "Mother"} onChange={(e) => setEditData((d) => ({ ...d, phone_1_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
-                                {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                              </select>
-                            </div>
-                            <FieldInput label="Phone 2" value={editData.phone_2 as string ?? p.phone_2 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_2: v }))} type="tel" inputMode="numeric" />
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
-                              <select value={editData.phone_2_relation as string ?? p.phone_2_relation ?? ""} onChange={(e) => setEditData((d) => ({ ...d, phone_2_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
-                                <option value="">—</option>
-                                {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
-                                <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
-                              </label>
-                              <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} />
-                            </div>
-                            <SectionDivider label="Preferences" />
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
-                              <BranchCheckboxes value={(editData.preferred_branches as string[]) ?? p.preferred_branches ?? []} onChange={(v) => setEditData((d) => ({ ...d, preferred_branches: v }))} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
-                              <IntentionSelect value={(editData.wants_summer as ProspectIntention) ?? (p.wants_summer as ProspectIntention) ?? "Considering"} onChange={(v) => setEditData((d) => ({ ...d, wants_summer: v }))} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Regular?</label>
-                              <IntentionSelect value={(editData.wants_regular as ProspectIntention) ?? (p.wants_regular as ProspectIntention) ?? "Considering"} onChange={(v) => setEditData((d) => ({ ...d, wants_regular: v }))} />
-                            </div>
-                            <FieldInput label="Time / Tutor Pref" value={editData.preferred_time_note as string ?? p.preferred_time_note ?? ""} onChange={(v) => setEditData((d) => ({ ...d, preferred_time_note: v }))} />
-                            <SectionDivider label="Notes" />
-                            <div className="col-span-2">
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
-                              <textarea value={editData.tutor_remark as string ?? p.tutor_remark ?? ""} onChange={(e) => setEditData((d) => ({ ...d, tutor_remark: e.target.value }))} className={`w-full ${inputSmall} resize-y`} rows={2} />
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={() => saveEdit(p.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
-                            <button onClick={cancelEdit} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
-                          </div>
-                        </div>
+                        <ProspectEditForm
+                          values={mergeEditValues(editData, p)}
+                          onChange={(field, value) => setEditData((d) => ({ ...d, [field]: value }))}
+                          branch={branch}
+                          compact
+                          onSave={() => saveEdit(p.id)}
+                          onCancel={cancelEdit}
+                        />
                       ) : (
                         <div className="text-xs text-muted-foreground space-y-1">
                           {p.phone_2 && <div>Phone 2: {p.phone_2}{p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}</div>}
@@ -1642,83 +1638,13 @@ export default function ProspectPage() {
                         <tr>
                           <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             {isEditing ? (
-                              <div className="space-y-3">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
-                                  <SectionDivider label="Student Info" />
-                                  <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: normalizeStudentId(v, branch) }))} />
-                                  <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required span={3} />
-                                  <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
-                                  <FieldInput label="Grade" value={editData.grade as string ?? p.grade ?? ""} onChange={(v) => setEditData((d) => ({ ...d, grade: v }))} />
-                                  <FieldInput label="Tutor" value={editData.tutor_name as string ?? p.tutor_name ?? ""} onChange={(v) => setEditData((d) => ({ ...d, tutor_name: v }))} />
-
-                                  <SectionDivider label="Contact" />
-                                  <FieldInput label="Phone" value={editData.phone_1 as string ?? p.phone_1 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_1: v }))} type="tel" inputMode="numeric" />
-                                  <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
-                                    <select value={editData.phone_1_relation as string ?? p.phone_1_relation ?? "Mother"} onChange={(e) => setEditData((d) => ({ ...d, phone_1_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
-                                      {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                                    </select>
-                                  </div>
-                                  <FieldInput label="Phone 2 (Optional)" value={editData.phone_2 as string ?? p.phone_2 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_2: v }))} type="tel" inputMode="numeric" />
-                                  <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
-                                    <select value={editData.phone_2_relation as string ?? p.phone_2_relation ?? ""} onChange={(e) => setEditData((d) => ({ ...d, phone_2_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
-                                      <option value="">—</option>
-                                      {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
-                                      <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
-                                    </label>
-                                    <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} />
-                                  </div>
-
-                                  <SectionDivider label="Preferences" />
-                                  <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
-                                    <BranchCheckboxes
-                                      value={(editData.preferred_branches as string[]) ?? p.preferred_branches ?? []}
-                                      onChange={(v) => setEditData((d) => ({ ...d, preferred_branches: v }))}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
-                                    <IntentionSelect
-                                      value={(editData.wants_summer as ProspectIntention) ?? (p.wants_summer as ProspectIntention) ?? "Considering"}
-                                      onChange={(v) => setEditData((d) => ({ ...d, wants_summer: v }))}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
-                                    <IntentionSelect
-                                      value={(editData.wants_regular as ProspectIntention) ?? (p.wants_regular as ProspectIntention) ?? "Considering"}
-                                      onChange={(v) => setEditData((d) => ({ ...d, wants_regular: v }))}
-                                    />
-                                  </div>
-                                  <FieldInput label="Time / Tutor Preference" value={editData.preferred_time_note as string ?? p.preferred_time_note ?? ""} onChange={(v) => setEditData((d) => ({ ...d, preferred_time_note: v }))} placeholder="e.g. Sat afternoon, Ivan Sir" span={2} />
-
-                                  <SectionDivider label="Notes" />
-                                  <div className="col-span-full">
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
-                                    <textarea
-                                      value={editData.tutor_remark as string ?? p.tutor_remark ?? ""}
-                                      onChange={(e) => setEditData((d) => ({ ...d, tutor_remark: e.target.value }))}
-                                      className={`w-full ${inputSmall} resize-y`}
-                                      rows={2}
-                                      placeholder="Notes about the student's ability, learning style, etc."
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => saveEdit(p.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                    <Check className="h-3.5 w-3.5" /> Save
-                                  </button>
-                                  <button onClick={cancelEdit} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
+                              <ProspectEditForm
+                                values={mergeEditValues(editData, p)}
+                                onChange={(field, value) => setEditData((d) => ({ ...d, [field]: value }))}
+                                branch={branch}
+                                onSave={() => saveEdit(p.id)}
+                                onCancel={cancelEdit}
+                              />
                             ) : (
                               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                                 {p.phone_2 && (
