@@ -327,7 +327,7 @@ async def get_aged_pending_makeups_count(
     - count: total pending makeups aged >= threshold_days
     - critical: subset aged >= 45 days
     """
-    today = date.today()
+    today = hk_now().date()
 
     # Get all pending makeup sessions at once
     pending_sessions = db.query(SessionLog).options(
@@ -990,7 +990,7 @@ async def get_makeup_suggestions(
     location = original_session.location
 
     # Query date range
-    start_date = date.today()
+    start_date = hk_now().date()
     end_date = start_date + timedelta(days=days_ahead)
 
     # Get holidays in the range first (small query)
@@ -1842,12 +1842,12 @@ async def get_calendar_events(
         logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
     # Fetch events within date range
-    end_date = date.today() + timedelta(days=days_ahead)
+    end_date = hk_now().date() + timedelta(days=days_ahead)
 
     if include_past:
-        start_date = date.today() - timedelta(days=days_behind)
+        start_date = hk_now().date() - timedelta(days=days_behind)
     else:
-        start_date = date.today()
+        start_date = hk_now().date()
 
     events = db.query(CalendarEvent).filter(
         CalendarEvent.start_date >= start_date,

@@ -80,7 +80,7 @@ def get_active_student_ids(
         if now < expiry:
             return cached_result
 
-    today = date.today()
+    today = hk_now().date()
     max_possible_weeks = 60
     cutoff_date = today - timedelta(weeks=max_possible_weeks)
 
@@ -268,7 +268,7 @@ async def get_student_contact_statuses(
         ParentCommunication.follow_up_needed == True,
         or_(
             ParentCommunication.follow_up_date == None,
-            ParentCommunication.follow_up_date >= date.today()
+            ParentCommunication.follow_up_date >= hk_now().date()
         )
     ).options(
         joinedload(ParentCommunication.student),
@@ -286,7 +286,7 @@ async def get_student_contact_statuses(
         .all()
     )
 
-    today = date.today()
+    today = hk_now().date()
     result = []
     for student in students:
         last_contact = last_contacts.get(student.id)
@@ -455,7 +455,7 @@ async def get_pending_followups(
         for record in last_contact_records:
             last_contacts[record.student_id] = record
 
-    today = date.today()
+    today = hk_now().date()
     result = []
     for student_id, fu in student_followups.items():
         student = fu.student
@@ -517,7 +517,7 @@ async def get_contact_needed_count(
     if not active_ids:
         return {"count": 0}
 
-    cutoff_date = date.today() - timedelta(days=warning_threshold)
+    cutoff_date = hk_now().date() - timedelta(days=warning_threshold)
 
     # Subquery to get max contact date per student
     last_contact_subquery = db.query(
@@ -552,7 +552,7 @@ async def get_communication_stats(
 ):
     """Get aggregated statistics for parent communications dashboard."""
     recent_threshold, _ = get_location_thresholds(db, location)
-    today = date.today()
+    today = hk_now().date()
 
     # Active students
     active_ids = get_active_student_ids(db, tutor_id=tutor_id, location=location)
