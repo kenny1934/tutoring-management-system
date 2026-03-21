@@ -26,6 +26,7 @@ import {
   ArrowUp,
   ArrowDown,
   Download,
+  Copy,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -182,7 +183,12 @@ function detectColumnsFromData(cols: string[]): { id: string; name: string; grad
   return { id, name, grade, tutor, phone, school };
 }
 
-function parsePastedData(text: string): { rows: ParsedRow[]; totalLines: number; skipped: number } {
+function normalizeStudentId(id: string, branch: string | null): string {
+  if (branch && /^\d{3,5}$/.test(id)) return `${branch}${id}`;
+  return id;
+}
+
+function parsePastedData(text: string, branch: string | null): { rows: ParsedRow[]; totalLines: number; skipped: number } {
   const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { rows: [], totalLines: 0, skipped: 0 };
 
@@ -222,7 +228,7 @@ function parsePastedData(text: string): { rows: ParsedRow[]; totalLines: number;
 
     rows.push({
       ...createEmptyRow(),
-      primary_student_id: id,
+      primary_student_id: normalizeStudentId(id, branch),
       student_name: name,
       grade: grade || "P6",
       tutor_name: tutor,
@@ -344,19 +350,22 @@ function BranchCheckboxes({
 function IntentionBadge({ value }: { value: string | null }) {
   const v = value || "Considering";
   return (
-    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${INTENTION_BADGE_COLORS[v] || "bg-gray-100"}`}>
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${INTENTION_BADGE_COLORS[v] || "bg-gray-100"}`}>
       {INTENTION_LABELS[v as ProspectIntention] || v}
     </span>
   );
 }
 
 function OutreachBadge({ status }: { status: ProspectOutreachStatus }) {
+  const label = status.startsWith("WeChat - ") ? status.replace("WeChat - ", "") : status;
+  const showWeChatIcon = status.startsWith("WeChat");
   return (
     <span
-      className={`text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap ${OUTREACH_BADGE_COLORS[status] || "bg-gray-100"}`}
+      className={`text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[status] || "bg-gray-100"}`}
       title={OUTREACH_STATUS_HINTS[status]}
     >
-      {status}
+      {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
+      {label}
     </span>
   );
 }
@@ -388,6 +397,31 @@ function SectionDivider({ label }: { label: string }) {
     <div className="col-span-full text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pt-2 first:pt-0 border-t border-border/50 dark:border-gray-700 first:border-0">
       {label}
     </div>
+  );
+}
+
+function CopyableCell({ text, title: titleOverride }: { text: string; title?: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!text) return <span className="text-muted-foreground">-</span>;
+  return (
+    <span className="group/copy inline-flex items-center gap-1 max-w-full">
+      <span className="truncate" title={titleOverride || text}>{text}</span>
+      <button
+        className="shrink-0 p-0.5 rounded transition-opacity cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        }}
+        title="Copy"
+      >
+        {copied
+          ? <Check className="h-3 w-3 text-green-500" />
+          : <Copy className="h-3 w-3 opacity-0 group-hover/copy:opacity-60 transition-opacity text-muted-foreground" />
+        }
+      </button>
+    </span>
   );
 }
 
@@ -569,7 +603,7 @@ export default function ProspectPage() {
   const handleClipboardPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = e.clipboardData.getData("text/plain");
     e.preventDefault();
-    const { rows, skipped } = parsePastedData(text);
+    const { rows, skipped } = parsePastedData(text, branch);
     if (rows.length > 0) {
       setParsedRows((prev) => {
         lastPasteSnapshot.current = prev;
@@ -992,7 +1026,7 @@ export default function ProspectPage() {
         {parsedRows.length > 0 && (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
                   <th className="px-3 py-2.5 w-8">
@@ -1001,7 +1035,7 @@ export default function ProspectPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
                     <SortableHeader label="ID" dir={parsedSort.field === "id" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "id"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium sticky left-0 z-10 bg-inherit">
                     <SortableHeader label="Name" dir={parsedSort.field === "name" ? parsedSort.dir : null} onToggle={() => setParsedSort((s) => toggleSort(s, "name"))} />
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
@@ -1010,12 +1044,10 @@ export default function ProspectPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Branch</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer?</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Regular (Sept)?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Branch</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
-                  <th className="px-3 py-2.5 w-20">
+                  <th className="px-3 py-2.5 w-20 sticky right-0 z-10 bg-inherit">
                     <button
                       onClick={toggleExpandAll}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -1048,33 +1080,39 @@ export default function ProspectPage() {
                             <AlertTriangle className="inline h-3 w-3 ml-0.5 text-yellow-500" />
                           )}
                         </td>
-                        <td className="px-3 py-2.5">
-                          <span className={`font-medium ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
-                            {row.student_name || <span className="text-red-400 italic">Name required</span>}
-                          </span>
+                        <td className={`px-3 py-2.5 sticky left-0 z-10 ${isExpanded ? "bg-primary/[0.03]" : "bg-card"}`}>
+                          {row.student_name ? (
+                            <span className={`font-medium ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
+                              <CopyableCell text={row.student_name} />
+                            </span>
+                          ) : (
+                            <span className="text-red-400 italic font-medium">Name required</span>
+                          )}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.school || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell"><CopyableCell text={row.school} /></td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.grade}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.tutor_name || "-"}</td>
                         <td className="px-3 py-2.5 text-xs">
-                          <span
-                            className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}
-                            title={w?.alreadySubmitted ? "Already in submitted records" : w?.duplicateInBatch ? "Duplicate in batch" : w?.invalidPhone ? "Should be 8 digits" : ""}
-                          >
-                            {row.phone_1 || "-"}
+                          <span className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}>
+                            <CopyableCell text={row.phone_1} title={[row.phone_1_relation && `${row.phone_1_relation}'s phone`, w?.alreadySubmitted && "Already submitted", w?.duplicateInBatch && "Duplicate in batch", w?.invalidPhone && "Should be 8 digits"].filter(Boolean).join(" · ") || undefined} />
                           </span>
-                          {row.phone_1 && row.phone_1_relation && <span className="text-[10px] text-muted-foreground ml-0.5">({row.phone_1_relation})</span>}
                         </td>
-                        <td className="px-3 py-2.5 hidden sm:table-cell"><BranchBadges branches={row.preferred_branches} /></td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                          <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
-                        </td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                          <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{row.wechat_id || "-"}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px] truncate" title={row.tutor_remark}>{row.tutor_remark || "-"}</td>
                         <td className="px-3 py-2.5">
+                          <div className="space-y-0.5">
+                            <BranchBadges branches={row.preferred_branches} />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Summer</span>
+                              <IntentionBadge value={row.wants_summer} />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Regular</span>
+                              <IntentionBadge value={row.wants_regular} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[100px]"><CopyableCell text={row.wechat_id} /></td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px]"><CopyableCell text={row.tutor_remark} /></td>
+                        <td className={`px-3 py-2.5 sticky right-0 z-10 ${isExpanded ? "bg-primary/[0.03]" : "bg-card"}`}>
                           <div className="flex items-center gap-1">
                             <button
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
@@ -1097,10 +1135,10 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={11} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                               <SectionDivider label="Student Info" />
-                              <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", v)} />
+                              <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", normalizeStudentId(v, branch))} />
                               <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required span={3} />
                               <FieldInput label="School" value={row.school} onChange={(v) => updateRow(row._key, "school", v)} />
                               <FieldInput label="Grade" value={row.grade} onChange={(v) => updateRow(row._key, "grade", v)} />
@@ -1126,7 +1164,7 @@ export default function ProspectPage() {
                                 <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
                                   <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
                                 </label>
-                                <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} placeholder="WeChat ID" />
+                                <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} />
                               </div>
 
                               <SectionDivider label="Preferences" />
@@ -1134,7 +1172,15 @@ export default function ProspectPage() {
                                 <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
                                 <BranchCheckboxes value={row.preferred_branches} onChange={(v) => updateRow(row._key, "preferred_branches", v)} />
                               </div>
-                              <FieldInput label="Time / Tutor Preference" value={row.preferred_time_note} onChange={(v) => updateRow(row._key, "preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" span={2} />
+                              <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+                                <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
+                                <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
+                              </div>
+                              <FieldInput label="Time / Tutor Preference" value={row.preferred_time_note} onChange={(v) => updateRow(row._key, "preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" />
 
                               <SectionDivider label="Notes" />
                               <div className="col-span-full">
@@ -1303,7 +1349,7 @@ export default function ProspectPage() {
         ) : (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
                   <th className="px-3 py-2.5 w-8">
@@ -1312,7 +1358,7 @@ export default function ProspectPage() {
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
                     <SortableHeader label="ID" dir={submittedSort.field === "id" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "id"))} />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium sticky left-0 z-10 bg-inherit">
                     <SortableHeader label="Name" dir={submittedSort.field === "name" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "name"))} />
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium hidden sm:table-cell">
@@ -1323,13 +1369,11 @@ export default function ProspectPage() {
                     <SortableHeader label="Tutor" dir={submittedSort.field === "tutor" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "tutor"))} />
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Branch</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer?</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Regular (Sept)?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Branch</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Outreach</th>
-                  <th className="px-3 py-2.5 w-24">
+                  <th className="px-3 py-2.5 w-24 sticky right-0 z-10 bg-inherit">
                     <button
                       onClick={toggleSubmittedExpandAll}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -1355,28 +1399,37 @@ export default function ProspectPage() {
                           <input type="checkbox" className="rounded" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
                         </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
-                        <td className="px-3 py-2.5 font-medium text-foreground">
-                          {p.student_name}
+                        <td className={`px-3 py-2.5 font-medium text-foreground sticky left-0 z-10 ${isOpen ? "bg-primary/[0.03]" : "bg-card"}`}>
+                          <CopyableCell text={p.student_name} />
                           {lastSavedId === p.id && (
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400 font-medium animate-in fade-in">
                               <Check className="h-3 w-3" />Saved
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell"><CopyableCell text={p.school || ""} /></td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.grade}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.tutor_name || "-"}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                          {p.phone_1}
-                          {p.phone_1_relation && <span className="text-[10px] ml-0.5">({p.phone_1_relation})</span>}
+                          <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
                         </td>
-                        <td className="px-3 py-2.5 hidden sm:table-cell"><BranchBadges branches={p.preferred_branches || []} /></td>
-                        <td className="px-3 py-2.5"><IntentionBadge value={p.wants_summer} /></td>
-                        <td className="px-3 py-2.5 hidden sm:table-cell"><IntentionBadge value={p.wants_regular} /></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{p.wechat_id || "-"}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px] truncate" title={p.tutor_remark || ""}>{p.tutor_remark || "-"}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="space-y-0.5">
+                            <BranchBadges branches={p.preferred_branches || []} />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Summer</span>
+                              <IntentionBadge value={p.wants_summer} />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Regular</span>
+                              <IntentionBadge value={p.wants_regular} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
                         <td className="px-3 py-2.5"><OutreachBadge status={p.outreach_status} /></td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className={`px-3 py-2.5 sticky right-0 z-10 ${isOpen ? "bg-primary/[0.03]" : "bg-card"}`} onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
@@ -1408,12 +1461,12 @@ export default function ProspectPage() {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={14} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                          <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             {isEditing ? (
                               <div className="space-y-3">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                                   <SectionDivider label="Student Info" />
-                                  <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: v }))} />
+                                  <FieldInput label="Student ID" value={editData.primary_student_id as string ?? p.primary_student_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, primary_student_id: normalizeStudentId(v, branch) }))} />
                                   <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required span={3} />
                                   <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
                                   <FieldInput label="Grade" value={editData.grade as string ?? p.grade ?? ""} onChange={(v) => setEditData((d) => ({ ...d, grade: v }))} />
@@ -1439,7 +1492,7 @@ export default function ProspectPage() {
                                     <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
                                       <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
                                     </label>
-                                    <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} placeholder="WeChat ID" />
+                                    <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} />
                                   </div>
 
                                   <SectionDivider label="Preferences" />
