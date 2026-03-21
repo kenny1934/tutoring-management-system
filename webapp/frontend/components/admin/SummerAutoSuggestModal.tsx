@@ -128,10 +128,25 @@ const SLOT_LEGEND_DOT_COLORS = [
   "text-emerald-400 dark:text-emerald-500",
 ];
 
+// Pairs where curriculum order matters: L1<L2, L3<L4, L5<L6, L7<L8
+const LESSON_PAIRS: [number, number][] = [[1, 2], [3, 4], [5, 6], [7, 8]];
+
 function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_assignments"] }) {
   // Build slot-id → color index map
   const slotIds = [...new Set(assignments.map((a) => a.slot_id))];
   const slotColorMap = new Map(slotIds.map((id, i) => [id, i % SLOT_BORDER_COLORS.length]));
+
+  // Detect out-of-order pairs
+  const dateByNumber = new Map(assignments.map((a) => [a.lesson_number, a.lesson_date]));
+  const outOfOrder = new Set<number>();
+  for (const [first, second] of LESSON_PAIRS) {
+    const d1 = dateByNumber.get(first);
+    const d2 = dateByNumber.get(second);
+    if (d1 && d2 && d1 > d2) {
+      outOfOrder.add(first);
+      outOfOrder.add(second);
+    }
+  }
 
   // Build legend data for multi-slot
   const slotLegend = slotIds.length > 1
@@ -151,19 +166,36 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
         {assignments.map((a) => {
           const dayAbbr = DAY_ABBREV[a.slot_day] || a.slot_day?.slice(0, 3);
           const slotColor = SLOT_BORDER_COLORS[slotColorMap.get(a.slot_id) ?? 0];
+          const isSwapped = outOfOrder.has(a.lesson_number);
+          const count = a.student_count ?? 0;
+          const max = a.max_students ?? 8;
+          const fillPct = max > 0 ? Math.min(count / max, 1) : 0;
+          const capColor = fillPct >= 0.85 ? "bg-red-400 dark:bg-red-500" : fillPct >= 0.5 ? "bg-amber-400 dark:bg-amber-500" : "bg-emerald-400 dark:bg-emerald-500";
           return (
             <div
               key={a.lesson_id}
               className={cn(
-                "flex-1 min-w-0 text-center px-0.5 py-1 rounded bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2",
-                slotColor
+                "flex-1 min-w-0 text-center px-0.5 py-1 rounded bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2 relative overflow-hidden",
+                slotColor,
+                isSwapped && "ring-1 ring-amber-400/60 dark:ring-amber-500/60"
               )}
+              title={`${count} of ${max} students${isSwapped ? " · Out of pair order" : ""}`}
             >
-              <div className="text-[10px] font-semibold text-foreground/80">
-                L{a.lesson_number}
+              <div className={cn(
+                "text-[10px] font-semibold",
+                isSwapped ? "text-amber-600 dark:text-amber-400" : "text-foreground/80"
+              )}>
+                L{a.lesson_number}{isSwapped && " ↕"}
               </div>
               <div className="text-[9px] text-muted-foreground truncate">
                 {dayAbbr} {formatCompactDate(a.lesson_date)}
+              </div>
+              {/* Capacity bar */}
+              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-black/5 dark:bg-white/5">
+                <div
+                  className={cn("h-full transition-all", capColor)}
+                  style={{ width: `${fillPct * 100}%` }}
+                />
               </div>
             </div>
           );

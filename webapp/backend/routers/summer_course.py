@@ -1326,7 +1326,7 @@ def _find_best_lesson_set(
 
     # --- For 1x/week students: try single-slot solution first ---
     if app.sessions_per_week == 1:
-        single_results = _try_single_slot(app, by_number, lesson_buddy_groups)
+        single_results = _try_single_slot(app, by_number, lesson_buddy_groups, lesson_capacity)
         if single_results:
             # Return the best result; caller handles multiple options
             assignments, match_type, confidence = single_results[0]
@@ -1406,6 +1406,8 @@ def _find_best_lesson_set(
             "time_slot": slot.time_slot,
             "slot_day": slot.slot_day,
             "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
+            "student_count": slot.max_students - lesson_capacity.get(lesson.id, 0),
+            "max_students": slot.max_students,
         }
         assigned_dates.append((ln, lesson.lesson_date))
 
@@ -1435,6 +1437,7 @@ def _try_single_slot(
     app: SummerApplication,
     by_number: dict[int, list],
     lesson_buddy_groups: dict[int, set[int]],
+    lesson_capacity: dict[int, int],
     max_options: int = 3,
 ) -> list[tuple[list, str, float]]:
     """For 1x/week students, find top N single-slot solutions.
@@ -1522,6 +1525,8 @@ def _try_single_slot(
                 "time_slot": slot.time_slot,
                 "slot_day": slot.slot_day,
                 "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
+                "student_count": slot.max_students - lesson_capacity.get(lesson.id, 0),
+                "max_students": slot.max_students,
             })
         if not valid:
             continue
@@ -1693,7 +1698,7 @@ def auto_suggest(
                     continue
                 by_num.setdefault(lesson.lesson_number, []).append((lesson, slot))
             if all(n in by_num for n in range(1, 9)):
-                alt_options = _try_single_slot(app, by_num, lesson_buddy_groups)
+                alt_options = _try_single_slot(app, by_num, lesson_buddy_groups, lesson_capacity)
 
         # Primary result from full algorithm
         result = _find_best_lesson_set(
