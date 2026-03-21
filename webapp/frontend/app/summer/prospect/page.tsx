@@ -19,7 +19,6 @@ import {
   Info,
   AlertTriangle,
   ChevronDown,
-  ChevronUp,
   ChevronsUpDown,
   Search,
   ArrowUpDown,
@@ -1043,7 +1042,7 @@ export default function ProspectPage() {
               <a
                 key={b}
                 href={`/summer/prospect?branch=${b}`}
-                className="group flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border bg-card hover:border-primary hover:shadow-md hover:scale-[1.02] transition-all duration-200"
+                className="group flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border bg-card hover:border-primary hover:shadow-md transition-all duration-200"
               >
                 <Building2 className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="font-semibold text-foreground">{b}</span>
@@ -1189,8 +1188,14 @@ export default function ProspectPage() {
               const row = parsedRows[idx];
               const w = rowWarnings[idx];
               const isExpanded = parsedExpandedKeys.has(row._key);
+              const hasWarning = !!(w?.duplicateInBatch || w?.alreadySubmitted || w?.invalidPhone);
               return (
-                <div key={row._key} className={`border rounded-xl bg-card p-3 space-y-1.5 transition-colors ${isExpanded ? "border-primary/30" : "border-border"}`}>
+                <div key={row._key} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${
+                  isExpanded ? "border-primary/30 bg-primary/[0.02]"
+                    : selectedParsedKeys.has(row._key) ? "border-primary/40 bg-primary/[0.03]"
+                    : hasWarning ? "border-yellow-300 dark:border-yellow-700 bg-yellow-50/50 dark:bg-yellow-900/10"
+                    : "border-border bg-card"
+                }`}>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" className="rounded shrink-0" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
                     <span className={`font-medium flex-1 truncate text-sm ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
@@ -1198,7 +1203,7 @@ export default function ProspectPage() {
                     </span>
                     {(w?.duplicateInBatch || w?.alreadySubmitted) && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
                     <button onClick={() => toggleExpand(row._key)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
                     <button onClick={() => removeRow(row._key)} className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors">
                       <Trash2 className="h-3.5 w-3.5" />
@@ -1261,11 +1266,16 @@ export default function ProspectPage() {
                   const row = parsedRows[idx];
                   const w = rowWarnings[idx];
                   const isExpanded = parsedExpandedKeys.has(row._key);
+                  const hasWarning = !!(w?.duplicateInBatch || w?.alreadySubmitted || w?.invalidPhone);
                   return (
                     <React.Fragment key={row._key}>
                       {/* Main row — read-only display */}
                       <tr
-                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${
+                          selectedParsedKeys.has(row._key) ? "bg-primary/[0.05]"
+                            : hasWarning ? "bg-yellow-50/50 dark:bg-yellow-900/10"
+                            : isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
+                        }`}
                         onClick={() => toggleExpand(row._key)}
                       >
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
@@ -1316,7 +1326,7 @@ export default function ProspectPage() {
                               title={isExpanded ? "Collapse" : "Expand details"}
                               onClick={(e) => { e.stopPropagation(); toggleExpand(row._key); }}
                             >
-                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); removeRow(row._key); }}
@@ -1479,14 +1489,18 @@ export default function ProspectPage() {
               const isEditing = editingId === p.id;
               const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
               return (
-                <div key={p.id} className={`border rounded-xl bg-card p-3 space-y-1.5 transition-colors ${isOpen ? "border-primary/30" : "border-border"}`}>
+                <div key={p.id} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${
+                  isOpen ? "border-primary/30 bg-primary/[0.02]"
+                    : selectedSubmittedIds.has(p.id) ? "border-primary/40 bg-primary/[0.03]"
+                    : "border-border bg-card"
+                }`}>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" className="rounded shrink-0" checked={selectedSubmittedIds.has(p.id)} onChange={() => toggleSubmittedSelect(p.id)} />
                     <span className="font-medium flex-1 truncate text-sm">{p.student_name}</span>
                     {lastSavedId === p.id && <span className="text-[10px] text-green-600 dark:text-green-400 font-medium"><Check className="h-3 w-3 inline" /></span>}
                     <OutreachBadge status={p.outreach_status} />
                     <button onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                      {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                     </button>
                     {!isEditing && (
                       <>
@@ -1567,7 +1581,10 @@ export default function ProspectPage() {
                   return (
                     <React.Fragment key={p.id}>
                       <tr
-                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${
+                          selectedSubmittedIds.has(p.id) ? "bg-primary/[0.05]"
+                            : isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
+                        }`}
                         onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }}
                       >
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
@@ -1611,7 +1628,7 @@ export default function ProspectPage() {
                               title={isOpen ? "Collapse" : "Expand"}
                               onClick={() => toggleSubmittedExpand(p.id)}
                             >
-                              {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                             </button>
                             {!isEditing && (
                               <>
@@ -1705,7 +1722,7 @@ export default function ProspectPage() {
 
       {/* Floating bulk action bars */}
       {selectedParsedKeys.size > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">{selectedParsedKeys.size} selected</span>
             <button onClick={bulkDeleteParsed} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
@@ -1728,7 +1745,7 @@ export default function ProspectPage() {
       )}
 
       {selectedSubmittedIds.size > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
             <span className="text-sm font-medium">{selectedSubmittedIds.size} selected</span>
             <button onClick={bulkDeleteSubmitted} disabled={bulkDeleting} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
