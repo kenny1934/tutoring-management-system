@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
 import {
   Wand2,
   Loader2,
@@ -183,6 +183,221 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
   );
 }
 
+// ── Date constraint panel (extracted for perf — hoverDate stays local) ──
+
+interface CourseMonthData {
+  start: Date;
+  end: Date;
+  months: { year: number; month: number; label: string; dates: Date[] }[];
+}
+
+interface DateConstraintPanelProps {
+  appId: number;
+  constraints: DateConstraints | undefined;
+  courseMonths: CourseMonthData;
+  adjustError: string | undefined;
+  onConstraintsChange: (appId: number, update: Partial<DateConstraints>) => void;
+  onClearError: (appId: number) => void;
+  onResuggest: (appId: number, mode: "exclude" | "include", flatDates: string[]) => Promise<void>;
+}
+
+const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+const DateConstraintPanel = memo(function DateConstraintPanel({
+  appId,
+  constraints,
+  courseMonths,
+  adjustError,
+  onConstraintsChange,
+  onClearError,
+  onResuggest,
+}: DateConstraintPanelProps) {
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const [readjusting, setReadjusting] = useState(false);
+  const [resuggestFlash, setResuggestFlash] = useState(false);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+  }, []);
+
+  const mode = constraints?.mode ?? "exclude";
+  const ranges = constraints?.ranges ?? EMPTY_RANGES;
+  const { start, end, months } = courseMonths;
+
+  const flatDates = useMemo(() => flattenRanges(ranges), [ranges]);
+
+  const previewStart = rangeStart && hoverDate
+    ? (rangeStart <= hoverDate ? rangeStart : hoverDate) : null;
+  const previewEnd = rangeStart && hoverDate
+    ? (rangeStart <= hoverDate ? hoverDate : rangeStart) : null;
+
+  const handleDateClick = useCallback((dateStr: string) => {
+    if (adjustError) onClearError(appId);
+    if (!rangeStart) {
+      setRangeStart(dateStr);
+    } else {
+      const s = rangeStart <= dateStr ? rangeStart : dateStr;
+      const e = rangeStart <= dateStr ? dateStr : rangeStart;
+      onConstraintsChange(appId, { ranges: [...ranges, [s, e] as DateRange] });
+      setRangeStart(null);
+      setHoverDate(null);
+    }
+  }, [appId, rangeStart, ranges, adjustError, onConstraintsChange, onClearError]);
+
+  const removeRange = useCallback((idx: number) => {
+    if (adjustError) onClearError(appId);
+    onConstraintsChange(appId, { ranges: ranges.filter((_, i) => i !== idx) });
+  }, [appId, ranges, adjustError, onConstraintsChange, onClearError]);
+
+  const handleResuggest = useCallback(async () => {
+    setReadjusting(true);
+    setRangeStart(null);
+    setHoverDate(null);
+    try {
+      await onResuggest(appId, mode, flatDates);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      setResuggestFlash(true);
+      flashTimerRef.current = setTimeout(() => setResuggestFlash(false), 1500);
+    } finally {
+      setReadjusting(false);
+    }
+  }, [appId, mode, flatDates, onResuggest]);
+
+  return (
+    <div className="shrink-0 px-3 py-2.5 md:border-l border-t md:border-t-0 border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 space-y-2">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          onClick={() => {
+            if (mode === "exclude") return;
+            if (ranges.length > 0 && !confirm("Switching modes will clear selected dates. Continue?")) return;
+            onConstraintsChange(appId, { mode: "exclude", ranges: [] });
+            setRangeStart(null);
+          }}
+          className={cn(
+            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+            mode === "exclude"
+              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
+          )}
+        >
+          Not available on:
+        </button>
+        <button
+          onClick={() => {
+            if (mode === "include") return;
+            if (ranges.length > 0 && !confirm("Switching modes will clear selected dates. Continue?")) return;
+            onConstraintsChange(appId, { mode: "include", ranges: [] });
+            setRangeStart(null);
+          }}
+          className={cn(
+            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
+            mode === "include"
+              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+              : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
+          )}
+        >
+          Only available on:
+        </button>
+        {rangeStart && (
+          <span className="text-[9px] text-muted-foreground italic">Click end date...</span>
+        )}
+      </div>
+
+      <div className="flex gap-3" onMouseLeave={() => setHoverDate(null)}>
+        {months.map(({ year, month, label, dates }) => (
+          <div key={`${year}-${month}`} className="shrink-0">
+            <div className="text-[10px] font-semibold text-center mb-1 text-gray-700 dark:text-gray-300">{label}</div>
+            <div className="grid grid-cols-7">
+              {DAY_NAMES.map((d) => (
+                <div key={d} className="w-7 h-5 flex items-center justify-center text-[9px] font-medium text-muted-foreground">{d}</div>
+              ))}
+              {dates.map((date, i) => {
+                const isCurrentMonth = date.getMonth() === month;
+                const dateStr = toDateString(date);
+                const inCourseRange = date >= start && date <= end;
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const selectable = isCurrentMonth && inCourseRange;
+                const inCommitted = isDateInRanges(dateStr, ranges);
+                const endpoint = isRangeEndpoint(dateStr, ranges);
+                const inPreview = !inCommitted && previewStart && previewEnd && dateStr >= previewStart && dateStr <= previewEnd;
+                const isPreviewEndpoint = inPreview && (dateStr === previewStart || dateStr === previewEnd);
+                const isPendingStart = dateStr === rangeStart && !inCommitted;
+                const isRangeStart = endpoint === "start" || endpoint === "both";
+                const isRangeEnd = endpoint === "end" || endpoint === "both";
+                const isInterior = inCommitted && !isRangeStart && !isRangeEnd;
+                const isPreviewStart = inPreview && dateStr === previewStart;
+                const isPreviewEnd = inPreview && dateStr === previewEnd;
+                const isPreviewInterior = inPreview && !isPreviewStart && !isPreviewEnd;
+                const modeIsExclude = mode === "exclude";
+                return (
+                  <button
+                    key={i}
+                    onClick={() => selectable && handleDateClick(dateStr)}
+                    onMouseEnter={() => selectable && rangeStart && setHoverDate(dateStr)}
+                    disabled={!selectable}
+                    className={cn(
+                      "w-7 h-7 flex items-center justify-center text-[11px] transition-colors relative",
+                      !isCurrentMonth && "invisible",
+                      isCurrentMonth && !inCourseRange && "opacity-20 cursor-default",
+                      selectable && isWeekend && !inCommitted && !inPreview && !isPendingStart && "opacity-40",
+                      selectable && !inCommitted && !inPreview && !isPendingStart && "hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded-full",
+                      isPendingStart && cn("rounded-full font-bold text-white", modeIsExclude ? "bg-red-500" : "bg-green-500"),
+                      (isRangeStart || isRangeEnd) && !isInterior && cn(
+                        "font-bold text-white z-10", modeIsExclude ? "bg-red-500" : "bg-green-500",
+                        isRangeStart && !isRangeEnd && "rounded-l-full rounded-r-none",
+                        isRangeEnd && !isRangeStart && "rounded-r-full rounded-l-none",
+                        endpoint === "both" && "rounded-full",
+                      ),
+                      isInterior && cn("rounded-none font-medium", modeIsExclude ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" : "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"),
+                      isPreviewEndpoint && cn("font-semibold z-10", modeIsExclude ? "bg-red-200 text-red-700 dark:bg-red-800/50 dark:text-red-200" : "bg-green-200 text-green-700 dark:bg-green-800/50 dark:text-green-200",
+                        isPreviewStart && !isPreviewEnd && "rounded-l-full rounded-r-none",
+                        isPreviewEnd && !isPreviewStart && "rounded-r-full rounded-l-none",
+                        isPreviewStart && isPreviewEnd && "rounded-full",
+                      ),
+                      isPreviewInterior && cn("rounded-none", modeIsExclude ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300" : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300"),
+                    )}
+                    title={selectable ? dateStr : undefined}
+                  >
+                    {date.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {ranges.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          {ranges.map(([s, e], idx) => (
+            <span key={idx} className={cn("inline-flex items-center gap-0.5 text-[10px] font-medium pl-1.5 pr-0.5 py-0.5 rounded-full", mode === "exclude" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300")}>
+              {formatRangeLabel(s, e)}
+              <button onClick={() => removeRange(idx)} className="hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5"><X className="h-2.5 w-2.5" /></button>
+            </span>
+          ))}
+          <button onClick={() => { onConstraintsChange(appId, { ranges: [] }); setRangeStart(null); }} className="text-[9px] text-muted-foreground hover:text-foreground hover:underline ml-0.5">Clear</button>
+        </div>
+      )}
+
+      <button
+        onClick={handleResuggest}
+        disabled={readjusting}
+        className={cn(
+          "text-[10px] font-medium px-2.5 py-1 rounded-md text-white flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full justify-center",
+          resuggestFlash ? "bg-green-600" : "bg-amber-600 hover:bg-amber-700"
+        )}
+      >
+        {readjusting ? <Loader2 className="h-3 w-3 animate-spin" /> : resuggestFlash ? <CheckCircle2 className="h-3 w-3" /> : <Wand2 className="h-3 w-3" />}
+        {resuggestFlash ? "Updated!" : ranges.length === 0 ? "Reset suggestion" : "Re-suggest"}
+      </button>
+    </div>
+  );
+});
+
+// ── Main Modal ──
+
 export function SummerAutoSuggestModal({
   isOpen,
   onClose,
@@ -206,27 +421,12 @@ export function SummerAutoSuggestModal({
   const [adjustingAppId, setAdjustingAppId] = useState<number | null>(null);
   const [dateConstraints, setDateConstraints] = useState<Record<number, DateConstraints>>({});
   const [adjustErrors, setAdjustErrors] = useState<Record<number, string>>({});
-  const [rangeStart, setRangeStart] = useState<string | null>(null);
-  const [hoverDate, setHoverDate] = useState<string | null>(null);
-  const [readjusting, setReadjusting] = useState(false);
-  const [resuggestFlash, setResuggestFlash] = useState(false);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Stable refs for callbacks used in effects (Fix 1: prevent effect re-fires)
+  // Stable refs for callbacks used in effects
   const showToastRef = useRef(showToast);
   showToastRef.current = showToast;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-
-  // Cleanup flash timer on unmount
-  useEffect(() => () => {
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-  }, []);
-
-  // Derive current constraints for the active adjust panel
-  const activeConstraints = adjustingAppId ? dateConstraints[adjustingAppId] : null;
-  const adjustMode = activeConstraints?.mode ?? "exclude";
-  const adjustRanges = activeConstraints?.ranges ?? EMPTY_RANGES;
 
   const setConstraintsFor = useCallback((appId: number, update: Partial<DateConstraints>) => {
     setDateConstraints(prev => ({
@@ -238,9 +438,6 @@ export function SummerAutoSuggestModal({
       },
     }));
   }, []);
-
-  // Flatten active ranges to individual date strings for the API call
-  const flatDates = useMemo(() => flattenRanges(adjustRanges), [adjustRanges]);
 
   // Build month calendar data for the course period
   const courseMonths = useMemo(() => {
@@ -297,14 +494,46 @@ export function SummerAutoSuggestModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, configId, location, applicationId]);
 
-  const toggleItem = (appId: number) => {
+  const toggleItem = useCallback((appId: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(appId)) next.delete(appId);
       else next.add(appId);
       return next;
     });
-  };
+  }, []);
+
+  const clearError = useCallback((appId: number) => {
+    setAdjustErrors(prev => { const n = { ...prev }; delete n[appId]; return n; });
+  }, []);
+
+  // Callback for DateConstraintPanel re-suggest
+  const handlePanelResuggest = useCallback(async (appId: number, mode: "exclude" | "include", flatDates: string[]) => {
+    clearError(appId);
+    try {
+      const result = await summerAPI.autoSuggest({
+        config_id: configId,
+        location,
+        application_id: appId,
+        exclude_dates: mode === "exclude" ? flatDates : undefined,
+        include_dates: mode === "include" ? flatDates : undefined,
+      });
+      if (result.proposals.length > 0 && data) {
+        const otherProposals = data.proposals.filter((ex) => ex.application_id !== appId);
+        setData({ ...data, proposals: [...otherProposals, ...result.proposals] });
+        if (result.proposals[0].option_label) {
+          setSelectedOption(prev => ({ ...prev, [appId]: result.proposals[0].option_label! }));
+        }
+      } else {
+        setAdjustErrors(prev => ({ ...prev, [appId]: "No placement found with these constraints" }));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Re-suggest failed";
+      showToast(msg, "error");
+      throw e; // re-throw so panel's finally block runs
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configId, location, data]);
 
   // Group proposals by student for rendering (options stay within one card)
   const studentGroups = useMemo(() => {
@@ -322,16 +551,14 @@ export function SummerAutoSuggestModal({
     }));
   }, [data]);
 
-  const uniqueStudentIds = useMemo(() => new Set(studentGroups.map((g) => g.appId)), [studentGroups]);
-
-  const toggleAll = () => {
-    if (!data) return;
-    if (selected.size === uniqueStudentIds.size) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(uniqueStudentIds));
-    }
-  };
+  const toggleAll = useCallback(() => {
+    if (!studentGroups.length) return;
+    setSelected(prev =>
+      prev.size === studentGroups.length
+        ? new Set()
+        : new Set(studentGroups.map(g => g.appId))
+    );
+  }, [studentGroups]);
 
   const handleAccept = async () => {
     if (!data) return;
@@ -373,8 +600,8 @@ export function SummerAutoSuggestModal({
       setAccepting(false);
       onAccepted();
       onClose();
-    } catch (e: any) {
-      showToast(e.message || "Failed to place students", "error");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to place students", "error");
       setAccepting(false);
     }
   };
@@ -465,11 +692,11 @@ export function SummerAutoSuggestModal({
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={selected.size === uniqueStudentIds.size}
+                    checked={selected.size === studentGroups.length}
                     onChange={toggleAll}
                     className="rounded"
                   />
-                  Select all ({uniqueStudentIds.size} student{uniqueStudentIds.size !== 1 ? "s" : ""})
+                  Select all ({studentGroups.length} student{studentGroups.length !== 1 ? "s" : ""})
                 </label>
                 <span className="text-xs text-muted-foreground ml-auto">
                   {selected.size} selected
@@ -632,15 +859,7 @@ export function SummerAutoSuggestModal({
                               title="Adjust date constraints"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (adjustingAppId === group.appId) {
-                                  setAdjustingAppId(null);
-                                  setRangeStart(null);
-                                  setHoverDate(null);
-                                } else {
-                                  setAdjustingAppId(group.appId);
-                                  setRangeStart(null);
-                                  setHoverDate(null);
-                                }
+                                setAdjustingAppId(adjustingAppId === group.appId ? null : group.appId);
                               }}
                             >
                               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -657,199 +876,17 @@ export function SummerAutoSuggestModal({
                         </div>
 
                         {/* Right column: Date constraint panel */}
-                        {adjustingAppId === group.appId && courseMonths && (() => {
-                          const { start, end, months } = courseMonths;
-                          const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-                          const appId = group.appId;
-
-                          const previewStart = rangeStart && hoverDate
-                            ? (rangeStart <= hoverDate ? rangeStart : hoverDate) : null;
-                          const previewEnd = rangeStart && hoverDate
-                            ? (rangeStart <= hoverDate ? hoverDate : rangeStart) : null;
-
-                          const handleDateClick = (dateStr: string) => {
-                            if (adjustErrors[appId]) {
-                              setAdjustErrors(prev => { const n = { ...prev }; delete n[appId]; return n; });
-                            }
-                            if (!rangeStart) {
-                              setRangeStart(dateStr);
-                            } else {
-                              const s = rangeStart <= dateStr ? rangeStart : dateStr;
-                              const e = rangeStart <= dateStr ? dateStr : rangeStart;
-                              setConstraintsFor(appId, { ranges: [...adjustRanges, [s, e] as DateRange] });
-                              setRangeStart(null);
-                              setHoverDate(null);
-                            }
-                          };
-
-                          const removeRange = (idx: number) => {
-                            if (adjustErrors[appId]) {
-                              setAdjustErrors(prev => { const n = { ...prev }; delete n[appId]; return n; });
-                            }
-                            setConstraintsFor(appId, { ranges: adjustRanges.filter((_, i) => i !== idx) });
-                          };
-
-                          return (
-                          <div className="shrink-0 px-3 py-2.5 md:border-l border-t md:border-t-0 border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 space-y-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <button
-                                onClick={() => {
-                                  if (adjustMode === "exclude") return;
-                                  if (adjustRanges.length > 0 && !confirm("Switching modes will clear selected dates. Continue?")) return;
-                                  setConstraintsFor(appId, { mode: "exclude", ranges: [] });
-                                  setRangeStart(null);
-                                }}
-                                className={cn(
-                                  "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
-                                  adjustMode === "exclude"
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                    : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
-                                )}
-                              >
-                                Not available on:
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (adjustMode === "include") return;
-                                  if (adjustRanges.length > 0 && !confirm("Switching modes will clear selected dates. Continue?")) return;
-                                  setConstraintsFor(appId, { mode: "include", ranges: [] });
-                                  setRangeStart(null);
-                                }}
-                                className={cn(
-                                  "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors",
-                                  adjustMode === "include"
-                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                    : "bg-[#e8d4b8]/20 text-muted-foreground hover:bg-[#e8d4b8]/40"
-                                )}
-                              >
-                                Only available on:
-                              </button>
-                              {rangeStart && (
-                                <span className="text-[9px] text-muted-foreground italic">Click end date...</span>
-                              )}
-                            </div>
-
-                            <div className="flex gap-3" onMouseLeave={() => setHoverDate(null)}>
-                              {months.map(({ year, month, label, dates }) => (
-                                <div key={`${year}-${month}`} className="shrink-0">
-                                  <div className="text-[10px] font-semibold text-center mb-1 text-gray-700 dark:text-gray-300">{label}</div>
-                                  <div className="grid grid-cols-7">
-                                    {dayNames.map((d) => (
-                                      <div key={d} className="w-7 h-5 flex items-center justify-center text-[9px] font-medium text-muted-foreground">{d}</div>
-                                    ))}
-                                    {dates.map((date, i) => {
-                                      const isCurrentMonth = date.getMonth() === month;
-                                      const dateStr = toDateString(date);
-                                      const inCourseRange = date >= start && date <= end;
-                                      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                      const selectable = isCurrentMonth && inCourseRange;
-                                      const inCommitted = isDateInRanges(dateStr, adjustRanges);
-                                      const endpoint = isRangeEndpoint(dateStr, adjustRanges);
-                                      const inPreview = !inCommitted && previewStart && previewEnd && dateStr >= previewStart && dateStr <= previewEnd;
-                                      const isPreviewEndpoint = inPreview && (dateStr === previewStart || dateStr === previewEnd);
-                                      const isPendingStart = dateStr === rangeStart && !inCommitted;
-                                      const isRangeStart = endpoint === "start" || endpoint === "both";
-                                      const isRangeEnd = endpoint === "end" || endpoint === "both";
-                                      const isInterior = inCommitted && !isRangeStart && !isRangeEnd;
-                                      const isPreviewStart = inPreview && dateStr === previewStart;
-                                      const isPreviewEnd = inPreview && dateStr === previewEnd;
-                                      const isPreviewInterior = inPreview && !isPreviewStart && !isPreviewEnd;
-                                      const modeIsExclude = adjustMode === "exclude";
-                                      return (
-                                        <button
-                                          key={i}
-                                          onClick={() => selectable && handleDateClick(dateStr)}
-                                          onMouseEnter={() => selectable && rangeStart && setHoverDate(dateStr)}
-                                          disabled={!selectable}
-                                          className={cn(
-                                            "w-7 h-7 flex items-center justify-center text-[11px] transition-colors relative",
-                                            !isCurrentMonth && "invisible",
-                                            isCurrentMonth && !inCourseRange && "opacity-20 cursor-default",
-                                            selectable && isWeekend && !inCommitted && !inPreview && !isPendingStart && "opacity-40",
-                                            selectable && !inCommitted && !inPreview && !isPendingStart && "hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded-full",
-                                            isPendingStart && cn("rounded-full font-bold text-white", modeIsExclude ? "bg-red-500" : "bg-green-500"),
-                                            (isRangeStart || isRangeEnd) && !isInterior && cn(
-                                              "font-bold text-white z-10", modeIsExclude ? "bg-red-500" : "bg-green-500",
-                                              isRangeStart && !isRangeEnd && "rounded-l-full rounded-r-none",
-                                              isRangeEnd && !isRangeStart && "rounded-r-full rounded-l-none",
-                                              endpoint === "both" && "rounded-full",
-                                            ),
-                                            isInterior && cn("rounded-none font-medium", modeIsExclude ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" : "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"),
-                                            isPreviewEndpoint && cn("font-semibold z-10", modeIsExclude ? "bg-red-200 text-red-700 dark:bg-red-800/50 dark:text-red-200" : "bg-green-200 text-green-700 dark:bg-green-800/50 dark:text-green-200",
-                                              isPreviewStart && !isPreviewEnd && "rounded-l-full rounded-r-none",
-                                              isPreviewEnd && !isPreviewStart && "rounded-r-full rounded-l-none",
-                                              isPreviewStart && isPreviewEnd && "rounded-full",
-                                            ),
-                                            isPreviewInterior && cn("rounded-none", modeIsExclude ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300" : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300"),
-                                          )}
-                                          title={selectable ? dateStr : undefined}
-                                        >
-                                          {date.getDate()}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {adjustRanges.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {adjustRanges.map(([s, e], idx) => (
-                                  <span key={idx} className={cn("inline-flex items-center gap-0.5 text-[10px] font-medium pl-1.5 pr-0.5 py-0.5 rounded-full", adjustMode === "exclude" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300")}>
-                                    {formatRangeLabel(s, e)}
-                                    <button onClick={() => removeRange(idx)} className="hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5"><X className="h-2.5 w-2.5" /></button>
-                                  </span>
-                                ))}
-                                <button onClick={() => { setConstraintsFor(appId, { ranges: [] }); setRangeStart(null); }} className="text-[9px] text-muted-foreground hover:text-foreground hover:underline ml-0.5">Clear</button>
-                              </div>
-                            )}
-
-                            <button
-                              onClick={async () => {
-                                setReadjusting(true);
-                                setRangeStart(null);
-                                setHoverDate(null);
-                                setAdjustErrors(prev => { const n = { ...prev }; delete n[appId]; return n; });
-                                try {
-                                  const result = await summerAPI.autoSuggest({
-                                    config_id: configId, location,
-                                    application_id: appId,
-                                    exclude_dates: adjustMode === "exclude" ? flatDates : undefined,
-                                    include_dates: adjustMode === "include" ? flatDates : undefined,
-                                  });
-                                  if (result.proposals.length > 0 && data) {
-                                    // Replace ALL proposals for this student
-                                    const otherProposals = data.proposals.filter((ex) => ex.application_id !== appId);
-                                    setData({ ...data, proposals: [...otherProposals, ...result.proposals] });
-                                    // Auto-select first option
-                                    if (result.proposals[0].option_label) {
-                                      setSelectedOption(prev => ({ ...prev, [appId]: result.proposals[0].option_label! }));
-                                    }
-                                    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-                                    setResuggestFlash(true);
-                                    flashTimerRef.current = setTimeout(() => setResuggestFlash(false), 1500);
-                                  } else {
-                                    setAdjustErrors(prev => ({ ...prev, [appId]: "No placement found with these constraints" }));
-                                  }
-                                } catch (e: any) {
-                                  showToast(e.message || "Re-suggest failed", "error");
-                                } finally {
-                                  setReadjusting(false);
-                                }
-                              }}
-                              disabled={readjusting}
-                              className={cn(
-                                "text-[10px] font-medium px-2.5 py-1 rounded-md text-white flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full justify-center",
-                                resuggestFlash ? "bg-green-600" : "bg-amber-600 hover:bg-amber-700"
-                              )}
-                            >
-                              {readjusting ? <Loader2 className="h-3 w-3 animate-spin" /> : resuggestFlash ? <CheckCircle2 className="h-3 w-3" /> : <Wand2 className="h-3 w-3" />}
-                              {resuggestFlash ? "Updated!" : adjustRanges.length === 0 ? "Reset suggestion" : "Re-suggest"}
-                            </button>
-                          </div>
-                          );
-                        })()}
+                        {adjustingAppId === group.appId && courseMonths && (
+                          <DateConstraintPanel
+                            appId={group.appId}
+                            constraints={dateConstraints[group.appId]}
+                            courseMonths={courseMonths}
+                            adjustError={adjustErrors[group.appId]}
+                            onConstraintsChange={setConstraintsFor}
+                            onClearError={clearError}
+                            onResuggest={handlePanelResuggest}
+                          />
+                        )}
                       </div>
                     </div>
                   );
