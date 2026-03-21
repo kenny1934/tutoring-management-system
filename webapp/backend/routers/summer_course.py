@@ -1014,6 +1014,68 @@ def bulk_confirm_sessions(
     return {"confirmed": count}
 
 
+@router.post("/summer/sessions/bulk-create")
+def bulk_create_sessions(
+    items: list[SummerSessionCreate],
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Create multiple sessions in a single transaction.
+    Used by auto-suggest accept to avoid N*8 round-trips.
+    Each item must have lesson_id set (calendar-style per-lesson placement).
+    Skips duplicates and full lessons silently.
+    """
+    now = hk_now()
+    placed_by = admin.tutor_name or "admin"
+    created = 0
+    skipped = 0
+
+    for item in items:
+        # Check duplicate + capacity per lesson
+        lesson_sessions = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == item.lesson_id,
+                SummerSession.session_status != "Cancelled",
+            )
+            .all()
+        ) if item.lesson_id else []
+
+        if any(s.application_id == item.application_id for s in lesson_sessions):
+            skipped += 1
+            continue
+
+        slot = db.query(SummerCourseSlot).filter(SummerCourseSlot.id == item.slot_id).first()
+        if slot and len(lesson_sessions) >= slot.max_students:
+            skipped += 1
+            continue
+
+        db.add(SummerSession(
+            application_id=item.application_id,
+            slot_id=item.slot_id,
+            lesson_id=item.lesson_id,
+            session_status="Tentative",
+            placed_by=placed_by,
+            placed_at=now,
+        ))
+        created += 1
+
+    db.commit()
+
+    # Auto-sync application statuses
+    app_ids = {item.application_id for item in items}
+    for app_id in app_ids:
+        app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
+        if app and app.application_status in (
+            SummerApplicationStatus.SUBMITTED,
+            SummerApplicationStatus.UNDER_REVIEW,
+        ):
+            app.application_status = SummerApplicationStatus.PLACEMENT_OFFERED
+    db.commit()
+
+    return {"created": created, "skipped": skipped}
+
+
 # ─── Demand Heatmap ──────────────────────────────────────────────────────────
 
 @router.get("/summer/demand", response_model=SummerDemandResponse)
@@ -1267,7 +1329,6 @@ def _find_best_lesson_set(
         single_result = _try_single_slot(app, by_number, lesson_buddy_groups)
         if single_result is not None:
             assignments, match_type, confidence = single_result
-            seq = [a["lesson_number"] for a in assignments]
             return assignments, match_type, confidence
 
     # --- Cross-slot greedy assignment ---
@@ -1563,11 +1624,17 @@ def auto_suggest(
             continue
         filtered_lessons.append((lesson, slot))
 
-    # 4. Sort students by flexibility (fewer available grade-matching lessons = first)
+    # 4. Pre-group lessons by grade (avoids repeated O(N*M) scans)
+    from collections import defaultdict
+    lessons_by_grade: dict[str, list] = defaultdict(list)
+    for lesson, slot in filtered_lessons:
+        if slot.grade:
+            lessons_by_grade[slot.grade].append((lesson, slot))
+
     def count_available(app: SummerApplication) -> int:
         return sum(
-            1 for lesson, slot in filtered_lessons
-            if slot.grade == app.grade and lesson_capacity.get(lesson.id, 0) > 0
+            1 for lesson, slot in lessons_by_grade.get(app.grade, [])
+            if lesson_capacity.get(lesson.id, 0) > 0
         )
 
     sorted_apps = sorted(apps, key=count_available)
@@ -1577,11 +1644,7 @@ def auto_suggest(
     unplaceable: list[dict] = []
 
     for app in sorted_apps:
-        # Filter lessons for this student's grade
-        grade_lessons = [
-            (lesson, slot) for lesson, slot in filtered_lessons
-            if slot.grade == app.grade
-        ]
+        grade_lessons = lessons_by_grade.get(app.grade, [])
 
         if not grade_lessons:
             unplaceable.append({
