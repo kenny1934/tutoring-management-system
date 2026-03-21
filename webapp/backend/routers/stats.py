@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta, time
-from constants import BASE_FEE_PER_LESSON, EXAM_EVENT_TYPES
+from constants import BASE_FEE_PER_LESSON, EXAM_EVENT_TYPES, hk_now
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor, CalendarEvent
 from schemas import DashboardStats, StudentBasic, ActivityEvent
@@ -72,7 +72,7 @@ async def get_dashboard_stats(
     - Sessions this week
     - Estimated revenue this month
     """
-    today = date.today()
+    today = hk_now().date()
 
     # Query 1: Enrollment stats (consolidated from 4 separate queries)
     enrollment_query = db.query(
@@ -206,7 +206,7 @@ async def get_active_students(
     Uses same logic as active_students count in dashboard stats.
     Returns student details for popover display.
     """
-    today = date.today()
+    today = hk_now().date()
     active_window_start = today - timedelta(days=14)
     active_window_end = today + timedelta(days=14)
     excluded_statuses = ['Cancelled', 'No Show']
@@ -299,7 +299,7 @@ async def global_search(
 
     # Search recent sessions (join with student to search by student name)
     # Only look at sessions from the past 30 days and upcoming 30 days
-    today = date.today()
+    today = hk_now().date()
     session_window_start = today - timedelta(days=30)
     session_window_end = today + timedelta(days=30)
 
@@ -433,7 +433,7 @@ async def get_activity_feed(
     - Payments received
     - New enrollments
     """
-    today = date.today()
+    today = hk_now().date()
     events = []
 
     # 1. Sessions: attended, make-ups, cancelled, rescheduled, sick leave, weather (last 7 days)

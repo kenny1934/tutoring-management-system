@@ -8,6 +8,7 @@ from sqlalchemy import text, func, and_
 from typing import List, Optional
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from constants import hk_now
 from database import get_db
 from models import TerminationRecord, Student, Tutor, Enrollment
 import calendar
@@ -145,7 +146,7 @@ async def get_available_quarters(
             seen_quarters.add((q, y))
 
     # Filter out current and future quarters (not yet ready for review)
-    current_q, current_y = get_quarter_for_date(date.today())
+    current_q, current_y = get_quarter_for_date(hk_now().date())
 
     quarters = [
         QuarterOption(quarter=q, year=y)
@@ -865,7 +866,7 @@ async def get_review_needed_count(
     Only returns a non-zero count during the review period (quarter start to end of month).
     Reviews the PREVIOUS quarter's terminated students.
     """
-    today = date.today()
+    today = hk_now().date()
     current_q, current_y = get_quarter_for_date(today)
     opening_start, _, _ = get_quarter_dates(current_y, current_q)
 
@@ -956,7 +957,7 @@ async def get_termination_trends(
     # Get available quarters (already in descending order)
     # Exclude current in-progress quarter — its data is incomplete
     quarters_result = await get_available_quarters(request=request, location=location, current_user=current_user, db=db)
-    current_q, current_y = get_quarter_for_date(date.today())
+    current_q, current_y = get_quarter_for_date(hk_now().date())
     quarters = [q for q in quarters_result
                 if not (q.quarter == current_q and q.year == current_y)][:8]
 

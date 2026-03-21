@@ -114,7 +114,7 @@ def _get_consumable_sessions_query(
             ),
             and_(
                 SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
-                SessionLog.session_date > date.today()
+                SessionLog.session_date > hk_now().date()
             )
         )
     )
@@ -133,7 +133,7 @@ def _is_session_consumable(session: SessionLog) -> bool:
     )
     is_future = (
         session.session_status in SCHEDULABLE_STATUSES and
-        session.session_date > date.today()
+        session.session_date > hk_now().date()
     )
     return is_pending or is_future
 
@@ -1219,9 +1219,9 @@ async def get_exams_with_revision_slots(
     """
     # Default date range: from today to 60 days ahead
     if not from_date:
-        from_date = date.today()
+        from_date = hk_now().date()
     if not to_date:
-        to_date = date.today()
+        to_date = hk_now().date()
         # Extend to 60 days for a reasonable range
         from datetime import timedelta
         to_date = from_date + timedelta(days=60)
@@ -1338,7 +1338,7 @@ def _count_eligible_students(
             ),
             and_(
                 SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
-                SessionLog.session_date > date.today()
+                SessionLog.session_date > hk_now().date()
             )
         )
     )
@@ -1386,7 +1386,7 @@ async def get_calendar_sync_status(
 
     # Count events in the upcoming window (next 90 days)
     from datetime import timedelta
-    now = date.today()
+    now = hk_now().date()
     upcoming_events = db.query(func.count(CalendarEvent.id)).filter(
         CalendarEvent.start_date >= now,
         CalendarEvent.start_date <= now + timedelta(days=90)

@@ -14,7 +14,7 @@ from auth.dependencies import get_current_user
 from database import get_db
 from utils.rate_limiter import check_user_rate_limit
 from models import Tutor, Student, SessionLog, SessionExercise, Enrollment, ParentCommunication, CalendarEvent, StudentRadarConfig
-from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE, EXAM_EVENT_TYPES
+from constants import SessionStatus, COMPLETED_STATUSES, PENDING_MAKEUP_STATUSES, MAKEUP_BOOKED_STATUSES, CW_TYPE, HW_TYPE, EXAM_EVENT_TYPES, hk_now
 from schemas import (
     StudentProgressResponse, AttendanceSummary, RatingSummary, RatingMonth,
     ExerciseSummary, ExerciseDetail, EnrollmentTimeline, ContactSummary, MonthlyActivity,
@@ -41,7 +41,7 @@ def get_student_progress(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    today = date.today()
+    today = hk_now().date()
     # Use end_date as the anchor for trend windows when date range is specified
     anchor = end_date or today
 
