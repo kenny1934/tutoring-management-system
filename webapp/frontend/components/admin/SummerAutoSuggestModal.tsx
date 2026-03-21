@@ -157,44 +157,34 @@ export function SummerAutoSuggestModal({
     if (toPlace.length === 0) return;
 
     setAccepting(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    // Total lesson assignments to create
-    const totalCalls = toPlace.reduce(
-      (sum, p) => sum + p.lesson_assignments.length,
-      0
+    // Build bulk items from all selected proposals
+    const bulkItems = toPlace.flatMap((p) =>
+      p.lesson_assignments.map((a) => ({
+        application_id: p.application_id,
+        slot_id: a.slot_id,
+        lesson_id: a.lesson_id,
+      }))
     );
-    setAcceptProgress({ current: 0, total: totalCalls });
 
-    let currentCall = 0;
-    for (const proposal of toPlace) {
-      let studentFailed = false;
-      for (const assignment of proposal.lesson_assignments) {
-        try {
-          await summerAPI.createSession({
-            application_id: proposal.application_id,
-            slot_id: assignment.slot_id,
-            lesson_id: assignment.lesson_id,
-            mode: "single",
-          });
-        } catch {
-          studentFailed = true;
-        }
-        currentCall++;
-        setAcceptProgress({ current: currentCall, total: totalCalls });
-      }
-      if (studentFailed) {
-        failCount++;
+    setAcceptProgress({ current: 0, total: bulkItems.length });
+
+    try {
+      const result = await summerAPI.bulkCreateSessions(bulkItems);
+      setAcceptProgress({ current: bulkItems.length, total: bulkItems.length });
+
+      if (result.skipped > 0) {
+        showToast(
+          `Created ${result.created} sessions (${result.skipped} skipped — duplicates or full)`,
+          "success"
+        );
       } else {
-        successCount++;
+        showToast(
+          `Placed ${toPlace.length} student${toPlace.length !== 1 ? "s" : ""} (${result.created} sessions)`,
+          "success"
+        );
       }
-    }
-
-    if (failCount > 0) {
-      showToast(`Placed ${successCount}, failed ${failCount}`, "error");
-    } else {
-      showToast(`Placed ${successCount} student${successCount !== 1 ? "s" : ""}`, "success");
+    } catch (e: any) {
+      showToast(e.message || "Failed to place students", "error");
     }
 
     setAccepting(false);
