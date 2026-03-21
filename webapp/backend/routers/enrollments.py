@@ -583,7 +583,7 @@ async def get_enrollments_needing_renewal(
 
     Only returns Regular enrollments that are not cancelled.
     """
-    today = date.today()
+    today = hk_now().date()
     two_weeks_ahead = today + timedelta(days=14)
 
     # Query active Regular enrollments
@@ -795,7 +795,7 @@ async def get_renewal_counts(
     - expired: Already expired but not renewed
     - total: Sum of both
     """
-    today = date.today()
+    today = hk_now().date()
     two_weeks_ahead = today + timedelta(days=14)
 
     # Query active Regular enrollments
@@ -947,7 +947,7 @@ async def get_enrollments(
     enrollments = query.offset(offset).limit(limit).all()
 
     # Load holidays once for bulk calculation
-    today = date.today()
+    today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 
     # Build response with related data
@@ -982,7 +982,7 @@ async def get_active_enrollments(
 
     - **location**: Filter by location (optional, omit for all locations)
     """
-    today = date.today()
+    today = hk_now().date()
 
     # Pre-filter at SQL level: exclude enrollments that are definitely expired
     # Most enrollments have lessons_paid <= 52 weeks + 8 week extension max
@@ -1079,7 +1079,7 @@ async def get_overdue_enrollments(
     - **location**: Filter by location (optional)
     - **tutor_id**: Filter by tutor ID (optional)
     """
-    today = date.today()
+    today = hk_now().date()
     week_from_now = today + timedelta(days=7)
 
     query = (
@@ -1152,7 +1152,7 @@ async def get_my_students(
 
     effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
     """
-    today = date.today()
+    today = hk_now().date()
 
     # Pre-filter at SQL level: exclude enrollments that are definitely expired
     max_possible_weeks = 60  # Conservative upper bound
@@ -1252,7 +1252,7 @@ async def get_trials(
     - converted: student has subsequent enrollment after trial
     - pending: attended but no subsequent enrollment yet
     """
-    today = date.today()
+    today = hk_now().date()
 
     # Query trial enrollments with their sessions
     query = (
@@ -1449,7 +1449,7 @@ async def get_enrollment_detail_for_modal(
 
     # Calculate effective end date
     effective_end = calculate_effective_end_date(enrollment, db)
-    today = date.today()
+    today = hk_now().date()
     days_until_expiry = (effective_end - today).days if effective_end else 0
 
     # Optimized: Use aggregation query for session counts instead of fetching all
@@ -1567,11 +1567,11 @@ async def get_fee_message(
         # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
         day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
         assigned_day_num = day_map.get(enrollment.assigned_day[:3], 0)  # Handle "Monday" or "Mon"
-        current_day_num = effective_end.weekday() if effective_end else date.today().weekday()
+        current_day_num = effective_end.weekday() if effective_end else hk_now().date().weekday()
         days_until_target = (assigned_day_num - current_day_num) % 7
         if days_until_target == 0:
             days_until_target = 7  # Move to next week if same day
-        first_lesson_date = (effective_end if effective_end else date.today()) + timedelta(days=days_until_target)
+        first_lesson_date = (effective_end if effective_end else hk_now().date()) + timedelta(days=days_until_target)
 
     # Generate session dates
     sessions, _, _ = generate_session_dates(
@@ -1746,7 +1746,7 @@ async def update_enrollment(
 
     # If marking enrollment as paid, update all sessions' financial_status to Paid
     if updating_to_paid:
-        enrollment.payment_date = date.today()
+        enrollment.payment_date = hk_now().date()
         db.query(SessionLog).filter(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Paid'})
@@ -1947,7 +1947,7 @@ async def preview_schedule_change(
     unchangeable_sessions = []
     updatable_sessions = []
     warnings = []
-    today = date.today()
+    today = hk_now().date()
 
     # Load holidays for next year
     end_range = today + timedelta(weeks=52)
@@ -2097,7 +2097,7 @@ async def apply_schedule_change(
     sessions_updated = 0
 
     if changes.apply_to_sessions:
-        today = date.today()
+        today = hk_now().date()
 
         # Load holidays for next year
         end_range = today + timedelta(weeks=52)
@@ -2241,7 +2241,7 @@ async def batch_mark_paid(
         return BatchOperationResponse(updated=[], count=0)
 
     now = hk_now()
-    today = date.today()
+    today = hk_now().date()
     eids = [e.id for e in enrollments]
 
     # Batch update all sessions' financial_status in one query
@@ -2346,7 +2346,7 @@ async def batch_renew_check(
     ]
 
     # Load holidays once for bulk calculation
-    today = date.today()
+    today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 
     for eid in request.enrollment_ids:
@@ -2534,7 +2534,7 @@ async def batch_renew(
     failed_count = 0
 
     # Load holidays once for bulk calculation
-    today = date.today()
+    today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
 
     for eid in request.enrollment_ids:
