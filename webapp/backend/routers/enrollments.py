@@ -847,28 +847,33 @@ async def get_renewal_counts(
         ).all()
     }
 
-    # Batch: find all newer enrollments with same schedule for legacy check
-    # Build a set of (student_id, day, time, location) that have newer enrollments
-    newer_rows = db.query(
+    # Batch: find all enrollments with same schedule for legacy renewal check
+    # Include first_lesson_date so we can check it starts AFTER the candidate ends
+    legacy_rows = db.query(
         Enrollment.student_id, Enrollment.assigned_day,
-        Enrollment.assigned_time, Enrollment.location
+        Enrollment.assigned_time, Enrollment.location,
+        Enrollment.first_lesson_date,
     ).filter(
         Enrollment.student_id.in_([e.student_id for e in candidates]),
         Enrollment.payment_status != "Cancelled",
         Enrollment.id.notin_(candidate_ids),
     ).all()
-    newer_schedule_set = {(r[0], r[1], r[2], r[3]) for r in newer_rows}
+    # Group by schedule key for per-candidate lookup
+    legacy_by_schedule = defaultdict(list)
+    for r in legacy_rows:
+        key = (r[0], r[1], r[2], r[3])
+        legacy_by_schedule[key].append(r[4])  # first_lesson_date
 
     for enrollment in candidates:
-        # Skip if already renewed
+        # Skip if already renewed (FK link exists)
         if enrollment.id in renewed_ids:
             continue
 
-        # Skip if newer enrollment with same schedule exists
+        # Skip if a newer enrollment with same schedule starts after this one ends
         effective_end = effective_ends[enrollment.id]
         schedule_key = (enrollment.student_id, enrollment.assigned_day,
                         enrollment.assigned_time, enrollment.location)
-        if schedule_key in newer_schedule_set:
+        if any(fld and fld > effective_end for fld in legacy_by_schedule.get(schedule_key, [])):
             continue
 
         days_until_expiry = (effective_end - today).days
