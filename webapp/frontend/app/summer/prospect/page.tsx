@@ -23,6 +23,7 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import type {
   PrimaryProspect,
   PrimaryProspectBulkItem,
@@ -39,7 +40,7 @@ import {
 // ---- Constants ----
 
 const CURRENT_YEAR = new Date().getFullYear();
-const PHONE_RELATIONS = ["Mum", "Dad", "Guardian", "Other"] as const;
+const PHONE_RELATIONS = ["Mother", "Father", "Guardian", "Other"] as const;
 const INTENTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 const PASTE_SHORTCUT = IS_MAC ? "Cmd+V" : "Ctrl+V";
@@ -147,6 +148,23 @@ const INTENTION_BADGE_COLORS: Record<string, string> = {
   Considering: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
+const INTENTION_LABELS: Record<ProspectIntention, string> = {
+  Yes: "Yes",
+  No: "No",
+  Considering: "Maybe",
+};
+
+const BRANCH_COLORS: Record<string, { badge: string; selected: string }> = {
+  MSA: {
+    badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    selected: "bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400",
+  },
+  MSB: {
+    badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    selected: "bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:border-purple-600 dark:text-purple-400",
+  },
+};
+
 const OUTREACH_BADGE_COLORS: Record<string, string> = {
   "Not Started": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   "WeChat - Not Found": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -172,8 +190,8 @@ function IntentionSelect({
       className={`text-xs px-2 py-1.5 rounded-lg border-2 cursor-pointer font-medium transition-colors duration-200 ${INTENTION_SELECT_COLORS[value]}`}
     >
       {INTENTIONS.map((i) => (
-        <option key={i} value={i}>
-          {i}
+        <option key={i} value={i} className="text-foreground bg-card">
+          {INTENTION_LABELS[i]}
         </option>
       ))}
     </select>
@@ -194,7 +212,7 @@ function BranchCheckboxes({
           key={b}
           className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded-lg border-2 transition-all duration-200 font-medium ${
             value.includes(b)
-              ? "bg-primary/10 border-primary text-primary"
+              ? (BRANCH_COLORS[b]?.selected || "bg-primary/10 border-primary text-primary")
               : "border-border hover:border-primary/50"
           }`}
         >
@@ -212,6 +230,9 @@ function BranchCheckboxes({
           />
           {value.includes(b) && <Check className="h-3 w-3" />}
           {b}
+          {value.includes(b) && value.length > 1 && (
+            <span className="text-[9px] opacity-60">{value.indexOf(b) === 0 ? "1st" : "2nd"}</span>
+          )}
         </label>
       ))}
     </div>
@@ -222,7 +243,7 @@ function IntentionBadge({ value }: { value: string | null }) {
   const v = value || "Considering";
   return (
     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${INTENTION_BADGE_COLORS[v] || "bg-gray-100"}`}>
-      {v}
+      {INTENTION_LABELS[v as ProspectIntention] || v}
     </span>
   );
 }
@@ -238,6 +259,27 @@ function OutreachBadge({ status }: { status: ProspectOutreachStatus }) {
   );
 }
 
+function BranchBadges({ branches }: { branches: string[] }) {
+  if (!branches || branches.length === 0) return <span className="text-muted-foreground">-</span>;
+  return (
+    <span className="flex gap-1">
+      {branches.map((b, i) => (
+        <span key={b} className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${BRANCH_COLORS[b]?.badge || "bg-gray-100"}`}>
+          {b}{branches.length > 1 && <span className="opacity-60 ml-0.5">{i === 0 ? "1st" : "2nd"}</span>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="col-span-full text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pt-2 first:pt-0 border-t border-border/50 dark:border-gray-700 first:border-0">
+      {label}
+    </div>
+  );
+}
+
 function FieldInput({
   label,
   value,
@@ -246,6 +288,7 @@ function FieldInput({
   required,
   type = "text",
   inputMode,
+  span,
 }: {
   label: string;
   value: string;
@@ -254,9 +297,10 @@ function FieldInput({
   required?: boolean;
   type?: string;
   inputMode?: "numeric" | "text";
+  span?: 2 | 3;
 }) {
   return (
-    <div>
+    <div className={span === 3 ? "col-span-3" : span === 2 ? "col-span-2" : undefined}>
       <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
       <input
         type={type}
@@ -436,7 +480,9 @@ export default function ProspectPage() {
     setEditingId(prospect.id);
     setEditData({
       student_name: prospect.student_name,
+      school: prospect.school ?? "",
       phone_1: prospect.phone_1 ?? "",
+      phone_1_relation: prospect.phone_1_relation ?? "Mother",
       wechat_id: prospect.wechat_id ?? "",
       tutor_remark: prospect.tutor_remark ?? "",
       wants_summer: prospect.wants_summer,
@@ -627,17 +673,21 @@ export default function ProspectPage() {
         {parsedRows.length > 0 && (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[600px]">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground w-8">#</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">ID</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">School</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">School</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Regular</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Branch</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Regular (Sept)?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
                   <th className="px-3 py-2.5 w-20">
                     <button
                       onClick={toggleExpandAll}
@@ -657,7 +707,7 @@ export default function ProspectPage() {
                     <React.Fragment key={row._key}>
                       {/* Main row — read-only display */}
                       <tr
-                        className={`border-t border-border/50 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => toggleExpand(row._key)}
                       >
                         <td className="px-3 py-2.5 text-muted-foreground text-xs font-mono">
@@ -666,11 +716,13 @@ export default function ProspectPage() {
                             <AlertTriangle className="inline h-3 w-3 ml-0.5 text-yellow-500" />
                           )}
                         </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{row.primary_student_id || "-"}</td>
                         <td className="px-3 py-2.5">
                           <span className={`font-medium ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
                             {row.student_name || <span className="text-red-400 italic">Name required</span>}
                           </span>
                         </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.school || "-"}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.grade}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{row.tutor_name || "-"}</td>
                         <td className="px-3 py-2.5 text-xs">
@@ -681,13 +733,15 @@ export default function ProspectPage() {
                             {row.phone_1 || "-"}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{row.school || "-"}</td>
+                        <td className="px-3 py-2.5 hidden sm:table-cell"><BranchBadges branches={row.preferred_branches} /></td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                           <IntentionSelect value={row.wants_summer} onChange={(v) => updateRow(row._key, "wants_summer", v)} />
                         </td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                           <IntentionSelect value={row.wants_regular} onChange={(v) => updateRow(row._key, "wants_regular", v)} />
                         </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{row.wechat_id || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px] truncate" title={row.tutor_remark}>{row.tutor_remark || "-"}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button
@@ -711,28 +765,46 @@ export default function ProspectPage() {
                       {/* Expanded detail panel */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={9} className="px-3 py-3 bg-primary/[0.02] border-t border-dashed border-border">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                              <SectionDivider label="Student Info" />
                               <FieldInput label="Student ID" value={row.primary_student_id} onChange={(v) => updateRow(row._key, "primary_student_id", v)} />
-                              <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required />
+                              <FieldInput label="Student Name" value={row.student_name} onChange={(v) => updateRow(row._key, "student_name", v)} required span={3} />
+                              <FieldInput label="School" value={row.school} onChange={(v) => updateRow(row._key, "school", v)} />
+                              <FieldInput label="Grade" value={row.grade} onChange={(v) => updateRow(row._key, "grade", v)} />
+                              <FieldInput label="Tutor" value={row.tutor_name} onChange={(v) => updateRow(row._key, "tutor_name", v)} />
+
+                              <SectionDivider label="Contact" />
                               <FieldInput label="Phone" value={row.phone_1} onChange={(v) => updateRow(row._key, "phone_1", v)} type="tel" inputMode="numeric" />
                               <div>
                                 <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
-                                <select
-                                  value={row.phone_1_relation}
-                                  onChange={(e) => updateRow(row._key, "phone_1_relation", e.target.value)}
-                                  className={`w-full ${inputSmall}`}
-                                >
+                                <select value={row.phone_1_relation} onChange={(e) => updateRow(row._key, "phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
                                   {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
                                 </select>
                               </div>
-                              <FieldInput label="WeChat ID" value={row.wechat_id} onChange={(v) => updateRow(row._key, "wechat_id", v)} placeholder="WeChat ID" />
+                              <FieldInput label="Phone 2 (Optional)" value={row.phone_2} onChange={(v) => updateRow(row._key, "phone_2", v)} type="tel" inputMode="numeric" />
+                              <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
+                                <select value={row.phone_2_relation} onChange={(e) => updateRow(row._key, "phone_2_relation", e.target.value)} className={`w-full ${inputSmall}`}>
+                                  <option value="">—</option>
+                                  {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+                                  <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
+                                </label>
+                                <input value={row.wechat_id} onChange={(e) => updateRow(row._key, "wechat_id", e.target.value)} className={`w-full ${inputSmall}`} placeholder="WeChat ID" />
+                              </div>
+
+                              <SectionDivider label="Preferences" />
                               <div>
                                 <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
                                 <BranchCheckboxes value={row.preferred_branches} onChange={(v) => updateRow(row._key, "preferred_branches", v)} />
                               </div>
-                              <FieldInput label="Time / Tutor Preference" value={row.preferred_time_note} onChange={(v) => updateRow(row._key, "preferred_time_note", v)} placeholder="e.g. Sat afternoon, Kenny Sir" />
-                              <FieldInput label="Sibling Info" value={row.sibling_info} onChange={(v) => updateRow(row._key, "sibling_info", v)} placeholder="e.g. 1397 Elvanie (sister)" />
+                              <FieldInput label="Time / Tutor Preference" value={row.preferred_time_note} onChange={(v) => updateRow(row._key, "preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" span={2} />
+
+                              <SectionDivider label="Notes" />
                               <div className="col-span-full">
                                 <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
                                 <textarea
@@ -840,15 +912,20 @@ export default function ProspectPage() {
         ) : (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[500px]">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-primary/5 border-b border-border">
                 <tr>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">ID</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Name</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">School</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Regular</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Grade</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Tutor</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Phone</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Branch</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Summer?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden sm:table-cell">Regular (Sept)?</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground hidden md:table-cell">Remark</th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-foreground">Outreach</th>
                   <th className="px-3 py-2.5 w-24" />
                 </tr>
@@ -860,7 +937,7 @@ export default function ProspectPage() {
                   return (
                     <React.Fragment key={p.id}>
                       <tr
-                        className={`border-t border-border/50 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => {
                           if (!isEditing) {
                             setExpandedKeys((prev) => {
@@ -873,15 +950,20 @@ export default function ProspectPage() {
                           }
                         }}
                       >
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono hidden sm:table-cell">{p.primary_student_id || "-"}</td>
                         <td className="px-3 py-2.5 font-medium text-foreground">{p.student_name}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.grade}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.tutor_name || "-"}</td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground">
                           {p.phone_1}
                           {p.phone_1_relation && <span className="text-[10px] ml-0.5">({p.phone_1_relation})</span>}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{p.school || "-"}</td>
+                        <td className="px-3 py-2.5 hidden sm:table-cell"><BranchBadges branches={p.preferred_branches || []} /></td>
                         <td className="px-3 py-2.5"><IntentionBadge value={p.wants_summer} /></td>
                         <td className="px-3 py-2.5 hidden sm:table-cell"><IntentionBadge value={p.wants_regular} /></td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{p.wechat_id || "-"}</td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell max-w-[120px] truncate" title={p.tutor_remark || ""}>{p.tutor_remark || "-"}</td>
                         <td className="px-3 py-2.5"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
@@ -923,27 +1005,81 @@ export default function ProspectPage() {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} className="px-3 py-3 bg-primary/[0.02] border-t border-dashed border-border">
+                          <td colSpan={13} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
                             {isEditing ? (
                               <div className="space-y-3">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                                  <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required />
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                                  <SectionDivider label="Student Info" />
+                                  <FieldInput label="Student ID" value={p.primary_student_id || ""} onChange={() => {}} />
+                                  <FieldInput label="Student Name" value={editData.student_name as string ?? p.student_name} onChange={(v) => setEditData((d) => ({ ...d, student_name: v }))} required span={3} />
+                                  <FieldInput label="School" value={editData.school as string ?? p.school ?? ""} onChange={(v) => setEditData((d) => ({ ...d, school: v }))} />
+                                  <FieldInput label="Grade" value={p.grade || ""} onChange={() => {}} />
+                                  <FieldInput label="Tutor" value={p.tutor_name || ""} onChange={() => {}} />
+
+                                  <SectionDivider label="Contact" />
                                   <FieldInput label="Phone" value={editData.phone_1 as string ?? p.phone_1 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_1: v }))} type="tel" inputMode="numeric" />
-                                  <FieldInput label="WeChat ID" value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(v) => setEditData((d) => ({ ...d, wechat_id: v }))} placeholder="WeChat ID" />
                                   <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Summer</label>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
+                                    <select value={editData.phone_1_relation as string ?? p.phone_1_relation ?? "Mother"} onChange={(e) => setEditData((d) => ({ ...d, phone_1_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
+                                      {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                                    </select>
+                                  </div>
+                                  <FieldInput label="Phone 2 (Optional)" value={editData.phone_2 as string ?? p.phone_2 ?? ""} onChange={(v) => setEditData((d) => ({ ...d, phone_2: v }))} type="tel" inputMode="numeric" />
+                                  <div>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
+                                    <select value={editData.phone_2_relation as string ?? p.phone_2_relation ?? ""} onChange={(e) => setEditData((d) => ({ ...d, phone_2_relation: e.target.value }))} className={`w-full ${inputSmall}`}>
+                                      <option value="">—</option>
+                                      {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
+                                      <WeChatIcon className="h-3 w-3 text-green-600" /> WeChat ID
+                                    </label>
+                                    <input value={editData.wechat_id as string ?? p.wechat_id ?? ""} onChange={(e) => setEditData((d) => ({ ...d, wechat_id: e.target.value }))} className={`w-full ${inputSmall}`} placeholder="WeChat ID" />
+                                  </div>
+
+                                  <SectionDivider label="Preferences" />
+                                  <div>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Preferred Branch</label>
+                                    <div className="flex gap-2">
+                                      {SECONDARY_BRANCHES.map((b) => (
+                                        <label key={b} className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded-lg border-2 transition-all duration-200 font-medium ${
+                                          ((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b)
+                                            ? (BRANCH_COLORS[b]?.selected || "bg-primary/10 border-primary text-primary")
+                                            : "border-border hover:border-primary/50"
+                                        }`}>
+                                          <input type="checkbox" className="sr-only"
+                                            checked={((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b)}
+                                            onChange={(e) => {
+                                              const current = (editData.preferred_branches as string[]) ?? p.preferred_branches ?? [];
+                                              setEditData((d) => ({ ...d, preferred_branches: e.target.checked ? [...current, b] : current.filter((v: string) => v !== b) }));
+                                            }}
+                                          />
+                                          {((editData.preferred_branches as string[]) ?? p.preferred_branches ?? []).includes(b) && <Check className="h-3 w-3" />}
+                                          {b}
+                                          {(() => { const arr = (editData.preferred_branches as string[]) ?? p.preferred_branches ?? []; return arr.includes(b) && arr.length > 1 ? <span className="text-[9px] opacity-60">{arr.indexOf(b) === 0 ? "1st" : "2nd"}</span> : null; })()}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
                                     <IntentionSelect
                                       value={(editData.wants_summer as ProspectIntention) ?? (p.wants_summer as ProspectIntention) ?? "Considering"}
                                       onChange={(v) => setEditData((d) => ({ ...d, wants_summer: v }))}
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)</label>
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
                                     <IntentionSelect
                                       value={(editData.wants_regular as ProspectIntention) ?? (p.wants_regular as ProspectIntention) ?? "Considering"}
                                       onChange={(v) => setEditData((d) => ({ ...d, wants_regular: v }))}
                                     />
                                   </div>
+                                  <FieldInput label="Time / Tutor Preference" value={editData.preferred_time_note as string ?? p.preferred_time_note ?? ""} onChange={(v) => setEditData((d) => ({ ...d, preferred_time_note: v }))} placeholder="e.g. Sat afternoon, Ivan Sir" span={2} />
+
+                                  <SectionDivider label="Notes" />
                                   <div className="col-span-full">
                                     <label className="block text-xs font-medium text-muted-foreground mb-1">Tutor Remark</label>
                                     <textarea
@@ -951,6 +1087,7 @@ export default function ProspectPage() {
                                       onChange={(e) => setEditData((d) => ({ ...d, tutor_remark: e.target.value }))}
                                       className={`w-full ${inputSmall} resize-y`}
                                       rows={2}
+                                      placeholder="Notes about the student's ability, learning style, etc."
                                     />
                                   </div>
                                 </div>
@@ -964,17 +1101,20 @@ export default function ProspectPage() {
                                 </div>
                               </div>
                             ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
-                                <div><span className="text-xs text-muted-foreground">ID:</span> <span className="font-mono text-xs">{p.primary_student_id || "-"}</span></div>
-                                <div><span className="text-xs text-muted-foreground">Tutor:</span> {p.tutor_name || "-"}</div>
-                                <div><span className="text-xs text-muted-foreground">WeChat:</span> {p.wechat_id || "-"}</div>
-                                <div><span className="text-xs text-muted-foreground">Pref. Branch:</span> {(p.preferred_branches || []).join(", ") || "-"}</div>
-                                <div><span className="text-xs text-muted-foreground">Time/Tutor:</span> {p.preferred_time_note || "-"}</div>
-                                <div><span className="text-xs text-muted-foreground">Sibling:</span> {p.sibling_info || "-"}</div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                                <SectionDivider label="Contact" />
+                                <div><span className="text-xs text-muted-foreground">Phone 2:</span> {p.phone_2 ? `${p.phone_2}${p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}` : "-"}</div>
+
+                                <SectionDivider label="Preferences" />
+                                <div><span className="text-xs text-muted-foreground">Time/Tutor Pref:</span> {p.preferred_time_note || "-"}</div>
+
                                 {p.tutor_remark && (
-                                  <div className="col-span-full border-l-4 border-primary/20 pl-3 py-1 bg-primary/[0.02] rounded-r">
-                                    <span className="text-xs text-muted-foreground">Remark:</span> <span className="text-xs">{p.tutor_remark}</span>
-                                  </div>
+                                  <>
+                                    <SectionDivider label="Notes" />
+                                    <div className="col-span-full border-l-4 border-primary/20 pl-3 py-1 bg-primary/[0.03] dark:bg-primary/[0.06] rounded-r">
+                                      <span className="text-xs">{p.tutor_remark}</span>
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             )}
