@@ -985,6 +985,9 @@ export function ExerciseModal({
     const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
     if (result.status === 'success') {
       setDownloadAllAnswersState('idle');
+      if (result.missing > 0) {
+        showToast(`Downloaded ${result.found}/${result.found + result.missing} answers (${result.missing} not found)`, 'info');
+      }
     } else {
       setDownloadAllAnswersState('error');
       setTimeout(() => setDownloadAllAnswersState('idle'), 2000);

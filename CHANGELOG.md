@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.39](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.39) (2026-03-23)
+
+### Bug Fixes
+
+* **Answer path paste now auto-converts drive letters** — pasting a Windows path like `V:\folder\file.pdf` into the answer field now auto-converts it to the correct alias format, matching the behaviour of the exercise path input
+* **Answer download shows missing count** — the bulk answer download button now shows how many answers were found vs missing, instead of silently skipping unfound files
+* **Per-exercise answer open/download Shelv fallback** — the open and download buttons on individual answer rows now fall back to Shelv when the file isn't found locally
+* **HK timezone for date calculations** — all backend date operations now use Hong Kong timezone consistently, preventing date mismatches around midnight
+* **Legacy renewal check** — candidate enrollments are now included when checking legacy renewal status
+
 ## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
 
 ### Bug Fixes

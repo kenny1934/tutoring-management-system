@@ -3,7 +3,8 @@
  * Supports local file system search and Paperless/Shelv fallback.
  */
 
-import { getFileHandleFromPath, openFileInNewTab, isFileSystemAccessSupported } from './file-system';
+import { getFileHandleFromPath, openFileInNewTab, isFileSystemAccessSupported, getCachedPaperlessDocumentId, setPaperlessPathCache } from './file-system';
+import { searchPaperlessByPath } from './paperless-utils';
 import { paperlessAPI } from './api';
 
 export interface AnswerSearchResult {
@@ -339,6 +340,58 @@ export async function downloadAnswerFile(result: AnswerSearchResult): Promise<bo
     } catch (err) {
       return false;
     }
+  }
+
+  return false;
+}
+
+/**
+ * Resolve a Shelv document ID from a path, with cache.
+ */
+async function resolveShelvDocumentId(path: string): Promise<number | null> {
+  const cached = getCachedPaperlessDocumentId(path);
+  if (cached) return cached;
+
+  const docId = await searchPaperlessByPath(path);
+  if (docId) {
+    setPaperlessPathCache(path, docId);
+  }
+  return docId;
+}
+
+/**
+ * Open an answer file, trying local first then falling back to Shelv.
+ * Unlike openAnswerFile which requires a known source, this handles
+ * paths where the source is unknown (e.g., user-pasted paths).
+ */
+export async function openAnswerFileWithFallback(path: string): Promise<boolean> {
+  // Try local first
+  const localResult = await openAnswerFile({ source: 'local', path });
+  if (localResult) return true;
+
+  // Fall back to Shelv
+  const documentId = await resolveShelvDocumentId(path);
+  if (documentId) {
+    return openAnswerFile({ source: 'shelv', path, documentId });
+  }
+
+  return false;
+}
+
+/**
+ * Download an answer file, trying local first then falling back to Shelv.
+ * Unlike downloadAnswerFile which requires a known source, this handles
+ * paths where the source is unknown (e.g., user-pasted paths).
+ */
+export async function downloadAnswerFileWithFallback(path: string): Promise<boolean> {
+  // Try local first
+  const localResult = await downloadAnswerFile({ source: 'local', path });
+  if (localResult) return true;
+
+  // Fall back to Shelv
+  const documentId = await resolveShelvDocumentId(path);
+  if (documentId) {
+    return downloadAnswerFile({ source: 'shelv', path, documentId });
   }
 
   return false;

@@ -3,7 +3,8 @@
 import { useState, useCallback } from "react";
 import { Search, ChevronDown, ChevronRight, ExternalLink, Download, FolderOpen, X, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { searchAnswerFile, openAnswerFile, downloadAnswerFile } from "@/lib/answer-file-utils";
+import { searchAnswerFile, openAnswerFileWithFallback, downloadAnswerFileWithFallback } from "@/lib/answer-file-utils";
+import { convertToAliasPath } from "@/lib/file-system";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { useToast } from "@/contexts/ToastContext";
@@ -108,25 +109,37 @@ export function ExerciseAnswerSection({
     }
   }, [pdfName, exercisePageMode, exercisePageStart, exercisePageEnd, exerciseComplexPages, onAnswerChange]);
 
-  // Open answer file
+  // Open answer file (tries local first, falls back to Shelv)
   const handleOpen = useCallback(async () => {
     if (!answerPdfName) return;
 
-    const success = await openAnswerFile({ source: 'local', path: answerPdfName });
+    const success = await openAnswerFileWithFallback(answerPdfName);
     if (!success) {
       showToast('Failed to open answer file', 'error');
     }
   }, [answerPdfName, showToast]);
 
-  // Download answer file
+  // Download answer file (tries local first, falls back to Shelv)
   const handleDownload = useCallback(async () => {
     if (!answerPdfName) return;
 
-    const success = await downloadAnswerFile({ source: 'local', path: answerPdfName });
+    const success = await downloadAnswerFileWithFallback(answerPdfName);
     if (!success) {
       showToast('Failed to download answer file', 'error');
     }
   }, [answerPdfName, showToast]);
+
+  // Auto-translate pasted drive letter paths (e.g., V:\... → [Courseware Developer 中學]\...)
+  const handleAnswerPaste = useCallback(async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    const driveMatch = pastedText.match(/^["']?([A-Za-z]):[\\\/]/);
+    if (!driveMatch) return; // Let default paste happen
+
+    e.preventDefault();
+    const cleanPath = pastedText.replace(/^["']|["']$/g, '').replace(/\//g, '\\');
+    const convertedPath = await convertToAliasPath(cleanPath);
+    onAnswerChange('answer_pdf_name', convertedPath);
+  }, [onAnswerChange]);
 
   // Clear answer
   const handleClear = useCallback(() => {
@@ -222,6 +235,7 @@ export function ExerciseAnswerSection({
               type="text"
               value={answerPdfName}
               onChange={(e) => onAnswerChange('answer_pdf_name', e.target.value)}
+              onPaste={handleAnswerPaste}
               onFocus={onFocus}
               placeholder="Answer PDF path"
               className={cn(inputClass, "text-xs py-1 flex-1")}

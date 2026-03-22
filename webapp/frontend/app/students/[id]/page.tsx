@@ -2468,6 +2468,7 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [answersState, setAnswersState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const { showToast } = useToast();
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   if (!canBrowseFiles || exercises.length === 0) return null;
@@ -2502,8 +2503,15 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
     if (answersState === 'loading') return;
     setAnswersState('loading');
     const result = await downloadAllAnswerFiles(withPdfs, `Ans_${baseFilename}.pdf`, stamp, searchPaperlessByPath);
-    setAnswersState(result.status === 'success' ? 'idle' : 'error');
-    if (result.status !== 'success') setTimeout(() => setAnswersState('idle'), 2000);
+    if (result.status === 'success') {
+      setAnswersState('idle');
+      if (result.missing > 0) {
+        showToast(`Downloaded ${result.found}/${result.found + result.missing} answers (${result.missing} not found)`, 'info');
+      }
+    } else {
+      setAnswersState('error');
+      setTimeout(() => setAnswersState('idle'), 2000);
+    }
   };
 
   const btnClass = "p-0.5 rounded transition-colors flex flex-col items-center";
