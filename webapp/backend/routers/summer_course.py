@@ -1604,6 +1604,8 @@ def auto_suggest(
         app = db.query(SummerApplication).filter(SummerApplication.id == data.application_id).first()
         if not app:
             raise HTTPException(status_code=404, detail="Application not found")
+        if app.application_status in ("Withdrawn", "Rejected"):
+            raise HTTPException(status_code=400, detail="Cannot suggest for withdrawn/rejected application")
         apps = [app]
     else:
         # All unplaced students
