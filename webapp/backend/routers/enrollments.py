@@ -853,16 +853,16 @@ async def get_renewal_counts(
         Enrollment.student_id, Enrollment.assigned_day,
         Enrollment.assigned_time, Enrollment.location,
         Enrollment.first_lesson_date,
+        Enrollment.id,
     ).filter(
         Enrollment.student_id.in_([e.student_id for e in candidates]),
         Enrollment.payment_status != "Cancelled",
-        Enrollment.id.notin_(candidate_ids),
     ).all()
     # Group by schedule key for per-candidate lookup
     legacy_by_schedule = defaultdict(list)
     for r in legacy_rows:
         key = (r[0], r[1], r[2], r[3])
-        legacy_by_schedule[key].append(r[4])  # first_lesson_date
+        legacy_by_schedule[key].append((r[4], r[5]))  # (first_lesson_date, enrollment_id)
 
     for enrollment in candidates:
         # Skip if already renewed (FK link exists)
@@ -873,7 +873,8 @@ async def get_renewal_counts(
         effective_end = effective_ends[enrollment.id]
         schedule_key = (enrollment.student_id, enrollment.assigned_day,
                         enrollment.assigned_time, enrollment.location)
-        if any(fld and fld > effective_end for fld in legacy_by_schedule.get(schedule_key, [])):
+        if any(fld and fld > effective_end and eid != enrollment.id
+               for fld, eid in legacy_by_schedule.get(schedule_key, [])):
             continue
 
         days_until_expiry = (effective_end - today).days
