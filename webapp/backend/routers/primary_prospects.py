@@ -2,6 +2,7 @@
 Primary Prospect router: P6 student feeder list management.
 Public endpoints for branch tutor submissions + admin endpoints for tracking/matching.
 """
+import hmac
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -23,6 +24,7 @@ from schemas import (
     PrimaryProspectMatchResult,
 )
 from auth.dependencies import require_admin_view, require_admin_write
+from utils.rate_limiter import check_ip_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,9 @@ VALID_INTENTION = {"Yes", "No", "Considering"}
 def _check_pin(request: Request, branch: str):
     """Validate X-Branch-Pin header for public prospect endpoints."""
     pin = request.headers.get("X-Branch-Pin", "")
-    if pin != BRANCH_PINS.get(branch, ""):
+    expected = BRANCH_PINS.get(branch, "")
+    if not expected or not hmac.compare_digest(pin, expected):
+        logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
 def _prospect_to_response(p: PrimaryProspect) -> dict:
@@ -93,9 +97,12 @@ class _VerifyPinRequest(BaseModel):
     pin: str
 
 @router.post("/verify-pin")
-def verify_pin(payload: _VerifyPinRequest):
+def verify_pin(request: Request, payload: _VerifyPinRequest):
     """Verify a branch PIN without fetching data."""
-    if payload.pin != BRANCH_PINS.get(payload.branch, ""):
+    check_ip_rate_limit(request, "prospects_verify_pin")
+    expected = BRANCH_PINS.get(payload.branch, "")
+    if not expected or not hmac.compare_digest(payload.pin, expected):
+        logger.warning("Failed PIN verification for branch %s from %s", payload.branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid PIN")
     return {"valid": True}
 
@@ -107,11 +114,14 @@ def bulk_create_prospects(
     db: Session = Depends(get_db),
 ):
     """Bulk create prospects from paste form submission."""
+    check_ip_rate_limit(request, "prospects_bulk_create")
     if payload.source_branch not in VALID_BRANCHES:
-        raise HTTPException(400, f"Invalid branch: {payload.source_branch}")
+        raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, payload.source_branch)
     if not payload.prospects:
         raise HTTPException(400, "No prospects provided")
+    if len(payload.prospects) > 200:
+        raise HTTPException(400, "Cannot submit more than 200 prospects per request")
 
     created = []
     for item in payload.prospects:
@@ -155,7 +165,7 @@ def list_prospects(
 ):
     """List prospects for a branch (PIN-protected — for branch tutors to view their submissions)."""
     if branch not in VALID_BRANCHES:
-        raise HTTPException(400, f"Invalid branch: {branch}")
+        raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
 
     prospects = (
@@ -178,7 +188,7 @@ def update_prospect(
 ):
     """Update a single prospect (PIN-protected — branch tutor edit with history tracking)."""
     if branch not in VALID_BRANCHES:
-        raise HTTPException(400, f"Invalid branch: {branch}")
+        raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
     prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
     if not prospect:
@@ -218,7 +228,7 @@ def delete_prospect(
 ):
     """Delete a prospect (PIN-protected — tutor correcting mistakes)."""
     if branch not in VALID_BRANCHES:
-        raise HTTPException(400, f"Invalid branch: {branch}")
+        raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
     prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
     if not prospect:
