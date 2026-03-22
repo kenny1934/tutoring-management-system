@@ -26,6 +26,7 @@ import {
   ArrowDown,
   Download,
   Copy,
+  Lock,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -619,6 +620,42 @@ export default function ProspectPage() {
   const branchParam = searchParams.get("branch")?.toUpperCase() as ProspectBranch | undefined;
   const branch = branchParam && PROSPECT_BRANCHES.includes(branchParam) ? branchParam : null;
 
+  // ---- PIN gate ----
+  const [pinVerified, setPinVerified] = useState<boolean | null>(null); // null = checking
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [pinChecking, setPinChecking] = useState(false);
+
+  useEffect(() => {
+    if (!branch) return;
+    const stored = sessionStorage.getItem("prospect_pin");
+    if (!stored) {
+      setPinVerified(false);
+      return;
+    }
+    prospectsAPI.verifyPin(branch, stored)
+      .then(() => setPinVerified(true))
+      .catch(() => {
+        sessionStorage.removeItem("prospect_pin");
+        setPinVerified(false);
+      });
+  }, [branch]);
+
+  const handlePinSubmit = useCallback(async () => {
+    if (!branch || !pinInput.trim()) return;
+    setPinChecking(true);
+    setPinError(false);
+    try {
+      await prospectsAPI.verifyPin(branch, pinInput.trim());
+      sessionStorage.setItem("prospect_pin", pinInput.trim());
+      setPinVerified(true);
+    } catch {
+      setPinError(true);
+    } finally {
+      setPinChecking(false);
+    }
+  }, [branch, pinInput]);
+
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -657,7 +694,7 @@ export default function ProspectPage() {
   }, []);
   const submittedRef = useRef<HTMLElement>(null);
 
-  const swrKey = branch ? `prospects-${branch}-${CURRENT_YEAR}` : null;
+  const swrKey = branch && pinVerified ? `prospects-${branch}-${CURRENT_YEAR}` : null;
   const { data: existing, isLoading } = useSWR(
     swrKey,
     () => prospectsAPI.list(branch!, CURRENT_YEAR),
@@ -1049,6 +1086,54 @@ export default function ProspectPage() {
               </a>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- PIN Gate ----
+
+  if (pinVerified === null) {
+    return null; // Checking stored PIN — avoid flash
+  }
+
+  if (!pinVerified) {
+    return (
+      <div className="max-w-sm mx-auto py-4">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center space-y-5">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Lock className="h-7 w-7 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">{branch} Branch Access</h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Enter your branch PIN to continue.
+            </p>
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); handlePinSubmit(); }} className="space-y-3">
+            <input
+              type="password"
+              inputMode="numeric"
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+              placeholder="Enter PIN"
+              className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${pinError ? "border-red-400" : "border-border"}`}
+              autoFocus
+            />
+            {pinError && (
+              <p className="text-red-500 text-sm">Incorrect PIN. Please try again.</p>
+            )}
+            <button
+              type="submit"
+              disabled={pinChecking || !pinInput.trim()}
+              className="w-full py-2.5 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {pinChecking ? "Verifying..." : "Continue"}
+            </button>
+          </form>
+          <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            &larr; Change branch
+          </a>
         </div>
       </div>
     );
