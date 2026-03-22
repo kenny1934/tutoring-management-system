@@ -545,12 +545,19 @@ export default function ProspectPage() {
       setPinVerified(false);
       return;
     }
+    // Fallback: if verify request stalls, show PIN form after 5s
+    const timeout = setTimeout(() => {
+      sessionStorage.removeItem("prospect_pin");
+      setPinVerified(false);
+    }, 5000);
     prospectsAPI.verifyPin(branch, stored)
-      .then(() => setPinVerified(true))
+      .then(() => { clearTimeout(timeout); setPinVerified(true); })
       .catch(() => {
+        clearTimeout(timeout);
         sessionStorage.removeItem("prospect_pin");
         setPinVerified(false);
       });
+    return () => clearTimeout(timeout);
   }, [branch]);
 
   const handlePinSubmit = useCallback(async () => {
@@ -567,7 +574,7 @@ export default function ProspectPage() {
         ? "Too many attempts. Please try again later."
         : "Incorrect PIN. Please try again.");
       setPinShake(true);
-      setTimeout(() => setPinShake(false), 500);
+      pinShakeTimer.current = setTimeout(() => setPinShake(false), 500);
     } finally {
       setPinChecking(false);
     }
@@ -594,6 +601,7 @@ export default function ProspectPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -608,6 +616,7 @@ export default function ProspectPage() {
     return () => {
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
+      if (pinShakeTimer.current) clearTimeout(pinShakeTimer.current);
     };
   }, []);
   const submittedRef = useRef<HTMLElement>(null);
@@ -937,10 +946,14 @@ export default function ProspectPage() {
       tutor_name: prospect.tutor_name ?? "",
       phone_1: prospect.phone_1 ?? "",
       phone_1_relation: prospect.phone_1_relation ?? "Mother",
+      phone_2: prospect.phone_2 ?? "",
+      phone_2_relation: prospect.phone_2_relation ?? "",
       wechat_id: prospect.wechat_id ?? "",
       tutor_remark: prospect.tutor_remark ?? "",
       wants_summer: prospect.wants_summer,
       wants_regular: prospect.wants_regular,
+      preferred_branches: prospect.preferred_branches ?? [],
+      preferred_time_note: prospect.preferred_time_note ?? "",
     });
   }, []);
 

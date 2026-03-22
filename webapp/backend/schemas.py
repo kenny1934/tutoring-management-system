@@ -2473,6 +2473,9 @@ class SummerApplicationSessionInfo(BaseModel):
 # Primary Prospect Schemas (P6 → Secondary feeder)
 # ============================================
 
+ProspectIntention = Literal["Yes", "No", "Considering"]
+
+
 class PrimaryProspectBulkItem(BaseModel):
     """Single row from paste (used in bulk create)."""
     primary_student_id: Optional[str] = Field(None, max_length=50)
@@ -2486,8 +2489,8 @@ class PrimaryProspectBulkItem(BaseModel):
     phone_2_relation: Optional[str] = Field(None, max_length=20)
     wechat_id: Optional[str] = Field(None, max_length=100)
     tutor_remark: Optional[str] = None
-    wants_summer: Optional[str] = Field('Considering', max_length=20)
-    wants_regular: Optional[str] = Field('Considering', max_length=20)
+    wants_summer: Optional[ProspectIntention] = 'Considering'
+    wants_regular: Optional[ProspectIntention] = 'Considering'
     preferred_branches: Optional[List[str]] = None
     preferred_time_note: Optional[str] = None
     preferred_tutor_note: Optional[str] = None
@@ -2514,8 +2517,8 @@ class PrimaryProspectUpdate(BaseModel):
     phone_2_relation: Optional[str] = Field(None, max_length=20)
     wechat_id: Optional[str] = Field(None, max_length=100)
     tutor_remark: Optional[str] = None
-    wants_summer: Optional[str] = Field(None, max_length=20)
-    wants_regular: Optional[str] = Field(None, max_length=20)
+    wants_summer: Optional[ProspectIntention] = None
+    wants_regular: Optional[ProspectIntention] = None
     preferred_branches: Optional[List[str]] = None
     preferred_time_note: Optional[str] = None
     preferred_tutor_note: Optional[str] = None
@@ -2745,7 +2748,7 @@ class SavedReportResponse(BaseModel):
 
 class PrimaryProspectBulkOutreach(BaseModel):
     """Bulk update outreach status for multiple prospects."""
-    ids: List[int]
+    ids: List[int] = Field(..., max_length=500)
     outreach_status: str = Field(..., max_length=30)
 
 

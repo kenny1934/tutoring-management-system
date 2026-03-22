@@ -55,6 +55,9 @@ RATE_LIMITS = {
     # Prospect PIN endpoints - strict to prevent brute force
     "prospects_verify_pin": {"limit": 5, "window": 300},   # 5 attempts/5min
     "prospects_bulk_create": {"limit": 3, "window": 60},   # 3 bulk creates/min
+    "prospects_list": {"limit": 30, "window": 60},         # 30 list ops/min
+    "prospects_update": {"limit": 20, "window": 60},       # 20 edits/min
+    "prospects_delete": {"limit": 10, "window": 60},       # 10 deletes/min
 
     # Default fallback
     "default": {"limit": 100, "window": 60},
