@@ -6,7 +6,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 
@@ -28,12 +29,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/prospects")
 
 VALID_BRANCHES = {"MAC", "MCP", "MNT", "MTA", "MLT", "MTR", "MOT"}
+
+BRANCH_PINS = {
+    branch: os.getenv(f"PROSPECT_PIN_{branch}", "")
+    for branch in VALID_BRANCHES
+}
 VALID_OUTREACH = {"Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "WeChat - Added", "Called", "No Response"}
 VALID_STATUS = {"New", "Contacted", "Interested", "Applied", "Enrolled", "Declined"}
 VALID_INTENTION = {"Yes", "No", "Considering"}
 
 
 # ---- Helpers ----
+
+def _check_pin(request: Request, branch: str):
+    """Validate X-Branch-Pin header for public prospect endpoints."""
+    pin = request.headers.get("X-Branch-Pin", "")
+    if pin != BRANCH_PINS.get(branch, ""):
+        raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
 def _prospect_to_response(p: PrimaryProspect) -> dict:
     """Convert a PrimaryProspect ORM object to response dict with matched application info."""
@@ -74,16 +86,30 @@ def _prospect_to_response(p: PrimaryProspect) -> dict:
     return data
 
 
-# ---- Public endpoints (no auth) ----
+# ---- Public endpoints (PIN-protected) ----
+
+class _VerifyPinRequest(BaseModel):
+    branch: str
+    pin: str
+
+@router.post("/verify-pin")
+def verify_pin(payload: _VerifyPinRequest):
+    """Verify a branch PIN without fetching data."""
+    if payload.pin != BRANCH_PINS.get(payload.branch, ""):
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+    return {"valid": True}
+
 
 @router.post("/bulk")
 def bulk_create_prospects(
+    request: Request,
     payload: PrimaryProspectBulkCreate,
     db: Session = Depends(get_db),
 ):
     """Bulk create prospects from paste form submission."""
     if payload.source_branch not in VALID_BRANCHES:
         raise HTTPException(400, f"Invalid branch: {payload.source_branch}")
+    _check_pin(request, payload.source_branch)
     if not payload.prospects:
         raise HTTPException(400, "No prospects provided")
 
@@ -122,13 +148,15 @@ def bulk_create_prospects(
 
 @router.get("")
 def list_prospects(
+    request: Request,
     branch: str = Query(...),
     year: int = Query(...),
     db: Session = Depends(get_db),
 ):
-    """List prospects for a branch (public — for branch tutors to view their submissions)."""
+    """List prospects for a branch (PIN-protected — for branch tutors to view their submissions)."""
     if branch not in VALID_BRANCHES:
         raise HTTPException(400, f"Invalid branch: {branch}")
+    _check_pin(request, branch)
 
     prospects = (
         db.query(PrimaryProspect)
@@ -142,14 +170,16 @@ def list_prospects(
 
 @router.patch("/{prospect_id}")
 def update_prospect(
+    request: Request,
     prospect_id: int,
     payload: PrimaryProspectUpdate,
     branch: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    """Update a single prospect (public — branch tutor edit with history tracking)."""
+    """Update a single prospect (PIN-protected — branch tutor edit with history tracking)."""
     if branch not in VALID_BRANCHES:
         raise HTTPException(400, f"Invalid branch: {branch}")
+    _check_pin(request, branch)
     prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(404, "Prospect not found")
@@ -181,13 +211,15 @@ def update_prospect(
 
 @router.delete("/{prospect_id}")
 def delete_prospect(
+    request: Request,
     prospect_id: int,
     branch: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    """Delete a prospect (public — tutor correcting mistakes)."""
+    """Delete a prospect (PIN-protected — tutor correcting mistakes)."""
     if branch not in VALID_BRANCHES:
         raise HTTPException(400, f"Invalid branch: {branch}")
+    _check_pin(request, branch)
     prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(404, "Prospect not found")
