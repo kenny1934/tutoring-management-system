@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { ClipboardList, Search, X, Loader2, ListFilter, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
+import { ClipboardList, Search, X, Loader2, ListFilter, ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -525,7 +525,12 @@ export default function SummerApplicationsPage() {
                   <ClipboardList className="h-5 w-5 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-lg font-semibold text-foreground">Summer Applications</h1>
+                  <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
+                    Summer Applications
+                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="text-muted-foreground hover:text-primary transition-colors">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </h1>
                   <p className="text-xs text-muted-foreground">
                     Review and process summer course applications
                     {readOnly && <span className="ml-1 text-amber-600">(Read-only)</span>}
