@@ -536,6 +536,7 @@ export default function ProspectPage() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinChecking, setPinChecking] = useState(false);
+  const [pinShake, setPinShake] = useState(false);
 
   useEffect(() => {
     if (!branch) return;
@@ -565,6 +566,8 @@ export default function ProspectPage() {
       setPinError(msg.includes("Too many") || msg.includes("Rate limit")
         ? "Too many attempts. Please try again later."
         : "Incorrect PIN. Please try again.");
+      setPinShake(true);
+      setTimeout(() => setPinShake(false), 500);
     } finally {
       setPinChecking(false);
     }
@@ -588,6 +591,7 @@ export default function ProspectPage() {
   const [submittedFilters, setSubmittedFilters] = useState({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" });
   const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
@@ -612,7 +616,7 @@ export default function ProspectPage() {
   const { data: existing, isLoading } = useSWR(
     swrKey,
     () => prospectsAPI.list(branch!, CURRENT_YEAR),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
   );
 
   // ---- Duplicate & validation detection ----
@@ -976,8 +980,17 @@ export default function ProspectPage() {
   // ---- Branch Selector ----
 
   if (!branch) {
+    const branchInfo: Record<string, { dot: string; district: string }> = {
+      MAC: { dot: "bg-blue-500", district: "高士德" },
+      MCP: { dot: "bg-emerald-500", district: "水坑尾" },
+      MNT: { dot: "bg-amber-500", district: "東方明珠" },
+      MTA: { dot: "bg-rose-500", district: "氹仔美景I" },
+      MLT: { dot: "bg-violet-500", district: "林茂塘" },
+      MTR: { dot: "bg-cyan-500", district: "氹仔美景II" },
+      MOT: { dot: "bg-orange-500", district: "二龍喉" },
+    };
     return (
-      <div className="max-w-lg mx-auto py-4">
+      <div className="max-w-xl mx-auto py-4">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8 sm:p-10 text-center space-y-6">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
             <GraduationCap className="h-7 w-7 text-primary" />
@@ -988,17 +1001,22 @@ export default function ProspectPage() {
               Register P6 students transitioning to secondary ({CURRENT_YEAR}). Select your branch to begin.
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {PROSPECT_BRANCHES.map((b) => (
-              <a
-                key={b}
-                href={`/summer/prospect?branch=${b}`}
-                className="group flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border bg-card hover:border-primary hover:shadow-md transition-all duration-200"
-              >
-                <Building2 className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="font-semibold text-foreground">{b}</span>
-              </a>
-            ))}
+          <div className="flex flex-wrap justify-center gap-3">
+            {PROSPECT_BRANCHES.map((b, i) => {
+              const info = branchInfo[b];
+              return (
+                <a
+                  key={b}
+                  href={`/summer/prospect?branch=${b}`}
+                  className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
+                  style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${info.dot} opacity-60 group-hover:opacity-100 transition-opacity`} />
+                  <span className="font-bold text-foreground text-sm">{b}</span>
+                  <span className="text-[10px] text-muted-foreground/70 leading-tight">{info.district}</span>
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1015,7 +1033,7 @@ export default function ProspectPage() {
     return (
       <div className="max-w-sm mx-auto py-4">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center space-y-5">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center animate-lock-pulse">
             <Lock className="h-7 w-7 text-primary" />
           </div>
           <div>
@@ -1031,7 +1049,7 @@ export default function ProspectPage() {
               value={pinInput}
               onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
               placeholder="Enter PIN"
-              className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${pinError ? "border-red-400" : "border-border"}`}
+              className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${pinError ? "border-red-400" : "border-border"} ${pinShake ? "animate-shake" : ""}`}
               autoFocus
             />
             {pinError && (
@@ -1093,6 +1111,11 @@ export default function ProspectPage() {
         <div className="flex items-center gap-2">
           <ClipboardPaste className="h-5 w-5 text-primary/70" />
           <h2 className="text-lg font-semibold">Add Students</h2>
+          {parsedRows.length > 0 && (
+            <span className="inline-flex items-center bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium text-xs">
+              {parsedRows.length}
+            </span>
+          )}
         </div>
 
         {/* Paste Zone */}
@@ -1442,6 +1465,11 @@ export default function ProspectPage() {
               </span>
             )}
           </h2>
+          {lastUpdated && (
+            <span className="ml-auto text-[10px] text-muted-foreground/50">
+              Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
         </div>
 
         {/* Search + Filters */}
@@ -1498,6 +1526,17 @@ export default function ProspectPage() {
             <p className="text-xs text-muted-foreground mt-1">
               Paste student data above to get started.
             </p>
+          </div>
+        ) : filteredExisting.length === 0 ? (
+          <div className="text-center py-10">
+            <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No students match your filters.</p>
+            <button
+              onClick={() => { setSubmittedSearchInput(""); setSubmittedSearch(""); setSubmittedFilters({ branch: "", wants_summer: "", wants_regular: "", outreach_status: "" }); }}
+              className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              Clear all filters
+            </button>
           </div>
         ) : (
           <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
@@ -1741,7 +1780,7 @@ export default function ProspectPage() {
       {/* Floating bulk action bars */}
       {selectedParsedKeys.size > 0 && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">{selectedParsedKeys.size} selected</span>
             <button onClick={bulkDeleteParsed} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
               <Trash2 className="h-3 w-3 inline mr-1" />Delete
@@ -1764,7 +1803,7 @@ export default function ProspectPage() {
 
       {selectedSubmittedIds.size > 0 && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
+          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">{selectedSubmittedIds.size} selected</span>
             <button onClick={bulkDeleteSubmitted} disabled={bulkDeleting} className="text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
               {bulkDeleting ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-red-300 border-t-red-600 inline-block mr-1 align-middle" /> : <Trash2 className="h-3 w-3 inline mr-1" />}
