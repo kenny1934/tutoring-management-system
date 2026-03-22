@@ -10,6 +10,7 @@
 * **HK timezone for date calculations** — all backend date operations now use Hong Kong timezone consistently, preventing date mismatches around midnight
 * **Legacy renewal check** — candidate enrollments are now included when checking legacy renewal status
 * **Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused "Failed to load calendar events" on the dashboard
+* **Make-up button colour** — the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page
 
 ## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
 

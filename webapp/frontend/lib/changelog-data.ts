@@ -24,6 +24,9 @@ const changelogData = [
           },
           {
             "description": "**Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused \"Failed to load calendar events\" on the dashboard"
+          },
+          {
+            "description": "**Make-up button colour** — the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page"
           }
         ]
       }
