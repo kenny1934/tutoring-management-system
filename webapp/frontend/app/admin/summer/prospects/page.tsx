@@ -16,6 +16,7 @@ import {
   GraduationCap,
   CheckCircle2,
   AlertTriangle,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -494,7 +495,12 @@ export default function AdminProspectsPage() {
                 <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">P6 Prospects</h1>
+                <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
+                  P6 Prospects
+                  <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </h1>
                 <p className="text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

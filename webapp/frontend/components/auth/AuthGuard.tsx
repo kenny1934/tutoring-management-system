@@ -21,7 +21,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/share");
   const isPublicRoute =
     PUBLIC_ROUTES.includes(pathname) ||
     PUBLIC_ROUTE_PREFIXES.some((p) => pathname.startsWith(p));

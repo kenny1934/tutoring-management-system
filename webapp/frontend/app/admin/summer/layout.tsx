@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -36,15 +35,6 @@ export default function SummerAdminLayout({ children }: { children: React.ReactN
               </Link>
             );
           })}
-          <a
-            href="/summer/apply"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
-          >
-            Form Preview
-            <ExternalLink className="h-3 w-3" />
-          </a>
         </nav>
       </div>
       <div className="flex-1 min-h-0">{children}</div>
