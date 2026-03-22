@@ -14,7 +14,6 @@ import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { useLocation } from "@/contexts/LocationContext";
@@ -61,7 +60,7 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
   return dir === "asc" ? "↑ A-Z" : "↓ Z-A";
 }
 
-const selectClass = "px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground";
+const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
 function renderStatusButtons(
   statuses: string[],
@@ -174,13 +173,11 @@ export default function SummerApplicationsPage() {
   );
 
   // Refresh handler
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const handleRefresh = useCallback(() => {
     if (swrKey) {
       mutate(swrKey);
       if (configId) mutate(["summer-app-stats", configId]);
     }
-    setLastRefreshed(new Date());
   }, [swrKey, configId]);
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -551,11 +548,6 @@ export default function SummerApplicationsPage() {
                       ))}
                     </select>
                   )}
-                  <RefreshButton
-                    onRefresh={handleRefresh}
-                    isRefreshing={isValidating}
-                    lastUpdated={lastRefreshed}
-                  />
                 </div>
               </div>
             </div>

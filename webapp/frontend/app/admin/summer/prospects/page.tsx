@@ -13,9 +13,20 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  GraduationCap,
   X,
 } from "lucide-react";
-import { prospectsAPI } from "@/lib/api";
+import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageTransition } from "@/lib/design-system";
+import { prospectsAPI, summerAPI } from "@/lib/api";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import {
+  IntentionBadge,
+  OutreachBadge,
+  BranchBadges,
+  CopyableCell,
+  INTENTION_LABELS,
+} from "@/components/summer/prospect-badges";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
@@ -27,8 +38,6 @@ import {
   PROSPECT_BRANCHES,
   OUTREACH_STATUS_HINTS,
 } from "@/types";
-
-const CURRENT_YEAR = new Date().getFullYear();
 
 const OUTREACH_OPTIONS: ProspectOutreachStatus[] = [
   "Not Started",
@@ -50,25 +59,10 @@ const STATUS_OPTIONS: ProspectStatus[] = [
 
 const INTENTION_OPTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
 
-const selectClass =
-  "text-sm border-2 border-border rounded-lg px-2.5 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
+const inputSmall =
+  "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
 
-// ---- Color maps (hoisted for perf) ----
-
-const INTENTION_BADGE_COLORS: Record<string, string> = {
-  Yes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  No: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  Considering: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-};
-
-const OUTREACH_BADGE_COLORS: Record<string, string> = {
-  "Not Started": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  "WeChat - Not Found": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  "WeChat - Cannot Add": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  "WeChat - Added": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  Called: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  "No Response": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-};
+// ---- Color maps (admin-specific) ----
 
 const STATUS_BADGE_COLORS: Record<string, string> = {
   New: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -168,7 +162,13 @@ function ProspectDetailModal({
             <InfoItem icon={Phone} label="Phone 1" value={prospect.phone_1 ? `${prospect.phone_1}${prospect.phone_1_relation ? ` (${prospect.phone_1_relation})` : ""}` : null} />
             <InfoItem icon={Phone} label="Phone 2" value={prospect.phone_2 ? `${prospect.phone_2}${prospect.phone_2_relation ? ` (${prospect.phone_2_relation})` : ""}` : null} />
             <InfoItem icon={MessageSquare} label="WeChat" value={prospect.wechat_id} />
-            <InfoItem icon={School} label="Pref. Branch" value={(prospect.preferred_branches || []).join(", ")} />
+            <div className="flex items-start gap-2.5 text-sm">
+              <School className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
+              <div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pref. Branch</div>
+                <BranchBadges branches={prospect.preferred_branches || []} />
+              </div>
+            </div>
           </div>
 
           {/* Tutor Remark */}
@@ -212,7 +212,7 @@ function ProspectDetailModal({
                 <select
                   value={outreachStatus}
                   onChange={(e) => setOutreachStatus(e.target.value as ProspectOutreachStatus)}
-                  className={`w-full ${selectClass}`}
+                  className={`w-full ${inputSmall}`}
                 >
                   {OUTREACH_OPTIONS.map((o) => (
                     <option key={o} value={o}>{o}</option>
@@ -227,7 +227,7 @@ function ProspectDetailModal({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as ProspectStatus)}
-                  className={`w-full ${selectClass}`}
+                  className={`w-full ${inputSmall}`}
                 >
                   {STATUS_OPTIONS.map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -241,7 +241,7 @@ function ProspectDetailModal({
               <textarea
                 value={contactNotes}
                 onChange={(e) => setContactNotes(e.target.value)}
-                className={`w-full ${selectClass} resize-y`}
+                className={`w-full ${inputSmall} resize-y`}
                 rows={2}
                 placeholder="Internal notes about contacting this parent..."
               />
@@ -346,7 +346,7 @@ function InfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 // ---- Main Page ----
 
 export default function AdminProspectsPage() {
-  const [year, setYear] = useState(CURRENT_YEAR);
+  const [year, setYear] = useState<number | null>(null);
   const [tab, setTab] = useState<"list" | "dashboard">("list");
   const [filters, setFilters] = useState({
     branch: "",
@@ -360,6 +360,18 @@ export default function AdminProspectsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
 
+  // Fetch available years from summer configs
+  const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
+  const availableYears = configs?.map((c) => c.year).sort((a, b) => b - a) ?? [];
+
+  // Default to active config's year
+  useEffect(() => {
+    if (configs && configs.length > 0 && year === null) {
+      const active = configs.find((c) => c.is_active);
+      setYear(active?.year ?? configs[0].year);
+    }
+  }, [configs, year]);
+
   useEffect(() => {
     const t = setTimeout(() => {
       setFilters((f) => ({ ...f, search: searchInput }));
@@ -367,13 +379,13 @@ export default function AdminProspectsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const swrKey = tab === "list"
+  const swrKey = tab === "list" && year
     ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
     swrKey,
     () => prospectsAPI.adminList({
-      year,
+      year: year!,
       branch: filters.branch || undefined,
       status: filters.status || undefined,
       outreach_status: filters.outreach_status || undefined,
@@ -384,10 +396,10 @@ export default function AdminProspectsPage() {
     { revalidateOnFocus: false }
   );
 
-  const statsKey = tab === "dashboard" ? `admin-prospect-stats-${year}` : null;
+  const statsKey = tab === "dashboard" && year ? `admin-prospect-stats-${year}` : null;
   const { data: stats } = useSWR(
     statsKey,
-    () => prospectsAPI.stats(year),
+    () => prospectsAPI.stats(year!),
     { revalidateOnFocus: false }
   );
 
@@ -426,6 +438,7 @@ export default function AdminProspectsPage() {
   }, [selectedIds, refresh]);
 
   const handleAutoMatch = useCallback(async () => {
+    if (!year) return;
     try {
       const result = await prospectsAPI.autoMatch(year);
       alert(`Auto-match complete: ${result.matched} matched out of ${result.total_unlinked} unlinked`);
@@ -435,119 +448,133 @@ export default function AdminProspectsPage() {
     }
   }, [year, refresh]);
 
-  const activeFilterCount = [filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.search].filter(Boolean).length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.search].filter(Boolean).length;
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold">P6 Prospects</h1>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className={selectClass}
-          >
-            {[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleAutoMatch}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Auto-Match
-          </button>
-          {/* Pill toggle */}
-          <div className="flex bg-muted rounded-full p-0.5">
-            <button
-              onClick={() => setTab("list")}
-              className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-all duration-200 ${
-                tab === "list"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setTab("dashboard")}
-              className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-all duration-200 ${
-                tab === "dashboard"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Dashboard
-            </button>
+    <DeskSurface>
+      <PageTransition className="p-4 sm:p-6">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-semibold text-foreground">P6 Prospects</h1>
+                <p className="text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <select
+                  value={year ?? ""}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleAutoMatch}
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-medium transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Auto-Match
+                </button>
+                {/* Pill toggle */}
+                <div className="flex bg-muted rounded-full p-0.5">
+                  <button
+                    onClick={() => setTab("list")}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                      tab === "list"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setTab("dashboard")}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                      tab === "dashboard"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
+          {/* Content */}
+          <div className="p-4 sm:p-6">
       {tab === "list" ? (
-        <>
-          {/* Filters */}
-          <div className="bg-card rounded-xl border border-border p-3 flex flex-wrap gap-2 items-center">
-            <select value={filters.branch} onChange={(e) => setFilters((f) => ({ ...f, branch: e.target.value }))} className={selectClass}>
-              <option value="">All Branches</option>
-              {PROSPECT_BRANCHES.map((b) => (<option key={b} value={b}>{b}</option>))}
-            </select>
-            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={selectClass}>
-              <option value="">All Status</option>
-              {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-            </select>
-            <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={selectClass}>
-              <option value="">All Outreach</option>
-              {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
-            </select>
-            <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={selectClass}>
-              <option value="">Summer: All</option>
-              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>Summer: {i}</option>))}
-            </select>
-            <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={selectClass}>
-              <option value="">Regular: All</option>
-              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>Regular: {i}</option>))}
-            </select>
+        <div className="space-y-5">
+          {/* Branch Pills */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setFilters((f) => ({ ...f, branch: "" }))}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                !filters.branch
+                  ? "bg-primary text-white shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {PROSPECT_BRANCHES.map((b) => (
+              <button
+                key={b}
+                onClick={() => setFilters((f) => ({ ...f, branch: f.branch === b ? "" : b }))}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                  filters.branch === b
+                    ? "bg-primary text-white shadow-sm"
+                    : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+
+          {/* Search + Filters */}
+          <div className="flex flex-wrap gap-2 items-center">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
-                className={`${selectClass} pl-8 w-44`}
+                className={`${inputSmall} pl-8 w-40 sm:w-52`}
               />
             </div>
+            <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
+              <option value="">Summer: All</option>
+              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+            </select>
+            <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
+              <option value="">Regular: All</option>
+              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+            </select>
+            <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
+              <option value="">Outreach: All</option>
+              {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
+            </select>
+            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputSmall}>
+              <option value="">Status: All</option>
+              {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+            </select>
             {activeFilterCount > 0 && (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
-              </span>
+              <button
+                onClick={() => { setSearchInput(""); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", search: "" })); }}
+                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Clear all
+              </button>
             )}
           </div>
-
-          {/* Bulk Actions */}
-          {selectedIds.size > 0 && (
-            <div className="sticky bottom-4 z-30 bg-card/95 backdrop-blur border-2 border-primary/20 shadow-lg rounded-xl p-3 flex items-center gap-3 flex-wrap">
-              <span className="bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                {selectedIds.size}
-              </span>
-              <span className="text-sm font-medium">selected</span>
-              <span className="text-xs text-muted-foreground mx-1">|</span>
-              <span className="text-xs text-muted-foreground">Set outreach:</span>
-              {OUTREACH_OPTIONS.map((o) => (
-                <button
-                  key={o}
-                  onClick={() => handleBulkOutreach(o)}
-                  className="text-xs px-2.5 py-1 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all font-medium"
-                  title={OUTREACH_STATUS_HINTS[o]}
-                >
-                  {o}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Table */}
           {isLoading ? (
@@ -565,10 +592,10 @@ export default function AdminProspectsPage() {
           ) : (
             <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[900px]">
                   <thead className="bg-primary/5 border-b border-border">
                     <tr>
-                      <th className="px-3 py-2.5 w-8">
+                      <th className="px-2 py-2 w-8">
                         <input
                           type="checkbox"
                           checked={selectedIds.size === prospects.length && prospects.length > 0}
@@ -576,26 +603,28 @@ export default function AdminProspectsPage() {
                           className="rounded"
                         />
                       </th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Name</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Branch</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">School</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Phone</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Summer</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Regular</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Pref.</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Outreach</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">Status</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-medium">App</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">ID</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Name</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">School</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Status</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">App</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {prospects.map((p) => (
                       <tr
                         key={p.id}
-                        className="hover:bg-primary/[0.03] cursor-pointer transition-colors"
+                        className={`cursor-pointer transition-colors ${selectedIds.has(p.id) ? "bg-primary/[0.05]" : "hover:bg-primary/[0.03]"}`}
                         onClick={() => setSelectedProspect(p)}
                       >
-                        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(p.id)}
@@ -603,31 +632,37 @@ export default function AdminProspectsPage() {
                             className="rounded"
                           />
                         </td>
-                        <td className="px-3 py-2 font-medium text-foreground">{p.student_name}</td>
-                        <td className="px-3 py-2 text-xs">{p.source_branch}</td>
-                        <td className="px-3 py-2 text-xs">{p.school || "-"}</td>
-                        <td className="px-3 py-2 text-xs">
-                          {p.phone_1}
-                          {p.phone_1_relation && (
-                            <span className="text-muted-foreground ml-0.5 text-[10px]">({p.phone_1_relation})</span>
+                        <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>
+                        <td className="px-2 py-2 font-medium text-foreground">
+                          <CopyableCell text={p.student_name} />
+                          {!filters.branch && (
+                            <span className="ml-1.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{p.source_branch}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2">
-                          <IntentionBadge value={p.wants_summer} />
+                        <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">
+                          <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
                         </td>
-                        <td className="px-3 py-2">
-                          <IntentionBadge value={p.wants_regular} />
+                        <td className="px-2 py-2">
+                          <div className="space-y-0.5">
+                            <BranchBadges branches={p.preferred_branches || []} />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Summer</span>
+                              <IntentionBadge value={p.wants_summer} />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Regular</span>
+                              <IntentionBadge value={p.wants_regular} />
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-3 py-2 text-xs">
-                          {(p.preferred_branches || []).join(", ") || "-"}
-                        </td>
-                        <td className="px-3 py-2">
-                          <OutreachBadge status={p.outreach_status} />
-                        </td>
-                        <td className="px-3 py-2">
-                          <ProspectStatusBadge status={p.status} />
-                        </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
+                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
+                        <td className="px-2 py-2"><ProspectStatusBadge status={p.status} /></td>
+                        <td className="px-2 py-2">
                           {p.summer_application_id ? (
                             <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium" title={p.matched_application_ref || ""}>
                               <Link2 className="h-3 w-3" />
@@ -642,15 +677,18 @@ export default function AdminProspectsPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 py-2.5 border-t border-border bg-primary/5 text-xs text-muted-foreground font-medium">
+              <div className="px-3 py-2 border-t border-border bg-primary/5 text-xs text-muted-foreground font-medium">
                 {prospects.length} prospect{prospects.length !== 1 ? "s" : ""}
               </div>
             </div>
           )}
-        </>
+        </div>
       ) : (
         <DashboardView stats={stats || []} year={year} />
       )}
+          </div>
+        </div>
+      </PageTransition>
 
       {/* Detail Modal */}
       {selectedProspect && (
@@ -660,7 +698,31 @@ export default function AdminProspectsPage() {
           onSave={refresh}
         />
       )}
-    </div>
+
+      {/* Floating bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <span className="text-xs text-muted-foreground">|</span>
+            <span className="text-xs text-muted-foreground">Set outreach:</span>
+            {OUTREACH_OPTIONS.map((o) => (
+              <button
+                key={o}
+                onClick={() => handleBulkOutreach(o)}
+                className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors"
+                title={OUTREACH_STATUS_HINTS[o]}
+              >
+                {o}
+              </button>
+            ))}
+            <button onClick={() => setSelectedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </DeskSurface>
   );
 }
 
@@ -692,67 +754,71 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
   );
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Prospects" value={totals.total} color="primary" />
-        <StatCard label="Wants Summer" value={totals.wants_summer_yes} sub={`+${totals.wants_summer_considering} considering`} color="green" />
-        <StatCard label="Wants Regular" value={totals.wants_regular_yes} sub={`+${totals.wants_regular_considering} considering`} color="blue" />
-        <StatCard label="Matched to App" value={totals.matched} color="purple" />
-      </div>
-
-      {/* Outreach Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Not Started" value={totals.not_started} color="gray" />
-        <StatCard label="WeChat Added" value={totals.wechat_added} color="green" />
-        <StatCard label="WeChat Issues" value={totals.wechat_issues} sub="Not found + Cannot add" color="red" />
+    <div className="space-y-5">
+      {/* Compact totals strip */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm pb-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+        <div><span className="text-2xl font-bold text-foreground">{totals.total}</span> <span className="text-muted-foreground">prospects</span></div>
+        <span className="text-border hidden sm:inline">|</span>
+        <div><span className="font-semibold text-green-600">{totals.wants_summer_yes}</span> <span className="text-muted-foreground">summer yes</span> <span className="text-yellow-600 text-xs">+{totals.wants_summer_considering}</span></div>
+        <div><span className="font-semibold text-blue-600">{totals.wants_regular_yes}</span> <span className="text-muted-foreground">regular yes</span> <span className="text-yellow-600 text-xs">+{totals.wants_regular_considering}</span></div>
+        <span className="text-border hidden sm:inline">|</span>
+        <div className="inline-flex items-center gap-1"><span className="font-semibold text-green-600">{totals.wechat_added}</span> <WeChatIcon className="h-3 w-3 text-green-600" /> <span className="text-muted-foreground">added</span></div>
+        <div className="inline-flex items-center gap-1"><span className="text-red-600">{totals.wechat_issues}</span> <WeChatIcon className="h-3 w-3 text-red-500" /> <span className="text-muted-foreground">issues</span></div>
+        <span className="text-border hidden sm:inline">|</span>
+        <div><span className="font-semibold text-purple-600">{totals.matched}</span> <span className="text-muted-foreground">matched</span></div>
+        <div><span className="text-muted-foreground">{totals.not_started} not started</span></div>
       </div>
 
       {/* Per-Branch Table */}
-      <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="bg-primary/5">
+      <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
+            <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+              <th rowSpan={2} className="px-3 py-1.5 text-left font-medium text-foreground align-bottom">Branch</th>
+              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom">Total</th>
+              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider">Summer</th>
+              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider">Regular</th>
+              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground align-bottom"><WeChatIcon className="h-3 w-3 inline text-green-600" /></th>
+              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Linked to a summer application">Matched</th>
+              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Outreach not yet attempted">Not Started</th>
+            </tr>
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium">Branch</th>
-              <th className="px-3 py-2.5 text-right font-medium">Total</th>
-              <th className="px-3 py-2.5 text-right font-medium">Summer Yes</th>
-              <th className="px-3 py-2.5 text-right font-medium">Summer ?</th>
-              <th className="px-3 py-2.5 text-right font-medium">Regular Yes</th>
-              <th className="px-3 py-2.5 text-right font-medium">Regular ?</th>
-              <th className="px-3 py-2.5 text-right font-medium">Matched</th>
-              <th className="px-3 py-2.5 text-right font-medium">WC Added</th>
-              <th className="px-3 py-2.5 text-right font-medium">WC Issues</th>
-              <th className="px-3 py-2.5 text-right font-medium">Not Started</th>
+              <th className="px-3 py-1 text-right"><IntentionBadge value="Yes" /></th>
+              <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
+              <th className="px-3 py-1 text-right"><IntentionBadge value="Yes" /></th>
+              <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
+              <th className="px-3 py-1 text-right text-[10px] text-green-600 font-medium">Added</th>
+              <th className="px-3 py-1 text-right text-[10px] text-red-600 font-medium">Issues</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/50">
+          <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
             {stats.map((s, i) => (
-              <tr key={s.branch} className={`hover:bg-primary/[0.03] ${i % 2 === 1 ? "bg-primary/[0.02]" : ""}`}>
-                <td className="px-3 py-2.5 font-semibold">{s.branch}</td>
-                <td className="px-3 py-2.5 text-right font-medium">{s.total}</td>
-                <td className="px-3 py-2.5 text-right text-green-600 font-medium">{s.wants_summer_yes}</td>
-                <td className="px-3 py-2.5 text-right text-yellow-600">{s.wants_summer_considering}</td>
-                <td className="px-3 py-2.5 text-right text-blue-600 font-medium">{s.wants_regular_yes}</td>
-                <td className="px-3 py-2.5 text-right text-yellow-600">{s.wants_regular_considering}</td>
-                <td className="px-3 py-2.5 text-right text-purple-600 font-medium">{s.matched_to_application}</td>
-                <td className="px-3 py-2.5 text-right text-green-600">{s.outreach_wechat_added}</td>
-                <td className="px-3 py-2.5 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
-                <td className="px-3 py-2.5 text-right text-muted-foreground">{s.outreach_not_started}</td>
+              <tr key={s.branch} className={i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}>
+                <td className="px-3 py-2 font-semibold text-foreground">{s.branch}</td>
+                <td className="px-3 py-2 text-right font-medium">{s.total}</td>
+                <td className="px-3 py-2 text-right text-green-600 font-medium">{s.wants_summer_yes}</td>
+                <td className="px-3 py-2 text-right text-yellow-600">{s.wants_summer_considering}</td>
+                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.wants_regular_yes}</td>
+                <td className="px-3 py-2 text-right text-yellow-600">{s.wants_regular_considering}</td>
+                <td className="px-3 py-2 text-right text-green-600">{s.outreach_wechat_added}</td>
+                <td className="px-3 py-2 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
+                <td className="px-3 py-2 text-right text-purple-600 font-medium">{s.matched_to_application}</td>
+                <td className="px-3 py-2 text-right text-muted-foreground">{s.outreach_not_started}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-primary/5 font-semibold border-t-2 border-border">
+          <tfoot className="bg-[#f0e6d8]/50 dark:bg-[#2a2520] font-semibold border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
             <tr>
-              <td className="px-3 py-2.5">Total</td>
-              <td className="px-3 py-2.5 text-right">{totals.total}</td>
-              <td className="px-3 py-2.5 text-right text-green-600">{totals.wants_summer_yes}</td>
-              <td className="px-3 py-2.5 text-right text-yellow-600">{totals.wants_summer_considering}</td>
-              <td className="px-3 py-2.5 text-right text-blue-600">{totals.wants_regular_yes}</td>
-              <td className="px-3 py-2.5 text-right text-yellow-600">{totals.wants_regular_considering}</td>
-              <td className="px-3 py-2.5 text-right text-purple-600">{totals.matched}</td>
-              <td className="px-3 py-2.5 text-right text-green-600">{totals.wechat_added}</td>
-              <td className="px-3 py-2.5 text-right text-red-600">{totals.wechat_issues}</td>
-              <td className="px-3 py-2.5 text-right text-muted-foreground">{totals.not_started}</td>
+              <td className="px-3 py-2 text-foreground">Total</td>
+              <td className="px-3 py-2 text-right">{totals.total}</td>
+              <td className="px-3 py-2 text-right text-green-600">{totals.wants_summer_yes}</td>
+              <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_summer_considering}</td>
+              <td className="px-3 py-2 text-right text-blue-600">{totals.wants_regular_yes}</td>
+              <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_regular_considering}</td>
+              <td className="px-3 py-2 text-right text-green-600">{totals.wechat_added}</td>
+              <td className="px-3 py-2 text-right text-red-600">{totals.wechat_issues}</td>
+              <td className="px-3 py-2 text-right text-purple-600">{totals.matched}</td>
+              <td className="px-3 py-2 text-right text-muted-foreground">{totals.not_started}</td>
             </tr>
           </tfoot>
         </table>
@@ -761,27 +827,7 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
   );
 }
 
-// ---- Shared Small Components ----
-
-function IntentionBadge({ value }: { value: string | null }) {
-  const v = value || "Considering";
-  return (
-    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${INTENTION_BADGE_COLORS[v] || "bg-gray-100"}`}>
-      {v}
-    </span>
-  );
-}
-
-function OutreachBadge({ status }: { status: ProspectOutreachStatus }) {
-  return (
-    <span
-      className={`text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap ${OUTREACH_BADGE_COLORS[status] || "bg-gray-100"}`}
-      title={OUTREACH_STATUS_HINTS[status]}
-    >
-      {status}
-    </span>
-  );
-}
+// ---- Admin-specific Components ----
 
 function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
   return (
@@ -791,31 +837,3 @@ function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  color = "primary",
-}: {
-  label: string;
-  value: number;
-  sub?: string;
-  color?: string;
-}) {
-  const accents: Record<string, { border: string; icon: string }> = {
-    primary: { border: "border-l-primary", icon: "bg-primary/10 text-primary" },
-    green: { border: "border-l-green-500", icon: "bg-green-100 text-green-600" },
-    blue: { border: "border-l-blue-500", icon: "bg-blue-100 text-blue-600" },
-    purple: { border: "border-l-purple-500", icon: "bg-purple-100 text-purple-600" },
-    red: { border: "border-l-red-500", icon: "bg-red-100 text-red-600" },
-    gray: { border: "border-l-gray-400", icon: "bg-gray-100 text-gray-500" },
-  };
-  const accent = accents[color] || accents.primary;
-  return (
-    <div className={`bg-card rounded-2xl shadow-sm border border-border border-l-4 ${accent.border} p-4`}>
-      <div className="text-3xl font-bold text-foreground">{value}</div>
-      <div className="text-xs font-medium text-muted-foreground mt-1">{label}</div>
-      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
-    </div>
-  );
-}
