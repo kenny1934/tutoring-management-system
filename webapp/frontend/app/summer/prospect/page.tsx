@@ -534,7 +534,7 @@ export default function ProspectPage() {
   // ---- PIN gate ----
   const [pinVerified, setPinVerified] = useState<boolean | null>(null); // null = checking
   const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [pinChecking, setPinChecking] = useState(false);
 
   useEffect(() => {
@@ -555,13 +555,16 @@ export default function ProspectPage() {
   const handlePinSubmit = useCallback(async () => {
     if (!branch || !pinInput.trim()) return;
     setPinChecking(true);
-    setPinError(false);
+    setPinError(null);
     try {
       await prospectsAPI.verifyPin(branch, pinInput.trim());
       sessionStorage.setItem("prospect_pin", pinInput.trim());
       setPinVerified(true);
-    } catch {
-      setPinError(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setPinError(msg.includes("Too many") || msg.includes("Rate limit")
+        ? "Too many attempts. Please try again later."
+        : "Incorrect PIN. Please try again.");
     } finally {
       setPinChecking(false);
     }
@@ -1026,13 +1029,13 @@ export default function ProspectPage() {
               type="password"
               inputMode="numeric"
               value={pinInput}
-              onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+              onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
               placeholder="Enter PIN"
               className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${pinError ? "border-red-400" : "border-border"}`}
               autoFocus
             />
             {pinError && (
-              <p className="text-red-500 text-sm">Incorrect PIN. Please try again.</p>
+              <p className="text-red-500 text-sm">{pinError}</p>
             )}
             <button
               type="submit"
@@ -1127,13 +1130,32 @@ export default function ProspectPage() {
                 </p>
               </>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Or add a row manually
-            </button>
+            <div className="mt-5 flex flex-col items-center gap-3">
+              <div className="opacity-60 hover:opacity-80 transition-opacity duration-300">
+                <div className="flex text-[9px] text-muted-foreground/80 mb-0.5 px-0.5">
+                  <span className="w-16 text-center">ID</span>
+                  <span className="w-20 text-center">Name</span>
+                  <span className="w-8 text-center">Grade</span>
+                  <span className="w-16 text-center">Tutor</span>
+                  <span className="w-16 text-center">Phone</span>
+                </div>
+                <div className="flex text-[10px] font-mono border border-border/60 rounded divide-x divide-border/40">
+                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">{branch}1048</span>
+                  <span className="w-20 px-1.5 py-1 text-center text-muted-foreground">Bobby MC</span>
+                  <span className="w-8 px-1.5 py-1 text-center text-muted-foreground">P6</span>
+                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">Mr Wong</span>
+                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">55551234</span>
+                </div>
+                <p className="text-[9px] text-muted-foreground/60 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Or add a row manually
+              </button>
+            </div>
           </div>
         ) : (
           /* Collapsed paste strip — rows exist */

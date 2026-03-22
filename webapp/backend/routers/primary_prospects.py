@@ -37,6 +37,9 @@ BRANCH_PINS = {
     branch: os.getenv(f"PROSPECT_PIN_{branch}", "")
     for branch in VALID_BRANCHES
 }
+_empty_pins = [b for b, p in BRANCH_PINS.items() if not p]
+if _empty_pins:
+    logger.warning("Missing PROSPECT_PIN env vars for branches: %s — PIN auth will fail for these", ", ".join(_empty_pins))
 VALID_OUTREACH = {"Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "WeChat - Added", "Called", "No Response"}
 VALID_STATUS = {"New", "Contacted", "Interested", "Applied", "Enrolled", "Declined"}
 VALID_INTENTION = {"Yes", "No", "Considering"}
