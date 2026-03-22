@@ -166,16 +166,16 @@ export default function AdminSummerConfigPage() {
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <Sun className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                <Sun className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Summer Course Config</h1>
-                <p className="text-sm text-foreground/60">
+                <h1 className="text-lg font-semibold text-foreground">Summer Course Config</h1>
+                <p className="text-xs text-muted-foreground">
                   Manage yearly summer course configurations
                   {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
                 </p>
@@ -184,15 +184,16 @@ export default function AdminSummerConfigPage() {
             {!isReadOnly && (
               <button
                 onClick={() => setCreating(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 New Config
               </button>
             )}
           </div>
 
           {/* Config list */}
+          <div className="p-4 sm:p-6">
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
@@ -295,6 +296,7 @@ export default function AdminSummerConfigPage() {
               ))}
             </div>
           )}
+          </div>
 
           {/* Clone dialog — using Modal */}
           <Modal

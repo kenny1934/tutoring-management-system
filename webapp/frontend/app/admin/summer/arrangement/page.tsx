@@ -20,7 +20,6 @@ import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementMode
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
@@ -90,7 +89,6 @@ export default function SummerArrangementPage() {
   const {
     data: slots,
     mutate: mutateSlots,
-    isValidating: slotsValidating,
   } = useSWR(
     configId && location ? ["summer-slots", configId, location] : null,
     () => summerAPI.getSlots(configId!, location),
@@ -325,57 +323,54 @@ export default function SummerArrangementPage() {
       <PageTransition className="flex flex-col h-full p-4 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-          <div className="flex items-center gap-2">
-            <Grid3X3 className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold">Timetable Arrangement</h1>
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+          {/* Row 1: Title + location + refresh */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+              <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-semibold text-foreground">Timetable Arrangement</h1>
+              <p className="text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
+            </div>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+            >
+              {locations.map((loc) => (
+                <option key={loc.name} value={loc.name}>
+                  {LOCATION_TO_CODE[loc.name] || loc.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Location selector */}
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
-          >
-            {locations.map((loc) => (
-              <option key={loc.name} value={loc.name}>
-                {LOCATION_TO_CODE[loc.name] || loc.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="flex-1" />
-
-          {/* Stats */}
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>{totalIncomplete} incomplete</span>
-            <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
-            <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
+          {/* Row 2: Stats + actions */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{totalIncomplete} incomplete</span>
+              <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
+              <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
+            </div>
+            <div className="flex-1" />
+            <button
+              onClick={() => setDutyModalOpen(true)}
+              disabled={!location}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Users2 className="h-3.5 w-3.5" />
+              Tutor Duties
+            </button>
+            <button
+              onClick={() => setAutoSuggestOpen(true)}
+              disabled={!unassigned?.length || !slots?.length}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              Auto-Suggest
+            </button>
           </div>
-
-          {/* Actions */}
-          <button
-            onClick={() => setDutyModalOpen(true)}
-            disabled={!location}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Users2 className="h-3.5 w-3.5" />
-            Tutor Duties
-          </button>
-
-          <button
-            onClick={() => setAutoSuggestOpen(true)}
-            disabled={!unassigned?.length || !slots?.length}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            Auto-Suggest
-          </button>
-
-          <RefreshButton
-            onClick={refreshAll}
-            isRefreshing={slotsValidating}
-          />
         </div>
 
         {/* View tabs */}
