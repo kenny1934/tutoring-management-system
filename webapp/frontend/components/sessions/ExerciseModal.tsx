@@ -95,6 +95,7 @@ export function ExerciseModal({
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllAnswersState, setDownloadAllAnswersState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadAllAnswersMessage, setDownloadAllAnswersMessage] = useState<string | undefined>();
 
   // Drag-drop file search state
   const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
@@ -982,7 +983,8 @@ export function ExerciseModal({
     const studentName = session.student_name.replace(/\s+/g, '_');
     const filename = `Ans_${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
 
-    const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
+    const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath, (msg) => setDownloadAllAnswersMessage(msg));
+    setDownloadAllAnswersMessage(undefined);
     if (result.status === 'success') {
       setDownloadAllAnswersState('idle');
       if (result.missing > 0) {
@@ -1450,8 +1452,8 @@ export function ExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                <span className="hidden md:inline">Download Answers</span>
-                <span className="md:hidden">Ans</span>
+                <span className="hidden md:inline">{downloadAllAnswersState === 'loading' ? (downloadAllAnswersMessage || 'Searching…') : 'Download Answers'}</span>
+                <span className="md:hidden">{downloadAllAnswersState === 'loading' ? '…' : 'Ans'}</span>
               </button>
             </div>
           ) : (

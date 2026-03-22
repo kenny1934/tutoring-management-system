@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, type LucideIcon } from "react";
 import { Search, ChevronDown, ChevronRight, ExternalLink, Download, FolderOpen, X, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchAnswerFile, openAnswerFileWithFallback, downloadAnswerFileWithFallback } from "@/lib/answer-file-utils";
@@ -44,6 +44,49 @@ interface ExerciseAnswerSectionProps {
 }
 
 type SearchState = 'idle' | 'searching' | 'found' | 'not_found';
+type ActionState = 'idle' | 'loading' | 'error';
+
+/** Shared button for answer open/download actions with loading/error states */
+function AnswerActionButton({ state, message, onClick, Icon, title, size, busy }: {
+  state: ActionState;
+  message: string | undefined;
+  onClick: () => void;
+  Icon: LucideIcon;
+  title: string;
+  size: 'sm' | 'md';
+  busy: boolean;
+}) {
+  const iconClass = size === 'sm' ? "h-3 w-3" : "h-3.5 w-3.5";
+  const btnPadding = size === 'sm' ? "px-1.5 py-1" : "px-2 py-1.5";
+  const gap = size === 'sm' ? "gap-1" : "gap-1.5";
+  const msgMaxW = size === 'sm' ? "max-w-[120px]" : "max-w-[140px]";
+  const isLoading = state === 'loading';
+  const showMessage = isLoading && message;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className={cn(
+        `min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ${btnPadding} rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center`,
+        showMessage && gap
+      )}
+      title={showMessage ? message : title}
+    >
+      {isLoading ? <Loader2 className={cn(iconClass, "text-gray-400 animate-spin")} />
+        : state === 'error' ? <XCircle className={cn(iconClass, "text-red-500")} />
+        : <Icon className={cn(iconClass, "text-gray-500 dark:text-gray-400")} />}
+      {showMessage && (
+        <span className={cn(
+          "text-[10px] text-amber-600 dark:text-amber-400 italic whitespace-nowrap truncate",
+          msgMaxW,
+          size === 'sm' && "hidden md:inline"
+        )}>{message}</span>
+      )}
+    </button>
+  );
+}
 
 export function ExerciseAnswerSection({
   clientId,
@@ -67,7 +110,43 @@ export function ExerciseAnswerSection({
 }: ExerciseAnswerSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const [searchState, setSearchState] = useState<SearchState>('idle');
+  const [openState, setOpenState] = useState<ActionState>('idle');
+  const [downloadState, setDownloadState] = useState<ActionState>('idle');
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
+  const busyRef = useRef(false);
   const { showToast } = useToast();
+
+  // Shared helper for open/download actions
+  const runAction = useCallback(async (
+    action: (path: string, onProgress?: (msg: string) => void) => Promise<boolean>,
+    setState: React.Dispatch<React.SetStateAction<ActionState>>,
+    errorMsg: string
+  ) => {
+    if (!answerPdfName || busyRef.current) return;
+    busyRef.current = true;
+    setState('loading');
+    try {
+      const success = await action(answerPdfName, (msg) => setActionMessage(msg));
+      if (success) {
+        setState('idle');
+      } else {
+        setState('error');
+        showToast(errorMsg, 'error');
+        setTimeout(() => setState(prev => prev === 'error' ? 'idle' : prev), 2000);
+      }
+    } finally {
+      setActionMessage(undefined);
+      busyRef.current = false;
+    }
+  }, [answerPdfName, showToast]);
+
+  const handleOpen = useCallback(() => {
+    runAction(openAnswerFileWithFallback, setOpenState, 'Failed to open answer file');
+  }, [runAction]);
+
+  const handleDownload = useCallback(() => {
+    runAction(downloadAnswerFileWithFallback, setDownloadState, 'Failed to download answer file');
+  }, [runAction]);
 
   // Toggle expanded state
   const toggleExpanded = useCallback(() => {
@@ -84,50 +163,25 @@ export function ExerciseAnswerSection({
       const result = await searchAnswerFile(pdfName);
       if (result) {
         setSearchState('found');
-        // Update the answer path
         onAnswerChange('answer_pdf_name', result.path);
-        // Copy exercise page range to answer
         onAnswerChange('answer_page_mode', exercisePageMode);
         onAnswerChange('answer_page_start', exercisePageStart);
         onAnswerChange('answer_page_end', exercisePageEnd);
         onAnswerChange('answer_complex_pages', exerciseComplexPages);
-        // Auto-expand to show the result
         setExpanded(true);
       } else {
         setSearchState('not_found');
-        // Auto-reset after 2 seconds
         setTimeout(() => {
           setSearchState(prev => prev === 'not_found' ? 'idle' : prev);
         }, 2000);
       }
     } catch (err) {
       setSearchState('not_found');
-      // Auto-reset after 2 seconds
       setTimeout(() => {
         setSearchState(prev => prev === 'not_found' ? 'idle' : prev);
       }, 2000);
     }
   }, [pdfName, exercisePageMode, exercisePageStart, exercisePageEnd, exerciseComplexPages, onAnswerChange]);
-
-  // Open answer file (tries local first, falls back to Shelv)
-  const handleOpen = useCallback(async () => {
-    if (!answerPdfName) return;
-
-    const success = await openAnswerFileWithFallback(answerPdfName);
-    if (!success) {
-      showToast('Failed to open answer file', 'error');
-    }
-  }, [answerPdfName, showToast]);
-
-  // Download answer file (tries local first, falls back to Shelv)
-  const handleDownload = useCallback(async () => {
-    if (!answerPdfName) return;
-
-    const success = await downloadAnswerFileWithFallback(answerPdfName);
-    if (!success) {
-      showToast('Failed to download answer file', 'error');
-    }
-  }, [answerPdfName, showToast]);
 
   // Auto-translate pasted drive letter paths (e.g., V:\... → [Courseware Developer 中學]\...)
   const handleAnswerPaste = useCallback(async (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -150,6 +204,8 @@ export function ExerciseAnswerSection({
     onAnswerChange('answer_complex_pages', '');
     setSearchState('idle');
   }, [onAnswerChange]);
+
+  const isBusy = openState === 'loading' || downloadState === 'loading';
 
   return (
     <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
@@ -176,22 +232,8 @@ export function ExerciseAnswerSection({
             </span>
             {!expanded && (
               <>
-                <button
-                  type="button"
-                  onClick={handleOpen}
-                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
-                  title="Open answer file"
-                >
-                  <ExternalLink className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
-                  title="Download answer file"
-                >
-                  <Download className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
-                </button>
+                <AnswerActionButton state={openState} message={actionMessage} onClick={handleOpen} Icon={ExternalLink} title="Open answer file" size="sm" busy={isBusy} />
+                <AnswerActionButton state={downloadState} message={actionMessage} onClick={handleDownload} Icon={Download} title="Download answer file" size="sm" busy={isBusy} />
               </>
             )}
           </>
@@ -251,27 +293,11 @@ export function ExerciseAnswerSection({
                 <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
               </button>
             )}
-            {/* Open answer file */}
             {answerPdfName && (
-              <button
-                type="button"
-                onClick={handleOpen}
-                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
-                title="Open answer file"
-              >
-                <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
-              </button>
-            )}
-            {/* Download answer file */}
-            {answerPdfName && (
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
-                title="Download answer file"
-              >
-                <Download className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
-              </button>
+              <>
+                <AnswerActionButton state={openState} message={actionMessage} onClick={handleOpen} Icon={ExternalLink} title="Open answer file" size="md" busy={isBusy} />
+                <AnswerActionButton state={downloadState} message={actionMessage} onClick={handleDownload} Icon={Download} title="Download answer file" size="md" busy={isBusy} />
+              </>
             )}
             {/* Clear answer */}
             {answerPdfName && (

@@ -1264,7 +1264,8 @@ export async function downloadAllAnswerFiles(
   exercises: AnswerExercise[],
   filename: string,
   stamp?: PrintStampInfo,
-  paperlessSearch?: (path: string) => Promise<number | null>
+  paperlessSearch?: (path: string) => Promise<number | null>,
+  onProgress?: (msg: string) => void
 ): Promise<{ status: 'not_supported' | 'no_valid_files' | 'download_failed' | 'success'; found: number; missing: number }> {
   const fsSupported = isFileSystemAccessSupported();
 
@@ -1283,7 +1284,9 @@ export async function downloadAllAnswerFiles(
   const answerPaths: { path: string; exercise: AnswerExercise; documentId?: number }[] = [];
   let missing = 0;
 
-  for (const exercise of validExercises) {
+  for (let i = 0; i < validExercises.length; i++) {
+    const exercise = validExercises[i];
+    onProgress?.(`Searching ${i + 1}/${validExercises.length}…`);
     let answerPath: string | null = null;
     let documentId: number | undefined;
 
@@ -1319,6 +1322,7 @@ export async function downloadAllAnswerFiles(
   }));
 
   // Fetch all PDFs in parallel using shared helper
+  onProgress?.(`Downloading ${answerPaths.length} answer(s)…`);
   const fsUtils = createFsUtils();
   const results = await Promise.all(
     answerExercises.map(ex => fetchPdfData(ex, fsUtils, paperlessSearch, '[AnswerDownload]'))
