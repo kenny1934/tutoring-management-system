@@ -2257,7 +2257,7 @@ export default function SessionsPage() {
                                               className={cn(
                                                 "inline-flex items-center gap-1 text-xs px-2 py-1 rounded font-medium whitespace-nowrap transition-colors",
                                                 canScheduleMakeup
-                                                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400"
+                                                  ? "bg-teal-100 hover:bg-teal-200 dark:bg-teal-900/30 dark:hover:bg-teal-900/50 text-teal-600 dark:text-teal-400"
                                                   : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                                               )}
                                               title={!canScheduleMakeup ? "Exceeds 60-day makeup limit" : "Schedule Make-up"}
