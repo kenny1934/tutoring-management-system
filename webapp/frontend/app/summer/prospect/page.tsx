@@ -439,7 +439,7 @@ function ProspectEditForm({
         <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} />
 
         <SectionDivider label="Contact" />
-        <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" />
+        <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" required />
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
           <select value={values.phone_1_relation} onChange={(e) => onChange("phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
@@ -642,7 +642,7 @@ export default function ProspectPage() {
     }));
   }, [parsedRows, existingPhones]);
 
-  const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim()).length, [parsedRows]);
+  const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim()).length, [parsedRows]);
   const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
   const hasActiveFilters = !!(submittedSearchInput || submittedFilters.branch || submittedFilters.wants_summer || submittedFilters.wants_regular || submittedFilters.outreach_status);
 
@@ -879,9 +879,9 @@ export default function ProspectPage() {
   const handleSubmit = useCallback(async () => {
     if (!branch || parsedRows.length === 0) return;
 
-    const valid = parsedRows.filter((r) => r.student_name.trim());
+    const valid = parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim());
     if (valid.length === 0) {
-      setSubmitResult({ ok: false, message: "No valid rows to submit (student name is required)" });
+      setSubmitResult({ ok: false, message: "No valid rows to submit (student name and phone are required)" });
       return;
     }
 
@@ -1341,9 +1341,13 @@ export default function ProspectPage() {
                         <td className="px-2 py-2 text-xs text-muted-foreground">{row.grade}</td>
                         <td className="px-2 py-2 text-xs text-muted-foreground">{row.tutor_name || "-"}</td>
                         <td className="px-2 py-2 text-xs">
-                          <span className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}>
-                            <CopyableCell text={row.phone_1} title={[row.phone_1_relation && `${row.phone_1_relation}'s phone`, w?.alreadySubmitted && "Already submitted", w?.duplicateInBatch && "Duplicate in batch", w?.invalidPhone && "Should be 8 digits"].filter(Boolean).join(" · ") || undefined} />
-                          </span>
+                          {row.phone_1 ? (
+                            <span className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}>
+                              <CopyableCell text={row.phone_1} title={[row.phone_1_relation && `${row.phone_1_relation}'s phone`, w?.alreadySubmitted && "Already submitted", w?.duplicateInBatch && "Duplicate in batch", w?.invalidPhone && "Should be 8 digits"].filter(Boolean).join(" · ") || undefined} />
+                            </span>
+                          ) : (
+                            <span className="text-red-400 italic font-medium">Phone required</span>
+                          )}
                         </td>
                         <td className="px-2 py-2">
                           <div className="space-y-0.5">
