@@ -2,31 +2,37 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * On the summer subdomain (summer.*), restrict access to /summer/* and /api/* only.
- * Any other path redirects to /summer/apply so applicants never see the internal app.
+ * Subdomain routing for public-facing summer pages.
+ * - summer.* → /summer/apply (application form)
+ * - prospect.* → /summer/prospect (P6 prospect registration)
  */
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
-  const isSummerDomain = hostname.startsWith("summer.");
-
-  if (!isSummerDomain) return NextResponse.next();
-
   const { pathname } = request.nextUrl;
 
-  // Allow summer pages, API calls, and Next.js internals
-  if (
-    pathname.startsWith("/summer") ||
+  const allowInternals =
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
-  ) {
-    return NextResponse.next();
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/logo");
+
+  // Summer subdomain → application form
+  if (hostname.startsWith("summer.")) {
+    if (pathname.startsWith("/summer") || allowInternals) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = "/summer/apply";
+    return NextResponse.redirect(url);
   }
 
-  // Redirect everything else to the application form
-  const url = request.nextUrl.clone();
-  url.pathname = "/summer/apply";
-  return NextResponse.redirect(url);
+  // Prospect subdomain → P6 prospect page
+  if (hostname.startsWith("prospect.")) {
+    if (pathname.startsWith("/summer/prospect") || allowInternals) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = "/summer/prospect";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

@@ -448,6 +448,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.name}</span>
+                        {item.name === "Summer Course" && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            Beta
+                          </span>
+                        )}
                         {badgeCount > 0 && (
                           <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
@@ -530,6 +535,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         {badgeCount > 0 && (
                           <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        )}
+                        {item.name === "Summer Course" && (
+                          <span className="absolute -top-1 -right-1 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
+                            Beta
                           </span>
                         )}
                       </div>
