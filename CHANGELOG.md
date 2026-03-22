@@ -12,6 +12,12 @@
 * **Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused "Failed to load calendar events" on the dashboard
 * **Make-up button colour** — the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page
 
+### Improvements
+
+* **Answer open/download shows progress** — the answer open and download buttons now show a spinner with progress text (e.g. "Trying local file…", "Searching Shelv…") instead of appearing to do nothing
+* **"Download Answers" shows live status** — the bulk download answers button now shows what it's doing (e.g. "Searching 1/3…", "Downloading 2 answer(s)…")
+* **Raw drive letter paths now resolve** — file paths like `V:\folder\file.pdf` can now be opened, downloaded, and printed directly without needing alias conversion first
+
 ## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
 
 ### Bug Fixes

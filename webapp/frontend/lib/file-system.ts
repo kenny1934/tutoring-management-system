@@ -404,6 +404,39 @@ export type FileOperationResult =
  * - Path alias with brackets: "[MSA Staff]\path\file.pdf" (uses path mapping to translate alias)
  * - Path alias without brackets: "MSA Staff\path\file.pdf" (uses path mapping if alias exists)
  */
+/** Find a saved folder matching a drive letter (e.g., "V:" matches folder named "V:" or "V") */
+function findDriveFolder(folders: SavedFolder[], driveLetter: string): SavedFolder | undefined {
+  const upper = driveLetter.toUpperCase();
+  const withoutColon = upper.replace(':', '');
+  return folders.find(f => {
+    const name = f.name.toUpperCase();
+    return name === upper || name === withoutColon;
+  });
+}
+
+/** Navigate a directory handle to a file using relative path segments */
+async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[]): Promise<FileOperationResult> {
+  const hasPermission = await verifyPermission(folderHandle);
+  if (!hasPermission) {
+    return { success: false, error: 'permission_denied' };
+  }
+
+  try {
+    const pathParts = [...relativeParts];
+    const file = pathParts.pop()!;
+    let currentHandle = folderHandle;
+
+    for (const dirName of pathParts) {
+      currentHandle = await currentHandle.getDirectoryHandle(dirName);
+    }
+
+    const fileHandle = await currentHandle.getFileHandle(file);
+    return { success: true, handle: fileHandle };
+  } catch {
+    return { success: false, error: 'file_not_found' };
+  }
+}
+
 export async function getFileHandleFromPath(path: string): Promise<FileOperationResult> {
   // Strip surrounding quotes (from Windows "Copy as path")
   path = path.replace(/^["']|["']$/g, '');
@@ -434,36 +467,17 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
   // Strategy 1: Check if potentialAlias is a path mapping (e.g., "MSA Staff" → "V:")
   const mapping = await getPathMapping(potentialAlias);
   if (mapping) {
-    // Translate alias to drive path: "MSA Staff\scan\file.pdf" → "V:\scan\file.pdf"
-    const driveLetter = mapping.drivePath.toUpperCase();
-
-    // Find saved folder that matches the drive (e.g., folder named "V:" or just "V")
-    const driveFolder = folders.find(f => {
-      const name = f.name.toUpperCase();
-      return name === driveLetter || name === driveLetter.replace(':', '') || name === driveLetter + ':';
-    });
-
+    const driveFolder = findDriveFolder(folders, mapping.drivePath);
     if (driveFolder) {
-      const hasPermission = await verifyPermission(driveFolder.handle);
-      if (!hasPermission) {
-        return { success: false, error: 'permission_denied' };
-      }
+      return navigateToFile(driveFolder.handle, relativeParts);
+    }
+  }
 
-      try {
-        // Navigate using the relative path (skip the alias, use rest of path)
-        const pathParts = [...relativeParts];
-        const file = pathParts.pop()!;
-        let currentHandle = driveFolder.handle;
-
-        for (const dirName of pathParts) {
-          currentHandle = await currentHandle.getDirectoryHandle(dirName);
-        }
-
-        const fileHandle = await currentHandle.getFileHandle(file);
-        return { success: true, handle: fileHandle };
-      } catch {
-        return { success: false, error: 'file_not_found' };
-      }
+  // Strategy 1b: potentialAlias IS a drive letter (e.g., "V:")
+  if (/^[A-Za-z]:$/.test(potentialAlias)) {
+    const driveFolder = findDriveFolder(folders, potentialAlias);
+    if (driveFolder) {
+      return navigateToFile(driveFolder.handle, relativeParts);
     }
   }
 
@@ -474,28 +488,7 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
     return { success: false, error: 'folder_not_found' };
   }
 
-  // Verify permission
-  const hasPermission = await verifyPermission(folder.handle);
-  if (!hasPermission) {
-    return { success: false, error: 'permission_denied' };
-  }
-
-  try {
-    // Navigate to the file's parent directory
-    const pathParts = [...relativeParts];
-    const file = pathParts.pop()!;
-    let currentHandle = folder.handle;
-
-    for (const dirName of pathParts) {
-      currentHandle = await currentHandle.getDirectoryHandle(dirName);
-    }
-
-    // Get the file handle
-    const fileHandle = await currentHandle.getFileHandle(file);
-    return { success: true, handle: fileHandle };
-  } catch {
-    return { success: false, error: 'file_not_found' };
-  }
+  return navigateToFile(folder.handle, relativeParts);
 }
 
 /**
