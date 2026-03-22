@@ -699,7 +699,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
                         logger.info(f"Calendar sync migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
                     else:
                         # Log with details for manual review - DO NOT delete to preserve revision slot data
-                        slot_info = [(s.id, s.student_id) for s in event.revision_slots]
+                        slot_info = [(s.id, s.session_date, s.time_slot) for s in event.revision_slots]
                         logger.warning(f"Orphaned calendar event {event.id} '{event.title}' (date: {event.start_date}) has {len(event.revision_slots)} revision slot(s): {slot_info} - preserving for manual review")
         else:
             logger.debug(f"Calendar sync skipping orphan detection - only {fetched_count} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
