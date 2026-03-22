@@ -1139,22 +1139,32 @@ export default function ProspectPage() {
               onChange={() => {}}
               aria-label="Paste student data from clipboard"
             />
-            <ClipboardPaste className={`h-10 w-10 mx-auto mb-3 transition-colors ${pasteZoneFocused ? "text-primary" : "text-primary/40"}`} />
-            {pasteZoneFocused ? (
-              <>
-                <p className="text-base font-semibold text-primary">Ready — press {PASTE_SHORTCUT} to paste</p>
-                <p className="text-sm text-muted-foreground mt-1">Paste your student data from Excel</p>
-              </>
-            ) : (
-              <>
-                <p className="text-base font-semibold text-foreground">Paste student data here</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd> to paste from Excel
-                </p>
-              </>
-            )}
+            <ClipboardPaste className={`h-10 w-10 mx-auto mb-3 transition-colors hidden sm:block ${pasteZoneFocused ? "text-primary" : "text-primary/40"}`} />
+            {/* Desktop: paste-first messaging */}
+            <div className="hidden sm:block">
+              {pasteZoneFocused ? (
+                <>
+                  <p className="text-base font-semibold text-primary">Ready — press {PASTE_SHORTCUT} to paste</p>
+                  <p className="text-sm text-muted-foreground mt-1">Paste your student data from Excel</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-base font-semibold text-foreground">Paste student data here</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd> to paste from Excel
+                  </p>
+                </>
+              )}
+            </div>
+            {/* Mobile: manual-first messaging */}
+            <div className="sm:hidden">
+              <Plus className="h-8 w-8 mx-auto mb-2 text-primary/40" />
+              <p className="text-base font-semibold text-foreground">Add students</p>
+              <p className="text-sm text-muted-foreground mt-1">Tap below to add students one by one</p>
+            </div>
             <div className="mt-5 flex flex-col items-center gap-3">
-              <div className="opacity-60 hover:opacity-80 transition-opacity duration-300">
+              {/* Spreadsheet hint — desktop only */}
+              <div className="hidden sm:block opacity-60 hover:opacity-80 transition-opacity duration-300">
                 <div className="flex text-[9px] text-muted-foreground/80 mb-0.5 px-0.5">
                   <span className="w-16 text-center">ID</span>
                   <span className="w-20 text-center">Name</span>
@@ -1171,12 +1181,14 @@ export default function ProspectPage() {
                 </div>
                 <p className="text-[9px] text-muted-foreground/60 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
               </div>
+              {/* Mobile: primary button. Desktop: secondary link */}
               <button
                 onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                className="sm:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors inline-flex sm:mt-0 px-5 py-2.5 sm:px-0 sm:py-0 rounded-xl sm:rounded-none bg-primary/10 sm:bg-transparent"
               >
                 <Plus className="h-4 w-4" />
-                Or add a row manually
+                <span className="sm:hidden">Add a student</span>
+                <span className="hidden sm:inline">Or add a row manually</span>
               </button>
             </div>
           </div>
@@ -1184,7 +1196,7 @@ export default function ProspectPage() {
           /* Collapsed paste strip — rows exist */
           <div
             onClick={focusPasteArea}
-            className={`relative border-2 rounded-xl p-3 flex items-center gap-3 transition-all duration-200 cursor-pointer ${
+            className={`hidden sm:flex relative border-2 rounded-xl p-3 items-center gap-3 transition-all duration-200 cursor-pointer ${
               pasteZoneFocused
                 ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                 : "border-dashed border-border bg-muted/30 hover:border-primary/30"
