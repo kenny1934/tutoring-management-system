@@ -29,6 +29,20 @@ const changelogData = [
             "description": "**Make-up button colour** — the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page"
           }
         ]
+      },
+      {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "**Answer open/download shows progress** — the answer open and download buttons now show a spinner with progress text (e.g. \"Trying local file…\", \"Searching Shelv…\") instead of appearing to do nothing"
+          },
+          {
+            "description": "**\"Download Answers\" shows live status** — the bulk download answers button now shows what it's doing (e.g. \"Searching 1/3…\", \"Downloading 2 answer(s)…\")"
+          },
+          {
+            "description": "**Raw drive letter paths now resolve** — file paths like `V:\\folder\\file.pdf` can now be opened, downloaded, and printed directly without needing alias conversion first"
+          }
+        ]
       }
     ]
   },
