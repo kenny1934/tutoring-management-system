@@ -25,11 +25,18 @@ import {
   ArrowUp,
   ArrowDown,
   Download,
-  Copy,
   Lock,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import {
+  IntentionBadge,
+  OutreachBadge,
+  BranchBadges,
+  CopyableCell,
+  INTENTION_LABELS,
+  BRANCH_COLORS,
+} from "@/components/summer/prospect-badges";
 import type {
   PrimaryProspect,
   PrimaryProspectBulkItem,
@@ -242,44 +249,12 @@ function parsePastedData(text: string, branch: string | null): { rows: ParsedRow
   return { rows, totalLines: lines.length, skipped };
 }
 
-// ---- Color maps (hoisted for perf) ----
+// ---- Color maps (page-specific) ----
 
 const INTENTION_SELECT_COLORS: Record<ProspectIntention, string> = {
   Yes: "bg-green-50 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700",
   No: "bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700",
   Considering: "bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700",
-};
-
-const INTENTION_BADGE_COLORS: Record<string, string> = {
-  Yes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  No: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  Considering: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-};
-
-const INTENTION_LABELS: Record<ProspectIntention, string> = {
-  Yes: "Yes",
-  No: "No",
-  Considering: "Maybe",
-};
-
-const BRANCH_COLORS: Record<string, { badge: string; selected: string }> = {
-  MSA: {
-    badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    selected: "bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400",
-  },
-  MSB: {
-    badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-    selected: "bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:border-purple-600 dark:text-purple-400",
-  },
-};
-
-const OUTREACH_BADGE_COLORS: Record<string, string> = {
-  "Not Started": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  "WeChat - Not Found": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  "WeChat - Cannot Add": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  "WeChat - Added": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  Called: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  "No Response": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
 // ---- Small Components ----
@@ -347,42 +322,6 @@ function BranchCheckboxes({
   );
 }
 
-function IntentionBadge({ value }: { value: string | null }) {
-  const v = value || "Considering";
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${INTENTION_BADGE_COLORS[v] || "bg-gray-100"}`}>
-      {INTENTION_LABELS[v as ProspectIntention] || v}
-    </span>
-  );
-}
-
-function OutreachBadge({ status }: { status: ProspectOutreachStatus }) {
-  const label = status.startsWith("WeChat - ") ? status.replace("WeChat - ", "") : status;
-  const showWeChatIcon = status.startsWith("WeChat");
-  return (
-    <span
-      className={`text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[status] || "bg-gray-100"}`}
-      title={OUTREACH_STATUS_HINTS[status]}
-    >
-      {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
-      {label}
-    </span>
-  );
-}
-
-function BranchBadges({ branches }: { branches: string[] }) {
-  if (!branches || branches.length === 0) return <span className="text-muted-foreground">-</span>;
-  return (
-    <span className="flex gap-1">
-      {branches.map((b, i) => (
-        <span key={b} className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${BRANCH_COLORS[b]?.badge || "bg-gray-100"}`}>
-          {b}{branches.length > 1 && <span className="opacity-60 ml-0.5">{i === 0 ? "1st" : "2nd"}</span>}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 function SortableHeader({ label, dir, onToggle }: { label: string; dir: "asc" | "desc" | null; onToggle: () => void }) {
   return (
     <button onClick={onToggle} className="inline-flex items-center gap-1 text-xs font-medium text-foreground hover:text-primary transition-colors">
@@ -397,34 +336,6 @@ function SectionDivider({ label }: { label: string }) {
     <div className="col-span-full text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pt-2 first:pt-0 border-t border-border/50 dark:border-gray-700 first:border-0">
       {label}
     </div>
-  );
-}
-
-function CopyableCell({ text, title: titleOverride }: { text: string; title?: string }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  if (!text) return <span className="text-muted-foreground">-</span>;
-  return (
-    <span className="group/copy inline-flex items-center gap-1 max-w-full">
-      <span className="truncate" title={titleOverride || text}>{text}</span>
-      <button
-        className="shrink-0 p-0.5 rounded transition-opacity cursor-pointer"
-        onClick={(e) => {
-          e.stopPropagation();
-          navigator.clipboard.writeText(text);
-          setCopied(true);
-          if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = setTimeout(() => setCopied(false), 1200);
-        }}
-        title="Copy"
-      >
-        {copied
-          ? <Check className="h-3 w-3 text-green-500" />
-          : <Copy className="h-3 w-3 opacity-0 group-hover/copy:opacity-60 transition-opacity text-muted-foreground" />
-        }
-      </button>
-    </span>
   );
 }
 
