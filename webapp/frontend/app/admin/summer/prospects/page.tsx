@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   GraduationCap,
+  CheckCircle2,
+  AlertTriangle,
   X,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -266,12 +268,29 @@ function ProspectDetailModal({
                   <span className="text-sm font-medium">{prospect.matched_application_ref}</span>
                   <ProspectStatusBadge status={prospect.matched_application_status as ProspectStatus || "New"} />
                 </div>
-                <a
-                  href={`/admin/summer/applications?search=${prospect.matched_application_ref}`}
-                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                >
-                  View &rarr;
-                </a>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={`/admin/summer/applications?search=${prospect.matched_application_ref}`}
+                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    View &rarr;
+                  </a>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Unlink this prospect from the summer application?")) return;
+                      try {
+                        await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
+                        onSave();
+                        onClose();
+                      } catch (err) {
+                        alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+                      }
+                    }}
+                    className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                  >
+                    Unlink
+                  </button>
+                </div>
               </div>
             </div>
           ) : matchResult && matchResult.matches.length > 0 ? (
@@ -354,11 +373,17 @@ export default function AdminProspectsPage() {
     outreach_status: "",
     wants_summer: "",
     wants_regular: "",
+    linked: "",
     search: "",
   });
   const [searchInput, setSearchInput] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
+  const [autoMatching, setAutoMatching] = useState(false);
+  const [matchResult, setMatchResult] = useState<{ matched: number; total_unlinked: number; skipped_ambiguous: number } | null>(null);
+  const matchResultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => { if (matchResultTimer.current) clearTimeout(matchResultTimer.current); }, []);
 
   // Fetch available years from summer configs
   const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
@@ -380,7 +405,7 @@ export default function AdminProspectsPage() {
   }, [searchInput]);
 
   const swrKey = tab === "list" && year
-    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.search]
+    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
     swrKey,
@@ -391,6 +416,7 @@ export default function AdminProspectsPage() {
       outreach_status: filters.outreach_status || undefined,
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
+      linked: filters.linked || undefined,
       search: filters.search || undefined,
     }),
     { revalidateOnFocus: false }
@@ -439,16 +465,23 @@ export default function AdminProspectsPage() {
 
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
+    if (!confirm(`Auto-match all unlinked prospects for ${year}?\nThis will link prospects to summer applications by matching phone numbers.`)) return;
+    setAutoMatching(true);
+    setMatchResult(null);
     try {
       const result = await prospectsAPI.autoMatch(year);
-      alert(`Auto-match complete: ${result.matched} matched out of ${result.total_unlinked} unlinked`);
+      setMatchResult(result);
       refresh();
+      if (matchResultTimer.current) clearTimeout(matchResultTimer.current);
+      matchResultTimer.current = setTimeout(() => setMatchResult(null), 10000);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+    } finally {
+      setAutoMatching(false);
     }
   }, [year, refresh]);
 
-  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.search].filter(Boolean).length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length;
 
   return (
     <DeskSurface>
@@ -476,10 +509,11 @@ export default function AdminProspectsPage() {
                 </select>
                 <button
                   onClick={handleAutoMatch}
-                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-medium transition-colors"
+                  disabled={autoMatching}
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-medium transition-colors disabled:opacity-50"
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Auto-Match
+                  {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {autoMatching ? "Matching..." : "Auto-Match"}
                 </button>
                 {/* Pill toggle */}
                 <div className="flex bg-muted rounded-full p-0.5">
@@ -566,15 +600,39 @@ export default function AdminProspectsPage() {
               <option value="">Status: All</option>
               {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
             </select>
+            <select value={filters.linked} onChange={(e) => setFilters((f) => ({ ...f, linked: e.target.value }))} className={inputSmall}>
+              <option value="">App: All</option>
+              <option value="linked">Linked</option>
+              <option value="unlinked">Unlinked</option>
+            </select>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setSearchInput(""); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", search: "" })); }}
+                onClick={() => { setSearchInput(""); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" })); }}
                 className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
               >
                 Clear all
               </button>
             )}
           </div>
+
+          {/* Auto-match result banner */}
+          {matchResult && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <span className="flex-1">
+                <span className="font-medium text-green-700 dark:text-green-400">{matchResult.matched}</span> matched out of {matchResult.total_unlinked} unlinked
+                {matchResult.skipped_ambiguous > 0 && (
+                  <span className="ml-2 text-yellow-600 dark:text-yellow-400 inline-flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {matchResult.skipped_ambiguous} skipped (ambiguous phone)
+                  </span>
+                )}
+              </span>
+              <button onClick={() => setMatchResult(null)} className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          )}
 
           {/* Table */}
           {isLoading ? (

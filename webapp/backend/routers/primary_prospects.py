@@ -4,6 +4,7 @@ Public endpoints for branch tutor submissions + admin endpoints for tracking/mat
 """
 import hmac
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -250,6 +251,7 @@ def admin_list_prospects(
     outreach_status: Optional[str] = Query(None),
     wants_summer: Optional[str] = Query(None),
     wants_regular: Optional[str] = Query(None),
+    linked: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_view),
@@ -267,6 +269,10 @@ def admin_list_prospects(
         q = q.filter(PrimaryProspect.wants_summer == wants_summer)
     if wants_regular:
         q = q.filter(PrimaryProspect.wants_regular == wants_regular)
+    if linked == "linked":
+        q = q.filter(PrimaryProspect.summer_application_id.isnot(None))
+    elif linked == "unlinked":
+        q = q.filter(PrimaryProspect.summer_application_id.is_(None))
     if search:
         term = f"%{search}%"
         q = q.filter(or_(
