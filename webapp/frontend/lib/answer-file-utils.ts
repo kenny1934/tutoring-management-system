@@ -348,11 +348,11 @@ export async function downloadAnswerFile(result: AnswerSearchResult): Promise<bo
 /**
  * Resolve a Shelv document ID from a path, with cache.
  */
-async function resolveShelvDocumentId(path: string): Promise<number | null> {
+async function resolveShelvDocumentId(path: string, onProgress?: (msg: string) => void): Promise<number | null> {
   const cached = getCachedPaperlessDocumentId(path);
   if (cached) return cached;
 
-  const docId = await searchPaperlessByPath(path);
+  const docId = await searchPaperlessByPath(path, onProgress);
   if (docId) {
     setPaperlessPathCache(path, docId);
   }
@@ -364,14 +364,17 @@ async function resolveShelvDocumentId(path: string): Promise<number | null> {
  * Unlike openAnswerFile which requires a known source, this handles
  * paths where the source is unknown (e.g., user-pasted paths).
  */
-export async function openAnswerFileWithFallback(path: string): Promise<boolean> {
+export async function openAnswerFileWithFallback(path: string, onProgress?: (msg: string) => void): Promise<boolean> {
   // Try local first
+  onProgress?.('Trying local file…');
   const localResult = await openAnswerFile({ source: 'local', path });
   if (localResult) return true;
 
   // Fall back to Shelv
-  const documentId = await resolveShelvDocumentId(path);
+  onProgress?.('Searching Shelv…');
+  const documentId = await resolveShelvDocumentId(path, onProgress);
   if (documentId) {
+    onProgress?.('Opening from Shelv…');
     return openAnswerFile({ source: 'shelv', path, documentId });
   }
 
@@ -383,14 +386,17 @@ export async function openAnswerFileWithFallback(path: string): Promise<boolean>
  * Unlike downloadAnswerFile which requires a known source, this handles
  * paths where the source is unknown (e.g., user-pasted paths).
  */
-export async function downloadAnswerFileWithFallback(path: string): Promise<boolean> {
+export async function downloadAnswerFileWithFallback(path: string, onProgress?: (msg: string) => void): Promise<boolean> {
   // Try local first
+  onProgress?.('Trying local file…');
   const localResult = await downloadAnswerFile({ source: 'local', path });
   if (localResult) return true;
 
   // Fall back to Shelv
-  const documentId = await resolveShelvDocumentId(path);
+  onProgress?.('Searching Shelv…');
+  const documentId = await resolveShelvDocumentId(path, onProgress);
   if (documentId) {
+    onProgress?.('Downloading from Shelv…');
     return downloadAnswerFile({ source: 'shelv', path, documentId });
   }
 
