@@ -9,6 +9,7 @@
 * **Per-exercise answer open/download Shelv fallback** — the open and download buttons on individual answer rows now fall back to Shelv when the file isn't found locally
 * **HK timezone for date calculations** — all backend date operations now use Hong Kong timezone consistently, preventing date mismatches around midnight
 * **Legacy renewal check** — candidate enrollments are now included when checking legacy renewal status
+* **Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused "Failed to load calendar events" on the dashboard
 
 ## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
 

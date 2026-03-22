@@ -21,6 +21,9 @@ const changelogData = [
           },
           {
             "description": "**Legacy renewal check** — candidate enrollments are now included when checking legacy renewal status"
+          },
+          {
+            "description": "**Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused \"Failed to load calendar events\" on the dashboard"
           }
         ]
       }
