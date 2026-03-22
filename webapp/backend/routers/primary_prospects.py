@@ -14,7 +14,7 @@ from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
-from models import PrimaryProspect, SummerApplication
+from models import PrimaryProspect, SummerApplication, SummerCourseConfig
 from schemas import (
     PrimaryProspectBulkCreate,
     PrimaryProspectUpdate,
@@ -42,7 +42,7 @@ if _empty_pins:
     logger.warning("Missing PROSPECT_PIN env vars for branches: %s — PIN auth will fail for these", ", ".join(_empty_pins))
 VALID_OUTREACH = {"Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "WeChat - Added", "Called", "No Response"}
 VALID_STATUS = {"New", "Contacted", "Interested", "Applied", "Enrolled", "Declined"}
-VALID_INTENTION = {"Yes", "No", "Considering"}
+
 
 
 # ---- Helpers ----
@@ -168,6 +168,7 @@ def list_prospects(
     db: Session = Depends(get_db),
 ):
     """List prospects for a branch (PIN-protected — for branch tutors to view their submissions)."""
+    check_ip_rate_limit(request, "prospects_list")
     if branch not in VALID_BRANCHES:
         raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
@@ -191,6 +192,7 @@ def update_prospect(
     db: Session = Depends(get_db),
 ):
     """Update a single prospect (PIN-protected — branch tutor edit with history tracking)."""
+    check_ip_rate_limit(request, "prospects_update")
     if branch not in VALID_BRANCHES:
         raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
@@ -231,6 +233,7 @@ def delete_prospect(
     db: Session = Depends(get_db),
 ):
     """Delete a prospect (PIN-protected — tutor correcting mistakes)."""
+    check_ip_rate_limit(request, "prospects_delete")
     if branch not in VALID_BRANCHES:
         raise HTTPException(403, "Invalid or missing branch PIN")
     _check_pin(request, branch)
@@ -411,7 +414,11 @@ def admin_find_matches(
 
     apps = (
         db.query(SummerApplication)
-        .filter(SummerApplication.contact_phone.in_(phones))
+        .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
+        .filter(
+            SummerApplication.contact_phone.in_(phones),
+            SummerCourseConfig.year == prospect.year,
+        )
         .all()
     )
 
@@ -465,10 +472,14 @@ def admin_auto_match(
     if not phone_to_prospects:
         return {"matched": 0, "total_unlinked": len(unlinked)}
 
-    # Find all applications with matching phones
+    # Find all applications with matching phones, filtered to same year
     apps = (
         db.query(SummerApplication)
-        .filter(SummerApplication.contact_phone.in_(phone_to_prospects.keys()))
+        .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
+        .filter(
+            SummerApplication.contact_phone.in_(phone_to_prospects.keys()),
+            SummerCourseConfig.year == year,
+        )
         .all()
     )
 
