@@ -108,7 +108,7 @@ export function SummerUnassignedPanel({
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Unassigned</span>
+          <span className="text-sm font-medium">Incomplete</span>
           <span className="text-xs text-muted-foreground ml-auto">
             {filtered.length}
             {filtered.length !== applications.length && ` / ${applications.length}`}
@@ -183,7 +183,7 @@ export function SummerUnassignedPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {applications.length === 0 ? "All students placed!" : "No matches."}
+            {applications.length === 0 ? "All students fully placed!" : "No matches."}
           </div>
         ) : (
           <div className="p-1.5 space-y-1">

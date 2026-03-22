@@ -298,7 +298,7 @@ export default function SummerArrangementPage() {
   }, []);
 
   // Stats
-  const totalUnassigned = unassigned?.length ?? 0;
+  const totalIncomplete = unassigned?.length ?? 0;
   const totalTentative = slots?.reduce(
     (sum, s) => sum + s.sessions.filter((p) => p.session_status === "Tentative").length,
     0
@@ -348,7 +348,7 @@ export default function SummerArrangementPage() {
 
           {/* Stats */}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>{totalUnassigned} unassigned</span>
+            <span>{totalIncomplete} incomplete</span>
             <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
             <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
           </div>
@@ -488,9 +488,9 @@ export default function SummerArrangementPage() {
               onClick={() => setMobilePanelOpen(true)}
             >
               <Users className="h-5 w-5" />
-              {totalUnassigned > 0 && (
+              {totalIncomplete > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-                  {totalUnassigned}
+                  {totalIncomplete}
                 </span>
               )}
             </button>
