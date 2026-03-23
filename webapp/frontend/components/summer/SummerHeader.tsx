@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,8 +8,19 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export function SummerHeader() {
   const pathname = usePathname();
+  const [summerApplyHref, setSummerApplyHref] = useState("/summer/apply");
+  const [isProspectSubdomain, setIsProspectSubdomain] = useState(false);
+
+  useEffect(() => {
+    const host = window.location.hostname;
+    if (host.startsWith("prospect.")) {
+      setIsProspectSubdomain(true);
+      setSummerApplyHref(`${window.location.protocol}//${host.replace("prospect.", "summer.")}/`);
+    }
+  }, []);
+
   const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
-  const isInternalPage = !isPublicPage;
+  const isInternalPage = isProspectSubdomain || !isPublicPage;
 
   return (
     <header className="bg-card border-b border-border shadow-sm">
@@ -51,12 +63,12 @@ export function SummerHeader() {
         <div className="flex items-center gap-3">
           {isInternalPage && <ThemeToggle compact />}
           {isInternalPage && (
-            <Link
-              href="/summer/apply"
+            <a
+              href={summerApplyHref}
               className="hidden sm:inline text-xs text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Summer Application &rarr;
-            </Link>
+            </a>
           )}
         </div>
       </div>
