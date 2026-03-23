@@ -18,7 +18,7 @@ export function middleware(request: NextRequest) {
 
   // Summer subdomain → application form
   if (hostname.startsWith("summer.")) {
-    if (pathname.startsWith("/summer") || allowInternals) return NextResponse.next();
+    if (pathname === "/summer" || pathname.startsWith("/summer/") || allowInternals) return NextResponse.next();
     const url = request.nextUrl.clone();
     url.pathname = "/summer/apply";
     return NextResponse.redirect(url);

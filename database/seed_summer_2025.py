@@ -6,10 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "webapp", "backend", ".env"))
 
-# Fallback: try main repo .env if worktree .env doesn't exist
-if not os.getenv("DB_USER"):
-    load_dotenv("/home/kenny/projects/tutoring-management-system/webapp/backend/.env")
-
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")

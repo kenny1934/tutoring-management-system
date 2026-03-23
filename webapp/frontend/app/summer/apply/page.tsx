@@ -247,7 +247,10 @@ export default function SummerApplyPage() {
         buddy_code: result.buddy_code,
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Submission failed");
+      const msg = e instanceof Error ? e.message : "";
+      // Only show known user-facing messages; hide raw server errors
+      const knownErrors = ["Application period is not open", "Invalid buddy code", "already submitted"];
+      setError(knownErrors.some(k => msg.includes(k)) ? msg : "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }

@@ -7,6 +7,8 @@ from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
+from constants import SummerApplicationStatus
+
 
 # ============================================
 # Student Schemas
@@ -2168,7 +2170,7 @@ class SummerApplicationResponse(BaseModel):
 
 class SummerApplicationUpdate(BaseModel):
     """Admin update for an application."""
-    application_status: Optional[str] = None
+    application_status: Optional[SummerApplicationStatus] = None
     admin_notes: Optional[str] = None
     existing_student_id: Optional[int] = None
     lang_stream: Optional[str] = Field(None, max_length=10)
@@ -2507,7 +2509,7 @@ class PrimaryProspectBulkCreate(BaseModel):
 class PrimaryProspectUpdate(BaseModel):
     """For branch tutor edits (public)."""
     primary_student_id: Optional[str] = Field(None, max_length=50)
-    student_name: Optional[str] = Field(None, max_length=255)
+    student_name: Optional[str] = Field(None, min_length=1, max_length=255)
     school: Optional[str] = Field(None, max_length=255)
     grade: Optional[str] = Field(None, max_length=20)
     tutor_name: Optional[str] = Field(None, max_length=255)

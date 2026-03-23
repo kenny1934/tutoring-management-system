@@ -189,6 +189,7 @@ def update_prospect(
     prospect_id: int,
     payload: PrimaryProspectUpdate,
     branch: str = Query(...),
+    year: int = Query(...),
     db: Session = Depends(get_db),
 ):
     """Update a single prospect (PIN-protected — branch tutor edit with history tracking)."""
@@ -201,6 +202,8 @@ def update_prospect(
         raise HTTPException(404, "Prospect not found")
     if prospect.source_branch != branch:
         raise HTTPException(403, "Cannot edit prospects from another branch")
+    if prospect.year != year:
+        raise HTTPException(403, "Year mismatch")
 
     changes = []
     update_data = payload.model_dump(exclude_unset=True)
@@ -230,6 +233,7 @@ def delete_prospect(
     request: Request,
     prospect_id: int,
     branch: str = Query(...),
+    year: int = Query(...),
     db: Session = Depends(get_db),
 ):
     """Delete a prospect (PIN-protected — tutor correcting mistakes)."""
@@ -242,6 +246,8 @@ def delete_prospect(
         raise HTTPException(404, "Prospect not found")
     if prospect.source_branch != branch:
         raise HTTPException(403, "Cannot delete prospects from another branch")
+    if prospect.year != year:
+        raise HTTPException(403, "Year mismatch")
     db.delete(prospect)
     db.commit()
     return {"deleted": True}

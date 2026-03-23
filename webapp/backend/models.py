@@ -1252,8 +1252,8 @@ class SummerSession(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    application_id = Column(Integer, ForeignKey("summer_applications.id"), nullable=False)
-    slot_id = Column(Integer, ForeignKey("summer_course_slots.id"), nullable=False)
+    application_id = Column(Integer, ForeignKey("summer_applications.id", ondelete="CASCADE"), nullable=False)
+    slot_id = Column(Integer, ForeignKey("summer_course_slots.id", ondelete="CASCADE"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("summer_lessons.id", ondelete="SET NULL"), nullable=True)
     lesson_number = Column(Integer, nullable=True)
     specific_date = Column(Date, nullable=True)

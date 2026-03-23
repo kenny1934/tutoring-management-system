@@ -278,7 +278,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
         headers["X-Effective-Role"] = effectiveRole;
       }
       const prospectPin = sessionStorage.getItem("prospect_pin");
-      if (prospectPin && endpoint.startsWith("/prospects")) {
+      if (prospectPin && endpoint.startsWith("/prospects") && !endpoint.includes("/admin")) {
         headers["X-Branch-Pin"] = prospectPin;
       }
     }
@@ -2402,14 +2402,14 @@ export const prospectsAPI = {
   list: (branch: string, year: number) =>
     fetchAPI<PrimaryProspect[]>(`/prospects?branch=${branch}&year=${year}`),
 
-  update: (id: number, branch: string, data: Partial<PrimaryProspect>) =>
-    fetchAPI<PrimaryProspect>(`/prospects/${id}?branch=${branch}`, {
+  update: (id: number, branch: string, data: Partial<PrimaryProspect>, year?: number) =>
+    fetchAPI<PrimaryProspect>(`/prospects/${id}?branch=${branch}&year=${year ?? new Date().getFullYear()}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number, branch: string) =>
-    fetchAPI<{ deleted: boolean }>(`/prospects/${id}?branch=${branch}`, { method: "DELETE" }),
+  delete: (id: number, branch: string, year?: number) =>
+    fetchAPI<{ deleted: boolean }>(`/prospects/${id}?branch=${branch}&year=${year ?? new Date().getFullYear()}`, { method: "DELETE" }),
 
   // Admin endpoints
   adminList: (params: {

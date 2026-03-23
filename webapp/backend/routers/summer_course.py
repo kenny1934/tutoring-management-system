@@ -154,22 +154,22 @@ def submit_application(
         buddy_group_id=buddy_group_id,
         buddy_names=data.buddy_names,
         form_language=data.form_language or "zh",
+        sessions_per_week=data.sessions_per_week,
         submitted_at=hk_now(),
     )
-    # Generate unique random reference code
+    # Generate unique random reference code with retry on collision
+    db.add(app)
     for _ in range(10):
         ref = _generate_reference_code(config.year)
-        existing = db.query(SummerApplication).filter(
-            SummerApplication.reference_code == ref
-        ).first()
-        if not existing:
+        app.reference_code = ref
+        try:
+            db.commit()
             break
+        except IntegrityError:
+            db.rollback()
+            db.add(app)  # Re-attach after rollback (object becomes transient)
     else:
         raise HTTPException(status_code=500, detail="Could not generate unique reference code")
-
-    app.reference_code = ref
-    db.add(app)
-    db.commit()
 
     return SummerApplicationSubmitResponse(
         reference_code=app.reference_code,
@@ -212,6 +212,10 @@ def create_buddy_group(
     config = _get_active_config(db)
     if not config:
         raise HTTPException(status_code=404, detail="No active summer course found")
+
+    now = hk_now()
+    if now < config.application_open_date or now > config.application_close_date:
+        raise HTTPException(status_code=400, detail="Application period is not open")
 
     # Generate unique code (retry on collision)
     for _ in range(10):
@@ -1030,47 +1034,63 @@ def bulk_create_sessions(
     created = 0
     skipped = 0
 
+    # Pre-load slots and lesson sessions to avoid N+1 queries
+    slot_ids = {item.slot_id for item in items}
+    lesson_ids = {item.lesson_id for item in items if item.lesson_id}
+    slots_by_id = {
+        s.id: s for s in db.query(SummerCourseSlot).filter(SummerCourseSlot.id.in_(slot_ids)).all()
+    } if slot_ids else {}
+    existing_sessions = (
+        db.query(SummerSession)
+        .filter(SummerSession.lesson_id.in_(lesson_ids), SummerSession.session_status != "Cancelled")
+        .all()
+    ) if lesson_ids else []
+    # Group existing sessions by lesson_id
+    sessions_by_lesson: dict[int, list] = {}
+    for s in existing_sessions:
+        sessions_by_lesson.setdefault(s.lesson_id, []).append(s)
+
     for item in items:
-        # Check duplicate + capacity per lesson
-        lesson_sessions = (
-            db.query(SummerSession)
-            .filter(
-                SummerSession.lesson_id == item.lesson_id,
-                SummerSession.session_status != "Cancelled",
-            )
-            .all()
-        ) if item.lesson_id else []
+        lesson_sessions = sessions_by_lesson.get(item.lesson_id, []) if item.lesson_id else []
 
         if any(s.application_id == item.application_id for s in lesson_sessions):
             skipped += 1
             continue
 
-        slot = db.query(SummerCourseSlot).filter(SummerCourseSlot.id == item.slot_id).first()
+        slot = slots_by_id.get(item.slot_id)
         if slot and len(lesson_sessions) >= slot.max_students:
             skipped += 1
             continue
 
-        db.add(SummerSession(
+        session = SummerSession(
             application_id=item.application_id,
             slot_id=item.slot_id,
             lesson_id=item.lesson_id,
             session_status="Tentative",
             placed_by=placed_by,
             placed_at=now,
-        ))
+        )
+        db.add(session)
+        # Track newly added sessions for capacity checks within this batch
+        if item.lesson_id:
+            sessions_by_lesson.setdefault(item.lesson_id, []).append(session)
         created += 1
 
     db.commit()
 
     # Auto-sync application statuses
-    app_ids = {item.application_id for item in items}
-    for app_id in app_ids:
-        app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
-        if app and app.application_status in (
-            SummerApplicationStatus.SUBMITTED,
-            SummerApplicationStatus.UNDER_REVIEW,
-        ):
-            app.application_status = SummerApplicationStatus.PLACEMENT_OFFERED
+    app_ids = list({item.application_id for item in items})
+    if app_ids:
+        db.query(SummerApplication).filter(
+            SummerApplication.id.in_(app_ids),
+            SummerApplication.application_status.in_([
+                SummerApplicationStatus.SUBMITTED,
+                SummerApplicationStatus.UNDER_REVIEW,
+            ]),
+        ).update(
+            {SummerApplication.application_status: SummerApplicationStatus.PLACEMENT_OFFERED},
+            synchronize_session="fetch",
+        )
     db.commit()
 
     return {"created": created, "skipped": skipped}

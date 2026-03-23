@@ -558,9 +558,8 @@ export function SummerAutoSuggestModal({
         exclude_dates: mode === "exclude" ? flatDates : undefined,
         include_dates: mode === "include" ? flatDates : undefined,
       });
-      if (result.proposals.length > 0 && data) {
-        const otherProposals = data.proposals.filter((ex) => ex.application_id !== appId);
-        setData({ ...data, proposals: [...otherProposals, ...result.proposals] });
+      if (result.proposals.length > 0) {
+        setData(prev => prev ? { ...prev, proposals: [...prev.proposals.filter((ex) => ex.application_id !== appId), ...result.proposals] } : prev);
         if (result.proposals[0].option_label) {
           setSelectedOption(prev => ({ ...prev, [appId]: result.proposals[0].option_label! }));
         }
