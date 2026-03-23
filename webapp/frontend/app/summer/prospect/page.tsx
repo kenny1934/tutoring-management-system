@@ -530,6 +530,7 @@ export default function ProspectPage() {
   const searchParams = useSearchParams();
   const branchParam = searchParams.get("branch")?.toUpperCase() as ProspectBranch | undefined;
   const branch = branchParam && PROSPECT_BRANCHES.includes(branchParam) ? branchParam : null;
+  const prospectBasePath = typeof window !== 'undefined' && window.location.hostname.startsWith('prospect.') ? '/' : '/summer/prospect';
 
   // ---- PIN gate ----
   const [pinVerified, setPinVerified] = useState<boolean | null>(null); // null = checking
@@ -1020,7 +1021,7 @@ export default function ProspectPage() {
               return (
                 <a
                   key={b}
-                  href={typeof window !== 'undefined' && window.location.hostname.startsWith('prospect.') ? `/?branch=${b}` : `/summer/prospect?branch=${b}`}
+                  href={`${prospectBasePath}?branch=${b}`}
                   className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
                   style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
                 >
@@ -1076,7 +1077,7 @@ export default function ProspectPage() {
               {pinChecking ? "Verifying..." : "Continue"}
             </button>
           </form>
-          <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+          <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
             &larr; Change branch
           </a>
         </div>
