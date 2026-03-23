@@ -530,7 +530,11 @@ export default function ProspectPage() {
   const searchParams = useSearchParams();
   const branchParam = searchParams.get("branch")?.toUpperCase() as ProspectBranch | undefined;
   const branch = branchParam && PROSPECT_BRANCHES.includes(branchParam) ? branchParam : null;
-  const prospectBasePath = typeof window !== 'undefined' && window.location.hostname.startsWith('prospect.') ? '/' : '/summer/prospect';
+  const [isProspectSubdomain, setIsProspectSubdomain] = useState(false);
+  useEffect(() => {
+    setIsProspectSubdomain(window.location.hostname.startsWith('prospect.'));
+  }, []);
+  const prospectBasePath = isProspectSubdomain ? '/' : '/summer/prospect';
 
   // ---- PIN gate ----
   const [pinVerified, setPinVerified] = useState<boolean | null>(null); // null = checking
