@@ -24,12 +24,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Prospect subdomain → P6 prospect page
+  // Prospect subdomain → P6 prospect page (rewrite to keep clean URL)
   if (hostname.startsWith("prospect.")) {
     if (pathname.startsWith("/summer/prospect") || allowInternals) return NextResponse.next();
     const url = request.nextUrl.clone();
     url.pathname = "/summer/prospect";
-    return NextResponse.redirect(url);
+    return NextResponse.rewrite(url);
   }
 
   return NextResponse.next();
