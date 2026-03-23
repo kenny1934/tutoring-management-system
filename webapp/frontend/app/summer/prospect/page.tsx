@@ -1020,7 +1020,7 @@ export default function ProspectPage() {
               return (
                 <a
                   key={b}
-                  href={`/summer/prospect?branch=${b}`}
+                  href={typeof window !== 'undefined' && window.location.hostname.startsWith('prospect.') ? `/?branch=${b}` : `/summer/prospect?branch=${b}`}
                   className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
                   style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
                 >

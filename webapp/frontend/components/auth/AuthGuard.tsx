@@ -21,7 +21,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const isSubdomainPublic = typeof window !== 'undefined' &&
+    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.'));
+
   const isPublicRoute =
+    isSubdomainPublic ||
     PUBLIC_ROUTES.includes(pathname) ||
     PUBLIC_ROUTE_PREFIXES.some((p) => pathname.startsWith(p));
 

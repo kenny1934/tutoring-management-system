@@ -24,9 +24,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Prospect subdomain → P6 prospect page (rewrite to keep clean URL)
+  // Prospect subdomain → P6 prospect page (rewrite all paths to keep clean URLs)
   if (hostname.startsWith("prospect.")) {
-    if (pathname.startsWith("/summer/prospect") || allowInternals) return NextResponse.next();
+    if (allowInternals) return NextResponse.next();
     const url = request.nextUrl.clone();
     url.pathname = "/summer/prospect";
     return NextResponse.rewrite(url);
