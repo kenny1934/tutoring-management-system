@@ -16,8 +16,11 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
 
-  // Zen mode / public pages: render without any shell
-  if (pathname?.startsWith("/zen") || pathname?.startsWith("/summer")) {
+  // Zen mode / public pages / subdomains: render without any shell
+  const isPublicSubdomain = typeof window !== 'undefined' &&
+    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.'));
+
+  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer")) {
     return <>{children}</>;
   }
 
