@@ -103,9 +103,9 @@ class _VerifyPinRequest(BaseModel):
 @router.post("/verify-pin")
 def verify_pin(request: Request, payload: _VerifyPinRequest):
     """Verify a branch PIN without fetching data."""
-    check_ip_rate_limit(request, "prospects_verify_pin")
     expected = BRANCH_PINS.get(payload.branch, "")
     if not expected or not hmac.compare_digest(payload.pin, expected):
+        check_ip_rate_limit(request, "prospects_verify_pin")  # Only count failures
         logger.warning("Failed PIN verification for branch %s from %s", payload.branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid PIN")
     return {"valid": True}

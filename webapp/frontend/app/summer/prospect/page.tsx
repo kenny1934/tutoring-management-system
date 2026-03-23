@@ -1098,7 +1098,7 @@ export default function ProspectPage() {
         <h1 className="text-lg font-bold text-foreground">
           {branch} — P6 Student Registration ({CURRENT_YEAR})
         </h1>
-        <a href="/summer/prospect" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+        <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
           &larr; Change branch
         </a>
       </div>
