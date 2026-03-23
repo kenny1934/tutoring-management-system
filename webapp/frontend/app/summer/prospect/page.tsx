@@ -850,7 +850,7 @@ export default function ProspectPage() {
     try {
       const ids = [...selectedSubmittedIds];
       for (let i = 0; i < ids.length; i += 5) {
-        await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!)));
+        await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!, CURRENT_YEAR)));
       }
       setSelectedSubmittedIds(new Set());
       if (swrKey) globalMutate(swrKey);
@@ -968,7 +968,7 @@ export default function ProspectPage() {
       return;
     }
     try {
-      await prospectsAPI.update(id, branch!, editData);
+      await prospectsAPI.update(id, branch!, editData, CURRENT_YEAR);
       setEditingId(null);
       setEditData({});
       if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
@@ -983,7 +983,7 @@ export default function ProspectPage() {
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm("Delete this entry?")) return;
     try {
-      await prospectsAPI.delete(id, branch!);
+      await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
       if (swrKey) globalMutate(swrKey);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);

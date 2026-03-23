@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
@@ -182,8 +182,8 @@ export default function SummerArrangementPage() {
         location,
       });
       mutateSlots();
-    } catch (e: any) {
-      showToast(e.message || "Failed to create slot", "error");
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to create slot"), "error");
     }
   }, [configId, location, mutateSlots, showToast]);
 
@@ -191,8 +191,8 @@ export default function SummerArrangementPage() {
     try {
       await summerAPI.updateSlot(slotId, data);
       mutateSlots();
-    } catch (e: any) {
-      showToast(e.message || "Failed to update slot", "error");
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to update slot"), "error");
     }
   }, [mutateSlots, showToast]);
 
@@ -231,8 +231,8 @@ export default function SummerArrangementPage() {
       if (mode === "single") {
         showToast("Lessons ready — switch to Calendar to place individually", "success");
       }
-    } catch (e: any) {
-      showToast(e.message || "Failed to place student", "error");
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to place student"), "error");
     }
   }, [pendingDrop, mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
 
@@ -243,8 +243,8 @@ export default function SummerArrangementPage() {
       mutateSlots();
       mutateUnassigned();
       mutateCalendar();
-    } catch (e: any) {
-      showToast(e.message || "Failed to place student", "error");
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to place student"), "error");
     }
   }, [mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
 
@@ -273,8 +273,8 @@ export default function SummerArrangementPage() {
       mutateUnassigned();
       mutateCalendar();
       mutateStudentLessons();
-    } catch (e: any) {
-      showToast(e.message || "Failed to delete", "error");
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to delete"), "error");
     }
   }, [pendingDelete, mutateSlots, mutateUnassigned, mutateCalendar, mutateStudentLessons, showToast]);
 
