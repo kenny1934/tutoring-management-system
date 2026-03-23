@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.40](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.40) (2026-03-23)
+
+### New Features
+
+* **Summer course system** — full application workflow: public bilingual apply form, admin config editor with drag-and-drop slot management, application review dashboard, and timetable arrangement grid
+* **Session-based scheduling** — calendar view with week navigation, lesson capacity tracking, student lesson tables, and find-slot dialog for manual placement
+* **Auto-suggest placement** — lesson-level algorithm with pair ordering, date constraints, tutor preferences, and single-student suggest from the unassigned panel
+* **P6 prospect module** — primary-to-secondary student feeder list with smart paste-to-table input, bulk operations (select, delete, set intentions, CSV export), and PIN-gated branch access
+* **Prospect subdomain** — `prospect.` subdomain routing via middleware for branch-specific access
+* **Admin auto-match** — automatically links P6 prospects to summer applications by phone number and year
+
+### Improvements
+
+* **Security hardening** — rate limiting on all public endpoints, Pydantic Literal validation for enums, year-scoped queries, PIN brute-force protection
+
 ## [2.0.39](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.39) (2026-03-23)
 
 ### Bug Fixes
