@@ -14,7 +14,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    pathname.startsWith("/logo");
+    pathname.startsWith("/logo") ||
+    /\.(png|ico|jpg|svg|webp)$/i.test(pathname);
 
   // Summer subdomain → application form
   if (hostname.startsWith("summer.")) {
