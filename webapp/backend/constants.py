@@ -117,3 +117,28 @@ REGISTRATION_FEE = 100
 
 # Grace period: students remain in "active" lists for this many days after enrollment expires
 ACTIVE_GRACE_PERIOD_DAYS = 21
+
+# ============================================
+# Summer Course Statuses
+# ============================================
+
+class SummerApplicationStatus(str, Enum):
+    """Application statuses for summer course applications."""
+    SUBMITTED = 'Submitted'
+    UNDER_REVIEW = 'Under Review'
+    PLACEMENT_OFFERED = 'Placement Offered'
+    PLACEMENT_CONFIRMED = 'Placement Confirmed'
+    FEE_SENT = 'Fee Sent'
+    PAID = 'Paid'
+    ENROLLED = 'Enrolled'
+    # Side exits
+    WAITLISTED = 'Waitlisted'
+    WITHDRAWN = 'Withdrawn'
+    REJECTED = 'Rejected'
+
+
+class SummerPlacementStatus(str, Enum):
+    """Placement statuses for summer course slot assignments."""
+    TENTATIVE = 'Tentative'
+    CONFIRMED = 'Confirmed'
+    CANCELLED = 'Cancelled'

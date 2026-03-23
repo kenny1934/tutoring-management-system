@@ -4,7 +4,7 @@
 
 @variant dark (&:is(.dark *));
 
-@theme {
+@theme extend {
   /* ===== LIGHT MODE COLORS (M3 Expressive) ===== */
   /* Warm, educational palette for classroom vibe */
   --color-background: #fef9f3; /* Warm cream background */
@@ -158,10 +158,52 @@
   --color-input: #2a2a2a;
 }
 
+/* Force light mode for summer public pages (neutralises .dark overrides) */
+.summer-light {
+  --color-background: #fef9f3;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #fef9f3;
+  --color-surface-variant: #f5f0e8;
+  --color-foreground: #2a2219;
+  --color-card: #ffffff;
+  --color-card-foreground: #2a2219;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2a2219;
+  --color-secondary: #f5f0e8;
+  --color-secondary-foreground: #2a2219;
+  --color-muted: #f5f0e8;
+  --color-muted-foreground: #6b5a4a;
+  --color-accent: #f5f0e8;
+  --color-accent-foreground: #2a2219;
+  --color-border: #e8d4b8;
+  --color-border-subtle: #f5e6d3;
+  --color-input: #e8d4b8;
+  color-scheme: light;
+}
+
 /* ===== CUSTOM ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes lockPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+.animate-lock-pulse {
+  animation: lockPulse 3s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
 }
 
 @keyframes slideUp {

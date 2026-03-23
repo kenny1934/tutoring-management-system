@@ -132,6 +132,35 @@ import type {
   TutorMemoUpdate,
   TutorMemoImportRequest,
   ExerciseHistoryResponse,
+  SummerCourseFormConfig,
+  SummerApplicationCreate,
+  SummerApplicationSubmitResponse,
+  SummerApplicationStatusResponse,
+  SummerCourseConfig,
+  SummerApplication,
+  SummerApplicationUpdate,
+  SummerApplicationStats,
+  SummerSlot,
+  SummerSlotCreate,
+  SummerSlotUpdate,
+  SummerSession,
+  SummerSessionCreate,
+  SummerSessionStatusUpdate,
+  SummerDemandResponse,
+  SummerSuggestRequest,
+  SummerSuggestResponse,
+  SummerTutorDuty,
+  SummerTutorDutyItem,
+  SummerActiveTutor,
+  SummerLesson,
+  SummerLessonUpdate,
+  SummerLessonCalendarResponse,
+  SummerFindSlotResult,
+  SummerStudentLessonsResponse,
+  PrimaryProspect,
+  PrimaryProspectBulkCreate,
+  PrimaryProspectStats,
+  PrimaryProspectMatchResult,
   StudentProgress,
   RadarChartConfig,
   SavedReportSummary,
@@ -247,6 +276,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
       if (effectiveRole) {
         headers["X-Effective-Role"] = effectiveRole;
+      }
+      const prospectPin = sessionStorage.getItem("prospect_pin");
+      if (prospectPin && endpoint.startsWith("/prospects") && !endpoint.includes("/admin")) {
+        headers["X-Branch-Pin"] = prospectPin;
       }
     }
 
@@ -2125,6 +2158,305 @@ export const memosAPI = {
     }),
 };
 
+// Summer Course API
+export const summerAPI = {
+  // Public endpoints (no auth)
+  getFormConfig: () =>
+    fetchAPI<SummerCourseFormConfig>("/summer/public/config"),
+
+  submitApplication: (data: SummerApplicationCreate) =>
+    fetchAPI<SummerApplicationSubmitResponse>("/summer/public/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (referenceCode: string, phone: string) =>
+    fetchAPI<SummerApplicationStatusResponse>(
+      `/summer/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
+    ),
+
+  createBuddyGroup: () =>
+    fetchAPI<{ buddy_code: string }>("/summer/public/buddy-group", { method: "POST" }),
+
+  getBuddyGroup: (code: string) =>
+    fetchAPI<{ buddy_code: string; member_count: number }>(
+      `/summer/public/buddy-group/${encodeURIComponent(code)}`
+    ),
+
+  // Admin endpoints
+  getConfigs: () =>
+    fetchAPI<SummerCourseConfig[]>("/summer/configs"),
+
+  createConfig: (data: Partial<SummerCourseConfig>) =>
+    fetchAPI<SummerCourseConfig>("/summer/configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getConfig: (id: number) =>
+    fetchAPI<SummerCourseConfig>(`/summer/configs/${id}`),
+
+  updateConfig: (id: number, data: Partial<SummerCourseConfig>) =>
+    fetchAPI<SummerCourseConfig>(`/summer/configs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteConfig: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/summer/configs/${id}`, { method: "DELETE" }),
+
+  cloneConfig: (id: number, targetYear: number) =>
+    fetchAPI<SummerCourseConfig>(`/summer/configs/${id}/clone?target_year=${targetYear}`, {
+      method: "POST",
+    }),
+
+  getApplications: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    buddy_group_id?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<SummerApplication[]>(`/summer/applications${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplication: (id: number) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}`),
+
+  updateApplication: (id: number, data: SummerApplicationUpdate) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplicationStats: (configId?: number) => {
+    const qs = configId ? `?config_id=${configId}` : "";
+    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs}`);
+  },
+
+  // ---- Arrangement endpoints ----
+
+  getSlots: (configId: number, location?: string) => {
+    const params = new URLSearchParams({ config_id: String(configId) });
+    if (location) params.set("location", location);
+    return fetchAPI<SummerSlot[]>(`/summer/slots?${params}`);
+  },
+
+  createSlot: (data: SummerSlotCreate) =>
+    fetchAPI<SummerSlot>("/summer/slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSlot: (id: number, data: SummerSlotUpdate) =>
+    fetchAPI<SummerSlot>(`/summer/slots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSlot: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/summer/slots/${id}`, { method: "DELETE" }),
+
+  createSession: (data: SummerSessionCreate) =>
+    fetchAPI<SummerSession>("/summer/sessions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSessionStatus: (id: number, data: SummerSessionStatusUpdate) =>
+    fetchAPI<SummerSession>(`/summer/sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSession: (id: number, cascade = true) =>
+    fetchAPI<{ success: boolean }>(`/summer/sessions/${id}?cascade=${cascade}`, { method: "DELETE" }),
+
+  bulkConfirmSessions: (configId: number, location?: string) => {
+    const params = new URLSearchParams({ config_id: String(configId) });
+    if (location) params.set("location", location);
+    return fetchAPI<{ confirmed: number }>(`/summer/sessions/bulk-confirm?${params}`, {
+      method: "POST",
+    });
+  },
+
+  bulkCreateSessions: (items: Array<{ application_id: number; slot_id: number; lesson_id: number }>) =>
+    fetchAPI<{ created: number; skipped: number }>("/summer/sessions/bulk-create", {
+      method: "POST",
+      body: JSON.stringify(items),
+    }),
+
+  getDemand: (configId: number, location: string) =>
+    fetchAPI<SummerDemandResponse>(
+      `/summer/demand?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  getUnassigned: (params: { config_id: number; location?: string; grade?: string }) => {
+    const sp = new URLSearchParams({ config_id: String(params.config_id) });
+    if (params.location) sp.set("location", params.location);
+    if (params.grade) sp.set("grade", params.grade);
+    return fetchAPI<SummerApplication[]>(`/summer/unassigned?${sp}`);
+  },
+
+  autoSuggest: (data: SummerSuggestRequest) =>
+    fetchAPI<SummerSuggestResponse>("/summer/auto-suggest", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // ---- Tutor Duty endpoints ----
+
+  getActiveTutors: () =>
+    fetchAPI<SummerActiveTutor[]>("/summer/tutors/active"),
+
+  getTutorDuties: (configId: number, location: string) =>
+    fetchAPI<SummerTutorDuty[]>(
+      `/summer/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  bulkSetTutorDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: SummerTutorDutyItem[];
+  }) =>
+    fetchAPI<{ success: boolean; count: number }>("/summer/tutor-duties/bulk-set", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // ---- Lessons (materialized class meetings) ----
+
+  generateLessons: (configId: number, location: string, slotId?: number) => {
+    const params = new URLSearchParams({ config_id: String(configId), location });
+    if (slotId) params.set("slot_id", String(slotId));
+    return fetchAPI<{ success: boolean; lessons_created: number; slots_skipped: number }>(
+      `/summer/lessons/generate?${params}`,
+      { method: "POST" }
+    );
+  },
+
+  getLessons: (slotId: number) =>
+    fetchAPI<SummerLesson[]>(`/summer/lessons?slot_id=${slotId}`),
+
+  updateLesson: (lessonId: number, data: SummerLessonUpdate) =>
+    fetchAPI<SummerLesson>(`/summer/lessons/${lessonId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getLessonCalendar: (configId: number, location: string, weekStart: string) =>
+    fetchAPI<SummerLessonCalendarResponse>(
+      `/summer/lessons/calendar?config_id=${configId}&location=${encodeURIComponent(location)}&week_start=${weekStart}`
+    ),
+
+  findSlot: (params: {
+    config_id: number;
+    location: string;
+    grade: string;
+    lesson_number: number;
+    after_date?: string;
+    before_date?: string;
+  }) => {
+    const qs = new URLSearchParams({
+      config_id: String(params.config_id),
+      location: params.location,
+      grade: params.grade,
+      lesson_number: String(params.lesson_number),
+    });
+    if (params.after_date) qs.set("after_date", params.after_date);
+    if (params.before_date) qs.set("before_date", params.before_date);
+    return fetchAPI<SummerFindSlotResult[]>(`/summer/lessons/find-slot?${qs}`);
+  },
+
+  getStudentLessons: (configId: number, location: string) =>
+    fetchAPI<SummerStudentLessonsResponse>(
+      `/summer/students/lessons?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+};
+
+// ---- Primary Prospects API ----
+
+export const prospectsAPI = {
+  // PIN verification
+  verifyPin: (branch: string, pin: string) =>
+    fetchAPI<{ valid: boolean }>("/prospects/verify-pin", {
+      method: "POST",
+      body: JSON.stringify({ branch, pin }),
+    }),
+
+  // Public endpoints (PIN-protected)
+  bulkCreate: (data: PrimaryProspectBulkCreate) =>
+    fetchAPI<{ created: number }>("/prospects/bulk", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  list: (branch: string, year: number) =>
+    fetchAPI<PrimaryProspect[]>(`/prospects?branch=${branch}&year=${year}`),
+
+  update: (id: number, branch: string, data: Partial<PrimaryProspect>, year?: number) =>
+    fetchAPI<PrimaryProspect>(`/prospects/${id}?branch=${branch}&year=${year ?? new Date().getFullYear()}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number, branch: string, year?: number) =>
+    fetchAPI<{ deleted: boolean }>(`/prospects/${id}?branch=${branch}&year=${year ?? new Date().getFullYear()}`, { method: "DELETE" }),
+
+  // Admin endpoints
+  adminList: (params: {
+    year: number;
+    branch?: string;
+    status?: string;
+    outreach_status?: string;
+    wants_summer?: string;
+    wants_regular?: string;
+    linked?: string;
+    search?: string;
+  }) => {
+    const qs = new URLSearchParams({ year: String(params.year) });
+    if (params.branch) qs.set("branch", params.branch);
+    if (params.status) qs.set("status", params.status);
+    if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
+    if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
+    if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
+    if (params.linked) qs.set("linked", params.linked);
+    if (params.search) qs.set("search", params.search);
+    return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
+  },
+
+  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
+    fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  bulkOutreach: (ids: number[], outreach_status: string) =>
+    fetchAPI<{ updated: number }>("/prospects/admin/bulk-outreach", {
+      method: "POST",
+      body: JSON.stringify({ ids, outreach_status }),
+    }),
+
+  stats: (year: number) =>
+    fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?year=${year}`),
+
+  findMatches: (id: number) =>
+    fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/match/${id}`),
+
+  autoMatch: (year: number) =>
+    fetchAPI<{ matched: number; total_unlinked: number; skipped_ambiguous: number }>(`/prospects/admin/auto-match?year=${year}`, {
+      method: "POST",
+    }),
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -2150,5 +2482,7 @@ export const api = {
   discounts: discountsAPI,
   wecom: wecomAPI,
   memos: memosAPI,
+  summer: summerAPI,
+  prospects: prospectsAPI,
   auth: authAPI,
 };

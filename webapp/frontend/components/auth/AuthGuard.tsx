@@ -10,6 +10,7 @@ interface AuthGuardProps {
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTE_PREFIXES = ["/summer"];
 
 /**
  * AuthGuard component that redirects unauthenticated users to /login.
@@ -20,7 +21,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/share");
+  const isPublicRoute =
+    PUBLIC_ROUTES.includes(pathname) ||
+    PUBLIC_ROUTE_PREFIXES.some((p) => pathname.startsWith(p));
 
   useEffect(() => {
     // Don't redirect while loading or on public routes

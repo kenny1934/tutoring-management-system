@@ -3,9 +3,11 @@ Pydantic schemas for API request/response validation.
 These define the structure of data sent to and from the API.
 """
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Literal, Optional, List, Dict
+from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
+
+from constants import SummerApplicationStatus
 
 
 # ============================================
@@ -1998,6 +2000,573 @@ class CreateCheckpointRequest(BaseModel):
 
 
 # ============================================
+# Summer Course Schemas
+# ============================================
+
+# -- Public schemas (no auth required) --
+
+class SummerCourseFormConfig(BaseModel):
+    """Config data exposed to the public application form."""
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    banner_image_url: Optional[str] = None
+
+
+class SummerApplicationCreate(BaseModel):
+    """Form submission from public applicant."""
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: str = Field(..., max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    is_existing_student: Optional[str] = Field(None, max_length=100)
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    contact_phone: str = Field(..., min_length=1, max_length=50)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    unavailability_notes: Optional[str] = None
+    buddy_code: Optional[str] = Field(None, max_length=20, description="Existing buddy group code to join")
+    buddy_names: Optional[str] = None
+    form_language: Optional[str] = Field("zh", max_length=10)
+    sessions_per_week: int = Field(1, ge=1, le=3)
+
+
+class SummerApplicationSubmitResponse(BaseModel):
+    """Response after successful application submission."""
+    reference_code: str
+    buddy_code: Optional[str] = None
+    message: str
+
+
+class SummerApplicationStatusResponse(BaseModel):
+    """Public status check response."""
+    reference_code: str
+    student_name: str
+    application_status: str
+    submitted_at: Optional[datetime] = None
+
+
+# -- Admin schemas --
+
+class SummerCourseConfigCreate(BaseModel):
+    """Create a new summer course config."""
+    year: int
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int = Field(8, gt=0)
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool = False
+
+
+class SummerCourseConfigUpdate(BaseModel):
+    """Update an existing summer course config. All fields optional."""
+    title: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = None
+    application_open_date: Optional[datetime] = None
+    application_close_date: Optional[datetime] = None
+    course_start_date: Optional[date] = None
+    course_end_date: Optional[date] = None
+    total_lessons: Optional[int] = Field(None, gt=0)
+    pricing_config: Optional[Dict[str, Any]] = None
+    locations: Optional[List[Dict[str, Any]]] = None
+    available_grades: Optional[List[Dict[str, Any]]] = None
+    time_slots: Optional[List[str]] = None
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    banner_image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class SummerCourseConfigResponse(BaseModel):
+    """Full config response for admin."""
+    id: int
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    course_end_date: date
+    total_lessons: int
+    pricing_config: Dict[str, Any]
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SummerApplicationResponse(BaseModel):
+    """Full application response for admin."""
+    id: int
+    config_id: int
+    reference_code: str
+    student_name: str
+    school: Optional[str] = None
+    grade: str
+    lang_stream: Optional[str] = None
+    is_existing_student: Optional[str] = None
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = None
+    contact_phone: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    unavailability_notes: Optional[str] = None
+    buddy_group_id: Optional[int] = None
+    buddy_code: Optional[str] = None
+    buddy_names: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    application_status: str
+    admin_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    form_language: Optional[str] = None
+    sessions_per_week: int = 1
+    placed_count: int = 0
+    sessions: List["SummerApplicationSessionInfo"] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SummerApplicationUpdate(BaseModel):
+    """Admin update for an application."""
+    application_status: Optional[SummerApplicationStatus] = None
+    admin_notes: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    lang_stream: Optional[str] = Field(None, max_length=10)
+
+
+class SummerApplicationStats(BaseModel):
+    """Aggregate stats for admin dashboard."""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+    by_grade: Dict[str, int] = {}
+    by_location: Dict[str, int] = {}
+
+
+# ---- Summer Slot Schemas ----
+
+class SummerSlotCreate(BaseModel):
+    """Create a new timetable slot."""
+    config_id: int
+    slot_day: str = Field(..., max_length=20)
+    time_slot: str = Field(..., max_length=50)
+    location: str = Field(..., max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    slot_label: Optional[str] = Field(None, max_length=100)
+    course_type: Optional[str] = Field(None, max_length=10)
+    tutor_id: Optional[int] = None
+    max_students: int = Field(8, gt=0)
+
+
+class SummerSlotUpdate(BaseModel):
+    """Update an existing slot. All fields optional."""
+    grade: Optional[str] = Field(None, max_length=50)
+    slot_label: Optional[str] = Field(None, max_length=100)
+    course_type: Optional[str] = Field(None, max_length=10)
+    tutor_id: Optional[int] = None
+    max_students: Optional[int] = Field(None, gt=0)
+
+
+class SummerSlotSessionInfo(BaseModel):
+    """Nested session summary in slot response."""
+    id: int
+    application_id: int
+    student_name: str
+    grade: str
+    session_status: str
+
+
+class SummerSlotResponse(BaseModel):
+    """Slot with tutor name and session summary."""
+    id: int
+    config_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    slot_label: Optional[str] = None
+    course_type: Optional[str] = None
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    max_students: int
+    created_at: Optional[datetime] = None
+    session_count: int = 0
+    sessions: List[SummerSlotSessionInfo] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---- Summer Session Schemas (per-student bookings) ----
+
+class SummerSessionCreate(BaseModel):
+    """Assign a student (application) to a slot/lesson."""
+    application_id: int
+    slot_id: int
+    lesson_id: Optional[int] = None
+    mode: Literal["all", "first_half", "single"] = "all"
+
+
+class SummerSessionStatusUpdate(BaseModel):
+    """Update session status."""
+    session_status: Literal["Tentative", "Confirmed", "Cancelled"]
+
+
+class SummerSessionResponse(BaseModel):
+    """Full per-student session response with joined data."""
+    id: int
+    application_id: int
+    slot_id: int
+    lesson_id: Optional[int] = None
+    lesson_number: Optional[int] = None
+    specific_date: Optional[date] = None
+    session_status: str
+    placed_at: Optional[datetime] = None
+    placed_by: Optional[str] = None
+    student_name: Optional[str] = None
+    student_grade: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---- Summer Lesson Schemas (class meetings) ----
+
+class SummerLessonResponse(BaseModel):
+    """Materialized lesson (class meeting) response."""
+    id: int
+    slot_id: int
+    lesson_date: date
+    lesson_number: int
+    lesson_status: str
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SummerLessonUpdate(BaseModel):
+    """Update a lesson's number, status, or notes."""
+    lesson_number: Optional[int] = Field(None, ge=1, le=20)
+    lesson_status: Optional[Literal["Scheduled", "Cancelled"]] = None
+    notes: Optional[str] = None
+
+
+class SummerLessonCalendarEntry(BaseModel):
+    """Lesson with slot info and sessions for calendar view."""
+    lesson_id: int
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    grade: Optional[str] = None
+    course_type: Optional[str] = None
+    lesson_number: int
+    lesson_status: str
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    max_students: int
+    date: date
+    notes: Optional[str] = None
+    sessions: List[SummerSlotSessionInfo] = []
+
+
+class SummerLessonCalendarResponse(BaseModel):
+    """Calendar view data for one week."""
+    week_start: date
+    week_end: date
+    lessons: List[SummerLessonCalendarEntry]
+
+
+class SummerFindSlotResult(BaseModel):
+    """A candidate lesson returned by find-slot search."""
+    lesson_id: int
+    slot_id: int
+    date: date
+    time_slot: str
+    tutor_name: Optional[str] = None
+    current_count: int
+    max_students: int
+    lesson_number: int
+    lesson_match: bool
+
+
+# ---- Summer Student Lessons Schemas ----
+
+class SummerStudentLessonEntry(BaseModel):
+    """One lesson slot in a student's 8-lesson progress."""
+    lesson_number: int
+    placed: bool
+    session_id: Optional[int] = None
+    lesson_id: Optional[int] = None
+    lesson_date: Optional[date] = None
+    time_slot: Optional[str] = None
+    slot_id: Optional[int] = None
+    session_status: Optional[str] = None
+
+
+class SummerStudentLessonsRow(BaseModel):
+    """Per-student lesson progress."""
+    application_id: int
+    student_name: str
+    grade: str
+    sessions_per_week: int
+    placed_count: int
+    total_lessons: int
+    lessons: List[SummerStudentLessonEntry]
+
+
+class SummerStudentLessonsResponse(BaseModel):
+    """All students' lesson progress for a config+location."""
+    students: List[SummerStudentLessonsRow]
+
+
+# ---- Summer Demand Schemas ----
+
+class SummerDemandCell(BaseModel):
+    """Demand counts for a single day x time_slot cell."""
+    day: str
+    time_slot: str
+    total_first_pref: int = 0
+    total_second_pref: int = 0
+    by_grade_first: Dict[str, int] = {}
+    by_grade_second: Dict[str, int] = {}
+
+
+class SummerDemandResponse(BaseModel):
+    """Full demand heatmap for one location."""
+    location: str
+    cells: List[SummerDemandCell]
+
+
+# ---- Summer Auto-Suggest Schemas ----
+
+class SummerSuggestRequest(BaseModel):
+    """Input for auto-suggest algorithm."""
+    config_id: int
+    location: str
+    application_id: Optional[int] = None
+    exclude_dates: Optional[List[date]] = None
+    include_dates: Optional[List[date]] = None
+
+
+class SummerLessonAssignment(BaseModel):
+    """A single lesson in a proposed placement."""
+    lesson_id: int
+    slot_id: int
+    lesson_number: int
+    lesson_date: date
+    time_slot: str
+    slot_day: str
+    tutor_name: Optional[str] = None
+    student_count: int = 0
+    max_students: int = 8
+
+
+class SummerSuggestionItem(BaseModel):
+    """A proposed placement with lesson-level assignments."""
+    application_id: int
+    student_name: str
+    student_grade: str
+    sessions_per_week: int
+    lesson_assignments: List[SummerLessonAssignment]
+    sequence_score: float
+    match_type: str
+    confidence: float
+    reason: str
+    unavailability_notes: Optional[str] = None
+    option_label: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    placed_count: int = 0
+
+
+class SummerSuggestResponse(BaseModel):
+    """Ranked list of proposals from auto-suggest."""
+    proposals: List[SummerSuggestionItem]
+    unplaceable: List[Dict[str, Any]] = []
+
+
+# ---- Summer Tutor Duty Schemas ----
+
+class SummerTutorDutyItem(BaseModel):
+    """Single duty assignment for bulk-set."""
+    tutor_id: int
+    duty_day: str = Field(..., max_length=20)
+    time_slot: str = Field(..., max_length=50)
+
+
+class SummerTutorDutyBulkSet(BaseModel):
+    """Bulk-set tutor duties for a config+location (replaces all existing)."""
+    config_id: int
+    location: str = Field(..., max_length=255)
+    duties: List[SummerTutorDutyItem]
+
+
+class SummerTutorDutyResponse(BaseModel):
+    """Tutor duty with joined tutor name."""
+    id: int
+    config_id: int
+    tutor_id: int
+    tutor_name: str
+    location: str
+    duty_day: str
+    time_slot: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---- Summer Application Session Info (for embedding in application response) ----
+
+class SummerApplicationSessionInfo(BaseModel):
+    """Session info embedded in application response."""
+    id: int
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    grade: Optional[str] = None
+    tutor_name: Optional[str] = None
+    session_status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================
+# Primary Prospect Schemas (P6 → Secondary feeder)
+# ============================================
+
+ProspectIntention = Literal["Yes", "No", "Considering"]
+
+
+class PrimaryProspectBulkItem(BaseModel):
+    """Single row from paste (used in bulk create)."""
+    primary_student_id: Optional[str] = Field(None, max_length=50)
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=20)
+    tutor_name: Optional[str] = Field(None, max_length=255)
+    phone_1: Optional[str] = Field(None, max_length=20)
+    phone_1_relation: Optional[str] = Field(None, max_length=20)
+    phone_2: Optional[str] = Field(None, max_length=20)
+    phone_2_relation: Optional[str] = Field(None, max_length=20)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    tutor_remark: Optional[str] = None
+    wants_summer: Optional[ProspectIntention] = 'Considering'
+    wants_regular: Optional[ProspectIntention] = 'Considering'
+    preferred_branches: Optional[List[str]] = None
+    preferred_time_note: Optional[str] = None
+    preferred_tutor_note: Optional[str] = None
+    sibling_info: Optional[str] = None
+
+
+class PrimaryProspectBulkCreate(BaseModel):
+    """Bulk create prospects from paste form."""
+    year: int
+    source_branch: str = Field(..., max_length=20)
+    prospects: List[PrimaryProspectBulkItem]
+
+
+class PrimaryProspectUpdate(BaseModel):
+    """For branch tutor edits (public)."""
+    primary_student_id: Optional[str] = Field(None, max_length=50)
+    student_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=20)
+    tutor_name: Optional[str] = Field(None, max_length=255)
+    phone_1: Optional[str] = Field(None, max_length=20)
+    phone_1_relation: Optional[str] = Field(None, max_length=20)
+    phone_2: Optional[str] = Field(None, max_length=20)
+    phone_2_relation: Optional[str] = Field(None, max_length=20)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    tutor_remark: Optional[str] = None
+    wants_summer: Optional[ProspectIntention] = None
+    wants_regular: Optional[ProspectIntention] = None
+    preferred_branches: Optional[List[str]] = None
+    preferred_time_note: Optional[str] = None
+    preferred_tutor_note: Optional[str] = None
+    sibling_info: Optional[str] = None
+
+
+class PrimaryProspectAdminUpdate(BaseModel):
+    """For admin updates (outreach, status, linking)."""
+    outreach_status: Optional[str] = Field(None, max_length=30)
+    contact_notes: Optional[str] = None
+    status: Optional[str] = Field(None, max_length=20)
+    summer_application_id: Optional[int] = None
+
+
+class PrimaryProspectResponse(BaseModel):
+    """Full prospect response."""
+    id: int
+    year: int
+    source_branch: str
+    primary_student_id: Optional[str] = None
+    student_name: str
+    school: Optional[str] = None
+    grade: Optional[str] = None
+    tutor_name: Optional[str] = None
+    phone_1: Optional[str] = None
+    phone_1_relation: Optional[str] = None
+    phone_2: Optional[str] = None
+    phone_2_relation: Optional[str] = None
+    wechat_id: Optional[str] = None
+    tutor_remark: Optional[str] = None
+    wants_summer: Optional[str] = None
+    wants_regular: Optional[str] = None
+    preferred_branches: Optional[List[str]] = None
+    preferred_time_note: Optional[str] = None
+    preferred_tutor_note: Optional[str] = None
+    sibling_info: Optional[str] = None
+    outreach_status: str = 'Not Started'
+    contact_notes: Optional[str] = None
+    status: str = 'New'
+    summer_application_id: Optional[int] = None
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    edit_history: Optional[List[Dict[str, Any]]] = None
+    # Joined from summer_application when matched
+    matched_application_ref: Optional[str] = None
+    matched_application_status: Optional[str] = None
 # Student Progress Schemas
 # ============================================
 
@@ -2179,6 +2748,33 @@ class SavedReportResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PrimaryProspectBulkOutreach(BaseModel):
+    """Bulk update outreach status for multiple prospects."""
+    ids: List[int] = Field(..., max_length=500)
+    outreach_status: str = Field(..., max_length=30)
+
+
+class PrimaryProspectStats(BaseModel):
+    """Funnel stats per branch."""
+    branch: str
+    total: int = 0
+    wants_summer_yes: int = 0
+    wants_summer_considering: int = 0
+    wants_regular_yes: int = 0
+    wants_regular_considering: int = 0
+    matched_to_application: int = 0
+    outreach_not_started: int = 0
+    outreach_wechat_added: int = 0
+    outreach_wechat_not_found: int = 0
+    outreach_wechat_cannot_add: int = 0
+    outreach_called: int = 0
+    outreach_no_response: int = 0
+
+
+class PrimaryProspectMatchResult(BaseModel):
+    """Result of matching a prospect to summer applications."""
+    prospect_id: int
+    matches: List[Dict[str, Any]]  # [{application_id, reference_code, student_name, contact_phone, match_type}]
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int
@@ -2200,3 +2796,4 @@ MakeupProposalResponse.model_rebuild()
 ExamRevisionSlotResponse.model_rebuild()
 ExamRevisionSlotDetailResponse.model_rebuild()
 EnrollStudentResponse.model_rebuild()
+SummerApplicationResponse.model_rebuild()

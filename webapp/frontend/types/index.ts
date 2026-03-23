@@ -1932,6 +1932,537 @@ export interface DocumentVersionDetail extends DocumentVersion {
 }
 
 // ============================================
+// Summer Course Types
+// ============================================
+
+export interface SummerBilingualOption {
+  name: string;
+  name_en: string;
+  value?: string;
+}
+
+export interface SummerPricingConfig {
+  base_fee: number;
+  registration_fee?: number;
+  discounts?: Array<{
+    code: string;
+    name_zh: string;
+    name_en: string;
+    amount: number;
+    conditions: {
+      before_date?: string;
+      min_group_size?: number;
+      [key: string]: unknown;
+    };
+  }>;
+}
+
+export interface SummerLocation {
+  name: string;
+  name_en: string;
+  address: string;
+  address_en?: string;
+  open_days: string[];
+  open_days_label?: string;
+  open_days_label_en?: string;
+  image_url?: string | null;
+  time_slots?: Record<string, string[]>;  // day → available time slots
+}
+
+export interface SummerCourseFormConfig {
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  course_end_date: string;
+  total_lessons: number;
+  pricing_config: SummerPricingConfig;
+  locations: SummerLocation[];
+  available_grades: SummerBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: SummerBilingualOption[] | null;
+  center_options?: SummerBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  banner_image_url?: string | null;
+}
+
+export interface SummerApplicationCreate {
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone: string;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  buddy_code?: string | null;
+  buddy_names?: string | null;
+  form_language?: string;
+  sessions_per_week?: number;
+}
+
+export interface SummerApplicationSubmitResponse {
+  reference_code: string;
+  buddy_code?: string | null;
+  message: string;
+}
+
+export interface SummerApplicationStatusResponse {
+  reference_code: string;
+  student_name: string;
+  application_status: string;
+  submitted_at?: string | null;
+}
+
+export interface SummerCourseConfig {
+  id: number;
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  course_end_date: string;
+  total_lessons: number;
+  pricing_config: SummerPricingConfig;
+  locations: SummerLocation[];
+  available_grades: SummerBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: SummerBilingualOption[] | null;
+  center_options?: SummerBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  banner_image_url?: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface SummerApplication {
+  id: number;
+  config_id: number;
+  reference_code: string;
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  buddy_group_id?: number | null;
+  buddy_code?: string | null;
+  buddy_names?: string | null;
+  existing_student_id?: number | null;
+  application_status: string;
+  admin_notes?: string | null;
+  submitted_at?: string | null;
+  updated_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  form_language?: string | null;
+  sessions_per_week?: number;
+  placed_count?: number;
+  sessions?: SummerApplicationSessionInfo[];
+}
+
+export interface SummerApplicationSessionInfo {
+  id: number;
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  grade?: string | null;
+  tutor_name?: string | null;
+  session_status: string;
+}
+
+export interface SummerApplicationUpdate {
+  application_status?: string;
+  admin_notes?: string;
+  existing_student_id?: number | null;
+  lang_stream?: string;
+}
+
+export interface SummerApplicationStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_grade: Record<string, number>;
+  by_location: Record<string, number>;
+}
+
+// ---- Summer Slot Types ----
+
+export interface SummerSlotSessionInfo {
+  id: number;
+  application_id: number;
+  student_name: string;
+  grade: string;
+  session_status: string;
+}
+
+export interface SummerSlot {
+  id: number;
+  config_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  slot_label?: string | null;
+  course_type?: string | null;
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  max_students: number;
+  created_at?: string | null;
+  session_count: number;
+  sessions: SummerSlotSessionInfo[];
+}
+
+export interface SummerSlotCreate {
+  config_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  slot_label?: string | null;
+  course_type?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+export interface SummerSlotUpdate {
+  grade?: string | null;
+  slot_label?: string | null;
+  course_type?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+// ---- Summer Session (per-student booking) Types ----
+
+export interface SummerSession {
+  id: number;
+  application_id: number;
+  slot_id: number;
+  lesson_id?: number | null;
+  lesson_number?: number | null;
+  specific_date?: string | null;
+  session_status: string;
+  placed_at?: string | null;
+  placed_by?: string | null;
+  student_name?: string | null;
+  student_grade?: string | null;
+}
+
+export interface SummerSessionCreate {
+  application_id: number;
+  slot_id: number;
+  lesson_id?: number;
+  mode?: "all" | "first_half" | "single";
+}
+
+export interface SummerSessionStatusUpdate {
+  session_status: string;
+}
+
+// ---- Summer Lesson (class meeting) Types ----
+
+export interface SummerLesson {
+  id: number;
+  slot_id: number;
+  session_date: string;
+  lesson_number: number;
+  lesson_status: string;
+  notes?: string | null;
+  created_at?: string | null;
+}
+
+export interface SummerLessonUpdate {
+  lesson_number?: number;
+  lesson_status?: "Scheduled" | "Attended" | "Cancelled";
+  notes?: string;
+}
+
+export interface SummerLessonCalendarEntry {
+  lesson_id: number;
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  grade?: string | null;
+  course_type?: string | null;
+  lesson_number: number;
+  lesson_status: string;
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  max_students: number;
+  date: string;
+  notes?: string | null;
+  sessions: SummerSlotSessionInfo[];
+}
+
+export interface SummerLessonCalendarResponse {
+  week_start: string;
+  week_end: string;
+  lessons: SummerLessonCalendarEntry[];
+}
+
+export interface SummerFindSlotResult {
+  lesson_id: number;
+  slot_id: number;
+  date: string;
+  time_slot: string;
+  tutor_name: string | null;
+  current_count: number;
+  max_students: number;
+  lesson_number: number;
+  lesson_match: boolean;
+}
+
+// ---- Summer Student Lessons Types ----
+
+export interface SummerStudentLessonEntry {
+  lesson_number: number;
+  placed: boolean;
+  session_id?: number | null;
+  lesson_id?: number | null;
+  lesson_date?: string | null;
+  time_slot?: string | null;
+  slot_id?: number | null;
+  session_status?: string | null;
+}
+
+export interface SummerStudentLessonsRow {
+  application_id: number;
+  student_name: string;
+  grade: string;
+  sessions_per_week: number;
+  placed_count: number;
+  total_lessons: number;
+  lessons: SummerStudentLessonEntry[];
+}
+
+export interface SummerStudentLessonsResponse {
+  students: SummerStudentLessonsRow[];
+}
+
+// ---- Summer Demand Types ----
+
+export interface SummerDemandCell {
+  day: string;
+  time_slot: string;
+  total_first_pref: number;
+  total_second_pref: number;
+  by_grade_first: Record<string, number>;
+  by_grade_second: Record<string, number>;
+}
+
+export interface SummerDemandResponse {
+  location: string;
+  cells: SummerDemandCell[];
+}
+
+// ---- Summer Auto-Suggest Types ----
+
+export interface SummerLessonAssignment {
+  lesson_id: number;
+  slot_id: number;
+  lesson_number: number;
+  lesson_date: string;
+  time_slot: string;
+  slot_day: string;
+  tutor_name?: string | null;
+  student_count?: number;
+  max_students?: number;
+}
+
+export interface SummerSuggestionItem {
+  application_id: number;
+  student_name: string;
+  student_grade: string;
+  sessions_per_week: number;
+  lesson_assignments: SummerLessonAssignment[];
+  sequence_score: number;
+  match_type: string;
+  confidence: number;
+  reason: string;
+  unavailability_notes: string | null;
+  option_label?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  placed_count?: number;
+}
+
+export interface SummerSuggestRequest {
+  config_id: number;
+  location: string;
+  application_id?: number;
+  exclude_dates?: string[];
+  include_dates?: string[];
+}
+
+export interface SummerSuggestResponse {
+  proposals: SummerSuggestionItem[];
+  unplaceable: Array<{ application_id: number; student_name: string; reason: string }>;
+}
+
+// ---- Summer Tutor Duty Types ----
+
+export interface SummerTutorDuty {
+  id: number;
+  config_id: number;
+  tutor_id: number;
+  tutor_name: string;
+  location: string;
+  duty_day: string;
+  time_slot: string;
+}
+
+export interface SummerTutorDutyItem {
+  tutor_id: number;
+  duty_day: string;
+  time_slot: string;
+}
+
+export interface SummerActiveTutor {
+  id: number;
+  tutor_name: string;
+  default_location: string | null;
+}
+
+export interface AvailableTutor {
+  id: number;
+  name: string;
+  onDuty: boolean;
+}
+
+// ---- Primary Prospect Types (P6 → Secondary feeder) ----
+
+export type ProspectOutreachStatus =
+  | 'Not Started'
+  | 'WeChat - Not Found'
+  | 'WeChat - Cannot Add'
+  | 'WeChat - Added'
+  | 'Called'
+  | 'No Response';
+
+export type ProspectStatus = 'New' | 'Contacted' | 'Interested' | 'Applied' | 'Enrolled' | 'Declined';
+
+export type ProspectIntention = 'Yes' | 'No' | 'Considering';
+
+export const PROSPECT_BRANCHES = ['MAC', 'MCP', 'MNT', 'MTA', 'MLT', 'MTR', 'MOT'] as const;
+export type ProspectBranch = typeof PROSPECT_BRANCHES[number];
+
+export const SECONDARY_BRANCHES = ['MSA', 'MSB'] as const;
+
+export const OUTREACH_STATUS_HINTS: Record<ProspectOutreachStatus, string> = {
+  'Not Started': "Haven't attempted contact yet",
+  'WeChat - Not Found': 'Searched but no results. Ask tutor to verify WeChat ID',
+  'WeChat - Cannot Add': 'Found but privacy settings block. Ask primary branch to send our WeChat to the parent so they can add us',
+  'WeChat - Added': 'Friend request sent',
+  'Called': 'Contacted by phone',
+  'No Response': 'Tried contacting but no reply',
+};
+
+export interface PrimaryProspect {
+  id: number;
+  year: number;
+  source_branch: ProspectBranch;
+  primary_student_id: string | null;
+  student_name: string;
+  school: string | null;
+  grade: string | null;
+  tutor_name: string | null;
+  phone_1: string | null;
+  phone_1_relation: string | null;
+  phone_2: string | null;
+  phone_2_relation: string | null;
+  wechat_id: string | null;
+  tutor_remark: string | null;
+  wants_summer: ProspectIntention | null;
+  wants_regular: ProspectIntention | null;
+  preferred_branches: string[];
+  preferred_time_note: string | null;
+  preferred_tutor_note: string | null;
+  sibling_info: string | null;
+  outreach_status: ProspectOutreachStatus;
+  contact_notes: string | null;
+  status: ProspectStatus;
+  summer_application_id: number | null;
+  submitted_at: string | null;
+  updated_at: string | null;
+  edit_history: Array<{ timestamp: string; field: string; old_value: string | null; new_value: string | null }>;
+  matched_application_ref: string | null;
+  matched_application_status: string | null;
+}
+
+export interface PrimaryProspectBulkItem {
+  primary_student_id?: string;
+  student_name: string;
+  school?: string;
+  grade?: string;
+  tutor_name?: string;
+  phone_1?: string;
+  phone_1_relation?: string;
+  phone_2?: string;
+  phone_2_relation?: string;
+  wechat_id?: string;
+  tutor_remark?: string;
+  wants_summer?: ProspectIntention;
+  wants_regular?: ProspectIntention;
+  preferred_branches?: string[];
+  preferred_time_note?: string;
+  preferred_tutor_note?: string;
+  sibling_info?: string;
+}
+
+export interface PrimaryProspectBulkCreate {
+  year: number;
+  source_branch: string;
+  prospects: PrimaryProspectBulkItem[];
+}
+
+export interface PrimaryProspectStats {
+  branch: string;
+  total: number;
+  wants_summer_yes: number;
+  wants_summer_considering: number;
+  wants_regular_yes: number;
+  wants_regular_considering: number;
+  matched_to_application: number;
+  outreach_not_started: number;
+  outreach_wechat_added: number;
+  outreach_wechat_not_found: number;
+  outreach_wechat_cannot_add: number;
+  outreach_called: number;
+  outreach_no_response: number;
+}
+
+export interface PrimaryProspectMatchResult {
+  prospect_id: number;
+  matches: Array<{
+    application_id: number;
+    reference_code: string;
+    student_name: string;
+    contact_phone: string;
+    application_status: string;
+    match_type: string;
+  }>;
+}
+
 // Student Progress Analytics Types
 // ============================================
 
