@@ -114,7 +114,7 @@ Manual deploys can be triggered via `workflow_dispatch` on the Actions tab.
 | `tutoring-backend` | 512 Mi | 1 | 1 | 80 | 900s |
 | `tutoring-frontend` | 256 Mi | 1 | 1 | 80 | 60s |
 
-Both services run in `asia-east2` under project `csm-database-project`.
+Both services run in `asia-east2`.
 
 ### Backend Health & Auto-Recovery
 
@@ -135,9 +135,9 @@ Browser → Cloudflare (Proxied DNS)
        → /*      → tutoring-frontend (Cloud Run)
 ```
 
-Custom domains: `csm.mathconceptsecondary.academy`, `csm-pro.mathconceptsecondary.academy`
+Custom domains are configured via Cloudflare DNS (CNAME, proxied) with SSL/TLS set to Full.
 
-**Reports subdomain** (`reports.mathconceptsecondary.academy`): Serves shareable parent report links. The Cloudflare Worker restricts this hostname to `/share`, `/api/report-shares/`, `/_next/`, and `/report-logo.png` only — all other paths return 404. This prevents exposing the internal tool on the public reports domain.
+A separate **reports subdomain** serves shareable parent report links. The Cloudflare Worker restricts this hostname to a whitelist of public paths only — all other paths return 404, preventing exposure of the internal tool on the public domain.
 
 ### Versioning
 
