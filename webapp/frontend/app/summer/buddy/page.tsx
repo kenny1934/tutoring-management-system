@@ -167,7 +167,7 @@ export default function BuddyTrackerPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "groups">("list");
-  const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete" | "cross-branch">("all");
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
@@ -187,7 +187,7 @@ export default function BuddyTrackerPage() {
   }, []);
 
   // Sort
-  type SortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | null;
+  type SortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | "created_at" | null;
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -417,8 +417,11 @@ export default function BuddyTrackerPage() {
   const displayMembers = useMemo(() => {
     if (filterTab === "solo") return filteredMembers.filter(m => m.group_size < 2);
     if (filterTab === "complete") return filteredMembers.filter(m => m.group_size >= 2);
+    if (filterTab === "cross-branch") return filteredMembers.filter(m =>
+      m.is_sibling || m.group_members.some(gm => gm.branch !== branch && gm.branch !== "Secondary" || gm.source === "secondary")
+    );
     return filteredMembers;
-  }, [filteredMembers, filterTab]);
+  }, [filteredMembers, filterTab, branch]);
 
   // Grouped view data
   const groupedData = useMemo(() => {
@@ -448,16 +451,20 @@ export default function BuddyTrackerPage() {
 
   // ---- Stats ----
   const stats = useMemo(() => {
-    if (!ownMembers.length) return { total: 0, groups: 0, paired: 0, solo: 0 };
+    if (!ownMembers.length) return { total: 0, groups: 0, paired: 0, solo: 0, crossBranch: 0 };
     const groupIds = new Set(ownMembers.map((m) => m.buddy_group_id));
     const paired = ownMembers.filter((m) => m.group_size >= 2).length;
+    const crossBranch = ownMembers.filter((m) =>
+      m.is_sibling || m.group_members.some(gm => gm.branch !== branch || gm.source === "secondary")
+    ).length;
     return {
       total: ownMembers.length,
       groups: groupIds.size,
       paired,
       solo: ownMembers.length - paired,
+      crossBranch,
     };
-  }, [ownMembers]);
+  }, [ownMembers, branch]);
 
   // Duplicate student ID detection
   const existingStudentIds = useMemo(() => {
@@ -799,8 +806,9 @@ export default function BuddyTrackerPage() {
       {ownMembers.length > 0 && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
-            {(["all", "solo", "complete"] as const).map((tab) => {
-              const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : stats.total;
+            {(["all", "solo", "complete", ...(stats.crossBranch > 0 ? ["cross-branch" as const] : [])] as const).map((tab) => {
+              const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : tab === "cross-branch" ? stats.crossBranch : stats.total;
+              const label = tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : tab === "complete" ? "Complete" : "Cross-branch";
               const isActive = filterTab === tab;
               return (
                 <button
@@ -808,11 +816,11 @@ export default function BuddyTrackerPage() {
                   onClick={() => setFilterTab(tab)}
                   className={`text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors ${
                     isActive
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? tab === "cross-branch" ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   }`}
                 >
-                  {tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : "Complete"}
+                  {label}
                   {tab !== "all" && <span className={`ml-1 ${isActive ? "opacity-80" : "opacity-60"}`}>({count})</span>}
                 </button>
               );
@@ -939,6 +947,7 @@ export default function BuddyTrackerPage() {
                       <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                       <span className="font-medium">{m.student_name_en}</span>
                       {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
                       {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
                     </div>
                   ))}
@@ -972,7 +981,7 @@ export default function BuddyTrackerPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Phone</th>
                   <SortHeader field="buddy_code" label="Buddy Code" current={sortField} dir={sortDir} onSort={toggleSort} />
                   <SortHeader field="group_size" label="Group" current={sortField} dir={sortDir} onSort={toggleSort} center />
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Since</th>
+                  <SortHeader field="created_at" label="Since" current={sortField} dir={sortDir} onSort={toggleSort} />
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground text-xs">Actions</th>
                 </tr>
               </thead>
@@ -1064,7 +1073,7 @@ export default function BuddyTrackerPage() {
 
 // ---- Sort Header ----
 
-type RowSortField = "student_id" | "student_name_en" | "buddy_code" | "group_size";
+type RowSortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | "created_at";
 
 function SortHeader({ field, label, current, dir, onSort, center }: {
   field: RowSortField; label: string;
@@ -1171,6 +1180,7 @@ function DesktopRow({
         <td className="px-4 py-2.5">
           <span className="font-medium">{m.student_name_en}</span>
           {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
+          {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
         <td
@@ -1245,6 +1255,7 @@ function MobileCard({
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{m.student_name_en}</span>
             {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
+            {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
           </div>
           <div className="flex items-center gap-1.5">
             <GroupRing size={m.group_size} />
