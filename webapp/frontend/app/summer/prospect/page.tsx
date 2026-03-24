@@ -28,6 +28,7 @@ import {
   Lock,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
+import { KNOWN_SCHOOLS } from "@/lib/school-list";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -428,13 +429,52 @@ function ProspectEditForm({
   onSave?: () => void;
   onCancel?: () => void;
 }) {
+  const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
+
+  const schoolQuery = values.school.toLowerCase();
+  const filteredSchools = schoolQuery
+    ? KNOWN_SCHOOLS.filter((s) => s.toLowerCase().includes(schoolQuery)).slice(0, 8)
+    : [];
+
   return (
     <div className="space-y-3">
       <div className={`grid gap-x-3 gap-y-2 text-sm ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
         <SectionDivider label="Student Info" />
         <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} />
         <FieldInput label="Student Name" value={values.student_name} onChange={(v) => onChange("student_name", v)} required span={compact ? undefined : 3} />
-        <FieldInput label="School" value={values.school} onChange={(v) => onChange("school", v)} />
+        <div className="relative">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
+          <input
+            type="text"
+            value={values.school}
+            onChange={(e) => {
+              onChange("school", e.target.value);
+              setShowSchoolSuggestions(true);
+            }}
+            onFocus={() => setShowSchoolSuggestions(true)}
+            onBlur={() => setShowSchoolSuggestions(false)}
+            placeholder="Search or enter school"
+            className={`w-full ${inputSmall}`}
+          />
+          {showSchoolSuggestions && filteredSchools.length > 0 && (
+            <div className="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+              {filteredSchools.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange("school", s);
+                    setShowSchoolSuggestions(false);
+                  }}
+                  className="w-full px-2.5 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-xs"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} />
         <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} />
 
