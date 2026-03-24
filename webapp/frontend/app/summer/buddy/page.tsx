@@ -126,6 +126,17 @@ function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolea
   );
 }
 
+function CrossBranchIndicator({ members, currentBranch }: { members: BuddyGroupMemberInfo[]; currentBranch: string }) {
+  const otherBranches = [...new Set(members.filter(m => m.branch !== currentBranch).map(m => m.branch))];
+  if (!otherBranches.length) return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Link2 className="h-3 w-3 text-amber-500" />
+      {otherBranches.map(b => <BranchBadge key={b} branch={b} />)}
+    </span>
+  );
+}
+
 // ---- Main Page ----
 
 export default function BuddyTrackerPage() {
@@ -919,6 +930,9 @@ export default function BuddyTrackerPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <CodePill code={g.code} onCopy={handleCopyToast} />
                     <GroupRing size={g.size} />
+                    {g.others.length > 0 && (
+                      <CrossBranchIndicator members={g.others} currentBranch={branch!} />
+                    )}
                     {isSolo && waitDays > 0 && (
                       <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
                         Waiting {waitDays}d
@@ -1189,7 +1203,10 @@ function DesktopRow({
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
         <td className="px-4 py-2.5">
-          <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
+          <span className="flex items-center gap-1.5 flex-wrap">
+            <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
+            <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+          </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
         <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
@@ -1268,6 +1285,7 @@ function MobileCard({
           <span className="font-mono text-[10px]">{m.student_id}</span>
           {m.parent_phone && <span>{m.parent_phone}</span>}
           <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }} />
+          <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
         </div>
       </div>
       {isSolo && !isExpanded && (
