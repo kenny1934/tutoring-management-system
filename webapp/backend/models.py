@@ -1124,12 +1124,33 @@ class SummerBuddyGroup(Base):
     __tablename__ = "summer_buddy_groups"
 
     id = Column(Integer, primary_key=True, index=True)
-    config_id = Column(Integer, ForeignKey("summer_course_configs.id"), nullable=False)
+    config_id = Column(Integer, ForeignKey("summer_course_configs.id"), nullable=True)
+    year = Column(Integer)
     buddy_code = Column(String(20), nullable=False, unique=True)
     created_at = Column(DateTime, server_default=func.now())
 
     config = relationship("SummerCourseConfig", back_populates="buddy_groups")
     applications = relationship("SummerApplication", back_populates="buddy_group")
+    members = relationship("SummerBuddyMember", back_populates="buddy_group", cascade="all, delete-orphan")
+
+
+class SummerBuddyMember(Base):
+    """Primary branch buddy group members tracked by branch staff."""
+    __tablename__ = "summer_buddy_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=False)
+    student_id = Column(String(50), nullable=False)
+    student_name_en = Column(String(255), nullable=False)
+    student_name_zh = Column(String(255))
+    parent_phone = Column(String(50))
+    source_branch = Column(String(10), nullable=False)
+    is_sibling = Column(Boolean, nullable=False, default=False)
+    year = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    buddy_group = relationship("SummerBuddyGroup", back_populates="members")
 
 
 class SummerApplication(Base):

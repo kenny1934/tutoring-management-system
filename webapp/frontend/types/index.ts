@@ -2600,3 +2600,57 @@ export interface SavedReportDetail {
   creator_name: string | null;
   created_at: string;
 }
+
+// Buddy Tracker (Primary Branches)
+// ============================================
+
+export interface BuddyGroupMemberInfo {
+  id: number;
+  name: string;
+  student_id: string | null;
+  branch: string;
+  source: 'primary' | 'secondary';
+  is_sibling: boolean;
+}
+
+export interface BuddyMember {
+  id: number;
+  buddy_group_id: number;
+  student_id: string;
+  student_name_en: string;
+  student_name_zh: string | null;
+  parent_phone: string | null;
+  source_branch: string;
+  is_sibling: boolean;
+  year: number;
+  created_at: string;
+  updated_at: string | null;
+  buddy_code: string;
+  group_size: number;
+  group_members: BuddyGroupMemberInfo[];
+}
+
+export interface BuddyMemberCreate {
+  student_id: string;
+  student_name_en: string;
+  student_name_zh?: string | null;
+  parent_phone?: string | null;
+  source_branch: string;
+  year: number;
+  buddy_code?: string | null;
+  is_sibling?: boolean;
+}
+
+export interface BuddyMemberUpdate {
+  student_id?: string;
+  student_name_en?: string;
+  student_name_zh?: string | null;
+  parent_phone?: string | null;
+}
+
+export interface BuddyGroupLookup {
+  buddy_code: string;
+  year: number | null;
+  members: BuddyGroupMemberInfo[];
+  total_size: number;
+}

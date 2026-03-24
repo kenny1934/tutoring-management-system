@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
-import { summerAPI, studentsAPI } from "@/lib/api";
+import { summerAPI, studentsAPI, buddyTrackerAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
@@ -252,12 +252,24 @@ export function SummerApplicationDetailModal({
   );
 
   // Buddy group members (filter from all applications or fetched data)
+  // Fetch primary buddy members via admin group lookup (JWT auth, no PIN)
+  const { data: primaryBuddyGroup } = useSWR(
+    app?.buddy_code ? ["buddy-group-lookup", app.buddy_code] : null,
+    () => buddyTrackerAPI.adminLookupGroup(app!.buddy_code!),
+    { revalidateOnFocus: false }
+  );
+
   const buddyMembers = useMemo(() => {
     if (!app?.buddy_group_id) return [];
     const source = allApplications ?? fetchedBuddyMembers;
     if (!source) return [];
     return source.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
   }, [app?.buddy_group_id, app?.id, allApplications, fetchedBuddyMembers]);
+
+  const primaryBuddyMembers = useMemo(() => {
+    if (!primaryBuddyGroup) return [];
+    return primaryBuddyGroup.members.filter(m => m.source === "primary");
+  }, [primaryBuddyGroup]);
 
   if (!app) return null;
 
@@ -860,9 +872,30 @@ export function SummerApplicationDetailModal({
                       </div>
                     ))}
                   </div>
-                ) : app.buddy_group_id ? (
+                ) : app.buddy_group_id && !primaryBuddyMembers.length ? (
                   <div className="text-xs text-muted-foreground mt-1">No other members yet</div>
                 ) : null}
+                {primaryBuddyMembers.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    <span className="text-[10px] text-muted-foreground">Primary Branch Members:</span>
+                    {primaryBuddyMembers.map(m => (
+                      <div key={`primary-${m.id}`} className="flex items-center gap-2 py-1 text-sm px-1 -mx-1">
+                        <span className="text-foreground">{m.name}</span>
+                        {m.student_id && (
+                          <span className="text-[10px] font-mono text-muted-foreground">{m.student_id}</span>
+                        )}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                          {m.branch}
+                        </span>
+                        {m.is_sibling && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                            Sibling
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

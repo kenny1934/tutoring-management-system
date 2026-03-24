@@ -52,6 +52,14 @@ RATE_LIMITS = {
     "summer_status": {"limit": 10, "window": 60},       # 10 status checks/min
     "summer_buddy": {"limit": 10, "window": 60},        # 10 buddy ops/min
 
+    # Buddy tracker endpoints
+    "buddy_verify_pin": {"limit": 5, "window": 300},      # 5 attempts/5min
+    "buddy_list": {"limit": 30, "window": 60},            # 30 list ops/min
+    "buddy_create": {"limit": 10, "window": 60},          # 10 creates/min
+    "buddy_update": {"limit": 20, "window": 60},          # 20 edits/min
+    "buddy_delete": {"limit": 10, "window": 60},          # 10 deletes/min
+    "buddy_lookup": {"limit": 20, "window": 60},          # 20 lookups/min
+
     # Prospect PIN endpoints - strict to prevent brute force
     "prospects_verify_pin": {"limit": 5, "window": 300},   # 5 attempts/5min
     "prospects_bulk_create": {"limit": 3, "window": 60},   # 3 bulk creates/min
