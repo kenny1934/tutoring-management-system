@@ -38,13 +38,13 @@ const BRANCHES = PROSPECT_BRANCHES;
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
 const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
-  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-100 text-blue-700" },
-  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
-  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700" },
-  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
-  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-100 text-violet-700" },
-  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-100 text-cyan-700" },
-  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-100 text-orange-700" },
+  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
+  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
+  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
 };
 
 // ---- Helpers ----
@@ -109,8 +109,8 @@ function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: str
 function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolean }) {
   const info = BRANCH_INFO[branch];
   const bg = info?.badge
-    ?? (branch === "MSA" ? "bg-blue-100 text-blue-700"
-    : branch === "MSB" ? "bg-purple-100 text-purple-700"
+    ?? (branch === "MSA" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+    : branch === "MSB" ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
     : "bg-neutral-100 text-neutral-700");
   return (
     <span className="inline-flex items-center gap-1">
@@ -118,7 +118,7 @@ function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolea
         {branch}
       </span>
       {isSibling && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
           Sibling
         </span>
       )}
@@ -748,12 +748,12 @@ export default function BuddyTrackerPage() {
 
                   {/* Cross-branch sibling warning */}
                   {hasAnyOtherBranch && (
-                    <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 space-y-2">
-                      <div className="flex items-start gap-2 text-xs text-amber-800">
+                    <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-2">
+                      <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                         <span>This group has members from another branch. Cross-branch groups are for siblings only.</span>
                       </div>
-                      <label className="flex items-center gap-2 text-xs font-medium text-amber-900 cursor-pointer">
+                      <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={siblingConfirmed}
@@ -775,7 +775,7 @@ export default function BuddyTrackerPage() {
               )}
               {formSuccess && (
                 <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
                     <Check className="h-5 w-5 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -881,7 +881,7 @@ export default function BuddyTrackerPage() {
           {filterTab === "solo" ? (
             <>
               <Check className="h-10 w-10 mx-auto mb-3 text-green-400" />
-              <p className="text-sm font-medium text-green-700">All students are paired!</p>
+              <p className="text-sm font-medium text-green-600 dark:text-green-400">All students are paired!</p>
             </>
           ) : filterTab === "complete" ? (
             <>
@@ -952,7 +952,7 @@ export default function BuddyTrackerPage() {
                       <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                       <span className="font-medium">{m.student_name_en}</span>
                       {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
+                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
                       {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
                     </div>
                   ))}
@@ -1177,7 +1177,7 @@ function DesktopRow({
       <tr
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
           isSolo ? `border-l-[3px] border-l-red-300 ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400"
-        } ${isRecent ? "bg-green-50 animate-fade-in" : ""}`}
+        } ${isRecent ? "bg-green-500/10 animate-fade-in" : ""}`}
         style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 40%, 50%, 0.06)` } : undefined}
         onClick={onToggleExpand}
       >
@@ -1185,7 +1185,7 @@ function DesktopRow({
         <td className="px-4 py-2.5">
           <span className="font-medium">{m.student_name_en}</span>
           {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
-          {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
+          {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
         <td className="px-4 py-2.5">
@@ -1251,13 +1251,13 @@ function MobileCard({
   return (
     <div className={`border-2 rounded-xl transition-colors ${
       isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
-    } ${isRecent ? "bg-green-50 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
+    } ${isRecent ? "bg-green-500/10 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{m.student_name_en}</span>
             {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
-            {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
+            {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
           </div>
           <div className="flex items-center gap-1.5">
             <GroupRing size={m.group_size} />
