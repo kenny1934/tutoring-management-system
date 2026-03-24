@@ -45,6 +45,26 @@ const BRANCH_INFO: Record<string, { district: string }> = {
 
 // ---- Helpers ----
 
+function codeHue(code: string): number {
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
+  return Math.abs(hash) % 360;
+}
+
+function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: string) => void; onClick?: () => void }) {
+  const hue = codeHue(code);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""}`}
+      style={{ backgroundColor: `hsl(${hue}, 40%, 93%)`, color: `hsl(${hue}, 50%, 35%)` }}
+      onClick={onClick}
+    >
+      {code}
+      {onCopy && <CopyButton text={code} onCopy={onCopy} />}
+    </span>
+  );
+}
+
 function relativeTime(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   if (days === 0) return "Today";
@@ -138,11 +158,20 @@ export default function BuddyTrackerPage() {
   const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete">("all");
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
+  const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const addFormRef = useRef<HTMLDivElement>(null);
 
   const handleCopyToast = useCallback((code: string) => {
     setCopyToast(code);
     clearTimeout(copyToastTimer.current);
     copyToastTimer.current = setTimeout(() => setCopyToast(null), 2000);
+  }, []);
+
+  const prefillBuddyCode = useCallback((code: string) => {
+    setFormBuddyCode(code);
+    setShowAddForm(true);
+    setTimeout(() => addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }, []);
 
   // Sort
@@ -260,6 +289,9 @@ export default function BuddyTrackerPage() {
       setLookupResult(null);
       setSiblingConfirmed(false);
       setFormSuccess(result.buddy_code);
+      setRecentlyAddedId(result.id);
+      clearTimeout(recentlyAddedTimer.current);
+      recentlyAddedTimer.current = setTimeout(() => setRecentlyAddedId(null), 3000);
       globalMutate(swrKey);
     } catch (err: unknown) {
       if (err && typeof err === "object" && "message" in err) {
@@ -423,6 +455,16 @@ export default function BuddyTrackerPage() {
     };
   }, [ownMembers]);
 
+  // Duplicate student ID detection
+  const existingStudentIds = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of ownMembers) map.set(m.student_id.toLowerCase(), m.buddy_code);
+    return map;
+  }, [ownMembers]);
+  const duplicateWarning = formStudentId.trim()
+    ? existingStudentIds.get(formStudentId.trim().toLowerCase()) ?? null
+    : null;
+
   // ============================================
   // RENDER: Branch Selection
   // ============================================
@@ -535,7 +577,7 @@ export default function BuddyTrackerPage() {
       </div>
 
       {/* Add Student Card */}
-      <div className="border-2 border-border rounded-2xl bg-card overflow-hidden">
+      <div ref={addFormRef} className="border-2 border-border rounded-2xl bg-card overflow-hidden">
         <button
           onClick={() => setShowAddForm(!showAddForm)}
           className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/50 transition-colors"
@@ -560,6 +602,12 @@ export default function BuddyTrackerPage() {
                     className="w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
                     placeholder="e.g. MAC1234"
                   />
+                  {duplicateWarning && (
+                    <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      Already in group {duplicateWarning}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">English Name *</label>
@@ -797,8 +845,7 @@ export default function BuddyTrackerPage() {
               >
                 <div className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-mono font-bold text-sm tracking-wider shrink-0">{g.code}</span>
-                    <CopyButton text={g.code} onCopy={handleCopyToast} />
+                    <CodePill code={g.code} onCopy={handleCopyToast} />
                     <GroupSizeBadge size={g.size} />
                     {isSolo && waitDays > 0 && (
                       <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
@@ -807,12 +854,20 @@ export default function BuddyTrackerPage() {
                     )}
                   </div>
                   {isSolo && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.code); handleCopyToast(g.code); }}
-                      className="shrink-0 px-3 py-1.5 text-[11px] font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                    >
-                      Copy Code to Share
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
+                        className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                      >
+                        <UserPlus className="h-3 w-3 inline mr-1" />Add partner
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.code); handleCopyToast(g.code); }}
+                        className="px-3 py-1.5 text-[11px] font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        Copy Code
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="divide-y divide-border">
@@ -867,6 +922,7 @@ export default function BuddyTrackerPage() {
                       editError={editError}
                       deletingId={deletingId}
                       confirmDeleteId={confirmDeleteId}
+                      recentlyAddedId={recentlyAddedId}
                       onCopyToast={handleCopyToast}
                       onToggleExpand={() => setExpandedIds((prev) => {
                         const next = new Set(prev);
@@ -880,6 +936,7 @@ export default function BuddyTrackerPage() {
                       onRequestDelete={() => requestDelete(m.id)}
                       onConfirmDelete={() => handleDelete(m.id)}
                       onCancelDelete={() => setConfirmDeleteId(null)}
+                      onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                     />
                   );
                 })}
@@ -902,6 +959,7 @@ export default function BuddyTrackerPage() {
                   editError={editError}
                   deletingId={deletingId}
                   confirmDeleteId={confirmDeleteId}
+                  recentlyAddedId={recentlyAddedId}
                   onCopyToast={handleCopyToast}
                   onToggleExpand={() => setExpandedIds((prev) => {
                     const next = new Set(prev);
@@ -915,6 +973,7 @@ export default function BuddyTrackerPage() {
                   onRequestDelete={() => requestDelete(m.id)}
                   onConfirmDelete={() => handleDelete(m.id)}
                   onCancelDelete={() => setConfirmDeleteId(null)}
+                  onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                 />
               );
             })}
@@ -1000,26 +1059,29 @@ function DeleteActions({ id, deletingId, confirmDeleteId, onRequest, onConfirm, 
 
 function DesktopRow({
   member: m, isExpanded, isEditing, editData, editError,
-  deletingId, confirmDeleteId, onCopyToast,
+  deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
   deletingId: number | null; confirmDeleteId: number | null;
+  recentlyAddedId: number | null;
   onCopyToast: (code: string) => void;
   onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
+  onAddPartner: () => void;
 }) {
   const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
   const isSolo = m.group_size < 2;
+  const isRecent = recentlyAddedId === m.id;
   return (
     <>
       <tr
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
           isSolo ? "border-l-[3px] border-l-red-300" : "border-l-[3px] border-l-green-400"
-        }`}
+        } ${isRecent ? "bg-green-50 animate-fade-in" : ""}`}
         onClick={onToggleExpand}
       >
         <td className="px-4 py-2.5 font-mono text-[11px]">{m.student_id}</td>
@@ -1029,14 +1091,10 @@ function DesktopRow({
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
         <td
-          className="px-4 py-2.5 cursor-copy"
-          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }}
-          title="Click to copy"
+          className="px-4 py-2.5"
+          onClick={(e) => e.stopPropagation()}
         >
-          <span className="inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider hover:text-primary transition-colors">
-            {m.buddy_code}
-            <Copy className="h-3 w-3 opacity-30" />
-          </span>
+          <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
         </td>
         <td className="px-4 py-2.5 text-center"><GroupSizeBadge size={m.group_size} /></td>
         <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
@@ -1058,7 +1116,14 @@ function DesktopRow({
             {isEditing ? (
               <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
             ) : (
-              <GroupDetail members={m.group_members} />
+              <div className="space-y-2">
+                <GroupDetail members={m.group_members} />
+                {isSolo && (
+                  <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    <UserPlus className="h-3 w-3" /> Add partner
+                  </button>
+                )}
+              </div>
             )}
           </td>
         </tr>
@@ -1071,23 +1136,26 @@ function DesktopRow({
 
 function MobileCard({
   member: m, isExpanded, isEditing, editData, editError,
-  deletingId, confirmDeleteId, onCopyToast,
+  deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
   deletingId: number | null; confirmDeleteId: number | null;
+  recentlyAddedId: number | null;
   onCopyToast?: (code: string) => void;
   onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
+  onAddPartner: () => void;
 }) {
   const isSolo = m.group_size < 2;
+  const isRecent = recentlyAddedId === m.id;
   return (
     <div className={`border-2 rounded-xl transition-colors ${
       isSolo ? "border-l-[3px] border-l-red-300 border-border" : "border-l-[3px] border-l-green-400 border-border"
-    } ${isExpanded ? "bg-muted/20" : "bg-card"}`}>
+    } ${isRecent ? "bg-green-50 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1099,13 +1167,10 @@ function MobileCard({
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono text-[10px]">{m.student_id}</span>
           {m.parent_phone && <span>{m.parent_phone}</span>}
-          <span className="inline-flex items-center gap-1 font-mono font-bold tracking-wider text-foreground">
-            {m.buddy_code}
-            <CopyButton text={m.buddy_code} onCopy={onCopyToast} large />
-          </span>
+          <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }} />
         </div>
       </div>
       {isSolo && !isExpanded && (
@@ -1125,7 +1190,12 @@ function MobileCard({
           ) : (
             <>
               <GroupDetail members={m.group_members} />
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1 flex-wrap">
+                {isSolo && (
+                  <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    <UserPlus className="h-3 w-3" /> Add partner
+                  </button>
+                )}
                 <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   <Pencil className="h-3 w-3" /> Edit
                 </button>
