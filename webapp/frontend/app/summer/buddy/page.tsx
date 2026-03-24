@@ -541,20 +541,20 @@ export default function BuddyTrackerPage() {
   // ---- Stats ----
   // Board view: split into solo and paired
   const boardSolo = useMemo(() =>
-    ownMembers.filter(m => m.group_size < 2).sort((a, b) => a.created_at.localeCompare(b.created_at)),
-    [ownMembers]
+    filteredMembers.filter(m => m.group_size < 2).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [filteredMembers]
   );
   const boardPaired = useMemo(() => {
     const map = new Map<number, { code: string; members: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
-    for (const m of ownMembers.filter(m => m.group_size >= 2)) {
+    for (const m of filteredMembers.filter(m => m.group_size >= 2)) {
       if (!map.has(m.buddy_group_id)) {
-        const others = m.group_members.filter(gm => !(gm.source === "primary" && ownMembers.some(om => om.id === gm.id)));
+        const others = m.group_members.filter(gm => !(gm.source === "primary" && filteredMembers.some(om => om.id === gm.id)));
         map.set(m.buddy_group_id, { code: m.buddy_code, members: [], others });
       }
       map.get(m.buddy_group_id)!.members.push(m);
     }
     return Array.from(map.values()).sort((a, b) => b.members[0].created_at.localeCompare(a.members[0].created_at));
-  }, [ownMembers]);
+  }, [filteredMembers]);
 
   const stats = useMemo(() => {
     if (!ownMembers.length) return { total: 0, groups: 0, paired: 0, solo: 0, crossBranch: 0 };
@@ -1069,6 +1069,7 @@ export default function BuddyTrackerPage() {
               <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : "bg-card"}`}>
                 <div className="flex items-center justify-between">
                   <div>
+                    <span className="font-mono text-[10px] text-muted-foreground mr-1.5">{m.student_id}</span>
                     <span className="font-medium text-sm">{m.student_name_en}</span>
                     {m.student_name_zh && <span className="text-xs text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
                     {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
@@ -1076,7 +1077,6 @@ export default function BuddyTrackerPage() {
                   <GroupRing size={m.group_size} />
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-mono text-[10px]">{m.student_id}</span>
                   {m.parent_phone && <span>{m.parent_phone}</span>}
                   <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`}>
                     {relativeTime(m.created_at)}
@@ -1085,6 +1085,9 @@ export default function BuddyTrackerPage() {
                 <div className="flex items-center gap-2">
                   <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
                   <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+                  <button onClick={() => generateShareCard(m.buddy_code, m.source_branch, CURRENT_YEAR)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors" title="Download share card">
+                    <Share2 className="h-3 w-3" />
+                  </button>
                   <button
                     onClick={() => prefillBuddyCode(m.buddy_code)}
                     className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
@@ -1115,9 +1118,9 @@ export default function BuddyTrackerPage() {
                 <div className="space-y-1">
                   {g.members.map(m => (
                     <div key={m.id} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
                       <span className="font-medium">{m.student_name_en}</span>
                       {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
                       {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
                     </div>
                   ))}
@@ -1430,6 +1433,9 @@ function DesktopRow({
           <span className="flex items-center gap-1.5 flex-wrap">
             <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
             <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+            <button onClick={() => generateShareCard(m.buddy_code, m.source_branch, m.year)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors" title="Download share card">
+              <Share2 className="h-3 w-3" />
+            </button>
           </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
