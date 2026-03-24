@@ -37,14 +37,14 @@ const BRANCHES = PROSPECT_BRANCHES;
 
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
-const BRANCH_INFO: Record<string, { district: string; dot: string }> = {
-  MAC: { district: "高士德", dot: "bg-blue-500" },
-  MCP: { district: "水坑尾", dot: "bg-emerald-500" },
-  MNT: { district: "東方明珠", dot: "bg-amber-500" },
-  MTA: { district: "氹仔美景I", dot: "bg-rose-500" },
-  MLT: { district: "林茂塘", dot: "bg-violet-500" },
-  MTR: { district: "氹仔美景II", dot: "bg-cyan-500" },
-  MOT: { district: "二龍喉", dot: "bg-orange-500" },
+const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
+  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-100 text-blue-700" },
+  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
+  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700" },
+  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
+  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-100 text-violet-700" },
+  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-100 text-cyan-700" },
+  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-100 text-orange-700" },
 };
 
 // ---- Helpers ----
@@ -107,10 +107,11 @@ function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: str
 }
 
 function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolean }) {
-  const isSecondary = branch === "Secondary";
-  const bg = isSecondary
-    ? "bg-purple-100 text-purple-700"
-    : "bg-neutral-100 text-neutral-700";
+  const info = BRANCH_INFO[branch];
+  const bg = info?.badge
+    ?? (branch === "MSA" ? "bg-blue-100 text-blue-700"
+    : branch === "MSB" ? "bg-purple-100 text-purple-700"
+    : "bg-neutral-100 text-neutral-700");
   return (
     <span className="inline-flex items-center gap-1">
       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${bg}`}>
@@ -562,7 +563,7 @@ export default function BuddyTrackerPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-primary text-primary-foreground">
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white ${BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`}>
             {branch}
           </span>
           <h1 className="text-lg font-bold text-foreground">Buddy Tracker</h1>

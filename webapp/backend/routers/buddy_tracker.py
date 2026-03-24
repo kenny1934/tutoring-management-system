@@ -32,6 +32,16 @@ router = APIRouter(prefix="/buddy-tracker")
 
 VALID_BRANCHES = {"MAC", "MCP", "MNT", "MTA", "MLT", "MTR", "MOT"}
 
+# Map secondary summer config location names to branch codes
+_LOCATION_TO_BRANCH = {"華士古分校": "MSA", "二龍喉分校": "MSB"}
+
+
+def _secondary_branch(location: str | None) -> str:
+    """Derive secondary branch code from preferred_location, fallback to 'Secondary'."""
+    if location and location in _LOCATION_TO_BRANCH:
+        return _LOCATION_TO_BRANCH[location]
+    return "Secondary"
+
 BRANCH_PINS = {
     branch: os.getenv(f"BUDDY_PIN_{branch}", "") or os.getenv(f"PROSPECT_PIN_{branch}", "")
     for branch in VALID_BRANCHES
@@ -82,7 +92,7 @@ def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[i
             id=a.id,
             name=a.student_name,
             student_id=None,
-            branch="Secondary",
+            branch=_secondary_branch(a.preferred_location),
             source="secondary",
             is_sibling=False,
         ))
@@ -189,7 +199,7 @@ def list_members(
         for sa in secondary_by_group.get(gid, []):
             group_members.append(BuddyGroupMemberInfo(
                 id=sa.id, name=sa.student_name, student_id=None,
-                branch="Secondary", source="secondary", is_sibling=False,
+                branch=_secondary_branch(sa.preferred_location), source="secondary", is_sibling=False,
             ).model_dump())
         return {
             "id": member.id, "buddy_group_id": gid,
