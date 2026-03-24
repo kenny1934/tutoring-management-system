@@ -25,7 +25,6 @@ import {
   LayoutGrid,
   Columns,
   Download,
-  Share2,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -128,72 +127,6 @@ function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolea
       )}
     </span>
   );
-}
-
-function generateShareCard(code: string, branch: string, year: number) {
-  const district = BRANCH_INFO[branch]?.district ?? branch;
-  const canvas = document.createElement("canvas");
-  const w = 480, h = 320;
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-
-  // Red header
-  ctx.fillStyle = "#dc2626";
-  ctx.fillRect(0, 0, w, 80);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 18px system-ui, sans-serif";
-  ctx.fillText("MathConcept", 24, 38);
-  ctx.font = "14px system-ui, sans-serif";
-  ctx.fillText(`Summer Course ${year}`, 24, 62);
-
-  // White body
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 80, w, h - 80);
-
-  // "Your Buddy Code:" label
-  ctx.fillStyle = "#737373";
-  ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("Your Buddy Code:", 24, 120);
-
-  // Code pill
-  ctx.font = "bold 28px monospace";
-  const codeWidth = ctx.measureText(code).width;
-  ctx.fillStyle = "#dc2626";
-  const pillW = codeWidth + 40;
-  ctx.beginPath();
-  ctx.roundRect(24, 135, pillW, 50, 12);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 28px monospace";
-  ctx.textBaseline = "middle";
-  ctx.fillText(code, 44, 160);
-  ctx.textBaseline = "alphabetic";
-
-  // Helper text
-  ctx.fillStyle = "#737373";
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.fillText("Share this code with your friend when they", 24, 215);
-  ctx.fillText("register for the summer course.", 24, 232);
-
-  // Footer
-  ctx.fillStyle = "#a3a3a3";
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.fillText(`${district} (${branch}) · ${year}`, 24, 290);
-
-  // Border
-  ctx.strokeStyle = "#e5e5e5";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(1, 1, w - 2, h - 2, 16);
-  ctx.stroke();
-
-  // Download
-  const url = canvas.toDataURL("image/png");
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `buddy-code-${code}.png`;
-  a.click();
 }
 
 function CrossBranchIndicator({ members, currentBranch }: { members: BuddyGroupMemberInfo[]; currentBranch: string }) {
@@ -919,13 +852,6 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
-                      <button
-                        onClick={() => generateShareCard(formSuccess, branch!, CURRENT_YEAR)}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
-                        title="Download share card"
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">Share this code with the student&apos;s family so their friends can register with it.</p>
                   </div>
@@ -1085,9 +1011,6 @@ export default function BuddyTrackerPage() {
                 <div className="flex items-center gap-2">
                   <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
                   <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-                  <button onClick={() => generateShareCard(m.buddy_code, m.source_branch, CURRENT_YEAR)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors" title="Download share card">
-                    <Share2 className="h-3 w-3" />
-                  </button>
                   <button
                     onClick={() => prefillBuddyCode(m.buddy_code)}
                     className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
@@ -1433,9 +1356,6 @@ function DesktopRow({
           <span className="flex items-center gap-1.5 flex-wrap">
             <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
             <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-            <button onClick={() => generateShareCard(m.buddy_code, m.source_branch, m.year)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors" title="Download share card">
-              <Share2 className="h-3 w-3" />
-            </button>
           </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
