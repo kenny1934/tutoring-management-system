@@ -22,6 +22,7 @@ import {
   RefreshCw,
   LayoutList,
   LayoutGrid,
+  Download,
   X,
 } from "lucide-react";
 import { buddyTrackerAPI } from "@/lib/api";
@@ -565,6 +566,30 @@ export default function BuddyTrackerPage() {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
+          {ownMembers.length > 0 && (
+            <button
+              onClick={() => {
+                const header = "Student ID,English Name,Chinese Name,Parent Phone,Buddy Code,Group Size,Status,Created";
+                const rows = ownMembers.map(m =>
+                  [m.student_id, m.student_name_en, m.student_name_zh || "", m.parent_phone || "", m.buddy_code, m.group_size, m.group_size >= 2 ? "Paired" : "Solo", m.created_at.split("T")[0]]
+                    .map(v => `"${String(v).replace(/"/g, '""')}"`)
+                    .join(",")
+                );
+                const csv = [header, ...rows].join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `buddy-tracker-${branch}-${CURRENT_YEAR}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="p-1 rounded-lg hover:bg-muted transition-colors"
+              title="Export CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+          )}
           <a href="/summer/buddy" className="hover:text-primary transition-colors">
             Change branch
           </a>
@@ -858,7 +883,7 @@ export default function BuddyTrackerPage() {
                 <div className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <CodePill code={g.code} onCopy={handleCopyToast} />
-                    <GroupSizeBadge size={g.size} />
+                    <GroupRing size={g.size} />
                     {isSolo && waitDays > 0 && (
                       <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
                         Waiting {waitDays}d
@@ -1034,18 +1059,25 @@ function SortHeader({ field, label, current, dir, onSort, center }: {
 
 // ---- Group Size Badge (merged Group + Status) ----
 
-function GroupSizeBadge({ size }: { size: number }) {
-  if (size >= 2) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
-        {size} <Check className="h-2.5 w-2.5" />
-      </span>
-    );
-  }
+function GroupRing({ size }: { size: number }) {
+  const complete = size >= 2;
+  const r = 8, cx = 10, cy = 10;
+  const c = 2 * Math.PI * r;
+  const filled = c * Math.min(size / 2, 1);
   return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-red-300 text-red-600">
-      {size}/2
-    </span>
+    <svg width="20" height="20" className="shrink-0">
+      <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
+        stroke={complete ? "#22c55e" : "#e5e5e5"} />
+      {!complete && (
+        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
+          stroke="#ef4444" strokeDasharray={`${filled} ${c}`}
+          strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
+      )}
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
+        className={`text-[8px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
+        {complete ? "✓" : size}
+      </text>
+    </svg>
   );
 }
 
@@ -1114,7 +1146,7 @@ function DesktopRow({
         >
           <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
         </td>
-        <td className="px-4 py-2.5 text-center"><GroupSizeBadge size={m.group_size} /></td>
+        <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
         <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
           {relativeTime(m.created_at)}
         </td>
@@ -1181,7 +1213,7 @@ function MobileCard({
             {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
           </div>
           <div className="flex items-center gap-1.5">
-            <GroupSizeBadge size={m.group_size} />
+            <GroupRing size={m.group_size} />
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
           </div>
         </div>
