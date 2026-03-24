@@ -5,8 +5,6 @@ to track buddy group registrations for summer courses.
 import hmac
 import logging
 import os
-import secrets
-import string
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -25,6 +23,7 @@ from schemas import (
     BuddyMemberUpdate,
 )
 from auth.dependencies import require_admin_view
+from routers.summer_course import _generate_buddy_code
 from utils.rate_limiter import check_ip_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -51,13 +50,6 @@ def _check_pin(request: Request, branch: str):
     if not expected or not hmac.compare_digest(pin, expected):
         logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
-
-
-def _generate_buddy_code() -> str:
-    """Generate a 6-char alphanumeric buddy code like BG-7X3K."""
-    chars = string.ascii_uppercase + string.digits
-    code = "".join(secrets.choice(chars) for _ in range(4))
-    return f"BG-{code}"
 
 
 def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[int] = None) -> list[BuddyGroupMemberInfo]:
@@ -96,18 +88,6 @@ def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[i
         ))
 
     return members
-
-
-def _get_group_size(db: Session, group_id: int) -> int:
-    """Count total members in a buddy group (primary + secondary)."""
-    primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == group_id,
-    ).scalar() or 0
-    secondary_count = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == group_id,
-        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-    ).scalar() or 0
-    return primary_count + secondary_count
 
 
 def _member_to_response(db: Session, member: SummerBuddyMember) -> dict:
@@ -166,28 +146,73 @@ def list_members(
     _check_pin(request, branch)
     check_ip_rate_limit(request, "buddy_list")
 
-    members = db.query(SummerBuddyMember).filter(
+    from sqlalchemy.orm import joinedload
+
+    members = db.query(SummerBuddyMember).options(
+        joinedload(SummerBuddyMember.buddy_group),
+    ).filter(
         SummerBuddyMember.source_branch == branch,
         SummerBuddyMember.year == year,
     ).order_by(SummerBuddyMember.created_at.desc()).all()
 
-    # Also include members from other branches that are in groups with our branch's members
-    # (cross-branch siblings) — we need their group IDs
     our_group_ids = {m.buddy_group_id for m in members}
+    if not our_group_ids:
+        return []
 
-    # Build response
-    result = []
-    for m in members:
-        result.append(_member_to_response(db, m))
+    # Batch-load all group members (primary + secondary) in 2 queries instead of 2N
+    all_primary = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.buddy_group_id.in_(our_group_ids),
+    ).all()
+    all_secondary = db.query(SummerApplication).filter(
+        SummerApplication.buddy_group_id.in_(our_group_ids),
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).all()
 
-    # Also fetch cross-branch sibling entries that are in our groups but from other branches
-    if our_group_ids:
-        cross_branch = db.query(SummerBuddyMember).filter(
-            SummerBuddyMember.buddy_group_id.in_(our_group_ids),
-            SummerBuddyMember.source_branch != branch,
-        ).all()
-        for m in cross_branch:
-            result.append(_member_to_response(db, m))
+    # Index by group_id
+    primary_by_group: dict[int, list[SummerBuddyMember]] = {}
+    for m in all_primary:
+        primary_by_group.setdefault(m.buddy_group_id, []).append(m)
+    secondary_by_group: dict[int, list[SummerApplication]] = {}
+    for a in all_secondary:
+        secondary_by_group.setdefault(a.buddy_group_id, []).append(a)
+
+    def _build_response(member: SummerBuddyMember) -> dict:
+        gid = member.buddy_group_id
+        group_members: list[dict] = []
+        for pm in primary_by_group.get(gid, []):
+            if pm.id == member.id:
+                continue
+            group_members.append(BuddyGroupMemberInfo(
+                id=pm.id, name=pm.student_name_en, student_id=pm.student_id,
+                branch=pm.source_branch, source="primary", is_sibling=pm.is_sibling,
+            ).model_dump())
+        for sa in secondary_by_group.get(gid, []):
+            group_members.append(BuddyGroupMemberInfo(
+                id=sa.id, name=sa.student_name, student_id=None,
+                branch="Secondary", source="secondary", is_sibling=False,
+            ).model_dump())
+        return {
+            "id": member.id, "buddy_group_id": gid,
+            "student_id": member.student_id,
+            "student_name_en": member.student_name_en,
+            "student_name_zh": member.student_name_zh,
+            "parent_phone": member.parent_phone,
+            "source_branch": member.source_branch,
+            "is_sibling": member.is_sibling,
+            "year": member.year,
+            "created_at": member.created_at,
+            "updated_at": member.updated_at,
+            "buddy_code": member.buddy_group.buddy_code,
+            "group_size": len(group_members) + 1,
+            "group_members": group_members,
+        }
+
+    result = [_build_response(m) for m in members]
+
+    # Add cross-branch siblings
+    cross_branch = [m for m in all_primary if m.source_branch != branch]
+    for m in cross_branch:
+        result.append(_build_response(m))
 
     return result
 
@@ -213,16 +238,16 @@ def create_member(
             raise HTTPException(status_code=404, detail="Buddy code not found")
 
         # Check for cross-branch members
-        existing_primary = db.query(SummerBuddyMember).filter(
+        cross_primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
             SummerBuddyMember.buddy_group_id == group.id,
             SummerBuddyMember.source_branch != data.source_branch,
-        ).all()
-        existing_secondary = db.query(SummerApplication).filter(
+        ).scalar() or 0
+        secondary_count = db.query(func.count(SummerApplication.id)).filter(
             SummerApplication.buddy_group_id == group.id,
             SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-        ).all()
+        ).scalar() or 0
 
-        has_cross_branch = len(existing_primary) > 0 or len(existing_secondary) > 0
+        has_cross_branch = cross_primary_count > 0 or secondary_count > 0
         if has_cross_branch and not data.is_sibling:
             # Return existing members so frontend can show them for confirmation
             all_members = _get_group_members(db, group.id)

@@ -26,12 +26,15 @@ import {
 } from "lucide-react";
 import { buddyTrackerAPI } from "@/lib/api";
 import type { BuddyMember, BuddyGroupMemberInfo, BuddyGroupLookup } from "@/types";
+import { PROSPECT_BRANCHES } from "@/types";
 
 // ---- Constants ----
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-const BRANCHES = ["MAC", "MCP", "MNT", "MTA", "MLT", "MTR", "MOT"] as const;
+const BRANCHES = PROSPECT_BRANCHES;
+
+const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
 const BRANCH_INFO: Record<string, { district: string }> = {
   MAC: { district: "高士德" },
@@ -247,14 +250,6 @@ export default function BuddyTrackerPage() {
       setLookupLoading(false);
     }
   }, [formBuddyCode, branch]);
-
-  // ---- Check if lookup result has cross-branch members ----
-  const hasCrossBranch = useMemo(() => {
-    if (!lookupResult || !branch) return false;
-    return lookupResult.members.some(
-      (m) => m.branch !== branch && m.branch !== "Secondary"
-    );
-  }, [lookupResult, branch]);
 
   const hasAnyOtherBranch = useMemo(() => {
     if (!lookupResult || !branch) return false;
@@ -599,7 +594,7 @@ export default function BuddyTrackerPage() {
                   <input
                     value={formStudentId}
                     onChange={(e) => setFormStudentId(e.target.value)}
-                    className="w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className={inputCls}
                     placeholder="e.g. MAC1234"
                   />
                   {duplicateWarning && (
@@ -614,7 +609,7 @@ export default function BuddyTrackerPage() {
                   <input
                     value={formNameEn}
                     onChange={(e) => setFormNameEn(e.target.value)}
-                    className="w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className={inputCls}
                     placeholder="Full name"
                   />
                 </div>
@@ -623,7 +618,7 @@ export default function BuddyTrackerPage() {
                   <input
                     value={formNameZh}
                     onChange={(e) => setFormNameZh(e.target.value)}
-                    className="w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className={inputCls}
                     placeholder="中文名"
                   />
                 </div>
@@ -633,7 +628,7 @@ export default function BuddyTrackerPage() {
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
                     inputMode="tel"
-                    className="w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className={inputCls}
                     placeholder="Phone number"
                   />
                 </div>
@@ -1239,25 +1234,25 @@ function EditForm({
   onChange: (field: string, value: string) => void;
   onSave: () => void; onCancel: () => void;
 }) {
-  const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
+  const inputSmall = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Student ID</label>
-          <input value={editData.student_id || ""} onChange={(e) => onChange("student_id", e.target.value)} className={inputCls} />
+          <input value={editData.student_id || ""} onChange={(e) => onChange("student_id", e.target.value)} className={inputSmall} />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">English Name</label>
-          <input value={editData.student_name_en || ""} onChange={(e) => onChange("student_name_en", e.target.value)} className={inputCls} />
+          <input value={editData.student_name_en || ""} onChange={(e) => onChange("student_name_en", e.target.value)} className={inputSmall} />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Chinese Name</label>
-          <input value={editData.student_name_zh || ""} onChange={(e) => onChange("student_name_zh", e.target.value)} className={inputCls} />
+          <input value={editData.student_name_zh || ""} onChange={(e) => onChange("student_name_zh", e.target.value)} className={inputSmall} />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Parent Phone</label>
-          <input value={editData.parent_phone || ""} onChange={(e) => onChange("parent_phone", e.target.value)} className={inputCls} />
+          <input value={editData.parent_phone || ""} onChange={(e) => onChange("parent_phone", e.target.value)} className={inputSmall} />
         </div>
       </div>
       {editError && (
