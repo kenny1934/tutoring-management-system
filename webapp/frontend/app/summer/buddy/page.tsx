@@ -25,6 +25,7 @@ import {
   Download,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { buddyTrackerAPI } from "@/lib/api";
 import type { BuddyMember, BuddyGroupMemberInfo, BuddyGroupLookup } from "@/types";
 import { PROSPECT_BRANCHES } from "@/types";
@@ -524,47 +525,61 @@ export default function BuddyTrackerPage() {
   }
 
   // ============================================
-  // RENDER: PIN Gate
+  // RENDER: PIN Gate — branded full-screen
   // ============================================
   if (!pinVerified) {
+    const branchDot = BRANCH_INFO[branch!]?.dot ?? "bg-primary";
+    const branchDistrict = BRANCH_INFO[branch!]?.district ?? "";
     return (
-      <div className="max-w-sm mx-auto py-4 animate-fade-in">
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-lock-pulse">
-            <Lock className="h-7 w-7 text-primary" />
+      <div className="min-h-[60vh] flex items-center justify-center animate-fade-in -mt-8">
+        <div className={`absolute inset-0 ${branchDot} opacity-[0.03] pointer-events-none`} />
+        <div className="relative max-w-sm w-full mx-4 bg-card border-2 border-border rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-8 text-center space-y-5">
+            <Image
+              src="/summer/buddy/icon.png"
+              alt="MathConcept"
+              width={48}
+              height={48}
+              className="h-14 w-14 mx-auto rounded-2xl"
+            />
+            {branchDistrict && (
+              <div>
+                <div className="text-2xl font-bold text-foreground">{branchDistrict}</div>
+                <span className={`inline-block mt-1 text-xs font-bold px-2.5 py-0.5 rounded-full text-white ${branchDot}`}>
+                  {branch}
+                </span>
+              </div>
+            )}
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">Staff Access</div>
+            <div className="space-y-3">
+              <input
+                type="password"
+                inputMode="numeric"
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handlePinSubmit()}
+                className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors ${
+                  pinError ? "border-red-400" : "border-border"
+                } ${pinShake ? "animate-shake" : ""}`}
+                placeholder="Enter PIN"
+                autoFocus
+              />
+              {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
+              <button
+                onClick={handlePinSubmit}
+                disabled={!pinInput.trim() || pinChecking}
+                className="w-full py-3 rounded-xl font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {pinChecking ? "Verifying..." : "Verify"}
+              </button>
+            </div>
           </div>
-          <h1 className="text-lg font-bold text-foreground">Buddy Tracker — {branch}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Enter PIN to access</p>
-        </div>
-
-        <div className="space-y-3">
-          <input
-            type="password"
-            inputMode="numeric"
-            value={pinInput}
-            onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
-            onKeyDown={(e) => e.key === "Enter" && handlePinSubmit()}
-            className={`w-full text-center text-lg tracking-widest border-2 rounded-xl px-4 py-3 bg-card focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors ${
-              pinError ? "border-red-400" : "border-border"
-            } ${pinShake ? "animate-shake" : ""}`}
-            placeholder="Enter PIN"
-            autoFocus
-          />
-          {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
-          <button
-            onClick={handlePinSubmit}
-            disabled={!pinInput.trim() || pinChecking}
-            className="w-full py-3 rounded-xl font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {pinChecking ? "Verifying..." : "Verify"}
-          </button>
-          <a
-            href="/summer/buddy"
-            className="block text-center text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 inline mr-1" />
-            Change branch
-          </a>
+          <div className="border-t border-border py-3 text-center">
+            <a href="/summer/buddy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <ArrowLeft className="h-3.5 w-3.5 inline mr-1" />
+              Change branch
+            </a>
+          </div>
         </div>
       </div>
     );
