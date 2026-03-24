@@ -25,7 +25,7 @@ export function SummerHeader() {
   const isInternalPage = isProspectSubdomain || isBuddyPage || !isPublicPage;
 
   return (
-    <header className="bg-card border-b border-border shadow-sm">
+    <header className="bg-card border-b border-border shadow-sm relative z-50">
       <div className="mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {isBuddyPage ? (

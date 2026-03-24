@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
@@ -152,8 +153,13 @@ export default function BuddyTrackerPage() {
   const [pinShake, setPinShake] = useState(false);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Add student form
-  const [showAddForm, setShowAddForm] = useState(true);
+  // Add student drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerClosing, setDrawerClosing] = useState(false);
+  const closeDrawer = useCallback(() => {
+    setDrawerClosing(true);
+    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+  }, []);
   const [formStudentId, setFormStudentId] = useState("");
   const [formNameEn, setFormNameEn] = useState("");
   const [formNameZh, setFormNameZh] = useState("");
@@ -185,7 +191,7 @@ export default function BuddyTrackerPage() {
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
   const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const addFormRef = useRef<HTMLDivElement>(null);
+
   const studentIdRef = useRef<HTMLInputElement>(null);
 
   const handleCopyToast = useCallback((code: string) => {
@@ -196,8 +202,7 @@ export default function BuddyTrackerPage() {
 
   const prefillBuddyCode = useCallback((code: string) => {
     setFormBuddyCode(code);
-    setShowAddForm(true);
-    setTimeout(() => addFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    setDrawerOpen(true);
   }, []);
 
   // Sort
@@ -308,7 +313,6 @@ export default function BuddyTrackerPage() {
       setLookupResult(null);
       setSiblingConfirmed(false);
       setFormSuccess(result.buddy_code);
-      setShowAddForm(true);
       setRecentlyAddedId(result.id);
       setTimeout(() => studentIdRef.current?.focus(), 100);
       clearTimeout(recentlyAddedTimer.current);
@@ -659,24 +663,40 @@ export default function BuddyTrackerPage() {
         </div>
       )}
 
-      {/* Add Student Card */}
-      <div ref={addFormRef} className="border-2 border-border rounded-2xl bg-card overflow-hidden">
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/50 transition-colors"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <UserPlus className="h-4 w-4 text-primary" />
-            Add Student
-          </span>
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${showAddForm ? "rotate-180" : ""}`} />
-        </button>
+      {/* FAB — Add Student */}
+      {typeof document !== "undefined" && createPortal(
+      <div className="buddy-theme">
+      <button
+        onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)}
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center ${
+          drawerOpen ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
+        }`}
+        title={drawerOpen ? "Close" : "Add Student"}
+      >
+        {drawerOpen ? <X className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+      </button>
+      </div>,
+      document.body
+      )}
 
-        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAddForm ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-          <div className="overflow-hidden">
-            <div className="px-5 pb-5 pt-2 space-y-4">
+      {/* Drawer — Add Student Form */}
+      {(drawerOpen || drawerClosing) && typeof document !== "undefined" && createPortal(
+        <div className="buddy-theme">
+        <div className={`fixed inset-0 z-40 bg-black/40 ${drawerClosing ? "animate-backdrop-out" : "animate-backdrop-in"}`} onClick={() => { if (!formSuccess) closeDrawer(); }} />
+        <div className="fixed right-2 sm:right-3 bottom-[88px] z-40 w-[calc(100%-1rem)] sm:w-[420px]">
+          <div className={`max-h-[calc(100vh-160px)] overflow-y-auto bg-card rounded-2xl shadow-2xl ${drawerClosing ? "animate-drawer-out" : "animate-drawer-in"}`}>
+            <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10">
+              <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <UserPlus className="h-4 w-4 text-primary" />
+                Add Student
+              </span>
+              <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
               {/* Student fields */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Student ID <span className="text-red-500">*</span></label>
                   <input
@@ -836,7 +856,9 @@ export default function BuddyTrackerPage() {
             </div>
           </div>
         </div>
-      </div>
+        </div>,
+        document.body
+      )}
 
       {/* Filter tabs + search + view toggle */}
       {ownMembers.length > 0 && (

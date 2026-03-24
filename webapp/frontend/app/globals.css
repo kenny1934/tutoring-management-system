@@ -256,6 +256,27 @@
   animation: pill-pop 0.25s ease-out;
 }
 
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes drawer-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(20px) scale(0.97); }
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.animate-drawer-in { animation: drawer-in 0.25s ease-out; }
+.animate-drawer-out { animation: drawer-out 0.2s ease-in forwards; }
+.animate-backdrop-in { animation: backdrop-in 0.2s ease-out; }
+.animate-backdrop-out { animation: backdrop-out 0.2s ease-in forwards; }
+
 /* ===== CUSTOM ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }
