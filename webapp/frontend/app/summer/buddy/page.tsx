@@ -179,6 +179,8 @@ export default function BuddyTrackerPage() {
   // Table state
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [linkingId, setLinkingId] = useState<number | null>(null);
+  const [linkCode, setLinkCode] = useState("");
   const [editData, setEditData] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -366,6 +368,18 @@ export default function BuddyTrackerPage() {
       setEditError("Failed to save changes");
     }
   }, [editingId, branch, editData, swrKey]);
+
+  const handleLink = useCallback(async (memberId: number, targetCode: string, isSibling = false) => {
+    if (!branch) return;
+    try {
+      await buddyTrackerAPI.linkMember(memberId, branch, targetCode, isSibling);
+      setLinkingId(null);
+      setLinkCode("");
+      globalMutate(swrKey);
+    } catch {
+      // Error handling — could be CROSS_BRANCH_SIBLING_REQUIRED
+    }
+  }, [branch, swrKey]);
 
   const requestDelete = useCallback((id: number) => {
     setConfirmDeleteId(id);
@@ -1020,12 +1034,47 @@ export default function BuddyTrackerPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
+                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                        <Link2 className="h-3 w-3" /> Link
+                      </button>
                       <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                         <Pencil className="h-3 w-3" /> Edit
                       </button>
                       <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                         onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
                     </div>
+                    {linkingId === m.id && (
+                      <div className="mt-2 p-2.5 border-2 border-border rounded-xl space-y-2">
+                        <p className="text-[10px] font-medium text-muted-foreground">Link to another student or group:</p>
+                        {boardSolo.filter(s => s.id !== m.id).length > 0 && (
+                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {boardSolo.filter(s => s.id !== m.id).map(s => (
+                              <button key={s.id} onClick={() => handleLink(m.id, s.buddy_code)}
+                                className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
+                                <span className="font-medium">{s.student_name_en}</span>
+                                <CodePill code={s.buddy_code} />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            value={linkCode}
+                            onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
+                            className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
+                            placeholder="Or enter code: BG-XXXX"
+                          />
+                          <button
+                            onClick={() => linkCode.trim() && handleLink(m.id, linkCode.trim())}
+                            disabled={!linkCode.trim()}
+                            className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                          >
+                            Link
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1113,6 +1162,12 @@ export default function BuddyTrackerPage() {
                   {isSolo && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button
+                        onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === g.own[0]?.id ? null : g.own[0]?.id ?? null); }}
+                        className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                      >
+                        <Link2 className="h-3 w-3 inline mr-1" />Link
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
                       >
@@ -1165,6 +1220,33 @@ export default function BuddyTrackerPage() {
                   {isSolo && (
                     <div className="px-4 py-2 text-[10px] text-muted-foreground/70">
                       Share the code with the student&apos;s family so their friend can register with it.
+                    </div>
+                  )}
+                  {isSolo && g.own[0] && linkingId === g.own[0].id && (
+                    <div className="px-4 py-2.5 border-t border-border space-y-2">
+                      <p className="text-[10px] font-medium text-muted-foreground">Link to another student:</p>
+                      {boardSolo.filter(s => s.id !== g.own[0].id).length > 0 && (
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {boardSolo.filter(s => s.id !== g.own[0].id).map(s => (
+                            <button key={s.id} onClick={() => handleLink(g.own[0].id, s.buddy_code)}
+                              className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-2">
+                              <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
+                              <span className="font-medium">{s.student_name_en}</span>
+                              <CodePill code={s.buddy_code} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input value={linkCode} onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
+                          className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
+                          placeholder="Or enter code: BG-XXXX" />
+                        <button onClick={() => linkCode.trim() && handleLink(g.own[0].id, linkCode.trim())}
+                          disabled={!linkCode.trim()}
+                          className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors">
+                          Link
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -372,6 +372,83 @@ def delete_member(
     return {"deleted": True}
 
 
+class _LinkRequest(BaseModel):
+    buddy_code: str
+    is_sibling: bool = False
+
+
+@router.patch("/members/{member_id}/link")
+def link_member(
+    request: Request,
+    member_id: int,
+    data: _LinkRequest,
+    branch: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Move a member into a different buddy group (link/merge)."""
+    if branch not in VALID_BRANCHES:
+        raise HTTPException(status_code=400, detail="Invalid branch")
+    _check_pin(request, branch)
+    check_ip_rate_limit(request, "buddy_update")
+
+    member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if member.source_branch != branch:
+        raise HTTPException(status_code=403, detail="Cannot link member from another branch")
+
+    # Look up target group
+    target_group = db.query(SummerBuddyGroup).filter(
+        SummerBuddyGroup.buddy_code == data.buddy_code.strip().upper(),
+    ).first()
+    if not target_group:
+        raise HTTPException(status_code=404, detail="Buddy code not found")
+    if target_group.id == member.buddy_group_id:
+        raise HTTPException(status_code=400, detail="Already in this group")
+
+    # Cross-branch check
+    cross_primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == target_group.id,
+        SummerBuddyMember.source_branch != branch,
+    ).scalar() or 0
+    secondary_count = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == target_group.id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if (cross_primary_count > 0 or secondary_count > 0) and not data.is_sibling:
+        all_members = _get_group_members(db, target_group.id)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CROSS_BRANCH_SIBLING_REQUIRED",
+                "message": "This group has members from another branch. Cross-branch groups are for siblings only.",
+                "existing_members": [m.model_dump() for m in all_members],
+            },
+        )
+
+    # Clean up old group
+    old_group_id = member.buddy_group_id
+    member.buddy_group_id = target_group.id
+    member.is_sibling = data.is_sibling
+    db.flush()
+
+    remaining = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == old_group_id,
+    ).scalar() or 0
+    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == old_group_id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if remaining == 0 and remaining_secondary == 0:
+        old_group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == old_group_id).first()
+        if old_group:
+            db.delete(old_group)
+
+    db.commit()
+    db.refresh(member)
+    return _member_to_response(db, member)
+
+
 @router.get("/groups/{code}")
 def lookup_group(
     request: Request,
