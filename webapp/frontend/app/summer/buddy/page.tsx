@@ -157,9 +157,10 @@ function generateShareCard(code: string, branch: string, year: number) {
   ctx.fillText("Your Buddy Code:", 24, 120);
 
   // Code pill
-  ctx.fillStyle = "#dc2626";
+  ctx.font = "bold 28px monospace";
   const codeWidth = ctx.measureText(code).width;
-  const pillW = codeWidth * 2.2 + 40;
+  ctx.fillStyle = "#dc2626";
+  const pillW = codeWidth + 40;
   ctx.beginPath();
   ctx.roundRect(24, 135, pillW, 50, 12);
   ctx.fill();
@@ -1062,7 +1063,9 @@ export default function BuddyTrackerPage() {
                 <Check className="h-6 w-6 mx-auto mb-2 text-green-500" />
                 All paired!
               </div>
-            ) : boardSolo.map(m => (
+            ) : boardSolo.map(m => {
+              const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
+              return (
               <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : "bg-card"}`}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -1075,7 +1078,7 @@ export default function BuddyTrackerPage() {
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="font-mono text-[10px]">{m.student_id}</span>
                   {m.parent_phone && <span>{m.parent_phone}</span>}
-                  <span className={`text-[10px] ${Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000) >= 3 ? "text-red-500 font-medium" : Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000) >= 1 ? "text-amber-500" : ""}`}>
+                  <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`}>
                     {relativeTime(m.created_at)}
                   </span>
                 </div>
@@ -1090,7 +1093,8 @@ export default function BuddyTrackerPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Paired column */}
