@@ -770,6 +770,18 @@ export default function BuddyTrackerPage() {
                 </button>
               );
             })}
+            {filterTab === "solo" && stats.solo > 0 && (
+              <button
+                onClick={() => {
+                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
+                  navigator.clipboard.writeText(codes.join("\n"));
+                  handleCopyToast(`${codes.length} codes`);
+                }}
+                className="text-xs font-medium px-3 py-1.5 rounded-full border-2 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+              >
+                <Copy className="h-3 w-3 inline mr-1" />Copy all codes
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -828,6 +840,11 @@ export default function BuddyTrackerPage() {
       ) : viewMode === "groups" ? (
         /* Grouped view */
         <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {groupedData.length} group{groupedData.length !== 1 ? "s" : ""}
+            {" · "}{groupedData.filter(g => g.size >= 2).length} complete
+            {" · "}{groupedData.filter(g => g.size < 2).length} waiting
+          </p>
           {groupedData.map((g) => {
             const isSolo = g.size < 2;
             const waitDays = Math.floor((Date.now() - new Date(g.oldestCreated).getTime()) / 86400000);
@@ -882,6 +899,11 @@ export default function BuddyTrackerPage() {
                       <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
                     </div>
                   ))}
+                  {isSolo && (
+                    <div className="px-4 py-2 text-[10px] text-muted-foreground/70">
+                      Share the code with the student&apos;s family so their friend can register with it.
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1077,6 +1099,7 @@ function DesktopRow({
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
           isSolo ? "border-l-[3px] border-l-red-300" : "border-l-[3px] border-l-green-400"
         } ${isRecent ? "bg-green-50 animate-fade-in" : ""}`}
+        style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 30%, 97%)` } : undefined}
         onClick={onToggleExpand}
       >
         <td className="px-4 py-2.5 font-mono text-[11px]">{m.student_id}</td>
