@@ -29,13 +29,15 @@ export function SummerHeader() {
       <div className="mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {isBuddyPage ? (
-            <Image
-              src="/logo-mathconcept.png"
-              alt="MathConcept"
-              width={180}
-              height={48}
-              className="h-9 w-auto"
-            />
+            <a href="https://mathconcept.com.mo" target="_blank" rel="noopener noreferrer">
+              <Image
+                src="/logo-mathconcept.png"
+                alt="MathConcept"
+                width={180}
+                height={48}
+                className="h-9 w-auto"
+              />
+            </a>
           ) : isPublicPage ? (
             <Image
               src="/logo-secondary.png"
