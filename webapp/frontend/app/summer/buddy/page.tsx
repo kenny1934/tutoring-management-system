@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
   Lock,
-  Plus,
   Users,
   Search,
   Copy,
@@ -14,9 +13,15 @@ import {
   Trash2,
   ChevronDown,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   Link2,
   AlertTriangle,
   UserPlus,
+  RefreshCw,
+  LayoutList,
+  LayoutGrid,
   X,
 } from "lucide-react";
 import { buddyTrackerAPI } from "@/lib/api";
@@ -57,21 +62,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
-  );
-}
-
-function StatusBadge({ size }: { size: number }) {
-  if (size >= 2) {
-    return (
-      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
-        Paired
-      </span>
-    );
-  }
-  return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-red-300 text-red-600">
-      Solo
-    </span>
   );
 }
 
@@ -118,7 +108,6 @@ export default function BuddyTrackerPage() {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const formSuccessTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Buddy code lookup
   const [lookupResult, setLookupResult] = useState<BuddyGroupLookup | null>(null);
@@ -131,9 +120,17 @@ export default function BuddyTrackerPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "groups">("list");
+
+  // Sort
+  type SortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | null;
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Data
   const validBranch = branch && BRANCHES.includes(branch as typeof BRANCHES[number]);
@@ -141,7 +138,7 @@ export default function BuddyTrackerPage() {
   const { data: members, isLoading } = useSWR(
     swrKey,
     () => buddyTrackerAPI.list(branch!, CURRENT_YEAR),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
   );
 
   // ---- PIN verification on mount ----
@@ -202,7 +199,7 @@ export default function BuddyTrackerPage() {
     } finally {
       setLookupLoading(false);
     }
-  }, [formBuddyCode]);
+  }, [formBuddyCode, branch]);
 
   // ---- Check if lookup result has cross-branch members ----
   const hasCrossBranch = useMemo(() => {
@@ -244,9 +241,7 @@ export default function BuddyTrackerPage() {
       setFormBuddyCode("");
       setLookupResult(null);
       setSiblingConfirmed(false);
-      setFormSuccess(`Added — buddy code: ${result.buddy_code}`);
-      clearTimeout(formSuccessTimer.current);
-      formSuccessTimer.current = setTimeout(() => setFormSuccess(null), 5000);
+      setFormSuccess(result.buddy_code);
       globalMutate(swrKey);
     } catch (err: unknown) {
       if (err && typeof err === "object" && "message" in err) {
@@ -270,6 +265,7 @@ export default function BuddyTrackerPage() {
   // ---- Edit / Delete ----
   const startEdit = useCallback((m: BuddyMember) => {
     setEditingId(m.id);
+    setEditError(null);
     setEditData({
       student_id: m.student_id,
       student_name_en: m.student_name_en,
@@ -288,15 +284,23 @@ export default function BuddyTrackerPage() {
         parent_phone: editData.parent_phone || null,
       });
       setEditingId(null);
+      setEditError(null);
       globalMutate(swrKey);
     } catch {
-      // Keep edit open on failure
+      setEditError("Failed to save changes");
     }
   }, [editingId, branch, editData, swrKey]);
+
+  const requestDelete = useCallback((id: number) => {
+    setConfirmDeleteId(id);
+    clearTimeout(confirmDeleteTimer.current);
+    confirmDeleteTimer.current = setTimeout(() => setConfirmDeleteId(null), 3000);
+  }, []);
 
   const handleDelete = useCallback(async (id: number) => {
     if (!branch) return;
     setDeletingId(id);
+    setConfirmDeleteId(null);
     try {
       await buddyTrackerAPI.delete(id, branch);
       setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
@@ -322,17 +326,51 @@ export default function BuddyTrackerPage() {
   }, [members, branch]);
 
   const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) return ownMembers;
-    const q = searchQuery.toLowerCase();
-    return ownMembers.filter(
-      (m) =>
-        m.student_id.toLowerCase().includes(q) ||
-        m.student_name_en.toLowerCase().includes(q) ||
-        (m.student_name_zh && m.student_name_zh.includes(q)) ||
-        m.buddy_code.toLowerCase().includes(q) ||
-        (m.parent_phone && m.parent_phone.includes(q))
-    );
-  }, [ownMembers, searchQuery]);
+    let list = ownMembers;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (m) =>
+          m.student_id.toLowerCase().includes(q) ||
+          m.student_name_en.toLowerCase().includes(q) ||
+          (m.student_name_zh && m.student_name_zh.includes(q)) ||
+          m.buddy_code.toLowerCase().includes(q) ||
+          (m.parent_phone && m.parent_phone.includes(q))
+      );
+    }
+    if (sortField) {
+      list = [...list].sort((a, b) => {
+        const av = a[sortField] ?? "";
+        const bv = b[sortField] ?? "";
+        const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [ownMembers, searchQuery, sortField, sortDir]);
+
+  const toggleSort = useCallback((field: NonNullable<SortField>) => {
+    if (sortField === field) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortField(null); setSortDir("asc"); }
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }, [sortField, sortDir]);
+
+  // Grouped view data
+  const groupedData = useMemo(() => {
+    if (viewMode !== "groups") return [];
+    const map = new Map<number, { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
+    for (const m of filteredMembers) {
+      if (!map.has(m.buddy_group_id)) {
+        map.set(m.buddy_group_id, { code: m.buddy_code, size: m.group_size, own: [], others: m.group_members });
+      }
+      map.get(m.buddy_group_id)!.own.push(m);
+    }
+    return Array.from(map.values()).sort((a, b) => a.size === 1 && b.size > 1 ? -1 : b.size === 1 && a.size > 1 ? 1 : a.code.localeCompare(b.code));
+  }, [filteredMembers, viewMode]);
 
   // ---- Stats ----
   const stats = useMemo(() => {
@@ -439,12 +477,19 @@ export default function BuddyTrackerPage() {
           <h1 className="text-lg font-bold text-foreground">Buddy Tracker</h1>
           <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
         </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span><strong className="text-foreground">{stats.total}</strong> students</span>
           <span><strong className="text-foreground">{stats.groups}</strong> groups</span>
           {stats.solo > 0 && (
             <span className="text-red-600"><strong>{stats.solo}</strong> solo</span>
           )}
+          <button
+            onClick={() => globalMutate(swrKey)}
+            className="p-1 rounded-lg hover:bg-muted transition-colors"
+            title={lastUpdated ? `Updated ${Math.round((Date.now() - lastUpdated.getTime()) / 60000)}m ago` : "Refresh"}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
           <a href="/summer/buddy" className="hover:text-primary transition-colors">
             Change branch
           </a>
@@ -590,9 +635,20 @@ export default function BuddyTrackerPage() {
                 </p>
               )}
               {formSuccess && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
-                  <Check className="h-3.5 w-3.5" />
-                  <span>{formSuccess}</span>
+                <div className="border-l-4 border-l-green-500 border border-border rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-green-700 flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5" /> Student added
+                    </span>
+                    <button onClick={() => setFormSuccess(null)} className="p-0.5 text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-lg tracking-wider text-foreground">{formSuccess}</span>
+                    <CopyButton text={formSuccess} />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Share this code with the student&apos;s family so their friends can use it when registering.</p>
                 </div>
               )}
 
@@ -611,16 +667,34 @@ export default function BuddyTrackerPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search + view toggle */}
       {ownMembers.length > 0 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, ID, phone, or code..."
-            className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, ID, phone, or code..."
+              className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+            />
+          </div>
+          <div className="hidden md:flex border-2 border-border rounded-xl overflow-hidden">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+              title="List view"
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode("groups")}
+              className={`p-2 transition-colors ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+              title="Group view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -634,6 +708,44 @@ export default function BuddyTrackerPage() {
             {searchQuery ? "No matches found" : "No entries yet. Add your first student above."}
           </p>
         </div>
+      ) : viewMode === "groups" ? (
+        /* Grouped view */
+        <div className="space-y-3">
+          {groupedData.map((g) => (
+            <div
+              key={g.code}
+              className={`border-2 rounded-2xl overflow-hidden ${
+                g.size >= 2 ? "border-l-[3px] border-l-green-400 border-border" : "border-l-[3px] border-l-red-300 border-border"
+              }`}
+            >
+              <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono font-bold text-sm tracking-wider">{g.code}</span>
+                  <CopyButton text={g.code} />
+                  <GroupSizeBadge size={g.size} />
+                </div>
+              </div>
+              <div className="divide-y divide-border">
+                {g.own.map((m) => (
+                  <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs">
+                    <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
+                    <span className="font-medium">{m.student_name_en}</span>
+                    {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                    {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
+                  </div>
+                ))}
+                {g.others.map((m) => (
+                  <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-3 text-xs bg-muted/20">
+                    {m.student_id && <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>}
+                    {!m.student_id && <span className="w-16 shrink-0" />}
+                    <span className="font-medium">{m.name}</span>
+                    <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <>
           {/* Desktop table */}
@@ -641,13 +753,12 @@ export default function BuddyTrackerPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Student ID</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Name</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Phone</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Buddy Code</th>
-                  <th className="text-center px-4 py-2.5 font-medium text-muted-foreground">Group</th>
-                  <th className="text-center px-4 py-2.5 font-medium text-muted-foreground">Status</th>
-                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Actions</th>
+                  <SortHeader field="student_id" label="Student ID" current={sortField} dir={sortDir} onSort={toggleSort} />
+                  <SortHeader field="student_name_en" label="Name" current={sortField} dir={sortDir} onSort={toggleSort} />
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Phone</th>
+                  <SortHeader field="buddy_code" label="Buddy Code" current={sortField} dir={sortDir} onSort={toggleSort} />
+                  <SortHeader field="group_size" label="Group" current={sortField} dir={sortDir} onSort={toggleSort} center />
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -661,17 +772,21 @@ export default function BuddyTrackerPage() {
                       isExpanded={isExpanded}
                       isEditing={isEditing}
                       editData={editData}
+                      editError={editError}
                       deletingId={deletingId}
+                      confirmDeleteId={confirmDeleteId}
                       onToggleExpand={() => setExpandedIds((prev) => {
                         const next = new Set(prev);
                         if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
                         return next;
                       })}
                       onStartEdit={() => startEdit(m)}
-                      onCancelEdit={() => setEditingId(null)}
+                      onCancelEdit={() => { setEditingId(null); setEditError(null); }}
                       onSaveEdit={saveEdit}
                       onEditChange={(field, value) => setEditData((prev) => ({ ...prev, [field]: value }))}
-                      onDelete={() => handleDelete(m.id)}
+                      onRequestDelete={() => requestDelete(m.id)}
+                      onConfirmDelete={() => handleDelete(m.id)}
+                      onCancelDelete={() => setConfirmDeleteId(null)}
                     />
                   );
                 })}
@@ -691,17 +806,21 @@ export default function BuddyTrackerPage() {
                   isExpanded={isExpanded}
                   isEditing={isEditing}
                   editData={editData}
+                  editError={editError}
                   deletingId={deletingId}
+                  confirmDeleteId={confirmDeleteId}
                   onToggleExpand={() => setExpandedIds((prev) => {
                     const next = new Set(prev);
                     if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
                     return next;
                   })}
                   onStartEdit={() => startEdit(m)}
-                  onCancelEdit={() => setEditingId(null)}
+                  onCancelEdit={() => { setEditingId(null); setEditError(null); }}
                   onSaveEdit={saveEdit}
                   onEditChange={(field, value) => setEditData((prev) => ({ ...prev, [field]: value }))}
-                  onDelete={() => handleDelete(m.id)}
+                  onRequestDelete={() => requestDelete(m.id)}
+                  onConfirmDelete={() => handleDelete(m.id)}
+                  onCancelDelete={() => setConfirmDeleteId(null)}
                 />
               );
             })}
@@ -712,32 +831,81 @@ export default function BuddyTrackerPage() {
   );
 }
 
+// ---- Sort Header ----
+
+type RowSortField = "student_id" | "student_name_en" | "buddy_code" | "group_size";
+
+function SortHeader({ field, label, current, dir, onSort, center }: {
+  field: RowSortField; label: string;
+  current: RowSortField | null; dir: "asc" | "desc";
+  onSort: (f: RowSortField) => void; center?: boolean;
+}) {
+  const active = current === field;
+  const Icon = active ? (dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <th className={`${center ? "text-center" : "text-left"} px-4 py-2.5`}>
+      <button onClick={() => onSort(field)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+        {label}
+        <Icon className={`h-3 w-3 ${active ? "text-foreground" : "opacity-30"}`} />
+      </button>
+    </th>
+  );
+}
+
+// ---- Group Size Badge (merged Group + Status) ----
+
+function GroupSizeBadge({ size }: { size: number }) {
+  if (size >= 2) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
+        {size} <Check className="h-2.5 w-2.5" />
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-red-300 text-red-600">
+      {size}/2
+    </span>
+  );
+}
+
+// ---- Delete Actions ----
+
+function DeleteActions({ id, deletingId, confirmDeleteId, onRequest, onConfirm, onCancel }: {
+  id: number; deletingId: number | null; confirmDeleteId: number | null;
+  onRequest: () => void; onConfirm: () => void; onCancel: () => void;
+}) {
+  if (confirmDeleteId === id) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs">
+        <button onClick={onConfirm} disabled={deletingId === id} className="font-medium text-red-600 hover:text-red-500 disabled:opacity-40">
+          {deletingId === id ? "..." : "Delete?"}
+        </button>
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">Cancel</button>
+      </span>
+    );
+  }
+  return (
+    <button onClick={onRequest} className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors">
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 // ---- Desktop Table Row ----
 
 function DesktopRow({
-  member: m,
-  isExpanded,
-  isEditing,
-  editData,
-  deletingId,
-  onToggleExpand,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onEditChange,
-  onDelete,
+  member: m, isExpanded, isEditing, editData, editError,
+  deletingId, confirmDeleteId,
+  onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
+  onRequestDelete, onConfirmDelete, onCancelDelete,
 }: {
-  member: BuddyMember;
-  isExpanded: boolean;
-  isEditing: boolean;
-  editData: Record<string, string>;
-  deletingId: number | null;
-  onToggleExpand: () => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSaveEdit: () => void;
-  onEditChange: (field: string, value: string) => void;
-  onDelete: () => void;
+  member: BuddyMember; isExpanded: boolean; isEditing: boolean;
+  editData: Record<string, string>; editError: string | null;
+  deletingId: number | null; confirmDeleteId: number | null;
+  onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
+  onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
+  onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
 }) {
   return (
     <>
@@ -759,35 +927,22 @@ function DesktopRow({
             <CopyButton text={m.buddy_code} />
           </span>
         </td>
-        <td className="px-4 py-2.5 text-center">{m.group_size}</td>
-        <td className="px-4 py-2.5 text-center"><StatusBadge size={m.group_size} /></td>
+        <td className="px-4 py-2.5 text-center"><GroupSizeBadge size={m.group_size} /></td>
         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
           <div className="inline-flex items-center gap-1">
             <button onClick={onStartEdit} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button
-              onClick={onDelete}
-              disabled={deletingId === m.id}
-              className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-40"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+              onRequest={onRequestDelete} onConfirm={onConfirmDelete} onCancel={onCancelDelete} />
           </div>
         </td>
       </tr>
-
-      {/* Expanded detail */}
       {isExpanded && (
         <tr>
-          <td colSpan={7} className="bg-muted/30 border-b border-border px-4 py-3">
+          <td colSpan={6} className="bg-muted/30 border-b border-border px-4 py-3">
             {isEditing ? (
-              <EditForm
-                editData={editData}
-                onChange={onEditChange}
-                onSave={onSaveEdit}
-                onCancel={onCancelEdit}
-              />
+              <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
             ) : (
               <GroupDetail members={m.group_members} />
             )}
@@ -801,29 +956,17 @@ function DesktopRow({
 // ---- Mobile Card ----
 
 function MobileCard({
-  member: m,
-  isExpanded,
-  isEditing,
-  editData,
-  deletingId,
-  onToggleExpand,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onEditChange,
-  onDelete,
+  member: m, isExpanded, isEditing, editData, editError,
+  deletingId, confirmDeleteId,
+  onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
+  onRequestDelete, onConfirmDelete, onCancelDelete,
 }: {
-  member: BuddyMember;
-  isExpanded: boolean;
-  isEditing: boolean;
-  editData: Record<string, string>;
-  deletingId: number | null;
-  onToggleExpand: () => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSaveEdit: () => void;
-  onEditChange: (field: string, value: string) => void;
-  onDelete: () => void;
+  member: BuddyMember; isExpanded: boolean; isEditing: boolean;
+  editData: Record<string, string>; editError: string | null;
+  deletingId: number | null; confirmDeleteId: number | null;
+  onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
+  onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
+  onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
 }) {
   return (
     <div className={`border-2 rounded-xl transition-colors ${
@@ -836,7 +979,7 @@ function MobileCard({
             {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
           </div>
           <div className="flex items-center gap-1.5">
-            <StatusBadge size={m.group_size} />
+            <GroupSizeBadge size={m.group_size} />
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
           </div>
         </div>
@@ -849,16 +992,10 @@ function MobileCard({
           </span>
         </div>
       </div>
-
       {isExpanded && (
         <div className="border-t border-border px-3 py-3 space-y-3">
           {isEditing ? (
-            <EditForm
-              editData={editData}
-              onChange={onEditChange}
-              onSave={onSaveEdit}
-              onCancel={onCancelEdit}
-            />
+            <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
           ) : (
             <>
               <GroupDetail members={m.group_members} />
@@ -866,13 +1003,8 @@ function MobileCard({
                 <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   <Pencil className="h-3 w-3" /> Edit
                 </button>
-                <button
-                  onClick={onDelete}
-                  disabled={deletingId === m.id}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-500 transition-colors disabled:opacity-40"
-                >
-                  <Trash2 className="h-3 w-3" /> Delete
-                </button>
+                <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                  onRequest={onRequestDelete} onConfirm={onConfirmDelete} onCancel={onCancelDelete} />
               </div>
             </>
           )}
@@ -886,9 +1018,7 @@ function MobileCard({
 
 function GroupDetail({ members }: { members: BuddyGroupMemberInfo[] }) {
   if (members.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground">No other members in this group yet.</p>
-    );
+    return <p className="text-xs text-muted-foreground">No other members in this group yet.</p>;
   }
   return (
     <div className="space-y-1.5">
@@ -907,15 +1037,11 @@ function GroupDetail({ members }: { members: BuddyGroupMemberInfo[] }) {
 // ---- Inline Edit Form ----
 
 function EditForm({
-  editData,
-  onChange,
-  onSave,
-  onCancel,
+  editData, editError, onChange, onSave, onCancel,
 }: {
-  editData: Record<string, string>;
+  editData: Record<string, string>; editError: string | null;
   onChange: (field: string, value: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
+  onSave: () => void; onCancel: () => void;
 }) {
   const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
   return (
@@ -938,6 +1064,11 @@ function EditForm({
           <input value={editData.parent_phone || ""} onChange={(e) => onChange("parent_phone", e.target.value)} className={inputCls} />
         </div>
       </div>
+      {editError && (
+        <p className="text-xs text-red-600 flex items-center gap-1.5">
+          <X className="h-3.5 w-3.5" />{editError}
+        </p>
+      )}
       <div className="flex gap-2">
         <button onClick={onSave} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
           <Check className="h-3.5 w-3.5" /> Save
