@@ -27,7 +27,7 @@ const SWR_CONFIG = {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SWRConfig value={SWR_CONFIG}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <AuthProvider>
           <AuthGuard>
             <LocationProvider>
