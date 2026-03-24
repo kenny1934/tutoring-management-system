@@ -1008,16 +1008,26 @@ export default function BuddyTrackerPage() {
                     {relativeTime(m.created_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
-                  <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-                  <button
-                    onClick={() => prefillBuddyCode(m.buddy_code)}
-                    className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
-                  </button>
-                </div>
+                {editingId === m.id ? (
+                  <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
+                      <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors">
+                        <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
+                      <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors">
+                        <Pencil className="h-2.5 w-2.5" /> Edit
+                      </button>
+                      <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                        onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                    </div>
+                  </>
+                )}
               </div>
               );
             })}
@@ -1040,11 +1050,22 @@ export default function BuddyTrackerPage() {
                 </div>
                 <div className="space-y-1">
                   {g.members.map(m => (
-                    <div key={m.id} className="flex items-center gap-2 text-xs">
-                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
-                      <span className="font-medium">{m.student_name_en}</span>
-                      {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                    <div key={m.id}>
+                      {editingId === m.id ? (
+                        <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                          <span className="font-medium">{m.student_name_en}</span>
+                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                          {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                          <button onClick={() => startEdit(m)} className="ml-auto p-0.5 text-muted-foreground/50 hover:text-primary transition-colors">
+                            <Pencil className="h-2.5 w-2.5" />
+                          </button>
+                          <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                            onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                        </div>
+                      )}
                     </div>
                   ))}
                   {g.others.map(m => (
@@ -1111,13 +1132,26 @@ export default function BuddyTrackerPage() {
                     <div className="absolute left-3 top-3 bottom-3 w-px bg-green-400/50" />
                   )}
                   {g.own.map((m) => (
-                    <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs relative">
-                      {!isSolo && <span className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-300" />}
-                      <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
-                      <span className="font-medium">{m.student_name_en}</span>
-                      {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
-                      {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
+                    <div key={m.id} className="px-4 py-2.5 text-xs relative">
+                      {!isSolo && <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />}
+                      {editingId === m.id ? (
+                        <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
+                          <span className="font-medium">{m.student_name_en}</span>
+                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                          {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                          {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
+                          <div className="ml-auto flex items-center gap-1 shrink-0">
+                            <button onClick={() => startEdit(m)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors">
+                              <Pencil className="h-2.5 w-2.5" />
+                            </button>
+                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {g.others.map((m) => (
