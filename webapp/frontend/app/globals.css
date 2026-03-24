@@ -204,7 +204,31 @@
   --color-input: #e5e5e5;
   --color-ring: #dc2626;
   --color-destructive: #dc2626;
-  color-scheme: light;
+}
+
+.dark .buddy-theme {
+  --color-background: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-elevated: #1a1a1a;
+  --color-surface-variant: #2a2a2a;
+  --color-foreground: #ffffff;
+  --color-card: #1a1a1a;
+  --color-card-foreground: #ffffff;
+  --color-popover: #1a1a1a;
+  --color-popover-foreground: #ffffff;
+  --color-primary: #ef4444;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #2a2a2a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #9ca3af;
+  --color-accent: #1c1111;
+  --color-accent-foreground: #ef4444;
+  --color-border: #2a2a2a;
+  --color-border-subtle: #333333;
+  --color-input: #2a2a2a;
+  --color-ring: #ef4444;
+  --color-destructive: #ef4444;
 }
 
 /* ===== BUDDY TRACKER ANIMATIONS ===== */

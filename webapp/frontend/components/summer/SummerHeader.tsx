@@ -22,7 +22,7 @@ export function SummerHeader() {
   const isBuddyPage = pathname.startsWith("/summer/buddy") ||
     (typeof window !== 'undefined' && window.location.hostname.startsWith('buddy.'));
   const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
-  const isInternalPage = isProspectSubdomain || (!isPublicPage && !isBuddyPage);
+  const isInternalPage = isProspectSubdomain || isBuddyPage || !isPublicPage;
 
   return (
     <header className="bg-card border-b border-border shadow-sm">
@@ -35,7 +35,7 @@ export function SummerHeader() {
                 alt="MathConcept"
                 width={180}
                 height={48}
-                className="h-9 w-auto"
+                className="h-9 w-auto dark:drop-shadow-[0_0_3px_rgba(255,255,255,1)] dark:contrast-125"
               />
             </a>
           ) : isPublicPage ? (
@@ -76,7 +76,7 @@ export function SummerHeader() {
         </div>
         <div className="flex items-center gap-3">
           {isInternalPage && <ThemeToggle compact />}
-          {isInternalPage && (
+          {isInternalPage && !isBuddyPage && (
             <a
               href={summerApplyHref}
               className="hidden sm:inline text-xs text-primary hover:text-primary/80 font-medium transition-colors"

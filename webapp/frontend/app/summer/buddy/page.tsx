@@ -68,7 +68,7 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
   return (
     <span
       className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${popped ? "animate-pill-pop" : ""}`}
-      style={{ backgroundColor: `hsl(${hue}, 40%, 93%)`, color: `hsl(${hue}, 50%, 35%)` }}
+      style={{ backgroundColor: `hsl(${hue} 40% 50% / 0.15)` }}
       onClick={(e) => { if (onClick) { e.stopPropagation(); onClick(); handleCopy(code); } }}
     >
       {code}
@@ -915,7 +915,7 @@ export default function BuddyTrackerPage() {
                   isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
                 }`}
               >
-                <div className={`px-4 py-3 flex items-center justify-between gap-3 ${!isSolo ? "bg-gradient-to-r from-green-50/50 to-transparent" : ""}`}>
+                <div className={`px-4 py-3 flex items-center justify-between gap-3 ${!isSolo ? "bg-green-500/5" : ""}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     <CodePill code={g.code} onCopy={handleCopyToast} />
                     <GroupRing size={g.size} />
@@ -1107,7 +1107,7 @@ function GroupRing({ size }: { size: number }) {
   return (
     <svg width="20" height="20" className="shrink-0 inline-block align-middle">
       {!complete && (
-        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="#e5e5e5" />
+        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="var(--color-border)" />
       )}
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
@@ -1178,7 +1178,7 @@ function DesktopRow({
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
           isSolo ? `border-l-[3px] border-l-red-300 ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400"
         } ${isRecent ? "bg-green-50 animate-fade-in" : ""}`}
-        style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 30%, 97%)` } : undefined}
+        style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 40%, 50%, 0.06)` } : undefined}
         onClick={onToggleExpand}
       >
         <td className="px-4 py-2.5 font-mono text-[11px]">{m.student_id}</td>
