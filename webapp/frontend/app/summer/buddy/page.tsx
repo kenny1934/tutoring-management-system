@@ -1020,8 +1020,8 @@ export default function BuddyTrackerPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
-                      <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors">
-                        <Pencil className="h-2.5 w-2.5" /> Edit
+                      <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                        <Pencil className="h-3 w-3" /> Edit
                       </button>
                       <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                         onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
@@ -1059,8 +1059,8 @@ export default function BuddyTrackerPage() {
                           <span className="font-medium">{m.student_name_en}</span>
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
                           {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
-                          <button onClick={() => startEdit(m)} className="ml-auto p-0.5 text-muted-foreground/50 hover:text-primary transition-colors">
-                            <Pencil className="h-2.5 w-2.5" />
+                          <button onClick={() => startEdit(m)} className="ml-auto p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                             onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
@@ -1144,8 +1144,8 @@ export default function BuddyTrackerPage() {
                           {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
                           {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
-                            <button onClick={() => startEdit(m)} className="p-0.5 text-muted-foreground/50 hover:text-primary transition-colors">
-                              <Pencil className="h-2.5 w-2.5" />
+                            <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                              <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                               onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
