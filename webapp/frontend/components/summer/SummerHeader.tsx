@@ -19,14 +19,23 @@ export function SummerHeader() {
     }
   }, []);
 
+  const isBuddyPage = pathname.startsWith("/summer/buddy");
   const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
-  const isInternalPage = isProspectSubdomain || !isPublicPage;
+  const isInternalPage = isProspectSubdomain || (!isPublicPage && !isBuddyPage);
 
   return (
     <header className="bg-card border-b border-border shadow-sm">
       <div className="mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {isPublicPage ? (
+          {isBuddyPage ? (
+            <Image
+              src="/logo-mathconcept.png"
+              alt="MathConcept"
+              width={180}
+              height={48}
+              className="h-9 w-auto"
+            />
+          ) : isPublicPage ? (
             <Image
               src="/logo-secondary.png"
               alt="MathConcept Secondary Academy"
@@ -52,13 +61,15 @@ export function SummerHeader() {
               />
             </>
           )}
-          <div>
-            <div className="font-bold text-lg leading-tight text-foreground">
-              <span className="hidden sm:inline">MathConcept Secondary Academy</span>
-              <span className="sm:hidden">MC Secondary</span>
+          {!isBuddyPage && (
+            <div>
+              <div className="font-bold text-lg leading-tight text-foreground">
+                <span className="hidden sm:inline">MathConcept Secondary Academy</span>
+                <span className="sm:hidden">MC Secondary</span>
+              </div>
+              <div className="text-xs text-muted-foreground">中學教室</div>
             </div>
-            <div className="text-xs text-muted-foreground">中學教室</div>
-          </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {isInternalPage && <ThemeToggle compact />}
