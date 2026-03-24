@@ -653,7 +653,7 @@ export default function BuddyTrackerPage() {
                     value={formStudentId}
                     onChange={(e) => { setFormStudentId(e.target.value); setFormSuccess(null); }}
                     className={inputCls}
-                    placeholder="e.g. MAC1234"
+                    placeholder="e.g. 1234"
                   />
                   {duplicateWarning && (
                     <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
