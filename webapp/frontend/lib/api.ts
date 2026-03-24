@@ -2498,6 +2498,11 @@ export const buddyTrackerAPI = {
       body: JSON.stringify({ buddy_code: buddyCode, is_sibling: isSibling ?? false }),
     }),
 
+  unlinkMember: (id: number, branch: string) =>
+    fetchAPI<BuddyMember>(`/buddy-tracker/members/${id}/unlink?branch=${branch}`, {
+      method: "PATCH",
+    }),
+
   lookupGroup: (code: string, branch: string) =>
     fetchAPI<BuddyGroupLookup>(`/buddy-tracker/groups/${code}?branch=${branch}`),
 

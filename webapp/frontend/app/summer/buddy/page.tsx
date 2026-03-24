@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -181,6 +181,12 @@ export default function BuddyTrackerPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [linkingId, setLinkingId] = useState<number | null>(null);
   const [linkCode, setLinkCode] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSiblingNeeded, setLinkSiblingNeeded] = useState(false);
+  const [linkSiblingConfirmed, setLinkSiblingConfirmed] = useState(false);
+  const [linkTargetCode, setLinkTargetCode] = useState<string | null>(null);
+  const [confirmUnlinkId, setConfirmUnlinkId] = useState<number | null>(null);
+  const confirmUnlinkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [editData, setEditData] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -369,17 +375,46 @@ export default function BuddyTrackerPage() {
     }
   }, [editingId, branch, editData, swrKey]);
 
+  // Reset link state when switching targets
+  useEffect(() => {
+    setLinkCode(""); setLinkError(null); setLinkSiblingNeeded(false);
+    setLinkSiblingConfirmed(false); setLinkTargetCode(null);
+  }, [linkingId]);
+
   const handleLink = useCallback(async (memberId: number, targetCode: string, isSibling = false) => {
     if (!branch) return;
+    setLinkError(null);
     try {
       await buddyTrackerAPI.linkMember(memberId, branch, targetCode, isSibling);
       setLinkingId(null);
-      setLinkCode("");
+      handleCopyToast(`Linked to ${targetCode}`);
+      globalMutate(swrKey);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed.code === "CROSS_BRANCH_SIBLING_REQUIRED") {
+          setLinkSiblingNeeded(true);
+          setLinkTargetCode(targetCode);
+          setLinkError("Cross-branch group — confirm sibling to proceed.");
+          return;
+        }
+      } catch { /* not JSON */ }
+      setLinkError(msg || "Failed to link");
+    }
+  }, [branch, swrKey, handleCopyToast]);
+
+  const handleUnlink = useCallback(async (memberId: number) => {
+    if (!branch) return;
+    try {
+      await buddyTrackerAPI.unlinkMember(memberId, branch);
+      setConfirmUnlinkId(null);
+      handleCopyToast("Unlinked — now solo");
       globalMutate(swrKey);
     } catch {
-      // Error handling — could be CROSS_BRANCH_SIBLING_REQUIRED
+      // Ignore
     }
-  }, [branch, swrKey]);
+  }, [branch, swrKey, handleCopyToast]);
 
   const requestDelete = useCallback((id: number) => {
     setConfirmDeleteId(id);
@@ -530,6 +565,83 @@ export default function BuddyTrackerPage() {
     : null;
 
   // ============================================
+  // ---- Link Picker (shared between board + grouped views) ----
+  const renderLinkPicker = (memberId: number) => (
+    <div className="p-2.5 border-2 border-border rounded-xl space-y-2">
+      <p className="text-[10px] font-medium text-muted-foreground">Link to another student or group:</p>
+      {/* Quick pick — solo students */}
+      {boardSolo.filter(s => s.id !== memberId).length > 0 && (
+        <div className="space-y-1 max-h-32 overflow-y-auto">
+          {boardSolo.filter(s => s.id !== memberId).map(s => (
+            <button key={s.id} onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
+              className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === s.buddy_code ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}>
+              <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
+              <span className="font-medium">{s.student_name_en}</span>
+              <CodePill code={s.buddy_code} />
+              {linkTargetCode === s.buddy_code && (
+                <span className="ml-auto text-[10px] font-medium text-primary">Click again to confirm</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Quick pick — existing paired groups */}
+      {boardPaired.length > 0 && (
+        <>
+          <p className="text-[10px] text-muted-foreground/70">Or join an existing group:</p>
+          <div className="space-y-1 max-h-24 overflow-y-auto">
+            {boardPaired.map(g => (
+              <button key={g.code} onClick={() => linkTargetCode === g.code ? handleLink(memberId, g.code) : setLinkTargetCode(g.code)}
+                className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === g.code ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}>
+                <CodePill code={g.code} />
+                <span className="text-muted-foreground">{g.members.map(m => m.student_name_en).join(", ")}</span>
+                {linkTargetCode === g.code && (
+                  <span className="ml-auto text-[10px] font-medium text-primary">Click again to confirm</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {/* Enter code manually */}
+      <div className="flex gap-2">
+        <input value={linkCode} onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
+          className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
+          placeholder="Or enter code: BG-XXXX" />
+        <button onClick={() => linkCode.trim() && handleLink(memberId, linkCode.trim(), linkSiblingConfirmed)}
+          disabled={!linkCode.trim()}
+          className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors">
+          Link
+        </button>
+      </div>
+      {/* Sibling confirmation for cross-branch */}
+      {linkSiblingNeeded && (
+        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 shrink-0" /> Cross-branch group — siblings only.
+          </p>
+          <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
+            <input type="checkbox" checked={linkSiblingConfirmed} onChange={(e) => setLinkSiblingConfirmed(e.target.checked)}
+              className="rounded border-amber-400 text-primary focus:ring-primary/30" />
+            I confirm this is a sibling
+          </label>
+          {linkSiblingConfirmed && linkTargetCode && (
+            <button onClick={() => handleLink(memberId, linkTargetCode, true)}
+              className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+              Confirm Link
+            </button>
+          )}
+        </div>
+      )}
+      {/* Error */}
+      {linkError && !linkSiblingNeeded && (
+        <p className="text-xs text-red-600 flex items-center gap-1">
+          <X className="h-3 w-3" /> {linkError}
+        </p>
+      )}
+    </div>
+  );
+
   // RENDER: Branch Selection
   // ============================================
   if (!validBranch) {
@@ -1043,38 +1155,7 @@ export default function BuddyTrackerPage() {
                       <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                         onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
                     </div>
-                    {linkingId === m.id && (
-                      <div className="mt-2 p-2.5 border-2 border-border rounded-xl space-y-2">
-                        <p className="text-[10px] font-medium text-muted-foreground">Link to another student or group:</p>
-                        {boardSolo.filter(s => s.id !== m.id).length > 0 && (
-                          <div className="space-y-1 max-h-32 overflow-y-auto">
-                            {boardSolo.filter(s => s.id !== m.id).map(s => (
-                              <button key={s.id} onClick={() => handleLink(m.id, s.buddy_code)}
-                                className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-2">
-                                <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
-                                <span className="font-medium">{s.student_name_en}</span>
-                                <CodePill code={s.buddy_code} />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <input
-                            value={linkCode}
-                            onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-                            className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
-                            placeholder="Or enter code: BG-XXXX"
-                          />
-                          <button
-                            onClick={() => linkCode.trim() && handleLink(m.id, linkCode.trim())}
-                            disabled={!linkCode.trim()}
-                            className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                          >
-                            Link
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {linkingId === m.id && <div className="mt-2">{renderLinkPicker(m.id)}</div>}
                   </>
                 )}
               </div>
@@ -1108,11 +1189,24 @@ export default function BuddyTrackerPage() {
                           <span className="font-medium">{m.student_name_en}</span>
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
                           {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
-                          <button onClick={() => startEdit(m)} className="ml-auto p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                            onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                          <div className="ml-auto flex items-center gap-1 shrink-0">
+                            {confirmUnlinkId === m.id ? (
+                              <span className="inline-flex items-center gap-1 text-xs">
+                                <button onClick={() => handleUnlink(m.id)} className="font-medium text-amber-600">Unlink?</button>
+                                <button onClick={() => setConfirmUnlinkId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                              </span>
+                            ) : (
+                              <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
+                                <Link2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1199,6 +1293,17 @@ export default function BuddyTrackerPage() {
                           {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
                           {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
+                            {!isSolo && (confirmUnlinkId === m.id ? (
+                              <span className="inline-flex items-center gap-1 text-xs">
+                                <button onClick={() => handleUnlink(m.id)} className="font-medium text-amber-600">Unlink?</button>
+                                <button onClick={() => setConfirmUnlinkId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
+                              </span>
+                            ) : (
+                              <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
+                                <Link2 className="h-3.5 w-3.5" />
+                              </button>
+                            ))}
                             <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -1223,30 +1328,8 @@ export default function BuddyTrackerPage() {
                     </div>
                   )}
                   {isSolo && g.own[0] && linkingId === g.own[0].id && (
-                    <div className="px-4 py-2.5 border-t border-border space-y-2">
-                      <p className="text-[10px] font-medium text-muted-foreground">Link to another student:</p>
-                      {boardSolo.filter(s => s.id !== g.own[0].id).length > 0 && (
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {boardSolo.filter(s => s.id !== g.own[0].id).map(s => (
-                            <button key={s.id} onClick={() => handleLink(g.own[0].id, s.buddy_code)}
-                              className="w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-2">
-                              <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
-                              <span className="font-medium">{s.student_name_en}</span>
-                              <CodePill code={s.buddy_code} />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <input value={linkCode} onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-                          className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
-                          placeholder="Or enter code: BG-XXXX" />
-                        <button onClick={() => linkCode.trim() && handleLink(g.own[0].id, linkCode.trim())}
-                          disabled={!linkCode.trim()}
-                          className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors">
-                          Link
-                        </button>
-                      </div>
+                    <div className="px-4 py-2.5 border-t border-border">
+                      {renderLinkPicker(g.own[0].id)}
                     </div>
                   )}
                 </div>
@@ -1275,8 +1358,8 @@ export default function BuddyTrackerPage() {
                   const isExpanded = expandedIds.has(m.id);
                   const isEditing = editingId === m.id;
                   return (
+                    <Fragment key={m.id}>
                     <DesktopRow
-                      key={m.id}
                       member={m}
                       isExpanded={isExpanded}
                       isEditing={isEditing}
@@ -1299,7 +1382,12 @@ export default function BuddyTrackerPage() {
                       onConfirmDelete={() => handleDelete(m.id)}
                       onCancelDelete={() => setConfirmDeleteId(null)}
                       onAddPartner={() => prefillBuddyCode(m.buddy_code)}
+                      onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
                     />
+                    {linkingId === m.id && (
+                      <tr><td colSpan={7} className="bg-muted/30 border-b border-border px-4 py-3">{renderLinkPicker(m.id)}</td></tr>
+                    )}
+                  </Fragment>
                   );
                 })}
               </tbody>
@@ -1336,6 +1424,8 @@ export default function BuddyTrackerPage() {
                   onConfirmDelete={() => handleDelete(m.id)}
                   onCancelDelete={() => setConfirmDeleteId(null)}
                   onAddPartner={() => prefillBuddyCode(m.buddy_code)}
+                  onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
+                  linkPicker={linkingId === m.id ? renderLinkPicker(m.id) : undefined}
                 />
               );
             })}
@@ -1348,7 +1438,7 @@ export default function BuddyTrackerPage() {
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
           <div className="bg-foreground text-background px-4 py-2 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2">
             <Check className="h-3.5 w-3.5 text-green-400" />
-            <span className={copyToast.startsWith("BG-") ? "font-mono tracking-wider" : ""}>{copyToast}</span> copied
+            <span className={copyToast.startsWith("BG-") ? "font-mono tracking-wider" : ""}>{copyToast}</span>{copyToast.startsWith("BG-") || copyToast.endsWith("codes") ? " copied" : ""}
           </div>
         </div>
       )}
@@ -1437,7 +1527,7 @@ function DesktopRow({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
@@ -1448,6 +1538,7 @@ function DesktopRow({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
+  onLink?: () => void;
 }) {
   const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
   const isSolo = m.group_size < 2;
@@ -1497,9 +1588,14 @@ function DesktopRow({
               <div className="space-y-2">
                 <GroupDetail members={m.group_members} />
                 {isSolo && (
-                  <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                    <UserPlus className="h-3 w-3" /> Add partner
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                      <Link2 className="h-3 w-3" /> Link
+                    </button>
+                    <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                      <UserPlus className="h-3 w-3" /> Add partner
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -1516,7 +1612,7 @@ function MobileCard({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, linkPicker,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
@@ -1527,6 +1623,8 @@ function MobileCard({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
+  onLink?: () => void;
+  linkPicker?: React.ReactNode;
 }) {
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
@@ -1573,9 +1671,14 @@ function MobileCard({
               <GroupDetail members={m.group_members} />
               <div className="flex gap-2 pt-1 flex-wrap">
                 {isSolo && (
-                  <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                    <UserPlus className="h-3 w-3" /> Add partner
-                  </button>
+                  <>
+                    <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                      <Link2 className="h-3 w-3" /> Link
+                    </button>
+                    <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                      <UserPlus className="h-3 w-3" /> Add partner
+                    </button>
+                  </>
                 )}
                 <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   <Pencil className="h-3 w-3" /> Edit
@@ -1583,6 +1686,7 @@ function MobileCard({
                 <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                   onRequest={onRequestDelete} onConfirm={onConfirmDelete} onCancel={onCancelDelete} />
               </div>
+              {linkPicker}
             </>
           )}
         </div>

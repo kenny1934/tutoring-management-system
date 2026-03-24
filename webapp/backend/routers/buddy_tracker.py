@@ -449,6 +449,62 @@ def link_member(
     return _member_to_response(db, member)
 
 
+@router.patch("/members/{member_id}/unlink")
+def unlink_member(
+    request: Request,
+    member_id: int,
+    branch: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Move a member out of their group into a new solo group."""
+    if branch not in VALID_BRANCHES:
+        raise HTTPException(status_code=400, detail="Invalid branch")
+    _check_pin(request, branch)
+    check_ip_rate_limit(request, "buddy_update")
+
+    member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if member.source_branch != branch:
+        raise HTTPException(status_code=403, detail="Cannot unlink member from another branch")
+
+    old_group_id = member.buddy_group_id
+
+    # Create a new solo group
+    for _ in range(10):
+        code = _generate_buddy_code()
+        new_group = SummerBuddyGroup(config_id=None, year=member.year, buddy_code=code)
+        db.add(new_group)
+        try:
+            db.flush()
+            break
+        except IntegrityError:
+            db.rollback()
+    else:
+        raise HTTPException(status_code=500, detail="Could not generate unique buddy code")
+
+    member.buddy_group_id = new_group.id
+    member.is_sibling = False
+    db.flush()
+
+    # Clean up old group if empty
+    remaining = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == old_group_id,
+    ).scalar() or 0
+    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == old_group_id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if remaining == 0 and remaining_secondary == 0:
+        old_group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == old_group_id).first()
+        if old_group:
+            db.delete(old_group)
+
+    db.commit()
+    db.refresh(member)
+    return _member_to_response(db, member)
+
+
 @router.get("/groups/{code}")
 def lookup_group(
     request: Request,
