@@ -45,7 +45,15 @@ const BRANCH_INFO: Record<string, { district: string }> = {
 
 // ---- Helpers ----
 
-function CopyButton({ text }: { text: string }) {
+function relativeTime(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "1d";
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
+function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: string) => void; large?: boolean }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
@@ -54,13 +62,14 @@ function CopyButton({ text }: { text: string }) {
         e.stopPropagation();
         navigator.clipboard.writeText(text);
         setCopied(true);
+        onCopy?.(text);
         clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(false), 1200);
       }}
-      className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors"
+      className={`rounded-lg text-muted-foreground hover:text-primary transition-colors ${large ? "p-2" : "p-1"}`}
       title="Copy"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className={`${large ? "h-4 w-4" : "h-3.5 w-3.5"} text-green-600`} /> : <Copy className={`${large ? "h-4 w-4" : "h-3.5 w-3.5"}`} />}
     </button>
   );
 }
@@ -126,6 +135,15 @@ export default function BuddyTrackerPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "groups">("list");
+  const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete">("all");
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handleCopyToast = useCallback((code: string) => {
+    setCopyToast(code);
+    clearTimeout(copyToastTimer.current);
+    copyToastTimer.current = setTimeout(() => setCopyToast(null), 2000);
+  }, []);
 
   // Sort
   type SortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | null;
@@ -359,18 +377,33 @@ export default function BuddyTrackerPage() {
     }
   }, [sortField, sortDir]);
 
+  // Apply filter tab
+  const displayMembers = useMemo(() => {
+    if (filterTab === "solo") return filteredMembers.filter(m => m.group_size < 2);
+    if (filterTab === "complete") return filteredMembers.filter(m => m.group_size >= 2);
+    return filteredMembers;
+  }, [filteredMembers, filterTab]);
+
   // Grouped view data
   const groupedData = useMemo(() => {
     if (viewMode !== "groups") return [];
-    const map = new Map<number, { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
-    for (const m of filteredMembers) {
+    const map = new Map<number, { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[]; oldestCreated: string }>();
+    for (const m of displayMembers) {
       if (!map.has(m.buddy_group_id)) {
-        map.set(m.buddy_group_id, { code: m.buddy_code, size: m.group_size, own: [], others: m.group_members });
+        map.set(m.buddy_group_id, { code: m.buddy_code, size: m.group_size, own: [], others: m.group_members, oldestCreated: m.created_at });
       }
-      map.get(m.buddy_group_id)!.own.push(m);
+      const g = map.get(m.buddy_group_id)!;
+      g.own.push(m);
+      if (m.created_at < g.oldestCreated) g.oldestCreated = m.created_at;
     }
-    return Array.from(map.values()).sort((a, b) => a.size === 1 && b.size > 1 ? -1 : b.size === 1 && a.size > 1 ? 1 : a.code.localeCompare(b.code));
-  }, [filteredMembers, viewMode]);
+    // Solo groups first (oldest first = most urgent), then complete (newest first)
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.size < 2 && b.size >= 2) return -1;
+      if (a.size >= 2 && b.size < 2) return 1;
+      if (a.size < 2 && b.size < 2) return a.oldestCreated.localeCompare(b.oldestCreated); // oldest first
+      return b.oldestCreated.localeCompare(a.oldestCreated); // newest first for complete
+    });
+  }, [displayMembers, viewMode]);
 
   // ---- Stats ----
   const stats = useMemo(() => {
@@ -667,33 +700,55 @@ export default function BuddyTrackerPage() {
         </div>
       </div>
 
-      {/* Search + view toggle */}
+      {/* Filter tabs + search + view toggle */}
       {ownMembers.length > 0 && (
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, ID, phone, or code..."
-              className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
-            />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {(["all", "solo", "complete"] as const).map((tab) => {
+              const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : stats.total;
+              const isActive = filterTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setFilterTab(tab)}
+                  className={`text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  }`}
+                >
+                  {tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : "Complete"}
+                  {tab !== "all" && <span className={`ml-1 ${isActive ? "opacity-80" : "opacity-60"}`}>({count})</span>}
+                </button>
+              );
+            })}
           </div>
-          <div className="hidden md:flex border-2 border-border rounded-xl overflow-hidden">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
-              title="List view"
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode("groups")}
-              className={`p-2 transition-colors ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
-              title="Group view"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, ID, phone, or code..."
+                className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
+              />
+            </div>
+            <div className="hidden md:flex border-2 border-border rounded-xl overflow-hidden">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                title="List view"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode("groups")}
+                className={`p-2 transition-colors ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                title="Group view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -701,50 +756,81 @@ export default function BuddyTrackerPage() {
       {/* Table (desktop) */}
       {isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">Loading...</div>
-      ) : filteredMembers.length === 0 ? (
+      ) : displayMembers.length === 0 ? (
         <div className="text-center py-12">
-          <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            {searchQuery ? "No matches found" : "No entries yet. Add your first student above."}
-          </p>
+          {filterTab === "solo" ? (
+            <>
+              <Check className="h-10 w-10 mx-auto mb-3 text-green-400" />
+              <p className="text-sm font-medium text-green-700">All students are paired!</p>
+            </>
+          ) : filterTab === "complete" ? (
+            <>
+              <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No complete groups yet</p>
+            </>
+          ) : (
+            <>
+              <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? "No matches found" : "No entries yet. Add your first student above."}
+              </p>
+            </>
+          )}
         </div>
       ) : viewMode === "groups" ? (
         /* Grouped view */
         <div className="space-y-3">
-          {groupedData.map((g) => (
-            <div
-              key={g.code}
-              className={`border-2 rounded-2xl overflow-hidden ${
-                g.size >= 2 ? "border-l-[3px] border-l-green-400 border-border" : "border-l-[3px] border-l-red-300 border-border"
-              }`}
-            >
-              <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono font-bold text-sm tracking-wider">{g.code}</span>
-                  <CopyButton text={g.code} />
-                  <GroupSizeBadge size={g.size} />
+          {groupedData.map((g) => {
+            const isSolo = g.size < 2;
+            const waitDays = Math.floor((Date.now() - new Date(g.oldestCreated).getTime()) / 86400000);
+            return (
+              <div
+                key={g.code}
+                className={`border-2 rounded-2xl overflow-hidden ${
+                  isSolo ? "border-l-[3px] border-l-red-300 border-border" : "border-l-[3px] border-l-green-400 border-border"
+                }`}
+              >
+                <div className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono font-bold text-sm tracking-wider shrink-0">{g.code}</span>
+                    <CopyButton text={g.code} onCopy={handleCopyToast} />
+                    <GroupSizeBadge size={g.size} />
+                    {isSolo && waitDays > 0 && (
+                      <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                        Waiting {waitDays}d
+                      </span>
+                    )}
+                  </div>
+                  {isSolo && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.code); handleCopyToast(g.code); }}
+                      className="shrink-0 px-3 py-1.5 text-[11px] font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                      Copy Code to Share
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-border">
+                  {g.own.map((m) => (
+                    <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs">
+                      <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
+                      <span className="font-medium">{m.student_name_en}</span>
+                      {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                      {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
+                    </div>
+                  ))}
+                  {g.others.map((m) => (
+                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-3 text-xs bg-muted/20">
+                      {m.student_id && <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>}
+                      {!m.student_id && <span className="w-16 shrink-0" />}
+                      <span className="font-medium">{m.name}</span>
+                      <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="divide-y divide-border">
-                {g.own.map((m) => (
-                  <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs">
-                    <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
-                    <span className="font-medium">{m.student_name_en}</span>
-                    {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                    {m.parent_phone && <span className="text-muted-foreground ml-auto">{m.parent_phone}</span>}
-                  </div>
-                ))}
-                {g.others.map((m) => (
-                  <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-3 text-xs bg-muted/20">
-                    {m.student_id && <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>}
-                    {!m.student_id && <span className="w-16 shrink-0" />}
-                    <span className="font-medium">{m.name}</span>
-                    <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <>
@@ -758,11 +844,12 @@ export default function BuddyTrackerPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Phone</th>
                   <SortHeader field="buddy_code" label="Buddy Code" current={sortField} dir={sortDir} onSort={toggleSort} />
                   <SortHeader field="group_size" label="Group" current={sortField} dir={sortDir} onSort={toggleSort} center />
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Since</th>
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((m) => {
+                {displayMembers.map((m) => {
                   const isExpanded = expandedIds.has(m.id);
                   const isEditing = editingId === m.id;
                   return (
@@ -775,6 +862,7 @@ export default function BuddyTrackerPage() {
                       editError={editError}
                       deletingId={deletingId}
                       confirmDeleteId={confirmDeleteId}
+                      onCopyToast={handleCopyToast}
                       onToggleExpand={() => setExpandedIds((prev) => {
                         const next = new Set(prev);
                         if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
@@ -796,7 +884,7 @@ export default function BuddyTrackerPage() {
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
-            {filteredMembers.map((m) => {
+            {displayMembers.map((m) => {
               const isExpanded = expandedIds.has(m.id);
               const isEditing = editingId === m.id;
               return (
@@ -809,6 +897,7 @@ export default function BuddyTrackerPage() {
                   editError={editError}
                   deletingId={deletingId}
                   confirmDeleteId={confirmDeleteId}
+                  onCopyToast={handleCopyToast}
                   onToggleExpand={() => setExpandedIds((prev) => {
                     const next = new Set(prev);
                     if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
@@ -826,6 +915,16 @@ export default function BuddyTrackerPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Copy toast */}
+      {copyToast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-foreground text-background px-4 py-2 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2">
+            <Check className="h-3.5 w-3.5 text-green-400" />
+            <span className="font-mono tracking-wider">{copyToast}</span> copied
+          </div>
+        </div>
       )}
     </div>
   );
@@ -896,22 +995,25 @@ function DeleteActions({ id, deletingId, confirmDeleteId, onRequest, onConfirm, 
 
 function DesktopRow({
   member: m, isExpanded, isEditing, editData, editError,
-  deletingId, confirmDeleteId,
+  deletingId, confirmDeleteId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
   onRequestDelete, onConfirmDelete, onCancelDelete,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
   deletingId: number | null; confirmDeleteId: number | null;
+  onCopyToast: (code: string) => void;
   onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
 }) {
+  const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
+  const isSolo = m.group_size < 2;
   return (
     <>
       <tr
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
-          m.group_size >= 2 ? "border-l-[3px] border-l-green-400" : "border-l-[3px] border-l-red-300"
+          isSolo ? "border-l-[3px] border-l-red-300" : "border-l-[3px] border-l-green-400"
         }`}
         onClick={onToggleExpand}
       >
@@ -921,13 +1023,20 @@ function DesktopRow({
           {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
-        <td className="px-4 py-2.5">
-          <span className="inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider">
+        <td
+          className="px-4 py-2.5 cursor-copy"
+          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }}
+          title="Click to copy"
+        >
+          <span className="inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider hover:text-primary transition-colors">
             {m.buddy_code}
-            <CopyButton text={m.buddy_code} />
+            <Copy className="h-3 w-3 opacity-30" />
           </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupSizeBadge size={m.group_size} /></td>
+        <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+          {relativeTime(m.created_at)}
+        </td>
         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
           <div className="inline-flex items-center gap-1">
             <button onClick={onStartEdit} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
@@ -940,7 +1049,7 @@ function DesktopRow({
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={6} className="bg-muted/30 border-b border-border px-4 py-3">
+          <td colSpan={7} className="bg-muted/30 border-b border-border px-4 py-3">
             {isEditing ? (
               <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
             ) : (
@@ -957,20 +1066,22 @@ function DesktopRow({
 
 function MobileCard({
   member: m, isExpanded, isEditing, editData, editError,
-  deletingId, confirmDeleteId,
+  deletingId, confirmDeleteId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
   onRequestDelete, onConfirmDelete, onCancelDelete,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
   editData: Record<string, string>; editError: string | null;
   deletingId: number | null; confirmDeleteId: number | null;
+  onCopyToast?: (code: string) => void;
   onToggleExpand: () => void; onStartEdit: () => void; onCancelEdit: () => void;
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
 }) {
+  const isSolo = m.group_size < 2;
   return (
     <div className={`border-2 rounded-xl transition-colors ${
-      m.group_size >= 2 ? "border-l-[3px] border-l-green-400 border-border" : "border-l-[3px] border-l-red-300 border-border"
+      isSolo ? "border-l-[3px] border-l-red-300 border-border" : "border-l-[3px] border-l-green-400 border-border"
     } ${isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
@@ -988,10 +1099,20 @@ function MobileCard({
           {m.parent_phone && <span>{m.parent_phone}</span>}
           <span className="inline-flex items-center gap-1 font-mono font-bold tracking-wider text-foreground">
             {m.buddy_code}
-            <CopyButton text={m.buddy_code} />
+            <CopyButton text={m.buddy_code} onCopy={onCopyToast} large />
           </span>
         </div>
       </div>
+      {isSolo && !isExpanded && (
+        <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }}
+            className="w-full py-2 text-xs font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+          >
+            Copy Code to Share
+          </button>
+        </div>
+      )}
       {isExpanded && (
         <div className="border-t border-border px-3 py-3 space-y-3">
           {isEditing ? (
