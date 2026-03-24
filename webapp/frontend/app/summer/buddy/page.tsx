@@ -396,6 +396,11 @@ export default function BuddyTrackerPage() {
       g.own.push(m);
       if (m.created_at < g.oldestCreated) g.oldestCreated = m.created_at;
     }
+    // Filter others to exclude members already shown in own
+    for (const g of map.values()) {
+      const ownIds = new Set(g.own.map((m) => m.id));
+      g.others = g.others.filter((m) => !(m.source === "primary" && ownIds.has(m.id)));
+    }
     // Solo groups first (oldest first = most urgent), then complete (newest first)
     return Array.from(map.values()).sort((a, b) => {
       if (a.size < 2 && b.size >= 2) return -1;
