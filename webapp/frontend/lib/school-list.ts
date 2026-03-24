@@ -5,7 +5,7 @@
  */
 export const KNOWN_SCHOOLS: string[] = [
   "ASUM",
-  "CDSJ-2/3",
+  "CDSJ2/3",
   "CDSJ1",
   "CDSJ1-C",
   "CDSJ2",

@@ -432,9 +432,12 @@ function ProspectEditForm({
   const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
 
   const schoolQuery = values.school.toLowerCase();
-  const filteredSchools = schoolQuery
-    ? KNOWN_SCHOOLS.filter((s) => s.toLowerCase().includes(schoolQuery)).slice(0, 8)
-    : [];
+  const filteredSchools = useMemo(
+    () => schoolQuery
+      ? KNOWN_SCHOOLS.filter((s) => s.toLowerCase().includes(schoolQuery)).slice(0, 8)
+      : [],
+    [schoolQuery]
+  );
 
   return (
     <div className="space-y-3">
@@ -457,7 +460,7 @@ function ProspectEditForm({
             className={`w-full ${inputSmall}`}
           />
           {showSchoolSuggestions && filteredSchools.length > 0 && (
-            <div className="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+            <div className="absolute z-10 w-full mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
               {filteredSchools.map((s) => (
                 <button
                   key={s}
@@ -467,7 +470,7 @@ function ProspectEditForm({
                     onChange("school", s);
                     setShowSchoolSuggestions(false);
                   }}
-                  className="w-full px-2.5 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-xs"
+                  className="w-full px-2.5 py-1.5 text-left hover:bg-muted text-xs"
                 >
                   {s}
                 </button>
