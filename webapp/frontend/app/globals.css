@@ -207,6 +207,31 @@
   color-scheme: light;
 }
 
+/* ===== BUDDY TRACKER ANIMATIONS ===== */
+@keyframes buddy-pulse {
+  0%, 100% { border-left-color: #fca5a5; }
+  50% { border-left-color: #ef4444; }
+}
+.animate-buddy-pulse {
+  animation: buddy-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ring-draw {
+  from { stroke-dasharray: 0 50.27; }
+}
+.animate-ring-draw {
+  animation: ring-draw 0.4s ease-out;
+}
+
+@keyframes pill-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.animate-pill-pop {
+  animation: pill-pop 0.25s ease-out;
+}
+
 /* ===== CUSTOM ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }

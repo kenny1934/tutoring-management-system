@@ -37,14 +37,14 @@ const BRANCHES = PROSPECT_BRANCHES;
 
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
-const BRANCH_INFO: Record<string, { district: string }> = {
-  MAC: { district: "高士德" },
-  MCP: { district: "水坑尾" },
-  MNT: { district: "東方明珠" },
-  MTA: { district: "氹仔美景I" },
-  MLT: { district: "林茂塘" },
-  MTR: { district: "氹仔美景II" },
-  MOT: { district: "二龍喉" },
+const BRANCH_INFO: Record<string, { district: string; dot: string }> = {
+  MAC: { district: "高士德", dot: "bg-blue-500" },
+  MCP: { district: "水坑尾", dot: "bg-emerald-500" },
+  MNT: { district: "東方明珠", dot: "bg-amber-500" },
+  MTA: { district: "氹仔美景I", dot: "bg-rose-500" },
+  MLT: { district: "林茂塘", dot: "bg-violet-500" },
+  MTR: { district: "氹仔美景II", dot: "bg-cyan-500" },
+  MOT: { district: "二龍喉", dot: "bg-orange-500" },
 };
 
 // ---- Helpers ----
@@ -57,14 +57,22 @@ function codeHue(code: string): number {
 
 function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: string) => void; onClick?: () => void }) {
   const hue = codeHue(code);
+  const [popped, setPopped] = useState(false);
+  const popTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const handleCopy = useCallback((c: string) => {
+    onCopy?.(c);
+    setPopped(true);
+    clearTimeout(popTimer.current);
+    popTimer.current = setTimeout(() => setPopped(false), 300);
+  }, [onCopy]);
   return (
     <span
-      className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""}`}
+      className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${popped ? "animate-pill-pop" : ""}`}
       style={{ backgroundColor: `hsl(${hue}, 40%, 93%)`, color: `hsl(${hue}, 50%, 35%)` }}
-      onClick={onClick}
+      onClick={() => { onClick?.(); if (onClick) handleCopy(code); }}
     >
       {code}
-      {onCopy && <CopyButton text={code} onCopy={onCopy} />}
+      {onCopy && !onClick && <CopyButton text={code} onCopy={handleCopy} />}
     </span>
   );
 }
@@ -482,7 +490,7 @@ export default function BuddyTrackerPage() {
               className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
               style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
+              <span className={`w-2.5 h-2.5 rounded-full ${BRANCH_INFO[b]?.dot} opacity-60 group-hover:opacity-100 transition-opacity`} />
               <span className="font-bold text-foreground text-sm">{b}</span>
               <span className="text-[10px] text-muted-foreground/70 leading-tight">{BRANCH_INFO[b]?.district}</span>
             </a>
@@ -554,11 +562,6 @@ export default function BuddyTrackerPage() {
           <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span><strong className="text-foreground">{stats.total}</strong> students</span>
-          <span><strong className="text-foreground">{stats.groups}</strong> groups</span>
-          {stats.solo > 0 && (
-            <span className="text-red-600"><strong>{stats.solo}</strong> solo</span>
-          )}
           <button
             onClick={() => globalMutate(swrKey)}
             className="p-1 rounded-lg hover:bg-muted transition-colors"
@@ -595,6 +598,24 @@ export default function BuddyTrackerPage() {
           </a>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      {ownMembers.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="border-2 border-border rounded-xl p-3 text-center">
+            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+            <div className="text-[10px] text-muted-foreground">Students</div>
+          </div>
+          <div className="border-2 border-border rounded-xl p-3 text-center">
+            <div className="text-2xl font-bold text-green-600">{stats.paired}</div>
+            <div className="text-[10px] text-muted-foreground">Paired</div>
+          </div>
+          <div className="border-2 border-border rounded-xl p-3 text-center">
+            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-foreground"}`}>{stats.solo}</div>
+            <div className="text-[10px] text-muted-foreground">Solo</div>
+          </div>
+        </div>
+      )}
 
       {/* Add Student Card */}
       <div ref={addFormRef} className="border-2 border-border rounded-2xl bg-card overflow-hidden">
@@ -741,20 +762,21 @@ export default function BuddyTrackerPage() {
                 </p>
               )}
               {formSuccess && (
-                <div className="border-l-4 border-l-green-500 border border-border rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-green-700 flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5" /> Student added
-                    </span>
-                    <button onClick={() => setFormSuccess(null)} className="p-0.5 text-muted-foreground hover:text-foreground">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                    <Check className="h-5 w-5 text-green-600" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-lg tracking-wider text-foreground">{formSuccess}</span>
-                    <CopyButton text={formSuccess} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Buddy Code</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
+                      <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Share this code with the student&apos;s family so their friends can register with it.</p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Share this code with the student&apos;s family so their friends can use it when registering.</p>
+                  <button onClick={() => setFormSuccess(null)} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
@@ -775,7 +797,7 @@ export default function BuddyTrackerPage() {
 
       {/* Filter tabs + search + view toggle */}
       {ownMembers.length > 0 && (
-        <div className="space-y-3">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             {(["all", "solo", "complete"] as const).map((tab) => {
               const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : stats.total;
@@ -877,10 +899,10 @@ export default function BuddyTrackerPage() {
               <div
                 key={g.code}
                 className={`border-2 rounded-2xl overflow-hidden ${
-                  isSolo ? "border-l-[3px] border-l-red-300 border-border" : "border-l-[3px] border-l-green-400 border-border"
+                  isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
                 }`}
               >
-                <div className="px-4 py-3 flex items-center justify-between gap-3">
+                <div className={`px-4 py-3 flex items-center justify-between gap-3 ${!isSolo ? "bg-gradient-to-r from-green-50/50 to-transparent" : ""}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     <CodePill code={g.code} onCopy={handleCopyToast} />
                     <GroupRing size={g.size} />
@@ -907,9 +929,13 @@ export default function BuddyTrackerPage() {
                     </div>
                   )}
                 </div>
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-border relative">
+                  {!isSolo && g.own.length + g.others.length > 1 && (
+                    <div className="absolute left-3 top-3 bottom-3 w-px bg-green-200" />
+                  )}
                   {g.own.map((m) => (
-                    <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs">
+                    <div key={m.id} className="px-4 py-2.5 flex items-center gap-3 text-xs relative">
+                      {!isSolo && <span className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-300" />}
                       <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                       <span className="font-medium">{m.student_name_en}</span>
                       {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
@@ -1071,7 +1097,13 @@ function GroupRing({ size }: { size: number }) {
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
           stroke="#ef4444" strokeDasharray={`${filled} ${c}`}
-          strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
+          strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`}
+          className="animate-ring-draw" />
+      )}
+      {complete && (
+        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
+          stroke="#22c55e" strokeDasharray={`${c} ${c}`}
+          className="animate-ring-draw" />
       )}
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
         className={`text-[8px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
@@ -1129,7 +1161,7 @@ function DesktopRow({
     <>
       <tr
         className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
-          isSolo ? "border-l-[3px] border-l-red-300" : "border-l-[3px] border-l-green-400"
+          isSolo ? `border-l-[3px] border-l-red-300 ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400"
         } ${isRecent ? "bg-green-50 animate-fade-in" : ""}`}
         style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 30%, 97%)` } : undefined}
         onClick={onToggleExpand}
@@ -1202,9 +1234,10 @@ function MobileCard({
 }) {
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
+  const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
   return (
     <div className={`border-2 rounded-xl transition-colors ${
-      isSolo ? "border-l-[3px] border-l-red-300 border-border" : "border-l-[3px] border-l-green-400 border-border"
+      isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
     } ${isRecent ? "bg-green-50 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
