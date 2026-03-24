@@ -19,7 +19,8 @@ export function SummerHeader() {
     }
   }, []);
 
-  const isBuddyPage = pathname.startsWith("/summer/buddy");
+  const isBuddyPage = pathname.startsWith("/summer/buddy") ||
+    (typeof window !== 'undefined' && window.location.hostname.startsWith('buddy.'));
   const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
   const isInternalPage = isProspectSubdomain || (!isPublicPage && !isBuddyPage);
 

@@ -8,7 +8,8 @@ export function SummerLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isProspect = pathname.startsWith("/summer/prospect") ||
     (typeof window !== 'undefined' && window.location.hostname.startsWith('prospect.'));
-  const isBuddyTracker = pathname.startsWith("/summer/buddy");
+  const isBuddyTracker = pathname.startsWith("/summer/buddy") ||
+    (typeof window !== 'undefined' && window.location.hostname.startsWith('buddy.'));
   const forceLight = !isProspect && !isBuddyTracker;
 
   const themeClass = isBuddyTracker ? "buddy-theme" : forceLight ? "summer-light" : "";
