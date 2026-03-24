@@ -1092,8 +1092,9 @@ function GroupRing({ size }: { size: number }) {
   const filled = c * Math.min(size / 2, 1);
   return (
     <svg width="20" height="20" className="shrink-0">
-      <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
-        stroke={complete ? "#22c55e" : "#e5e5e5"} />
+      {!complete && (
+        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="#e5e5e5" />
+      )}
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5"
           stroke="#ef4444" strokeDasharray={`${filled} ${c}`}
