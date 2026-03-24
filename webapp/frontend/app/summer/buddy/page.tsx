@@ -69,7 +69,7 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
     <span
       className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${popped ? "animate-pill-pop" : ""}`}
       style={{ backgroundColor: `hsl(${hue}, 40%, 93%)`, color: `hsl(${hue}, 50%, 35%)` }}
-      onClick={() => { onClick?.(); if (onClick) handleCopy(code); }}
+      onClick={(e) => { if (onClick) { e.stopPropagation(); onClick(); handleCopy(code); } }}
     >
       {code}
       {onCopy && !onClick && <CopyButton text={code} onCopy={handleCopy} />}
@@ -174,6 +174,7 @@ export default function BuddyTrackerPage() {
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
   const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const addFormRef = useRef<HTMLDivElement>(null);
+  const studentIdRef = useRef<HTMLInputElement>(null);
 
   const handleCopyToast = useCallback((code: string) => {
     setCopyToast(code);
@@ -285,16 +286,18 @@ export default function BuddyTrackerPage() {
         buddy_code: formBuddyCode.trim().toUpperCase() || null,
         is_sibling: hasAnyOtherBranch && siblingConfirmed,
       });
-      // Clear form
+      // Clear form — keep buddy code if joining existing group for consecutive adds
+      const wasJoining = !!formBuddyCode.trim();
       setFormStudentId("");
       setFormNameEn("");
       setFormNameZh("");
       setFormPhone("");
-      setFormBuddyCode("");
+      if (!wasJoining) setFormBuddyCode("");
       setLookupResult(null);
       setSiblingConfirmed(false);
       setFormSuccess(result.buddy_code);
       setRecentlyAddedId(result.id);
+      setTimeout(() => studentIdRef.current?.focus(), 100);
       clearTimeout(recentlyAddedTimer.current);
       recentlyAddedTimer.current = setTimeout(() => setRecentlyAddedId(null), 3000);
       globalMutate(swrKey);
@@ -646,8 +649,9 @@ export default function BuddyTrackerPage() {
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Student ID *</label>
                   <input
+                    ref={studentIdRef}
                     value={formStudentId}
-                    onChange={(e) => setFormStudentId(e.target.value)}
+                    onChange={(e) => { setFormStudentId(e.target.value); setFormSuccess(null); }}
                     className={inputCls}
                     placeholder="e.g. MAC1234"
                   />
@@ -662,7 +666,7 @@ export default function BuddyTrackerPage() {
                   <label className="block text-xs font-medium text-muted-foreground mb-1">English Name *</label>
                   <input
                     value={formNameEn}
-                    onChange={(e) => setFormNameEn(e.target.value)}
+                    onChange={(e) => { setFormNameEn(e.target.value); setFormSuccess(null); }}
                     className={inputCls}
                     placeholder="Full name"
                   />
@@ -671,7 +675,7 @@ export default function BuddyTrackerPage() {
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Chinese Name</label>
                   <input
                     value={formNameZh}
-                    onChange={(e) => setFormNameZh(e.target.value)}
+                    onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
                     className={inputCls}
                     placeholder="中文名"
                   />
@@ -680,7 +684,7 @@ export default function BuddyTrackerPage() {
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Parent Phone</label>
                   <input
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
+                    onChange={(e) => { setFormPhone(e.target.value); setFormSuccess(null); }}
                     inputMode="tel"
                     className={inputCls}
                     placeholder="Phone number"
@@ -1007,7 +1011,7 @@ export default function BuddyTrackerPage() {
                         if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
                         return next;
                       })}
-                      onStartEdit={() => startEdit(m)}
+                      onStartEdit={() => { startEdit(m); setExpandedIds(prev => new Set(prev).add(m.id)); }}
                       onCancelEdit={() => { setEditingId(null); setEditError(null); }}
                       onSaveEdit={saveEdit}
                       onEditChange={(field, value) => setEditData((prev) => ({ ...prev, [field]: value }))}
@@ -1044,7 +1048,7 @@ export default function BuddyTrackerPage() {
                     if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
                     return next;
                   })}
-                  onStartEdit={() => startEdit(m)}
+                  onStartEdit={() => { startEdit(m); setExpandedIds(prev => new Set(prev).add(m.id)); }}
                   onCancelEdit={() => { setEditingId(null); setEditError(null); }}
                   onSaveEdit={saveEdit}
                   onEditChange={(field, value) => setEditData((prev) => ({ ...prev, [field]: value }))}
@@ -1101,7 +1105,7 @@ function GroupRing({ size }: { size: number }) {
   const c = 2 * Math.PI * r;
   const filled = c * Math.min(size / 2, 1);
   return (
-    <svg width="20" height="20" className="shrink-0">
+    <svg width="20" height="20" className="shrink-0 inline-block align-middle">
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="#e5e5e5" />
       )}
@@ -1184,10 +1188,7 @@ function DesktopRow({
           {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Sibling</span>}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
-        <td
-          className="px-4 py-2.5"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <td className="px-4 py-2.5">
           <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast(m.buddy_code); }} />
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
