@@ -23,7 +23,9 @@ import {
   RefreshCw,
   LayoutList,
   LayoutGrid,
+  Columns,
   Download,
+  Share2,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -128,6 +130,71 @@ function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolea
   );
 }
 
+function generateShareCard(code: string, branch: string, year: number) {
+  const district = BRANCH_INFO[branch]?.district ?? branch;
+  const canvas = document.createElement("canvas");
+  const w = 480, h = 320;
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  // Red header
+  ctx.fillStyle = "#dc2626";
+  ctx.fillRect(0, 0, w, 80);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 18px system-ui, sans-serif";
+  ctx.fillText("MathConcept", 24, 38);
+  ctx.font = "14px system-ui, sans-serif";
+  ctx.fillText(`Summer Course ${year}`, 24, 62);
+
+  // White body
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 80, w, h - 80);
+
+  // "Your Buddy Code:" label
+  ctx.fillStyle = "#737373";
+  ctx.font = "13px system-ui, sans-serif";
+  ctx.fillText("Your Buddy Code:", 24, 120);
+
+  // Code pill
+  ctx.fillStyle = "#dc2626";
+  const codeWidth = ctx.measureText(code).width;
+  const pillW = codeWidth * 2.2 + 40;
+  ctx.beginPath();
+  ctx.roundRect(24, 135, pillW, 50, 12);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 28px monospace";
+  ctx.textBaseline = "middle";
+  ctx.fillText(code, 44, 160);
+  ctx.textBaseline = "alphabetic";
+
+  // Helper text
+  ctx.fillStyle = "#737373";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillText("Share this code with your friend when they", 24, 215);
+  ctx.fillText("register for the summer course.", 24, 232);
+
+  // Footer
+  ctx.fillStyle = "#a3a3a3";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillText(`${district} (${branch}) · ${year}`, 24, 290);
+
+  // Border
+  ctx.strokeStyle = "#e5e5e5";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(1, 1, w - 2, h - 2, 16);
+  ctx.stroke();
+
+  // Download
+  const url = canvas.toDataURL("image/png");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `buddy-code-${code}.png`;
+  a.click();
+}
+
 function CrossBranchIndicator({ members, currentBranch }: { members: BuddyGroupMemberInfo[]; currentBranch: string }) {
   const otherBranches = [...new Set(members.filter(m => m.branch !== currentBranch).map(m => m.branch))];
   if (!otherBranches.length) return null;
@@ -185,7 +252,7 @@ export default function BuddyTrackerPage() {
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [editError, setEditError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "groups">("list");
+  const [viewMode, setViewMode] = useState<"list" | "groups" | "board">("list");
   const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete" | "cross-branch">("all");
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -471,6 +538,23 @@ export default function BuddyTrackerPage() {
   }, [displayMembers, viewMode]);
 
   // ---- Stats ----
+  // Board view: split into solo and paired
+  const boardSolo = useMemo(() =>
+    ownMembers.filter(m => m.group_size < 2).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [ownMembers]
+  );
+  const boardPaired = useMemo(() => {
+    const map = new Map<number, { code: string; members: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
+    for (const m of ownMembers.filter(m => m.group_size >= 2)) {
+      if (!map.has(m.buddy_group_id)) {
+        const others = m.group_members.filter(gm => !(gm.source === "primary" && ownMembers.some(om => om.id === gm.id)));
+        map.set(m.buddy_group_id, { code: m.buddy_code, members: [], others });
+      }
+      map.get(m.buddy_group_id)!.members.push(m);
+    }
+    return Array.from(map.values()).sort((a, b) => b.members[0].created_at.localeCompare(a.members[0].created_at));
+  }, [ownMembers]);
+
   const stats = useMemo(() => {
     if (!ownMembers.length) return { total: 0, groups: 0, paired: 0, solo: 0, crossBranch: 0 };
     const groupIds = new Set(ownMembers.map((m) => m.buddy_group_id));
@@ -834,6 +918,13 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
+                      <button
+                        onClick={() => generateShareCard(formSuccess, branch!, CURRENT_YEAR)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
+                        title="Download share card"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">Share this code with the student&apos;s family so their friends can register with it.</p>
                   </div>
@@ -921,6 +1012,13 @@ export default function BuddyTrackerPage() {
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
+              <button
+                onClick={() => setViewMode("board")}
+                className={`p-2 transition-colors ${viewMode === "board" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                title="Board view"
+              >
+                <Columns className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
@@ -949,6 +1047,86 @@ export default function BuddyTrackerPage() {
               </p>
             </>
           )}
+        </div>
+      ) : viewMode === "board" ? (
+        /* Board view — Solo left, Paired right */
+        <div className="grid md:grid-cols-[1fr_1.2fr] gap-4">
+          {/* Solo column */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Needs Partner ({boardSolo.length})
+            </div>
+            {boardSolo.length === 0 ? (
+              <div className="text-center py-8 text-xs text-muted-foreground">
+                <Check className="h-6 w-6 mx-auto mb-2 text-green-500" />
+                All paired!
+              </div>
+            ) : boardSolo.map(m => (
+              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : "bg-card"}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-sm">{m.student_name_en}</span>
+                    {m.student_name_zh && <span className="text-xs text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
+                    {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                  </div>
+                  <GroupRing size={m.group_size} />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono text-[10px]">{m.student_id}</span>
+                  {m.parent_phone && <span>{m.parent_phone}</span>}
+                  <span className={`text-[10px] ${Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000) >= 3 ? "text-red-500 font-medium" : Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000) >= 1 ? "text-amber-500" : ""}`}>
+                    {relativeTime(m.created_at)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
+                  <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+                  <button
+                    onClick={() => prefillBuddyCode(m.buddy_code)}
+                    className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Paired column */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-green-600 dark:text-green-400">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              Paired ({boardPaired.length})
+            </div>
+            {boardPaired.length === 0 ? (
+              <div className="text-center py-8 text-xs text-muted-foreground">No paired groups yet</div>
+            ) : boardPaired.map(g => (
+              <div key={g.code} className="border-2 border-l-[3px] border-l-green-400 border-border rounded-xl p-3 bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <CodePill code={g.code} onCopy={handleCopyToast} />
+                  <GroupRing size={g.members.length + g.others.length} />
+                  <CrossBranchIndicator members={g.others} currentBranch={branch!} />
+                </div>
+                <div className="space-y-1">
+                  {g.members.map(m => (
+                    <div key={m.id} className="flex items-center gap-2 text-xs">
+                      <span className="font-medium">{m.student_name_en}</span>
+                      {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                      {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                    </div>
+                  ))}
+                  {g.others.map(m => (
+                    <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium">{m.name}</span>
+                      <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : viewMode === "groups" ? (
         /* Grouped view */
