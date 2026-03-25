@@ -185,6 +185,7 @@ export default function BuddyTrackerPage() {
   const [linkSiblingNeeded, setLinkSiblingNeeded] = useState(false);
   const [linkSiblingConfirmed, setLinkSiblingConfirmed] = useState(false);
   const [linkTargetCode, setLinkTargetCode] = useState<string | null>(null);
+  const [linkLookup, setLinkLookup] = useState<BuddyGroupLookup | null>(null);
   const [confirmUnlinkId, setConfirmUnlinkId] = useState<number | null>(null);
   const confirmUnlinkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [editData, setEditData] = useState<Record<string, string>>({});
@@ -378,7 +379,7 @@ export default function BuddyTrackerPage() {
   // Reset link state when switching targets
   useEffect(() => {
     setLinkCode(""); setLinkError(null); setLinkSiblingNeeded(false);
-    setLinkSiblingConfirmed(false); setLinkTargetCode(null);
+    setLinkSiblingConfirmed(false); setLinkTargetCode(null); setLinkLookup(null);
   }, [linkingId]);
 
   const handleLink = useCallback(async (memberId: number, targetCode: string, isSibling = false) => {
@@ -582,17 +583,43 @@ export default function BuddyTrackerPage() {
   const renderLinkPicker = (memberId: number) => (
     <div className="p-2.5 border-2 border-border rounded-xl space-y-2">
       <div className="flex gap-2">
-        <input value={linkCode} onChange={(e) => { setLinkCode(e.target.value.toUpperCase()); setLinkTargetCode(null); setLinkError(null); setLinkSiblingNeeded(false); }}
+        <input value={linkCode} onChange={(e) => { setLinkCode(e.target.value.toUpperCase()); setLinkTargetCode(null); setLinkError(null); setLinkSiblingNeeded(false); setLinkLookup(null); }}
           className={`flex-1 text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${isCodeMode ? "font-mono tracking-wider" : ""}`}
           placeholder="Search student or enter BG-XXXX"
           autoFocus />
-        {isCodeMode && linkCode.trim().length >= 6 && (
-          <button onClick={() => handleLink(memberId, linkCode.trim(), linkSiblingConfirmed)}
-            className="px-3 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shrink-0">
-            Link
+        {isCodeMode && linkCode.trim().length >= 6 && !linkLookup && (
+          <button onClick={async () => {
+            try {
+              const result = await buddyTrackerAPI.lookupGroup(linkCode.trim(), branch!);
+              setLinkLookup(result);
+            } catch { setLinkError("Code not found"); }
+          }}
+            className="px-3 py-2 text-xs font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors shrink-0">
+            Look Up
           </button>
         )}
       </div>
+      {/* Code lookup preview */}
+      {linkLookup && (
+        <div className="border-2 border-border rounded-lg p-2.5 space-y-1.5">
+          <div className="flex items-center gap-2 text-xs">
+            <Link2 className="h-3.5 w-3.5 text-primary" />
+            <span className="font-medium">Group {linkLookup.buddy_code}</span>
+            <span className="text-muted-foreground">{linkLookup.total_size} member{linkLookup.total_size !== 1 ? "s" : ""}</span>
+          </div>
+          {linkLookup.members.map(m => (
+            <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground pl-5">
+              <span className="font-medium text-foreground">{m.name}</span>
+              {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
+              <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+            </div>
+          ))}
+          <button onClick={() => handleLink(memberId, linkLookup.buddy_code, linkSiblingConfirmed)}
+            className="w-full mt-1 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            Link to this group
+          </button>
+        </div>
+      )}
       {/* Search results */}
       {linkSearchResults.length > 0 && (
         <div className="space-y-0.5 max-h-40 overflow-y-auto">
