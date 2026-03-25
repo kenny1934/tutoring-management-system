@@ -854,25 +854,71 @@ export default function BuddyTrackerPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Filter Cards */}
       {ownMembers.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="border-2 border-border rounded-xl p-3 text-center">
+          {/* All Students */}
+          <button
+            onClick={() => setFilterTab("all")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "all" || filterTab === "cross-branch"
+                ? "border-primary ring-2 ring-primary/30 shadow-md scale-[1.02]"
+                : "border-border hover:border-primary/40 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            <Users className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "all" || filterTab === "cross-branch" ? "text-primary" : "text-muted-foreground"}`} />
             <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <div className="text-xs font-medium text-muted-foreground">Students</div>
-          </div>
-          <div className="border-2 border-border rounded-xl p-3 text-center">
+            <div className="text-[10px] font-medium text-muted-foreground">All Students</div>
+            {stats.crossBranch > 0 && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); setFilterTab(filterTab === "cross-branch" ? "all" : "cross-branch"); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setFilterTab(filterTab === "cross-branch" ? "all" : "cross-branch"); } }}
+                className={`inline-block mt-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                  filterTab === "cross-branch" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50 scale-105" : "bg-amber-500/15 text-amber-600 hover:bg-amber-500/30"
+                }`}
+              >
+                {stats.crossBranch} cross-branch
+              </span>
+            )}
+          </button>
+
+          {/* Paired */}
+          <button
+            onClick={() => setFilterTab(filterTab === "complete" ? "all" : "complete")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "complete"
+                ? "border-green-500 ring-2 ring-green-500/30 shadow-md scale-[1.02] bg-green-500/5"
+                : "border-border hover:border-green-500/40 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600" : "text-green-600/50"}`} />
             <div className="text-2xl font-bold text-green-600">{stats.paired}</div>
-            <div className="text-xs font-medium text-muted-foreground">Paired</div>
-          </div>
-          <div className={`border-2 rounded-xl p-3 text-center ${
-            stats.solo > 0 ? "border-red-500/30 bg-red-500/5" : stats.total > 0 ? "border-green-500/30 bg-green-500/5" : "border-border"
-          }`}>
-            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-foreground"}`}>
-              {stats.solo === 0 && stats.total > 0 ? <Check className="h-6 w-6 inline text-green-500" /> : stats.solo}
+            <div className="text-[10px] font-medium text-muted-foreground">Paired</div>
+          </button>
+
+          {/* Needs Partner */}
+          <button
+            onClick={() => setFilterTab(filterTab === "solo" ? "all" : "solo")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "solo"
+                ? "border-red-500 ring-2 ring-red-500/30 shadow-md scale-[1.02] bg-red-500/5"
+                : stats.solo > 0
+                  ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-glow"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            {stats.solo > 0 ? (
+              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600" : "text-red-500/70"}`} />
+            ) : (
+              <Check className="h-4 w-4 mx-auto mb-1 text-green-500" />
+            )}
+            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-green-600"}`}>
+              {stats.solo === 0 && stats.total > 0 ? "✓" : stats.solo}
             </div>
-            <div className="text-xs font-medium text-muted-foreground">Needs Partner</div>
-          </div>
+            <div className="text-[10px] font-medium text-muted-foreground">Needs Partner</div>
+          </button>
         </div>
       )}
 
@@ -1098,43 +1144,9 @@ export default function BuddyTrackerPage() {
         document.body
       )}
 
-      {/* Filter tabs + search + view toggle */}
+      {/* Search + view toggle */}
       {ownMembers.length > 0 && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 space-y-3 border-b border-border">
-          <div className="flex items-center gap-2 flex-wrap">
-            {(["all", "solo", "complete", ...(stats.crossBranch > 0 ? ["cross-branch" as const] : [])] as const).map((tab) => {
-              const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : tab === "cross-branch" ? stats.crossBranch : stats.total;
-              const label = tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : tab === "complete" ? "Paired" : "Cross-branch";
-              const isActive = filterTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setFilterTab(tab)}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors ${
-                    isActive
-                      ? tab === "cross-branch" ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                  {tab !== "all" && <span className={`ml-1 ${isActive ? "opacity-80" : "opacity-60"}`}>({count})</span>}
-                </button>
-              );
-            })}
-            {filterTab === "solo" && stats.solo > 0 && (
-              <button
-                onClick={() => {
-                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
-                  navigator.clipboard.writeText(codes.join("\n"));
-                  handleCopyToast(`${codes.length} codes`);
-                }}
-                className="text-xs font-medium px-3 py-1.5 rounded-full border-2 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
-                title="Copy all solo codes for sharing with families to find partners"
-              >
-                <Copy className="h-3 w-3 inline mr-1" />Copy all codes
-              </button>
-            )}
-          </div>
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 border-b border-border">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1145,6 +1157,20 @@ export default function BuddyTrackerPage() {
                 className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </div>
+            {filterTab === "solo" && stats.solo > 0 && (
+              <button
+                onClick={() => {
+                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
+                  navigator.clipboard.writeText(codes.join("\n"));
+                  handleCopyToast(`${codes.length} codes`);
+                }}
+                className="px-3 py-2 text-xs font-medium border-2 border-border rounded-xl hover:border-primary/40 hover:text-foreground transition-colors text-muted-foreground shrink-0"
+                title="Copy all solo codes for sharing with families to find partners"
+              >
+                <Copy className="h-3.5 w-3.5 inline mr-1" />
+                <span className="hidden sm:inline">Copy codes</span>
+              </button>
+            )}
             <div className="flex border-2 border-border rounded-xl overflow-hidden">
               <button
                 onClick={() => setViewMode("list")}
