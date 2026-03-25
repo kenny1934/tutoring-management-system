@@ -33,6 +33,7 @@ import Image from "next/image";
 import { buddyTrackerAPI } from "@/lib/api";
 import type { BuddyMember, BuddyGroupMemberInfo, BuddyGroupLookup } from "@/types";
 import { PROSPECT_BRANCHES } from "@/types";
+import { BRANCH_INFO } from "@/lib/summer-utils";
 
 // ---- Constants ----
 
@@ -48,15 +49,6 @@ const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 b
 
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
 
-const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
-  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
-  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
-  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
-};
 
 function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -1431,7 +1423,8 @@ export default function BuddyTrackerPage() {
                     </div>
                   ))}
                   {g.others.map((m) => (
-                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20">
+                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20 relative">
+                      {!isSolo && <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />}
                       <BranchBadge branch={m.branch} />
                       {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
