@@ -109,22 +109,23 @@ function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: str
   );
 }
 
-function BranchBadge({ branch, isSibling }: { branch: string; isSibling?: boolean }) {
+function BranchBadge({ branch }: { branch: string }) {
   const info = BRANCH_INFO[branch];
   const bg = info?.badge
     ?? (branch === "MSA" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
     : branch === "MSB" ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
     : "bg-muted text-muted-foreground");
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${bg}`}>
-        {branch}
-      </span>
-      {isSibling && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
-          Sibling
-        </span>
-      )}
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${bg}`}>
+      {branch}
+    </span>
+  );
+}
+
+function SiblingBadge() {
+  return (
+    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+      Sibling
     </span>
   );
 }
@@ -609,9 +610,10 @@ export default function BuddyTrackerPage() {
           </div>
           {linkLookup.members.map(m => (
             <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground pl-5">
-              <span className="font-medium text-foreground">{m.name}</span>
+              {m.branch !== branch && <BranchBadge branch={m.branch} />}
               {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
-              <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+              <span className="font-medium text-foreground">{m.name}</span>
+              {m.is_sibling && <SiblingBadge />}
             </div>
           ))}
           <button onClick={() => handleLink(memberId, linkLookup.buddy_code, linkSiblingConfirmed)}
@@ -957,9 +959,10 @@ export default function BuddyTrackerPage() {
                     <div className="space-y-1">
                       {lookupResult.members.map((m) => (
                         <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {m.branch !== branch && <BranchBadge branch={m.branch} />}
+                          {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
                           <span className="text-foreground font-medium">{m.name}</span>
-                          {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
-                          <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                          {m.is_sibling && <SiblingBadge />}
                         </div>
                       ))}
                     </div>
@@ -1237,8 +1240,10 @@ export default function BuddyTrackerPage() {
                   ))}
                   {g.others.map(m => (
                     <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <BranchBadge branch={m.branch} />
+                      {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
-                      <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                      {m.is_sibling && <SiblingBadge />}
                     </div>
                   ))}
                 </div>
@@ -1340,10 +1345,10 @@ export default function BuddyTrackerPage() {
                   ))}
                   {g.others.map((m) => (
                     <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-3 text-xs bg-muted/20">
-                      {m.student_id && <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>}
-                      {!m.student_id && <span className="w-16 shrink-0" />}
+                      <BranchBadge branch={m.branch} />
+                      {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
-                      <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+                      {m.is_sibling && <SiblingBadge />}
                     </div>
                   ))}
                   {isSolo && (
@@ -1610,7 +1615,7 @@ function DesktopRow({
               <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
             ) : (
               <div className="space-y-2">
-                <GroupDetail members={m.group_members} />
+                <GroupDetail members={m.group_members} currentBranch={m.source_branch} />
                 {isSolo && (
                   <div className="flex items-center gap-3">
                     <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
@@ -1692,7 +1697,7 @@ function MobileCard({
             <EditForm editData={editData} editError={editError} onChange={onEditChange} onSave={onSaveEdit} onCancel={onCancelEdit} />
           ) : (
             <>
-              <GroupDetail members={m.group_members} />
+              <GroupDetail members={m.group_members} currentBranch={m.source_branch} />
               <div className="flex gap-2 pt-1 flex-wrap">
                 {isSolo && (
                   <>
@@ -1721,7 +1726,7 @@ function MobileCard({
 
 // ---- Group Detail Panel ----
 
-function GroupDetail({ members }: { members: BuddyGroupMemberInfo[] }) {
+function GroupDetail({ members, currentBranch }: { members: BuddyGroupMemberInfo[]; currentBranch: string }) {
   if (members.length === 0) {
     return <p className="text-xs text-muted-foreground">No other members in this group yet.</p>;
   }
@@ -1730,9 +1735,10 @@ function GroupDetail({ members }: { members: BuddyGroupMemberInfo[] }) {
       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Other Group Members</p>
       {members.map((m) => (
         <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs">
-          <span className="font-medium text-foreground">{m.name}</span>
+          {m.branch !== currentBranch && <BranchBadge branch={m.branch} />}
           {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
-          <BranchBadge branch={m.branch} isSibling={m.is_sibling} />
+          <span className="font-medium text-foreground">{m.name}</span>
+          {m.is_sibling && <SiblingBadge />}
         </div>
       ))}
     </div>
