@@ -338,9 +338,10 @@ export default function UncheckedAttendancePage() {
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
+            <div className="sticky top-0 z-30 flex flex-col gap-3">
             {/* Toolbar */}
             <div className={cn(
-              "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
+              "flex flex-wrap items-center gap-2 sm:gap-3",
               "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
               "rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
@@ -391,7 +392,6 @@ export default function UncheckedAttendancePage() {
             {/* Bulk Action Bar */}
             {hasSelection && (
               <div className={cn(
-                "sticky top-[52px] z-25",
                 "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
                 "rounded-lg px-3 sm:px-4 py-2"
               )}>
@@ -442,6 +442,7 @@ export default function UncheckedAttendancePage() {
                 </div>
               </div>
             )}
+            </div>
 
             {/* Main content */}
             <div className="space-y-4">
