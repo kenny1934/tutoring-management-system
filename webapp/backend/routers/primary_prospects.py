@@ -5,7 +5,6 @@ Public endpoints for branch tutor submissions + admin endpoints for tracking/mat
 import hmac
 import logging
 import os
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 
+from constants import hk_now
 from database import get_db
 from models import PrimaryProspect, SummerApplication, SummerCourseConfig
 from schemas import (
@@ -153,6 +153,7 @@ def bulk_create_prospects(
             preferred_time_note=item.preferred_time_note,
             preferred_tutor_note=item.preferred_tutor_note,
             sibling_info=item.sibling_info,
+            submitted_at=hk_now(),
         )
         db.add(prospect)
         created.append(prospect)
@@ -215,7 +216,7 @@ def update_prospect(
         old_value = getattr(prospect, field)
         if old_value != new_value:
             changes.append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": hk_now().isoformat(),
                 "field": field,
                 "old_value": str(old_value) if old_value is not None else None,
                 "new_value": str(new_value) if new_value is not None else None,
@@ -226,6 +227,7 @@ def update_prospect(
         history = list(prospect.edit_history or [])
         history.extend(changes)
         prospect.edit_history = history
+        prospect.updated_at = hk_now()
 
     db.commit()
     db.refresh(prospect)

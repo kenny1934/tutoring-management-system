@@ -30,6 +30,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
+import { useFormDirtyTracking } from "@/lib/ui-hooks";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
@@ -73,6 +75,11 @@ function relativeTime(dateStr: string | null): string {
   if (days === 1) return "1d";
   if (days < 7) return `${days}d`;
   return `${Math.floor(days / 7)}w`;
+}
+
+function wasEdited(submitted: string | null, updated: string | null): boolean {
+  if (!submitted || !updated) return false;
+  return new Date(updated).getTime() - new Date(submitted).getTime() > 5000;
 }
 
 function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" | "done" {
@@ -783,6 +790,14 @@ export default function ProspectPage() {
     return () => clearTimeout(t);
   }, [submittedSearchInput]);
 
+  // Warn before page unload if parsed rows have unsaved data
+  useEffect(() => {
+    if (parsedRows.length === 0) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [parsedRows.length]);
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -941,6 +956,14 @@ export default function ProspectPage() {
     setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
 
+  const {
+    setIsDirty: setDrawerDirty,
+    handleCloseAttempt: handleDrawerCloseAttempt,
+    showCloseConfirm: showDrawerCloseConfirm,
+    confirmDiscard: confirmDrawerDiscard,
+    cancelClose: cancelDrawerClose,
+  } = useFormDirtyTracking(drawerOpen, closeDrawer);
+
   const handleDrawerSubmit = useCallback(async (andClose?: boolean) => {
     if (!branch || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)) return;
     setDrawerSubmitting(true);
@@ -949,6 +972,7 @@ export default function ProspectPage() {
       const name = drawerFormValues.student_name;
       await prospectsAPI.bulkCreate({ year: CURRENT_YEAR, source_branch: branch, prospects: [toBulkItem(drawerFormValues)] });
       if (swrKey) globalMutate(swrKey);
+      setDrawerDirty(false);
       setDrawerFormValues(createEmptyFormValues());
       setDrawerResult({ ok: true, message: `${name} submitted` });
       if (andClose) closeDrawer();
@@ -1797,7 +1821,16 @@ export default function ProspectPage() {
                         <div className="text-xs text-muted-foreground space-y-1">
                           {p.phone_2 && <div>Phone 2: {p.phone_2}{p.phone_2_relation ? ` (${p.phone_2_relation})` : ""}</div>}
                           {p.preferred_time_note && <div>Time/Tutor Pref: {p.preferred_time_note}</div>}
-                          {p.submitted_at && <div className="text-[10px] pt-1">Submitted {new Date(p.submitted_at).toLocaleString()}</div>}
+                          {p.submitted_at && (
+                            <div className="text-[10px] pt-1">
+                              Submitted {new Date(p.submitted_at).toLocaleString()}
+                              {wasEdited(p.submitted_at, p.updated_at) && (
+                                <span className="ml-1.5 text-muted-foreground/50">
+                                  <Pencil className="h-2.5 w-2.5 inline mr-0.5" />Edited {relativeTime(p.updated_at)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1895,16 +1928,7 @@ export default function ProspectPage() {
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <OutreachBadge status={p.outreach_status} />
-                            {p.submitted_at && (
-                              <span className={`text-[10px] ${daysSinceSubmit >= 7 && urgency === "action" ? "text-red-500 font-medium" : daysSinceSubmit >= 3 ? "text-amber-500" : "text-muted-foreground/50"}`}>
-                                {relativeTime(p.submitted_at)}
-                              </span>
-                            )}
-                          </div>
-                        </td>
+                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button
@@ -1978,6 +2002,11 @@ export default function ProspectPage() {
                                 {p.submitted_at && (
                                   <div className="col-span-full text-[10px] text-muted-foreground pt-1">
                                     Submitted {new Date(p.submitted_at).toLocaleString()}
+                                    {wasEdited(p.submitted_at, p.updated_at) && (
+                                      <span className="ml-1.5 text-muted-foreground/50">
+                                        <Pencil className="h-2.5 w-2.5 inline mr-0.5" />Edited {relativeTime(p.updated_at)}
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -2046,7 +2075,7 @@ export default function ProspectPage() {
       {/* FAB — Add Student */}
       {pinVerified && selectedParsedKeys.size === 0 && selectedSubmittedIds.size === 0 && typeof document !== "undefined" && createPortal(
         <button
-          onClick={() => drawerOpen ? closeDrawer() : openDrawer()}
+          onClick={() => drawerOpen ? handleDrawerCloseAttempt() : openDrawer()}
           className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center ${
             drawerOpen ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
           }`}
@@ -2060,7 +2089,7 @@ export default function ProspectPage() {
       {/* Drawer — Add Student Form (direct submit) */}
       {(drawerOpen || drawerClosing) && typeof document !== "undefined" && createPortal(
         <>
-          <div className={`fixed inset-0 z-40 bg-black/40 ${drawerClosing ? "animate-backdrop-out" : "animate-backdrop-in"}`} onClick={closeDrawer} />
+          <div className={`fixed inset-0 z-40 bg-black/40 ${drawerClosing ? "animate-backdrop-out" : "animate-backdrop-in"}`} onClick={handleDrawerCloseAttempt} />
           <div className="fixed right-2 sm:right-3 bottom-[88px] z-40 w-[calc(100%-1rem)] sm:w-[420px]">
             <div className={`max-h-[calc(100vh-160px)] overflow-y-auto bg-card rounded-2xl shadow-2xl border border-border ${drawerClosing ? "animate-drawer-out" : "animate-drawer-in"}`}>
               <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10 rounded-t-2xl">
@@ -2068,14 +2097,14 @@ export default function ProspectPage() {
                   <UserPlus className="h-4 w-4 text-primary" />
                   Add Student
                 </span>
-                <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
+                <button onClick={handleDrawerCloseAttempt} className="p-1 text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
               </div>
               <div className="p-5 space-y-4">
                 <ProspectEditForm
                   values={drawerFormValues}
-                  onChange={(field, value) => { setDrawerFormValues(prev => ({ ...prev, [field]: value })); setDrawerResult(null); }}
+                  onChange={(field, value) => { setDrawerFormValues(prev => ({ ...prev, [field]: value })); setDrawerResult(null); setDrawerDirty(true); }}
                   branch={branch}
                   compact
                 />
@@ -2111,6 +2140,16 @@ export default function ProspectPage() {
         </>,
         document.body
       )}
+
+      <ConfirmDialog
+        isOpen={showDrawerCloseConfirm}
+        onConfirm={confirmDrawerDiscard}
+        onCancel={cancelDrawerClose}
+        title="Unsaved changes"
+        message="You have unsaved changes. Discard them?"
+        confirmText="Discard"
+        variant="danger"
+      />
     </div>
   );
 }
