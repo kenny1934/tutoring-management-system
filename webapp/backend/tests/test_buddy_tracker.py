@@ -6,7 +6,7 @@ Covers: PIN auth, CRUD, link/unlink, group lookup, cross-branch sibling validati
 import pytest
 from datetime import datetime
 
-from models import SummerBuddyGroup, SummerBuddyMember
+from models import SummerBuddyGroup, SummerBuddyMember, SummerCourseConfig, SummerApplication
 from utils.rate_limiter import clear_rate_limits
 
 YEAR = datetime.now().year
@@ -129,6 +129,58 @@ class TestCreateMember:
         )
         assert resp.status_code == 400
         assert "full" in resp.json()["detail"].lower()
+
+    def test_create_rejects_when_secondary_fills_group(self, client, db_session):
+        """Group with 1 primary + 1 active secondary application → rejects 3rd member."""
+        config = SummerCourseConfig(
+            year=YEAR, title="Test", application_open_date=datetime.now(),
+            application_close_date=datetime.now(), course_start_date=datetime.now().date(),
+            course_end_date=datetime.now().date(), total_lessons=8,
+            pricing_config={}, locations=[], available_grades=[], time_slots=[],
+        )
+        db_session.add(config)
+        db_session.flush()
+
+        a = create_member(client, student_id="1001")
+        # Add a secondary application to the same group
+        app = SummerApplication(
+            config_id=config.id, reference_code="SC-TEST1",
+            student_name="Secondary Student", grade="P5",
+            buddy_group_id=a["buddy_group_id"], application_status="Submitted",
+        )
+        db_session.add(app)
+        db_session.commit()
+
+        resp = client.post(
+            f"{API}/members",
+            json=make_member_data(student_id="1002", student_name_en="Bob", buddy_code=a["buddy_code"]),
+            headers=pin_headers(),
+        )
+        assert resp.status_code == 400
+        assert "full" in resp.json()["detail"].lower()
+
+    def test_create_accepts_when_secondary_is_withdrawn(self, client, db_session):
+        """Group with 1 primary + 1 Withdrawn secondary → still accepts."""
+        config = SummerCourseConfig(
+            year=YEAR, title="Test", application_open_date=datetime.now(),
+            application_close_date=datetime.now(), course_start_date=datetime.now().date(),
+            course_end_date=datetime.now().date(), total_lessons=8,
+            pricing_config={}, locations=[], available_grades=[], time_slots=[],
+        )
+        db_session.add(config)
+        db_session.flush()
+
+        a = create_member(client, student_id="1001")
+        app = SummerApplication(
+            config_id=config.id, reference_code="SC-TEST2",
+            student_name="Withdrawn Student", grade="P5",
+            buddy_group_id=a["buddy_group_id"], application_status="Withdrawn",
+        )
+        db_session.add(app)
+        db_session.commit()
+
+        b = create_member(client, student_id="1002", student_name_en="Bob", buddy_code=a["buddy_code"])
+        assert b["group_size"] == 2  # withdrawn secondary not counted
 
 
 # ---- List Members ----

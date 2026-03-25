@@ -342,7 +342,14 @@ export default function BuddyTrackerPage() {
       setFormNameZh("");
       setFormPhone("");
       if (!wasJoining) setFormBuddyCode("");
-      setLookupResult(null);
+      if (wasJoining) {
+        try {
+          const updated = await buddyTrackerAPI.lookupGroup(`BG-${formBuddyCode.trim().toUpperCase()}`, branch);
+          setLookupResult(updated);
+        } catch { setLookupResult(null); }
+      } else {
+        setLookupResult(null);
+      }
       setSiblingConfirmed(false);
       setFormSuccess(result.buddy_code);
       setRecentlyAddedId(result.id);

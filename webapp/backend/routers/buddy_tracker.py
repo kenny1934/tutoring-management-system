@@ -121,6 +121,8 @@ def _cleanup_empty_group(db: Session, group_id: int):
 
 def _check_group_capacity(db: Session, group_id: int):
     """Raise 400 if the group has reached the max member limit."""
+    # Lock the group row to serialize concurrent join attempts
+    db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).with_for_update().first()
     primary = db.query(func.count(SummerBuddyMember.id)).filter(
         SummerBuddyMember.buddy_group_id == group_id,
     ).scalar() or 0
