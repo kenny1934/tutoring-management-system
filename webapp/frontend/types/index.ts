@@ -2608,6 +2608,7 @@ export interface BuddyGroupMemberInfo {
   id: number;
   name: string;
   student_id: string | null;
+  phone: string | null;
   branch: string;
   source: 'primary' | 'secondary';
   is_sibling: boolean;

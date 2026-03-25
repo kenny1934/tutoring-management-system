@@ -78,6 +78,7 @@ def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[i
             id=m.id,
             name=m.student_name_en,
             student_id=m.student_id,
+            phone=m.parent_phone,
             branch=m.source_branch,
             source="primary",
             is_sibling=m.is_sibling,
@@ -93,6 +94,7 @@ def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[i
             id=a.id,
             name=a.student_name,
             student_id=None,
+            phone=a.contact_phone,
             branch=_secondary_branch(a.preferred_location),
             source="secondary",
             is_sibling=False,
@@ -260,12 +262,12 @@ def list_members(
                 continue
             group_members.append(BuddyGroupMemberInfo(
                 id=pm.id, name=pm.student_name_en, student_id=pm.student_id,
-                branch=pm.source_branch, source="primary", is_sibling=pm.is_sibling,
+                phone=pm.parent_phone, branch=pm.source_branch, source="primary", is_sibling=pm.is_sibling,
             ).model_dump())
         for sa in secondary_by_group.get(gid, []):
             group_members.append(BuddyGroupMemberInfo(
                 id=sa.id, name=sa.student_name, student_id=None,
-                branch=_secondary_branch(sa.preferred_location), source="secondary", is_sibling=False,
+                phone=sa.contact_phone, branch=_secondary_branch(sa.preferred_location), source="secondary", is_sibling=False,
             ).model_dump())
         return {
             "id": member.id, "buddy_group_id": gid,

@@ -626,6 +626,7 @@ export default function BuddyTrackerPage() {
               {m.branch !== branch && <BranchBadge branch={m.branch} />}
               {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
               <span className="font-medium text-foreground">{m.name}</span>
+              {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
               {m.is_sibling && <SiblingBadge />}
             </div>
           ))}
@@ -1243,6 +1244,7 @@ export default function BuddyTrackerPage() {
                       <BranchBadge branch={m.branch} />
                       {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
+                      {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
                       {m.is_sibling && <SiblingBadge />}
                     </div>
                   ))}
@@ -1340,6 +1342,7 @@ export default function BuddyTrackerPage() {
                       <BranchBadge branch={m.branch} />
                       {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
+                      {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
                       {m.is_sibling && <SiblingBadge />}
                     </div>
                   ))}

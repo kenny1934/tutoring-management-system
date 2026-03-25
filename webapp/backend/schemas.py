@@ -2811,6 +2811,7 @@ class BuddyGroupMemberInfo(BaseModel):
     id: int
     name: str
     student_id: Optional[str] = None
+    phone: Optional[str] = None
     branch: str
     source: str  # 'primary' or 'secondary'
     is_sibling: bool = False
