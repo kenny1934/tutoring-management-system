@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Printing .doc files now works** — print buttons across the app (session detail, exercise modal, lesson mode) were silently failing for `.doc`/`.docx` exercises; they now correctly fetch the converted PDF from Shelv before printing"
+          },
+          {
+            "description": "**Tutors can now add CW/HW and rate any session** — previously, tutors could only assign exercises and rate sessions under their own name; now any tutor can collaborate on any session"
           }
         ]
       }
