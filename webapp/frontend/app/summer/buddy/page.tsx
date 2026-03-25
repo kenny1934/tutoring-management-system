@@ -37,6 +37,7 @@ import { PROSPECT_BRANCHES } from "@/types";
 // ---- Constants ----
 
 const CURRENT_YEAR = new Date().getFullYear();
+const MAX_GROUP_SIZE = 2;
 
 const BRANCHES = PROSPECT_BRANCHES;
 
@@ -225,7 +226,7 @@ export default function BuddyTrackerPage() {
   }, []);
 
   const prefillBuddyCode = useCallback((code: string) => {
-    setFormBuddyCode(code);
+    setFormBuddyCode(code.startsWith("BG-") ? code.slice(3) : code);
     setDrawerOpen(true);
   }, []);
 
@@ -287,8 +288,9 @@ export default function BuddyTrackerPage() {
 
   // ---- Buddy code lookup ----
   const handleLookup = useCallback(async () => {
-    const code = formBuddyCode.trim().toUpperCase();
-    if (!code || !branch) return;
+    const suffix = formBuddyCode.trim().toUpperCase();
+    if (!suffix || !branch) return;
+    const code = `BG-${suffix}`;
     setLookupLoading(true);
     setLookupError(null);
     setLookupResult(null);
@@ -308,9 +310,15 @@ export default function BuddyTrackerPage() {
     return lookupResult.members.some((m) => m.branch !== branch);
   }, [lookupResult, branch]);
 
+  const isGroupFull = useMemo(() =>
+    lookupResult != null && lookupResult.total_size >= MAX_GROUP_SIZE,
+    [lookupResult]
+  );
+
   // ---- Add student ----
   const handleAddStudent = useCallback(async () => {
     if (!branch || !formStudentId.trim() || !formNameEn.trim()) return;
+    if (isGroupFull) return;
     if (hasAnyOtherBranch && !siblingConfirmed) return;
 
     setFormSubmitting(true);
@@ -324,7 +332,7 @@ export default function BuddyTrackerPage() {
         parent_phone: formPhone.trim() || null,
         source_branch: branch,
         year: CURRENT_YEAR,
-        buddy_code: formBuddyCode.trim().toUpperCase() || null,
+        buddy_code: formBuddyCode.trim() ? `BG-${formBuddyCode.trim().toUpperCase()}` : null,
         is_sibling: hasAnyOtherBranch && siblingConfirmed,
       });
       // Clear form — keep buddy code if joining existing group for consecutive adds
@@ -334,7 +342,14 @@ export default function BuddyTrackerPage() {
       setFormNameZh("");
       setFormPhone("");
       if (!wasJoining) setFormBuddyCode("");
-      setLookupResult(null);
+      if (wasJoining) {
+        try {
+          const updated = await buddyTrackerAPI.lookupGroup(`BG-${formBuddyCode.trim().toUpperCase()}`, branch);
+          setLookupResult(updated);
+        } catch { setLookupResult(null); }
+      } else {
+        setLookupResult(null);
+      }
       setSiblingConfirmed(false);
       setFormSuccess(result.buddy_code);
       setRecentlyAddedId(result.id);
@@ -359,7 +374,7 @@ export default function BuddyTrackerPage() {
     } finally {
       setFormSubmitting(false);
     }
-  }, [branch, formStudentId, formNameEn, formNameZh, formPhone, formBuddyCode, hasAnyOtherBranch, siblingConfirmed, swrKey]);
+  }, [branch, formStudentId, formNameEn, formNameZh, formPhone, formBuddyCode, isGroupFull, hasAnyOtherBranch, siblingConfirmed, swrKey]);
 
   // ---- Edit / Delete ----
   const startEdit = useCallback((m: BuddyMember) => {
@@ -631,26 +646,36 @@ export default function BuddyTrackerPage() {
               {m.is_sibling && <SiblingBadge />}
             </div>
           ))}
-          <button onClick={() => handleLink(memberId, linkLookup.buddy_code, linkSiblingConfirmed)}
-            className="w-full mt-1 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-            Link to this group
-          </button>
+          {linkLookup.total_size >= MAX_GROUP_SIZE ? (
+            <p className="mt-1 py-1.5 text-xs font-medium text-center text-red-600 bg-red-500/10 rounded-lg">Group is full (max {MAX_GROUP_SIZE})</p>
+          ) : (
+            <button onClick={() => handleLink(memberId, linkLookup.buddy_code, linkSiblingConfirmed)}
+              className="w-full mt-1 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+              Link to this group
+            </button>
+          )}
         </div>
       )}
       {/* Search results */}
       {linkSearchResults.length > 0 && (
         <div className="space-y-0.5 max-h-40 overflow-y-auto">
-          {linkSearchResults.map(s => (
-            <button key={s.id} onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
-              className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === s.buddy_code ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}>
-              <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
-              <span className="font-medium">{s.student_name_en}</span>
-              <CodePill code={s.buddy_code} />
-              {linkTargetCode === s.buddy_code && (
-                <span className="ml-auto text-[10px] font-medium text-primary">Confirm</span>
-              )}
-            </button>
-          ))}
+          {linkSearchResults.map(s => {
+            const isFull = s.group_size >= MAX_GROUP_SIZE;
+            return (
+              <button key={s.id} disabled={isFull}
+                onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2 ${isFull ? "opacity-50 cursor-not-allowed" : linkTargetCode === s.buddy_code ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}>
+                <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
+                <span className="font-medium">{s.student_name_en}</span>
+                <CodePill code={s.buddy_code} />
+                {isFull ? (
+                  <span className="ml-auto text-[10px] font-medium text-red-500">Full</span>
+                ) : linkTargetCode === s.buddy_code ? (
+                  <span className="ml-auto text-[10px] font-medium text-primary">Confirm</span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       )}
       {linkCode.trim() && !isCodeMode && linkSearchResults.length === 0 && (
@@ -928,17 +953,28 @@ export default function BuddyTrackerPage() {
                 <div className="flex-1">
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Buddy Code</label>
                   <div className="flex gap-2">
-                    <input
-                      value={formBuddyCode}
-                      onChange={(e) => {
-                        setFormBuddyCode(e.target.value.toUpperCase());
-                        setLookupResult(null);
-                        setLookupError(null);
-                        setSiblingConfirmed(false);
-                      }}
-                      className="flex-1 text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors font-mono tracking-wider"
-                      placeholder="BG-XXXX or leave empty to generate"
-                    />
+                    <div className="flex-1 flex items-center border-2 border-border rounded-lg bg-card focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary transition-colors">
+                      <span className="pl-2.5 text-xs font-mono tracking-wider text-muted-foreground select-none">BG-</span>
+                      <input
+                        value={formBuddyCode}
+                        onChange={(e) => {
+                          const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+                          setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text").trim().toUpperCase();
+                          if (pasted.startsWith("BG-")) {
+                            e.preventDefault();
+                            const v = pasted.slice(3).replace(/[^A-Z0-9]/g, "").slice(0, 4);
+                            setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
+                          }
+                        }}
+                        className="flex-1 text-xs bg-transparent border-0 px-0.5 py-2 font-mono tracking-wider"
+                        style={{ outline: "none", boxShadow: "none" }}
+                        placeholder="XXXX"
+                        maxLength={4}
+                      />
+                    </div>
                     {formBuddyCode.trim() && (
                       <button
                         onClick={handleLookup}
@@ -978,8 +1014,10 @@ export default function BuddyTrackerPage() {
                     </div>
                   )}
 
-                  {/* Cross-branch sibling warning */}
-                  {hasAnyOtherBranch && (
+                  {/* Group full or cross-branch sibling warning */}
+                  {isGroupFull ? (
+                    <p className="mt-1 py-1.5 text-xs font-medium text-center text-red-600 bg-red-500/10 rounded-lg">Group is full (max {MAX_GROUP_SIZE})</p>
+                  ) : hasAnyOtherBranch ? (
                     <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-2">
                       <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -995,7 +1033,7 @@ export default function BuddyTrackerPage() {
                         I confirm this student is a sibling of an existing member
                       </label>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               )}
 
@@ -1028,7 +1066,7 @@ export default function BuddyTrackerPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleAddStudent}
-                  disabled={formSubmitting || !formStudentId.trim() || !formNameEn.trim() || (hasAnyOtherBranch && !siblingConfirmed)}
+                  disabled={formSubmitting || !formStudentId.trim() || !formNameEn.trim() || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
                   className="px-4 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {formSubmitting ? "Adding..." : formBuddyCode.trim() ? "Add to Group" : "Add & Generate Code"}
