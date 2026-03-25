@@ -62,9 +62,9 @@ RATE_LIMITS = {
     "buddy_lookup": {"limit": 20, "window": 60},          # 20 lookups/min
 
     # Prospect PIN endpoints (verify_pin keys are per-branch via f"prospects_verify_pin:{branch}")
-    "prospects_verify_pin": {"limit": 5, "window": 300},   # 5 attempts/5min per branch
+    "prospects_verify_pin": {"limit": 15, "window": 300},  # 15 attempts/5min per branch (shared WiFi: 10 staff + retries)
     "prospects_pin_header": {"limit": 10, "window": 60},   # 10 bad header PINs/min per branch
-    "prospects_bulk_create": {"limit": 3, "window": 60},   # 3 bulk creates/min
+    "prospects_bulk_create": {"limit": 10, "window": 60},  # 10 bulk creates/min (shared WiFi: 1 per staff)
     "prospects_list": {"limit": 30, "window": 60},         # 30 list ops/min
     "prospects_update": {"limit": 20, "window": 60},       # 20 edits/min
     "prospects_delete": {"limit": 10, "window": 60},       # 10 deletes/min
