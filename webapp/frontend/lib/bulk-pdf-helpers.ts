@@ -93,7 +93,13 @@ export async function fetchPdfData(
     if (result.success) {
       try {
         const file = await result.handle.getFile();
-        arrayBuffer = await file.arrayBuffer();
+        const data = await file.arrayBuffer();
+        // Validate PDF magic bytes — .doc/.docx must fall through to Paperless
+        const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+        const magic = String.fromCharCode(...header);
+        if (magic.startsWith('%PDF-')) {
+          arrayBuffer = data;
+        }
       } catch (err) {
         // Failed to read local file silently
       }

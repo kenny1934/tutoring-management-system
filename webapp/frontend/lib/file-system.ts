@@ -972,7 +972,18 @@ export async function printFileFromPathWithFallback(
   // 1. Try local file access
   const result = await getFileHandleFromPath(path);
   if (result.success) {
-    return printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp);
+    // Validate PDF magic bytes — .doc/.docx files must fall through to Paperless
+    try {
+      const file = await result.handle.getFile();
+      const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+      const magic = String.fromCharCode(...header);
+      if (magic.startsWith('%PDF-')) {
+        return printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp);
+      }
+      // Not a PDF — fall through to Paperless
+    } catch {
+      // Read failed — fall through to Paperless
+    }
   }
 
   // 2. Local access failed - try Paperless fallback
