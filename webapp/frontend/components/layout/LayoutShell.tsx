@@ -18,7 +18,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
   // Zen mode / public pages / subdomains: render without any shell
   const isPublicSubdomain = typeof window !== 'undefined' &&
-    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.'));
+    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.'));
 
   if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer")) {
     return <>{children}</>;
