@@ -118,6 +118,18 @@ class TestCreateMember:
         )
         assert resp.status_code == 404
 
+    def test_create_rejects_full_group(self, client):
+        """Cannot add a 3rd member to a group that already has 2."""
+        a = create_member(client, student_id="1001")
+        create_member(client, student_id="1002", student_name_en="Bob Lee", buddy_code=a["buddy_code"])
+        resp = client.post(
+            f"{API}/members",
+            json=make_member_data(student_id="1003", student_name_en="Charlie", buddy_code=a["buddy_code"]),
+            headers=pin_headers(),
+        )
+        assert resp.status_code == 400
+        assert "full" in resp.json()["detail"].lower()
+
 
 # ---- List Members ----
 
@@ -231,6 +243,20 @@ class TestLinkUnlink:
 
         # Old empty group should be cleaned up
         assert db_session.get(SummerBuddyGroup, old_group_id) is None
+
+    def test_link_rejects_full_group(self, client):
+        """Cannot link a member into a group that already has 2 members."""
+        a = create_member(client, student_id="1001")
+        create_member(client, student_id="1002", student_name_en="Bob Lee", buddy_code=a["buddy_code"])
+        c = create_member(client, student_id="1003", student_name_en="Charlie")
+
+        resp = client.patch(
+            f"{API}/members/{c['id']}/link?branch={BRANCH}",
+            json={"buddy_code": a["buddy_code"]},
+            headers=pin_headers(),
+        )
+        assert resp.status_code == 400
+        assert "full" in resp.json()["detail"].lower()
 
     def test_link_wrong_year(self, client, db_session):
         member = create_member(client)

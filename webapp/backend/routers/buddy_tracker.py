@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/buddy-tracker")
 
 VALID_BRANCHES = {"MAC", "MCP", "MNT", "MTA", "MLT", "MTR", "MOT"}
+PRIMARY_MAX_GROUP_SIZE = 2
 
 # Map secondary summer config location names to branch codes
 _LOCATION_TO_BRANCH = {"華士古分校": "MSA", "二龍喉分校": "MSB"}
@@ -116,6 +117,22 @@ def _cleanup_empty_group(db: Session, group_id: int):
         group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).first()
         if group:
             db.delete(group)
+
+
+def _check_group_capacity(db: Session, group_id: int):
+    """Raise 400 if the group has reached the max member limit."""
+    primary = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group_id,
+    ).scalar() or 0
+    secondary = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == group_id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if primary + secondary >= PRIMARY_MAX_GROUP_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Group is full (max {PRIMARY_MAX_GROUP_SIZE} members)",
+        )
 
 
 def _check_cross_branch_sibling(db: Session, group_id: int, source_branch: str, is_sibling: bool):
@@ -323,6 +340,7 @@ def create_member(
         if not group:
             raise HTTPException(status_code=404, detail="Buddy code not found")
 
+        _check_group_capacity(db, group.id)
         _check_cross_branch_sibling(db, group.id, data.source_branch, data.is_sibling)
     else:
         group = _create_solo_group(db, data.year)
@@ -438,6 +456,7 @@ def link_member(
     if target_group.id == member.buddy_group_id:
         raise HTTPException(status_code=400, detail="Already in this group")
 
+    _check_group_capacity(db, target_group.id)
     _check_cross_branch_sibling(db, target_group.id, branch, data.is_sibling)
 
     old_group_id = member.buddy_group_id
