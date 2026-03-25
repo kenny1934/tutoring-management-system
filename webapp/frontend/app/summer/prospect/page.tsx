@@ -29,6 +29,12 @@ import {
   Lock,
   UserPlus,
   RefreshCw,
+  HelpCircle,
+  MousePointerClick,
+  Keyboard,
+  Table2,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
@@ -782,6 +788,14 @@ export default function ProspectPage() {
   const [confirmAction, setConfirmAction] = useState<{
     title: string; message: string; onConfirm: () => void; variant?: "danger" | "warning"; confirmText?: string;
   } | null>(null);
+  const [showPasteTutorial, setShowPasteTutorial] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !localStorage.getItem("prospect-paste-tutorial-dismissed");
+  });
+  const dismissTutorial = useCallback(() => {
+    setShowPasteTutorial(false);
+    localStorage.setItem("prospect-paste-tutorial-dismissed", "1");
+  }, []);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -922,8 +936,9 @@ export default function ProspectPage() {
       setParseInfo({ text: msg, canUndo: true });
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 5000);
+      if (showPasteTutorial) dismissTutorial();
     }
-  }, [branch]);
+  }, [branch, showPasteTutorial, dismissTutorial]);
 
   const undoLastPaste = useCallback(() => {
     if (lastPasteSnapshot.current !== null) {
@@ -1337,12 +1352,6 @@ export default function ProspectPage() {
         <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
           &larr; Change branch
         </a>
-        <p className="text-sm text-muted-foreground mt-1">
-          Paste your P6 student list from Excel, review the details, then submit. The secondary academy team will handle outreach.
-        </p>
-        <p className="text-xs text-muted-foreground/70 mt-0.5">
-          No spreadsheet? Use the button at the bottom right to add students individually.
-        </p>
       </div>
 
       {/* Result Alert */}
@@ -1376,19 +1385,125 @@ export default function ProspectPage() {
               {parsedRows.length}
             </span>
           )}
+          {!showPasteTutorial && (
+            <button
+              onClick={() => { setShowPasteTutorial(true); localStorage.removeItem("prospect-paste-tutorial-dismissed"); }}
+              className="ml-auto p-1.5 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-primary/5 transition-colors hidden sm:block"
+              title="How to use"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          )}
         </div>
+
+        {/* Paste Tutorial — dismissable, re-openable via ? button */}
+        {showPasteTutorial && parsedRows.length === 0 && (
+          <div className="hidden sm:block relative rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/[0.04] via-primary/[0.02] to-transparent p-6 sm:p-8 overflow-hidden">
+            {/* Dismiss button */}
+            <button
+              onClick={dismissTutorial}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 transition-colors z-10"
+              title="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Title */}
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Paste an entire class list in seconds</h3>
+                <p className="text-xs text-muted-foreground">Copy rows from your spreadsheet — columns are auto-detected</p>
+              </div>
+            </div>
+
+            {/* 3-step flow */}
+            <div className="flex items-stretch gap-2 sm:gap-3 mb-6">
+              <div className="flex-1 bg-card rounded-xl border border-border p-3 sm:p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto">
+                  <Table2 className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">1. Copy in Excel</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Select your student rows and copy them</p>
+              </div>
+              <div className="flex items-center shrink-0 text-muted-foreground/30">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-3 sm:p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+                  <MousePointerClick className="h-5 w-5 text-amber-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">2. Click below</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Click the paste area to activate it</p>
+              </div>
+              <div className="flex items-center shrink-0 text-muted-foreground/30">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-3 sm:p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto">
+                  <Keyboard className="h-5 w-5 text-green-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">3. Press {PASTE_SHORTCUT}</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Students appear instantly as rows below</p>
+              </div>
+            </div>
+
+            {/* Multi-row demo spreadsheet */}
+            <div className="mx-auto max-w-md">
+              <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5 flex items-center gap-1.5">
+                <Table2 className="h-3 w-3" />
+                Example — your spreadsheet might look like this:
+              </div>
+              <div className="rounded-lg border border-border/80 overflow-hidden shadow-sm bg-card">
+                <div className="flex text-[10px] font-semibold text-muted-foreground bg-muted/60 border-b border-border/60">
+                  <span className="w-[72px] px-2 py-1.5">ID</span>
+                  <span className="w-[88px] px-2 py-1.5">Name</span>
+                  <span className="w-[44px] px-2 py-1.5">Grade</span>
+                  <span className="w-[80px] px-2 py-1.5">Tutor</span>
+                  <span className="w-[72px] px-2 py-1.5">Phone</span>
+                </div>
+                {[
+                  { id: `${branch}1048`, name: "Bobby MC", grade: "P6", tutor: "Mr Wong", phone: "55551234" },
+                  { id: `${branch}1052`, name: "Alice Chan", grade: "P6", tutor: "Ms Lee", phone: "66778899" },
+                  { id: `${branch}1061`, name: "David Ho", grade: "P6", tutor: "Mr Wong", phone: "91234567" },
+                ].map((row, i) => (
+                  <div key={i} className={`flex text-[10px] font-mono text-foreground/80 ${i < 2 ? "border-b border-border/40" : ""}`}>
+                    <span className="w-[72px] px-2 py-1.5">{row.id}</span>
+                    <span className="w-[88px] px-2 py-1.5">{row.name}</span>
+                    <span className="w-[44px] px-2 py-1.5">{row.grade}</span>
+                    <span className="w-[80px] px-2 py-1.5">{row.tutor}</span>
+                    <span className="w-[72px] px-2 py-1.5">{row.phone}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                <Sparkles className="h-3 w-3 inline mr-1 text-primary/60" />
+                Columns are <strong className="text-foreground/80">auto-detected</strong> — any order works, extra columns are ignored
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Paste Zone */}
         {parsedRows.length === 0 ? (
           /* Large paste zone — no rows yet */
           <div
             onClick={focusPasteArea}
-            className={`relative border-2 rounded-2xl p-6 sm:p-10 transition-all duration-200 cursor-pointer text-center ${
+            className={`relative border-2 rounded-2xl p-6 sm:p-8 transition-all duration-200 cursor-pointer text-center ${
               pasteZoneFocused
                 ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                 : "border-dashed border-primary/30 bg-primary/[0.02] hover:bg-primary/5 hover:border-primary/50"
             }`}
           >
+            {/* Ping dot — first visit only */}
+            {showPasteTutorial && (
+              <span className="hidden sm:flex absolute top-3 right-3 h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+              </span>
+            )}
             <textarea
               ref={pasteRef}
               className="absolute inset-0 opacity-0 pointer-events-none resize-none"
@@ -1422,26 +1537,7 @@ export default function ProspectPage() {
               <p className="text-base font-semibold text-foreground">Add students</p>
               <p className="text-sm text-muted-foreground mt-1">Tap below to add students one by one</p>
             </div>
-            <div className="mt-5 flex flex-col items-center gap-3">
-              {/* Spreadsheet hint — desktop only */}
-              <div className="hidden sm:block opacity-70 hover:opacity-85 transition-opacity duration-300">
-                <div className="flex text-[9px] text-muted-foreground/80 mb-0.5 px-0.5">
-                  <span className="w-16 text-center">ID</span>
-                  <span className="w-20 text-center">Name</span>
-                  <span className="w-8 text-center">Grade</span>
-                  <span className="w-16 text-center">Tutor</span>
-                  <span className="w-16 text-center">Phone</span>
-                </div>
-                <div className="flex text-[10px] font-mono border border-border/60 rounded divide-x divide-border/40">
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">{branch}1048</span>
-                  <span className="w-20 px-1.5 py-1 text-center text-muted-foreground">Bobby MC</span>
-                  <span className="w-8 px-1.5 py-1 text-center text-muted-foreground">P6</span>
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">Mr Wong</span>
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">55551234</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground/70 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
-              </div>
-              {/* Mobile: primary button. Desktop: secondary link */}
+            <div className="mt-4 flex justify-center">
               <button
                 onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
                 className="sm:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors inline-flex sm:mt-0 px-5 py-2.5 sm:px-0 sm:py-0 rounded-xl sm:rounded-none bg-primary/10 sm:bg-transparent"
