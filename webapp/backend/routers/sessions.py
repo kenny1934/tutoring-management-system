@@ -1342,7 +1342,7 @@ async def save_session_exercises(
     Save exercises (CW or HW) for a session.
 
     Replaces all exercises of the specified type with the new list, unless append=true.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication.
 
     - **session_id**: The session's database ID
     - **exercise_type**: Type of exercises ("CW" or "HW")
@@ -1354,9 +1354,6 @@ async def save_session_exercises(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user)
 
     # Delete existing exercises of this type (skip when appending)
     if not request.append:
@@ -1433,16 +1430,6 @@ async def bulk_assign_exercises(
             detail=f"Sessions not found: {sorted(missing_ids)}"
         )
 
-    # Check ownership - tutors can only assign to their own sessions
-    is_admin = current_user.role in ADMIN_WRITE_ROLES
-    if not is_admin:
-        for session in sessions:
-            if session.tutor_id != current_user.id:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"You can only assign exercises to your own sessions (session {session.id} belongs to another tutor)"
-                )
-
     # Create exercises for each session
     created_count = 0
     for session_id in request.session_ids:
@@ -1490,9 +1477,6 @@ async def rate_session(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-    # Check ownership
-    _verify_session_ownership(session, current_user, action="rate")
 
     # Update rating and notes
     session.performance_rating = request.performance_rating
