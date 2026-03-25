@@ -5,6 +5,14 @@ const changelogData = [
     "date": "2026-03-25",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Bulk attendance actions** — the unchecked attendance page now supports selecting multiple sessions with checkboxes and marking them all as attended or no-show in one click"
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {

@@ -2,6 +2,10 @@
 
 ## [2.0.41](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.41) (2026-03-25)
 
+### New Features
+
+* **Bulk attendance actions** — the unchecked attendance page now supports selecting multiple sessions with checkboxes and marking them all as attended or no-show in one click
+
 ### Bug Fixes
 
 * **Printing .doc files now works** — print buttons across the app (session detail, exercise modal, lesson mode) were silently failing for `.doc`/`.docx` exercises; they now correctly fetch the converted PDF from Shelv before printing

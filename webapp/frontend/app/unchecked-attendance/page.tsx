@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useUncheckedAttendance } from "@/lib/hooks";
+import { usePageTitle, useUncheckedAttendance, useBulkSelection } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { useHaptic } from "@/lib/useHaptic";
 import { formatDateCompact } from "@/lib/formatters";
@@ -16,13 +16,13 @@ import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selecto
 import { sessionsAPI } from "@/lib/api";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
-import { Loader2, Check, X, ClipboardList, AlertTriangle } from "lucide-react";
+import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { UncheckedAttendanceReminder, Session } from "@/types";
 
-// Urgency levels matching database view
 type UrgencyLevel = 'Critical' | 'High' | 'Medium' | 'Low';
+type BulkAction = 'attended' | 'no-show';
 
 interface UrgencyConfig {
   label: string;
@@ -75,6 +75,11 @@ const URGENCY_LEVELS: Record<UrgencyLevel, UrgencyConfig> = {
 
 const URGENCY_ORDER: UrgencyLevel[] = ['Critical', 'High', 'Medium', 'Low'];
 
+const BULK_ACTION_CONFIG: Record<BulkAction, { apiFn: (id: number) => Promise<unknown>; label: string }> = {
+  'attended': { apiFn: sessionsAPI.markAttended, label: 'attended' },
+  'no-show': { apiFn: sessionsAPI.markNoShow, label: 'no show' },
+};
+
 export default function UncheckedAttendancePage() {
   usePageTitle("Unchecked Attendance");
 
@@ -105,6 +110,10 @@ export default function UncheckedAttendancePage() {
     Low: 10,
   });
 
+  // Bulk action state
+  const [bulkActionLoading, setBulkActionLoading] = useState<BulkAction | null>(null);
+  const [currentProcessingId, setCurrentProcessingId] = useState<number | null>(null);
+
   // Determine effective location
   const effectiveLocation = useMemo(() => {
     return selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
@@ -119,20 +128,13 @@ export default function UncheckedAttendancePage() {
   }, [isImpersonating, effectiveRole, impersonatedTutor, user?.id]);
 
   // Determine effective tutor ID for API calls based on view mode
-  // In my-view: always filter by effective user
-  // In center-view: filter by selected tutor (or all if ALL_TUTORS)
   const effectiveTutorId = useMemo(() => {
-    // When impersonating as tutor, always use that tutor's ID regardless of viewMode state
-    // (viewMode might not have synced yet from RoleContext)
     if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
       return impersonatedTutor.id;
     }
-
     if (viewMode === 'my-view' && effectiveUserId) {
       return effectiveUserId;
     }
-
-    // In center-view, use selected tutor or undefined for all
     if (selectedTutorId === ALL_TUTORS) return undefined;
     if (typeof selectedTutorId === 'number') return selectedTutorId;
     return undefined;
@@ -163,15 +165,93 @@ export default function UncheckedAttendancePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Reset pagination when filters change
+  // Group sessions by urgency level
+  const sessionsByUrgency = useMemo(() => {
+    const grouped: Record<UrgencyLevel, UncheckedAttendanceReminder[]> = {
+      Critical: [],
+      High: [],
+      Medium: [],
+      Low: [],
+    };
+    for (const session of uncheckedSessions) {
+      const level = session.urgency_level as UrgencyLevel;
+      if (grouped[level]) {
+        grouped[level].push(session);
+      }
+    }
+    return grouped;
+  }, [uncheckedSessions]);
+
+  // Filter by URL param if present
+  const filteredSessionsByUrgency = useMemo(() => {
+    if (!urgencyFilter || !URGENCY_LEVELS[urgencyFilter]) {
+      return sessionsByUrgency;
+    }
+    const filtered: Record<UrgencyLevel, UncheckedAttendanceReminder[]> = {
+      Critical: [],
+      High: [],
+      Medium: [],
+      Low: [],
+    };
+    filtered[urgencyFilter] = sessionsByUrgency[urgencyFilter];
+    return filtered;
+  }, [sessionsByUrgency, urgencyFilter]);
+
+  // Precompute visible IDs per section and total (shared by selection logic)
+  const visibleIdsBySection = useMemo(() => {
+    const map: Record<UrgencyLevel, number[]> = { Critical: [], High: [], Medium: [], Low: [] };
+    for (const level of URGENCY_ORDER) {
+      map[level] = filteredSessionsByUrgency[level].slice(0, sectionLimits[level]).map(s => s.session_id);
+    }
+    return map;
+  }, [filteredSessionsByUrgency, sectionLimits]);
+
+  const allVisibleIds = useMemo(() => {
+    return URGENCY_ORDER.flatMap(level => visibleIdsBySection[level]);
+  }, [visibleIdsBySection]);
+
+  // Bulk selection (shared hook)
+  const { selectedIds, toggleSelect, toggleSelectAll, clearSelection, hasSelection, isAllSelected } = useBulkSelection(allVisibleIds);
+
+  // Reset pagination and selection when filters change
   useEffect(() => {
-    setSectionLimits({
-      Critical: 10,
-      High: 10,
-      Medium: 10,
-      Low: 10,
-    });
-  }, [effectiveLocation, effectiveTutorId]);
+    setSectionLimits({ Critical: 10, High: 10, Medium: 10, Low: 10 });
+    clearSelection();
+  }, [effectiveLocation, effectiveTutorId, urgencyFilter, clearSelection]);
+
+  // Count per urgency level
+  const urgencyCounts = useMemo(() => ({
+    Critical: sessionsByUrgency.Critical.length,
+    High: sessionsByUrgency.High.length,
+    Medium: sessionsByUrgency.Medium.length,
+    Low: sessionsByUrgency.Low.length,
+  }), [sessionsByUrgency]);
+
+  // Section-level selection helpers
+  const toggleSectionSelect = useCallback((level: UrgencyLevel) => {
+    const sectionIds = visibleIdsBySection[level];
+    const allSelected = sectionIds.every(id => selectedIds.has(id));
+    if (allSelected) {
+      // Deselect section IDs from current selection
+      const next = new Set(selectedIds);
+      sectionIds.forEach(id => next.delete(id));
+      // Use toggleSelect to rebuild — or directly set via selectIds pattern
+      // Since useBulkSelection doesn't expose setSelectedIds, toggle each
+      sectionIds.forEach(id => toggleSelect(id));
+    } else {
+      // Select all in section that aren't already selected
+      sectionIds.filter(id => !selectedIds.has(id)).forEach(id => toggleSelect(id));
+    }
+  }, [visibleIdsBySection, selectedIds, toggleSelect]);
+
+  const getSectionSelectionState = useCallback((level: UrgencyLevel): 'none' | 'partial' | 'all' => {
+    const sectionIds = visibleIdsBySection[level];
+    if (sectionIds.length === 0) return 'none';
+    const selectedCount = sectionIds.filter(id => selectedIds.has(id)).length;
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === sectionIds.length) return 'all';
+    return 'partial';
+  }, [visibleIdsBySection, selectedIds]);
 
   // Handle session row click - show popover
   const handleSessionRowClick = useCallback(async (sessionId: number, event: React.MouseEvent) => {
@@ -197,81 +277,60 @@ export default function UncheckedAttendancePage() {
     setPopoverSession(null);
   }, []);
 
-  // Group sessions by urgency level
-  const sessionsByUrgency = useMemo(() => {
-    const grouped: Record<UrgencyLevel, UncheckedAttendanceReminder[]> = {
-      Critical: [],
-      High: [],
-      Medium: [],
-      Low: [],
-    };
-    for (const session of uncheckedSessions) {
-      const level = session.urgency_level as UrgencyLevel;
-      if (grouped[level]) {
-        grouped[level].push(session);
+  // Individual mark handler (parameterized)
+  const handleMark = useCallback(async (sessionId: number, action: BulkAction) => {
+    haptic.trigger("medium");
+    setMarkingId(sessionId);
+    try {
+      await BULK_ACTION_CONFIG[action].apiFn(sessionId);
+      mutateUnchecked();
+      mutate(['unchecked-attendance-count', effectiveLocation || 'all', effectiveTutorId || 'all']);
+      showToast(`Marked as ${BULK_ACTION_CONFIG[action].label}`, "success");
+    } catch {
+      showToast("Failed to mark attendance", "error");
+    } finally {
+      setMarkingId(null);
+    }
+  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
+
+  // Bulk action handler (parameterized)
+  const handleBulkAction = useCallback(async (action: BulkAction) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    const { apiFn, label } = BULK_ACTION_CONFIG[action];
+    haptic.trigger("medium");
+    setBulkActionLoading(action);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of ids) {
+      setCurrentProcessingId(id);
+      try {
+        await apiFn(id);
+        successCount++;
+      } catch {
+        failCount++;
       }
     }
-    return grouped;
-  }, [uncheckedSessions]);
 
-  // Filter by URL param if present
-  const filteredSessionsByUrgency = useMemo(() => {
-    if (!urgencyFilter || !URGENCY_LEVELS[urgencyFilter]) {
-      return sessionsByUrgency;
+    setCurrentProcessingId(null);
+    setBulkActionLoading(null);
+    clearSelection();
+    mutateUnchecked();
+    mutate(['unchecked-attendance-count', effectiveLocation || 'all', effectiveTutorId || 'all']);
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as ${label}`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
     }
-    // Show only the filtered urgency level
-    const filtered: Record<UrgencyLevel, UncheckedAttendanceReminder[]> = {
-      Critical: [],
-      High: [],
-      Medium: [],
-      Low: [],
-    };
-    filtered[urgencyFilter] = sessionsByUrgency[urgencyFilter];
-    return filtered;
-  }, [sessionsByUrgency, urgencyFilter]);
-
-  // Count per urgency level
-  const urgencyCounts = useMemo(() => {
-    return {
-      Critical: sessionsByUrgency.Critical.length,
-      High: sessionsByUrgency.High.length,
-      Medium: sessionsByUrgency.Medium.length,
-      Low: sessionsByUrgency.Low.length,
-    };
-  }, [sessionsByUrgency]);
-
-  // Mark attendance handlers
-  const handleMarkAttended = useCallback(async (sessionId: number) => {
-    haptic.trigger("medium");
-    setMarkingId(sessionId);
-    try {
-      await sessionsAPI.markAttended(sessionId);
-      mutateUnchecked();
-      mutate(['unchecked-attendance-count', effectiveLocation || 'all', effectiveTutorId || 'all']);
-      showToast("Marked as attended", "success");
-    } catch {
-      showToast("Failed to mark attendance", "error");
-    } finally {
-      setMarkingId(null);
-    }
-  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
-
-  const handleMarkNoShow = useCallback(async (sessionId: number) => {
-    haptic.trigger("medium");
-    setMarkingId(sessionId);
-    try {
-      await sessionsAPI.markNoShow(sessionId);
-      mutateUnchecked();
-      mutate(['unchecked-attendance-count', effectiveLocation || 'all', effectiveTutorId || 'all']);
-      showToast("Marked as no show", "success");
-    } catch {
-      showToast("Failed to mark attendance", "error");
-    } finally {
-      setMarkingId(null);
-    }
-  }, [mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
+  }, [selectedIds, clearSelection, mutateUnchecked, effectiveLocation, effectiveTutorId, showToast, haptic]);
 
   const totalCount = uncheckedSessions.length;
+  const isDisabled = markingId !== null || bulkActionLoading !== null;
+  const colCount = viewMode === 'center-view' ? 9 : 8;
 
   return (
     <DeskSurface>
@@ -286,7 +345,6 @@ export default function UncheckedAttendancePage() {
               !isMobile && "paper-texture"
             )}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-                {/* Title and filters */}
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
                   <div className="flex items-center gap-2">
                     <ClipboardList className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
@@ -306,7 +364,6 @@ export default function UncheckedAttendancePage() {
                     )}
                   </div>
 
-                  {/* Tutor Selector - only in center-view */}
                   {viewMode === 'center-view' && (
                     <TutorSelector
                       value={selectedTutorId}
@@ -317,7 +374,6 @@ export default function UncheckedAttendancePage() {
                   )}
                 </div>
 
-                {/* Total count badge */}
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "px-3 py-1 rounded-full text-sm font-medium",
@@ -330,6 +386,61 @@ export default function UncheckedAttendancePage() {
                 </div>
               </div>
             </div>
+
+            {/* Bulk Action Bar */}
+            {hasSelection && (
+              <div className={cn(
+                "sticky top-[52px] z-25",
+                "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+                "rounded-lg px-3 sm:px-4 py-2"
+              )}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {selectedIds.size} selected
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleBulkAction('attended')}
+                      disabled={bulkActionLoading !== null}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                        bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
+                      )}
+                      title="Mark all as attended"
+                    >
+                      <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
+                      <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleBulkAction('no-show')}
+                      disabled={bulkActionLoading !== null}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                        bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
+                      )}
+                      title="Mark all as no show"
+                    >
+                      <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
+                      <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
+                    </button>
+                    <button
+                      onClick={toggleSelectAll}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-[#f0e0cc] dark:bg-[#4a3d2e] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#e8d4b8] dark:hover:bg-[#5a4a38]"
+                    >
+                      <CheckSquare className="h-3 w-3" />
+                      <span className="hidden xs:inline">{isAllSelected ? 'Deselect All' : 'Select All'}</span>
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="hidden xs:inline">Clear</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Main content */}
             <div className="space-y-4">
@@ -374,12 +485,12 @@ export default function UncheckedAttendancePage() {
                 </StickyNote>
               ) : (
                 <>
-                  {/* Grouped Sections */}
                   {URGENCY_ORDER.map((level) => {
                     const config = URGENCY_LEVELS[level];
                     const sessions = filteredSessionsByUrgency[level];
                     const limit = sectionLimits[level];
                     const hasMore = sessions.length > limit;
+                    const sectionState = getSectionSelectionState(level);
 
                     if (sessions.length === 0) return null;
 
@@ -411,11 +522,26 @@ export default function UncheckedAttendancePage() {
                           </span>
                         </div>
 
-                        {/* Session Table */}
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                               <tr>
+                                <th className="pl-3 pr-1 py-3 w-8">
+                                  <button
+                                    onClick={() => toggleSectionSelect(level)}
+                                    disabled={isDisabled}
+                                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    title={sectionState === 'all' ? 'Deselect section' : 'Select section'}
+                                  >
+                                    {sectionState === 'all' ? (
+                                      <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                    ) : sectionState === 'partial' ? (
+                                      <Minus className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+                                    ) : (
+                                      <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                    )}
+                                  </button>
+                                </th>
                                 <th className="px-4 py-3 text-left font-medium">Date</th>
                                 <th className="px-4 py-3 text-left font-medium">Time</th>
                                 <th className="px-4 py-3 text-left font-medium min-w-[120px]">Student</th>
@@ -429,95 +555,121 @@ export default function UncheckedAttendancePage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-                              {sessions.slice(0, limit).map((session) => (
-                                <tr
-                                  key={session.session_id}
-                                  onClick={(e) => handleSessionRowClick(session.session_id, e)}
-                                  className="hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors cursor-pointer"
-                                >
-                                  <td className="px-4 py-3">
-                                    {formatDateCompact(session.session_date)}
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                                    {session.time_slot || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 font-medium">
-                                    {session.student_name}
-                                    {session.school_student_id && (
-                                      <div className="text-xs text-gray-500 font-mono">
-                                        {session.school_student_id}
-                                      </div>
+                              {sessions.slice(0, limit).map((session) => {
+                                const isSelected = selectedIds.has(session.session_id);
+                                const isProcessing = currentProcessingId === session.session_id;
+
+                                return (
+                                  <tr
+                                    key={session.session_id}
+                                    onClick={(e) => handleSessionRowClick(session.session_id, e)}
+                                    className={cn(
+                                      "hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 transition-colors cursor-pointer",
+                                      isSelected && "bg-[#f5ede3]/70 dark:bg-[#3d3628]/70"
                                     )}
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                                    {session.grade || '-'}
-                                  </td>
-                                  {viewMode === 'center-view' && (
-                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                                      {session.tutor_name}
-                                    </td>
-                                  )}
-                                  <td className="px-4 py-3">
-                                    <SessionStatusTag status={session.session_status} size="sm" />
-                                  </td>
-                                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                                    <span className={cn(
-                                      "px-2 py-0.5 rounded-full text-xs font-medium inline-block",
-                                      config.badgeBg,
-                                      config.textColor
-                                    )}>
-                                      {session.days_overdue}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                                    <div className="flex items-center justify-end gap-2 flex-nowrap">
+                                  >
+                                    <td className="pl-3 pr-1 py-3">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleMarkAttended(session.session_id);
+                                          toggleSelect(session.session_id);
                                         }}
-                                        disabled={markingId === session.session_id}
-                                        title="Mark as attended"
-                                        className={cn(
-                                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                          "bg-green-600 text-white shadow-sm",
-                                          "hover:bg-green-700 hover:shadow",
-                                          "disabled:opacity-50"
-                                        )}
+                                        disabled={isDisabled}
+                                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                       >
-                                        {markingId === session.session_id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        {isProcessing ? (
+                                          <Loader2 className="h-4 w-4 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                                        ) : isSelected ? (
+                                          <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
                                         ) : (
-                                          <Check className="h-3 w-3" />
+                                          <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                                         )}
-                                        <span className="hidden sm:inline">Attended</span>
                                       </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleMarkNoShow(session.session_id);
-                                        }}
-                                        disabled={markingId === session.session_id}
-                                        title="Mark as no show"
-                                        className={cn(
-                                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                          "bg-red-600 text-white shadow-sm",
-                                          "hover:bg-red-700 hover:shadow",
-                                          "disabled:opacity-50"
-                                        )}
-                                      >
-                                        <X className="h-3 w-3" />
-                                        <span className="hidden sm:inline">No Show</span>
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {formatDateCompact(session.session_date)}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                      {session.time_slot || '-'}
+                                    </td>
+                                    <td className="px-4 py-3 font-medium">
+                                      {session.student_name}
+                                      {session.school_student_id && (
+                                        <div className="text-xs text-gray-500 font-mono">
+                                          {session.school_student_id}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                      {session.grade || '-'}
+                                    </td>
+                                    {viewMode === 'center-view' && (
+                                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                        {session.tutor_name}
+                                      </td>
+                                    )}
+                                    <td className="px-4 py-3">
+                                      <SessionStatusTag status={session.session_status} size="sm" />
+                                    </td>
+                                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                                      <span className={cn(
+                                        "px-2 py-0.5 rounded-full text-xs font-medium inline-block",
+                                        config.badgeBg,
+                                        config.textColor
+                                      )}>
+                                        {session.days_overdue}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                                      <div className="flex items-center justify-end gap-2 flex-nowrap">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMark(session.session_id, 'attended');
+                                          }}
+                                          disabled={isDisabled}
+                                          title="Mark as attended"
+                                          className={cn(
+                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                                            "bg-green-600 text-white shadow-sm",
+                                            "hover:bg-green-700 hover:shadow",
+                                            "disabled:opacity-50"
+                                          )}
+                                        >
+                                          {markingId === session.session_id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3 w-3" />
+                                          )}
+                                          <span className="hidden sm:inline">Attended</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMark(session.session_id, 'no-show');
+                                          }}
+                                          disabled={isDisabled}
+                                          title="Mark as no show"
+                                          className={cn(
+                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                                            "bg-red-600 text-white shadow-sm",
+                                            "hover:bg-red-700 hover:shadow",
+                                            "disabled:opacity-50"
+                                          )}
+                                        >
+                                          <X className="h-3 w-3" />
+                                          <span className="hidden sm:inline">No Show</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                             {hasMore && (
                               <tfoot>
                                 <tr>
-                                  <td colSpan={viewMode === 'center-view' ? 8 : 7} className="px-4 py-2 text-center">
+                                  <td colSpan={colCount} className="px-4 py-2 text-center">
                                     <button
                                       onClick={() => setSectionLimits(prev => ({
                                         ...prev,
@@ -542,7 +694,6 @@ export default function UncheckedAttendancePage() {
           </div>
         </div>
 
-        {/* Session Detail Popover */}
         <SessionDetailPopover
           session={popoverSession}
           isOpen={popoverOpen}
