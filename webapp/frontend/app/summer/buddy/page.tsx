@@ -565,56 +565,54 @@ export default function BuddyTrackerPage() {
     : null;
 
   // ============================================
-  // ---- Link Picker (shared between board + grouped views) ----
+  // ---- Link Picker (shared across all views) ----
+  const isCodeMode = linkCode.startsWith("BG-");
+  const linkSearchResults = useMemo(() => {
+    if (!linkCode.trim() || isCodeMode) return [];
+    const q = linkCode.toLowerCase();
+    return ownMembers
+      .filter(m => m.id !== linkingId && (
+        m.student_id.toLowerCase().includes(q) ||
+        m.student_name_en.toLowerCase().includes(q) ||
+        (m.student_name_zh && m.student_name_zh.includes(q))
+      ))
+      .slice(0, 5);
+  }, [linkCode, isCodeMode, ownMembers, linkingId]);
+
   const renderLinkPicker = (memberId: number) => (
     <div className="p-2.5 border-2 border-border rounded-xl space-y-2">
-      <p className="text-[10px] font-medium text-muted-foreground">Link to another student or group:</p>
-      {/* Quick pick — solo students */}
-      {boardSolo.filter(s => s.id !== memberId).length > 0 && (
-        <div className="space-y-1 max-h-32 overflow-y-auto">
-          {boardSolo.filter(s => s.id !== memberId).map(s => (
+      <div className="flex gap-2">
+        <input value={linkCode} onChange={(e) => { setLinkCode(e.target.value.toUpperCase()); setLinkTargetCode(null); setLinkError(null); setLinkSiblingNeeded(false); }}
+          className={`flex-1 text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${isCodeMode ? "font-mono tracking-wider" : ""}`}
+          placeholder="Search student or enter BG-XXXX"
+          autoFocus />
+        {isCodeMode && linkCode.trim().length >= 6 && (
+          <button onClick={() => handleLink(memberId, linkCode.trim(), linkSiblingConfirmed)}
+            className="px-3 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shrink-0">
+            Link
+          </button>
+        )}
+      </div>
+      {/* Search results */}
+      {linkSearchResults.length > 0 && (
+        <div className="space-y-0.5 max-h-40 overflow-y-auto">
+          {linkSearchResults.map(s => (
             <button key={s.id} onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
-              className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === s.buddy_code ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}>
+              className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === s.buddy_code ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}>
               <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
               <span className="font-medium">{s.student_name_en}</span>
               <CodePill code={s.buddy_code} />
               {linkTargetCode === s.buddy_code && (
-                <span className="ml-auto text-[10px] font-medium text-primary">Click again to confirm</span>
+                <span className="ml-auto text-[10px] font-medium text-primary">Confirm</span>
               )}
             </button>
           ))}
         </div>
       )}
-      {/* Quick pick — existing paired groups */}
-      {boardPaired.length > 0 && (
-        <>
-          <p className="text-[10px] text-muted-foreground/70">Or join an existing group:</p>
-          <div className="space-y-1 max-h-24 overflow-y-auto">
-            {boardPaired.map(g => (
-              <button key={g.code} onClick={() => linkTargetCode === g.code ? handleLink(memberId, g.code) : setLinkTargetCode(g.code)}
-                className={`w-full text-left text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${linkTargetCode === g.code ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}>
-                <CodePill code={g.code} />
-                <span className="text-muted-foreground">{g.members.map(m => m.student_name_en).join(", ")}</span>
-                {linkTargetCode === g.code && (
-                  <span className="ml-auto text-[10px] font-medium text-primary">Click again to confirm</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
+      {linkCode.trim() && !isCodeMode && linkSearchResults.length === 0 && (
+        <p className="text-[10px] text-muted-foreground">No matches. Enter a BG-XXXX code to link directly.</p>
       )}
-      {/* Enter code manually */}
-      <div className="flex gap-2">
-        <input value={linkCode} onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-          className="flex-1 text-xs border-2 border-border rounded-lg px-2 py-1.5 font-mono tracking-wider bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary"
-          placeholder="Or enter code: BG-XXXX" />
-        <button onClick={() => linkCode.trim() && handleLink(memberId, linkCode.trim(), linkSiblingConfirmed)}
-          disabled={!linkCode.trim()}
-          className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 transition-colors">
-          Link
-        </button>
-      </div>
-      {/* Sibling confirmation for cross-branch */}
+      {/* Sibling confirmation */}
       {linkSiblingNeeded && (
         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1.5">
           <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
@@ -633,7 +631,6 @@ export default function BuddyTrackerPage() {
           )}
         </div>
       )}
-      {/* Error */}
       {linkError && !linkSiblingNeeded && (
         <p className="text-xs text-red-600 flex items-center gap-1">
           <X className="h-3 w-3" /> {linkError}
