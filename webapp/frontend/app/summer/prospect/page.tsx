@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
@@ -26,6 +27,7 @@ import {
   ArrowDown,
   Download,
   Lock,
+  UserPlus,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
@@ -144,6 +146,26 @@ function createEmptyRow(): ParsedRow {
     preferred_branches: [],
     preferred_time_note: "",
     sibling_info: "",
+  };
+}
+
+function createEmptyFormValues(): ProspectFormValues {
+  return {
+    primary_student_id: "",
+    student_name: "",
+    school: "",
+    grade: "P6",
+    tutor_name: "",
+    phone_1: "",
+    phone_1_relation: "Mother",
+    phone_2: "",
+    phone_2_relation: "",
+    wechat_id: "",
+    wants_summer: "Considering",
+    wants_regular: "Considering",
+    preferred_branches: [],
+    preferred_time_note: "",
+    tutor_remark: "",
   };
 }
 
@@ -678,6 +700,11 @@ export default function ProspectPage() {
   const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerClosing, setDrawerClosing] = useState(false);
+  const [drawerFormValues, setDrawerFormValues] = useState<ProspectFormValues>(createEmptyFormValues());
+  const [drawerSubmitting, setDrawerSubmitting] = useState(false);
+  const [drawerResult, setDrawerResult] = useState<{ ok: boolean; message: string } | null>(null);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -836,6 +863,51 @@ export default function ProspectPage() {
     setParsedRows((prev) => [...prev, row]);
     setParsedExpandedKeys((prev) => new Set([...prev, row._key]));
   }, []);
+
+  const openDrawer = useCallback(() => {
+    setDrawerFormValues(createEmptyFormValues());
+    setDrawerResult(null);
+    setDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerClosing(true);
+    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+  }, []);
+
+  const handleDrawerSubmit = useCallback(async (andClose?: boolean) => {
+    if (!branch || !isRowComplete(drawerFormValues)) return;
+    setDrawerSubmitting(true);
+    setDrawerResult(null);
+    try {
+      const prospect: PrimaryProspectBulkItem = {
+        primary_student_id: drawerFormValues.primary_student_id || undefined,
+        student_name: drawerFormValues.student_name,
+        school: drawerFormValues.school || undefined,
+        grade: drawerFormValues.grade || undefined,
+        tutor_name: drawerFormValues.tutor_name || undefined,
+        phone_1: drawerFormValues.phone_1 || undefined,
+        phone_1_relation: drawerFormValues.phone_1_relation || undefined,
+        phone_2: drawerFormValues.phone_2 || undefined,
+        phone_2_relation: drawerFormValues.phone_2_relation || undefined,
+        wechat_id: drawerFormValues.wechat_id || undefined,
+        tutor_remark: drawerFormValues.tutor_remark || undefined,
+        wants_summer: drawerFormValues.wants_summer,
+        wants_regular: drawerFormValues.wants_regular,
+        preferred_branches: drawerFormValues.preferred_branches.length > 0 ? drawerFormValues.preferred_branches : undefined,
+        preferred_time_note: drawerFormValues.preferred_time_note || undefined,
+      };
+      await prospectsAPI.bulkCreate({ year: CURRENT_YEAR, source_branch: branch, prospects: [prospect] });
+      if (swrKey) globalMutate(swrKey);
+      setDrawerFormValues(createEmptyFormValues());
+      setDrawerResult({ ok: true, message: `${drawerFormValues.student_name} submitted` });
+      if (andClose) closeDrawer();
+    } catch (err) {
+      setDrawerResult({ ok: false, message: err instanceof Error ? err.message : "Failed to submit" });
+    } finally {
+      setDrawerSubmitting(false);
+    }
+  }, [branch, drawerFormValues, swrKey, closeDrawer]);
 
   const clearAllRows = useCallback(() => {
     if (!confirm("Clear all parsed rows?")) return;
@@ -1936,6 +2008,75 @@ export default function ProspectPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* FAB — Add Student */}
+      {pinVerified && selectedParsedKeys.size === 0 && selectedSubmittedIds.size === 0 && typeof document !== "undefined" && createPortal(
+        <button
+          onClick={() => drawerOpen ? closeDrawer() : openDrawer()}
+          className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center ${
+            drawerOpen ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
+          }`}
+          title={drawerOpen ? "Close" : "Add Student"}
+        >
+          {drawerOpen ? <X className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+        </button>,
+        document.body
+      )}
+
+      {/* Drawer — Add Student Form (direct submit) */}
+      {(drawerOpen || drawerClosing) && typeof document !== "undefined" && createPortal(
+        <>
+          <div className={`fixed inset-0 z-40 bg-black/40 ${drawerClosing ? "animate-backdrop-out" : "animate-backdrop-in"}`} onClick={closeDrawer} />
+          <div className="fixed right-2 sm:right-3 bottom-[88px] z-40 w-[calc(100%-1rem)] sm:w-[420px]">
+            <div className={`max-h-[calc(100vh-160px)] overflow-y-auto bg-card rounded-2xl shadow-2xl border border-border ${drawerClosing ? "animate-drawer-out" : "animate-drawer-in"}`}>
+              <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+                <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <UserPlus className="h-4 w-4 text-primary" />
+                  Add Student
+                </span>
+                <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <ProspectEditForm
+                  values={drawerFormValues}
+                  onChange={(field, value) => { setDrawerFormValues(prev => ({ ...prev, [field]: value })); setDrawerResult(null); }}
+                  branch={branch}
+                  compact
+                />
+                {drawerResult && (
+                  <div className={`text-xs px-3 py-2 rounded-lg ${drawerResult.ok ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}>
+                    {drawerResult.message}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDrawerSubmit(false)}
+                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {drawerSubmitting ? (
+                      <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/30 border-t-white" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )}
+                    {drawerSubmitting ? "Submitting..." : "Submit"}
+                  </button>
+                  <button
+                    onClick={() => handleDrawerSubmit(true)}
+                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium border border-primary/30 text-primary rounded-lg hover:bg-primary/5 disabled:opacity-50 transition-colors"
+                  >
+                    Submit & Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );
