@@ -1272,8 +1272,8 @@ export default function BuddyTrackerPage() {
                   isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
                 }`}
               >
-                <div className={`px-4 py-3 flex items-center justify-between gap-3 ${!isSolo ? "bg-green-500/10" : "bg-red-500/5"}`}>
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${!isSolo ? "bg-green-500/10" : "bg-red-500/5"}`}>
+                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
                     <CodePill code={g.code} onCopy={handleCopyToast} />
                     <GroupRing size={g.size} />
                     {g.others.length > 0 && (
@@ -1318,12 +1318,12 @@ export default function BuddyTrackerPage() {
                       {editingId === m.id ? (
                         <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                       ) : (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                           <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                           <span className="font-medium">{m.student_name_en}</span>
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
                           {m.is_sibling && <SiblingBadge />}
-                          {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
+                          {m.parent_phone && <span className="text-muted-foreground hidden sm:inline">{m.parent_phone}</span>}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
                             {!isSolo && <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
                               onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
@@ -1339,11 +1339,11 @@ export default function BuddyTrackerPage() {
                     </div>
                   ))}
                   {g.others.map((m) => (
-                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-3 text-xs bg-muted/20">
+                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20">
                       <BranchBadge branch={m.branch} />
                       {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
                       <span className="font-medium">{m.name}</span>
-                      {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
+                      {m.phone && <span className="text-muted-foreground hidden sm:inline">{m.phone}</span>}
                       {m.is_sibling && <SiblingBadge />}
                     </div>
                   ))}
