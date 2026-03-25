@@ -28,6 +28,7 @@ import {
   Download,
   Lock,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
@@ -636,11 +637,11 @@ function ProspectEditForm({
           <BranchCheckboxes value={values.preferred_branches} onChange={(v) => onChange("preferred_branches", v)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Wants Summer?</label>
           <IntentionSelect value={values.wants_summer} onChange={(v) => onChange("wants_summer", v)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Wants Regular (Sept)?</label>
           <IntentionSelect value={values.wants_regular} onChange={(v) => onChange("wants_regular", v)} />
         </div>
         <FieldInput label="Time / Tutor Preference" value={values.preferred_time_note} onChange={(v) => onChange("preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" span={compact ? undefined : 2} />
@@ -778,6 +779,9 @@ export default function ProspectPage() {
   const [drawerFormValues, setDrawerFormValues] = useState<ProspectFormValues>(createEmptyFormValues());
   const [drawerSubmitting, setDrawerSubmitting] = useState(false);
   const [drawerResult, setDrawerResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string; message: string; onConfirm: () => void; variant?: "danger" | "warning"; confirmText?: string;
+  } | null>(null);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -809,7 +813,7 @@ export default function ProspectPage() {
   const submittedRef = useRef<HTMLElement>(null);
 
   const swrKey = branch && pinVerified ? `prospects-${branch}-${CURRENT_YEAR}` : null;
-  const { data: existing, isLoading } = useSWR(
+  const { data: existing, isLoading, isValidating } = useSWR(
     swrKey,
     () => prospectsAPI.list(branch!, CURRENT_YEAR),
     { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
@@ -914,7 +918,7 @@ export default function ProspectPage() {
         return [...prev, ...rows];
       });
       setSubmitResult(null);
-      const msg = `Parsed ${rows.length} student${rows.length !== 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} row${skipped !== 1 ? "s" : ""} skipped)` : ""}`;
+      const msg = `Added ${rows.length} student${rows.length !== 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} row${skipped !== 1 ? "s" : ""} skipped)` : ""}`;
       setParseInfo({ text: msg, canUndo: true });
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 5000);
@@ -984,9 +988,17 @@ export default function ProspectPage() {
   }, [branch, drawerFormValues, swrKey, closeDrawer]);
 
   const clearAllRows = useCallback(() => {
-    if (!confirm("Clear all parsed rows?")) return;
-    setParsedRows([]);
-    setParsedExpandedKeys(new Set());
+    setConfirmAction({
+      title: "Clear all rows",
+      message: "Clear all parsed rows? This cannot be undone.",
+      variant: "danger",
+      confirmText: "Clear",
+      onConfirm: () => {
+        setParsedRows([]);
+        setParsedExpandedKeys(new Set());
+        setConfirmAction(null);
+      },
+    });
   }, []);
 
   const toggleExpand = useCallback((key: string) => {
@@ -1044,9 +1056,16 @@ export default function ProspectPage() {
   }, [parsedRows]);
 
   const bulkDeleteParsed = useCallback(() => {
-    if (!confirm(`Delete ${selectedParsedKeys.size} selected rows?`)) return;
-    setParsedRows((prev) => prev.filter((r) => !selectedParsedKeys.has(r._key)));
-    setSelectedParsedKeys(new Set());
+    setConfirmAction({
+      title: "Delete selected rows",
+      message: `Delete ${selectedParsedKeys.size} selected rows?`,
+      variant: "danger",
+      onConfirm: () => {
+        setParsedRows((prev) => prev.filter((r) => !selectedParsedKeys.has(r._key)));
+        setSelectedParsedKeys(new Set());
+        setConfirmAction(null);
+      },
+    });
   }, [selectedParsedKeys]);
 
   const bulkSetParsedIntention = useCallback((field: "wants_summer" | "wants_regular", value: ProspectIntention) => {
@@ -1069,21 +1088,28 @@ export default function ProspectPage() {
     );
   }, [filteredExisting]);
 
-  const bulkDeleteSubmitted = useCallback(async () => {
-    if (!confirm(`Delete ${selectedSubmittedIds.size} selected submissions?`)) return;
-    setBulkDeleting(true);
-    try {
-      const ids = [...selectedSubmittedIds];
-      for (let i = 0; i < ids.length; i += 5) {
-        await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!, CURRENT_YEAR)));
-      }
-      setSelectedSubmittedIds(new Set());
-      if (swrKey) globalMutate(swrKey);
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
-    } finally {
-      setBulkDeleting(false);
-    }
+  const bulkDeleteSubmitted = useCallback(() => {
+    setConfirmAction({
+      title: "Delete selected submissions",
+      message: `Delete ${selectedSubmittedIds.size} selected submissions? This will permanently remove them.`,
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setBulkDeleting(true);
+        try {
+          const ids = [...selectedSubmittedIds];
+          for (let i = 0; i < ids.length; i += 5) {
+            await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!, CURRENT_YEAR)));
+          }
+          setSelectedSubmittedIds(new Set());
+          if (swrKey) globalMutate(swrKey);
+        } catch (err) {
+          alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
   }, [selectedSubmittedIds, branch, swrKey]);
 
   const exportCSV = useCallback(() => {
@@ -1188,14 +1214,21 @@ export default function ProspectPage() {
     }
   }, [editData, swrKey, branch]);
 
-  const handleDelete = useCallback(async (id: number) => {
-    if (!confirm("Delete this entry?")) return;
-    try {
-      await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
-      if (swrKey) globalMutate(swrKey);
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
+  const handleDelete = useCallback((id: number) => {
+    setConfirmAction({
+      title: "Delete entry",
+      message: "Delete this entry? This cannot be undone.",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
+          if (swrKey) globalMutate(swrKey);
+        } catch (err) {
+          alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      },
+    });
   }, [swrKey, branch]);
 
   // ---- Branch Selector ----
@@ -1217,9 +1250,9 @@ export default function ProspectPage() {
             <GraduationCap className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">P6 Student Registration</h1>
+            <h1 className="text-2xl font-bold text-foreground">P6 Prospects</h1>
             <p className="text-muted-foreground mt-2">
-              Register P6 students transitioning to secondary ({CURRENT_YEAR}). Select your branch to begin.
+              Record P6 students who may transition to secondary. Select your branch to begin.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
@@ -1299,11 +1332,17 @@ export default function ProspectPage() {
       {/* Header */}
       <div>
         <h1 className="text-lg font-bold text-foreground">
-          {branch} — P6 Student Registration ({CURRENT_YEAR})
+          {branch} — P6 Prospects ({CURRENT_YEAR})
         </h1>
         <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
           &larr; Change branch
         </a>
+        <p className="text-sm text-muted-foreground mt-1">
+          Paste your P6 student list from Excel, review the details, then submit. The secondary academy team will handle outreach.
+        </p>
+        <p className="text-xs text-muted-foreground/70 mt-0.5">
+          No spreadsheet? Use the button at the bottom right to add students individually.
+        </p>
       </div>
 
       {/* Result Alert */}
@@ -1372,7 +1411,7 @@ export default function ProspectPage() {
                 <>
                   <p className="text-base font-semibold text-foreground">Paste student data here</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd> to paste from Excel
+                    Copy rows from your spreadsheet, click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd>
                   </p>
                 </>
               )}
@@ -1385,7 +1424,7 @@ export default function ProspectPage() {
             </div>
             <div className="mt-5 flex flex-col items-center gap-3">
               {/* Spreadsheet hint — desktop only */}
-              <div className="hidden sm:block opacity-60 hover:opacity-80 transition-opacity duration-300">
+              <div className="hidden sm:block opacity-70 hover:opacity-85 transition-opacity duration-300">
                 <div className="flex text-[9px] text-muted-foreground/80 mb-0.5 px-0.5">
                   <span className="w-16 text-center">ID</span>
                   <span className="w-20 text-center">Name</span>
@@ -1400,7 +1439,7 @@ export default function ProspectPage() {
                   <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">Mr Wong</span>
                   <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">55551234</span>
                 </div>
-                <p className="text-[9px] text-muted-foreground/60 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
+                <p className="text-[11px] text-muted-foreground/70 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
               </div>
               {/* Mobile: primary button. Desktop: secondary link */}
               <button
@@ -1520,7 +1559,7 @@ export default function ProspectPage() {
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
                   <th className="px-2 py-2 w-20">
@@ -1682,7 +1721,7 @@ export default function ProspectPage() {
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Submit All
+                  Submit {validCount} {validCount === 1 ? "Student" : "Students"}
                 </>
               )}
             </button>
@@ -1703,8 +1742,16 @@ export default function ProspectPage() {
             )}
           </h2>
           {lastUpdated && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50">
+            <span className="ml-auto text-[10px] text-muted-foreground/50 inline-flex items-center gap-1">
               Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <button
+                onClick={() => { if (swrKey) globalMutate(swrKey); }}
+                disabled={isValidating}
+                className="p-1 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isValidating ? "animate-spin" : ""}`} />
+              </button>
             </span>
           )}
         </div>
@@ -1863,7 +1910,7 @@ export default function ProspectPage() {
                     <SortableHeader label="Tutor" dir={submittedSort.field === "tutor" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "tutor"))} />
                   </th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
@@ -2124,7 +2171,7 @@ export default function ProspectPage() {
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
-                    {drawerSubmitting ? "Submitting..." : "Submit"}
+                    {drawerSubmitting ? "Submitting..." : "Submit & Add Another"}
                   </button>
                   <button
                     onClick={() => handleDrawerSubmit(true)}
@@ -2149,6 +2196,16 @@ export default function ProspectPage() {
         message="You have unsaved changes. Discard them?"
         confirmText="Discard"
         variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        onConfirm={() => confirmAction?.onConfirm()}
+        onCancel={() => setConfirmAction(null)}
+        title={confirmAction?.title || ""}
+        message={confirmAction?.message || ""}
+        variant={confirmAction?.variant || "danger"}
+        confirmText={confirmAction?.confirmText || "Delete"}
       />
     </div>
   );
