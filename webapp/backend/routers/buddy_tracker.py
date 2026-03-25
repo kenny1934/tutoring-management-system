@@ -24,7 +24,7 @@ from schemas import (
 )
 from auth.dependencies import require_admin_view
 from routers.summer_course import _generate_buddy_code
-from utils.rate_limiter import check_ip_rate_limit
+from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ def _check_pin(request: Request, branch: str):
     pin = request.headers.get("X-Branch-Pin", "")
     expected = BRANCH_PINS.get(branch, "")
     if not expected or not hmac.compare_digest(pin, expected):
+        check_ip_rate_limit(request, f"buddy_pin_header:{branch}")
         logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
@@ -135,11 +136,12 @@ def verify_pin(request: Request, payload: _VerifyPinRequest):
     """Verify a branch PIN for buddy tracker access."""
     if payload.branch not in VALID_BRANCHES:
         raise HTTPException(status_code=400, detail="Invalid branch")
+    check_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
     expected = BRANCH_PINS.get(payload.branch, "")
     if not expected or not hmac.compare_digest(payload.pin, expected):
-        check_ip_rate_limit(request, "buddy_verify_pin")  # Only count failures
         logger.warning("Failed buddy PIN verification for branch %s from %s", payload.branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid PIN")
+    clear_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
     return {"valid": True}
 
 
@@ -155,6 +157,11 @@ def list_members(
         raise HTTPException(status_code=400, detail="Invalid branch")
     _check_pin(request, branch)
     check_ip_rate_limit(request, "buddy_list")
+
+    from datetime import datetime
+    current_year = datetime.now().year
+    if year < current_year - 1 or year > current_year + 1:
+        raise HTTPException(status_code=400, detail="Invalid year")
 
     from sqlalchemy.orm import joinedload
 
@@ -238,6 +245,11 @@ def create_member(
         raise HTTPException(status_code=400, detail="Invalid branch")
     _check_pin(request, data.source_branch)
     check_ip_rate_limit(request, "buddy_create")
+
+    from datetime import datetime
+    current_year = datetime.now().year
+    if data.year < current_year - 1 or data.year > current_year + 1:
+        raise HTTPException(status_code=400, detail="Invalid year")
 
     if data.buddy_code:
         # Join existing group
@@ -518,13 +530,20 @@ def lookup_group(
     _check_pin(request, branch)
     check_ip_rate_limit(request, "buddy_lookup")
 
+    from datetime import datetime
+    current_year = datetime.now().year
     group = db.query(SummerBuddyGroup).filter(
         SummerBuddyGroup.buddy_code == code.strip().upper(),
+        SummerBuddyGroup.year == current_year,
     ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Buddy code not found")
 
     members = _get_group_members(db, group.id)
+    # Strip student_id for members from other branches (privacy)
+    for m in members:
+        if m.branch != branch:
+            m.student_id = None
     return BuddyGroupLookupResponse(
         buddy_code=group.buddy_code,
         year=group.year,

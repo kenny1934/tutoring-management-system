@@ -25,7 +25,7 @@ from schemas import (
     PrimaryProspectMatchResult,
 )
 from auth.dependencies import require_admin_view, require_admin_write
-from utils.rate_limiter import check_ip_rate_limit
+from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ def _check_pin(request: Request, branch: str):
     pin = request.headers.get("X-Branch-Pin", "")
     expected = BRANCH_PINS.get(branch, "")
     if not expected or not hmac.compare_digest(pin, expected):
+        check_ip_rate_limit(request, f"prospects_pin_header:{branch}")
         logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
@@ -103,11 +104,14 @@ class _VerifyPinRequest(BaseModel):
 @router.post("/verify-pin")
 def verify_pin(request: Request, payload: _VerifyPinRequest):
     """Verify a branch PIN without fetching data."""
+    if payload.branch not in VALID_BRANCHES:
+        raise HTTPException(status_code=400, detail="Invalid branch")
+    check_ip_rate_limit(request, f"prospects_verify_pin:{payload.branch}")
     expected = BRANCH_PINS.get(payload.branch, "")
     if not expected or not hmac.compare_digest(payload.pin, expected):
-        check_ip_rate_limit(request, "prospects_verify_pin")  # Only count failures
         logger.warning("Failed PIN verification for branch %s from %s", payload.branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid PIN")
+    clear_ip_rate_limit(request, f"prospects_verify_pin:{payload.branch}")
     return {"valid": True}
 
 

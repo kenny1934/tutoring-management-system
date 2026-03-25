@@ -246,8 +246,11 @@ def get_buddy_group(
 ):
     """Look up a buddy group by code."""
     check_ip_rate_limit(request, "summer_buddy")
+    from datetime import datetime as _dt
+    _current_year = _dt.now().year
     group = db.query(SummerBuddyGroup).filter(
-        SummerBuddyGroup.buddy_code == code.strip().upper()
+        SummerBuddyGroup.buddy_code == code.strip().upper(),
+        or_(SummerBuddyGroup.year == _current_year, SummerBuddyGroup.year.is_(None)),
     ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Buddy group not found")
