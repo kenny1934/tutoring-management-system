@@ -318,6 +318,7 @@ def create_member(
         # Join existing group
         group = db.query(SummerBuddyGroup).filter(
             SummerBuddyGroup.buddy_code == data.buddy_code.strip().upper(),
+            SummerBuddyGroup.year == data.year,
         ).first()
         if not group:
             raise HTTPException(status_code=404, detail="Buddy code not found")
@@ -430,6 +431,7 @@ def link_member(
     # Look up target group
     target_group = db.query(SummerBuddyGroup).filter(
         SummerBuddyGroup.buddy_code == data.buddy_code.strip().upper(),
+        SummerBuddyGroup.year == member.year,
     ).first()
     if not target_group:
         raise HTTPException(status_code=404, detail="Buddy code not found")

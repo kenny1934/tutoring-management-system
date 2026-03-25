@@ -84,7 +84,7 @@ def _generate_reference_code(year: int) -> str:
 
 def _generate_buddy_code() -> str:
     """Generate a 6-char alphanumeric buddy code like BG-7X3K."""
-    chars = string.ascii_uppercase + string.digits
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # excludes O/0/I/1
     code = "".join(secrets.choice(chars) for _ in range(4))
     return f"BG-{code}"
 
