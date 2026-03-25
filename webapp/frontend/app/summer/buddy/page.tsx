@@ -1796,6 +1796,7 @@ function GroupDetail({ members, currentBranch }: { members: BuddyGroupMemberInfo
           {m.branch !== currentBranch && <BranchBadge branch={m.branch} />}
           {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
           <span className="font-medium text-foreground">{m.name}</span>
+          {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
           {m.is_sibling && <SiblingBadge />}
         </div>
       ))}
