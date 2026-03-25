@@ -1398,11 +1398,13 @@ export default function BuddyTrackerPage() {
                       confirmDeleteId={confirmDeleteId}
                       recentlyAddedId={recentlyAddedId}
                       onCopyToast={handleCopyToast}
-                      onToggleExpand={() => setExpandedIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
-                        return next;
-                      })}
+                      onToggleExpand={() => {
+                        setExpandedIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(m.id)) { next.delete(m.id); setLinkingId(null); } else next.add(m.id);
+                          return next;
+                        });
+                      }}
                       onStartEdit={() => { startEdit(m); setExpandedIds(prev => new Set(prev).add(m.id)); }}
                       onCancelEdit={() => { setEditingId(null); setEditError(null); }}
                       onSaveEdit={saveEdit}
