@@ -7,6 +7,17 @@ import type { LucideIcon } from "lucide-react";
 
 export type Lang = "zh" | "en";
 
+/** Branch colors and district names — shared across summer pages. */
+export const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
+  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
+  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
+  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
+};
+
 /** Bilingual text selector. */
 export const t = (zh: string, en: string, lang: Lang) =>
   lang === "zh" ? zh : en;

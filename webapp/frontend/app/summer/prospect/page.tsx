@@ -42,6 +42,7 @@ import { prospectsAPI } from "@/lib/api";
 import { useFormDirtyTracking, useCooldown } from "@/lib/ui-hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
+import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -1040,7 +1041,7 @@ export default function ProspectPage() {
   const clearAllRows = useCallback(() => {
     setConfirmAction({
       title: "Clear all rows",
-      message: "Clear all parsed rows? This cannot be undone.",
+      message: "Clear all unsaved students? This cannot be undone.",
       variant: "danger",
       confirmText: "Clear",
       onConfirm: () => {
@@ -1306,15 +1307,6 @@ export default function ProspectPage() {
   // ---- Branch Selector ----
 
   if (!branch) {
-    const branchInfo: Record<string, { dot: string; district: string }> = {
-      MAC: { dot: "bg-blue-500", district: "高士德" },
-      MCP: { dot: "bg-emerald-500", district: "水坑尾" },
-      MNT: { dot: "bg-amber-500", district: "東方明珠" },
-      MTA: { dot: "bg-rose-500", district: "氹仔美景I" },
-      MLT: { dot: "bg-violet-500", district: "林茂塘" },
-      MTR: { dot: "bg-cyan-500", district: "氹仔美景II" },
-      MOT: { dot: "bg-orange-500", district: "二龍喉" },
-    };
     return (
       <div className="max-w-xl mx-auto py-4">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8 sm:p-10 text-center space-y-6">
@@ -1329,7 +1321,7 @@ export default function ProspectPage() {
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {PROSPECT_BRANCHES.map((b, i) => {
-              const info = branchInfo[b];
+              const info = BRANCH_INFO[b];
               return (
                 <a
                   key={b}
@@ -1402,13 +1394,18 @@ export default function ProspectPage() {
   return (
     <div className="space-y-6 max-w-none">
       {/* Header */}
-      <div>
-        <h1 className="text-lg font-bold text-foreground">
-          {branch} — P6 Prospects ({CURRENT_YEAR})
-        </h1>
-        <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
-          &larr; Change branch
-        </a>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <a
+            href={prospectBasePath}
+            className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white hover:opacity-80 transition-opacity ${BRANCH_INFO[branch]?.dot ?? "bg-primary"}`}
+            title="Change branch"
+          >
+            {branch}
+          </a>
+          <h1 className="text-lg font-bold text-foreground">P6 Prospects</h1>
+          <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
+        </div>
       </div>
 
       {/* Result Alert */}
@@ -1480,7 +1477,7 @@ export default function ProspectPage() {
           style={{ gridTemplateRows: showPasteTutorial && parsedRows.length === 0 ? "1fr" : "0fr" }}
         >
           <div className="overflow-hidden">
-          <div className="hidden sm:block relative rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/[0.04] via-primary/[0.02] to-transparent p-8 overflow-hidden">
+          <div className="hidden sm:block relative rounded-2xl bg-primary/[0.03] p-8">
             {/* Dismiss button */}
             <button
               onClick={dismissTutorial}
@@ -1530,6 +1527,16 @@ export default function ProspectPage() {
                 </div>
                 <div className="text-xs font-semibold text-foreground">3. Press {PASTE_SHORTCUT}</div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">Students are added to the table automatically</p>
+              </div>
+              <div className="flex items-center shrink-0">
+                <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">or</span>
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">Add one by one</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Use the <strong>+</strong> button at the bottom right</p>
               </div>
             </div>
 
@@ -1911,12 +1918,12 @@ export default function ProspectPage() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={11} className="border-t border-border">
+                  <td colSpan={11} className="p-2">
                     <button
                       onClick={addEmptyRow}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-primary hover:bg-primary/[0.03] transition-colors group"
+                      className="w-full border-2 border-dashed border-border rounded-xl p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
                     >
-                      <Plus className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <Plus className="h-4 w-4" />
                       Add a student manually
                     </button>
                   </td>
