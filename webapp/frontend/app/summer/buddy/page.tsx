@@ -689,7 +689,7 @@ export default function BuddyTrackerPage() {
       {linkSiblingNeeded && (
         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1.5">
           <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-            <AlertTriangle className="h-3 w-3 shrink-0" /> Cross-branch group — siblings only.
+            <AlertTriangle className="h-3 w-3 shrink-0" /> Cross-branch group — only siblings (same family) can be grouped across branches.
           </p>
           <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
             <input type="checkbox" checked={linkSiblingConfirmed} onChange={(e) => setLinkSiblingConfirmed(e.target.checked)}
@@ -868,7 +868,7 @@ export default function BuddyTrackerPage() {
             <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-foreground"}`}>
               {stats.solo === 0 && stats.total > 0 ? <Check className="h-6 w-6 inline text-green-500" /> : stats.solo}
             </div>
-            <div className="text-xs font-medium text-muted-foreground">Need Partner</div>
+            <div className="text-xs font-medium text-muted-foreground">Needs Partner</div>
           </div>
         </div>
       )}
@@ -1092,7 +1092,7 @@ export default function BuddyTrackerPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {(["all", "solo", "complete", ...(stats.crossBranch > 0 ? ["cross-branch" as const] : [])] as const).map((tab) => {
               const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : tab === "cross-branch" ? stats.crossBranch : stats.total;
-              const label = tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : tab === "complete" ? "Complete" : "Cross-branch";
+              const label = tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : tab === "complete" ? "Paired" : "Cross-branch";
               const isActive = filterTab === tab;
               return (
                 <button
@@ -1176,7 +1176,7 @@ export default function BuddyTrackerPage() {
           ) : filterTab === "complete" ? (
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No complete groups yet</p>
+              <p className="text-sm text-muted-foreground">No paired groups yet</p>
             </>
           ) : (
             <>
@@ -1308,8 +1308,8 @@ export default function BuddyTrackerPage() {
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             {groupedData.length} group{groupedData.length !== 1 ? "s" : ""}
-            {" · "}{groupedData.filter(g => g.size >= 2).length} complete
-            {" · "}{groupedData.filter(g => g.size < 2).length} waiting
+            {" · "}{groupedData.filter(g => g.size >= 2).length} paired
+            {" · "}{groupedData.filter(g => g.size < 2).length} needs partner
           </p>
           {groupedData.map((g) => {
             const isSolo = g.size < 2;
@@ -1330,7 +1330,7 @@ export default function BuddyTrackerPage() {
                     )}
                     {isSolo && waitDays >= 1 && (
                       <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Days waiting for a partner">
-                        Waiting {waitDays}d for partner
+                        Waiting {waitDays} {waitDays === 1 ? "day" : "days"} for partner
                       </span>
                     )}
                   </div>
@@ -1339,12 +1339,14 @@ export default function BuddyTrackerPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === g.own[0]?.id ? null : g.own[0]?.id ?? null); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                        title="Pair with an existing student"
                       >
                         <Link2 className="h-3 w-3 inline mr-1" />Link
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                        title="Register a new student into this group"
                       >
                         <UserPlus className="h-3 w-3 inline mr-1" />Add partner
                       </button>
@@ -1684,7 +1686,7 @@ function DesktopRow({
           </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
-        <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : isSolo && waitDays >= 1 ? "text-amber-500" : "text-muted-foreground"}`}>
+        <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : isSolo && waitDays >= 1 ? "text-amber-500" : "text-muted-foreground"}`} title={isSolo ? "Waiting for partner" : undefined}>
           {relativeTime(m.created_at)}
         </td>
         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
