@@ -19,14 +19,26 @@ export function SummerHeader() {
     }
   }, []);
 
+  const isBuddyPage = pathname.startsWith("/summer/buddy") ||
+    (typeof window !== 'undefined' && window.location.hostname.startsWith('buddy.'));
   const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
-  const isInternalPage = isProspectSubdomain || !isPublicPage;
+  const isInternalPage = isProspectSubdomain || isBuddyPage || !isPublicPage;
 
   return (
-    <header className="bg-card border-b border-border shadow-sm">
+    <header className="bg-card border-b border-border shadow-sm relative z-50">
       <div className="mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {isPublicPage ? (
+          {isBuddyPage ? (
+            <a href="https://mathconcept.com.mo" target="_blank" rel="noopener noreferrer">
+              <Image
+                src="/logo-mathconcept.png"
+                alt="MathConcept"
+                width={180}
+                height={48}
+                className="h-9 w-auto dark:drop-shadow-[0_0_3px_rgba(255,255,255,1)] dark:contrast-125"
+              />
+            </a>
+          ) : isPublicPage ? (
             <Image
               src="/logo-secondary.png"
               alt="MathConcept Secondary Academy"
@@ -52,17 +64,19 @@ export function SummerHeader() {
               />
             </>
           )}
-          <div>
-            <div className="font-bold text-lg leading-tight text-foreground">
-              <span className="hidden sm:inline">MathConcept Secondary Academy</span>
-              <span className="sm:hidden">MC Secondary</span>
+          {!isBuddyPage && (
+            <div>
+              <div className="font-bold text-lg leading-tight text-foreground">
+                <span className="hidden sm:inline">MathConcept Secondary Academy</span>
+                <span className="sm:hidden">MC Secondary</span>
+              </div>
+              <div className="text-xs text-muted-foreground">中學教室</div>
             </div>
-            <div className="text-xs text-muted-foreground">中學教室</div>
-          </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {isInternalPage && <ThemeToggle compact />}
-          {isInternalPage && (
+          {isInternalPage && !isBuddyPage && (
             <a
               href={summerApplyHref}
               className="hidden sm:inline text-xs text-primary hover:text-primary/80 font-medium transition-colors"

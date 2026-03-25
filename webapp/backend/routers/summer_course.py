@@ -8,7 +8,7 @@ from datetime import date as date_type, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, contains_eager
 
@@ -16,6 +16,7 @@ from database import get_db
 from models import (
     SummerCourseConfig,
     SummerBuddyGroup,
+    SummerBuddyMember,
     SummerApplication,
     SummerCourseSlot,
     SummerSession,
@@ -83,7 +84,7 @@ def _generate_reference_code(year: int) -> str:
 
 def _generate_buddy_code() -> str:
     """Generate a 6-char alphanumeric buddy code like BG-7X3K."""
-    chars = string.ascii_uppercase + string.digits
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # excludes O/0/I/1
     code = "".join(secrets.choice(chars) for _ in range(4))
     return f"BG-{code}"
 
@@ -126,7 +127,10 @@ def submit_application(
     if data.buddy_code:
         group = db.query(SummerBuddyGroup).filter(
             SummerBuddyGroup.buddy_code == data.buddy_code.strip().upper(),
-            SummerBuddyGroup.config_id == config.id,
+            or_(
+                SummerBuddyGroup.config_id == config.id,
+                and_(SummerBuddyGroup.config_id.is_(None), SummerBuddyGroup.year == config.year),
+            ),
         ).first()
         if not group:
             raise HTTPException(status_code=400, detail="Invalid buddy code")
@@ -242,16 +246,22 @@ def get_buddy_group(
 ):
     """Look up a buddy group by code."""
     check_ip_rate_limit(request, "summer_buddy")
+    from datetime import datetime as _dt
+    _current_year = _dt.now().year
     group = db.query(SummerBuddyGroup).filter(
-        SummerBuddyGroup.buddy_code == code.strip().upper()
+        SummerBuddyGroup.buddy_code == code.strip().upper(),
+        or_(SummerBuddyGroup.year == _current_year, SummerBuddyGroup.year.is_(None)),
     ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Buddy group not found")
 
-    member_count = db.query(func.count(SummerApplication.id)).filter(
+    app_count = db.query(func.count(SummerApplication.id)).filter(
         SummerApplication.buddy_group_id == group.id
-    ).scalar()
-    return {"buddy_code": group.buddy_code, "member_count": member_count}
+    ).scalar() or 0
+    primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group.id
+    ).scalar() or 0
+    return {"buddy_code": group.buddy_code, "member_count": app_count + primary_count}
 
 
 # ============================================

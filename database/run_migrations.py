@@ -14,16 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "080_saved_reports.sql",
-    "073_summer_course_tables.sql",
-    "074_summer_config_text_content.sql",
-    "075_drop_slot_unique_constraint.sql",
-    "076_summer_tutor_duties.sql",
-    "079_summer_sessions.sql",
-    "081_rename_sessions_lessons.sql",
-    "082_rename_lesson_columns.sql",
-    "083_drop_session_unique_constraint.sql",
-    "084_primary_prospects.sql",
+    "085_buddy_tracker.sql",
 ]
 
 def main():

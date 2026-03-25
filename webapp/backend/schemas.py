@@ -2787,6 +2787,62 @@ class SavedReportDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ---- Buddy Tracker (Primary Branches) ----
+
+class BuddyMemberCreate(BaseModel):
+    student_id: str = Field(..., max_length=50)
+    student_name_en: str = Field(..., max_length=255)
+    student_name_zh: Optional[str] = Field(None, max_length=255)
+    parent_phone: Optional[str] = Field(None, max_length=50)
+    source_branch: str = Field(..., max_length=10)
+    year: int
+    buddy_code: Optional[str] = Field(None, max_length=20, description="Existing buddy code to join")
+    is_sibling: bool = False
+
+
+class BuddyMemberUpdate(BaseModel):
+    student_id: Optional[str] = Field(None, max_length=50)
+    student_name_en: Optional[str] = Field(None, max_length=255)
+    student_name_zh: Optional[str] = Field(None, max_length=255)
+    parent_phone: Optional[str] = Field(None, max_length=50)
+
+
+class BuddyGroupMemberInfo(BaseModel):
+    id: int
+    name: str
+    student_id: Optional[str] = None
+    phone: Optional[str] = None
+    branch: str
+    source: str  # 'primary' or 'secondary'
+    is_sibling: bool = False
+
+
+class BuddyMemberResponse(BaseModel):
+    id: int
+    buddy_group_id: int
+    student_id: str
+    student_name_en: str
+    student_name_zh: Optional[str] = None
+    parent_phone: Optional[str] = None
+    source_branch: str
+    is_sibling: bool
+    year: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    buddy_code: str
+    group_size: int
+    group_members: List[BuddyGroupMemberInfo] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BuddyGroupLookupResponse(BaseModel):
+    buddy_code: str
+    year: Optional[int] = None
+    members: List[BuddyGroupMemberInfo] = []
+    total_size: int
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

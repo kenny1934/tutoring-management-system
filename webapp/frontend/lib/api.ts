@@ -161,6 +161,10 @@ import type {
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
   PrimaryProspectMatchResult,
+  BuddyMember,
+  BuddyMemberCreate,
+  BuddyMemberUpdate,
+  BuddyGroupLookup,
   StudentProgress,
   RadarChartConfig,
   SavedReportSummary,
@@ -280,6 +284,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       const prospectPin = sessionStorage.getItem("prospect_pin");
       if (prospectPin && endpoint.startsWith("/prospects") && !endpoint.includes("/admin")) {
         headers["X-Branch-Pin"] = prospectPin;
+      }
+      const buddyPin = sessionStorage.getItem("buddy_pin");
+      if (buddyPin && endpoint.startsWith("/buddy-tracker") && !endpoint.includes("/verify-pin")) {
+        headers["X-Branch-Pin"] = buddyPin;
       }
     }
 
@@ -2457,6 +2465,51 @@ export const prospectsAPI = {
     }),
 };
 
+export const buddyTrackerAPI = {
+  verifyPin: (branch: string, pin: string) =>
+    fetchAPI<{ valid: boolean }>("/buddy-tracker/verify-pin", {
+      method: "POST",
+      body: JSON.stringify({ branch, pin }),
+    }),
+
+  list: (branch: string, year: number) =>
+    fetchAPI<BuddyMember[]>(`/buddy-tracker/members?branch=${branch}&year=${year}`),
+
+  create: (data: BuddyMemberCreate) =>
+    fetchAPI<BuddyMember>("/buddy-tracker/members", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, branch: string, data: BuddyMemberUpdate) =>
+    fetchAPI<BuddyMember>(`/buddy-tracker/members/${id}?branch=${branch}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number, branch: string) =>
+    fetchAPI<{ deleted: boolean }>(`/buddy-tracker/members/${id}?branch=${branch}`, {
+      method: "DELETE",
+    }),
+
+  linkMember: (id: number, branch: string, buddyCode: string, isSibling?: boolean) =>
+    fetchAPI<BuddyMember>(`/buddy-tracker/members/${id}/link?branch=${branch}`, {
+      method: "PATCH",
+      body: JSON.stringify({ buddy_code: buddyCode, is_sibling: isSibling ?? false }),
+    }),
+
+  unlinkMember: (id: number, branch: string) =>
+    fetchAPI<BuddyMember>(`/buddy-tracker/members/${id}/unlink?branch=${branch}`, {
+      method: "PATCH",
+    }),
+
+  lookupGroup: (code: string, branch: string) =>
+    fetchAPI<BuddyGroupLookup>(`/buddy-tracker/groups/${code}?branch=${branch}`),
+
+  adminLookupGroup: (code: string) =>
+    fetchAPI<BuddyGroupLookup>(`/buddy-tracker/admin/groups/${code}`),
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -2484,5 +2537,6 @@ export const api = {
   memos: memosAPI,
   summer: summerAPI,
   prospects: prospectsAPI,
+  buddyTracker: buddyTrackerAPI,
   auth: authAPI,
 };

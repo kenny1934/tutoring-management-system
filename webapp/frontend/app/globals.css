@@ -181,6 +181,102 @@
   color-scheme: light;
 }
 
+.buddy-theme {
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #fafafa;
+  --color-surface-variant: #f5f5f5;
+  --color-foreground: #171717;
+  --color-card: #ffffff;
+  --color-card-foreground: #171717;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #171717;
+  --color-primary: #dc2626;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: #171717;
+  --color-muted: #f5f5f5;
+  --color-muted-foreground: #737373;
+  --color-accent: #fef2f2;
+  --color-accent-foreground: #dc2626;
+  --color-border: #e5e5e5;
+  --color-border-subtle: #f0f0f0;
+  --color-input: #e5e5e5;
+  --color-ring: #dc2626;
+  --color-destructive: #dc2626;
+}
+
+.dark .buddy-theme {
+  --color-background: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-elevated: #1a1a1a;
+  --color-surface-variant: #2a2a2a;
+  --color-foreground: #ffffff;
+  --color-card: #1a1a1a;
+  --color-card-foreground: #ffffff;
+  --color-popover: #1a1a1a;
+  --color-popover-foreground: #ffffff;
+  --color-primary: #ef4444;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #2a2a2a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #9ca3af;
+  --color-accent: #1c1111;
+  --color-accent-foreground: #ef4444;
+  --color-border: #2a2a2a;
+  --color-border-subtle: #333333;
+  --color-input: #2a2a2a;
+  --color-ring: #ef4444;
+  --color-destructive: #ef4444;
+}
+
+/* ===== BUDDY TRACKER ANIMATIONS ===== */
+@keyframes buddy-pulse {
+  0%, 100% { border-left-color: #fca5a5; }
+  50% { border-left-color: #ef4444; }
+}
+.animate-buddy-pulse {
+  animation: buddy-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ring-draw {
+  from { stroke-dasharray: 0 50.27; }
+}
+.animate-ring-draw {
+  animation: ring-draw 0.4s ease-out;
+}
+
+@keyframes pill-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.animate-pill-pop {
+  animation: pill-pop 0.25s ease-out;
+}
+
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes drawer-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(20px) scale(0.97); }
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.animate-drawer-in { animation: drawer-in 0.25s ease-out; }
+.animate-drawer-out { animation: drawer-out 0.2s ease-in forwards; }
+.animate-backdrop-in { animation: backdrop-in 0.2s ease-out; }
+.animate-backdrop-out { animation: backdrop-out 0.2s ease-in forwards; }
+
 /* ===== CUSTOM ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }

@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
  * Subdomain routing for public-facing summer pages.
  * - summer.* → /summer/apply (application form)
  * - prospect.* → /summer/prospect (P6 prospect registration)
+ * - buddy.* → /summer/buddy (buddy tracker for primary branches)
  */
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
@@ -30,6 +31,14 @@ export function middleware(request: NextRequest) {
     if (allowInternals) return NextResponse.next();
     const url = request.nextUrl.clone();
     url.pathname = "/summer/prospect";
+    return NextResponse.rewrite(url);
+  }
+
+  // Buddy subdomain → buddy tracker (rewrite for clean URLs)
+  if (hostname.startsWith("buddy.")) {
+    if (allowInternals) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = "/summer/buddy";
     return NextResponse.rewrite(url);
   }
 

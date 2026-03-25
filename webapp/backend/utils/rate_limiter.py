@@ -52,8 +52,18 @@ RATE_LIMITS = {
     "summer_status": {"limit": 10, "window": 60},       # 10 status checks/min
     "summer_buddy": {"limit": 10, "window": 60},        # 10 buddy ops/min
 
-    # Prospect PIN endpoints - strict to prevent brute force
-    "prospects_verify_pin": {"limit": 5, "window": 300},   # 5 attempts/5min
+    # Buddy tracker endpoints (verify_pin keys are per-branch via f"buddy_verify_pin:{branch}")
+    "buddy_verify_pin": {"limit": 5, "window": 300},      # 5 attempts/5min per branch
+    "buddy_pin_header": {"limit": 10, "window": 60},      # 10 bad header PINs/min per branch
+    "buddy_list": {"limit": 30, "window": 60},            # 30 list ops/min
+    "buddy_create": {"limit": 10, "window": 60},          # 10 creates/min
+    "buddy_update": {"limit": 20, "window": 60},          # 20 edits/min
+    "buddy_delete": {"limit": 10, "window": 60},          # 10 deletes/min
+    "buddy_lookup": {"limit": 20, "window": 60},          # 20 lookups/min
+
+    # Prospect PIN endpoints (verify_pin keys are per-branch via f"prospects_verify_pin:{branch}")
+    "prospects_verify_pin": {"limit": 5, "window": 300},   # 5 attempts/5min per branch
+    "prospects_pin_header": {"limit": 10, "window": 60},   # 10 bad header PINs/min per branch
     "prospects_bulk_create": {"limit": 3, "window": 60},   # 3 bulk creates/min
     "prospects_list": {"limit": 30, "window": 60},         # 30 list ops/min
     "prospects_update": {"limit": 20, "window": 60},       # 20 edits/min
@@ -118,9 +128,11 @@ def check_ip_rate_limit(request: Request, operation: str) -> None:
 
     Args:
         request: The FastAPI request object
-        operation: The operation key (e.g., "auth_login")
+        operation: The operation key (e.g., "auth_login", "buddy_verify_pin:MAC")
     """
-    config = RATE_LIMITS.get(operation, RATE_LIMITS["default"])
+    # Support per-branch keys like "buddy_verify_pin:MAC" — look up base key for config
+    base_op = operation.split(":")[0] if ":" in operation else operation
+    config = RATE_LIMITS.get(base_op, RATE_LIMITS["default"])
     limit = config["limit"]
     window = config["window"]
 
@@ -144,6 +156,13 @@ def check_ip_rate_limit(request: Request, operation: str) -> None:
         )
 
     _ip_request_counts[key].append(now)
+
+
+def clear_ip_rate_limit(request: Request, operation: str) -> None:
+    """Clear the rate limit counter for a specific IP + operation (e.g., on successful PIN verify)."""
+    client_ip = get_client_ip(request)
+    key = f"{client_ip}:{operation}"
+    _ip_request_counts.pop(key, None)
 
 
 def clear_rate_limits() -> None:
