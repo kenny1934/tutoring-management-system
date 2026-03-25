@@ -60,6 +60,35 @@ const OUTREACH_OPTIONS: ProspectOutreachStatus[] = ["Not Started", "WeChat - Not
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 const PASTE_SHORTCUT = IS_MAC ? "Cmd+V" : "Ctrl+V";
 
+function daysAgo(dateStr: string | null): number {
+  if (!dateStr) return 0;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
+function relativeTime(dateStr: string | null): string {
+  const days = daysAgo(dateStr);
+  if (days === 0) return "Today";
+  if (days === 1) return "1d";
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
+function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" | "done" {
+  if (status === "Not Started" || status === "No Response") return "action";
+  if (status === "WeChat - Not Found" || status === "WeChat - Cannot Add") return "progress";
+  return "done";
+}
+
+const URGENCY_BORDER: Record<string, string> = {
+  action: "border-l-[3px] border-l-red-300",
+  progress: "border-l-[3px] border-l-amber-300",
+  done: "border-l-[3px] border-l-green-400",
+};
+
+function isRowComplete(r: { primary_student_id: string; student_name: string; school: string; grade: string; tutor_name: string; phone_1: string }): boolean {
+  return !!(r.primary_student_id.trim() && r.student_name.trim() && r.school.trim() && r.grade.trim() && r.tutor_name.trim() && r.phone_1.trim());
+}
+
 type SortField = "id" | "name" | "school" | "tutor" | null;
 
 const SORT_FIELD_KEYS: Record<Exclude<SortField, null>, string> = {
@@ -439,11 +468,13 @@ function ProspectEditForm({
     [schoolQuery]
   );
 
+  const hasRequired = isRowComplete(values);
+
   return (
     <div className="space-y-3">
       <div className={`grid gap-x-3 gap-y-2 text-sm ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
         <SectionDivider label="Student Info" />
-        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} />
+        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} required />
         <FieldInput label="Student Name" value={values.student_name} onChange={(v) => onChange("student_name", v)} required span={compact ? undefined : 3} />
         <div className="relative">
           <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
@@ -457,7 +488,7 @@ function ProspectEditForm({
             onFocus={() => setShowSchoolSuggestions(true)}
             onBlur={() => setShowSchoolSuggestions(false)}
             placeholder="Search or enter school"
-            className={`w-full ${inputSmall}`}
+            className={`w-full ${inputSmall} ${!values.school.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
           />
           {showSchoolSuggestions && filteredSchools.length > 0 && (
             <div className="absolute z-10 w-full mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
@@ -478,8 +509,8 @@ function ProspectEditForm({
             </div>
           )}
         </div>
-        <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} />
-        <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} />
+        <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} required />
+        <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} required />
 
         <SectionDivider label="Contact" />
         <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" required />
@@ -527,7 +558,7 @@ function ProspectEditForm({
       </div>
       {onSave && onCancel && (
         <div className="flex gap-2">
-          <button onClick={onSave} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
+          <button onClick={onSave} disabled={!hasRequired} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
           <button onClick={onCancel} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
         </div>
       )}
@@ -699,7 +730,7 @@ export default function ProspectPage() {
     }));
   }, [parsedRows, existingPhones]);
 
-  const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim()).length, [parsedRows]);
+  const validCount = useMemo(() => parsedRows.filter(isRowComplete).length, [parsedRows]);
   const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
   const hasActiveFilters = !!(submittedSearchInput || submittedFilters.branch || submittedFilters.wants_summer || submittedFilters.wants_regular || submittedFilters.outreach_status);
 
@@ -936,9 +967,9 @@ export default function ProspectPage() {
   const handleSubmit = useCallback(async () => {
     if (!branch || parsedRows.length === 0) return;
 
-    const valid = parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim());
+    const valid = parsedRows.filter(isRowComplete);
     if (valid.length === 0) {
-      setSubmitResult({ ok: false, message: "No valid rows to submit (student name and phone are required)" });
+      setSubmitResult({ ok: false, message: "No valid rows to submit (ID, name, school, grade, tutor, and phone are required)" });
       return;
     }
 
@@ -1622,8 +1653,10 @@ export default function ProspectPage() {
             {filteredExisting.map((p) => {
               const isEditing = editingId === p.id;
               const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
+              const urgency = outreachUrgency(p.outreach_status);
+              const shouldPulse = urgency === "action" && daysAgo(p.submitted_at) >= 5;
               return (
-                <div key={p.id} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${
+                <div key={p.id} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${URGENCY_BORDER[urgency]} ${shouldPulse ? "animate-buddy-pulse" : ""} ${
                   isOpen ? "border-primary/30 bg-primary/[0.02]"
                     : selectedSubmittedIds.has(p.id) ? "border-primary/40 bg-primary/[0.03]"
                     : "border-border bg-card"
@@ -1712,10 +1745,13 @@ export default function ProspectPage() {
                 {filteredExisting.map((p) => {
                   const isEditing = editingId === p.id;
                   const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
+                  const urgency = outreachUrgency(p.outreach_status);
+                  const daysSinceSubmit = daysAgo(p.submitted_at);
+                  const shouldPulse = urgency === "action" && daysSinceSubmit >= 5;
                   return (
                     <React.Fragment key={p.id}>
                       <tr
-                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${URGENCY_BORDER[urgency]} ${shouldPulse ? "animate-buddy-pulse" : ""} ${
                           selectedSubmittedIds.has(p.id) ? "bg-primary/[0.05]"
                             : isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
                         }`}
@@ -1754,7 +1790,16 @@ export default function ProspectPage() {
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
-                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <OutreachBadge status={p.outreach_status} />
+                            {p.submitted_at && (
+                              <span className={`text-[10px] ${daysSinceSubmit >= 7 && urgency === "action" ? "text-red-500 font-medium" : daysSinceSubmit >= 3 ? "text-amber-500" : "text-muted-foreground/50"}`}>
+                                {relativeTime(p.submitted_at)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button
