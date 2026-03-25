@@ -169,6 +169,27 @@ function createEmptyFormValues(): ProspectFormValues {
   };
 }
 
+function toBulkItem(r: ParsedRow | ProspectFormValues): PrimaryProspectBulkItem {
+  return {
+    primary_student_id: r.primary_student_id || undefined,
+    student_name: r.student_name,
+    school: r.school || undefined,
+    grade: r.grade || undefined,
+    tutor_name: r.tutor_name || undefined,
+    phone_1: r.phone_1 || undefined,
+    phone_1_relation: r.phone_1_relation || undefined,
+    phone_2: r.phone_2 || undefined,
+    phone_2_relation: r.phone_2_relation || undefined,
+    wechat_id: r.wechat_id || undefined,
+    tutor_remark: r.tutor_remark || undefined,
+    wants_summer: r.wants_summer,
+    wants_regular: r.wants_regular,
+    preferred_branches: r.preferred_branches.length > 0 ? r.preferred_branches : undefined,
+    preferred_time_note: r.preferred_time_note || undefined,
+    ...("sibling_info" in r && r.sibling_info ? { sibling_info: r.sibling_info } : {}),
+  };
+}
+
 // ---- Parse pasted data (smart column detection) ----
 
 const HEADER_PATTERNS: Record<string, RegExp> = {
@@ -880,27 +901,11 @@ export default function ProspectPage() {
     setDrawerSubmitting(true);
     setDrawerResult(null);
     try {
-      const prospect: PrimaryProspectBulkItem = {
-        primary_student_id: drawerFormValues.primary_student_id || undefined,
-        student_name: drawerFormValues.student_name,
-        school: drawerFormValues.school || undefined,
-        grade: drawerFormValues.grade || undefined,
-        tutor_name: drawerFormValues.tutor_name || undefined,
-        phone_1: drawerFormValues.phone_1 || undefined,
-        phone_1_relation: drawerFormValues.phone_1_relation || undefined,
-        phone_2: drawerFormValues.phone_2 || undefined,
-        phone_2_relation: drawerFormValues.phone_2_relation || undefined,
-        wechat_id: drawerFormValues.wechat_id || undefined,
-        tutor_remark: drawerFormValues.tutor_remark || undefined,
-        wants_summer: drawerFormValues.wants_summer,
-        wants_regular: drawerFormValues.wants_regular,
-        preferred_branches: drawerFormValues.preferred_branches.length > 0 ? drawerFormValues.preferred_branches : undefined,
-        preferred_time_note: drawerFormValues.preferred_time_note || undefined,
-      };
-      await prospectsAPI.bulkCreate({ year: CURRENT_YEAR, source_branch: branch, prospects: [prospect] });
+      const name = drawerFormValues.student_name;
+      await prospectsAPI.bulkCreate({ year: CURRENT_YEAR, source_branch: branch, prospects: [toBulkItem(drawerFormValues)] });
       if (swrKey) globalMutate(swrKey);
       setDrawerFormValues(createEmptyFormValues());
-      setDrawerResult({ ok: true, message: `${drawerFormValues.student_name} submitted` });
+      setDrawerResult({ ok: true, message: `${name} submitted` });
       if (andClose) closeDrawer();
     } catch (err) {
       setDrawerResult({ ok: false, message: err instanceof Error ? err.message : "Failed to submit" });
@@ -1048,24 +1053,7 @@ export default function ProspectPage() {
     setSubmitting(true);
     setSubmitResult(null);
     try {
-      const prospects: PrimaryProspectBulkItem[] = valid.map((r) => ({
-        primary_student_id: r.primary_student_id || undefined,
-        student_name: r.student_name,
-        school: r.school || undefined,
-        grade: r.grade || undefined,
-        tutor_name: r.tutor_name || undefined,
-        phone_1: r.phone_1 || undefined,
-        phone_1_relation: r.phone_1_relation || undefined,
-        phone_2: r.phone_2 || undefined,
-        phone_2_relation: r.phone_2_relation || undefined,
-        wechat_id: r.wechat_id || undefined,
-        tutor_remark: r.tutor_remark || undefined,
-        wants_summer: r.wants_summer,
-        wants_regular: r.wants_regular,
-        preferred_branches: r.preferred_branches.length > 0 ? r.preferred_branches : undefined,
-        preferred_time_note: r.preferred_time_note || undefined,
-        sibling_info: r.sibling_info || undefined,
-      }));
+      const prospects: PrimaryProspectBulkItem[] = valid.map(toBulkItem);
 
       const result = await prospectsAPI.bulkCreate({
         year: CURRENT_YEAR,
