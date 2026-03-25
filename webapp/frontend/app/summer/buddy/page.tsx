@@ -1151,7 +1151,7 @@ export default function BuddyTrackerPage() {
                     <span className="font-mono text-[10px] text-muted-foreground mr-1.5">{m.student_id}</span>
                     <span className="font-medium text-sm">{m.student_name_en}</span>
                     {m.student_name_zh && <span className="text-xs text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
-                    {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                    {m.is_sibling && <SiblingBadge />}
                   </div>
                   <GroupRing size={m.group_size} />
                 </div>
@@ -1215,7 +1215,7 @@ export default function BuddyTrackerPage() {
                           <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
                           <span className="font-medium">{m.student_name_en}</span>
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                          {m.is_sibling && <SiblingBadge />}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
                             {confirmUnlinkId === m.id ? (
                               <span className="inline-flex items-center gap-1 text-xs">
@@ -1319,7 +1319,7 @@ export default function BuddyTrackerPage() {
                           <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                           <span className="font-medium">{m.student_name_en}</span>
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+                          {m.is_sibling && <SiblingBadge />}
                           {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
                             {!isSolo && (confirmUnlinkId === m.id ? (
@@ -1585,7 +1585,7 @@ function DesktopRow({
         <td className="px-4 py-2.5">
           <span className="font-medium">{m.student_name_en}</span>
           {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
-          {m.is_sibling && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+          {m.is_sibling && <SiblingBadge />}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
         <td className="px-4 py-2.5">
@@ -1667,7 +1667,7 @@ function MobileCard({
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{m.student_name_en}</span>
             {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
-            {m.is_sibling && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">Sibling</span>}
+            {m.is_sibling && <SiblingBadge />}
           </div>
           <div className="flex items-center gap-1.5">
             <GroupRing size={m.group_size} />
