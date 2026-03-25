@@ -153,6 +153,13 @@ export default function BuddyTrackerPage() {
   const searchParams = useSearchParams();
   const branch = searchParams.get("branch")?.toUpperCase();
 
+  // Subdomain detection for clean URLs
+  const [isBuddySubdomain, setIsBuddySubdomain] = useState(false);
+  useEffect(() => {
+    setIsBuddySubdomain(window.location.hostname.startsWith("buddy."));
+  }, []);
+  const buddyBasePath = isBuddySubdomain ? "/" : "/summer/buddy";
+
   // PIN state
   const [pinVerified, setPinVerified] = useState<boolean | null>(null);
   const [pinInput, setPinInput] = useState("");
@@ -690,7 +697,7 @@ export default function BuddyTrackerPage() {
           {BRANCHES.map((b, i) => (
             <a
               key={b}
-              href={`/summer/buddy?branch=${b}`}
+              href={`${buddyBasePath}?branch=${b}`}
               className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
               style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
             >
@@ -755,7 +762,7 @@ export default function BuddyTrackerPage() {
             </div>
           </div>
           <div className="border-t border-border py-3 text-center">
-            <a href="/summer/buddy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            <a href={buddyBasePath} className="text-sm text-muted-foreground hover:text-primary transition-colors">
               <ArrowLeft className="h-3.5 w-3.5 inline mr-1" />
               Change branch
             </a>
@@ -806,7 +813,7 @@ export default function BuddyTrackerPage() {
               <Download className="h-3.5 w-3.5" />
             </button>
           )}
-          <a href="/summer/buddy" className="hover:text-primary transition-colors">
+          <a href={buddyBasePath} className="hover:text-primary transition-colors">
             Change branch
           </a>
         </div>

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Buddy Tracker | Summer Course",
+  title: "Buddy Tracker | MathConcept",
 };
 
 export default function BuddyLayout({ children }: { children: React.ReactNode }) {
