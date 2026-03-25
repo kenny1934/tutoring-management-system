@@ -20,6 +20,7 @@ import {
   Link2,
   AlertTriangle,
   UserPlus,
+  Phone,
   RefreshCw,
   LayoutList,
   LayoutGrid,
@@ -1347,6 +1348,7 @@ export default function BuddyTrackerPage() {
           {groupedData.map((g) => {
             const isSolo = g.size < 2;
             const waitDays = daysAgo(g.oldestCreated);
+            const soloMember = isSolo ? g.own[0] : null;
             return (
               <div
                 key={g.code}
@@ -1354,23 +1356,50 @@ export default function BuddyTrackerPage() {
                   isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
                 }`}
               >
-                <div className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${!isSolo ? "bg-green-500/10" : "bg-red-500/5"}`}>
-                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
-                    <CodePill code={g.code} onCopy={handleCopyToast} />
-                    <GroupRing size={g.size} />
-                    {g.others.length > 0 && (
-                      <CrossBranchIndicator members={g.others} currentBranch={branch!} />
+                {isSolo && soloMember ? (
+                  /* Solo card — structured layout */
+                  <div className="px-4 py-3 space-y-3">
+                    {/* Status bar */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CodePill code={g.code} onCopy={handleCopyToast} />
+                      <GroupRing size={g.size} />
+                      {g.others.length > 0 && <CrossBranchIndicator members={g.others} currentBranch={branch!} />}
+                      {waitDays >= 1 && (
+                        <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Days waiting for a partner">
+                          Waiting {waitDays} {waitDays === 1 ? "day" : "days"} for partner
+                        </span>
+                      )}
+                      <div className="ml-auto flex items-center gap-1 shrink-0">
+                        <button onClick={() => startEdit(soloMember)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <DeleteActions id={soloMember.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                          onRequest={() => requestDelete(soloMember.id)} onConfirm={() => handleDelete(soloMember.id)} onCancel={() => setConfirmDeleteId(null)} />
+                      </div>
+                    </div>
+                    {/* Student info */}
+                    {editingId === soloMember.id ? (
+                      <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[10px] text-muted-foreground">{soloMember.student_id}</span>
+                          <span className="font-medium text-sm">{soloMember.student_name_en}</span>
+                          {soloMember.student_name_zh && <span className="text-xs text-muted-foreground">{soloMember.student_name_zh}</span>}
+                          {soloMember.is_sibling && <SiblingBadge />}
+                        </div>
+                        {soloMember.parent_phone && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{soloMember.parent_phone}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {isSolo && waitDays >= 1 && (
-                      <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Days waiting for a partner">
-                        Waiting {waitDays} {waitDays === 1 ? "day" : "days"} for partner
-                      </span>
-                    )}
-                  </div>
-                  {isSolo && (
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === g.own[0]?.id ? null : g.own[0]?.id ?? null); }}
+                        onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === soloMember.id ? null : soloMember.id); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
                         title="Pair with an existing student"
                       >
@@ -1383,66 +1412,65 @@ export default function BuddyTrackerPage() {
                       >
                         <UserPlus className="h-3 w-3 inline mr-1" />Add partner
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.code); handleCopyToast(g.code); }}
-                        className="px-3 py-1.5 text-[11px] font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                      >
-                        Copy Code
-                      </button>
                     </div>
-                  )}
-                </div>
-                <div className="divide-y divide-border relative">
-                  {!isSolo && g.own.length + g.others.length > 1 && (
-                    <div className="absolute left-3 top-3 bottom-3 w-px bg-green-400/50" />
-                  )}
-                  {g.own.map((m) => (
-                    <div key={m.id} className={`px-4 py-2.5 text-xs relative ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : ""}`}>
-                      {!isSolo && <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />}
-                      {editingId === m.id ? (
-                        <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
-                      ) : (
-                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                          <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
-                          <span className="font-medium">{m.student_name_en}</span>
-                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <SiblingBadge />}
-                          {m.parent_phone && <span className="text-muted-foreground hidden sm:inline">{m.parent_phone}</span>}
-                          <div className="ml-auto flex items-center gap-1 shrink-0">
-                            {!isSolo && <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
-                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />}
-                            <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
-                          </div>
-                        </div>
+                    <p className="text-[10px] text-muted-foreground/70">{SHARE_HINT}</p>
+                    {linkingId === soloMember.id && (
+                      <div className="pt-2 border-t border-border">
+                        {renderLinkPicker(soloMember.id)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Paired card — header + member rows */
+                  <>
+                    <div className="px-4 py-3 flex items-center gap-3 min-w-0 flex-wrap bg-green-500/10">
+                      <CodePill code={g.code} onCopy={handleCopyToast} />
+                      <GroupRing size={g.size} />
+                      {g.others.length > 0 && <CrossBranchIndicator members={g.others} currentBranch={branch!} />}
+                    </div>
+                    <div className="divide-y divide-border relative">
+                      {g.own.length + g.others.length > 1 && (
+                        <div className="absolute left-3 top-3 bottom-3 w-px bg-green-400/50" />
                       )}
+                      {g.own.map((m) => (
+                        <div key={m.id} className={`px-4 py-2.5 text-xs relative ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : ""}`}>
+                          <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />
+                          {editingId === m.id ? (
+                            <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                          ) : (
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                              <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
+                              <span className="font-medium">{m.student_name_en}</span>
+                              {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                              {m.is_sibling && <SiblingBadge />}
+                              {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
+                              <div className="ml-auto flex items-center gap-1 shrink-0">
+                                <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                                  onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                  onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
+                                <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                                  onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {g.others.map((m) => (
+                        <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20 relative">
+                          <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />
+                          <BranchBadge branch={m.branch} />
+                          {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
+                          <span className="font-medium">{m.name}</span>
+                          {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
+                          {m.is_sibling && <SiblingBadge />}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {g.others.map((m) => (
-                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20 relative">
-                      {!isSolo && <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />}
-                      <BranchBadge branch={m.branch} />
-                      {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
-                      <span className="font-medium">{m.name}</span>
-                      {m.phone && <span className="text-muted-foreground hidden sm:inline">{m.phone}</span>}
-                      {m.is_sibling && <SiblingBadge />}
-                    </div>
-                  ))}
-                  {isSolo && (
-                    <div className="px-4 py-2 text-[10px] text-muted-foreground/70">
-                      {SHARE_HINT}
-                    </div>
-                  )}
-                  {isSolo && g.own[0] && linkingId === g.own[0].id && (
-                    <div className="px-4 py-2.5 border-t border-border">
-                      {renderLinkPicker(g.own[0].id)}
-                    </div>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             );
           })}
