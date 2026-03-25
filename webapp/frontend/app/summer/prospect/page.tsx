@@ -85,6 +85,10 @@ const URGENCY_BORDER: Record<string, string> = {
   done: "border-l-[3px] border-l-green-400",
 };
 
+function isRowComplete(r: { primary_student_id: string; student_name: string; school: string; grade: string; tutor_name: string; phone_1: string }): boolean {
+  return !!(r.primary_student_id.trim() && r.student_name.trim() && r.school.trim() && r.grade.trim() && r.tutor_name.trim() && r.phone_1.trim());
+}
+
 type SortField = "id" | "name" | "school" | "tutor" | null;
 
 const SORT_FIELD_KEYS: Record<Exclude<SortField, null>, string> = {
@@ -464,11 +468,13 @@ function ProspectEditForm({
     [schoolQuery]
   );
 
+  const hasRequired = isRowComplete(values);
+
   return (
     <div className="space-y-3">
       <div className={`grid gap-x-3 gap-y-2 text-sm ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
         <SectionDivider label="Student Info" />
-        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} />
+        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} required />
         <FieldInput label="Student Name" value={values.student_name} onChange={(v) => onChange("student_name", v)} required span={compact ? undefined : 3} />
         <div className="relative">
           <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
@@ -482,7 +488,7 @@ function ProspectEditForm({
             onFocus={() => setShowSchoolSuggestions(true)}
             onBlur={() => setShowSchoolSuggestions(false)}
             placeholder="Search or enter school"
-            className={`w-full ${inputSmall}`}
+            className={`w-full ${inputSmall} ${!values.school.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
           />
           {showSchoolSuggestions && filteredSchools.length > 0 && (
             <div className="absolute z-10 w-full mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
@@ -503,8 +509,8 @@ function ProspectEditForm({
             </div>
           )}
         </div>
-        <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} />
-        <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} />
+        <FieldInput label="Grade" value={values.grade} onChange={(v) => onChange("grade", v)} required />
+        <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} required />
 
         <SectionDivider label="Contact" />
         <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" required />
@@ -552,7 +558,7 @@ function ProspectEditForm({
       </div>
       {onSave && onCancel && (
         <div className="flex gap-2">
-          <button onClick={onSave} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
+          <button onClick={onSave} disabled={!hasRequired} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
           <button onClick={onCancel} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
         </div>
       )}
@@ -724,7 +730,7 @@ export default function ProspectPage() {
     }));
   }, [parsedRows, existingPhones]);
 
-  const validCount = useMemo(() => parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim()).length, [parsedRows]);
+  const validCount = useMemo(() => parsedRows.filter(isRowComplete).length, [parsedRows]);
   const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
   const hasActiveFilters = !!(submittedSearchInput || submittedFilters.branch || submittedFilters.wants_summer || submittedFilters.wants_regular || submittedFilters.outreach_status);
 
@@ -961,9 +967,9 @@ export default function ProspectPage() {
   const handleSubmit = useCallback(async () => {
     if (!branch || parsedRows.length === 0) return;
 
-    const valid = parsedRows.filter((r) => r.student_name.trim() && r.phone_1.trim());
+    const valid = parsedRows.filter(isRowComplete);
     if (valid.length === 0) {
-      setSubmitResult({ ok: false, message: "No valid rows to submit (student name and phone are required)" });
+      setSubmitResult({ ok: false, message: "No valid rows to submit (ID, name, school, grade, tutor, and phone are required)" });
       return;
     }
 
