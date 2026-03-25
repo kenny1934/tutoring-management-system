@@ -421,6 +421,7 @@ function FieldInput({
   type = "text",
   inputMode,
   span,
+  error,
 }: {
   label: string;
   value: string;
@@ -430,7 +431,9 @@ function FieldInput({
   type?: string;
   inputMode?: "numeric" | "text";
   span?: 2 | 3;
+  error?: string;
 }) {
+  const hasError = error || (required && !value.trim());
   return (
     <div className={span === 3 ? "col-span-3" : span === 2 ? "col-span-2" : undefined}>
       <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
@@ -439,11 +442,30 @@ function FieldInput({
         inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full ${inputSmall} ${required && !value.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
+        className={`w-full ${inputSmall} ${hasError ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
         placeholder={placeholder}
       />
+      {error && <p className="text-[10px] text-red-500 mt-0.5">{error}</p>}
     </div>
   );
+}
+
+function stripNonDigits(v: string): string {
+  return v.replace(/\D/g, "");
+}
+
+function validatePhone(v: string): string | undefined {
+  if (!v.trim()) return undefined; // empty is handled by required check
+  if (!/^\d{8}$/.test(v)) return "Must be 8 digits";
+  return undefined;
+}
+
+function validateStudentId(v: string, branch: string | null): string | undefined {
+  if (!v.trim()) return undefined;
+  if (!branch) return undefined;
+  const pattern = new RegExp(`^${branch}\\d{4}$`);
+  if (!pattern.test(v)) return `Expected ${branch} + 4 digits`;
+  return undefined;
 }
 
 // ---- Shared form components ----
@@ -512,12 +534,14 @@ function ProspectEditForm({
   );
 
   const hasRequired = isRowComplete(values);
+  const hasFormatErrors = !!validatePhone(values.phone_1) || !!validatePhone(values.phone_2) || !!validateStudentId(values.primary_student_id, branch);
+  const canSave = hasRequired && !hasFormatErrors;
 
   return (
     <div className="space-y-3">
       <div className={`grid gap-x-3 gap-y-2 text-sm ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
         <SectionDivider label="Student Info" />
-        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} required />
+        <FieldInput label="Student ID" value={values.primary_student_id} onChange={(v) => onChange("primary_student_id", normalizeStudentId(v, branch))} required error={validateStudentId(values.primary_student_id, branch)} />
         <FieldInput label="Student Name" value={values.student_name} onChange={(v) => onChange("student_name", v)} required span={compact ? undefined : 3} />
         <div className="relative">
           <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
@@ -556,14 +580,14 @@ function ProspectEditForm({
         <FieldInput label="Tutor" value={values.tutor_name} onChange={(v) => onChange("tutor_name", v)} required />
 
         <SectionDivider label="Contact" />
-        <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", v)} type="tel" inputMode="numeric" required />
+        <FieldInput label="Phone" value={values.phone_1} onChange={(v) => onChange("phone_1", stripNonDigits(v))} type="tel" inputMode="numeric" required error={validatePhone(values.phone_1)} />
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">Phone Relation</label>
           <select value={values.phone_1_relation} onChange={(e) => onChange("phone_1_relation", e.target.value)} className={`w-full ${inputSmall}`}>
             {PHONE_RELATIONS.map((r) => (<option key={r} value={r}>{r}</option>))}
           </select>
         </div>
-        <FieldInput label="Phone 2 (Optional)" value={values.phone_2} onChange={(v) => onChange("phone_2", v)} type="tel" inputMode="numeric" />
+        <FieldInput label="Phone 2 (Optional)" value={values.phone_2} onChange={(v) => onChange("phone_2", stripNonDigits(v))} type="tel" inputMode="numeric" error={validatePhone(values.phone_2)} />
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">Phone 2 Relation</label>
           <select value={values.phone_2_relation} onChange={(e) => onChange("phone_2_relation", e.target.value)} className={`w-full ${inputSmall}`}>
@@ -601,7 +625,7 @@ function ProspectEditForm({
       </div>
       {onSave && onCancel && (
         <div className="flex gap-2">
-          <button onClick={onSave} disabled={!hasRequired} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
+          <button onClick={onSave} disabled={!canSave} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"><Check className="h-3.5 w-3.5" /> Save</button>
           <button onClick={onCancel} className="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-muted transition-colors">Cancel</button>
         </div>
       )}
@@ -773,7 +797,7 @@ export default function ProspectPage() {
     return parsedRows.map((r) => ({
       duplicateInBatch: r.phone_1 ? (phoneCounts.get(r.phone_1) || 0) > 1 : false,
       alreadySubmitted: r.phone_1 ? existingPhones.has(r.phone_1) : false,
-      invalidPhone: r.phone_1 ? !/^\d{8}$/.test(r.phone_1) : false,
+      invalidPhone: r.phone_1 ? !!validatePhone(r.phone_1) : false,
       missingName: !r.student_name.trim(),
     }));
   }, [parsedRows, existingPhones]);
@@ -897,7 +921,7 @@ export default function ProspectPage() {
   }, []);
 
   const handleDrawerSubmit = useCallback(async (andClose?: boolean) => {
-    if (!branch || !isRowComplete(drawerFormValues)) return;
+    if (!branch || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)) return;
     setDrawerSubmitting(true);
     setDrawerResult(null);
     try {
@@ -2042,7 +2066,7 @@ export default function ProspectPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleDrawerSubmit(false)}
-                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues)}
+                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
                     {drawerSubmitting ? (
@@ -2054,7 +2078,7 @@ export default function ProspectPage() {
                   </button>
                   <button
                     onClick={() => handleDrawerSubmit(true)}
-                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues)}
+                    disabled={drawerSubmitting || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium border border-primary/30 text-primary rounded-lg hover:bg-primary/5 disabled:opacity-50 transition-colors"
                   >
                     Submit & Close
