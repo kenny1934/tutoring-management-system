@@ -24,7 +24,7 @@ from schemas import (
 )
 from auth.dependencies import require_admin_view
 from routers.summer_course import _generate_buddy_code
-from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
+from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit, get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def _check_pin(request: Request, branch: str):
     expected = BRANCH_PINS.get(branch, "")
     if not expected or not hmac.compare_digest(pin, expected):
         check_ip_rate_limit(request, f"buddy_pin_header:{branch}")
-        logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
+        logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, get_client_ip(request))
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
 
@@ -138,12 +138,14 @@ def _check_cross_branch_sibling(db: Session, group_id: int, source_branch: str, 
 
 
 def _create_solo_group(db: Session, year: int) -> SummerBuddyGroup:
-    """Create a new buddy group with a unique code."""
+    """Create a new buddy group with a unique code. Uses savepoints to avoid
+    rolling back the caller's session on buddy_code collisions."""
     for _ in range(10):
         code = _generate_buddy_code()
-        group = SummerBuddyGroup(config_id=None, year=year, buddy_code=code)
-        db.add(group)
         try:
+            db.begin_nested()
+            group = SummerBuddyGroup(config_id=None, year=year, buddy_code=code)
+            db.add(group)
             db.flush()
             return group
         except IntegrityError:
@@ -200,7 +202,7 @@ def verify_pin(request: Request, payload: _VerifyPinRequest):
     check_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
     expected = BRANCH_PINS.get(payload.branch, "")
     if not expected or not hmac.compare_digest(payload.pin, expected):
-        logger.warning("Failed buddy PIN verification for branch %s from %s", payload.branch, request.client.host if request.client else "unknown")
+        logger.warning("Failed buddy PIN verification for branch %s from %s", payload.branch, get_client_ip(request))
         raise HTTPException(status_code=403, detail="Invalid PIN")
     clear_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
     return {"valid": True}

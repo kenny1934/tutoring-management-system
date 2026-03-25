@@ -427,7 +427,7 @@ export default function BuddyTrackerPage() {
       handleCopyToast("Unlinked — now solo");
       globalMutate(swrKey);
     } catch {
-      // Ignore
+      handleCopyToast("Failed to unlink");
     }
   }, [branch, swrKey, handleCopyToast]);
 
@@ -446,11 +446,11 @@ export default function BuddyTrackerPage() {
       setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
       globalMutate(swrKey);
     } catch {
-      // Ignore
+      handleCopyToast("Failed to delete");
     } finally {
       setDeletingId(null);
     }
-  }, [branch, swrKey]);
+  }, [branch, swrKey, handleCopyToast]);
 
   // ---- Deduplicate and group members for display ----
   // The API returns own-branch members + cross-branch siblings in the same groups.
@@ -542,10 +542,11 @@ export default function BuddyTrackerPage() {
     [displayMembers]
   );
   const boardPaired = useMemo(() => {
+    const displayIds = new Set(displayMembers.map(m => m.id));
     const map = new Map<number, { code: string; members: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
     for (const m of displayMembers.filter(m => m.group_size >= 2)) {
       if (!map.has(m.buddy_group_id)) {
-        const others = m.group_members.filter(gm => !(gm.source === "primary" && displayMembers.some(om => om.id === gm.id)));
+        const others = m.group_members.filter(gm => !(gm.source === "primary" && displayIds.has(gm.id)));
         map.set(m.buddy_group_id, { code: m.buddy_code, members: [], others });
       }
       map.get(m.buddy_group_id)!.members.push(m);
