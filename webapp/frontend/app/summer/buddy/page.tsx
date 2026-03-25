@@ -41,6 +41,9 @@ const MAX_GROUP_SIZE = 2;
 
 const BRANCHES = PROSPECT_BRANCHES;
 
+const LINK_HINT = "Link = pair with existing student \u00b7 Add partner = register a new student";
+const SHARE_HINT = "Share this code with the student\u2019s family so their buddy can join using it.";
+
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
 const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
@@ -90,9 +93,10 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
 function relativeTime(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   if (days === 0) return "Today";
-  if (days === 1) return "1d";
-  if (days < 7) return `${days}d`;
-  return `${Math.floor(days / 7)}w`;
+  if (days === 1) return "1 day";
+  if (days < 7) return `${days} days`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? "1 wk" : `${weeks} wk`;
 }
 
 function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: string) => void; large?: boolean }) {
@@ -615,7 +619,7 @@ export default function BuddyTrackerPage() {
       <div className="flex gap-2">
         <input value={linkCode} onChange={(e) => { setLinkCode(e.target.value.toUpperCase()); setLinkTargetCode(null); setLinkError(null); setLinkSiblingNeeded(false); setLinkLookup(null); }}
           className={`flex-1 text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${isCodeMode ? "font-mono tracking-wider" : ""}`}
-          placeholder="Search student or enter BG-XXXX"
+          placeholder="Find existing student or enter buddy code"
           autoFocus />
         {isCodeMode && linkCode.trim().length >= 6 && !linkLookup && (
           <button onClick={async () => {
@@ -717,8 +721,8 @@ export default function BuddyTrackerPage() {
           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Users className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-xl font-bold text-foreground">Buddy Tracker</h1>
-          <p className="text-sm text-muted-foreground mt-1">Summer course buddy group registration</p>
+          <h1 className="text-xl font-bold text-foreground">Summer Buddy Tracker</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage buddy groups for summer courses</p>
         </div>
         <div className="flex flex-wrap justify-center gap-3">
           {BRANCHES.map((b, i) => (
@@ -810,7 +814,7 @@ export default function BuddyTrackerPage() {
           <span className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white ${BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`}>
             {branch}
           </span>
-          <h1 className="text-lg font-bold text-foreground">Buddy Tracker</h1>
+          <h1 className="text-lg font-bold text-foreground">Summer Buddy Tracker</h1>
           <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -834,10 +838,11 @@ export default function BuddyTrackerPage() {
                 Object.assign(document.createElement("a"), { href: url, download: `buddy-tracker-${branch}-${CURRENT_YEAR}${filterTab !== "all" ? `-${filterTab}` : ""}.csv` }).click();
                 URL.revokeObjectURL(url);
               }}
-              className="p-1 rounded-lg hover:bg-muted transition-colors"
+              className="p-1 rounded-lg hover:bg-muted transition-colors flex items-center gap-1"
               title="Export CSV"
             >
               <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[10px]">CSV</span>
             </button>
           )}
           <a href={buddyBasePath} className="hover:text-primary transition-colors">
@@ -863,7 +868,7 @@ export default function BuddyTrackerPage() {
             <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-foreground"}`}>
               {stats.solo === 0 && stats.total > 0 ? <Check className="h-6 w-6 inline text-green-500" /> : stats.solo}
             </div>
-            <div className="text-xs font-medium text-muted-foreground">{stats.solo > 0 ? "Need Partner" : "Solo"}</div>
+            <div className="text-xs font-medium text-muted-foreground">Need Partner</div>
           </div>
         </div>
       )}
@@ -894,6 +899,7 @@ export default function BuddyTrackerPage() {
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <UserPlus className="h-4 w-4 text-primary" />
                 Add Student
+                <BranchBadge branch={branch!} />
               </span>
               <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -985,6 +991,7 @@ export default function BuddyTrackerPage() {
                       </button>
                     )}
                   </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Leave blank to create a new group.</p>
                 </div>
               </div>
 
@@ -1021,7 +1028,7 @@ export default function BuddyTrackerPage() {
                     <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-2">
                       <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                        <span>This group has members from another branch. Cross-branch groups are for siblings only.</span>
+                        <span>This group has members from another branch. Only siblings (same family) can be grouped across branches.</span>
                       </div>
                       <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
                         <input
@@ -1054,7 +1061,7 @@ export default function BuddyTrackerPage() {
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">Share this code with the student&apos;s family so their friends can register with it.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                   </div>
                   <button onClick={() => setFormSuccess(null)} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
@@ -1110,6 +1117,7 @@ export default function BuddyTrackerPage() {
                   handleCopyToast(`${codes.length} codes`);
                 }}
                 className="text-xs font-medium px-3 py-1.5 rounded-full border-2 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+                title="Copy all solo codes for sharing with families to find partners"
               >
                 <Copy className="h-3 w-3 inline mr-1" />Copy all codes
               </button>
@@ -1128,24 +1136,27 @@ export default function BuddyTrackerPage() {
             <div className="flex border-2 border-border rounded-xl overflow-hidden">
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="List view"
               >
                 <LayoutList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">List</span>
               </button>
               <button
                 onClick={() => setViewMode("groups")}
-                className={`p-2 transition-colors ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="Group view"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">Groups</span>
               </button>
               <button
                 onClick={() => setViewMode("board")}
-                className={`p-2 transition-colors ${viewMode === "board" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "board" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="Board view"
               >
                 <Columns className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">Board</span>
               </button>
             </div>
           </div>
@@ -1171,7 +1182,7 @@ export default function BuddyTrackerPage() {
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">
-                {searchQuery ? "No matches found" : "No entries yet. Add your first student above."}
+                {searchQuery ? "No matches found" : "No entries yet. Tap the + button to add your first student."}
               </p>
             </>
           )}
@@ -1205,7 +1216,7 @@ export default function BuddyTrackerPage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {m.parent_phone && <span>{m.parent_phone}</span>}
-                  <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`}>
+                  <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`} title="Waiting for partner">
                     {relativeTime(m.created_at)}
                   </span>
                 </div>
@@ -1216,12 +1227,12 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2">
                       <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
                       <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors">
+                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors" title="Register a new student into this group">
                         <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
                       </button>
                     </div>
                     <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
-                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors" title="Pair with an existing student">
                         <Link2 className="h-3 w-3" /> Link
                       </button>
                       <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
@@ -1318,8 +1329,8 @@ export default function BuddyTrackerPage() {
                       <CrossBranchIndicator members={g.others} currentBranch={branch!} />
                     )}
                     {isSolo && waitDays >= 1 && (
-                      <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`}>
-                        Waiting {waitDays}d
+                      <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Days waiting for a partner">
+                        Waiting {waitDays}d for partner
                       </span>
                     )}
                   </div>
@@ -1387,7 +1398,7 @@ export default function BuddyTrackerPage() {
                   ))}
                   {isSolo && (
                     <div className="px-4 py-2 text-[10px] text-muted-foreground/70">
-                      Share the code with the student&apos;s family so their friend can register with it.
+                      {SHARE_HINT}
                     </div>
                   )}
                   {isSolo && g.own[0] && linkingId === g.own[0].id && (
@@ -1551,11 +1562,12 @@ function SortHeader({ field, label, current, dir, onSort, center }: {
 
 function GroupRing({ size }: { size: number }) {
   const complete = size >= 2;
-  const r = 8, cx = 10, cy = 10;
+  const r = 9, cx = 12, cy = 12;
   const c = 2 * Math.PI * r;
   const filled = c * Math.min(size / 2, 1);
   return (
-    <svg width="20" height="20" className="shrink-0 inline-block align-middle">
+    <svg width="24" height="24" className="shrink-0 inline-block align-middle">
+      <title>{complete ? "Complete group" : `${size} of 2 — needs partner`}</title>
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="var(--color-border)" />
       )}
@@ -1571,7 +1583,7 @@ function GroupRing({ size }: { size: number }) {
           className="animate-ring-draw" />
       )}
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
-        className={`text-[8px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
+        className={`text-[9px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
         {complete ? "✓" : size}
       </text>
     </svg>
@@ -1609,7 +1621,7 @@ function UnlinkActions({ id, confirmUnlinkId, onRequest, onConfirm, onCancel, la
   if (confirmUnlinkId === id) {
     return (
       <span className="inline-flex items-center gap-1 text-xs">
-        <button onClick={onConfirm} className="font-medium text-amber-600">Unlink?</button>
+        <button onClick={onConfirm} className="font-medium text-amber-600">Unlink? (becomes solo)</button>
         <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">Cancel</button>
       </span>
     );
@@ -1703,13 +1715,16 @@ function DesktopRow({
               <div className="space-y-2">
                 <GroupDetail members={m.group_members} currentBranch={m.source_branch} />
                 {isSolo && (
-                  <div className="flex items-center gap-3">
-                    <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                      <Link2 className="h-3 w-3" /> Link
-                    </button>
-                    <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                      <UserPlus className="h-3 w-3" /> Add partner
-                    </button>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                        <Link2 className="h-3 w-3" /> Link
+                      </button>
+                      <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                        <UserPlus className="h-3 w-3" /> Add partner
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{LINK_HINT}</p>
                   </div>
                 )}
               </div>
@@ -1768,7 +1783,7 @@ function MobileCard({
           <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }} />
           <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
           {isSolo && waitDays >= 1 && (
-            <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`}>
+            <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Waiting for partner">
               {relativeTime(m.created_at)}
             </span>
           )}
@@ -1782,6 +1797,7 @@ function MobileCard({
           >
             Copy Code to Share
           </button>
+          <p className="text-[10px] text-muted-foreground mt-1 text-center">Send this code to the student&apos;s family</p>
         </div>
       )}
       {isExpanded && (
@@ -1812,6 +1828,7 @@ function MobileCard({
                 <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                   onRequest={onRequestDelete} onConfirm={onConfirmDelete} onCancel={onCancelDelete} />
               </div>
+              {isSolo && <p className="text-[10px] text-muted-foreground -mt-1">{LINK_HINT}</p>}
               {linkPicker}
             </>
           )}
