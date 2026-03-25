@@ -52,6 +52,10 @@ const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string
   MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
 };
 
+function daysAgo(dateStr: string): number {
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
 // ---- Helpers ----
 
 function codeHue(code: string): number {
@@ -790,15 +794,10 @@ export default function BuddyTrackerPage() {
                 const rows = displayMembers.map(m =>
                   [m.student_id, m.student_name_en, m.student_name_zh || "", m.parent_phone || "", m.buddy_code, m.group_size, m.group_size >= 2 ? "Paired" : "Solo", m.created_at.split("T")[0]]
                     .map(v => `"${String(v).replace(/"/g, '""')}"`)
-                    .join(",")
-                );
-                const csv = [header, ...rows].join("\n");
-                const blob = new Blob([csv], { type: "text/csv" });
+                    .join(","));
+                const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `buddy-tracker-${branch}-${CURRENT_YEAR}${filterTab !== "all" ? `-${filterTab}` : ""}.csv`;
-                a.click();
+                Object.assign(document.createElement("a"), { href: url, download: `buddy-tracker-${branch}-${CURRENT_YEAR}${filterTab !== "all" ? `-${filterTab}` : ""}.csv` }).click();
                 URL.revokeObjectURL(url);
               }}
               className="p-1 rounded-lg hover:bg-muted transition-colors"
@@ -1145,7 +1144,7 @@ export default function BuddyTrackerPage() {
                 All paired!
               </div>
             ) : boardSolo.map(m => {
-              const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
+              const waitDays = daysAgo(m.created_at);
               return (
               <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : "bg-card"}`}>
                 <div className="flex items-center justify-between">
@@ -1219,17 +1218,9 @@ export default function BuddyTrackerPage() {
                           {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
                           {m.is_sibling && <SiblingBadge />}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
-                            {confirmUnlinkId === m.id ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
-                                <button onClick={() => handleUnlink(m.id)} className="font-medium text-amber-600">Unlink?</button>
-                                <button onClick={() => setConfirmUnlinkId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
-                              </span>
-                            ) : (
-                              <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                                className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                                <UnlinkIcon className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                            <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
                             <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -1263,7 +1254,7 @@ export default function BuddyTrackerPage() {
           </p>
           {groupedData.map((g) => {
             const isSolo = g.size < 2;
-            const waitDays = Math.floor((Date.now() - new Date(g.oldestCreated).getTime()) / 86400000);
+            const waitDays = daysAgo(g.oldestCreated);
             return (
               <div
                 key={g.code}
@@ -1324,17 +1315,9 @@ export default function BuddyTrackerPage() {
                           {m.is_sibling && <SiblingBadge />}
                           {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
-                            {!isSolo && (confirmUnlinkId === m.id ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
-                                <button onClick={() => handleUnlink(m.id)} className="font-medium text-amber-600">Unlink?</button>
-                                <button onClick={() => setConfirmUnlinkId(null)} className="text-muted-foreground hover:text-foreground">Cancel</button>
-                              </span>
-                            ) : (
-                              <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                                className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                                <UnlinkIcon className="h-3.5 w-3.5" />
-                              </button>
-                            ))}
+                            {!isSolo && <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />}
                             <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -1569,6 +1552,30 @@ function DeleteActions({ id, deletingId, confirmDeleteId, onRequest, onConfirm, 
   );
 }
 
+function UnlinkActions({ id, confirmUnlinkId, onRequest, onConfirm, onCancel, label }: {
+  id: number; confirmUnlinkId: number | null;
+  onRequest: () => void; onConfirm: () => void; onCancel: () => void;
+  label?: boolean;
+}) {
+  if (confirmUnlinkId === id) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs">
+        <button onClick={onConfirm} className="font-medium text-amber-600">Unlink?</button>
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">Cancel</button>
+      </span>
+    );
+  }
+  return label ? (
+    <button onClick={onRequest} className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors">
+      <UnlinkIcon className="h-3 w-3" /> Unlink
+    </button>
+  ) : (
+    <button onClick={onRequest} className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
+      <UnlinkIcon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 // ---- Desktop Table Row ----
 
 function DesktopRow({
@@ -1590,7 +1597,7 @@ function DesktopRow({
   onLink?: () => void;
   onRequestUnlink?: () => void; onConfirmUnlink?: () => void; confirmUnlinkId?: number | null; onCancelUnlink?: () => void;
 }) {
-  const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
+  const waitDays = daysAgo(m.created_at);
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
   return (
@@ -1626,16 +1633,10 @@ function DesktopRow({
                 <UserPlus className="h-3.5 w-3.5" />
               </button>
             )}
-            {!isSolo && onRequestUnlink && (confirmUnlinkId === m.id ? (
-              <span className="inline-flex items-center gap-1 text-xs">
-                <button onClick={onConfirmUnlink} className="font-medium text-amber-600">Unlink?</button>
-                <button onClick={onCancelUnlink} className="text-muted-foreground hover:text-foreground">Cancel</button>
-              </span>
-            ) : (
-              <button onClick={onRequestUnlink} className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                <UnlinkIcon className="h-3.5 w-3.5" />
-              </button>
-            ))}
+            {!isSolo && onRequestUnlink && onConfirmUnlink && onCancelUnlink && (
+              <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId ?? null}
+                onRequest={onRequestUnlink} onConfirm={onConfirmUnlink} onCancel={onCancelUnlink} />
+            )}
             <button onClick={onStartEdit} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -1695,7 +1696,7 @@ function MobileCard({
 }) {
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
-  const waitDays = Math.floor((Date.now() - new Date(m.created_at).getTime()) / 86400000);
+  const waitDays = daysAgo(m.created_at);
   return (
     <div className={`border-2 rounded-xl transition-colors ${
       isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
@@ -1752,16 +1753,10 @@ function MobileCard({
                     </button>
                   </>
                 )}
-                {!isSolo && onRequestUnlink && (confirmUnlinkId === m.id ? (
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <button onClick={onConfirmUnlink} className="font-medium text-amber-600">Unlink?</button>
-                    <button onClick={onCancelUnlink} className="text-muted-foreground hover:text-foreground">Cancel</button>
-                  </span>
-                ) : (
-                  <button onClick={onRequestUnlink} className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors">
-                    <UnlinkIcon className="h-3 w-3" /> Unlink
-                  </button>
-                ))}
+                {!isSolo && onRequestUnlink && onConfirmUnlink && onCancelUnlink && (
+                  <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId ?? null}
+                    onRequest={onRequestUnlink} onConfirm={onConfirmUnlink} onCancel={onCancelUnlink} label />
+                )}
                 <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   <Pencil className="h-3 w-3" /> Edit
                 </button>

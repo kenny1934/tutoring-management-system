@@ -101,6 +101,65 @@ def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[i
     return members
 
 
+def _cleanup_empty_group(db: Session, group_id: int):
+    """Delete a buddy group if it has no remaining members."""
+    remaining_primary = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group_id,
+    ).scalar() or 0
+    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == group_id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if remaining_primary == 0 and remaining_secondary == 0:
+        group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).first()
+        if group:
+            db.delete(group)
+
+
+def _check_cross_branch_sibling(db: Session, group_id: int, source_branch: str, is_sibling: bool):
+    """Raise 400 if group has cross-branch members and is_sibling not set."""
+    cross_count = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group_id,
+        SummerBuddyMember.source_branch != source_branch,
+    ).scalar() or 0
+    secondary_count = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == group_id,
+        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+    ).scalar() or 0
+    if (cross_count > 0 or secondary_count > 0) and not is_sibling:
+        all_members = _get_group_members(db, group_id)
+        raise HTTPException(status_code=400, detail={
+            "code": "CROSS_BRANCH_SIBLING_REQUIRED",
+            "message": "This group has members from another branch. Cross-branch groups are for siblings only.",
+            "existing_members": [m.model_dump() for m in all_members],
+        })
+
+
+def _create_solo_group(db: Session, year: int) -> SummerBuddyGroup:
+    """Create a new buddy group with a unique code."""
+    for _ in range(10):
+        code = _generate_buddy_code()
+        group = SummerBuddyGroup(config_id=None, year=year, buddy_code=code)
+        db.add(group)
+        try:
+            db.flush()
+            return group
+        except IntegrityError:
+            db.rollback()
+    raise HTTPException(status_code=500, detail="Could not generate unique buddy code")
+
+
+def _lookup_group_by_code(db: Session, code: str, year_filter: int | None = None):
+    """Look up a buddy group by code, optionally filtered by year."""
+    filters = [SummerBuddyGroup.buddy_code == code.strip().upper()]
+    if year_filter is not None:
+        filters.append(SummerBuddyGroup.year == year_filter)
+    group = db.query(SummerBuddyGroup).filter(*filters).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Buddy code not found")
+    return group
+
+
 def _member_to_response(db: Session, member: SummerBuddyMember) -> dict:
     """Convert a SummerBuddyMember to response dict."""
     group = member.buddy_group
@@ -259,41 +318,9 @@ def create_member(
         if not group:
             raise HTTPException(status_code=404, detail="Buddy code not found")
 
-        # Check for cross-branch members
-        cross_primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
-            SummerBuddyMember.buddy_group_id == group.id,
-            SummerBuddyMember.source_branch != data.source_branch,
-        ).scalar() or 0
-        secondary_count = db.query(func.count(SummerApplication.id)).filter(
-            SummerApplication.buddy_group_id == group.id,
-            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-        ).scalar() or 0
-
-        has_cross_branch = cross_primary_count > 0 or secondary_count > 0
-        if has_cross_branch and not data.is_sibling:
-            # Return existing members so frontend can show them for confirmation
-            all_members = _get_group_members(db, group.id)
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "CROSS_BRANCH_SIBLING_REQUIRED",
-                    "message": "This group has members from another branch. Cross-branch groups are for siblings only.",
-                    "existing_members": [m.model_dump() for m in all_members],
-                },
-            )
+        _check_cross_branch_sibling(db, group.id, data.source_branch, data.is_sibling)
     else:
-        # Create new group with collision-safe retry
-        for _ in range(10):
-            code = _generate_buddy_code()
-            group = SummerBuddyGroup(config_id=None, year=data.year, buddy_code=code)
-            db.add(group)
-            try:
-                db.flush()
-                break
-            except IntegrityError:
-                db.rollback()
-        else:
-            raise HTTPException(status_code=500, detail="Could not generate unique buddy code")
+        group = _create_solo_group(db, data.year)
 
     member = SummerBuddyMember(
         buddy_group_id=group.id,
@@ -366,20 +393,7 @@ def delete_member(
     db.delete(member)
     db.flush()
 
-    # Clean up empty group (no primary members AND no secondary applications)
-    remaining_primary = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == group_id,
-    ).scalar() or 0
-    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == group_id,
-        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-    ).scalar() or 0
-
-    if remaining_primary == 0 and remaining_secondary == 0:
-        group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).first()
-        if group:
-            db.delete(group)
-
+    _cleanup_empty_group(db, group_id)
     db.commit()
     return {"deleted": True}
 
@@ -418,44 +432,14 @@ def link_member(
     if target_group.id == member.buddy_group_id:
         raise HTTPException(status_code=400, detail="Already in this group")
 
-    # Cross-branch check
-    cross_primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == target_group.id,
-        SummerBuddyMember.source_branch != branch,
-    ).scalar() or 0
-    secondary_count = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == target_group.id,
-        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-    ).scalar() or 0
-    if (cross_primary_count > 0 or secondary_count > 0) and not data.is_sibling:
-        all_members = _get_group_members(db, target_group.id)
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "CROSS_BRANCH_SIBLING_REQUIRED",
-                "message": "This group has members from another branch. Cross-branch groups are for siblings only.",
-                "existing_members": [m.model_dump() for m in all_members],
-            },
-        )
+    _check_cross_branch_sibling(db, target_group.id, branch, data.is_sibling)
 
-    # Clean up old group
     old_group_id = member.buddy_group_id
     member.buddy_group_id = target_group.id
     member.is_sibling = data.is_sibling
     db.flush()
 
-    remaining = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == old_group_id,
-    ).scalar() or 0
-    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == old_group_id,
-        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-    ).scalar() or 0
-    if remaining == 0 and remaining_secondary == 0:
-        old_group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == old_group_id).first()
-        if old_group:
-            db.delete(old_group)
-
+    _cleanup_empty_group(db, old_group_id)
     db.commit()
     db.refresh(member)
     return _member_to_response(db, member)
@@ -482,36 +466,12 @@ def unlink_member(
 
     old_group_id = member.buddy_group_id
 
-    # Create a new solo group
-    for _ in range(10):
-        code = _generate_buddy_code()
-        new_group = SummerBuddyGroup(config_id=None, year=member.year, buddy_code=code)
-        db.add(new_group)
-        try:
-            db.flush()
-            break
-        except IntegrityError:
-            db.rollback()
-    else:
-        raise HTTPException(status_code=500, detail="Could not generate unique buddy code")
-
+    new_group = _create_solo_group(db, member.year)
     member.buddy_group_id = new_group.id
     member.is_sibling = False
     db.flush()
 
-    # Clean up old group if empty
-    remaining = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == old_group_id,
-    ).scalar() or 0
-    remaining_secondary = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == old_group_id,
-        SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
-    ).scalar() or 0
-    if remaining == 0 and remaining_secondary == 0:
-        old_group = db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == old_group_id).first()
-        if old_group:
-            db.delete(old_group)
-
+    _cleanup_empty_group(db, old_group_id)
     db.commit()
     db.refresh(member)
     return _member_to_response(db, member)
@@ -531,14 +491,7 @@ def lookup_group(
     check_ip_rate_limit(request, "buddy_lookup")
 
     from datetime import datetime
-    current_year = datetime.now().year
-    group = db.query(SummerBuddyGroup).filter(
-        SummerBuddyGroup.buddy_code == code.strip().upper(),
-        SummerBuddyGroup.year == current_year,
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Buddy code not found")
-
+    group = _lookup_group_by_code(db, code, year_filter=datetime.now().year)
     members = _get_group_members(db, group.id)
     # Strip student_id for members from other branches (privacy)
     for m in members:
@@ -561,12 +514,7 @@ def admin_lookup_group(
     db: Session = Depends(get_db),
 ):
     """Admin: look up a buddy group by code. Returns primary members."""
-    group = db.query(SummerBuddyGroup).filter(
-        SummerBuddyGroup.buddy_code == code.strip().upper(),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Buddy code not found")
-
+    group = _lookup_group_by_code(db, code)
     members = _get_group_members(db, group.id)
     return BuddyGroupLookupResponse(
         buddy_code=group.buddy_code,
