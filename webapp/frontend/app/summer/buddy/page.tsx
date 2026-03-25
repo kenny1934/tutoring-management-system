@@ -25,6 +25,7 @@ import {
   LayoutGrid,
   Columns,
   ChevronsUpDown,
+  Unlink as UnlinkIcon,
   Download,
   X,
 } from "lucide-react";
@@ -1226,7 +1227,7 @@ export default function BuddyTrackerPage() {
                             ) : (
                               <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                                 className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                                <Link2 className="h-3.5 w-3.5" />
+                                <UnlinkIcon className="h-3.5 w-3.5" />
                               </button>
                             )}
                             <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
@@ -1331,7 +1332,7 @@ export default function BuddyTrackerPage() {
                             ) : (
                               <button onClick={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                                 className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                                <Link2 className="h-3.5 w-3.5" />
+                                <UnlinkIcon className="h-3.5 w-3.5" />
                               </button>
                             ))}
                             <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
@@ -1632,7 +1633,7 @@ function DesktopRow({
               </span>
             ) : (
               <button onClick={onRequestUnlink} className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
-                <Link2 className="h-3.5 w-3.5" />
+                <UnlinkIcon className="h-3.5 w-3.5" />
               </button>
             ))}
             <button onClick={onStartEdit} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
@@ -1758,7 +1759,7 @@ function MobileCard({
                   </span>
                 ) : (
                   <button onClick={onRequestUnlink} className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors">
-                    <Link2 className="h-3 w-3" /> Unlink
+                    <UnlinkIcon className="h-3 w-3" /> Unlink
                   </button>
                 ))}
                 <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
