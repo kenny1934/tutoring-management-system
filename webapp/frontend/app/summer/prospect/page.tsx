@@ -60,6 +60,31 @@ const OUTREACH_OPTIONS: ProspectOutreachStatus[] = ["Not Started", "WeChat - Not
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 const PASTE_SHORTCUT = IS_MAC ? "Cmd+V" : "Ctrl+V";
 
+function daysAgo(dateStr: string | null): number {
+  if (!dateStr) return 0;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
+function relativeTime(dateStr: string | null): string {
+  const days = daysAgo(dateStr);
+  if (days === 0) return "Today";
+  if (days === 1) return "1d";
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
+function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" | "done" {
+  if (status === "Not Started" || status === "No Response") return "action";
+  if (status === "WeChat - Not Found" || status === "WeChat - Cannot Add") return "progress";
+  return "done";
+}
+
+const URGENCY_BORDER: Record<string, string> = {
+  action: "border-l-[3px] border-l-red-300",
+  progress: "border-l-[3px] border-l-amber-300",
+  done: "border-l-[3px] border-l-green-400",
+};
+
 type SortField = "id" | "name" | "school" | "tutor" | null;
 
 const SORT_FIELD_KEYS: Record<Exclude<SortField, null>, string> = {
@@ -1622,8 +1647,10 @@ export default function ProspectPage() {
             {filteredExisting.map((p) => {
               const isEditing = editingId === p.id;
               const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
+              const urgency = outreachUrgency(p.outreach_status);
+              const shouldPulse = urgency === "action" && daysAgo(p.submitted_at) >= 5;
               return (
-                <div key={p.id} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${
+                <div key={p.id} className={`border rounded-xl p-3 space-y-1.5 transition-colors ${URGENCY_BORDER[urgency]} ${shouldPulse ? "animate-buddy-pulse" : ""} ${
                   isOpen ? "border-primary/30 bg-primary/[0.02]"
                     : selectedSubmittedIds.has(p.id) ? "border-primary/40 bg-primary/[0.03]"
                     : "border-border bg-card"
@@ -1712,10 +1739,13 @@ export default function ProspectPage() {
                 {filteredExisting.map((p) => {
                   const isEditing = editingId === p.id;
                   const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
+                  const urgency = outreachUrgency(p.outreach_status);
+                  const daysSinceSubmit = daysAgo(p.submitted_at);
+                  const shouldPulse = urgency === "action" && daysSinceSubmit >= 5;
                   return (
                     <React.Fragment key={p.id}>
                       <tr
-                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${
+                        className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${URGENCY_BORDER[urgency]} ${shouldPulse ? "animate-buddy-pulse" : ""} ${
                           selectedSubmittedIds.has(p.id) ? "bg-primary/[0.05]"
                             : isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
                         }`}
@@ -1754,7 +1784,16 @@ export default function ProspectPage() {
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
-                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <OutreachBadge status={p.outreach_status} />
+                            {p.submitted_at && (
+                              <span className={`text-[10px] ${daysSinceSubmit >= 7 && urgency === "action" ? "text-red-500 font-medium" : daysSinceSubmit >= 3 ? "text-amber-500" : "text-muted-foreground/50"}`}>
+                                {relativeTime(p.submitted_at)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button
