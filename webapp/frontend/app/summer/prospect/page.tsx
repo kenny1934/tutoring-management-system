@@ -524,6 +524,7 @@ function ProspectEditForm({
   onCancel?: () => void;
 }) {
   const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
+  const [schoolHighlight, setSchoolHighlight] = useState(-1);
 
   const schoolQuery = values.school.toLowerCase();
   const filteredSchools = useMemo(
@@ -532,6 +533,8 @@ function ProspectEditForm({
       : [],
     [schoolQuery]
   );
+
+  useEffect(() => { setSchoolHighlight(-1); }, [schoolQuery]);
 
   const hasRequired = isRowComplete(values);
   const hasFormatErrors = !!validatePhone(values.phone_1) || !!validatePhone(values.phone_2) || !!validateStudentId(values.primary_student_id, branch);
@@ -554,21 +557,39 @@ function ProspectEditForm({
             }}
             onFocus={() => setShowSchoolSuggestions(true)}
             onBlur={() => setShowSchoolSuggestions(false)}
+            onKeyDown={(e) => {
+              if (!showSchoolSuggestions || filteredSchools.length === 0) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSchoolHighlight(prev => prev < filteredSchools.length - 1 ? prev + 1 : 0);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSchoolHighlight(prev => prev > 0 ? prev - 1 : filteredSchools.length - 1);
+              } else if (e.key === "Enter" && schoolHighlight >= 0) {
+                e.preventDefault();
+                onChange("school", filteredSchools[schoolHighlight]);
+                setShowSchoolSuggestions(false);
+              } else if (e.key === "Escape") {
+                setShowSchoolSuggestions(false);
+              }
+            }}
             placeholder="Search or enter school"
             className={`w-full ${inputSmall} ${!values.school.trim() ? "border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500" : ""}`}
           />
           {showSchoolSuggestions && filteredSchools.length > 0 && (
             <div className="absolute z-10 w-full mt-0.5 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-              {filteredSchools.map((s) => (
+              {filteredSchools.map((s, i) => (
                 <button
                   key={s}
                   type="button"
+                  ref={i === schoolHighlight ? (el) => el?.scrollIntoView({ block: "nearest" }) : undefined}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onChange("school", s);
                     setShowSchoolSuggestions(false);
                   }}
-                  className="w-full px-2.5 py-1.5 text-left hover:bg-muted text-xs"
+                  onMouseEnter={() => setSchoolHighlight(i)}
+                  className={`w-full px-2.5 py-1.5 text-left text-xs ${i === schoolHighlight ? "bg-muted" : "hover:bg-muted"}`}
                 >
                   {s}
                 </button>
