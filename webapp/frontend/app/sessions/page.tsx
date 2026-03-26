@@ -1373,7 +1373,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
