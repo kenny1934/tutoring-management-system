@@ -824,7 +824,7 @@ async def delete_folder(
 IMPORT_TEMPLATE_ID = 44  # "No Watermark" template — provides default page_layout for imports
 
 
-@router.post("/documents/import-worksheet", response_model=DocumentResponse)
+@router.post("/documents/import-worksheet")
 async def import_worksheet(
     file: UploadFile = File(...),
     remove_handwriting: bool = Query(True, description="Remove colored ink and pencil marks before OCR"),
@@ -854,7 +854,7 @@ async def import_worksheet(
     import asyncio
 
     try:
-        tiptap_content = await asyncio.to_thread(
+        tiptap_content, input_tokens, output_tokens = await asyncio.to_thread(
             ocr_worksheet,
             pdf_bytes=pdf_bytes,
             remove_handwriting=remove_handwriting,
@@ -865,7 +865,6 @@ async def import_worksheet(
         logger.error("Worksheet OCR failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="OCR processing failed")
 
-    # Use template's page_layout as default
     template = db.query(Document).filter(Document.id == IMPORT_TEMPLATE_ID).first()
     template_layout = template.page_layout if template else None
 
@@ -889,6 +888,8 @@ async def import_worksheet(
     db.add(doc)
     db.commit()
     doc = _doc_query(db).filter(Document.id == doc.id).first()
-    return _doc_to_response(doc)
+    resp = _doc_to_response(doc)
+    resp["usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+    return resp
 
 

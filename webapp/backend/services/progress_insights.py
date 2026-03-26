@@ -228,7 +228,7 @@ def generate_progress_insights(
 
             prompt = _apply_language(PROGRESS_INSIGHT_PROMPT, language)
             context = _build_context(student_name, student_grade, student_school, exercises, test_events, attendance, ratings, date_range, exclude)
-            text, tokens, _ = generate(
+            text, _, tokens, _ = generate(
                 prompt,
                 context,
                 thinking_level="minimal",

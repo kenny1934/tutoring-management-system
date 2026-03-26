@@ -49,7 +49,7 @@ def _ensure_heavy_imports():
         FITZ_AVAILABLE = True
     except ImportError:
         FITZ_AVAILABLE = False
-    logger.warning("PyMuPDF not installed. PDF processing will be unavailable.")
+        logger.warning("PyMuPDF not installed. PDF processing will be unavailable.")
 
 
 class ProcessingMode(str, Enum):

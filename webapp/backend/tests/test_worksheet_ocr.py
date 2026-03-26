@@ -42,20 +42,21 @@ class TestGenerateMultimodal:
         mock_response = MagicMock()
         mock_response.text = '{"nodes": []}'
         mock_response.candidates = []
-        mock_response.usage_metadata = MagicMock(candidates_token_count=50)
+        mock_response.usage_metadata = MagicMock(prompt_token_count=100, candidates_token_count=50)
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
 
         with patch("services.ai_client._get_client", return_value=mock_client):
-            text, tokens, truncated = generate_multimodal(
+            text, input_tokens, output_tokens, truncated = generate_multimodal(
                 prompt="OCR this page",
                 images=[(b"fake_png_bytes", "image/png")],
                 temperature=0.1,
             )
 
         assert text == '{"nodes": []}'
-        assert tokens == 50
+        assert input_tokens == 100
+        assert output_tokens == 50
         assert truncated is False
 
         # Verify generate_content was called with contents list
@@ -71,13 +72,13 @@ class TestGenerateMultimodal:
         mock_response = MagicMock()
         mock_response.text = '{"nodes": [{"type": "paragraph"}]}'
         mock_response.candidates = []
-        mock_response.usage_metadata = MagicMock(candidates_token_count=30)
+        mock_response.usage_metadata = MagicMock(prompt_token_count=80, candidates_token_count=30)
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
 
         with patch("services.ai_client._get_client", return_value=mock_client):
-            text, _, _ = generate_multimodal(
+            text, _, _, _ = generate_multimodal(
                 prompt="OCR",
                 images=[(b"img", "image/png")],
                 response_mime_type="application/json",
@@ -186,14 +187,16 @@ class TestWorksheetOcrService:
              patch("services.worksheet_ocr.generate_multimodal") as mock_gen:
             mock_fitz.return_value.open.return_value = mock_doc
             mock_fitz.return_value.Matrix.return_value = MagicMock()
-            mock_gen.return_value = (json.dumps({"nodes": mock_nodes}), 100, False)
+            mock_gen.return_value = (json.dumps({"nodes": mock_nodes}), 500, 100, False)
 
-            doc = ocr_worksheet(b"fake_pdf_bytes", remove_handwriting=False)
+            doc, inp, out = ocr_worksheet(b"fake_pdf_bytes", remove_handwriting=False)
 
         assert doc["type"] == "doc"
         assert isinstance(doc["content"], list)
         assert len(doc["content"]) == 2
         assert doc["content"][0]["type"] == "heading"
+        assert inp == 500
+        assert out == 100
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +231,7 @@ class TestImportWorksheetEndpoint:
             ],
         }
 
-        with patch("services.worksheet_ocr.ocr_worksheet", return_value=mock_tiptap):
+        with patch("services.worksheet_ocr.ocr_worksheet", return_value=(mock_tiptap, 500, 100)):
             resp = client.post(
                 "/api/documents/import-worksheet?title=My+Worksheet&source_path=Center%5CMath%5Ctest.pdf",
                 files={"file": ("test.pdf", b"%PDF-1.4 fake", "application/pdf")},
@@ -242,6 +245,7 @@ class TestImportWorksheetEndpoint:
         assert "imported" in data["tags"]
         assert "ocr" in data["tags"]
         assert data["source_filename"] == "Center\\Math\\test.pdf"
+        assert data["usage"] == {"input_tokens": 500, "output_tokens": 100}
 
         doc = db_session.query(Document).filter(Document.id == data["id"]).first()
         assert doc is not None
@@ -255,7 +259,7 @@ class TestImportWorksheetEndpoint:
 
         mock_tiptap = {"type": "doc", "content": [{"type": "paragraph"}]}
 
-        with patch("services.worksheet_ocr.ocr_worksheet", return_value=mock_tiptap):
+        with patch("services.worksheet_ocr.ocr_worksheet", return_value=(mock_tiptap, 300, 80)):
             resp = client.post(
                 "/api/documents/import-worksheet",
                 files={"file": ("F3_Quadratics.pdf", b"%PDF-1.4 fake", "application/pdf")},

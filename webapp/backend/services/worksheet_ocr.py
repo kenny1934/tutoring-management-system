@@ -118,8 +118,8 @@ Return a JSON object with a single key "nodes" containing an array of content no
 
 ## Rules
 
-1. **Question numbering**: Each numbered question should start with a heading node (level 3):
-   `{"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "Question 1"}]}`
+1. **Question numbering**: Each numbered question should start with a heading node (level 3) using the EXACT numbering format from the original document (e.g., "1.", "1)", "Q1", "第1題" — do NOT rewrite as "Question 1" unless the original says that).
+   `{"type": "heading", "attrs": {"level": 3}, "content": [{"type": "text", "text": "1."}]}`
    Then its content follows as paragraph/math nodes. Sub-questions (a, b, c) should be regular paragraphs with the letter prefix.
 
 2. **Math expressions**: ALL mathematical notation must be converted to KaTeX LaTeX.
@@ -139,13 +139,15 @@ Return a JSON object with a single key "nodes" containing an array of content no
 
 4. **Language**: Output ALL Chinese text in Traditional Chinese (繁體中文). If the source is in Simplified Chinese, convert it. Keep mathematical terms and variable names in their original form.
 
-5. **Blank answer spaces**: If you see blank lines or boxes meant for student answers, skip them entirely.
+5. **Handwriting**: If you see any handwritten text, annotations, or student answers written by hand (pen, pencil, or any ink), IGNORE them completely. Only transcribe the original printed/typed content of the worksheet.
 
-6. **Instructions text**: Preserve all instruction text (e.g., "Show your working", "寫出計算過程") as paragraphs.
+6. **Blank answer spaces**: Preserve answer spaces as empty paragraphs to maintain the worksheet layout. For each visible answer space or blank area, output 2-3 empty paragraph nodes: `{"type": "paragraph"}`.
 
-7. **Marks allocation**: If questions show marks (e.g., "(3 marks)", "(3分)"), include them in the question text.
+7. **Instructions text**: Preserve all instruction text (e.g., "Show your working", "寫出計算過程") as paragraphs.
 
-8. **Accuracy**: Transcribe EXACTLY what is on the page. Do not solve problems, simplify expressions, or add content that isn't there.
+8. **Marks allocation**: If questions show marks (e.g., "(3 marks)", "(3分)"), include them in the question text.
+
+9. **Accuracy**: Transcribe EXACTLY the printed content on the page. Do not solve problems, simplify expressions, or add content that isn't there.
 
 ## Important
 - Return ONLY the JSON object with "nodes" key. No markdown fences, no explanation.
@@ -222,50 +224,57 @@ def ocr_page(
     page_number: int,
     total_pages: int,
     model: str = MODEL_ID,
-) -> list[dict]:
+) -> tuple[list[dict], int, int]:
     """
-    OCR a single page image and return TipTap content nodes.
+    OCR a single page image and return (TipTap content nodes, input_tokens, output_tokens).
 
-    Args:
-        page_image_bytes: PNG image bytes of the page.
-        page_number: 1-based page number.
-        total_pages: Total number of pages in the worksheet.
-        model: Gemini model ID.
-
-    Returns:
-        List of TipTap JSON content nodes.
+    Tries structured JSON output first; falls back to unstructured if the model
+    returns empty (can happen with complex scans + JSON constraint).
     """
     prompt = _build_page_prompt(page_number, total_pages)
-
-    text, tokens, is_truncated = generate_multimodal(
+    call_kwargs = dict(
         prompt=prompt,
         images=[(page_image_bytes, "image/png")],
         thinking_level="low",
         max_output_tokens=8192,
         temperature=0.1,
         model=model,
-        response_mime_type="application/json",
     )
 
+    from fastapi import HTTPException
+
+    # Try with structured JSON output first
+    try:
+        text, input_tokens, output_tokens, is_truncated = generate_multimodal(
+            **call_kwargs, response_mime_type="application/json",
+        )
+    except HTTPException as exc:
+        if exc.status_code == 502:
+            # Empty response — retry without JSON constraint
+            logger.warning("OCR page %d/%d: structured output failed, retrying without JSON constraint", page_number, total_pages)
+            text, input_tokens, output_tokens, is_truncated = generate_multimodal(**call_kwargs)
+        else:
+            raise
+
     logger.info(
-        "OCR page %d/%d: %d output tokens, truncated=%s",
-        page_number, total_pages, tokens, is_truncated,
+        "OCR page %d/%d: %d input + %d output tokens, truncated=%s",
+        page_number, total_pages, input_tokens, output_tokens, is_truncated,
     )
 
     nodes = _parse_ocr_response(text)
-    return nodes
+    return nodes, input_tokens, output_tokens
 
 
 def ocr_worksheet(
     pdf_bytes: bytes,
     remove_handwriting: bool = True,
     model: str = MODEL_ID,
-) -> dict:
+) -> tuple[dict, int, int]:
     """
     Full OCR pipeline: PDF → TipTap document JSON.
 
     Returns:
-        TipTap document JSON: {"type": "doc", "content": [...]}.
+        (tiptap_doc, total_input_tokens, total_output_tokens)
     """
     page_images = pdf_to_page_images(pdf_bytes)
     total_pages = len(page_images)
@@ -275,9 +284,19 @@ def ocr_worksheet(
         page_images = _remove_handwriting_from_pages(page_images)
 
     all_nodes: list[dict] = []
+    total_input = 0
+    total_output = 0
     for i, png_bytes in enumerate(page_images, start=1):
-        nodes = ocr_page(png_bytes, i, total_pages, model=model)
-        all_nodes.extend(nodes)
+        try:
+            nodes, inp, out = ocr_page(png_bytes, i, total_pages, model=model)
+            total_input += inp
+            total_output += out
+            all_nodes.extend(nodes)
+        except Exception as exc:
+            logger.error("OCR page %d/%d failed: %s", i, total_pages, exc)
+            all_nodes.append({"type": "paragraph", "content": [
+                {"type": "text", "text": f"[Page {i} could not be processed]"}
+            ]})
         if i < total_pages:
             all_nodes.append({"type": "pageBreak"})
 
@@ -286,7 +305,8 @@ def ocr_worksheet(
     if not all_nodes:
         all_nodes = [{"type": "paragraph", "content": [{"type": "text", "text": "OCR produced no content. Please check the source PDF."}]}]
 
-    return {"type": "doc", "content": all_nodes}
+    logger.info("Worksheet OCR complete: %d input + %d output tokens", total_input, total_output)
+    return {"type": "doc", "content": all_nodes}, total_input, total_output
 
 
 def _remove_handwriting_from_pages(page_images: list[bytes]) -> list[bytes]:
@@ -294,8 +314,9 @@ def _remove_handwriting_from_pages(page_images: list[bytes]) -> list[bytes]:
     try:
         import numpy as np
         import cv2
-        from routers.document_processing import remove_colored_ink, remove_pencil_marks
-    except ImportError:
+        from routers.document_processing import remove_colored_ink, remove_pencil_marks, _ensure_heavy_imports
+        _ensure_heavy_imports()
+    except (ImportError, RuntimeError):
         logger.warning("OpenCV not available, skipping handwriting removal")
         return page_images
 

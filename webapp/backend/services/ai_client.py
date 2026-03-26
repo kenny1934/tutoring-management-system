@@ -48,8 +48,8 @@ def _get_thinking_level(level: ThinkingLevelStr):
     return level_map.get(level, types.ThinkingLevel.LOW)
 
 
-def _extract_response(response) -> tuple[str, int, bool]:
-    """Extract text, token count, and truncation flag from a Gemini response."""
+def _extract_response(response) -> tuple[str, int, int, bool]:
+    """Extract text, input token count, output token count, and truncation flag from a Gemini response."""
     text = response.text or ""
     if not text.strip():
         raise HTTPException(status_code=502, detail="AI returned an empty response")
@@ -63,11 +63,13 @@ def _extract_response(response) -> tuple[str, int, bool]:
     except (AttributeError, IndexError):
         pass
 
+    input_tokens = 0
     output_tokens = 0
     if hasattr(response, "usage_metadata") and response.usage_metadata:
+        input_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
         output_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
 
-    return text, output_tokens, is_truncated
+    return text, input_tokens, output_tokens, is_truncated
 
 
 def generate(
@@ -77,9 +79,9 @@ def generate(
     max_output_tokens: int = 4096,
     temperature: float = 0.3,
     model: str = MODEL_ID,
-) -> tuple[str, int, bool]:
+) -> tuple[str, int, int, bool]:
     """
-    Call Gemini (text-only) and return (response_text, output_token_count, is_truncated).
+    Call Gemini (text-only) and return (response_text, input_tokens, output_tokens, is_truncated).
     Raises HTTPException(503) on API error, HTTPException(502) on empty response.
     """
     from google.genai import types
@@ -114,9 +116,9 @@ def generate_multimodal(
     model: str = MODEL_ID,
     response_mime_type: str | None = None,
     response_schema: dict | None = None,
-) -> tuple[str, int, bool]:
+) -> tuple[str, int, int, bool]:
     """
-    Call Gemini with text + images and return (response_text, output_token_count, is_truncated).
+    Call Gemini with text + images and return (response_text, input_tokens, output_tokens, is_truncated).
 
     Args:
         prompt: Text prompt.

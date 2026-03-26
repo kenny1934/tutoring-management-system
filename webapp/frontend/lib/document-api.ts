@@ -123,7 +123,7 @@ export const documentsAPI = {
     title?: string;
     folderId?: number;
     sourcePath?: string;
-  }): Promise<Document> {
+  }): Promise<Document & { usage?: { input_tokens: number; output_tokens: number } }> {
     const formData = new FormData();
     formData.append("file", file);
     const qs = new URLSearchParams();
@@ -132,7 +132,7 @@ export const documentsAPI = {
     if (options?.folderId !== undefined) qs.set("folder_id", String(options.folderId));
     if (options?.sourcePath) qs.set("source_path", options.sourcePath);
     const q = qs.toString();
-    return fetchFormData<Document>(`/documents/import-worksheet${q ? `?${q}` : ""}`, formData, "Import failed");
+    return fetchFormData<Document & { usage?: { input_tokens: number; output_tokens: number } }>(`/documents/import-worksheet${q ? `?${q}` : ""}`, formData, "Import failed");
   },
 
   async uploadImage(file: File): Promise<{ url: string; filename: string }> {

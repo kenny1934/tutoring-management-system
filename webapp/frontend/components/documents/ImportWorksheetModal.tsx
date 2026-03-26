@@ -41,12 +41,14 @@ export default function ImportWorksheetModal({
   const [createdDocId, setCreatedDocId] = useState<number | null>(null);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [sourcePath, setSourcePath] = useState("");
+  const [usage, setUsage] = useState<{ input_tokens: number; output_tokens: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setError("");
       setCreatedDocId(null);
       setRemoveHandwriting(true);
+      setUsage(null);
       if (preloadedPdf) {
         const f = new File([preloadedPdf.blob], preloadedPdf.filename, { type: "application/pdf" });
         setFile(f);
@@ -96,6 +98,7 @@ export default function ImportWorksheetModal({
         sourcePath: sourcePath || undefined,
       });
       setCreatedDocId(doc.id);
+      setUsage(doc.usage ?? null);
       setStep("done");
       showToast("Worksheet imported successfully", "success");
       onSuccess?.();
@@ -303,6 +306,12 @@ export default function ImportWorksheetModal({
               Open in the editor to review and refine the OCR result.
             </p>
           </div>
+          {usage && (
+            <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-white/5 rounded px-3 py-1.5">
+              AI usage: {usage.input_tokens.toLocaleString()} input + {usage.output_tokens.toLocaleString()} output tokens
+              {" "}(~${((usage.input_tokens * 0.25 + usage.output_tokens * 1.5) / 1_000_000).toFixed(4)})
+            </div>
+          )}
         </div>
       )}
     </Modal>
