@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   UserPlus,
   Phone,
+  Share2,
   RefreshCw,
   LayoutList,
   LayoutGrid,
@@ -49,6 +50,17 @@ const SHARE_HINT = "Share this code with the student\u2019s family so their budd
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
+
+async function shareOrCopy(code: string, name?: string, onCopy?: (c: string) => void) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      await navigator.share({ title: "Buddy Code", text: `Buddy code: ${code}${name ? ` (${name})` : ""}` });
+      return;
+    } catch { /* cancelled — fall through to copy */ }
+  }
+  navigator.clipboard.writeText(code);
+  onCopy?.(code);
+}
 
 
 function daysAgo(dateStr: string): number {
@@ -223,6 +235,7 @@ export default function BuddyTrackerPage() {
 
   const handleCopyToast = useCallback((code: string) => {
     setCopyToast(code);
+    navigator.vibrate?.(50);
     clearTimeout(copyToastTimer.current);
     copyToastTimer.current = setTimeout(() => setCopyToast(null), 2000);
   }, []);
@@ -240,7 +253,7 @@ export default function BuddyTrackerPage() {
   // Data
   const validBranch = branch && BRANCHES.includes(branch as typeof BRANCHES[number]);
   const swrKey = validBranch && pinVerified ? `buddy-${branch}-${CURRENT_YEAR}` : null;
-  const { data: members, isLoading } = useSWR(
+  const { data: members, isLoading, error } = useSWR(
     swrKey,
     () => buddyTrackerAPI.list(branch!, CURRENT_YEAR),
     { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
@@ -473,6 +486,7 @@ export default function BuddyTrackerPage() {
     setConfirmDeleteId(null);
     try {
       await buddyTrackerAPI.delete(id, branch);
+      navigator.vibrate?.(100);
       setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
       globalMutate(swrKey);
     } catch {
@@ -680,14 +694,14 @@ export default function BuddyTrackerPage() {
             return (
               <button key={s.id} disabled={isFull}
                 onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
-                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2 ${isFull ? "opacity-50 cursor-not-allowed" : linkTargetCode === s.buddy_code ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}>
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-all flex items-center gap-2 ${isFull ? "opacity-50 cursor-not-allowed" : linkTargetCode === s.buddy_code ? "bg-primary/10 ring-2 ring-primary/30 scale-[1.01]" : "hover:bg-muted/50"}`}>
                 <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
                 <span className="font-medium">{s.student_name_en}</span>
                 <CodePill code={s.buddy_code} />
                 {isFull ? (
                   <span className="ml-auto text-[10px] font-medium text-red-500">Full</span>
                 ) : linkTargetCode === s.buddy_code ? (
-                  <span className="ml-auto text-[10px] font-medium text-primary">Confirm</span>
+                  <span className="ml-auto text-[10px] font-bold text-primary bg-primary/15 px-2 py-0.5 rounded-full">Tap to link</span>
                 ) : null}
               </button>
             );
@@ -900,8 +914,8 @@ export default function BuddyTrackerPage() {
                 : "border-border hover:border-green-500/40 hover:shadow-sm hover:-translate-y-0.5"
             }`}
           >
-            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600" : "text-green-600/50"}`} />
-            <div className="text-2xl font-bold text-green-600">{stats.paired}</div>
+            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600 dark:text-green-400" : "text-green-600/50 dark:text-green-400/50"}`} />
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.paired}</div>
             <div className="text-[10px] font-medium text-muted-foreground">Paired</div>
           </button>
 
@@ -913,19 +927,31 @@ export default function BuddyTrackerPage() {
                 ? "border-red-500 ring-2 ring-red-500/30 shadow-md scale-[1.02] bg-red-500/5"
                 : stats.solo > 0
                   ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-glow"
-                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-celebrate"
             }`}
           >
             {stats.solo > 0 ? (
-              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600" : "text-red-500/70"}`} />
+              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600 dark:text-red-400" : "text-red-500/70 dark:text-red-400/70"}`} />
             ) : (
               <Check className="h-4 w-4 mx-auto mb-1 text-green-500" />
             )}
-            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-green-600"}`}>
+            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
               {stats.solo === 0 && stats.total > 0 ? "✓" : stats.solo}
             </div>
             <div className="text-[10px] font-medium text-muted-foreground">Needs Partner</div>
           </button>
+        </div>
+      )}
+
+      {/* Progress bar */}
+      {ownMembers.length > 0 && stats.total > 0 && (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>{stats.paired} of {stats.total} paired</span>
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-primary to-green-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((stats.paired / stats.total) * 100)}%` }} />
+          </div>
+          <span className="font-medium text-foreground">{Math.round((stats.paired / stats.total) * 100)}%</span>
         </div>
       )}
 
@@ -939,7 +965,7 @@ export default function BuddyTrackerPage() {
         }`}
         title={drawerOpen ? "Close" : "Add Student"}
       >
-        {drawerOpen ? <X className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+        {drawerOpen ? <X className="h-6 w-6 rotate-90 transition-transform duration-200" /> : <UserPlus className="h-6 w-6 transition-transform duration-200" />}
       </button>
       </div>,
       document.body
@@ -1113,7 +1139,7 @@ export default function BuddyTrackerPage() {
                 </p>
               )}
               {formSuccess && (
-                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative">
+                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative animate-drawer-in">
                   <div className="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
                     <Check className="h-5 w-5 text-green-600" />
                   </div>
@@ -1122,6 +1148,9 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
+                      <button onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary transition-colors" title="Share code">
+                        <Share2 className="h-4 w-4" />
+                      </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                   </div>
@@ -1167,9 +1196,10 @@ export default function BuddyTrackerPage() {
             {filterTab === "solo" && stats.solo > 0 && (
               <button
                 onClick={() => {
-                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
-                  navigator.clipboard.writeText(codes.join("\n"));
-                  handleCopyToast(`${codes.length} codes`);
+                  const soloMembers = displayMembers.filter(m => m.group_size < 2);
+                  const message = `Summer buddy codes:\n${soloMembers.map(m => `• ${m.buddy_code} (${m.student_name_en})`).join("\n")}`;
+                  navigator.clipboard.writeText(message);
+                  handleCopyToast(`${soloMembers.length} codes`);
                 }}
                 className="px-3 py-2 text-xs font-medium border-2 border-border rounded-xl hover:border-primary/40 hover:text-foreground transition-colors text-muted-foreground shrink-0"
                 title="Copy all solo codes for sharing with families to find partners"
@@ -1209,7 +1239,13 @@ export default function BuddyTrackerPage() {
       )}
 
       {/* Table (desktop) */}
-      {isLoading ? (
+      {error ? (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-red-500" />
+          <p className="text-sm text-red-600 dark:text-red-400">Failed to load buddy data</p>
+          <button onClick={() => globalMutate(swrKey)} className="mt-2 text-xs text-primary hover:underline">Retry</button>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           <RefreshCw className="h-5 w-5 mx-auto mb-2 animate-spin text-muted-foreground/50" />
           Loading buddy data...
@@ -1225,6 +1261,7 @@ export default function BuddyTrackerPage() {
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No paired groups yet</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">Link students or add partners to create buddy pairs</p>
             </>
           ) : (
             <>
@@ -1239,7 +1276,7 @@ export default function BuddyTrackerPage() {
         /* Board view — Solo left, Paired right */
         <div className="grid md:grid-cols-[1fr_1.2fr] gap-4">
           {/* Solo column */}
-          <div className="space-y-3">
+          <div className="space-y-3 bg-red-500/5 rounded-xl p-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               Needs Partner ({boardSolo.length})
@@ -1308,7 +1345,7 @@ export default function BuddyTrackerPage() {
           </div>
 
           {/* Paired column */}
-          <div className="space-y-3">
+          <div className="space-y-3 bg-green-500/5 rounded-xl p-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-green-600 dark:text-green-400">
               <span className="w-2 h-2 rounded-full bg-green-500" />
               Paired ({boardPaired.length})
@@ -1866,10 +1903,10 @@ function MobileCard({
   const waitDays = daysAgo(m.created_at);
   const copyCodeBtn = isSolo ? (
     <button
-      onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }}
+      onClick={() => shareOrCopy(m.buddy_code, m.student_name_en, onCopyToast)}
       className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
     >
-      Copy Code to Share
+      Share Code
     </button>
   ) : null;
   return (
