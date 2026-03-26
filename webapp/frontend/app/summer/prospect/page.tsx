@@ -99,26 +99,31 @@ function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" 
 }
 
 const CONFETTI_COLORS = ["#fbbf24", "#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#ec4899"];
-const CONFETTI_PARTICLES = Array.from({ length: 40 }, (_, i) => {
-  const isStrip = Math.random() > 0.4;
-  return {
-    width: isStrip ? 3 + Math.random() * 5 : 5 + Math.random() * 4,
-    height: isStrip ? 8 + Math.random() * 8 : 5 + Math.random() * 4,
-    left: 15 + Math.random() * 70,
-    top: 10 + Math.random() * 25,
-    duration: 1.5 + Math.random() * 1,
-    delay: Math.random() * 0.8,
-    drift: (Math.random() - 0.5) * 60,
-    rotation: Math.random() * 360,
-    borderRadius: isStrip ? "1px" : `${Math.random() * 3}px`,
-    color: CONFETTI_COLORS[i % 6],
-  };
-});
+
+function generateConfettiParticles() {
+  return Array.from({ length: 40 }, (_, i) => {
+    const isStrip = Math.random() > 0.4;
+    return {
+      width: isStrip ? 3 + Math.random() * 5 : 5 + Math.random() * 4,
+      height: isStrip ? 8 + Math.random() * 8 : 5 + Math.random() * 4,
+      left: 15 + Math.random() * 70,
+      top: 10 + Math.random() * 25,
+      duration: 1.5 + Math.random() * 1,
+      delay: Math.random() * 0.8,
+      drift: (Math.random() - 0.5) * 60,
+      rotation: Math.random() * 360,
+      borderRadius: isStrip ? "1px" : `${Math.random() * 3}px`,
+      color: CONFETTI_COLORS[i % 6],
+    };
+  });
+}
 
 function ConfettiParticles() {
+  // Lazy init avoids SSR hydration mismatch (Math.random differs server vs client)
+  const [particles] = useState(generateConfettiParticles);
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">
-      {CONFETTI_PARTICLES.map((p, i) => (
+      {particles.map((p, i) => (
         <span
           key={i}
           className="absolute block"
@@ -856,16 +861,18 @@ export default function ProspectPage() {
     navigator.clipboard.writeText(tsv);
     triggerSampleCopied();
     // Scroll paste zone into view, then activate spotlight
-    clearTimeout(spotlightTimer.current);
-    spotlightTimer.current = setTimeout(() => {
+    clearTimeout(spotlightScrollTimer.current);
+    clearTimeout(spotlightActivateTimer.current);
+    spotlightScrollTimer.current = setTimeout(() => {
       pasteZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      spotlightTimer.current = setTimeout(() => setSpotlightStep("click-paste"), 500);
+      spotlightActivateTimer.current = setTimeout(() => setSpotlightStep("click-paste"), 500);
     }, 100);
   }, [demoRows, triggerSampleCopied]);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const spotlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const spotlightScrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const spotlightActivateTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
@@ -914,7 +921,8 @@ export default function ProspectPage() {
       clearTimeout(parseInfoTimer.current);
       clearTimeout(lastSavedTimer.current);
       clearTimeout(pinShakeTimer.current);
-      clearTimeout(spotlightTimer.current);
+      clearTimeout(spotlightScrollTimer.current);
+      clearTimeout(spotlightActivateTimer.current);
       clearTimeout(drawerCloseTimer.current);
     };
   }, []);
@@ -1719,11 +1727,11 @@ export default function ProspectPage() {
                   <>
                     <p className="text-base font-semibold text-primary">Ready — paste now</p>
                     <div className="flex items-center justify-center gap-2 mt-3">
-                      <span className="keycap" style={{ animation: "keypress-down 2s ease-in-out infinite" }}>
+                      <span className="keycap keycap-animated">
                         {IS_MAC ? "\u2318" : "Ctrl"}
                       </span>
                       <span className="text-sm text-muted-foreground font-bold">+</span>
-                      <span className="keycap" style={{ animation: "keypress-down 2s ease-in-out 0.15s infinite" }}>
+                      <span className="keycap keycap-animated" style={{ animationDelay: "0.15s" }}>
                         V
                       </span>
                     </div>

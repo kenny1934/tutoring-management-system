@@ -310,6 +310,35 @@ class TestLinkUnlink:
         assert resp.status_code == 400
         assert "full" in resp.json()["detail"].lower()
 
+    def test_link_rejects_when_secondary_fills_group(self, client, db_session):
+        """Group with 1 primary + 1 active secondary application → link rejected."""
+        config = SummerCourseConfig(
+            year=YEAR, title="Test", application_open_date=datetime.now(),
+            application_close_date=datetime.now(), course_start_date=datetime.now().date(),
+            course_end_date=datetime.now().date(), total_lessons=8,
+            pricing_config={}, locations=[], available_grades=[], time_slots=[],
+        )
+        db_session.add(config)
+        db_session.flush()
+
+        a = create_member(client, student_id="1001")
+        app = SummerApplication(
+            config_id=config.id, reference_code="SC-LINK1",
+            student_name="Secondary Student", grade="P5",
+            buddy_group_id=a["buddy_group_id"], application_status="Submitted",
+        )
+        db_session.add(app)
+        db_session.commit()
+
+        b = create_member(client, student_id="1002", student_name_en="Bob")
+        resp = client.patch(
+            f"{API}/members/{b['id']}/link?branch={BRANCH}",
+            json={"buddy_code": a["buddy_code"]},
+            headers=pin_headers(),
+        )
+        assert resp.status_code == 400
+        assert "full" in resp.json()["detail"].lower()
+
     def test_link_wrong_year(self, client, db_session):
         member = create_member(client)
         old_group = SummerBuddyGroup(config_id=None, year=YEAR - 1, buddy_code="BG-OLD2")
