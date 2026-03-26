@@ -173,7 +173,8 @@ export default function BuddyTrackerPage() {
   const [drawerClosing, setDrawerClosing] = useState(false);
   const closeDrawer = useCallback(() => {
     setDrawerClosing(true);
-    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+    clearTimeout(drawerCloseTimer.current);
+    drawerCloseTimer.current = setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
   const [formStudentId, setFormStudentId] = useState("");
   const [formNameEn, setFormNameEn] = useState("");
@@ -216,6 +217,7 @@ export default function BuddyTrackerPage() {
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
   const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const studentIdRef = useRef<HTMLInputElement>(null);
 
@@ -265,6 +267,18 @@ export default function BuddyTrackerPage() {
       });
     return () => clearTimeout(timeout);
   }, [branch, validBranch]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(pinShakeTimer.current);
+      clearTimeout(drawerCloseTimer.current);
+      clearTimeout(copyToastTimer.current);
+      clearTimeout(confirmUnlinkTimer.current);
+      clearTimeout(confirmDeleteTimer.current);
+      clearTimeout(recentlyAddedTimer.current);
+    };
+  }, []);
 
   // ---- PIN submit ----
   const handlePinSubmit = useCallback(async () => {

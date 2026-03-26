@@ -799,6 +799,7 @@ export default function ProspectPage() {
         ? "Too many attempts. Please try again later."
         : "Incorrect PIN. Please try again.");
       setPinShake(true);
+      clearTimeout(pinShakeTimer.current);
       pinShakeTimer.current = setTimeout(() => setPinShake(false), 500);
     } finally {
       setPinChecking(false);
@@ -855,14 +856,17 @@ export default function ProspectPage() {
     navigator.clipboard.writeText(tsv);
     triggerSampleCopied();
     // Scroll paste zone into view, then activate spotlight
-    setTimeout(() => {
+    clearTimeout(spotlightTimer.current);
+    spotlightTimer.current = setTimeout(() => {
       pasteZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setTimeout(() => setSpotlightStep("click-paste"), 500);
+      spotlightTimer.current = setTimeout(() => setSpotlightStep("click-paste"), 500);
     }, 100);
   }, [demoRows, triggerSampleCopied]);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const spotlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
   const pasteStripRef = useRef<HTMLTextAreaElement>(null);
@@ -889,6 +893,13 @@ export default function ProspectPage() {
     return () => { document.body.style.overflow = ""; };
   }, [spotlightStep]);
 
+  const spotlightClipPath = useMemo(() => {
+    if (!spotlightRect) return undefined;
+    const pad = 8;
+    const r = spotlightRect;
+    return `polygon(0% 0%, 0% 100%, ${r.left - pad}px 100%, ${r.left - pad}px ${r.top - pad}px, ${r.right + pad}px ${r.top - pad}px, ${r.right + pad}px ${r.bottom + pad}px, ${r.left - pad}px ${r.bottom + pad}px, ${r.left - pad}px 100%, 100% 100%, 100% 0%)`;
+  }, [spotlightRect]);
+
   // Warn before page unload if parsed rows have unsaved data
   useEffect(() => {
     if (parsedRows.length === 0) return;
@@ -900,9 +911,11 @@ export default function ProspectPage() {
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
-      if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
-      if (pinShakeTimer.current) clearTimeout(pinShakeTimer.current);
+      clearTimeout(parseInfoTimer.current);
+      clearTimeout(lastSavedTimer.current);
+      clearTimeout(pinShakeTimer.current);
+      clearTimeout(spotlightTimer.current);
+      clearTimeout(drawerCloseTimer.current);
     };
   }, []);
   const submittedRef = useRef<HTMLElement>(null);
@@ -1080,7 +1093,8 @@ export default function ProspectPage() {
 
   const closeDrawer = useCallback(() => {
     setDrawerClosing(true);
-    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+    clearTimeout(drawerCloseTimer.current);
+    drawerCloseTimer.current = setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
 
   const {
@@ -2560,40 +2574,36 @@ export default function ProspectPage() {
             {/* Dimmed background — click to dismiss */}
             <div
               className="fixed inset-0 bg-black/50"
-              style={rect ? { clipPath: `polygon(0% 0%, 0% 100%, ${rect.left - pad}px 100%, ${rect.left - pad}px ${rect.top - pad}px, ${rect.right + pad}px ${rect.top - pad}px, ${rect.right + pad}px ${rect.bottom + pad}px, ${rect.left - pad}px ${rect.bottom + pad}px, ${rect.left - pad}px 100%, 100% 100%, 100% 0%)` } : undefined}
+              style={spotlightClipPath ? { clipPath: spotlightClipPath } : undefined}
               onClick={() => setSpotlightStep(null)}
             />
             {/* Clickable cutout area — focuses the paste zone */}
-            {rect && (
-              <div
-                className="fixed cursor-pointer rounded-2xl ring-2 ring-primary/40 ring-offset-2"
-                style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
-                onClick={() => { focusPasteArea(); }}
-              />
-            )}
+            <div
+              className="fixed cursor-pointer rounded-2xl ring-2 ring-primary/40 ring-offset-2"
+              style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
+              onClick={() => { focusPasteArea(); }}
+            />
             {/* Tooltip */}
-            {rect && (
-              <div
-                className="fixed bg-card rounded-xl shadow-2xl border border-border px-5 py-3 text-sm font-medium z-50"
-                style={{ top: Math.max(8, rect.top - 60), left: Math.min(Math.max(8, rect.left + rect.width / 2 - 140), window.innerWidth - 288), width: 280 }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    {spotlightStep === "click-paste"
-                      ? <MousePointerClick className="h-3.5 w-3.5 text-primary" />
-                      : <Keyboard className="h-3.5 w-3.5 text-primary" />
-                    }
-                  </span>
-                  <span>
-                    {spotlightStep === "click-paste"
-                      ? "Now click the dashed area below"
-                      : <>Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono font-bold">{PASTE_SHORTCUT}</kbd> to paste your data</>
-                    }
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-8">Click outside to dismiss</p>
+            <div
+              className="fixed bg-card rounded-xl shadow-2xl border border-border px-5 py-3 text-sm font-medium z-50"
+              style={{ top: Math.max(8, rect.top - 60), left: Math.min(Math.max(8, rect.left + rect.width / 2 - 140), window.innerWidth - 288), width: 280 }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  {spotlightStep === "click-paste"
+                    ? <MousePointerClick className="h-3.5 w-3.5 text-primary" />
+                    : <Keyboard className="h-3.5 w-3.5 text-primary" />
+                  }
+                </span>
+                <span>
+                  {spotlightStep === "click-paste"
+                    ? "Now click the dashed area below"
+                    : <>Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono font-bold">{PASTE_SHORTCUT}</kbd> to paste your data</>
+                  }
+                </span>
               </div>
-            )}
+              <p className="text-[11px] text-muted-foreground mt-1 ml-8">Click outside to dismiss</p>
+            </div>
           </div>,
           document.body
         );
