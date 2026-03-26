@@ -245,7 +245,7 @@
   50% { box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.15); }
 }
 .animate-buddy-glow {
-  animation: buddy-glow 2.5s ease-in-out infinite;
+  animation: buddy-glow 2.5s ease-in-out 3;
 }
 
 @keyframes buddy-celebrate {
@@ -253,7 +253,7 @@
   50% { box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.2); }
 }
 .animate-buddy-celebrate {
-  animation: buddy-celebrate 2.5s ease-in-out infinite;
+  animation: buddy-celebrate 2.5s ease-in-out 3;
 }
 
 @media (prefers-reduced-motion: reduce) {

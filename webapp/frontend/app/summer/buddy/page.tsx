@@ -60,8 +60,10 @@ async function shareOrCopy(code: string, name?: string, onCopy?: (c: string) => 
       return;
     } catch { /* cancelled — fall through to copy */ }
   }
-  navigator.clipboard.writeText(code);
-  onCopy?.(code);
+  try {
+    await navigator.clipboard.writeText(code);
+    onCopy?.(code);
+  } catch { /* clipboard access denied */ }
 }
 
 

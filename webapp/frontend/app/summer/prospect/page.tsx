@@ -822,7 +822,7 @@ export default function ProspectPage() {
   }, [branch, pinInput]);
 
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [undoRow, setUndoRow] = useState<{ key: string; row: ParsedRow } | null>(null);
+  const [undoRow, setUndoRow] = useState<{ key: string; row: ParsedRow; idx: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -1102,10 +1102,11 @@ export default function ProspectPage() {
 
   const removeRow = useCallback((key: string) => {
     setParsedRows((prev) => {
-      const row = prev.find((r) => r._key === key);
+      const idx = prev.findIndex((r) => r._key === key);
+      const row = idx >= 0 ? prev[idx] : undefined;
       if (row) {
         clearTimeout(undoTimer.current);
-        setUndoRow({ key, row });
+        setUndoRow({ key, row, idx });
         undoTimer.current = setTimeout(() => setUndoRow(null), 4000);
       }
       return prev.filter((r) => r._key !== key);
@@ -1114,7 +1115,11 @@ export default function ProspectPage() {
 
   const undoRemoveRow = useCallback(() => {
     if (!undoRow) return;
-    setParsedRows((prev) => [...prev, undoRow.row]);
+    setParsedRows((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(undoRow.idx, next.length), 0, undoRow.row);
+      return next;
+    });
     clearTimeout(undoTimer.current);
     setUndoRow(null);
   }, [undoRow]);
@@ -2421,12 +2426,7 @@ export default function ProspectPage() {
                       {isOpen && (
                         <tr>
                           <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
-                            {inlineError?.id === p.id && (
-                              <div className="text-xs px-3 py-2 mb-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 flex items-center gap-1.5">
-                                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                                {inlineError.message}
-                              </div>
-                            )}
+                            {inlineError?.id === p.id && <InlineErrorBanner message={inlineError.message} />}
                             {isEditing ? (
                               <ProspectEditForm
                                 values={mergeEditValues(editData, p)}
