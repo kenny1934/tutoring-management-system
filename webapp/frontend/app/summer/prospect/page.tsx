@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -28,11 +28,21 @@ import {
   Download,
   Lock,
   UserPlus,
+  RefreshCw,
+  HelpCircle,
+  MousePointerClick,
+  Keyboard,
+  Table2,
+  Sparkles,
+  ArrowRight,
+  ClipboardCheck,
+  Copy,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
-import { useFormDirtyTracking } from "@/lib/ui-hooks";
+import { useFormDirtyTracking, useCooldown } from "@/lib/ui-hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
+import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -86,6 +96,52 @@ function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" 
   if (status === "Not Started" || status === "No Response") return "action";
   if (status === "WeChat - Not Found" || status === "WeChat - Cannot Add") return "progress";
   return "done";
+}
+
+const CONFETTI_COLORS = ["#fbbf24", "#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#ec4899"];
+
+function generateConfettiParticles() {
+  return Array.from({ length: 40 }, (_, i) => {
+    const isStrip = Math.random() > 0.4;
+    return {
+      width: isStrip ? 3 + Math.random() * 5 : 5 + Math.random() * 4,
+      height: isStrip ? 8 + Math.random() * 8 : 5 + Math.random() * 4,
+      left: 15 + Math.random() * 70,
+      top: 10 + Math.random() * 25,
+      duration: 1.5 + Math.random() * 1,
+      delay: Math.random() * 0.8,
+      drift: (Math.random() - 0.5) * 60,
+      rotation: Math.random() * 360,
+      borderRadius: isStrip ? "1px" : `${Math.random() * 3}px`,
+      color: CONFETTI_COLORS[i % 6],
+    };
+  });
+}
+
+function ConfettiParticles() {
+  // Lazy init avoids SSR hydration mismatch (Math.random differs server vs client)
+  const [particles] = useState(generateConfettiParticles);
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">
+      {particles.map((p, i) => (
+        <span
+          key={i}
+          className="absolute block"
+          style={{
+            width: `${p.width}px`,
+            height: `${p.height}px`,
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            backgroundColor: p.color,
+            borderRadius: p.borderRadius,
+            transform: `rotate(${p.rotation}deg)`,
+            "--confetti-drift": `${p.drift}px`,
+            animation: `confetti-fall ${p.duration}s ease-out ${p.delay}s forwards`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
 }
 
 const URGENCY_BORDER: Record<string, string> = {
@@ -636,11 +692,11 @@ function ProspectEditForm({
           <BranchCheckboxes value={values.preferred_branches} onChange={(v) => onChange("preferred_branches", v)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Summer?</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Wants Summer?</label>
           <IntentionSelect value={values.wants_summer} onChange={(v) => onChange("wants_summer", v)} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Regular (Sept)?</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Wants Regular (Sept)?</label>
           <IntentionSelect value={values.wants_regular} onChange={(v) => onChange("wants_regular", v)} />
         </div>
         <FieldInput label="Time / Tutor Preference" value={values.preferred_time_note} onChange={(v) => onChange("preferred_time_note", v)} placeholder="e.g. Sat afternoon, Ivan Sir" span={compact ? undefined : 2} />
@@ -748,6 +804,7 @@ export default function ProspectPage() {
         ? "Too many attempts. Please try again later."
         : "Incorrect PIN. Please try again.");
       setPinShake(true);
+      clearTimeout(pinShakeTimer.current);
       pinShakeTimer.current = setTimeout(() => setPinShake(false), 500);
     } finally {
       setPinChecking(false);
@@ -778,17 +835,77 @@ export default function ProspectPage() {
   const [drawerFormValues, setDrawerFormValues] = useState<ProspectFormValues>(createEmptyFormValues());
   const [drawerSubmitting, setDrawerSubmitting] = useState(false);
   const [drawerResult, setDrawerResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string; message: string; onConfirm: () => void; variant?: "danger" | "warning"; confirmText?: string;
+  } | null>(null);
+  const [showPasteTutorial, setShowPasteTutorial] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !localStorage.getItem("prospect-paste-tutorial-dismissed");
+  });
+  const dismissTutorial = useCallback(() => {
+    setShowPasteTutorial(false);
+    localStorage.setItem("prospect-paste-tutorial-dismissed", "1");
+  }, []);
+  const [sampleCopied, triggerSampleCopied] = useCooldown(2000);
+  const demoRows = useMemo(() => [
+    { id: `${branch}1048`, name: "Bobby Lam", grade: "P6", tutor: "Mr Wong", phone: "55551234" },
+    { id: `${branch}1052`, name: "Alice Chan", grade: "P6", tutor: "Ms Lee", phone: "66778899" },
+    { id: `${branch}1061`, name: "David Ho", grade: "P6", tutor: "Mr Wong", phone: "91234567" },
+  ], [branch]);
+  const [showConfetti, triggerConfetti] = useCooldown(2500);
+  const [spotlightStep, setSpotlightStep] = useState<"click-paste" | "press-key" | null>(null);
+  const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
+  const pasteZoneRef = useRef<HTMLDivElement>(null);
+  const copySampleData = useCallback(() => {
+    const tsv = demoRows.map((r) => `${r.id}\t${r.name}\t${r.grade}\t${r.tutor}\t${r.phone}`).join("\n");
+    navigator.clipboard.writeText(tsv);
+    triggerSampleCopied();
+    // Scroll paste zone into view, then activate spotlight
+    clearTimeout(spotlightScrollTimer.current);
+    clearTimeout(spotlightActivateTimer.current);
+    spotlightScrollTimer.current = setTimeout(() => {
+      pasteZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      spotlightActivateTimer.current = setTimeout(() => setSpotlightStep("click-paste"), 500);
+    }, 100);
+  }, [demoRows, triggerSampleCopied]);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pinShakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const spotlightScrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const spotlightActivateTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
+  const pasteStripRef = useRef<HTMLTextAreaElement>(null);
+  const pasteSectionRef = useRef<HTMLElement>(null);
 
   // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => setSubmittedSearch(submittedSearchInput), 300);
     return () => clearTimeout(t);
   }, [submittedSearchInput]);
+
+  // Lock scroll and measure spotlight rect synchronously before paint
+  // useLayoutEffect ensures overflow:hidden removes the scrollbar BEFORE
+  // getBoundingClientRect runs, preventing the ~15px layout shift on Windows/Linux.
+  useLayoutEffect(() => {
+    if (!spotlightStep) {
+      setSpotlightRect(null);
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    // Measure AFTER scrollbar is gone — layout has reflowed synchronously
+    const rect = pasteZoneRef.current?.getBoundingClientRect() ?? null;
+    setSpotlightRect(rect);
+    return () => { document.body.style.overflow = ""; };
+  }, [spotlightStep]);
+
+  const spotlightClipPath = useMemo(() => {
+    if (!spotlightRect) return undefined;
+    const pad = 8;
+    const r = spotlightRect;
+    return `polygon(0% 0%, 0% 100%, ${r.left - pad}px 100%, ${r.left - pad}px ${r.top - pad}px, ${r.right + pad}px ${r.top - pad}px, ${r.right + pad}px ${r.bottom + pad}px, ${r.left - pad}px ${r.bottom + pad}px, ${r.left - pad}px 100%, 100% 100%, 100% 0%)`;
+  }, [spotlightRect]);
 
   // Warn before page unload if parsed rows have unsaved data
   useEffect(() => {
@@ -801,15 +918,18 @@ export default function ProspectPage() {
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
-      if (lastSavedTimer.current) clearTimeout(lastSavedTimer.current);
-      if (pinShakeTimer.current) clearTimeout(pinShakeTimer.current);
+      clearTimeout(parseInfoTimer.current);
+      clearTimeout(lastSavedTimer.current);
+      clearTimeout(pinShakeTimer.current);
+      clearTimeout(spotlightScrollTimer.current);
+      clearTimeout(spotlightActivateTimer.current);
+      clearTimeout(drawerCloseTimer.current);
     };
   }, []);
   const submittedRef = useRef<HTMLElement>(null);
 
   const swrKey = branch && pinVerified ? `prospects-${branch}-${CURRENT_YEAR}` : null;
-  const { data: existing, isLoading } = useSWR(
+  const { data: existing, isLoading, isValidating } = useSWR(
     swrKey,
     () => prospectsAPI.list(branch!, CURRENT_YEAR),
     { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
@@ -839,7 +959,21 @@ export default function ProspectPage() {
   }, [parsedRows, existingPhones]);
 
   const validCount = useMemo(() => parsedRows.filter(isRowComplete).length, [parsedRows]);
+  const incompleteCount = parsedRows.length - validCount;
+  const missingFields = useMemo(() => {
+    const fields: Record<string, number> = {};
+    for (const r of parsedRows) {
+      if (!r.primary_student_id.trim()) fields["ID"] = (fields["ID"] || 0) + 1;
+      if (!r.student_name.trim()) fields["Name"] = (fields["Name"] || 0) + 1;
+      if (!r.school.trim()) fields["School"] = (fields["School"] || 0) + 1;
+      if (!r.grade.trim()) fields["Grade"] = (fields["Grade"] || 0) + 1;
+      if (!r.tutor_name.trim()) fields["Tutor"] = (fields["Tutor"] || 0) + 1;
+      if (!r.phone_1.trim()) fields["Phone"] = (fields["Phone"] || 0) + 1;
+    }
+    return fields;
+  }, [parsedRows]);
   const warningCount = useMemo(() => rowWarnings.filter((w) => w.invalidPhone || w.duplicateInBatch || w.alreadySubmitted).length, [rowWarnings]);
+  const [showHelpBanner, setShowHelpBanner] = useState(false);
   const hasActiveFilters = !!(submittedSearchInput || submittedFilters.branch || submittedFilters.wants_summer || submittedFilters.wants_regular || submittedFilters.outreach_status);
 
   // Sort helpers
@@ -902,7 +1036,10 @@ export default function ProspectPage() {
 
   // ---- Paste & Parse ----
 
-  const focusPasteArea = useCallback(() => pasteRef.current?.focus(), []);
+  const focusPasteArea = useCallback(() => {
+    if (parsedRows.length > 0) pasteStripRef.current?.focus();
+    else pasteRef.current?.focus();
+  }, [parsedRows.length]);
 
   const handleClipboardPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = e.clipboardData.getData("text/plain");
@@ -914,12 +1051,23 @@ export default function ProspectPage() {
         return [...prev, ...rows];
       });
       setSubmitResult(null);
-      const msg = `Parsed ${rows.length} student${rows.length !== 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} row${skipped !== 1 ? "s" : ""} skipped)` : ""}`;
+      const msg = `${rows.length} student${rows.length !== 1 ? "s" : ""} added — review below, then hit Submit${skipped > 0 ? ` (${skipped} row${skipped !== 1 ? "s" : ""} skipped)` : ""}`;
       setParseInfo({ text: msg, canUndo: true });
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
-      parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 5000);
+      parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 10000);
+      if (showPasteTutorial) dismissTutorial();
+      if (spotlightStep) setSpotlightStep(null);
+      setTimeout(() => pasteSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      if (!localStorage.getItem("prospect-first-paste-celebrated")) {
+        localStorage.setItem("prospect-first-paste-celebrated", "1");
+        triggerConfetti();
+      }
+    } else if (text.trim()) {
+      setParseInfo({ text: "Nothing was recognized — make sure you copied rows from a spreadsheet", canUndo: false });
+      if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
+      parseInfoTimer.current = setTimeout(() => setParseInfo(null), 8000);
     }
-  }, [branch]);
+  }, [branch, showPasteTutorial, dismissTutorial, spotlightStep]);
 
   const undoLastPaste = useCallback(() => {
     if (lastPasteSnapshot.current !== null) {
@@ -953,7 +1101,8 @@ export default function ProspectPage() {
 
   const closeDrawer = useCallback(() => {
     setDrawerClosing(true);
-    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+    clearTimeout(drawerCloseTimer.current);
+    drawerCloseTimer.current = setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
 
   const {
@@ -984,9 +1133,17 @@ export default function ProspectPage() {
   }, [branch, drawerFormValues, swrKey, closeDrawer]);
 
   const clearAllRows = useCallback(() => {
-    if (!confirm("Clear all parsed rows?")) return;
-    setParsedRows([]);
-    setParsedExpandedKeys(new Set());
+    setConfirmAction({
+      title: "Clear all rows",
+      message: "Clear all unsaved students? This cannot be undone.",
+      variant: "danger",
+      confirmText: "Clear",
+      onConfirm: () => {
+        setParsedRows([]);
+        setParsedExpandedKeys(new Set());
+        setConfirmAction(null);
+      },
+    });
   }, []);
 
   const toggleExpand = useCallback((key: string) => {
@@ -1044,9 +1201,16 @@ export default function ProspectPage() {
   }, [parsedRows]);
 
   const bulkDeleteParsed = useCallback(() => {
-    if (!confirm(`Delete ${selectedParsedKeys.size} selected rows?`)) return;
-    setParsedRows((prev) => prev.filter((r) => !selectedParsedKeys.has(r._key)));
-    setSelectedParsedKeys(new Set());
+    setConfirmAction({
+      title: "Delete selected rows",
+      message: `Delete ${selectedParsedKeys.size} selected rows?`,
+      variant: "danger",
+      onConfirm: () => {
+        setParsedRows((prev) => prev.filter((r) => !selectedParsedKeys.has(r._key)));
+        setSelectedParsedKeys(new Set());
+        setConfirmAction(null);
+      },
+    });
   }, [selectedParsedKeys]);
 
   const bulkSetParsedIntention = useCallback((field: "wants_summer" | "wants_regular", value: ProspectIntention) => {
@@ -1069,21 +1233,28 @@ export default function ProspectPage() {
     );
   }, [filteredExisting]);
 
-  const bulkDeleteSubmitted = useCallback(async () => {
-    if (!confirm(`Delete ${selectedSubmittedIds.size} selected submissions?`)) return;
-    setBulkDeleting(true);
-    try {
-      const ids = [...selectedSubmittedIds];
-      for (let i = 0; i < ids.length; i += 5) {
-        await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!, CURRENT_YEAR)));
-      }
-      setSelectedSubmittedIds(new Set());
-      if (swrKey) globalMutate(swrKey);
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
-    } finally {
-      setBulkDeleting(false);
-    }
+  const bulkDeleteSubmitted = useCallback(() => {
+    setConfirmAction({
+      title: "Delete selected submissions",
+      message: `Delete ${selectedSubmittedIds.size} selected submissions? This will permanently remove them.`,
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setBulkDeleting(true);
+        try {
+          const ids = [...selectedSubmittedIds];
+          for (let i = 0; i < ids.length; i += 5) {
+            await Promise.all(ids.slice(i, i + 5).map((id) => prospectsAPI.delete(id, branch!, CURRENT_YEAR)));
+          }
+          setSelectedSubmittedIds(new Set());
+          if (swrKey) globalMutate(swrKey);
+        } catch (err) {
+          alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
   }, [selectedSubmittedIds, branch, swrKey]);
 
   const exportCSV = useCallback(() => {
@@ -1110,29 +1281,26 @@ export default function ProspectPage() {
 
   // ---- Submit ----
 
-  const handleSubmit = useCallback(async () => {
-    if (!branch || parsedRows.length === 0) return;
-
-    const valid = parsedRows.filter(isRowComplete);
-    if (valid.length === 0) {
-      setSubmitResult({ ok: false, message: "No valid rows to submit (ID, name, school, grade, tutor, and phone are required)" });
-      return;
-    }
-
+  const doSubmit = useCallback(async (valid: ParsedRow[]) => {
+    if (!branch) return;
     setSubmitting(true);
     setSubmitResult(null);
     try {
+      const validKeys = new Set(valid.map((r) => r._key));
       const prospects: PrimaryProspectBulkItem[] = valid.map(toBulkItem);
-
       const result = await prospectsAPI.bulkCreate({
         year: CURRENT_YEAR,
         source_branch: branch,
         prospects,
       });
-
-      setSubmitResult({ ok: true, message: `${result.created} students submitted successfully` });
-      setParsedRows([]);
-      setParsedExpandedKeys(new Set());
+      // Remove only submitted rows — keep incomplete ones
+      setParsedRows((prev) => prev.filter((r) => !validKeys.has(r._key)));
+      setParsedExpandedKeys((prev) => {
+        const next = new Set(prev);
+        for (const k of validKeys) next.delete(k);
+        return next;
+      });
+      setSubmitResult({ ok: true, message: `${result.created} student${result.created !== 1 ? "s" : ""} submitted` });
       if (swrKey) globalMutate(swrKey);
       setTimeout(() => submittedRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
@@ -1140,7 +1308,32 @@ export default function ProspectPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [branch, parsedRows, swrKey]);
+  }, [branch, swrKey]);
+
+  const handleSubmit = useCallback(() => {
+    if (!branch || parsedRows.length === 0) return;
+    const valid = parsedRows.filter(isRowComplete);
+    if (valid.length === 0) {
+      setSubmitResult({ ok: false, message: "No valid rows to submit (ID, name, school, grade, tutor, and phone are required)" });
+      return;
+    }
+    const incomplete = parsedRows.length - valid.length;
+    if (incomplete > 0) {
+      const missing = Object.keys(missingFields);
+      setConfirmAction({
+        title: "Incomplete rows will be kept",
+        message: `${valid.length} complete student${valid.length !== 1 ? "s" : ""} will be submitted. ${incomplete} incomplete row${incomplete !== 1 ? "s" : ""}${missing.length > 0 ? ` (missing ${missing.join(", ")})` : ""} will stay in the table so you can fill them in later.`,
+        variant: "warning",
+        confirmText: `Submit ${valid.length}`,
+        onConfirm: async () => {
+          setConfirmAction(null);
+          await doSubmit(valid);
+        },
+      });
+      return;
+    }
+    doSubmit(valid);
+  }, [branch, parsedRows, missingFields, doSubmit]);
 
   // ---- Inline edit ----
 
@@ -1188,28 +1381,26 @@ export default function ProspectPage() {
     }
   }, [editData, swrKey, branch]);
 
-  const handleDelete = useCallback(async (id: number) => {
-    if (!confirm("Delete this entry?")) return;
-    try {
-      await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
-      if (swrKey) globalMutate(swrKey);
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
+  const handleDelete = useCallback((id: number) => {
+    setConfirmAction({
+      title: "Delete entry",
+      message: "Delete this entry? This cannot be undone.",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
+          if (swrKey) globalMutate(swrKey);
+        } catch (err) {
+          alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      },
+    });
   }, [swrKey, branch]);
 
   // ---- Branch Selector ----
 
   if (!branch) {
-    const branchInfo: Record<string, { dot: string; district: string }> = {
-      MAC: { dot: "bg-blue-500", district: "高士德" },
-      MCP: { dot: "bg-emerald-500", district: "水坑尾" },
-      MNT: { dot: "bg-amber-500", district: "東方明珠" },
-      MTA: { dot: "bg-rose-500", district: "氹仔美景I" },
-      MLT: { dot: "bg-violet-500", district: "林茂塘" },
-      MTR: { dot: "bg-cyan-500", district: "氹仔美景II" },
-      MOT: { dot: "bg-orange-500", district: "二龍喉" },
-    };
     return (
       <div className="max-w-xl mx-auto py-4">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8 sm:p-10 text-center space-y-6">
@@ -1217,14 +1408,14 @@ export default function ProspectPage() {
             <GraduationCap className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">P6 Student Registration</h1>
+            <h1 className="text-2xl font-bold text-foreground">P6 Prospects</h1>
             <p className="text-muted-foreground mt-2">
-              Register P6 students transitioning to secondary ({CURRENT_YEAR}). Select your branch to begin.
+              Record P6 students who may transition to secondary. Select your branch to begin.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {PROSPECT_BRANCHES.map((b, i) => {
-              const info = branchInfo[b];
+              const info = BRANCH_INFO[b];
               return (
                 <a
                   key={b}
@@ -1297,13 +1488,18 @@ export default function ProspectPage() {
   return (
     <div className="space-y-6 max-w-none">
       {/* Header */}
-      <div>
-        <h1 className="text-lg font-bold text-foreground">
-          {branch} — P6 Student Registration ({CURRENT_YEAR})
-        </h1>
-        <a href={prospectBasePath} className="text-xs text-muted-foreground hover:text-primary transition-colors">
-          &larr; Change branch
-        </a>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <a
+            href={prospectBasePath}
+            className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white hover:opacity-80 transition-opacity ${BRANCH_INFO[branch]?.dot ?? "bg-primary"}`}
+            title="Change branch"
+          >
+            {branch}
+          </a>
+          <h1 className="text-lg font-bold text-foreground">P6 Prospects</h1>
+          <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
+        </div>
       </div>
 
       {/* Result Alert */}
@@ -1328,7 +1524,7 @@ export default function ProspectPage() {
       )}
 
       {/* Section A: Paste & Submit */}
-      <section className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8 space-y-5">
+      <section ref={pasteSectionRef} className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8 space-y-5">
         <div className="flex items-center gap-2">
           <ClipboardPaste className="h-5 w-5 text-primary/70" />
           <h2 className="text-lg font-semibold">Add Students</h2>
@@ -1337,116 +1533,286 @@ export default function ProspectPage() {
               {parsedRows.length}
             </span>
           )}
+          {!(showPasteTutorial && parsedRows.length === 0) && (
+            <button
+              onClick={() => {
+                if (parsedRows.length === 0) {
+                  setShowPasteTutorial(true);
+                  localStorage.removeItem("prospect-paste-tutorial-dismissed");
+                } else {
+                  setShowHelpBanner((v) => !v);
+                }
+              }}
+              className="ml-auto p-1.5 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-primary/5 transition-colors hidden sm:block"
+              title="How to use"
+              aria-label="How to use paste"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Paste Zone */}
-        {parsedRows.length === 0 ? (
-          /* Large paste zone — no rows yet */
-          <div
-            onClick={focusPasteArea}
-            className={`relative border-2 rounded-2xl p-6 sm:p-10 transition-all duration-200 cursor-pointer text-center ${
-              pasteZoneFocused
-                ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                : "border-dashed border-primary/30 bg-primary/[0.02] hover:bg-primary/5 hover:border-primary/50"
-            }`}
-          >
-            <textarea
-              ref={pasteRef}
-              className="absolute inset-0 opacity-0 pointer-events-none resize-none"
-              onPaste={handleClipboardPaste}
-              onFocus={() => setPasteZoneFocused(true)}
-              onBlur={() => setPasteZoneFocused(false)}
-              value=""
-              onChange={() => {}}
-              aria-label="Paste student data from clipboard"
-            />
-            <ClipboardPaste className={`h-10 w-10 mx-auto mb-3 transition-colors hidden sm:block ${pasteZoneFocused ? "text-primary" : "text-primary/40"}`} />
-            {/* Desktop: paste-first messaging */}
-            <div className="hidden sm:block">
-              {pasteZoneFocused ? (
-                <>
-                  <p className="text-base font-semibold text-primary">Ready — press {PASTE_SHORTCUT} to paste</p>
-                  <p className="text-sm text-muted-foreground mt-1">Paste your student data from Excel</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-base font-semibold text-foreground">Paste student data here</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd> to paste from Excel
-                  </p>
-                </>
-              )}
-            </div>
-            {/* Mobile: manual-first messaging */}
-            <div className="sm:hidden">
-              <Plus className="h-8 w-8 mx-auto mb-2 text-primary/40" />
-              <p className="text-base font-semibold text-foreground">Add students</p>
-              <p className="text-sm text-muted-foreground mt-1">Tap below to add students one by one</p>
-            </div>
-            <div className="mt-5 flex flex-col items-center gap-3">
-              {/* Spreadsheet hint — desktop only */}
-              <div className="hidden sm:block opacity-60 hover:opacity-80 transition-opacity duration-300">
-                <div className="flex text-[9px] text-muted-foreground/80 mb-0.5 px-0.5">
-                  <span className="w-16 text-center">ID</span>
-                  <span className="w-20 text-center">Name</span>
-                  <span className="w-8 text-center">Grade</span>
-                  <span className="w-16 text-center">Tutor</span>
-                  <span className="w-16 text-center">Phone</span>
-                </div>
-                <div className="flex text-[10px] font-mono border border-border/60 rounded divide-x divide-border/40">
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">{branch}1048</span>
-                  <span className="w-20 px-1.5 py-1 text-center text-muted-foreground">Bobby MC</span>
-                  <span className="w-8 px-1.5 py-1 text-center text-muted-foreground">P6</span>
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">Mr Wong</span>
-                  <span className="w-16 px-1.5 py-1 text-center text-muted-foreground">55551234</span>
-                </div>
-                <p className="text-[9px] text-muted-foreground/60 text-center mt-1">auto-detects columns — order doesn&apos;t matter</p>
-              </div>
-              {/* Mobile: primary button. Desktop: secondary link */}
-              <button
-                onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
-                className="sm:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors inline-flex sm:mt-0 px-5 py-2.5 sm:px-0 sm:py-0 rounded-xl sm:rounded-none bg-primary/10 sm:bg-transparent"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="sm:hidden">Add a student</span>
-                <span className="hidden sm:inline">Or add a row manually</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Collapsed paste strip — rows exist */
-          <div
-            onClick={focusPasteArea}
-            className={`hidden sm:flex relative border-2 rounded-xl p-3 items-center gap-3 transition-all duration-200 cursor-pointer ${
-              pasteZoneFocused
-                ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                : "border-dashed border-border bg-muted/30 hover:border-primary/30"
-            }`}
-          >
-            <textarea
-              ref={pasteRef}
-              className="absolute inset-0 opacity-0 pointer-events-none resize-none"
-              onPaste={handleClipboardPaste}
-              onFocus={() => setPasteZoneFocused(true)}
-              onBlur={() => setPasteZoneFocused(false)}
-              value=""
-              onChange={() => {}}
-              aria-label="Paste more student data"
-            />
-            <ClipboardPaste className={`h-4 w-4 shrink-0 transition-colors ${pasteZoneFocused ? "text-primary" : "text-primary/60"}`} />
-            <span className={`text-sm transition-colors ${pasteZoneFocused ? "text-primary font-medium" : "text-muted-foreground"}`}>
-              {pasteZoneFocused ? <>Ready — press {PASTE_SHORTCUT} to paste</> : "Paste more data to append rows"}
+        {/* Help banner — shown when ? is clicked with rows present */}
+        {showHelpBanner && parsedRows.length > 0 && (
+          <div className="hidden sm:flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20 text-sm">
+            <Sparkles className="h-4 w-4 text-primary shrink-0" />
+            <span className="flex-1 text-muted-foreground">
+              <strong className="text-foreground">Tip:</strong> Copy rows from your spreadsheet, click the paste area, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-[11px] font-mono">{PASTE_SHORTCUT}</kbd>. Columns are auto-detected — any order works.
             </span>
+            <button onClick={() => setShowHelpBanner(false)} className="p-1 rounded-lg text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 transition-colors" title="Dismiss">
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 
+        {/* Paste Tutorial — dismissable, re-openable via ? button */}
+        <div
+          className="grid transition-[grid-template-rows] duration-500 ease-in-out"
+          style={{ gridTemplateRows: showPasteTutorial && parsedRows.length === 0 ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+          <div className="hidden sm:block relative rounded-2xl bg-primary/[0.03] p-8">
+            {/* Dismiss button */}
+            <button
+              onClick={dismissTutorial}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 transition-colors z-10"
+              title="Dismiss"
+              aria-label="Dismiss tutorial"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Title */}
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Paste an entire class list in seconds</h3>
+                <p className="text-xs text-muted-foreground">Copy rows from your spreadsheet — any column order works</p>
+              </div>
+            </div>
+
+            {/* 3-step flow */}
+            <div className="flex items-stretch gap-3 mb-6">
+              <div className="flex-1 bg-card rounded-xl border border-border p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto">
+                  <Table2 className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">1. Copy from your spreadsheet</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Select your student rows and copy them</p>
+              </div>
+              <div className="flex items-center shrink-0 text-muted-foreground/30">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+                  <MousePointerClick className="h-5 w-5 text-amber-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">2. Click the paste area</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Click the dashed area right below this guide</p>
+              </div>
+              <div className="flex items-center shrink-0 text-muted-foreground/30">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto">
+                  <Keyboard className="h-5 w-5 text-green-500" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">3. Press {PASTE_SHORTCUT}</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Students are added to the table automatically</p>
+              </div>
+              <div className="flex items-center shrink-0">
+                <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">or</span>
+              </div>
+              <div className="flex-1 bg-card rounded-xl border border-border p-4 text-center space-y-2 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                </div>
+                <div className="text-xs font-semibold text-foreground">Add one by one</div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">Use the <strong>+</strong> button at the bottom right</p>
+              </div>
+            </div>
+
+            {/* Multi-row demo spreadsheet with copy button */}
+            <div className="mx-auto max-w-md">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[10px] font-medium text-muted-foreground/70 flex items-center gap-1.5">
+                  <Table2 className="h-3 w-3" />
+                  What your spreadsheet might look like:
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); copySampleData(); }}
+                  className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md border transition-all duration-200 ${
+                    sampleCopied
+                      ? "bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700"
+                      : "bg-card text-primary border-primary/30 hover:bg-primary/5"
+                  }`}
+                >
+                  {sampleCopied ? <><ClipboardCheck className="h-3 w-3" />Copied! Now paste below</> : <><Copy className="h-3 w-3" />Try it — copy this data</>}
+                </button>
+              </div>
+              <div className="rounded-lg border border-border/80 overflow-hidden shadow-sm bg-card">
+                <div className="flex text-[10px] font-semibold text-muted-foreground bg-muted/60 border-b border-border/60">
+                  <span className="w-[80px] px-2 py-1.5">ID</span>
+                  <span className="w-[80px] px-2 py-1.5">Name</span>
+                  <span className="w-[44px] px-2 py-1.5">Grade</span>
+                  <span className="w-[80px] px-2 py-1.5">Tutor</span>
+                  <span className="w-[72px] px-2 py-1.5">Phone</span>
+                </div>
+                {demoRows.map((row, i) => (
+                  <div
+                    key={i}
+                    className={`flex text-[10px] font-mono text-foreground/80 ${i < 2 ? "border-b border-border/40" : ""}`}
+                    style={{ animation: `fadeSlideIn 0.4s ease-out ${0.3 + i * 0.2}s both` }}
+                  >
+                    <span className="w-[80px] px-2 py-1.5">{row.id}</span>
+                    <span className="w-[80px] px-2 py-1.5">{row.name}</span>
+                    <span className="w-[44px] px-2 py-1.5">{row.grade}</span>
+                    <span className="w-[80px] px-2 py-1.5">{row.tutor}</span>
+                    <span className="w-[72px] px-2 py-1.5">{row.phone}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                <Sparkles className="h-3 w-3 inline mr-1 text-primary/60" />
+                Columns are <strong className="text-foreground/80">auto-detected</strong> — extra columns are ignored
+              </p>
+            </div>
+
+            {/* Visual pointer to paste zone below */}
+            <div className="flex justify-center mt-5 text-muted-foreground/40">
+              <ChevronDown className="h-5 w-5 animate-bounce" />
+            </div>
+          </div>
+          </div>
+        </div>
+
+        {/* Large paste zone — collapses smoothly when rows exist */}
+        <div
+          className="grid transition-[grid-template-rows] duration-500 ease-in-out"
+          style={{ gridTemplateRows: parsedRows.length === 0 ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div
+              ref={pasteZoneRef}
+              onClick={focusPasteArea}
+              className={`relative border-2 rounded-2xl p-6 sm:p-8 cursor-pointer text-center transition-colors duration-200 ${
+                pasteZoneFocused
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-dashed border-primary/30 bg-primary/[0.02] hover:bg-primary/5 hover:border-primary/50"
+              }`}
+            >
+              {/* Ping dot — first visit only */}
+              {showPasteTutorial && parsedRows.length === 0 && (
+                <span className="hidden sm:flex absolute top-3 right-3 h-3 w-3" aria-hidden="true">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+                </span>
+              )}
+              <textarea
+                ref={pasteRef}
+                className="absolute inset-0 opacity-0 pointer-events-none resize-none"
+                onPaste={handleClipboardPaste}
+                onFocus={() => { setPasteZoneFocused(true); if (spotlightStep === "click-paste") setSpotlightStep("press-key"); }}
+                onBlur={() => setPasteZoneFocused(false)}
+                value=""
+                onChange={() => {}}
+                aria-label="Paste student data from clipboard"
+              />
+              <ClipboardPaste className={`h-10 w-10 mx-auto mb-3 transition-colors hidden sm:block ${pasteZoneFocused ? "text-primary" : "text-primary/40"}`} />
+              {/* Desktop: paste-first messaging */}
+              <div className="hidden sm:block">
+                {pasteZoneFocused ? (
+                  <>
+                    <p className="text-base font-semibold text-primary">Ready — paste now</p>
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <span className="keycap keycap-animated">
+                        {IS_MAC ? "\u2318" : "Ctrl"}
+                      </span>
+                      <span className="text-sm text-muted-foreground font-bold">+</span>
+                      <span className="keycap keycap-animated" style={{ animationDelay: "0.15s" }}>
+                        V
+                      </span>
+                    </div>
+                  </>
+                ) : showPasteTutorial ? (
+                  <>
+                    <p className="text-base font-semibold text-foreground">Paste area</p>
+                    <p className="text-sm text-muted-foreground mt-1">Click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd></p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-base font-semibold text-foreground">Paste student data here</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Copy rows from your spreadsheet, click here, then press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{PASTE_SHORTCUT}</kbd>
+                    </p>
+                  </>
+                )}
+              </div>
+              {/* Mobile: manual-first messaging */}
+              <div className="sm:hidden">
+                <Plus className="h-8 w-8 mx-auto mb-2 text-primary/40" />
+                <p className="text-base font-semibold text-foreground">Add students</p>
+                <p className="text-sm text-muted-foreground mt-1">Tap below to add students one by one</p>
+              </div>
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={(e) => { e.stopPropagation(); addEmptyRow(); }}
+                  className="sm:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors inline-flex sm:mt-0 px-5 py-2.5 sm:px-0 sm:py-0 rounded-xl sm:rounded-none bg-primary/10 sm:bg-transparent"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="sm:hidden">Add a student</span>
+                  <span className="hidden sm:inline">Or add a row manually</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Collapsed paste strip — expands smoothly when rows exist */}
+        <div
+          className="grid transition-[grid-template-rows] duration-500 ease-in-out"
+          style={{ gridTemplateRows: parsedRows.length > 0 ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div
+              onClick={focusPasteArea}
+              className={`hidden sm:flex relative border-2 rounded-xl p-3 items-center gap-3 cursor-pointer transition-colors duration-200 ${
+                pasteZoneFocused
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-dashed border-border bg-muted/30 hover:border-primary/30"
+              }`}
+            >
+              <textarea
+                ref={pasteStripRef}
+                className="absolute inset-0 opacity-0 pointer-events-none resize-none"
+                onPaste={handleClipboardPaste}
+                onFocus={() => setPasteZoneFocused(true)}
+                onBlur={() => setPasteZoneFocused(false)}
+                value=""
+                onChange={() => {}}
+                aria-label="Paste more student data"
+              />
+              <ClipboardPaste className={`h-4 w-4 shrink-0 transition-colors ${pasteZoneFocused ? "text-primary" : "text-primary/60"}`} />
+              <span className={`text-sm transition-colors ${pasteZoneFocused ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                {pasteZoneFocused ? <>Ready — press {PASTE_SHORTCUT} to paste</> : "Paste more data to append rows"}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Parse info banner */}
         {parseInfo && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 text-sm font-medium transition-all duration-300">
-            <Info className="h-4 w-4 shrink-0" />
+          <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium transition-all duration-300 ${
+            parseInfo.canUndo
+              ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+              : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+          }`}>
+            {parseInfo.canUndo ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
             <span className="flex-1">{parseInfo.text}</span>
             {parseInfo.canUndo && (
-              <button onClick={undoLastPaste} className="text-xs font-medium border border-blue-300 dark:border-blue-700 rounded-lg px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+              <button onClick={undoLastPaste} className="text-xs font-medium border border-green-300 dark:border-green-700 rounded-lg px-2 py-0.5 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
                 Undo
               </button>
             )}
@@ -1469,7 +1835,7 @@ export default function ProspectPage() {
                     : selectedParsedKeys.has(row._key) ? "border-primary/40 bg-primary/[0.03]"
                     : hasWarning ? "border-yellow-300 dark:border-yellow-700 bg-yellow-50/50 dark:bg-yellow-900/10"
                     : "border-border bg-card"
-                }`}>
+                }`} style={{ animation: `fadeSlideIn 0.3s ease-out ${Math.min(idx * 0.03, 0.5)}s both` }}>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" className="rounded shrink-0" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
                     <span className={`font-medium flex-1 truncate text-sm ${w?.missingName ? "text-red-500" : "text-foreground"}`}>
@@ -1497,6 +1863,14 @@ export default function ProspectPage() {
                 </div>
               );
             })}
+            {/* Mobile: Airtable-style add button */}
+            <button
+              onClick={addEmptyRow}
+              className="w-full border-2 border-dashed border-border rounded-xl p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add a student
+            </button>
           </div>
 
           {/* Table view (md+) */}
@@ -1520,7 +1894,7 @@ export default function ProspectPage() {
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
                   <th className="px-2 py-2 w-20">
@@ -1541,6 +1915,7 @@ export default function ProspectPage() {
                   const w = rowWarnings[idx];
                   const isExpanded = parsedExpandedKeys.has(row._key);
                   const hasWarning = !!(w?.duplicateInBatch || w?.alreadySubmitted || w?.invalidPhone);
+                  const isIncomplete = !isRowComplete(row);
                   return (
                     <React.Fragment key={row._key}>
                       {/* Main row — read-only display */}
@@ -1548,15 +1923,20 @@ export default function ProspectPage() {
                         className={`border-t border-border dark:border-gray-700 cursor-pointer transition-colors ${
                           selectedParsedKeys.has(row._key) ? "bg-primary/[0.05]"
                             : hasWarning ? "bg-yellow-50/50 dark:bg-yellow-900/10"
+                            : isIncomplete ? "bg-amber-50/30 dark:bg-amber-900/5"
                             : isExpanded ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
                         }`}
+                        style={{ animation: `fadeSlideIn 0.3s ease-out ${Math.min(idx * 0.03, 0.5)}s both` }}
                         onClick={() => toggleExpand(row._key)}
                       >
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" className="rounded" checked={selectedParsedKeys.has(row._key)} onChange={() => toggleParsedSelect(row._key)} />
                         </td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground font-mono">
-                          {row.primary_student_id || "-"}
+                        <td className="px-2 py-2 text-xs font-mono">
+                          {row.primary_student_id
+                            ? <span className="text-muted-foreground">{row.primary_student_id}</span>
+                            : <span className="text-red-400">-</span>
+                          }
                           {(w?.duplicateInBatch || w?.alreadySubmitted) && (
                             <AlertTriangle className="inline h-3 w-3 ml-0.5 text-yellow-500" />
                           )}
@@ -1570,9 +1950,15 @@ export default function ProspectPage() {
                             <span className="text-red-400 italic font-medium">Name required</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={row.school} /></td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground">{row.grade}</td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground">{row.tutor_name || "-"}</td>
+                        <td className="px-2 py-2 text-xs">
+                          {row.school ? <span className="text-muted-foreground"><CopyableCell text={row.school} /></span> : <span className="text-red-400 italic">Required</span>}
+                        </td>
+                        <td className="px-2 py-2 text-xs">
+                          {row.grade ? <span className="text-muted-foreground">{row.grade}</span> : <span className="text-red-400">-</span>}
+                        </td>
+                        <td className="px-2 py-2 text-xs">
+                          {row.tutor_name ? <span className="text-muted-foreground">{row.tutor_name}</span> : <span className="text-red-400">-</span>}
+                        </td>
                         <td className="px-2 py-2 text-xs">
                           {row.phone_1 ? (
                             <span className={w?.alreadySubmitted ? "text-orange-600 font-medium" : w?.invalidPhone ? "text-yellow-600" : "text-muted-foreground"}>
@@ -1633,6 +2019,19 @@ export default function ProspectPage() {
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={11} className="p-2">
+                    <button
+                      onClick={addEmptyRow}
+                      className="w-full border-2 border-dashed border-border rounded-xl p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add a student manually
+                    </button>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
             </div>
 
@@ -1645,6 +2044,15 @@ export default function ProspectPage() {
                   {validCount}
                 </span>
                 <span className="ml-1.5">ready</span>
+                {incompleteCount > 0 && (
+                  <>
+                    <span className="mx-1.5 text-muted-foreground/50">|</span>
+                    <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-medium">
+                      <AlertCircle className="h-3 w-3" />
+                      {incompleteCount} incomplete — missing {Object.keys(missingFields).join(", ")}
+                    </span>
+                  </>
+                )}
                 {warningCount > 0 && (
                   <>
                     <span className="mx-1.5 text-muted-foreground/50">|</span>
@@ -1655,13 +2063,6 @@ export default function ProspectPage() {
                   </>
                 )}
               </span>
-              <button
-                onClick={addEmptyRow}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 rounded-lg px-2 py-0.5 hover:bg-primary/5 transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                Add Row
-              </button>
               <button
                 onClick={clearAllRows}
                 className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-2 py-0.5 hover:text-red-600 hover:border-red-300 transition-colors"
@@ -1682,7 +2083,7 @@ export default function ProspectPage() {
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Submit All
+                  Submit {validCount} {validCount === 1 ? "Student" : "Students"}
                 </>
               )}
             </button>
@@ -1703,8 +2104,16 @@ export default function ProspectPage() {
             )}
           </h2>
           {lastUpdated && (
-            <span className="ml-auto text-[10px] text-muted-foreground/50">
+            <span className="ml-auto text-[10px] text-muted-foreground/50 inline-flex items-center gap-1">
               Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <button
+                onClick={() => { if (swrKey) globalMutate(swrKey); }}
+                disabled={isValidating}
+                className="p-1 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isValidating ? "animate-spin" : ""}`} />
+              </button>
             </span>
           )}
         </div>
@@ -1863,7 +2272,7 @@ export default function ProspectPage() {
                     <SortableHeader label="Tutor" dir={submittedSort.field === "tutor" ? submittedSort.dir : null} onToggle={() => setSubmittedSort((s) => toggleSort(s, "tutor"))} />
                   </th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
@@ -2124,7 +2533,7 @@ export default function ProspectPage() {
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
-                    {drawerSubmitting ? "Submitting..." : "Submit"}
+                    {drawerSubmitting ? "Submitting..." : "Submit & Add Another"}
                   </button>
                   <button
                     onClick={() => handleDrawerSubmit(true)}
@@ -2150,6 +2559,63 @@ export default function ProspectPage() {
         confirmText="Discard"
         variant="danger"
       />
+
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        onConfirm={() => confirmAction?.onConfirm()}
+        onCancel={() => setConfirmAction(null)}
+        title={confirmAction?.title || ""}
+        message={confirmAction?.message || ""}
+        variant={confirmAction?.variant || "danger"}
+        confirmText={confirmAction?.confirmText || "Delete"}
+      />
+
+      {/* Confetti — first successful paste celebration */}
+      {showConfetti && <ConfettiParticles />}
+
+      {/* Spotlight overlay — guided "Try it" flow */}
+      {spotlightStep && spotlightRect && typeof document !== "undefined" && (() => {
+        const rect = spotlightRect;
+        const pad = 8;
+        return createPortal(
+          <div className="fixed inset-0 z-40">
+            {/* Dimmed background — click to dismiss */}
+            <div
+              className="fixed inset-0 bg-black/50"
+              style={spotlightClipPath ? { clipPath: spotlightClipPath } : undefined}
+              onClick={() => setSpotlightStep(null)}
+            />
+            {/* Clickable cutout area — focuses the paste zone */}
+            <div
+              className="fixed cursor-pointer rounded-2xl ring-2 ring-primary/40 ring-offset-2"
+              style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
+              onClick={() => { focusPasteArea(); }}
+            />
+            {/* Tooltip */}
+            <div
+              className="fixed bg-card rounded-xl shadow-2xl border border-border px-5 py-3 text-sm font-medium z-50"
+              style={{ top: Math.max(8, rect.top - 60), left: Math.min(Math.max(8, rect.left + rect.width / 2 - 140), window.innerWidth - 288), width: 280 }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  {spotlightStep === "click-paste"
+                    ? <MousePointerClick className="h-3.5 w-3.5 text-primary" />
+                    : <Keyboard className="h-3.5 w-3.5 text-primary" />
+                  }
+                </span>
+                <span>
+                  {spotlightStep === "click-paste"
+                    ? "Now click the dashed area below"
+                    : <>Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono font-bold">{PASTE_SHORTCUT}</kbd> to paste your data</>
+                  }
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-8">Click outside to dismiss</p>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }

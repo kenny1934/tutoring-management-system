@@ -20,6 +20,7 @@ import {
   Link2,
   AlertTriangle,
   UserPlus,
+  Phone,
   RefreshCw,
   LayoutList,
   LayoutGrid,
@@ -33,6 +34,7 @@ import Image from "next/image";
 import { buddyTrackerAPI } from "@/lib/api";
 import type { BuddyMember, BuddyGroupMemberInfo, BuddyGroupLookup } from "@/types";
 import { PROSPECT_BRANCHES } from "@/types";
+import { BRANCH_INFO } from "@/lib/summer-utils";
 
 // ---- Constants ----
 
@@ -41,17 +43,13 @@ const MAX_GROUP_SIZE = 2;
 
 const BRANCHES = PROSPECT_BRANCHES;
 
+const LINK_HINT = "Link = pair with existing student \u00b7 Add partner = register a new student";
+const SHARE_HINT = "Share this code with the student\u2019s family so their buddy can join using it.";
+
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
-const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
-  MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
-  MCP: { district: "水坑尾", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  MNT: { district: "東方明珠", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  MTA: { district: "氹仔美景I", dot: "bg-rose-500", badge: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
-  MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-  MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-  MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
-};
+const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
+
 
 function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -90,9 +88,10 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
 function relativeTime(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   if (days === 0) return "Today";
-  if (days === 1) return "1d";
-  if (days < 7) return `${days}d`;
-  return `${Math.floor(days / 7)}w`;
+  if (days === 1) return "1 day";
+  if (days < 7) return `${days} days`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? "1 wk" : `${weeks} wk`;
 }
 
 function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: string) => void; large?: boolean }) {
@@ -174,7 +173,8 @@ export default function BuddyTrackerPage() {
   const [drawerClosing, setDrawerClosing] = useState(false);
   const closeDrawer = useCallback(() => {
     setDrawerClosing(true);
-    setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
+    clearTimeout(drawerCloseTimer.current);
+    drawerCloseTimer.current = setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
   const [formStudentId, setFormStudentId] = useState("");
   const [formNameEn, setFormNameEn] = useState("");
@@ -184,6 +184,7 @@ export default function BuddyTrackerPage() {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [formTouched, setFormTouched] = useState(false);
 
   // Buddy code lookup
   const [lookupResult, setLookupResult] = useState<BuddyGroupLookup | null>(null);
@@ -216,6 +217,7 @@ export default function BuddyTrackerPage() {
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
   const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const studentIdRef = useRef<HTMLInputElement>(null);
 
@@ -265,6 +267,18 @@ export default function BuddyTrackerPage() {
       });
     return () => clearTimeout(timeout);
   }, [branch, validBranch]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(pinShakeTimer.current);
+      clearTimeout(drawerCloseTimer.current);
+      clearTimeout(copyToastTimer.current);
+      clearTimeout(confirmUnlinkTimer.current);
+      clearTimeout(confirmDeleteTimer.current);
+      clearTimeout(recentlyAddedTimer.current);
+    };
+  }, []);
 
   // ---- PIN submit ----
   const handlePinSubmit = useCallback(async () => {
@@ -341,6 +355,7 @@ export default function BuddyTrackerPage() {
       setFormNameEn("");
       setFormNameZh("");
       setFormPhone("");
+      setFormTouched(false);
       if (!wasJoining) setFormBuddyCode("");
       if (wasJoining) {
         try {
@@ -607,6 +622,7 @@ export default function BuddyTrackerPage() {
         m.student_name_en.toLowerCase().includes(q) ||
         (m.student_name_zh && m.student_name_zh.includes(q))
       ))
+      .sort((a, b) => (a.group_size >= 2 ? 1 : 0) - (b.group_size >= 2 ? 1 : 0))
       .slice(0, 5);
   }, [linkCode, isCodeMode, ownMembers, linkingId]);
 
@@ -615,7 +631,7 @@ export default function BuddyTrackerPage() {
       <div className="flex gap-2">
         <input value={linkCode} onChange={(e) => { setLinkCode(e.target.value.toUpperCase()); setLinkTargetCode(null); setLinkError(null); setLinkSiblingNeeded(false); setLinkLookup(null); }}
           className={`flex-1 text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors ${isCodeMode ? "font-mono tracking-wider" : ""}`}
-          placeholder="Search student or enter BG-XXXX"
+          placeholder="Find existing student or enter buddy code"
           autoFocus />
         {isCodeMode && linkCode.trim().length >= 6 && !linkLookup && (
           <button onClick={async () => {
@@ -685,7 +701,7 @@ export default function BuddyTrackerPage() {
       {linkSiblingNeeded && (
         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1.5">
           <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-            <AlertTriangle className="h-3 w-3 shrink-0" /> Cross-branch group — siblings only.
+            <AlertTriangle className="h-3 w-3 shrink-0" /> Cross-branch group — only siblings (same family) can be grouped across branches.
           </p>
           <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
             <input type="checkbox" checked={linkSiblingConfirmed} onChange={(e) => setLinkSiblingConfirmed(e.target.checked)}
@@ -717,8 +733,8 @@ export default function BuddyTrackerPage() {
           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Users className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-xl font-bold text-foreground">Buddy Tracker</h1>
-          <p className="text-sm text-muted-foreground mt-1">Summer course buddy group registration</p>
+          <h1 className="text-xl font-bold text-foreground">Summer Buddy Tracker</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage buddy groups for summer courses</p>
         </div>
         <div className="flex flex-wrap justify-center gap-3">
           {BRANCHES.map((b, i) => (
@@ -769,6 +785,7 @@ export default function BuddyTrackerPage() {
               <input
                 type="password"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 value={pinInput}
                 onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handlePinSubmit()}
@@ -807,10 +824,10 @@ export default function BuddyTrackerPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white ${BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`}>
+          <a href={buddyBasePath} className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white hover:opacity-80 transition-opacity ${BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`} title="Change branch">
             {branch}
-          </span>
-          <h1 className="text-lg font-bold text-foreground">Buddy Tracker</h1>
+          </a>
+          <h1 className="text-lg font-bold text-foreground">Summer Buddy Tracker</h1>
           <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -834,37 +851,81 @@ export default function BuddyTrackerPage() {
                 Object.assign(document.createElement("a"), { href: url, download: `buddy-tracker-${branch}-${CURRENT_YEAR}${filterTab !== "all" ? `-${filterTab}` : ""}.csv` }).click();
                 URL.revokeObjectURL(url);
               }}
-              className="p-1 rounded-lg hover:bg-muted transition-colors"
+              className="p-1 rounded-lg hover:bg-muted transition-colors flex items-center gap-1"
               title="Export CSV"
             >
               <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[10px]">CSV</span>
             </button>
           )}
-          <a href={buddyBasePath} className="hover:text-primary transition-colors">
-            Change branch
-          </a>
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Filter Cards */}
       {ownMembers.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="border-2 border-border rounded-xl p-3 text-center">
+          {/* All Students */}
+          <button
+            onClick={() => setFilterTab("all")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "all" || filterTab === "cross-branch"
+                ? "border-primary ring-2 ring-primary/30 shadow-md scale-[1.02]"
+                : "border-border hover:border-primary/40 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            <Users className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "all" || filterTab === "cross-branch" ? "text-primary" : "text-muted-foreground"}`} />
             <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <div className="text-xs font-medium text-muted-foreground">Students</div>
-          </div>
-          <div className="border-2 border-border rounded-xl p-3 text-center">
+            <div className="text-[10px] font-medium text-muted-foreground">All Students</div>
+            {stats.crossBranch > 0 && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); setFilterTab(filterTab === "cross-branch" ? "all" : "cross-branch"); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setFilterTab(filterTab === "cross-branch" ? "all" : "cross-branch"); } }}
+                className={`inline-block mt-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                  filterTab === "cross-branch" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50 scale-105" : "bg-amber-500/15 text-amber-600 hover:bg-amber-500/30"
+                }`}
+              >
+                {stats.crossBranch} cross-branch
+              </span>
+            )}
+          </button>
+
+          {/* Paired */}
+          <button
+            onClick={() => setFilterTab(filterTab === "complete" ? "all" : "complete")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "complete"
+                ? "border-green-500 ring-2 ring-green-500/30 shadow-md scale-[1.02] bg-green-500/5"
+                : "border-border hover:border-green-500/40 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600" : "text-green-600/50"}`} />
             <div className="text-2xl font-bold text-green-600">{stats.paired}</div>
-            <div className="text-xs font-medium text-muted-foreground">Paired</div>
-          </div>
-          <div className={`border-2 rounded-xl p-3 text-center ${
-            stats.solo > 0 ? "border-red-500/30 bg-red-500/5" : stats.total > 0 ? "border-green-500/30 bg-green-500/5" : "border-border"
-          }`}>
-            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-foreground"}`}>
-              {stats.solo === 0 && stats.total > 0 ? <Check className="h-6 w-6 inline text-green-500" /> : stats.solo}
+            <div className="text-[10px] font-medium text-muted-foreground">Paired</div>
+          </button>
+
+          {/* Needs Partner */}
+          <button
+            onClick={() => setFilterTab(filterTab === "solo" ? "all" : "solo")}
+            className={`border-2 rounded-xl p-3 text-center transition-all duration-200 cursor-pointer ${
+              filterTab === "solo"
+                ? "border-red-500 ring-2 ring-red-500/30 shadow-md scale-[1.02] bg-red-500/5"
+                : stats.solo > 0
+                  ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-glow"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5"
+            }`}
+          >
+            {stats.solo > 0 ? (
+              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600" : "text-red-500/70"}`} />
+            ) : (
+              <Check className="h-4 w-4 mx-auto mb-1 text-green-500" />
+            )}
+            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-green-600"}`}>
+              {stats.solo === 0 && stats.total > 0 ? "✓" : stats.solo}
             </div>
-            <div className="text-xs font-medium text-muted-foreground">{stats.solo > 0 ? "Need Partner" : "Solo"}</div>
-          </div>
+            <div className="text-[10px] font-medium text-muted-foreground">Needs Partner</div>
+          </button>
         </div>
       )}
 
@@ -894,6 +955,7 @@ export default function BuddyTrackerPage() {
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <UserPlus className="h-4 w-4 text-primary" />
                 Add Student
+                <BranchBadge branch={branch!} />
               </span>
               <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -908,9 +970,12 @@ export default function BuddyTrackerPage() {
                     ref={studentIdRef}
                     value={formStudentId}
                     onChange={(e) => { setFormStudentId(e.target.value); setFormSuccess(null); }}
-                    className={inputCls}
+                    className={`${inputCls} ${formTouched && !formStudentId.trim() ? "border-red-400" : ""}`}
                     placeholder="e.g. 1234"
                   />
+                  {formTouched && !formStudentId.trim() && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Required</p>
+                  )}
                   {duplicateWarning && (
                     <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -923,9 +988,12 @@ export default function BuddyTrackerPage() {
                   <input
                     value={formNameEn}
                     onChange={(e) => { setFormNameEn(e.target.value); setFormSuccess(null); }}
-                    className={inputCls}
+                    className={`${inputCls} ${formTouched && !formNameEn.trim() ? "border-red-400" : ""}`}
                     placeholder="Full name"
                   />
+                  {formTouched && !formNameEn.trim() && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Required</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Chinese Name</label>
@@ -985,6 +1053,7 @@ export default function BuddyTrackerPage() {
                       </button>
                     )}
                   </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Leave blank to create a new group.</p>
                 </div>
               </div>
 
@@ -1021,7 +1090,7 @@ export default function BuddyTrackerPage() {
                     <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-2">
                       <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                        <span>This group has members from another branch. Cross-branch groups are for siblings only.</span>
+                        <span>This group has members from another branch. Only siblings (same family) can be grouped across branches.</span>
                       </div>
                       <label className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300 cursor-pointer">
                         <input
@@ -1054,7 +1123,7 @@ export default function BuddyTrackerPage() {
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">Share this code with the student&apos;s family so their friends can register with it.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                   </div>
                   <button onClick={() => setFormSuccess(null)} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
@@ -1065,8 +1134,11 @@ export default function BuddyTrackerPage() {
               {/* Submit */}
               <div className="flex gap-2">
                 <button
-                  onClick={handleAddStudent}
-                  disabled={formSubmitting || !formStudentId.trim() || !formNameEn.trim() || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
+                  onClick={() => {
+                    if (!formStudentId.trim() || !formNameEn.trim()) { setFormTouched(true); return; }
+                    handleAddStudent();
+                  }}
+                  disabled={formSubmitting || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
                   className="px-4 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {formSubmitting ? "Adding..." : formBuddyCode.trim() ? "Add to Group" : "Add & Generate Code"}
@@ -1079,42 +1151,9 @@ export default function BuddyTrackerPage() {
         document.body
       )}
 
-      {/* Filter tabs + search + view toggle */}
+      {/* Search + view toggle */}
       {ownMembers.length > 0 && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 space-y-3 border-b border-border/50">
-          <div className="flex items-center gap-2 flex-wrap">
-            {(["all", "solo", "complete", ...(stats.crossBranch > 0 ? ["cross-branch" as const] : [])] as const).map((tab) => {
-              const count = tab === "solo" ? stats.solo : tab === "complete" ? stats.paired : tab === "cross-branch" ? stats.crossBranch : stats.total;
-              const label = tab === "all" ? "All" : tab === "solo" ? "Needs Partner" : tab === "complete" ? "Complete" : "Cross-branch";
-              const isActive = filterTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setFilterTab(tab)}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors ${
-                    isActive
-                      ? tab === "cross-branch" ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                  {tab !== "all" && <span className={`ml-1 ${isActive ? "opacity-80" : "opacity-60"}`}>({count})</span>}
-                </button>
-              );
-            })}
-            {filterTab === "solo" && stats.solo > 0 && (
-              <button
-                onClick={() => {
-                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
-                  navigator.clipboard.writeText(codes.join("\n"));
-                  handleCopyToast(`${codes.length} codes`);
-                }}
-                className="text-xs font-medium px-3 py-1.5 rounded-full border-2 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
-              >
-                <Copy className="h-3 w-3 inline mr-1" />Copy all codes
-              </button>
-            )}
-          </div>
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-8 sm:px-8 py-3 border-b border-border">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1125,27 +1164,44 @@ export default function BuddyTrackerPage() {
                 className="w-full text-xs border-2 border-border rounded-xl pl-9 pr-3 py-2.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </div>
+            {filterTab === "solo" && stats.solo > 0 && (
+              <button
+                onClick={() => {
+                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
+                  navigator.clipboard.writeText(codes.join("\n"));
+                  handleCopyToast(`${codes.length} codes`);
+                }}
+                className="px-3 py-2 text-xs font-medium border-2 border-border rounded-xl hover:border-primary/40 hover:text-foreground transition-colors text-muted-foreground shrink-0"
+                title="Copy all solo codes for sharing with families to find partners"
+              >
+                <Copy className="h-3.5 w-3.5 inline mr-1" />
+                <span className="hidden sm:inline">Copy codes</span>
+              </button>
+            )}
             <div className="flex border-2 border-border rounded-xl overflow-hidden">
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="List view"
               >
                 <LayoutList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">List</span>
               </button>
               <button
                 onClick={() => setViewMode("groups")}
-                className={`p-2 transition-colors ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "groups" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="Group view"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">Groups</span>
               </button>
               <button
                 onClick={() => setViewMode("board")}
-                className={`p-2 transition-colors ${viewMode === "board" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "board" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
                 title="Board view"
               >
                 <Columns className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[10px] font-medium">Board</span>
               </button>
             </div>
           </div>
@@ -1154,7 +1210,10 @@ export default function BuddyTrackerPage() {
 
       {/* Table (desktop) */}
       {isLoading ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">Loading...</div>
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          <RefreshCw className="h-5 w-5 mx-auto mb-2 animate-spin text-muted-foreground/50" />
+          Loading buddy data...
+        </div>
       ) : displayMembers.length === 0 ? (
         <div className="text-center py-12">
           {filterTab === "solo" ? (
@@ -1165,13 +1224,13 @@ export default function BuddyTrackerPage() {
           ) : filterTab === "complete" ? (
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No complete groups yet</p>
+              <p className="text-sm text-muted-foreground">No paired groups yet</p>
             </>
           ) : (
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">
-                {searchQuery ? "No matches found" : "No entries yet. Add your first student above."}
+                {searchQuery ? "No matches found" : "No entries yet. Tap the + button to add your first student."}
               </p>
             </>
           )}
@@ -1193,42 +1252,52 @@ export default function BuddyTrackerPage() {
             ) : boardSolo.map(m => {
               const waitDays = daysAgo(m.created_at);
               return (
-              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : "bg-card"}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-mono text-[10px] text-muted-foreground mr-1.5">{m.student_id}</span>
-                    <span className="font-medium text-sm">{m.student_name_en}</span>
-                    {m.student_name_zh && <span className="text-xs text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
-                    {m.is_sibling && <SiblingBadge />}
-                  </div>
+              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2.5 ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : "bg-card"}`}>
+                {/* Status bar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
                   <GroupRing size={m.group_size} />
+                  <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+                  {waitDays >= 1 && (
+                    <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Waiting for partner">
+                      {relativeTime(m.created_at)}
+                    </span>
+                  )}
+                  <div className="ml-auto flex items-center gap-1 shrink-0">
+                    <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                      onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {m.parent_phone && <span>{m.parent_phone}</span>}
-                  <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`}>
-                    {relativeTime(m.created_at)}
-                  </span>
-                </div>
+                {/* Student info */}
                 {editingId === m.id ? (
                   <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2">
-                      <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
-                      <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors">
-                        <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
-                      </button>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                        <span className="font-medium text-sm">{m.student_name_en}</span>
+                        {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
+                        {m.is_sibling && <SiblingBadge />}
+                      </div>
+                      {m.parent_phone && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          <span>{m.parent_phone}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
-                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={actionBtnCls} title="Pair with an existing student">
                         <Link2 className="h-3 w-3" /> Link
                       </button>
-                      <button onClick={() => startEdit(m)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                        <Pencil className="h-3 w-3" /> Edit
+                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className={actionBtnCls} title="Register a new student into this group">
+                        <UserPlus className="h-3 w-3" /> Add partner
                       </button>
-                      <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                        onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
                     </div>
                     {linkingId === m.id && <div className="mt-2">{renderLinkPicker(m.id)}</div>}
                   </>
@@ -1253,38 +1322,53 @@ export default function BuddyTrackerPage() {
                   <GroupRing size={g.members.length + g.others.length} />
                   <CrossBranchIndicator members={g.others} currentBranch={branch!} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {g.members.map(m => (
                     <div key={m.id}>
                       {editingId === m.id ? (
                         <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                       ) : (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
-                          <span className="font-medium">{m.student_name_en}</span>
-                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <SiblingBadge />}
-                          <div className="ml-auto flex items-center gap-1 shrink-0">
-                            <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
-                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
-                            <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                            <span className="font-medium">{m.student_name_en}</span>
+                            {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                            {m.is_sibling && <SiblingBadge />}
+                            <div className="ml-auto flex items-center gap-1 shrink-0">
+                              <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                                onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
+                              <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                                onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                            </div>
                           </div>
+                          {m.parent_phone && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              <span>{m.parent_phone}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   ))}
                   {g.others.map(m => (
-                    <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <BranchBadge branch={m.branch} />
-                      {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
-                      <span className="font-medium">{m.name}</span>
-                      {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
-                      {m.is_sibling && <SiblingBadge />}
+                    <div key={`${m.source}-${m.id}`} className="py-2 space-y-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <BranchBadge branch={m.branch} />
+                        {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
+                        <span className="font-medium">{m.name}</span>
+                        {m.is_sibling && <SiblingBadge />}
+                      </div>
+                      {m.phone && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          <span>{m.phone}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1297,12 +1381,13 @@ export default function BuddyTrackerPage() {
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             {groupedData.length} group{groupedData.length !== 1 ? "s" : ""}
-            {" · "}{groupedData.filter(g => g.size >= 2).length} complete
-            {" · "}{groupedData.filter(g => g.size < 2).length} waiting
+            {" · "}{groupedData.filter(g => g.size >= 2).length} paired
+            {" · "}{groupedData.filter(g => g.size < 2).length} needs partner
           </p>
           {groupedData.map((g) => {
             const isSolo = g.size < 2;
             const waitDays = daysAgo(g.oldestCreated);
+            const soloMember = isSolo ? g.own[0] : null;
             return (
               <div
                 key={g.code}
@@ -1310,92 +1395,121 @@ export default function BuddyTrackerPage() {
                   isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
                 }`}
               >
-                <div className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${!isSolo ? "bg-green-500/10" : "bg-red-500/5"}`}>
-                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
-                    <CodePill code={g.code} onCopy={handleCopyToast} />
-                    <GroupRing size={g.size} />
-                    {g.others.length > 0 && (
-                      <CrossBranchIndicator members={g.others} currentBranch={branch!} />
+                {isSolo && soloMember ? (
+                  /* Solo card — structured layout */
+                  <div className="px-4 py-3 space-y-3">
+                    {/* Status bar */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CodePill code={g.code} onCopy={handleCopyToast} />
+                      <GroupRing size={g.size} />
+                      {g.others.length > 0 && <CrossBranchIndicator members={g.others} currentBranch={branch!} />}
+                      {waitDays >= 1 && (
+                        <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Days waiting for a partner">
+                          Waiting {waitDays} {waitDays === 1 ? "day" : "days"} for partner
+                        </span>
+                      )}
+                      <div className="ml-auto flex items-center gap-1 shrink-0">
+                        <button onClick={() => startEdit(soloMember)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <DeleteActions id={soloMember.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                          onRequest={() => requestDelete(soloMember.id)} onConfirm={() => handleDelete(soloMember.id)} onCancel={() => setConfirmDeleteId(null)} />
+                      </div>
+                    </div>
+                    {/* Student info */}
+                    {editingId === soloMember.id ? (
+                      <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[10px] text-muted-foreground">{soloMember.student_id}</span>
+                          <span className="font-medium text-sm">{soloMember.student_name_en}</span>
+                          {soloMember.student_name_zh && <span className="text-xs text-muted-foreground">{soloMember.student_name_zh}</span>}
+                          {soloMember.is_sibling && <SiblingBadge />}
+                        </div>
+                        {soloMember.parent_phone && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{soloMember.parent_phone}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {isSolo && waitDays >= 1 && (
-                      <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`}>
-                        Waiting {waitDays}d
-                      </span>
-                    )}
-                  </div>
-                  {isSolo && (
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === g.own[0]?.id ? null : g.own[0]?.id ?? null); }}
+                        onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === soloMember.id ? null : soloMember.id); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                        title="Pair with an existing student"
                       >
                         <Link2 className="h-3 w-3 inline mr-1" />Link
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
                         className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
+                        title="Register a new student into this group"
                       >
                         <UserPlus className="h-3 w-3 inline mr-1" />Add partner
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.code); handleCopyToast(g.code); }}
-                        className="px-3 py-1.5 text-[11px] font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                      >
-                        Copy Code
-                      </button>
                     </div>
-                  )}
-                </div>
-                <div className="divide-y divide-border relative">
-                  {!isSolo && g.own.length + g.others.length > 1 && (
-                    <div className="absolute left-3 top-3 bottom-3 w-px bg-green-400/50" />
-                  )}
-                  {g.own.map((m) => (
-                    <div key={m.id} className={`px-4 py-2.5 text-xs relative ${recentlyAddedId === m.id ? "bg-green-500/10 animate-fade-in" : ""}`}>
-                      {!isSolo && <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />}
-                      {editingId === m.id ? (
-                        <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
-                      ) : (
-                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                          <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
-                          <span className="font-medium">{m.student_name_en}</span>
-                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <SiblingBadge />}
-                          {m.parent_phone && <span className="text-muted-foreground hidden sm:inline">{m.parent_phone}</span>}
-                          <div className="ml-auto flex items-center gap-1 shrink-0">
-                            {!isSolo && <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
-                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />}
-                            <button onClick={() => startEdit(m)} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
-                          </div>
-                        </div>
+                    <p className="text-[10px] text-muted-foreground/70">{SHARE_HINT}</p>
+                    {linkingId === soloMember.id && (
+                      <div className="pt-2 border-t border-border">
+                        {renderLinkPicker(soloMember.id)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Paired card — header + member rows */
+                  <>
+                    <div className="px-4 py-3 flex items-center gap-3 min-w-0 flex-wrap bg-green-500/10">
+                      <CodePill code={g.code} onCopy={handleCopyToast} />
+                      <GroupRing size={g.size} />
+                      {g.others.length > 0 && <CrossBranchIndicator members={g.others} currentBranch={branch!} />}
+                    </div>
+                    <div className="divide-y divide-border relative">
+                      {g.own.length + g.others.length > 1 && (
+                        <div className="absolute left-3 top-3 bottom-3 w-px bg-green-400/50" />
                       )}
+                      {g.own.map((m) => (
+                        <div key={m.id} className={`px-4 py-2.5 text-xs relative ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : ""}`}>
+                          <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />
+                          {editingId === m.id ? (
+                            <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
+                          ) : (
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                              <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
+                              <span className="font-medium">{m.student_name_en}</span>
+                              {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                              {m.is_sibling && <SiblingBadge />}
+                              {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
+                              <div className="ml-auto flex items-center gap-1 shrink-0">
+                                <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                                  onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                  onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
+                                <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                                  onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {g.others.map((m) => (
+                        <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20 relative">
+                          <span className="absolute left-2 top-3 w-2 h-2 rounded-full bg-green-300" />
+                          <BranchBadge branch={m.branch} />
+                          {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
+                          <span className="font-medium">{m.name}</span>
+                          {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
+                          {m.is_sibling && <SiblingBadge />}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {g.others.map((m) => (
-                    <div key={`${m.source}-${m.id}`} className="px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap text-xs bg-muted/20">
-                      <BranchBadge branch={m.branch} />
-                      {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
-                      <span className="font-medium">{m.name}</span>
-                      {m.phone && <span className="text-muted-foreground hidden sm:inline">{m.phone}</span>}
-                      {m.is_sibling && <SiblingBadge />}
-                    </div>
-                  ))}
-                  {isSolo && (
-                    <div className="px-4 py-2 text-[10px] text-muted-foreground/70">
-                      Share the code with the student&apos;s family so their friend can register with it.
-                    </div>
-                  )}
-                  {isSolo && g.own[0] && linkingId === g.own[0].id && (
-                    <div className="px-4 py-2.5 border-t border-border">
-                      {renderLinkPicker(g.own[0].id)}
-                    </div>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             );
           })}
@@ -1417,7 +1531,7 @@ export default function BuddyTrackerPage() {
                     <button onClick={() => {
                       if (expandedIds.size > 0) setExpandedIds(new Set());
                       else setExpandedIds(new Set(displayMembers.map(m => m.id)));
-                    }} className="p-0.5 text-muted-foreground hover:text-primary transition-colors" title={expandedIds.size > 0 ? "Collapse all" : "Expand all"}>
+                    }} className="p-1.5 text-muted-foreground hover:text-primary transition-colors" title={expandedIds.size > 0 ? "Collapse all" : "Expand all"}>
                       <ChevronsUpDown className="h-3.5 w-3.5" />
                     </button>
                   </th>
@@ -1515,7 +1629,7 @@ export default function BuddyTrackerPage() {
 
       {/* Copy toast */}
       {copyToast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
           <div className="bg-foreground text-background px-4 py-2 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2">
             <Check className="h-3.5 w-3.5 text-green-400" />
             <span className={copyToast.startsWith("BG-") ? "font-mono tracking-wider" : ""}>{copyToast}</span>{copyToast.startsWith("BG-") || copyToast.endsWith("codes") ? " copied" : ""}
@@ -1551,11 +1665,12 @@ function SortHeader({ field, label, current, dir, onSort, center }: {
 
 function GroupRing({ size }: { size: number }) {
   const complete = size >= 2;
-  const r = 8, cx = 10, cy = 10;
+  const r = 9, cx = 12, cy = 12;
   const c = 2 * Math.PI * r;
   const filled = c * Math.min(size / 2, 1);
   return (
-    <svg width="20" height="20" className="shrink-0 inline-block align-middle">
+    <svg width="24" height="24" className="shrink-0 inline-block align-middle">
+      <title>{complete ? "Complete group" : `${size} of 2 — needs partner`}</title>
       {!complete && (
         <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth="2.5" stroke="var(--color-border)" />
       )}
@@ -1571,7 +1686,7 @@ function GroupRing({ size }: { size: number }) {
           className="animate-ring-draw" />
       )}
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
-        className={`text-[8px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
+        className={`text-[9px] font-bold ${complete ? "fill-green-600" : "fill-red-500"}`}>
         {complete ? "✓" : size}
       </text>
     </svg>
@@ -1595,7 +1710,7 @@ function DeleteActions({ id, deletingId, confirmDeleteId, onRequest, onConfirm, 
     );
   }
   return (
-    <button onClick={onRequest} className="p-1 rounded-lg text-muted-foreground hover:text-red-600 transition-colors">
+    <button onClick={onRequest} className="p-2 rounded-lg text-muted-foreground hover:text-red-600 transition-colors">
       <Trash2 className="h-3.5 w-3.5" />
     </button>
   );
@@ -1609,7 +1724,7 @@ function UnlinkActions({ id, confirmUnlinkId, onRequest, onConfirm, onCancel, la
   if (confirmUnlinkId === id) {
     return (
       <span className="inline-flex items-center gap-1 text-xs">
-        <button onClick={onConfirm} className="font-medium text-amber-600">Unlink?</button>
+        <button onClick={onConfirm} className="font-medium text-amber-600">Unlink? (becomes solo)</button>
         <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">Cancel</button>
       </span>
     );
@@ -1619,7 +1734,7 @@ function UnlinkActions({ id, confirmUnlinkId, onRequest, onConfirm, onCancel, la
       <UnlinkIcon className="h-3 w-3" /> Unlink
     </button>
   ) : (
-    <button onClick={onRequest} className="p-1 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
+    <button onClick={onRequest} className="p-2 rounded-lg text-muted-foreground hover:text-amber-600 transition-colors" title="Unlink from group">
       <UnlinkIcon className="h-3.5 w-3.5" />
     </button>
   );
@@ -1654,11 +1769,11 @@ function DesktopRow({
       <tr
         className={`border-b border-border hover:bg-muted/20 transition-colors cursor-pointer ${
           isSolo ? `border-l-[3px] border-l-red-300 ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400"
-        } ${isRecent ? "bg-green-500/10 animate-fade-in" : ""}`}
+        } ${isRecent ? "bg-green-500/20 animate-fade-in" : ""}`}
         style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 40%, 50%, 0.09)` } : undefined}
         onClick={onToggleExpand}
       >
-        <td className="px-4 py-2.5 font-mono text-[11px]">{m.student_id}</td>
+        <td className="px-4 py-2.5 font-mono text-[10px]">{m.student_id}</td>
         <td className="px-4 py-2.5">
           <span className="font-medium">{m.student_name_en}</span>
           {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
@@ -1672,13 +1787,13 @@ function DesktopRow({
           </span>
         </td>
         <td className="px-4 py-2.5 text-center"><GroupRing size={m.group_size} /></td>
-        <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : isSolo && waitDays >= 1 ? "text-amber-500" : "text-muted-foreground"}`}>
+        <td className={`px-4 py-2.5 text-[10px] ${isSolo && waitDays >= 3 ? "text-red-500 font-medium" : isSolo && waitDays >= 1 ? "text-amber-500" : "text-muted-foreground"}`} title={isSolo ? "Waiting for partner" : undefined}>
           {relativeTime(m.created_at)}
         </td>
         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
           <div className="inline-flex items-center gap-1">
             {isSolo && (
-              <button onClick={onAddPartner} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors" title="Add partner">
+              <button onClick={onAddPartner} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors" title="Add partner">
                 <UserPlus className="h-3.5 w-3.5" />
               </button>
             )}
@@ -1686,7 +1801,7 @@ function DesktopRow({
               <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId ?? null}
                 onRequest={onRequestUnlink} onConfirm={onConfirmUnlink} onCancel={onCancelUnlink} />
             )}
-            <button onClick={onStartEdit} className="p-1 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+            <button onClick={onStartEdit} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
@@ -1703,13 +1818,16 @@ function DesktopRow({
               <div className="space-y-2">
                 <GroupDetail members={m.group_members} currentBranch={m.source_branch} />
                 {isSolo && (
-                  <div className="flex items-center gap-3">
-                    <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                      <Link2 className="h-3 w-3" /> Link
-                    </button>
-                    <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                      <UserPlus className="h-3 w-3" /> Add partner
-                    </button>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <button onClick={onLink} className={actionBtnCls}>
+                        <Link2 className="h-3 w-3" /> Link
+                      </button>
+                      <button onClick={onAddPartner} className={actionBtnCls}>
+                        <UserPlus className="h-3 w-3" /> Add partner
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{LINK_HINT}</p>
                   </div>
                 )}
               </div>
@@ -1746,10 +1864,18 @@ function MobileCard({
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
   const waitDays = daysAgo(m.created_at);
+  const copyCodeBtn = isSolo ? (
+    <button
+      onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }}
+      className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+    >
+      Copy Code to Share
+    </button>
+  ) : null;
   return (
     <div className={`border-2 rounded-xl transition-colors ${
       isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
-    } ${isRecent ? "bg-green-500/10 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
+    } ${isRecent ? "bg-green-500/20 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1768,7 +1894,7 @@ function MobileCard({
           <CodePill code={m.buddy_code} onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }} />
           <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
           {isSolo && waitDays >= 1 && (
-            <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`}>
+            <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Waiting for partner">
               {relativeTime(m.created_at)}
             </span>
           )}
@@ -1776,12 +1902,8 @@ function MobileCard({
       </div>
       {isSolo && !isExpanded && (
         <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }}
-            className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Copy Code to Share
-          </button>
+          {copyCodeBtn}
+          <p className="text-[10px] text-muted-foreground mt-1 text-center">Send this code to the student&apos;s family</p>
         </div>
       )}
       {isExpanded && (
@@ -1794,10 +1916,10 @@ function MobileCard({
               <div className="flex gap-2 pt-1 flex-wrap">
                 {isSolo && (
                   <>
-                    <button onClick={onLink} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    <button onClick={onLink} className={actionBtnCls}>
                       <Link2 className="h-3 w-3" /> Link
                     </button>
-                    <button onClick={onAddPartner} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                    <button onClick={onAddPartner} className={actionBtnCls}>
                       <UserPlus className="h-3 w-3" /> Add partner
                     </button>
                   </>
@@ -1806,12 +1928,14 @@ function MobileCard({
                   <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId ?? null}
                     onRequest={onRequestUnlink} onConfirm={onConfirmUnlink} onCancel={onCancelUnlink} label />
                 )}
-                <button onClick={onStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                <button onClick={onStartEdit} className={actionBtnCls}>
                   <Pencil className="h-3 w-3" /> Edit
                 </button>
                 <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
                   onRequest={onRequestDelete} onConfirm={onConfirmDelete} onCancel={onCancelDelete} />
               </div>
+              {isSolo && <p className="text-[10px] text-muted-foreground -mt-1">{LINK_HINT}</p>}
+              {copyCodeBtn}
               {linkPicker}
             </>
           )}
