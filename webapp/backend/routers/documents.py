@@ -190,6 +190,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "folder_id": doc.folder_id,
         "folder_name": doc.folder.name if doc.folder else "",
         "source_filename": doc.source_filename,
+        "questions": doc.questions,
     }
     if include_content:
         data["content"] = doc.content
@@ -891,5 +892,36 @@ async def import_worksheet(
     resp = _doc_to_response(doc)
     resp["usage"] = {"input_tokens": input_tokens, "output_tokens": output_tokens}
     return resp
+
+
+# ─── Question Extraction ─────────────────────────────────────────────
+
+@router.post("/documents/{doc_id}/extract-questions")
+async def extract_questions(
+    doc_id: int,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """
+    Extract individual questions from a document's TipTap content.
+
+    Structural parsing only (instant, free) — splits on heading level 3.
+    Topic/difficulty will be populated by solution generation (future).
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.content:
+        raise HTTPException(status_code=400, detail="Document has no content")
+
+    from services.question_extraction import parse_questions
+
+    questions = parse_questions(doc.content)
+
+    doc.questions = questions
+    flag_modified(doc, "questions")
+    db.commit()
+
+    return {"questions": questions, "count": len(questions)}
 
 

@@ -30,6 +30,7 @@ import {
   Bold,
   Copy,
   Italic,
+  ListTree,
   Strikethrough,
   List,
   ListOrdered,
@@ -97,6 +98,7 @@ import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
 import { VersionHistoryPanel } from "@/components/documents/VersionHistoryPanel";
+import { QuestionPanel } from "@/components/documents/QuestionPanel";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import type { Document, DocumentMetadata } from "@/types";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -436,6 +438,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
   // Version history state
   const [versionPanelOpen, setVersionPanelOpen] = useState(false);
+  const [questionPanelOpen, setQuestionPanelOpen] = useState(false);
+  const [questions, setQuestions] = useState(doc.questions ?? null);
   const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
   const [previewVersionNumber, setPreviewVersionNumber] = useState<number | null>(null);
   const [previewContent, setPreviewContent] = useState<Record<string, unknown> | null>(null);
@@ -1237,7 +1241,21 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         )}
 
         <button
-          onClick={() => setVersionPanelOpen(true)}
+          onClick={() => { setQuestionPanelOpen(!questionPanelOpen); if (!questionPanelOpen) setVersionPanelOpen(false); }}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+            questionPanelOpen
+              ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f]"
+              : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          )}
+          title="Extract & view questions"
+        >
+          <ListTree className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Questions</span>
+        </button>
+
+        <button
+          onClick={() => { setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           title="Version history"
         >
@@ -2175,6 +2193,32 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             </div>
           )}
         </div>
+
+        {/* Question panel */}
+        <QuestionPanel
+          docId={doc.id}
+          isOpen={questionPanelOpen}
+          onClose={() => setQuestionPanelOpen(false)}
+          questions={questions}
+          onQuestionsUpdated={setQuestions}
+          onScrollToNode={(nodeIndex) => {
+            if (!editor) return;
+            const { doc: pmDoc } = editor.state;
+            let pos = 0;
+            let idx = 0;
+            pmDoc.forEach((node, offset) => {
+              if (idx === nodeIndex) pos = offset;
+              idx++;
+            });
+            editor.chain().focus().setTextSelection(pos + 1).run();
+            const domNode = editor.view.domAtPos(pos + 1);
+            if (domNode.node instanceof HTMLElement) {
+              domNode.node.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else if (domNode.node.parentElement) {
+              domNode.node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }}
+        />
 
         {/* Version history panel — flex child on desktop, fixed overlay on mobile */}
         <VersionHistoryPanel

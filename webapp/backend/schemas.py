@@ -1915,6 +1915,7 @@ class DocumentResponse(BaseModel):
     folder_id: Optional[int] = None
     folder_name: str = ""
     source_filename: Optional[str] = None
+    questions: Optional[List[dict]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1940,6 +1941,7 @@ class DocumentListItem(BaseModel):
     folder_id: Optional[int] = None
     folder_name: str = ""
     source_filename: Optional[str] = None
+    questions: Optional[List[dict]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

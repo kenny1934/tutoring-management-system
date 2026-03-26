@@ -1,4 +1,4 @@
-import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, DocumentVersion, DocumentVersionDetail } from "@/types";
+import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, DocumentVersion, DocumentVersionDetail, ExtractedQuestion } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -141,6 +141,13 @@ export const documentsAPI = {
     const formData = new FormData();
     formData.append("file", file);
     return fetchFormData<{ url: string; filename: string }>("/documents/upload-image", formData, "Upload failed");
+  },
+
+  extractQuestions(docId: number) {
+    return fetchAPI<{ questions: ExtractedQuestion[]; count: number }>(
+      `/documents/${docId}/extract-questions`,
+      { method: "POST" }
+    );
   },
 };
 

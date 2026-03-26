@@ -1883,6 +1883,20 @@ export interface Document {
   folder_id?: number | null;
   folder_name?: string;
   source_filename?: string | null;
+  questions?: ExtractedQuestion[] | null;
+}
+
+export interface ExtractedQuestion {
+  index: number;
+  label: string;
+  start_node: number;
+  end_node: number;
+  preview?: string;
+  topic?: string | null;
+  subtopic?: string | null;
+  difficulty?: "easy" | "medium" | "hard" | null;
+  marks?: number | null;
+  sub_questions?: string[];
 }
 
 export interface DocumentCreate {
