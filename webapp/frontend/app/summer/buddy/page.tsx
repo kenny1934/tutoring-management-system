@@ -51,6 +51,8 @@ const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 b
 
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
 
+const actionBtnActiveCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary text-primary-foreground bg-primary shadow-sm transition-colors";
+
 async function shareOrCopy(code: string, name?: string, onCopy?: (c: string) => void) {
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
@@ -960,12 +962,12 @@ export default function BuddyTrackerPage() {
       <div className="buddy-theme">
       <button
         onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center ${
-          drawerOpen ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center ${
+          drawerOpen ? "bg-muted text-muted-foreground rotate-90" : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
         }`}
         title={drawerOpen ? "Close" : "Add Student"}
       >
-        {drawerOpen ? <X className="h-6 w-6 rotate-90 transition-transform duration-200" /> : <UserPlus className="h-6 w-6 transition-transform duration-200" />}
+        {drawerOpen ? <X className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
       </button>
       </div>,
       document.body
@@ -1329,8 +1331,8 @@ export default function BuddyTrackerPage() {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={actionBtnCls} title="Pair with an existing student">
-                        <Link2 className="h-3 w-3" /> Link
+                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={linkingId === m.id ? actionBtnActiveCls : actionBtnCls} title={linkingId === m.id ? "Close link search" : "Pair with an existing student"}>
+                        <Link2 className="h-3 w-3" /> {linkingId === m.id ? "Close" : "Link"}
                       </button>
                       <button onClick={() => prefillBuddyCode(m.buddy_code)} className={actionBtnCls} title="Register a new student into this group">
                         <UserPlus className="h-3 w-3" /> Add partner
@@ -1476,10 +1478,12 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === soloMember.id ? null : soloMember.id); }}
-                        className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
-                        title="Pair with an existing student"
+                        className={linkingId === soloMember.id
+                          ? "px-3 py-1.5 text-[11px] font-medium border-2 border-primary bg-primary text-primary-foreground rounded-lg shadow-sm transition-colors"
+                          : "px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"}
+                        title={linkingId === soloMember.id ? "Close link search" : "Pair with an existing student"}
                       >
-                        <Link2 className="h-3 w-3 inline mr-1" />Link
+                        <Link2 className="h-3 w-3 inline mr-1" />{linkingId === soloMember.id ? "Close" : "Link"}
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
@@ -1606,6 +1610,7 @@ export default function BuddyTrackerPage() {
                       onCancelDelete={() => setConfirmDeleteId(null)}
                       onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                       onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
+                      isLinking={linkingId === m.id}
                       onRequestUnlink={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                       onConfirmUnlink={() => handleUnlink(m.id)}
                       confirmUnlinkId={confirmUnlinkId}
@@ -1652,6 +1657,7 @@ export default function BuddyTrackerPage() {
                   onCancelDelete={() => setConfirmDeleteId(null)}
                   onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                   onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
+                  isLinking={linkingId === m.id}
                   linkPicker={linkingId === m.id ? renderLinkPicker(m.id) : undefined}
                   onRequestUnlink={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                   onConfirmUnlink={() => handleUnlink(m.id)}
@@ -1783,7 +1789,7 @@ function DesktopRow({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, isLinking,
   onRequestUnlink, onConfirmUnlink, confirmUnlinkId, onCancelUnlink,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
@@ -1795,7 +1801,7 @@ function DesktopRow({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
-  onLink?: () => void;
+  onLink?: () => void; isLinking?: boolean;
   onRequestUnlink?: () => void; onConfirmUnlink?: () => void; confirmUnlinkId?: number | null; onCancelUnlink?: () => void;
 }) {
   const waitDays = daysAgo(m.created_at);
@@ -1857,8 +1863,8 @@ function DesktopRow({
                 {isSolo && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <button onClick={onLink} className={actionBtnCls}>
-                        <Link2 className="h-3 w-3" /> Link
+                      <button onClick={onLink} className={isLinking ? actionBtnActiveCls : actionBtnCls} title={isLinking ? "Close link search" : "Pair with an existing student"}>
+                        <Link2 className="h-3 w-3" /> {isLinking ? "Close" : "Link"}
                       </button>
                       <button onClick={onAddPartner} className={actionBtnCls}>
                         <UserPlus className="h-3 w-3" /> Add partner
@@ -1882,7 +1888,7 @@ function MobileCard({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, linkPicker,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, isLinking, linkPicker,
   onRequestUnlink, onConfirmUnlink, confirmUnlinkId, onCancelUnlink,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
@@ -1894,7 +1900,7 @@ function MobileCard({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
-  onLink?: () => void;
+  onLink?: () => void; isLinking?: boolean;
   linkPicker?: React.ReactNode;
   onRequestUnlink?: () => void; onConfirmUnlink?: () => void; confirmUnlinkId?: number | null; onCancelUnlink?: () => void;
 }) {
@@ -1953,8 +1959,8 @@ function MobileCard({
               <div className="flex gap-2 pt-1 flex-wrap">
                 {isSolo && (
                   <>
-                    <button onClick={onLink} className={actionBtnCls}>
-                      <Link2 className="h-3 w-3" /> Link
+                    <button onClick={onLink} className={isLinking ? actionBtnActiveCls : actionBtnCls} title={isLinking ? "Close link search" : "Pair with an existing student"}>
+                      <Link2 className="h-3 w-3" /> {isLinking ? "Close" : "Link"}
                     </button>
                     <button onClick={onAddPartner} className={actionBtnCls}>
                       <UserPlus className="h-3 w-3" /> Add partner
