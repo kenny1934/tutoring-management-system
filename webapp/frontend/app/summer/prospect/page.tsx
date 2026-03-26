@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -96,6 +96,47 @@ function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" 
   if (status === "Not Started" || status === "No Response") return "action";
   if (status === "WeChat - Not Found" || status === "WeChat - Cannot Add") return "progress";
   return "done";
+}
+
+const CONFETTI_COLORS = ["#fbbf24", "#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#ec4899"];
+const CONFETTI_PARTICLES = Array.from({ length: 40 }, (_, i) => {
+  const isStrip = Math.random() > 0.4;
+  return {
+    width: isStrip ? 3 + Math.random() * 5 : 5 + Math.random() * 4,
+    height: isStrip ? 8 + Math.random() * 8 : 5 + Math.random() * 4,
+    left: 15 + Math.random() * 70,
+    top: 10 + Math.random() * 25,
+    duration: 1.5 + Math.random() * 1,
+    delay: Math.random() * 0.8,
+    drift: (Math.random() - 0.5) * 60,
+    rotation: Math.random() * 360,
+    borderRadius: isStrip ? "1px" : `${Math.random() * 3}px`,
+    color: CONFETTI_COLORS[i % 6],
+  };
+});
+
+function ConfettiParticles() {
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">
+      {CONFETTI_PARTICLES.map((p, i) => (
+        <span
+          key={i}
+          className="absolute block"
+          style={{
+            width: `${p.width}px`,
+            height: `${p.height}px`,
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            backgroundColor: p.color,
+            borderRadius: p.borderRadius,
+            transform: `rotate(${p.rotation}deg)`,
+            "--confetti-drift": `${p.drift}px`,
+            animation: `confetti-fall ${p.duration}s ease-out ${p.delay}s forwards`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
 }
 
 const URGENCY_BORDER: Record<string, string> = {
@@ -805,10 +846,19 @@ export default function ProspectPage() {
     { id: `${branch}1052`, name: "Alice Chan", grade: "P6", tutor: "Ms Lee", phone: "66778899" },
     { id: `${branch}1061`, name: "David Ho", grade: "P6", tutor: "Mr Wong", phone: "91234567" },
   ], [branch]);
+  const [showConfetti, triggerConfetti] = useCooldown(2500);
+  const [spotlightStep, setSpotlightStep] = useState<"click-paste" | "press-key" | null>(null);
+  const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
+  const pasteZoneRef = useRef<HTMLDivElement>(null);
   const copySampleData = useCallback(() => {
     const tsv = demoRows.map((r) => `${r.id}\t${r.name}\t${r.grade}\t${r.tutor}\t${r.phone}`).join("\n");
     navigator.clipboard.writeText(tsv);
     triggerSampleCopied();
+    // Scroll paste zone into view, then activate spotlight
+    setTimeout(() => {
+      pasteZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => setSpotlightStep("click-paste"), 500);
+    }, 100);
   }, [demoRows, triggerSampleCopied]);
   const parseInfoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -816,12 +866,28 @@ export default function ProspectPage() {
   const lastPasteSnapshot = useRef<ParsedRow[] | null>(null);
   const pasteRef = useRef<HTMLTextAreaElement>(null);
   const pasteStripRef = useRef<HTMLTextAreaElement>(null);
+  const pasteSectionRef = useRef<HTMLElement>(null);
 
   // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => setSubmittedSearch(submittedSearchInput), 300);
     return () => clearTimeout(t);
   }, [submittedSearchInput]);
+
+  // Lock scroll and measure spotlight rect synchronously before paint
+  // useLayoutEffect ensures overflow:hidden removes the scrollbar BEFORE
+  // getBoundingClientRect runs, preventing the ~15px layout shift on Windows/Linux.
+  useLayoutEffect(() => {
+    if (!spotlightStep) {
+      setSpotlightRect(null);
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    // Measure AFTER scrollbar is gone — layout has reflowed synchronously
+    const rect = pasteZoneRef.current?.getBoundingClientRect() ?? null;
+    setSpotlightRect(rect);
+    return () => { document.body.style.overflow = ""; };
+  }, [spotlightStep]);
 
   // Warn before page unload if parsed rows have unsaved data
   useEffect(() => {
@@ -969,12 +1035,18 @@ export default function ProspectPage() {
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       parseInfoTimer.current = setTimeout(() => { setParseInfo(null); lastPasteSnapshot.current = null; }, 10000);
       if (showPasteTutorial) dismissTutorial();
+      if (spotlightStep) setSpotlightStep(null);
+      setTimeout(() => pasteSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      if (!localStorage.getItem("prospect-first-paste-celebrated")) {
+        localStorage.setItem("prospect-first-paste-celebrated", "1");
+        triggerConfetti();
+      }
     } else if (text.trim()) {
       setParseInfo({ text: "Nothing was recognized — make sure you copied rows from a spreadsheet", canUndo: false });
       if (parseInfoTimer.current) clearTimeout(parseInfoTimer.current);
       parseInfoTimer.current = setTimeout(() => setParseInfo(null), 8000);
     }
-  }, [branch, showPasteTutorial, dismissTutorial]);
+  }, [branch, showPasteTutorial, dismissTutorial, spotlightStep]);
 
   const undoLastPaste = useCallback(() => {
     if (lastPasteSnapshot.current !== null) {
@@ -1430,7 +1502,7 @@ export default function ProspectPage() {
       )}
 
       {/* Section A: Paste & Submit */}
-      <section className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8 space-y-5">
+      <section ref={pasteSectionRef} className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8 space-y-5">
         <div className="flex items-center gap-2">
           <ClipboardPaste className="h-5 w-5 text-primary/70" />
           <h2 className="text-lg font-semibold">Add Students</h2>
@@ -1601,6 +1673,7 @@ export default function ProspectPage() {
         >
           <div className="overflow-hidden">
             <div
+              ref={pasteZoneRef}
               onClick={focusPasteArea}
               className={`relative border-2 rounded-2xl p-6 sm:p-8 cursor-pointer text-center transition-colors duration-200 ${
                 pasteZoneFocused
@@ -1619,7 +1692,7 @@ export default function ProspectPage() {
                 ref={pasteRef}
                 className="absolute inset-0 opacity-0 pointer-events-none resize-none"
                 onPaste={handleClipboardPaste}
-                onFocus={() => setPasteZoneFocused(true)}
+                onFocus={() => { setPasteZoneFocused(true); if (spotlightStep === "click-paste") setSpotlightStep("press-key"); }}
                 onBlur={() => setPasteZoneFocused(false)}
                 value=""
                 onChange={() => {}}
@@ -1630,8 +1703,16 @@ export default function ProspectPage() {
               <div className="hidden sm:block">
                 {pasteZoneFocused ? (
                   <>
-                    <p className="text-base font-semibold text-primary">Ready — press {PASTE_SHORTCUT} to paste</p>
-                    <p className="text-sm text-muted-foreground mt-1">Paste your copied rows</p>
+                    <p className="text-base font-semibold text-primary">Ready — paste now</p>
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <span className="keycap" style={{ animation: "keypress-down 2s ease-in-out infinite" }}>
+                        {IS_MAC ? "\u2318" : "Ctrl"}
+                      </span>
+                      <span className="text-sm text-muted-foreground font-bold">+</span>
+                      <span className="keycap" style={{ animation: "keypress-down 2s ease-in-out 0.15s infinite" }}>
+                        V
+                      </span>
+                    </div>
                   </>
                 ) : showPasteTutorial ? (
                   <>
@@ -2466,6 +2547,57 @@ export default function ProspectPage() {
         variant={confirmAction?.variant || "danger"}
         confirmText={confirmAction?.confirmText || "Delete"}
       />
+
+      {/* Confetti — first successful paste celebration */}
+      {showConfetti && <ConfettiParticles />}
+
+      {/* Spotlight overlay — guided "Try it" flow */}
+      {spotlightStep && spotlightRect && typeof document !== "undefined" && (() => {
+        const rect = spotlightRect;
+        const pad = 8;
+        return createPortal(
+          <div className="fixed inset-0 z-40">
+            {/* Dimmed background — click to dismiss */}
+            <div
+              className="fixed inset-0 bg-black/50"
+              style={rect ? { clipPath: `polygon(0% 0%, 0% 100%, ${rect.left - pad}px 100%, ${rect.left - pad}px ${rect.top - pad}px, ${rect.right + pad}px ${rect.top - pad}px, ${rect.right + pad}px ${rect.bottom + pad}px, ${rect.left - pad}px ${rect.bottom + pad}px, ${rect.left - pad}px 100%, 100% 100%, 100% 0%)` } : undefined}
+              onClick={() => setSpotlightStep(null)}
+            />
+            {/* Clickable cutout area — focuses the paste zone */}
+            {rect && (
+              <div
+                className="fixed cursor-pointer rounded-2xl ring-2 ring-primary/40 ring-offset-2"
+                style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
+                onClick={() => { focusPasteArea(); }}
+              />
+            )}
+            {/* Tooltip */}
+            {rect && (
+              <div
+                className="fixed bg-card rounded-xl shadow-2xl border border-border px-5 py-3 text-sm font-medium z-50"
+                style={{ top: Math.max(8, rect.top - 60), left: Math.min(Math.max(8, rect.left + rect.width / 2 - 140), window.innerWidth - 288), width: 280 }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    {spotlightStep === "click-paste"
+                      ? <MousePointerClick className="h-3.5 w-3.5 text-primary" />
+                      : <Keyboard className="h-3.5 w-3.5 text-primary" />
+                    }
+                  </span>
+                  <span>
+                    {spotlightStep === "click-paste"
+                      ? "Now click the dashed area below"
+                      : <>Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono font-bold">{PASTE_SHORTCUT}</kbd> to paste your data</>
+                    }
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-8">Click outside to dismiss</p>
+              </div>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }
