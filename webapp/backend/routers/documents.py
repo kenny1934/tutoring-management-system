@@ -189,6 +189,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "tags": doc.tags or [],
         "folder_id": doc.folder_id,
         "folder_name": doc.folder.name if doc.folder else "",
+        "source_filename": doc.source_filename,
     }
     if include_content:
         data["content"] = doc.content
@@ -820,12 +821,16 @@ async def delete_folder(
 
 # ─── Worksheet OCR Import ────────────────────────────────────────────
 
+IMPORT_TEMPLATE_ID = 44  # "No Watermark" template — provides default page_layout for imports
+
+
 @router.post("/documents/import-worksheet", response_model=DocumentResponse)
 async def import_worksheet(
     file: UploadFile = File(...),
     remove_handwriting: bool = Query(True, description="Remove colored ink and pencil marks before OCR"),
     title: str = Query("", description="Document title (defaults to filename)"),
     folder_id: Optional[int] = Query(None, description="Target folder ID"),
+    source_path: str = Query("", description="Courseware file path (for provenance tracking)"),
     current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
@@ -834,6 +839,7 @@ async def import_worksheet(
 
     Processes each page: renders to image, optionally removes handwriting,
     sends to Gemini for structured OCR, and creates a Document with TipTap JSON content.
+    Uses the No Watermark template's page_layout as the default layout.
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -848,7 +854,6 @@ async def import_worksheet(
     import asyncio
 
     try:
-        # Run sync OCR in a thread to avoid blocking the event loop
         tiptap_content = await asyncio.to_thread(
             ocr_worksheet,
             pdf_bytes=pdf_bytes,
@@ -860,7 +865,10 @@ async def import_worksheet(
         logger.error("Worksheet OCR failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="OCR processing failed")
 
-    # Create document
+    # Use template's page_layout as default
+    template = db.query(Document).filter(Document.id == IMPORT_TEMPLATE_ID).first()
+    template_layout = template.page_layout if template else None
+
     now = hk_now()
     final_title = _resolve_unique_title(db, doc_title, folder_id, False)
 
@@ -868,9 +876,11 @@ async def import_worksheet(
         title=final_title,
         doc_type="worksheet",
         content=tiptap_content,
+        page_layout=template_layout,
         tags=["imported", "ocr"],
         folder_id=folder_id,
         is_template=False,
+        source_filename=source_path.strip() or file.filename,
         created_by=current_user.id,
         created_at=now,
         updated_at=now,

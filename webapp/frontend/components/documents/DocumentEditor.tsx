@@ -28,6 +28,7 @@ import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
   Bold,
+  Copy,
   Italic,
   Strikethrough,
   List,
@@ -1311,6 +1312,18 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             )}
             {doc.updated_at && (
               <span>· {formatTimeAgo(doc.updated_at)}</span>
+            )}
+            {doc.source_filename && (
+              <span className="inline-flex items-center gap-0.5">
+                <span className="truncate max-w-[20rem]" title={doc.source_filename}>· Imported from: {doc.source_filename}</span>
+                <button
+                  className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title="Copy source path"
+                  onClick={() => { navigator.clipboard.writeText(doc.source_filename!); showToast("Source path copied", "success"); }}
+                >
+                  <Copy className="w-2.5 h-2.5" />
+                </button>
+              </span>
             )}
           </div>
         </div>

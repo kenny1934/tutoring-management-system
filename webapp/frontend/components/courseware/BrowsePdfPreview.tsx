@@ -56,7 +56,7 @@ export function BrowsePdfPreview({
 }: BrowsePdfPreviewProps) {
   const currentZoom = ZOOM_LEVELS[zoomIndex];
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importPdf, setImportPdf] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [importPdf, setImportPdf] = useState<{ blob: Blob; filename: string; path?: string } | null>(null);
 
   return (
     <div className="flex-1 flex flex-col p-4 min-w-0">
@@ -138,7 +138,7 @@ export function BrowsePdfPreview({
               try {
                 const resp = await fetch(url);
                 const blob = await resp.blob();
-                setImportPdf({ blob, filename: previewNode?.name || "worksheet.pdf" });
+                setImportPdf({ blob, filename: previewNode?.name || "worksheet.pdf", path: previewNode?.path });
                 setShowImportModal(true);
               } catch {
                 // Blob URL fetch failed — fall back to upload-based modal

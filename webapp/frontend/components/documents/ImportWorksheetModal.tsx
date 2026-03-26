@@ -15,7 +15,7 @@ interface ImportWorksheetModalProps {
   /** Called after a successful import (to revalidate lists, etc.) */
   onSuccess?: () => void;
   /** Pre-loaded PDF from courseware browse (skips upload step) */
-  preloadedPdf?: { blob: Blob; filename: string } | null;
+  preloadedPdf?: { blob: Blob; filename: string; path?: string } | null;
   /** Default folder to import into */
   defaultFolderId?: number | null;
 }
@@ -40,6 +40,7 @@ export default function ImportWorksheetModal({
   const [error, setError] = useState("");
   const [createdDocId, setCreatedDocId] = useState<number | null>(null);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [sourcePath, setSourcePath] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -50,10 +51,12 @@ export default function ImportWorksheetModal({
         const f = new File([preloadedPdf.blob], preloadedPdf.filename, { type: "application/pdf" });
         setFile(f);
         setTitle(preloadedPdf.filename.replace(/\.pdf$/i, ""));
+        setSourcePath(preloadedPdf.path || "");
         setStep("options");
       } else {
         setFile(null);
         setTitle("");
+        setSourcePath("");
         setStep("upload");
       }
     }
@@ -90,6 +93,7 @@ export default function ImportWorksheetModal({
         removeHandwriting,
         title: title.trim() || undefined,
         folderId: defaultFolderId ?? undefined,
+        sourcePath: sourcePath || undefined,
       });
       setCreatedDocId(doc.id);
       setStep("done");
@@ -99,7 +103,7 @@ export default function ImportWorksheetModal({
       setError(err instanceof Error ? err.message : "Import failed");
       setStep("options");
     }
-  }, [file, removeHandwriting, title, defaultFolderId, showToast, onSuccess]);
+  }, [file, removeHandwriting, title, defaultFolderId, sourcePath, showToast, onSuccess]);
 
   const handleOpenEditor = useCallback(() => {
     if (createdDocId) {
@@ -221,6 +225,7 @@ export default function ImportWorksheetModal({
           <FolderTreeModal
             isOpen={showFileBrowser}
             onClose={() => setShowFileBrowser(false)}
+            onFileSelected={(path) => setSourcePath(path)}
             onFileBlobSelected={(blob, filename) => {
               setShowFileBrowser(false);
               handleFileSelect(new File([blob], filename, { type: "application/pdf" }));

@@ -1914,6 +1914,7 @@ class DocumentResponse(BaseModel):
     tags: List[str] = []
     folder_id: Optional[int] = None
     folder_name: str = ""
+    source_filename: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1938,6 +1939,7 @@ class DocumentListItem(BaseModel):
     tags: List[str] = []
     folder_id: Optional[int] = None
     folder_name: str = ""
+    source_filename: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

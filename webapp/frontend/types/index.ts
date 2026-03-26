@@ -1882,6 +1882,7 @@ export interface Document {
   tags: string[];
   folder_id?: number | null;
   folder_name?: string;
+  source_filename?: string | null;
 }
 
 export interface DocumentCreate {

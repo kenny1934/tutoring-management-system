@@ -774,7 +774,19 @@ export default function DocumentsPage() {
                       onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
                     />}
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0.5">{doc.title}</h3>
+                  {doc.source_filename && (
+                    <p className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 mb-0.5 min-w-0">
+                      <span className="truncate" title={doc.source_filename}>Imported from: {doc.source_filename}</span>
+                      <button
+                        className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        title="Copy source path"
+                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(doc.source_filename!); showToast("Path copied", "success"); }}
+                      >
+                        <Copy className="w-2.5 h-2.5" />
+                      </button>
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                     <span>
                       {doc.updated_by_name && doc.updated_by !== doc.created_by
@@ -841,6 +853,18 @@ export default function DocumentsPage() {
                   <span className="flex-1 min-w-0 flex items-center gap-2">
                     <span className="sm:hidden shrink-0"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
+                    {doc.source_filename && (
+                      <span className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 shrink-0 max-w-[16rem]">
+                        <span className="truncate" title={doc.source_filename}>from: {doc.source_filename}</span>
+                        <button
+                          className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          title="Copy source path"
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(doc.source_filename!); showToast("Path copied", "success"); }}
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    )}
                     {doc.is_template && (
                       <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0">
                         <Stamp className="w-2.5 h-2.5" />

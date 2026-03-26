@@ -1041,6 +1041,7 @@ class Document(Base):
     folder_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True)
 
     last_version_at = Column(DateTime, nullable=True)
+    source_filename = Column(String(500), nullable=True, comment="Original filename or courseware path of imported source")
 
     creator = relationship("Tutor", foreign_keys=[created_by])
     updater = relationship("Tutor", foreign_keys=[updated_by])

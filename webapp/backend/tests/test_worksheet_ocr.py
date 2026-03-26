@@ -217,7 +217,7 @@ class TestImportWorksheetEndpoint:
         assert "PDF" in resp.json()["detail"]
 
     def test_successful_import(self, client, db_session):
-        """Should create a document with OCR content."""
+        """Should create a document with OCR content and source_filename."""
         _seed_tutor(db_session)
         token = make_auth_token(1)
 
@@ -228,9 +228,9 @@ class TestImportWorksheetEndpoint:
             ],
         }
 
-        with patch("services.worksheet_ocr.ocr_worksheet", return_value=mock_tiptap) as mock_ocr:
+        with patch("services.worksheet_ocr.ocr_worksheet", return_value=mock_tiptap):
             resp = client.post(
-                "/api/documents/import-worksheet?title=My+Worksheet",
+                "/api/documents/import-worksheet?title=My+Worksheet&source_path=Center%5CMath%5Ctest.pdf",
                 files={"file": ("test.pdf", b"%PDF-1.4 fake", "application/pdf")},
                 cookies={"access_token": token},
             )
@@ -241,14 +241,15 @@ class TestImportWorksheetEndpoint:
         assert data["doc_type"] == "worksheet"
         assert "imported" in data["tags"]
         assert "ocr" in data["tags"]
+        assert data["source_filename"] == "Center\\Math\\test.pdf"
 
-        # Verify document was created in DB
         doc = db_session.query(Document).filter(Document.id == data["id"]).first()
         assert doc is not None
         assert doc.content == mock_tiptap
+        assert doc.source_filename == "Center\\Math\\test.pdf"
 
-    def test_defaults_title_from_filename(self, client, db_session):
-        """Should use filename as title when no title provided."""
+    def test_defaults_title_and_source_from_filename(self, client, db_session):
+        """Should use filename as title and source_filename when no overrides provided."""
         _seed_tutor(db_session)
         token = make_auth_token(1)
 
@@ -262,4 +263,6 @@ class TestImportWorksheetEndpoint:
             )
 
         assert resp.status_code == 200
-        assert resp.json()["title"] == "F3_Quadratics"
+        data = resp.json()
+        assert data["title"] == "F3_Quadratics"
+        assert data["source_filename"] == "F3_Quadratics.pdf"

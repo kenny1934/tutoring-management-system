@@ -122,6 +122,7 @@ export const documentsAPI = {
     removeHandwriting?: boolean;
     title?: string;
     folderId?: number;
+    sourcePath?: string;
   }): Promise<Document> {
     const formData = new FormData();
     formData.append("file", file);
@@ -129,6 +130,7 @@ export const documentsAPI = {
     if (options?.removeHandwriting !== undefined) qs.set("remove_handwriting", String(options.removeHandwriting));
     if (options?.title) qs.set("title", options.title);
     if (options?.folderId !== undefined) qs.set("folder_id", String(options.folderId));
+    if (options?.sourcePath) qs.set("source_path", options.sourcePath);
     const q = qs.toString();
     return fetchFormData<Document>(`/documents/import-worksheet${q ? `?${q}` : ""}`, formData, "Import failed");
   },

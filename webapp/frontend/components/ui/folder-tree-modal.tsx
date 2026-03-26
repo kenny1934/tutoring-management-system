@@ -770,22 +770,30 @@ export function FolderTreeModal({
   }, [lastClickedIndex, sortedContents, toggleSelection, navigateInto, handlePreview]);
 
   // Double click: select/use file - Explorer-like behavior
-  const handleDoubleClick = useCallback((node: TreeNode) => {
+  const handleDoubleClick = useCallback(async (node: TreeNode) => {
     if (node.kind === "file") {
       if (selections.size > 0 && onFilesSelected) {
-        // Batch add all selected + this one (if not already selected)
         const allSelections = new Map(selections);
         if (!allSelections.has(node.path)) {
           allSelections.set(node.path, createFileSelection(node.path));
         }
         onFilesSelected(Array.from(allSelections.values()));
-      } else {
-        // Single file selection (no page range on double-click)
+        onClose();
+      } else if (onFileBlobSelected && node.handle) {
+        // Read file blob before closing so the caller receives it
         onFileSelected?.(node.path);
+        try {
+          const fileHandle = node.handle as FileSystemFileHandle;
+          const file = await fileHandle.getFile();
+          onFileBlobSelected(file, node.name);
+        } catch { /* blob not critical — path-based flow still works */ }
+        onClose();
+      } else {
+        onFileSelected?.(node.path);
+        onClose();
       }
-      onClose();
     }
-  }, [selections, onFilesSelected, onFileSelected, onClose]);
+  }, [selections, onFilesSelected, onFileSelected, onFileBlobSelected, onClose]);
 
   // Checkbox click: toggle selection (stops propagation to prevent other click handlers)
   const handleCheckboxClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
