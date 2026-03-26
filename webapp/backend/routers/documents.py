@@ -818,3 +818,67 @@ async def delete_folder(
     return {"message": "Folder deleted"}
 
 
+# ─── Worksheet OCR Import ────────────────────────────────────────────
+
+@router.post("/documents/import-worksheet", response_model=DocumentResponse)
+async def import_worksheet(
+    file: UploadFile = File(...),
+    remove_handwriting: bool = Query(True, description="Remove colored ink and pencil marks before OCR"),
+    title: str = Query("", description="Document title (defaults to filename)"),
+    folder_id: Optional[int] = Query(None, description="Target folder ID"),
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """
+    Import a scanned math worksheet PDF via Gemini Vision OCR.
+
+    Processes each page: renders to image, optionally removes handwriting,
+    sends to Gemini for structured OCR, and creates a Document with TipTap JSON content.
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    pdf_bytes = await file.read()
+    if len(pdf_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="PDF too large (max 25MB)")
+
+    doc_title = title.strip() if title.strip() else file.filename.rsplit(".", 1)[0]
+
+    from services.worksheet_ocr import ocr_worksheet
+    import asyncio
+
+    try:
+        # Run sync OCR in a thread to avoid blocking the event loop
+        tiptap_content = await asyncio.to_thread(
+            ocr_worksheet,
+            pdf_bytes=pdf_bytes,
+            remove_handwriting=remove_handwriting,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Worksheet OCR failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="OCR processing failed")
+
+    # Create document
+    now = hk_now()
+    final_title = _resolve_unique_title(db, doc_title, folder_id, False)
+
+    doc = Document(
+        title=final_title,
+        doc_type="worksheet",
+        content=tiptap_content,
+        tags=["imported", "ocr"],
+        folder_id=folder_id,
+        is_template=False,
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now,
+        updated_by=current_user.id,
+    )
+    db.add(doc)
+    db.commit()
+    doc = _doc_query(db).filter(Document.id == doc.id).first()
+    return _doc_to_response(doc)
+
+

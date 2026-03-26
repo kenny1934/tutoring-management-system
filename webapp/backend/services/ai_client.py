@@ -48,6 +48,28 @@ def _get_thinking_level(level: ThinkingLevelStr):
     return level_map.get(level, types.ThinkingLevel.LOW)
 
 
+def _extract_response(response) -> tuple[str, int, bool]:
+    """Extract text, token count, and truncation flag from a Gemini response."""
+    text = response.text or ""
+    if not text.strip():
+        raise HTTPException(status_code=502, detail="AI returned an empty response")
+
+    is_truncated = False
+    try:
+        if response.candidates and response.candidates[0].finish_reason:
+            reason = str(response.candidates[0].finish_reason)
+            if "MAX_TOKENS" in reason.upper():
+                is_truncated = True
+    except (AttributeError, IndexError):
+        pass
+
+    output_tokens = 0
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        output_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
+
+    return text, output_tokens, is_truncated
+
+
 def generate(
     prompt: str,
     context: str = "",
@@ -57,7 +79,7 @@ def generate(
     model: str = MODEL_ID,
 ) -> tuple[str, int, bool]:
     """
-    Call Gemini and return (response_text, output_token_count, is_truncated).
+    Call Gemini (text-only) and return (response_text, output_token_count, is_truncated).
     Raises HTTPException(503) on API error, HTTPException(502) on empty response.
     """
     from google.genai import types
@@ -80,24 +102,63 @@ def generate(
         logger.error("Gemini API error: %s", exc, exc_info=True)
         raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
 
-    text = response.text or ""
-    if not text.strip():
-        raise HTTPException(status_code=502, detail="AI returned an empty response")
+    return _extract_response(response)
 
-    is_truncated = False
+
+def generate_multimodal(
+    prompt: str,
+    images: list[tuple[bytes, str]],
+    thinking_level: ThinkingLevelStr = "medium",
+    max_output_tokens: int = 8192,
+    temperature: float = 0.2,
+    model: str = MODEL_ID,
+    response_mime_type: str | None = None,
+    response_schema: dict | None = None,
+) -> tuple[str, int, bool]:
+    """
+    Call Gemini with text + images and return (response_text, output_token_count, is_truncated).
+
+    Args:
+        prompt: Text prompt.
+        images: List of (image_bytes, mime_type) tuples, e.g. [(png_bytes, "image/png")].
+        thinking_level: Thinking budget for the model.
+        max_output_tokens: Max response length.
+        temperature: Sampling temperature.
+        model: Model ID override.
+        response_mime_type: Set to "application/json" for structured JSON output.
+        response_schema: JSON schema dict for structured output validation.
+
+    Raises HTTPException(503) on API error, HTTPException(502) on empty response.
+    """
+    from google.genai import types
+
+    contents: list[types.Part] = [types.Part.from_text(text=prompt)]
+    for image_bytes, mime_type in images:
+        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
+
+    sdk_level = _get_thinking_level(thinking_level)
+    config_kwargs: dict = {
+        "thinking_config": types.ThinkingConfig(thinking_level=sdk_level),
+        "temperature": temperature,
+        "max_output_tokens": max_output_tokens,
+    }
+    if response_mime_type:
+        config_kwargs["response_mime_type"] = response_mime_type
+    if response_schema:
+        config_kwargs["response_schema"] = response_schema
+
     try:
-        if response.candidates and response.candidates[0].finish_reason:
-            reason = str(response.candidates[0].finish_reason)
-            if "MAX_TOKENS" in reason.upper():
-                is_truncated = True
-    except (AttributeError, IndexError):
-        pass
+        client = _get_client()
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(**config_kwargs),
+        )
+    except Exception as exc:
+        logger.error("Gemini multimodal API error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
 
-    output_tokens = 0
-    if hasattr(response, "usage_metadata") and response.usage_metadata:
-        output_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
-
-    return text, output_tokens, is_truncated
+    return _extract_response(response)
 
 
 def reset_client():

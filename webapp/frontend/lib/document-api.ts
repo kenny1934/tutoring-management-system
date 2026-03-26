@@ -2,14 +2,27 @@ import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, Document
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+function getEffectiveRoleHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   if (typeof window !== "undefined") {
     const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
     if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
   }
+  return headers;
+}
+
+function parseErrorDetail(error: Record<string, unknown>, fallback: string): string {
+  const detail = error.detail;
+  if (typeof detail === "object" && detail && "message" in detail) return String((detail as { message: string }).message);
+  if (typeof detail === "string") return detail;
+  return fallback;
+}
+
+async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...getEffectiveRoleHeaders(),
+  };
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     credentials: "include",
     headers: { ...headers, ...options?.headers },
@@ -17,7 +30,21 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(typeof error.detail === "object" ? error.detail.message : error.detail);
+    throw new Error(parseErrorDetail(error, "Unknown error"));
+  }
+  return response.json();
+}
+
+async function fetchFormData<T>(endpoint: string, formData: FormData, fallbackError = "Request failed"): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+    headers: getEffectiveRoleHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: fallbackError }));
+    throw new Error(parseErrorDetail(error, fallbackError));
   }
   return response.json();
 }
@@ -91,29 +118,25 @@ export const documentsAPI = {
     return fetchAPI<string[]>("/documents/tags");
   },
 
+  async importWorksheet(file: File, options?: {
+    removeHandwriting?: boolean;
+    title?: string;
+    folderId?: number;
+  }): Promise<Document> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const qs = new URLSearchParams();
+    if (options?.removeHandwriting !== undefined) qs.set("remove_handwriting", String(options.removeHandwriting));
+    if (options?.title) qs.set("title", options.title);
+    if (options?.folderId !== undefined) qs.set("folder_id", String(options.folderId));
+    const q = qs.toString();
+    return fetchFormData<Document>(`/documents/import-worksheet${q ? `?${q}` : ""}`, formData, "Import failed");
+  },
+
   async uploadImage(file: File): Promise<{ url: string; filename: string }> {
     const formData = new FormData();
     formData.append("file", file);
-
-    const headers: Record<string, string> = {};
-    if (typeof window !== "undefined") {
-      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
-      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/documents/upload-image`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
-      throw new Error(error.detail || "Upload failed");
-    }
-
-    return response.json();
+    return fetchFormData<{ url: string; filename: string }>("/documents/upload-image", formData, "Upload failed");
   },
 };
 

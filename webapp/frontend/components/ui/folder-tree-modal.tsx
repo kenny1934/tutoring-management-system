@@ -109,9 +109,11 @@ interface TreeNode {
 interface FolderTreeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onFileSelected: (path: string, pages?: string) => void;
+  onFileSelected?: (path: string, pages?: string) => void;
   /** Handler for batch adding multiple files (multi-select mode) */
   onFilesSelected?: (selections: FileSelection[]) => void;
+  /** Callback with file blob when available (for import/upload workflows) */
+  onFileBlobSelected?: (blob: Blob, filename: string) => void;
   /** Enable multi-select toggle */
   allowMultiSelect?: boolean;
   /** Initial path to navigate to (e.g., "Center\\Math\\file.pdf") */
@@ -131,6 +133,7 @@ const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
 export function FolderTreeModal({
   isOpen,
   onClose,
+  onFileBlobSelected,
   onFileSelected,
   onFilesSelected,
   allowMultiSelect = false,
@@ -778,7 +781,7 @@ export function FolderTreeModal({
         onFilesSelected(Array.from(allSelections.values()));
       } else {
         // Single file selection (no page range on double-click)
-        onFileSelected(node.path);
+        onFileSelected?.(node.path);
       }
       onClose();
     }
@@ -821,9 +824,8 @@ export function FolderTreeModal({
   }, [cleanedPreviewUrl]);
 
   // Use previewed file
-  const handleUsePreviewedFile = useCallback(() => {
+  const handleUsePreviewedFile = useCallback(async () => {
     if (previewNode && !previewPagesError) {
-      // Construct pages string from mode
       let pages: string | undefined;
       if (previewPageMode === "simple") {
         const start = previewPageStart.trim();
@@ -836,10 +838,20 @@ export function FolderTreeModal({
       } else {
         pages = previewComplexPages.trim() || undefined;
       }
-      onFileSelected(previewNode.path, pages);
+      onFileSelected?.(previewNode.path, pages);
+      if (onFileBlobSelected) {
+        const url = showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl;
+        if (url) {
+          try {
+            const resp = await fetch(url);
+            const blob = await resp.blob();
+            onFileBlobSelected(blob, previewNode.name);
+          } catch { /* blob not critical — path-based flow still works */ }
+        }
+      }
       onClose();
     }
-  }, [previewNode, previewPageMode, previewPageStart, previewPageEnd, previewComplexPages, previewPagesError, onFileSelected, onClose]);
+  }, [previewNode, previewPageMode, previewPageStart, previewPageEnd, previewComplexPages, previewPagesError, onFileSelected, onClose, onFileBlobSelected, previewUrl, cleanedPreviewUrl, showCleanedPreview]);
 
   // Open preview in new tab
   const handleOpenInNewTab = useCallback(() => {

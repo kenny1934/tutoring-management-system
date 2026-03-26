@@ -54,3 +54,6 @@ google-genai>=1.51.0
 numpy<2.0  # Required for opencv compatibility
 opencv-python-headless==4.9.0.80
 PyMuPDF==1.24.0
+
+# Chinese Simplified → Traditional conversion (worksheet OCR)
+opencc-python-reimplemented>=0.1.7

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight, User, Clock } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight, User, Clock, ScanLine } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -19,6 +19,7 @@ import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
 import { getRecentDocIds, trackDocView } from "@/lib/recent-docs";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
+import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
 
 const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
   worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", iconColor: "text-blue-700 dark:text-blue-300" },
@@ -45,6 +46,7 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [sortIdx, setSortIdx] = useState(0);
@@ -488,13 +490,23 @@ export default function DocumentsPage() {
                 <span className="hidden sm:inline">New Template</span>
               </button>
             ) : (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Document</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors text-sm font-medium"
+                  title="Import scanned worksheet via AI OCR"
+                >
+                  <ScanLine className="w-4 h-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </button>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">New Document</span>
+                </button>
+              </div>
             ))}
           </div>
 
@@ -926,6 +938,13 @@ export default function DocumentsPage() {
             onCreate={handleCreate}
           />
         )}
+
+        <ImportWorksheetModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => mutate()}
+          defaultFolderId={activeFolderId}
+        />
 
         {/* Tag Popover */}
         {tagEditDocId !== null && documents?.find((d) => d.id === tagEditDocId) && (

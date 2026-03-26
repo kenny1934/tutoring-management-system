@@ -1,8 +1,10 @@
 "use client";
 
-import { Loader2, ZoomIn, ZoomOut, ExternalLink, X, Copy, Check } from "lucide-react";
+import { useState } from "react";
+import { Loader2, ZoomIn, ZoomOut, ExternalLink, X, Copy, Check, ScanLine } from "lucide-react";
 import { CalendarPlus } from "lucide-react";
 import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
+import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
 
@@ -53,6 +55,8 @@ export function BrowsePdfPreview({
   onToggleCleaned,
 }: BrowsePdfPreviewProps) {
   const currentZoom = ZOOM_LEVELS[zoomIndex];
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPdf, setImportPdf] = useState<{ blob: Blob; filename: string } | null>(null);
 
   return (
     <div className="flex-1 flex flex-col p-4 min-w-0">
@@ -129,6 +133,26 @@ export function BrowsePdfPreview({
         </span>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
+            onClick={async () => {
+              const url = showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl;
+              try {
+                const resp = await fetch(url);
+                const blob = await resp.blob();
+                setImportPdf({ blob, filename: previewNode?.name || "worksheet.pdf" });
+                setShowImportModal(true);
+              } catch {
+                // Blob URL fetch failed — fall back to upload-based modal
+                setImportPdf(null);
+                setShowImportModal(true);
+              }
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
+            title="Import to Document via AI OCR"
+          >
+            <ScanLine className="h-4 w-4" />
+            Import
+          </button>
+          <button
             onClick={onAssign}
             className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a]"
           >
@@ -148,6 +172,15 @@ export function BrowsePdfPreview({
           </button>
         </div>
       </div>
+
+      <ImportWorksheetModal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+          setImportPdf(null);
+        }}
+        preloadedPdf={importPdf}
+      />
     </div>
   );
 }
