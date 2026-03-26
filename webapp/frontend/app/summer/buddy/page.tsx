@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   UserPlus,
   Phone,
+  Share2,
   RefreshCw,
   LayoutList,
   LayoutGrid,
@@ -49,6 +50,21 @@ const SHARE_HINT = "Share this code with the student\u2019s family so their budd
 const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
 
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
+
+const actionBtnActiveCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary text-primary-foreground bg-primary shadow-sm transition-colors";
+
+async function shareOrCopy(code: string, name?: string, onCopy?: (c: string) => void) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      await navigator.share({ title: "Buddy Code", text: `Buddy code: ${code}${name ? ` (${name})` : ""}` });
+      return;
+    } catch { /* cancelled — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    onCopy?.(code);
+  } catch { /* clipboard access denied */ }
+}
 
 
 function daysAgo(dateStr: string): number {
@@ -223,6 +239,7 @@ export default function BuddyTrackerPage() {
 
   const handleCopyToast = useCallback((code: string) => {
     setCopyToast(code);
+    navigator.vibrate?.(50);
     clearTimeout(copyToastTimer.current);
     copyToastTimer.current = setTimeout(() => setCopyToast(null), 2000);
   }, []);
@@ -240,7 +257,7 @@ export default function BuddyTrackerPage() {
   // Data
   const validBranch = branch && BRANCHES.includes(branch as typeof BRANCHES[number]);
   const swrKey = validBranch && pinVerified ? `buddy-${branch}-${CURRENT_YEAR}` : null;
-  const { data: members, isLoading } = useSWR(
+  const { data: members, isLoading, error } = useSWR(
     swrKey,
     () => buddyTrackerAPI.list(branch!, CURRENT_YEAR),
     { revalidateOnFocus: false, onSuccess: () => setLastUpdated(new Date()) }
@@ -473,6 +490,7 @@ export default function BuddyTrackerPage() {
     setConfirmDeleteId(null);
     try {
       await buddyTrackerAPI.delete(id, branch);
+      navigator.vibrate?.(100);
       setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
       globalMutate(swrKey);
     } catch {
@@ -680,14 +698,14 @@ export default function BuddyTrackerPage() {
             return (
               <button key={s.id} disabled={isFull}
                 onClick={() => linkTargetCode === s.buddy_code ? handleLink(memberId, s.buddy_code) : setLinkTargetCode(s.buddy_code)}
-                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2 ${isFull ? "opacity-50 cursor-not-allowed" : linkTargetCode === s.buddy_code ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}>
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-all flex items-center gap-2 ${isFull ? "opacity-50 cursor-not-allowed" : linkTargetCode === s.buddy_code ? "bg-primary/10 ring-2 ring-primary/30 scale-[1.01]" : "hover:bg-muted/50"}`}>
                 <span className="font-mono text-[10px] text-muted-foreground">{s.student_id}</span>
                 <span className="font-medium">{s.student_name_en}</span>
                 <CodePill code={s.buddy_code} />
                 {isFull ? (
                   <span className="ml-auto text-[10px] font-medium text-red-500">Full</span>
                 ) : linkTargetCode === s.buddy_code ? (
-                  <span className="ml-auto text-[10px] font-medium text-primary">Confirm</span>
+                  <span className="ml-auto text-[10px] font-bold text-primary bg-primary/15 px-2 py-0.5 rounded-full">Tap to link</span>
                 ) : null}
               </button>
             );
@@ -900,8 +918,8 @@ export default function BuddyTrackerPage() {
                 : "border-border hover:border-green-500/40 hover:shadow-sm hover:-translate-y-0.5"
             }`}
           >
-            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600" : "text-green-600/50"}`} />
-            <div className="text-2xl font-bold text-green-600">{stats.paired}</div>
+            <Check className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "complete" ? "text-green-600 dark:text-green-400" : "text-green-600/50 dark:text-green-400/50"}`} />
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.paired}</div>
             <div className="text-[10px] font-medium text-muted-foreground">Paired</div>
           </button>
 
@@ -913,19 +931,31 @@ export default function BuddyTrackerPage() {
                 ? "border-red-500 ring-2 ring-red-500/30 shadow-md scale-[1.02] bg-red-500/5"
                 : stats.solo > 0
                   ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-glow"
-                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50 hover:shadow-sm hover:-translate-y-0.5 animate-buddy-celebrate"
             }`}
           >
             {stats.solo > 0 ? (
-              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600" : "text-red-500/70"}`} />
+              <AlertTriangle className={`h-4 w-4 mx-auto mb-1 transition-colors ${filterTab === "solo" ? "text-red-600 dark:text-red-400" : "text-red-500/70 dark:text-red-400/70"}`} />
             ) : (
               <Check className="h-4 w-4 mx-auto mb-1 text-green-500" />
             )}
-            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600" : "text-green-600"}`}>
+            <div className={`text-2xl font-bold ${stats.solo > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
               {stats.solo === 0 && stats.total > 0 ? "✓" : stats.solo}
             </div>
             <div className="text-[10px] font-medium text-muted-foreground">Needs Partner</div>
           </button>
+        </div>
+      )}
+
+      {/* Progress bar */}
+      {ownMembers.length > 0 && stats.total > 0 && (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>{stats.paired} of {stats.total} paired</span>
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-primary to-green-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((stats.paired / stats.total) * 100)}%` }} />
+          </div>
+          <span className="font-medium text-foreground">{Math.round((stats.paired / stats.total) * 100)}%</span>
         </div>
       )}
 
@@ -934,8 +964,8 @@ export default function BuddyTrackerPage() {
       <div className="buddy-theme">
       <button
         onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center ${
-          drawerOpen ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center ${
+          drawerOpen ? "bg-muted text-muted-foreground rotate-90" : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
         }`}
         title={drawerOpen ? "Close" : "Add Student"}
       >
@@ -1113,7 +1143,7 @@ export default function BuddyTrackerPage() {
                 </p>
               )}
               {formSuccess && (
-                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative">
+                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative animate-drawer-in">
                   <div className="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
                     <Check className="h-5 w-5 text-green-600" />
                   </div>
@@ -1122,6 +1152,9 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
                       <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
+                      <button onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary transition-colors" title="Share code">
+                        <Share2 className="h-4 w-4" />
+                      </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                   </div>
@@ -1167,9 +1200,10 @@ export default function BuddyTrackerPage() {
             {filterTab === "solo" && stats.solo > 0 && (
               <button
                 onClick={() => {
-                  const codes = [...new Set(displayMembers.filter(m => m.group_size < 2).map(m => m.buddy_code))];
-                  navigator.clipboard.writeText(codes.join("\n"));
-                  handleCopyToast(`${codes.length} codes`);
+                  const soloMembers = displayMembers.filter(m => m.group_size < 2);
+                  const message = `Summer buddy codes:\n${soloMembers.map(m => `• ${m.buddy_code} (${m.student_name_en})`).join("\n")}`;
+                  navigator.clipboard.writeText(message);
+                  handleCopyToast(`${soloMembers.length} codes`);
                 }}
                 className="px-3 py-2 text-xs font-medium border-2 border-border rounded-xl hover:border-primary/40 hover:text-foreground transition-colors text-muted-foreground shrink-0"
                 title="Copy all solo codes for sharing with families to find partners"
@@ -1209,7 +1243,13 @@ export default function BuddyTrackerPage() {
       )}
 
       {/* Table (desktop) */}
-      {isLoading ? (
+      {error ? (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-red-500" />
+          <p className="text-sm text-red-600 dark:text-red-400">Failed to load buddy data</p>
+          <button onClick={() => globalMutate(swrKey)} className="mt-2 text-xs text-primary hover:underline">Retry</button>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           <RefreshCw className="h-5 w-5 mx-auto mb-2 animate-spin text-muted-foreground/50" />
           Loading buddy data...
@@ -1225,6 +1265,7 @@ export default function BuddyTrackerPage() {
             <>
               <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No paired groups yet</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">Link students or add partners to create buddy pairs</p>
             </>
           ) : (
             <>
@@ -1239,7 +1280,7 @@ export default function BuddyTrackerPage() {
         /* Board view — Solo left, Paired right */
         <div className="grid md:grid-cols-[1fr_1.2fr] gap-4">
           {/* Solo column */}
-          <div className="space-y-3">
+          <div className="space-y-3 bg-red-500/5 rounded-xl p-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               Needs Partner ({boardSolo.length})
@@ -1292,8 +1333,8 @@ export default function BuddyTrackerPage() {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={actionBtnCls} title="Pair with an existing student">
-                        <Link2 className="h-3 w-3" /> Link
+                      <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={linkingId === m.id ? actionBtnActiveCls : actionBtnCls} title={linkingId === m.id ? "Close link search" : "Pair with an existing student"}>
+                        <Link2 className="h-3 w-3" /> {linkingId === m.id ? "Close" : "Link"}
                       </button>
                       <button onClick={() => prefillBuddyCode(m.buddy_code)} className={actionBtnCls} title="Register a new student into this group">
                         <UserPlus className="h-3 w-3" /> Add partner
@@ -1308,7 +1349,7 @@ export default function BuddyTrackerPage() {
           </div>
 
           {/* Paired column */}
-          <div className="space-y-3">
+          <div className="space-y-3 bg-green-500/5 rounded-xl p-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-green-600 dark:text-green-400">
               <span className="w-2 h-2 rounded-full bg-green-500" />
               Paired ({boardPaired.length})
@@ -1439,10 +1480,12 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === soloMember.id ? null : soloMember.id); }}
-                        className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
-                        title="Pair with an existing student"
+                        className={linkingId === soloMember.id
+                          ? "px-3 py-1.5 text-[11px] font-medium border-2 border-primary bg-primary text-primary-foreground rounded-lg shadow-sm transition-colors"
+                          : "px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"}
+                        title={linkingId === soloMember.id ? "Close link search" : "Pair with an existing student"}
                       >
-                        <Link2 className="h-3 w-3 inline mr-1" />Link
+                        <Link2 className="h-3 w-3 inline mr-1" />{linkingId === soloMember.id ? "Close" : "Link"}
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); prefillBuddyCode(g.code); }}
@@ -1569,6 +1612,7 @@ export default function BuddyTrackerPage() {
                       onCancelDelete={() => setConfirmDeleteId(null)}
                       onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                       onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
+                      isLinking={linkingId === m.id}
                       onRequestUnlink={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                       onConfirmUnlink={() => handleUnlink(m.id)}
                       confirmUnlinkId={confirmUnlinkId}
@@ -1615,6 +1659,7 @@ export default function BuddyTrackerPage() {
                   onCancelDelete={() => setConfirmDeleteId(null)}
                   onAddPartner={() => prefillBuddyCode(m.buddy_code)}
                   onLink={() => setLinkingId(linkingId === m.id ? null : m.id)}
+                  isLinking={linkingId === m.id}
                   linkPicker={linkingId === m.id ? renderLinkPicker(m.id) : undefined}
                   onRequestUnlink={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
                   onConfirmUnlink={() => handleUnlink(m.id)}
@@ -1746,7 +1791,7 @@ function DesktopRow({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, isLinking,
   onRequestUnlink, onConfirmUnlink, confirmUnlinkId, onCancelUnlink,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
@@ -1758,7 +1803,7 @@ function DesktopRow({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
-  onLink?: () => void;
+  onLink?: () => void; isLinking?: boolean;
   onRequestUnlink?: () => void; onConfirmUnlink?: () => void; confirmUnlinkId?: number | null; onCancelUnlink?: () => void;
 }) {
   const waitDays = daysAgo(m.created_at);
@@ -1820,8 +1865,8 @@ function DesktopRow({
                 {isSolo && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <button onClick={onLink} className={actionBtnCls}>
-                        <Link2 className="h-3 w-3" /> Link
+                      <button onClick={onLink} className={isLinking ? actionBtnActiveCls : actionBtnCls} title={isLinking ? "Close link search" : "Pair with an existing student"}>
+                        <Link2 className="h-3 w-3" /> {isLinking ? "Close" : "Link"}
                       </button>
                       <button onClick={onAddPartner} className={actionBtnCls}>
                         <UserPlus className="h-3 w-3" /> Add partner
@@ -1845,7 +1890,7 @@ function MobileCard({
   member: m, isExpanded, isEditing, editData, editError,
   deletingId, confirmDeleteId, recentlyAddedId, onCopyToast,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onEditChange,
-  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, linkPicker,
+  onRequestDelete, onConfirmDelete, onCancelDelete, onAddPartner, onLink, isLinking, linkPicker,
   onRequestUnlink, onConfirmUnlink, confirmUnlinkId, onCancelUnlink,
 }: {
   member: BuddyMember; isExpanded: boolean; isEditing: boolean;
@@ -1857,7 +1902,7 @@ function MobileCard({
   onSaveEdit: () => void; onEditChange: (field: string, value: string) => void;
   onRequestDelete: () => void; onConfirmDelete: () => void; onCancelDelete: () => void;
   onAddPartner: () => void;
-  onLink?: () => void;
+  onLink?: () => void; isLinking?: boolean;
   linkPicker?: React.ReactNode;
   onRequestUnlink?: () => void; onConfirmUnlink?: () => void; confirmUnlinkId?: number | null; onCancelUnlink?: () => void;
 }) {
@@ -1866,10 +1911,10 @@ function MobileCard({
   const waitDays = daysAgo(m.created_at);
   const copyCodeBtn = isSolo ? (
     <button
-      onClick={() => { navigator.clipboard.writeText(m.buddy_code); onCopyToast?.(m.buddy_code); }}
+      onClick={() => shareOrCopy(m.buddy_code, m.student_name_en, onCopyToast)}
       className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
     >
-      Copy Code to Share
+      Share Code
     </button>
   ) : null;
   return (
@@ -1916,8 +1961,8 @@ function MobileCard({
               <div className="flex gap-2 pt-1 flex-wrap">
                 {isSolo && (
                   <>
-                    <button onClick={onLink} className={actionBtnCls}>
-                      <Link2 className="h-3 w-3" /> Link
+                    <button onClick={onLink} className={isLinking ? actionBtnActiveCls : actionBtnCls} title={isLinking ? "Close link search" : "Pair with an existing student"}>
+                      <Link2 className="h-3 w-3" /> {isLinking ? "Close" : "Link"}
                     </button>
                     <button onClick={onAddPartner} className={actionBtnCls}>
                       <UserPlus className="h-3 w-3" /> Add partner

@@ -8,6 +8,7 @@ import {
   Building2,
   GraduationCap,
   ClipboardPaste,
+  ClipboardList,
   ListChecks,
   Trash2,
   Pencil,
@@ -140,6 +141,15 @@ function ConfettiParticles() {
           } as React.CSSProperties}
         />
       ))}
+    </div>
+  );
+}
+
+function InlineErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="text-xs px-3 py-2 mb-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 flex items-center gap-1.5">
+      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+      {message}
     </div>
   );
 }
@@ -812,6 +822,8 @@ export default function ProspectPage() {
   }, [branch, pinInput]);
 
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [undoRow, setUndoRow] = useState<{ key: string; row: ParsedRow; idx: number } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [parseInfo, setParseInfo] = useState<{ text: string; canUndo: boolean } | null>(null);
@@ -835,6 +847,8 @@ export default function ProspectPage() {
   const [drawerFormValues, setDrawerFormValues] = useState<ProspectFormValues>(createEmptyFormValues());
   const [drawerSubmitting, setDrawerSubmitting] = useState(false);
   const [drawerResult, setDrawerResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [inlineError, setInlineError] = useState<{ id: number; message: string } | null>(null);
+  const inlineErrorTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [confirmAction, setConfirmAction] = useState<{
     title: string; message: string; onConfirm: () => void; variant?: "danger" | "warning"; confirmText?: string;
   } | null>(null);
@@ -924,8 +938,11 @@ export default function ProspectPage() {
       clearTimeout(spotlightScrollTimer.current);
       clearTimeout(spotlightActivateTimer.current);
       clearTimeout(drawerCloseTimer.current);
+      clearTimeout(inlineErrorTimer.current);
+      clearTimeout(undoTimer.current);
     };
   }, []);
+  const animatedSubmittedIds = useRef(new Set<number>());
   const submittedRef = useRef<HTMLElement>(null);
 
   const swrKey = branch && pinVerified ? `prospects-${branch}-${CURRENT_YEAR}` : null;
@@ -1084,8 +1101,28 @@ export default function ProspectPage() {
   }, []);
 
   const removeRow = useCallback((key: string) => {
-    setParsedRows((prev) => prev.filter((r) => r._key !== key));
+    setParsedRows((prev) => {
+      const idx = prev.findIndex((r) => r._key === key);
+      const row = idx >= 0 ? prev[idx] : undefined;
+      if (row) {
+        clearTimeout(undoTimer.current);
+        setUndoRow({ key, row, idx });
+        undoTimer.current = setTimeout(() => setUndoRow(null), 4000);
+      }
+      return prev.filter((r) => r._key !== key);
+    });
   }, []);
+
+  const undoRemoveRow = useCallback(() => {
+    if (!undoRow) return;
+    setParsedRows((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(undoRow.idx, next.length), 0, undoRow.row);
+      return next;
+    });
+    clearTimeout(undoTimer.current);
+    setUndoRow(null);
+  }, [undoRow]);
 
   const addEmptyRow = useCallback(() => {
     const row = createEmptyRow();
@@ -1338,6 +1375,7 @@ export default function ProspectPage() {
   // ---- Inline edit ----
 
   const startEdit = useCallback((prospect: PrimaryProspect) => {
+    setInlineError(null);
     setEditingId(prospect.id);
     setEditData({
       primary_student_id: prospect.primary_student_id ?? "",
@@ -1377,7 +1415,9 @@ export default function ProspectPage() {
       lastSavedTimer.current = setTimeout(() => setLastSavedId(null), 2000);
       if (swrKey) globalMutate(swrKey);
     } catch (err) {
-      alert(`Error saving: ${err instanceof Error ? err.message : "Unknown error"}`);
+      clearTimeout(inlineErrorTimer.current);
+      setInlineError({ id, message: err instanceof Error ? err.message : "Failed to save" });
+      inlineErrorTimer.current = setTimeout(() => setInlineError(null), 5000);
     }
   }, [editData, swrKey, branch]);
 
@@ -1392,7 +1432,9 @@ export default function ProspectPage() {
           await prospectsAPI.delete(id, branch!, CURRENT_YEAR);
           if (swrKey) globalMutate(swrKey);
         } catch (err) {
-          alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+          clearTimeout(inlineErrorTimer.current);
+          setInlineError({ id, message: err instanceof Error ? err.message : "Failed to delete" });
+          inlineErrorTimer.current = setTimeout(() => setInlineError(null), 5000);
         }
       },
     });
@@ -1438,7 +1480,14 @@ export default function ProspectPage() {
   // ---- PIN Gate ----
 
   if (pinVerified === null) {
-    return null; // Checking stored PIN — avoid flash
+    return (
+      <div className="max-w-sm mx-auto py-4">
+        <div className="flex flex-col items-center gap-3 py-16">
+          <span className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
+          <p className="text-sm text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!pinVerified) {
@@ -1750,11 +1799,13 @@ export default function ProspectPage() {
                   </>
                 )}
               </div>
-              {/* Mobile: manual-first messaging */}
+              {/* Mobile: onboarding guidance */}
               <div className="sm:hidden">
-                <Plus className="h-8 w-8 mx-auto mb-2 text-primary/40" />
-                <p className="text-base font-semibold text-foreground">Add students</p>
-                <p className="text-sm text-muted-foreground mt-1">Tap below to add students one by one</p>
+                <ClipboardList className="h-8 w-8 mx-auto mb-2 text-primary/40" />
+                <p className="text-base font-semibold text-foreground">Get started</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Copy rows from your spreadsheet and paste here, or tap below to add students one by one.
+                </p>
               </div>
               <div className="mt-4 flex justify-center">
                 <button
@@ -2065,7 +2116,7 @@ export default function ProspectPage() {
               </span>
               <button
                 onClick={clearAllRows}
-                className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-2 py-0.5 hover:text-red-600 hover:border-red-300 transition-colors"
+                className="text-xs font-medium text-red-600 border border-red-200 rounded-lg px-2 py-0.5 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20 transition-colors"
               >
                 Clear All
               </button>
@@ -2217,6 +2268,7 @@ export default function ProspectPage() {
                   <ProspectCardSummary data={p} />
                   {isOpen && (
                     <div className="pt-2 border-t border-border">
+                      {inlineError?.id === p.id && <InlineErrorBanner message={inlineError.message} />}
                       {isEditing ? (
                         <ProspectEditForm
                           values={mergeEditValues(editData, p)}
@@ -2234,7 +2286,7 @@ export default function ProspectPage() {
                             <div className="text-[10px] pt-1">
                               Submitted {new Date(p.submitted_at).toLocaleString()}
                               {wasEdited(p.submitted_at, p.updated_at) && (
-                                <span className="ml-1.5 text-muted-foreground/50">
+                                <span className="ml-1.5 text-muted-foreground/50" title={p.updated_at ? new Date(p.updated_at).toLocaleString() : ""}>
                                   <Pencil className="h-2.5 w-2.5 inline mr-0.5" />Edited {relativeTime(p.updated_at)}
                                 </span>
                               )}
@@ -2289,12 +2341,14 @@ export default function ProspectPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredExisting.map((p) => {
+                {filteredExisting.map((p, idx) => {
                   const isEditing = editingId === p.id;
                   const isOpen = editingId === p.id || submittedExpandedKeys.has(`sub-${p.id}`);
                   const urgency = outreachUrgency(p.outreach_status);
                   const daysSinceSubmit = daysAgo(p.submitted_at);
                   const shouldPulse = urgency === "action" && daysSinceSubmit >= 5;
+                  const isNewRow = !animatedSubmittedIds.current.has(p.id);
+                  if (isNewRow) animatedSubmittedIds.current.add(p.id);
                   return (
                     <React.Fragment key={p.id}>
                       <tr
@@ -2302,6 +2356,7 @@ export default function ProspectPage() {
                           selectedSubmittedIds.has(p.id) ? "bg-primary/[0.05]"
                             : isOpen ? "bg-primary/[0.03]" : "hover:bg-primary/[0.03]"
                         }`}
+                        style={isNewRow ? { animation: `fadeSlideIn 0.3s ease-out ${Math.min(idx * 0.03, 0.5)}s both` } : undefined}
                         onClick={() => { if (!isEditing) toggleSubmittedExpand(p.id); }}
                       >
                         <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
@@ -2371,6 +2426,7 @@ export default function ProspectPage() {
                       {isOpen && (
                         <tr>
                           <td colSpan={12} className="px-3 py-3 bg-muted/50 dark:bg-muted/20 border-l-4 border-l-primary/30 border-t-2 border-b-2 border-border dark:border-gray-700">
+                            {inlineError?.id === p.id && <InlineErrorBanner message={inlineError.message} />}
                             {isEditing ? (
                               <ProspectEditForm
                                 values={mergeEditValues(editData, p)}
@@ -2524,7 +2580,7 @@ export default function ProspectPage() {
                 )}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleDrawerSubmit(false)}
+                    onClick={() => handleDrawerSubmit(true)}
                     disabled={drawerSubmitting || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
@@ -2533,14 +2589,14 @@ export default function ProspectPage() {
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
-                    {drawerSubmitting ? "Submitting..." : "Submit & Add Another"}
+                    {drawerSubmitting ? "Submitting..." : "Submit & Close"}
                   </button>
                   <button
-                    onClick={() => handleDrawerSubmit(true)}
+                    onClick={() => handleDrawerSubmit(false)}
                     disabled={drawerSubmitting || !isRowComplete(drawerFormValues) || !!validatePhone(drawerFormValues.phone_1) || !!validateStudentId(drawerFormValues.primary_student_id, branch)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium border border-primary/30 text-primary rounded-lg hover:bg-primary/5 disabled:opacity-50 transition-colors"
                   >
-                    Submit & Close
+                    Save & add another
                   </button>
                 </div>
               </div>
@@ -2616,6 +2672,19 @@ export default function ProspectPage() {
           document.body
         );
       })()}
+
+      {/* Undo toast for parsed row deletion */}
+      {undoRow && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium animate-in slide-in-from-bottom-2 fade-in duration-200">
+          <span>Row removed</span>
+          <button
+            onClick={undoRemoveRow}
+            className="text-primary-foreground bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-colors"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
