@@ -1238,42 +1238,52 @@ export default function BuddyTrackerPage() {
             ) : boardSolo.map(m => {
               const waitDays = daysAgo(m.created_at);
               return (
-              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2 ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : "bg-card"}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-mono text-[10px] text-muted-foreground mr-1.5">{m.student_id}</span>
-                    <span className="font-medium text-sm">{m.student_name_en}</span>
-                    {m.student_name_zh && <span className="text-xs text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
-                    {m.is_sibling && <SiblingBadge />}
-                  </div>
+              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2.5 ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : "bg-card"}`}>
+                {/* Status bar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
                   <GroupRing size={m.group_size} />
+                  <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
+                  {waitDays >= 1 && (
+                    <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Waiting for partner">
+                      {relativeTime(m.created_at)}
+                    </span>
+                  )}
+                  <div className="ml-auto flex items-center gap-1 shrink-0">
+                    <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                      onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {m.parent_phone && <span>{m.parent_phone}</span>}
-                  <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : waitDays >= 1 ? "text-amber-500" : ""}`} title="Waiting for partner">
-                    {relativeTime(m.created_at)}
-                  </span>
-                </div>
+                {/* Student info */}
                 {editingId === m.id ? (
                   <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2">
-                      <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
-                      <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
-                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className="ml-auto text-[11px] font-medium text-primary hover:text-primary/80 transition-colors" title="Register a new student into this group">
-                        <UserPlus className="h-3 w-3 inline mr-0.5" />Add partner
-                      </button>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                        <span className="font-medium text-sm">{m.student_name_en}</span>
+                        {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
+                        {m.is_sibling && <SiblingBadge />}
+                      </div>
+                      {m.parent_phone && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          <span>{m.parent_phone}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 pt-1 border-t border-border/50 mt-1">
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={actionBtnCls} title="Pair with an existing student">
                         <Link2 className="h-3 w-3" /> Link
                       </button>
-                      <button onClick={() => startEdit(m)} className={actionBtnCls}>
-                        <Pencil className="h-3 w-3" /> Edit
+                      <button onClick={() => prefillBuddyCode(m.buddy_code)} className={actionBtnCls} title="Register a new student into this group">
+                        <UserPlus className="h-3 w-3" /> Add partner
                       </button>
-                      <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                        onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
                     </div>
                     {linkingId === m.id && <div className="mt-2">{renderLinkPicker(m.id)}</div>}
                   </>
@@ -1298,38 +1308,53 @@ export default function BuddyTrackerPage() {
                   <GroupRing size={g.members.length + g.others.length} />
                   <CrossBranchIndicator members={g.others} currentBranch={branch!} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {g.members.map(m => (
                     <div key={m.id}>
                       {editingId === m.id ? (
                         <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                       ) : (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
-                          <span className="font-medium">{m.student_name_en}</span>
-                          {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
-                          {m.is_sibling && <SiblingBadge />}
-                          <div className="ml-auto flex items-center gap-1 shrink-0">
-                            <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
-                              onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
-                              onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
-                            <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
-                              onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                            <span className="font-medium">{m.student_name_en}</span>
+                            {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                            {m.is_sibling && <SiblingBadge />}
+                            <div className="ml-auto flex items-center gap-1 shrink-0">
+                              <UnlinkActions id={m.id} confirmUnlinkId={confirmUnlinkId}
+                                onRequest={() => { setConfirmUnlinkId(m.id); clearTimeout(confirmUnlinkTimer.current); confirmUnlinkTimer.current = setTimeout(() => setConfirmUnlinkId(null), 3000); }}
+                                onConfirm={() => handleUnlink(m.id)} onCancel={() => setConfirmUnlinkId(null)} />
+                              <button onClick={() => startEdit(m)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <DeleteActions id={m.id} deletingId={deletingId} confirmDeleteId={confirmDeleteId}
+                                onRequest={() => requestDelete(m.id)} onConfirm={() => handleDelete(m.id)} onCancel={() => setConfirmDeleteId(null)} />
+                            </div>
                           </div>
+                          {m.parent_phone && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              <span>{m.parent_phone}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   ))}
                   {g.others.map(m => (
-                    <div key={`${m.source}-${m.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <BranchBadge branch={m.branch} />
-                      {m.student_id && <span className="font-mono text-[10px]">{m.student_id}</span>}
-                      <span className="font-medium">{m.name}</span>
-                      {m.phone && <span className="text-muted-foreground">{m.phone}</span>}
-                      {m.is_sibling && <SiblingBadge />}
+                    <div key={`${m.source}-${m.id}`} className="py-2 space-y-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <BranchBadge branch={m.branch} />
+                        {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
+                        <span className="font-medium">{m.name}</span>
+                        {m.is_sibling && <SiblingBadge />}
+                      </div>
+                      {m.phone && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          <span>{m.phone}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
