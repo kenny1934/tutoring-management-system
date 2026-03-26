@@ -123,6 +123,7 @@ export const documentsAPI = {
     title?: string;
     folderId?: number;
     sourcePath?: string;
+    templateId?: number;
   }): Promise<Document & { usage?: { input_tokens: number; output_tokens: number } }> {
     const formData = new FormData();
     formData.append("file", file);
@@ -131,6 +132,7 @@ export const documentsAPI = {
     if (options?.title) qs.set("title", options.title);
     if (options?.folderId !== undefined) qs.set("folder_id", String(options.folderId));
     if (options?.sourcePath) qs.set("source_path", options.sourcePath);
+    if (options?.templateId !== undefined) qs.set("template_id", String(options.templateId));
     const q = qs.toString();
     return fetchFormData<Document & { usage?: { input_tokens: number; output_tokens: number } }>(`/documents/import-worksheet${q ? `?${q}` : ""}`, formData, "Import failed");
   },

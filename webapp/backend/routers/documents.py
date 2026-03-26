@@ -821,9 +821,6 @@ async def delete_folder(
 
 # ─── Worksheet OCR Import ────────────────────────────────────────────
 
-IMPORT_TEMPLATE_ID = 44  # "No Watermark" template — provides default page_layout for imports
-
-
 @router.post("/documents/import-worksheet")
 async def import_worksheet(
     file: UploadFile = File(...),
@@ -831,6 +828,7 @@ async def import_worksheet(
     title: str = Query("", description="Document title (defaults to filename)"),
     folder_id: Optional[int] = Query(None, description="Target folder ID"),
     source_path: str = Query("", description="Courseware file path (for provenance tracking)"),
+    template_id: Optional[int] = Query(None, description="Template ID to copy page_layout from"),
     current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
@@ -839,7 +837,7 @@ async def import_worksheet(
 
     Processes each page: renders to image, optionally removes handwriting,
     sends to Gemini for structured OCR, and creates a Document with TipTap JSON content.
-    Uses the No Watermark template's page_layout as the default layout.
+    Optionally applies a template's page_layout (margins, header/footer, watermark).
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -865,8 +863,10 @@ async def import_worksheet(
         logger.error("Worksheet OCR failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="OCR processing failed")
 
-    template = db.query(Document).filter(Document.id == IMPORT_TEMPLATE_ID).first()
-    template_layout = template.page_layout if template else None
+    template_layout = None
+    if template_id:
+        template = db.query(Document).filter(Document.id == template_id).first()
+        template_layout = template.page_layout if template else None
 
     now = hk_now()
     final_title = _resolve_unique_title(db, doc_title, folder_id, False)

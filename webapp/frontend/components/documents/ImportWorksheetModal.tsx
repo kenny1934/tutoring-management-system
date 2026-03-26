@@ -2,12 +2,43 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, Loader2, ScanLine, CheckCircle2, FolderOpen } from "lucide-react";
+import useSWR from "swr";
+import { Upload, FileText, Loader2, ScanLine, CheckCircle2, FolderOpen, Stamp, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import { useToast } from "@/contexts/ToastContext";
 import { Modal } from "@/components/ui/modal";
 import { FolderTreeModal } from "@/components/ui/folder-tree-modal";
+import type { DocumentMetadata } from "@/types";
+
+const FONT_LABELS: Record<string, string> = {
+  "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif": "思源黑體",
+  "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif": "思源宋體",
+};
+
+/** Map a CSS font-family stack to a display label, falling back to the primary font name */
+function fontLabel(fontStack: string): string {
+  if (FONT_LABELS[fontStack]) return FONT_LABELS[fontStack];
+  const first = fontStack.split(",")[0].trim();
+  return first.replace(/^['"]|['"]$/g, "");
+}
+
+function LayoutBadges({ layout }: { layout: DocumentMetadata }) {
+  const badges: string[] = [];
+  if (layout.header?.enabled) badges.push(layout.header.imageUrl ? "Header 🖼" : "Header");
+  if (layout.footer?.enabled) badges.push(layout.footer.imageUrl ? "Footer 🖼" : "Footer");
+  if (layout.watermark?.enabled) badges.push("Watermark");
+  if (layout.bodyFontFamily) badges.push(fontLabel(layout.bodyFontFamily));
+  if (layout.bodyFontFamilyCjk) badges.push(fontLabel(layout.bodyFontFamilyCjk));
+  if (!badges.length) return <span className="text-[10px] text-gray-400 dark:text-gray-500">Default layout</span>;
+  return (
+    <div className="flex flex-wrap gap-1 mt-0.5">
+      {badges.map((b) => (
+        <span key={b} className="px-1.5 py-0 rounded text-[10px] bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400">{b}</span>
+      ))}
+    </div>
+  );
+}
 
 interface ImportWorksheetModalProps {
   isOpen: boolean;
@@ -42,6 +73,13 @@ export default function ImportWorksheetModal({
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [sourcePath, setSourcePath] = useState("");
   const [usage, setUsage] = useState<{ input_tokens: number; output_tokens: number } | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+
+  const { data: templates } = useSWR(
+    step === "options" ? ["import-templates"] : null,
+    () => documentsAPI.list({ is_template: true, limit: 50 }),
+    { revalidateOnFocus: false }
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -49,6 +87,7 @@ export default function ImportWorksheetModal({
       setCreatedDocId(null);
       setRemoveHandwriting(true);
       setUsage(null);
+      setSelectedTemplateId(null);
       if (preloadedPdf) {
         const f = new File([preloadedPdf.blob], preloadedPdf.filename, { type: "application/pdf" });
         setFile(f);
@@ -96,6 +135,7 @@ export default function ImportWorksheetModal({
         title: title.trim() || undefined,
         folderId: defaultFolderId ?? undefined,
         sourcePath: sourcePath || undefined,
+        templateId: selectedTemplateId ?? undefined,
       });
       setCreatedDocId(doc.id);
       setUsage(doc.usage ?? null);
@@ -106,7 +146,7 @@ export default function ImportWorksheetModal({
       setError(err instanceof Error ? err.message : "Import failed");
       setStep("options");
     }
-  }, [file, removeHandwriting, title, defaultFolderId, sourcePath, showToast, onSuccess]);
+  }, [file, removeHandwriting, title, defaultFolderId, sourcePath, selectedTemplateId, showToast, onSuccess]);
 
   const handleOpenEditor = useCallback(() => {
     if (createdDocId) {
@@ -277,6 +317,50 @@ export default function ImportWorksheetModal({
                 <p className="text-xs text-gray-500 dark:text-gray-400">Clean colored ink and pencil marks before OCR</p>
               </div>
             </label>
+
+            {/* Template selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Page layout template</label>
+              <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5">
+                {/* None option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedTemplateId(null)}
+                  className={cn(
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
+                    selectedTemplateId === null
+                      ? "bg-[#a0704b]/10 border border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
+                      : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-400"
+                  )}
+                >
+                  <span className="w-3.5 shrink-0">{selectedTemplateId === null && <Check className="w-3.5 h-3.5" />}</span>
+                  <span>No template</span>
+                </button>
+                {templates?.map((tpl) => {
+                  const layout = tpl.page_layout as DocumentMetadata | null;
+                  const isSelected = selectedTemplateId === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => setSelectedTemplateId(tpl.id)}
+                      className={cn(
+                        "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-sm transition-colors",
+                        isSelected
+                          ? "bg-[#a0704b]/10 border border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
+                          : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300"
+                      )}
+                    >
+                      {isSelected ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Stamp className="w-3.5 h-3.5 shrink-0 text-purple-500" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm truncate">{tpl.title}</p>
+                        {layout && <LayoutBadges layout={layout} />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
