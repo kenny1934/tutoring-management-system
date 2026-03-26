@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.42](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.42) (2026-03-26)
+
+### New Features
+
+* **Prospect page overhaul** — floating action button with direct-submit drawer, paste-to-table form with field validation, arrow key navigation in school autocomplete, urgency highlights on submitted table, and bulk operations
+
+### Improvements
+
+* **Rate limits increased** — higher thresholds for shared WiFi environments where multiple staff connect from the same IP
+
+### Bug Fixes
+
+* **Keyboard shortcuts after bulk rating** — shortcuts on the sessions page stopped responding after closing the bulk rate modal until clicking something with the mouse
+* **Prospect drawer name** — fixed the drawer capturing a stale student name after edits
+
 ## [2.0.41](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.41) (2026-03-25)
 
 ### New Features
