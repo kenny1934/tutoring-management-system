@@ -191,6 +191,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "folder_name": doc.folder.name if doc.folder else "",
         "source_filename": doc.source_filename,
         "questions": doc.questions,
+        "parent_id": doc.parent_id,
     }
     if include_content:
         data["content"] = doc.content
@@ -284,10 +285,18 @@ async def get_document(
     db: Session = Depends(get_db),
 ):
     """Get a single document with full content."""
-    doc = _doc_query(db).filter(Document.id == doc_id).first()
+    doc = _doc_query(db).options(
+        joinedload(Document.parent),
+    ).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    return _doc_to_response(doc)
+    resp = _doc_to_response(doc)
+    resp["parent_title"] = doc.parent.title if doc.parent else ""
+    children = db.query(Document.id, Document.title).filter(
+        Document.parent_id == doc_id, Document.is_archived == False  # noqa: E712
+    ).order_by(Document.created_at.desc()).all()
+    resp["children"] = [{"id": c.id, "title": c.title} for c in children]
+    return resp
 
 
 @router.post("/documents", response_model=DocumentResponse)
@@ -1102,6 +1111,7 @@ async def create_variant_document_endpoint(
         is_template=False,
         folder_id=folder_id,
         tags=source_doc.tags or [],
+        parent_id=doc_id,
     )
     db.add(new_doc)
     db.commit()

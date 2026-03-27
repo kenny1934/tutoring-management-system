@@ -1886,6 +1886,9 @@ export interface Document {
   questions?: ExtractedQuestion[] | null;
   solutions?: Record<string, { text: string; topic?: string; subtopic?: string; difficulty?: string }> | null;
   variants?: Record<string, { text: string; solution_text?: string }> | null;
+  parent_id?: number | null;
+  parent_title?: string;
+  children?: { id: number; title: string }[];
 }
 
 export interface ExtractedQuestion {

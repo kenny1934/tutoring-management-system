@@ -18,6 +18,7 @@ MIGRATIONS = [
     "087_document_questions.sql",
     "088_document_solutions.sql",
     "089_document_variants.sql",
+    "090_document_parent_id.sql",
     "094_buddy_access_cards.sql",
 ]
 

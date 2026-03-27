@@ -88,6 +88,7 @@ import {
   History,
   Stamp,
   Archive,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
@@ -260,6 +261,48 @@ function isEmptyDocument(title: string, content: Record<string, unknown> | null 
     c.content.length <= 1 &&
     (!c.content[0] || (c.content[0].type === "paragraph" &&
       (!c.content[0].content || (Array.isArray(c.content[0].content) && c.content[0].content.length === 0))))
+  );
+}
+
+function VariantChildrenDropdown({ items }: { items: { id: number; title: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  if (items.length === 1) {
+    return (
+      <span>
+        1 variant:{" "}
+        <a href={`/documents/${items[0].id}`} className="text-primary hover:underline font-medium">
+          {items[0].title}
+        </a>
+      </span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="hover:underline font-medium text-primary"
+      >
+        {items.length} variants
+        <ChevronDown className="w-2.5 h-2.5 ml-0.5 inline" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[12rem] max-h-48 overflow-y-auto">
+          {items.map(c => (
+            <a
+              key={c.id}
+              href={`/documents/${c.id}`}
+              className="block px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 truncate"
+            >
+              {c.title}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1312,6 +1355,29 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         </div>
 
         </div>
+        {/* Variant lineage */}
+        {(() => {
+          const hasChildren = !!doc.children?.length;
+          if (!doc.parent_id && !hasChildren) return null;
+          return (
+            <div className="px-3 sm:px-4 pb-1 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+              <GitBranch className="w-3 h-3 shrink-0" />
+              {doc.parent_id && (
+                <span>
+                  Variant of{" "}
+                  <a
+                    href={`/documents/${doc.parent_id}`}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    {doc.parent_title || `Doc #${doc.parent_id}`}
+                  </a>
+                </span>
+              )}
+              {doc.parent_id && hasChildren && <span className="mx-0.5">·</span>}
+              {hasChildren && <VariantChildrenDropdown items={doc.children!} />}
+            </div>
+          );
+        })()}
         {/* Tag strip + metadata */}
         <div className="px-3 sm:px-4 pb-1.5 flex flex-col sm:flex-row sm:items-center gap-1">
           <div className="flex-1 min-w-0">

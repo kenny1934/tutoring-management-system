@@ -1039,6 +1039,7 @@ class Document(Base):
     lock_expires_at = Column(DateTime, nullable=True)
     tags = Column(JSON, default=list)
     folder_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
 
     last_version_at = Column(DateTime, nullable=True)
     source_filename = Column(String(500), nullable=True, comment="Original filename or courseware path of imported source")
@@ -1050,6 +1051,7 @@ class Document(Base):
     updater = relationship("Tutor", foreign_keys=[updated_by])
     locker = relationship("Tutor", foreign_keys=[locked_by])
     folder = relationship("DocumentFolder", foreign_keys=[folder_id])
+    parent = relationship("Document", remote_side="Document.id", foreign_keys=[parent_id], backref="children")
     versions = relationship("DocumentVersion", back_populates="document", cascade="all, delete-orphan")
 
 
