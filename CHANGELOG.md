@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.43](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.43) (2026-03-27)
+
+### Bug Fixes
+
+* **PDF preview flickering** — reduced unnecessary re-renders in lesson mode PDF viewers that could cause both exercise and answer panes to flash on high-DPI displays or slower devices
+
 ## [2.0.42](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.42) (2026-03-26)
 
 ### New Features

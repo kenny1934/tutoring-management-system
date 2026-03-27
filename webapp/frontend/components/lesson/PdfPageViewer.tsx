@@ -300,11 +300,14 @@ export function PdfPageViewer({
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
+  const currentVisiblePageRef = useRef(1);
   const [pdfDarkMode, setPdfDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('csm_pdf_dark_mode') === 'true';
   });
   const pageUrlsRef = useRef<string[]>([]);
+  const pagesRef = useRef<RenderedPage[]>([]);
+  const zoomRef = useRef(100);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
@@ -328,6 +331,11 @@ export function PdfPageViewer({
 
   // Annotation visibility toggle
   const [annotationsVisible, setAnnotationsVisible] = useState(true);
+
+  // Keep refs in sync with state (synchronous, before effects run)
+  pagesRef.current = pages;
+  zoomRef.current = zoom;
+  currentVisiblePageRef.current = currentVisiblePage;
 
   // Clear all confirmation state (arm-then-confirm pattern)
   const [confirmingClearAll, setConfirmingClearAll] = useState(false);
@@ -364,11 +372,12 @@ export function PdfPageViewer({
   }, []);
 
   const handleFitWidth = useCallback(() => {
-    if (pages.length === 0 || !scrollContainerRef.current) return;
-    const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
+    if (pagesRef.current.length === 0 || !scrollContainerRef.current) return;
+    const fit = computeFitZoom(scrollContainerRef.current, pagesRef.current[0].width);
     fitZoomRef.current = fit;
     setZoom(fit);
-  }, [pages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -554,7 +563,7 @@ export function PdfPageViewer({
     userHasZoomed.current = false;
     const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
     fitZoomRef.current = fit;
-    setZoom(fit);
+    if (fit !== zoomRef.current) setZoom(fit);
   }, [pages]);
 
   // Reset horizontal scroll when content fits (prevents stuck scroll after zoom-out)
@@ -566,21 +575,24 @@ export function PdfPageViewer({
   }, [zoom]);
 
   // ResizeObserver: auto-refit on window resize (only if user hasn't manually zoomed)
+  // Uses pagesRef to avoid reconnecting observer on every hi-res re-render
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container || pages.length === 0) return;
+    if (!container || pagesRef.current.length === 0) return;
 
     const observer = new ResizeObserver(() => {
-      if (userHasZoomed.current) return;
-      const fit = computeFitZoom(container, pages[0].width);
+      if (userHasZoomed.current || pagesRef.current.length === 0) return;
+      const fit = computeFitZoom(container, pagesRef.current[0].width);
       fitZoomRef.current = fit;
-      setZoom(fit);
+      if (fit !== zoomRef.current) setZoom(fit);
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [pages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length]);
 
   // IntersectionObserver: track which page is most visible
+  // Only reconnect when page count changes (new exercise), not on hi-res re-renders
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || pages.length <= 1) return;
@@ -588,7 +600,7 @@ export function PdfPageViewer({
     const observer = new IntersectionObserver(
       (entries) => {
         let maxRatio = 0;
-        let maxPage = currentVisiblePage;
+        let maxPage = currentVisiblePageRef.current;
         for (const entry of entries) {
           if (entry.intersectionRatio > maxRatio) {
             maxRatio = entry.intersectionRatio;
@@ -605,17 +617,20 @@ export function PdfPageViewer({
       if (el) observer.observe(el);
     }
     return () => observer.disconnect();
-  }, [pages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length]);
 
   // Debounced hi-res re-render when zoom exceeds current render resolution
+  // Uses pagesRef to avoid re-triggering when pages change (prevents flash on initial load)
   useEffect(() => {
-    if (pages.length === 0 || !pdfBytesRef.current) return;
+    if (pagesRef.current.length === 0 || !pdfBytesRef.current) return;
 
     const neededScale = (zoom / 100) * RENDER_SCALE;
     // Only re-render if zoom demands more than 10% beyond current resolution
     if (neededScale <= renderScaleRef.current * 1.1) return;
 
     let cancelled = false;
+    let rafHandle: number | undefined;
     const pdfBytes = pdfBytesRef.current;
     const timer = setTimeout(async () => {
       try {
@@ -665,7 +680,7 @@ export function PdfPageViewer({
           return;
         }
 
-        // Snapshot old URLs before replacing — revoke AFTER cache is updated
+        // Snapshot old URLs before replacing — revoke AFTER React flushes to DOM
         const oldUrls = [...pageUrlsRef.current];
 
         pageUrlsRef.current = rendered.map((r) => r.url);
@@ -682,8 +697,10 @@ export function PdfPageViewer({
           });
         }
 
-        // Revoke old URLs after everything is updated
-        oldUrls.forEach((url) => URL.revokeObjectURL(url));
+        // Delay revocation so React can flush new img src to DOM first
+        rafHandle = requestAnimationFrame(() => {
+          oldUrls.forEach((url) => URL.revokeObjectURL(url));
+        });
       } catch (err) {
         console.error("Hi-res re-render failed:", err);
       }
@@ -691,9 +708,11 @@ export function PdfPageViewer({
 
     return () => {
       clearTimeout(timer);
+      if (rafHandle !== undefined) cancelAnimationFrame(rafHandle);
       cancelled = true;
     };
-  }, [zoom, pages, exerciseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, exerciseId]);
 
   // Keyboard shortcuts for zoom (+/- keys)
   useEffect(() => {
