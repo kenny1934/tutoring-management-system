@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   ExternalLink,
   X,
+  Clock,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -62,6 +63,24 @@ const STATUS_OPTIONS: ProspectStatus[] = [
 
 const INTENTION_OPTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
 
+/** Prospect timestamps are UTC (Cloud SQL func.now()). Append Z so the browser displays in local time. */
+function parseUTC(ts: string): Date {
+  return ts.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(ts) ? new Date(ts) : new Date(ts + "Z");
+}
+
+function relativeTimeUTC(ts: string): string {
+  const diffMs = Date.now() - parseUTC(ts).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(diffMs / 3600000);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(diffMs / 86400000);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return parseUTC(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
 
@@ -91,7 +110,10 @@ function ProspectDetailModal({
   const [status, setStatus] = useState(prospect.status);
   const [contactNotes, setContactNotes] = useState(prospect.contact_notes || "");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const unlinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const { data: matchResult } = useSWR(
     !prospect.summer_application_id ? `prospect-match-${prospect.id}` : null,
@@ -101,6 +123,7 @@ function ProspectDetailModal({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await prospectsAPI.adminUpdate(prospect.id, {
         outreach_status: outreachStatus,
@@ -110,13 +133,14 @@ function ProspectDetailModal({
       onSave();
       onClose();
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+      setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
   const handleLink = async (applicationId: number) => {
+    setSaveError(null);
     try {
       await prospectsAPI.adminUpdate(prospect.id, {
         summer_application_id: applicationId,
@@ -125,7 +149,7 @@ function ProspectDetailModal({
       onSave();
       onClose();
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+      setSaveError(err instanceof Error ? err.message : "Link failed");
     }
   };
 
@@ -168,7 +192,7 @@ function ProspectDetailModal({
             <div className="flex items-start gap-2.5 text-sm">
               <School className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
               <div>
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pref. Branch</div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Branch Choice</div>
                 <BranchBadges branches={prospect.preferred_branches || []} />
               </div>
             </div>
@@ -185,11 +209,11 @@ function ProspectDetailModal({
           {/* Intention */}
           <div className="flex gap-4">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Summer:</span>
+              <span className="text-muted-foreground">Wants Summer?</span>
               <IntentionBadge value={prospect.wants_summer} />
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Regular (Sept):</span>
+              <span className="text-muted-foreground">Wants Regular (Sept)?</span>
               <IntentionBadge value={prospect.wants_regular} />
             </div>
           </div>
@@ -250,6 +274,16 @@ function ProspectDetailModal({
               />
             </div>
 
+            {saveError && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">{saveError}</span>
+                <button onClick={() => setSaveError(null)} className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             <button
               onClick={handleSave}
               disabled={saving}
@@ -278,18 +312,26 @@ function ProspectDetailModal({
                   </a>
                   <button
                     onClick={async () => {
-                      if (!confirm("Unlink this prospect from the summer application?")) return;
+                      if (!confirmingUnlink) {
+                        setConfirmingUnlink(true);
+                        clearTimeout(unlinkTimerRef.current);
+                        unlinkTimerRef.current = setTimeout(() => setConfirmingUnlink(false), 3000);
+                        return;
+                      }
+                      clearTimeout(unlinkTimerRef.current);
+                      setConfirmingUnlink(false);
+                      setSaveError(null);
                       try {
                         await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
                         onSave();
                         onClose();
                       } catch (err) {
-                        alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+                        setSaveError(err instanceof Error ? err.message : "Unlink failed");
                       }
                     }}
-                    className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                    className={`text-xs font-medium transition-colors ${confirmingUnlink ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
                   >
-                    Unlink
+                    {confirmingUnlink ? "Sure? Click again" : "Unlink"}
                   </button>
                 </div>
               </div>
@@ -338,7 +380,7 @@ function ProspectDetailModal({
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                   {prospect.edit_history.map((h, i) => (
                     <div key={i} className="text-xs text-muted-foreground font-mono">
-                      {new Date(h.timestamp).toLocaleString()} — {h.field}: {h.old_value ?? "null"} &rarr; {h.new_value ?? "null"}
+                      {parseUTC(h.timestamp).toLocaleString()} — {h.field}: {h.old_value ?? "null"} &rarr; {h.new_value ?? "null"}
                     </div>
                   ))}
                 </div>
@@ -381,10 +423,13 @@ export default function AdminProspectsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
+  const [confirmingAutoMatch, setConfirmingAutoMatch] = useState(false);
+  const autoMatchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<{ matched: number; total_unlinked: number; skipped_ambiguous: number } | null>(null);
   const matchResultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => () => { if (matchResultTimer.current) clearTimeout(matchResultTimer.current); }, []);
+  useEffect(() => () => { clearTimeout(matchResultTimer.current); clearTimeout(autoMatchTimerRef.current); }, []);
 
   // Fetch available years from summer configs
   const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
@@ -455,32 +500,41 @@ export default function AdminProspectsPage() {
 
   const handleBulkOutreach = useCallback(async (outreachStatus: ProspectOutreachStatus) => {
     if (selectedIds.size === 0) return;
+    setPageError(null);
     try {
       await prospectsAPI.bulkOutreach(Array.from(selectedIds), outreachStatus);
       setSelectedIds(new Set());
       refresh();
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+      setPageError(err instanceof Error ? err.message : "Bulk update failed");
     }
   }, [selectedIds, refresh]);
 
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
-    if (!confirm(`Auto-match all unlinked prospects for ${year}?\nThis will link prospects to summer applications by matching phone numbers.`)) return;
+    if (!confirmingAutoMatch) {
+      setConfirmingAutoMatch(true);
+      clearTimeout(autoMatchTimerRef.current);
+      autoMatchTimerRef.current = setTimeout(() => setConfirmingAutoMatch(false), 3000);
+      return;
+    }
+    clearTimeout(autoMatchTimerRef.current);
+    setConfirmingAutoMatch(false);
     setAutoMatching(true);
     setMatchResult(null);
+    setPageError(null);
     try {
       const result = await prospectsAPI.autoMatch(year);
       setMatchResult(result);
       refresh();
-      if (matchResultTimer.current) clearTimeout(matchResultTimer.current);
+      clearTimeout(matchResultTimer.current);
       matchResultTimer.current = setTimeout(() => setMatchResult(null), 10000);
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Unknown"}`);
+      setPageError(err instanceof Error ? err.message : "Auto-match failed");
     } finally {
       setAutoMatching(false);
     }
-  }, [year, refresh]);
+  }, [year, refresh, confirmingAutoMatch]);
 
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length;
 
@@ -516,10 +570,14 @@ export default function AdminProspectsPage() {
                 <button
                   onClick={handleAutoMatch}
                   disabled={autoMatching}
-                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-medium transition-colors disabled:opacity-50"
+                  className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                    confirmingAutoMatch
+                      ? "bg-amber-500 text-white hover:bg-amber-600"
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                  }`}
                 >
                   {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  {autoMatching ? "Matching..." : "Auto-Match"}
+                  {autoMatching ? "Matching..." : confirmingAutoMatch ? "Click again to confirm" : "Auto-Match"}
                 </button>
                 {/* Pill toggle */}
                 <div className="flex bg-muted rounded-full p-0.5">
@@ -621,6 +679,17 @@ export default function AdminProspectsPage() {
             )}
           </div>
 
+          {/* Error banner */}
+          {pageError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{pageError}</span>
+              <button onClick={() => setPageError(null)} className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Auto-match result banner */}
           {matchResult && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-sm">
@@ -656,7 +725,7 @@ export default function AdminProspectsPage() {
           ) : (
             <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[900px]">
+                <table className="w-full text-sm min-w-[1000px]">
                   <thead className="bg-primary/5 border-b border-border">
                     <tr>
                       <th className="px-2 py-2 w-8">
@@ -673,12 +742,14 @@ export default function AdminProspectsPage() {
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Status</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">App</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><Clock className="h-3 w-3" /></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -724,6 +795,13 @@ export default function AdminProspectsPage() {
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
                         <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
+                        <td className="px-2 py-2 text-center">
+                          {p.contact_notes ? (
+                            <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
+                          ) : (
+                            <span className="text-xs text-muted-foreground/30">-</span>
+                          )}
+                        </td>
                         <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-2 py-2"><ProspectStatusBadge status={p.status} /></td>
                         <td className="px-2 py-2">
@@ -735,6 +813,9 @@ export default function AdminProspectsPage() {
                           ) : (
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
+                        </td>
+                        <td className="px-2 py-2 text-[10px] text-muted-foreground" title={p.updated_at ? parseUTC(p.updated_at).toLocaleString() : undefined}>
+                          {p.updated_at ? relativeTimeUTC(p.updated_at) : "-"}
                         </td>
                       </tr>
                     ))}
