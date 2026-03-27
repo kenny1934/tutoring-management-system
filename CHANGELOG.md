@@ -2,6 +2,10 @@
 
 ## [2.0.43](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.43) (2026-03-27)
 
+### New Features
+
+* **PDF page navigation bar** — bottom bar with prev/next buttons and a page number input for jumping directly to any page in multi-page exercises
+
 ### Bug Fixes
 
 * **PDF preview flickering** — reduced unnecessary re-renders in lesson mode PDF viewers that could cause both exercise and answer panes to flash on high-DPI displays or slower devices

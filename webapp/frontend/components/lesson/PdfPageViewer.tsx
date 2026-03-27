@@ -5,6 +5,7 @@ import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
   ZoomIn, ZoomOut, UnfoldHorizontal, Eye, EyeOff, BookCheck, Moon, Sun,
+  ChevronUp, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -300,7 +301,6 @@ export function PdfPageViewer({
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
-  const currentVisiblePageRef = useRef(1);
   const [pdfDarkMode, setPdfDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('csm_pdf_dark_mode') === 'true';
@@ -335,7 +335,6 @@ export function PdfPageViewer({
   // Keep refs in sync with state (synchronous, before effects run)
   pagesRef.current = pages;
   zoomRef.current = zoom;
-  currentVisiblePageRef.current = currentVisiblePage;
 
   // Clear all confirmation state (arm-then-confirm pattern)
   const [confirmingClearAll, setConfirmingClearAll] = useState(false);
@@ -378,6 +377,22 @@ export function PdfPageViewer({
     setZoom(fit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const scrollToPage = useCallback((pageNum: number) => {
+    const clamped = Math.max(1, Math.min(pageNum, pagesRef.current.length));
+    const el = pageRefs.current[clamped - 1];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  // Ref-driven page input to avoid re-render storms from IntersectionObserver during smooth scroll
+  const pageInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (pageInputRef.current && pageInputRef.current !== document.activeElement) {
+      pageInputRef.current.value = String(currentVisiblePage);
+    }
+  }, [currentVisiblePage]);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -591,32 +606,32 @@ export function PdfPageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages.length]);
 
-  // IntersectionObserver: track which page is most visible
-  // Only reconnect when page count changes (new exercise), not on hi-res re-renders
+  // Track which page is most visible via scroll position (center of viewport)
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || pages.length <= 1) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let maxRatio = 0;
-        let maxPage = currentVisiblePageRef.current;
-        for (const entry of entries) {
-          if (entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            const idx = pageRefs.current.indexOf(entry.target as HTMLDivElement);
-            if (idx >= 0) maxPage = idx + 1;
-          }
+    const updateVisiblePage = () => {
+      const containerRect = container.getBoundingClientRect();
+      const viewportCenter = containerRect.top + containerRect.height / 2;
+      let closest = 1;
+      let closestDist = Infinity;
+      for (let i = 0; i < pageRefs.current.length; i++) {
+        const el = pageRefs.current[i];
+        if (!el) continue;
+        const elRect = el.getBoundingClientRect();
+        const elCenter = elRect.top + elRect.height / 2;
+        const dist = Math.abs(elCenter - viewportCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = i + 1;
         }
-        if (maxRatio > 0) setCurrentVisiblePage(maxPage);
-      },
-      { root: container, threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
+      }
+      setCurrentVisiblePage(closest);
+    };
 
-    for (const el of pageRefs.current) {
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+    container.addEventListener("scroll", updateVisiblePage, { passive: true });
+    return () => container.removeEventListener("scroll", updateVisiblePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages.length]);
 
@@ -735,6 +750,7 @@ export function PdfPageViewer({
   // Scroll to top when exercise changes
   useEffect(() => {
     scrollContainerRef.current?.scrollTo(0, 0);
+    setCurrentVisiblePage(1);
   }, [pdfData]);
 
   // Handle page strokes change
@@ -899,12 +915,6 @@ export function PdfPageViewer({
             p{formatCompactPageRange(pageNumbers)}
           </span>
         )}
-        {pages.length > 1 && (
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
-            Page {currentVisiblePage} of {pages.length}
-          </span>
-        )}
-
         {/* Zoom controls */}
         <div className="flex items-center gap-0.5 ml-auto">
           <button
@@ -1178,6 +1188,50 @@ export function PdfPageViewer({
           ))}
         </div>
       </div>
+
+      {/* Bottom page navigation bar */}
+      {pages.length > 1 && (
+        <div className={cn(
+          "flex items-center justify-center gap-2 px-2 py-1",
+          "border-t border-[#d4c4a8] dark:border-[#3a3228]",
+          "bg-[#f0e6d4] dark:bg-[#252018]",
+        )}>
+          <button
+            onClick={() => scrollToPage(currentVisiblePage - 1)}
+            disabled={currentVisiblePage <= 1}
+            className={currentVisiblePage <= 1 ? tbBtnDisabled : tbBtnClass}
+            title="Previous page"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+          <div className="flex items-center gap-1 text-[11px] text-[#8b7355] dark:text-[#a09080]">
+            <input
+              ref={pageInputRef}
+              type="text"
+              inputMode="numeric"
+              defaultValue={currentVisiblePage}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1 && val <= pages.length) scrollToPage(val);
+                else e.target.value = String(currentVisiblePage);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-[#8b7355] dark:text-[#a09080] py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            />
+            <span>/ {pages.length}</span>
+          </div>
+          <button
+            onClick={() => scrollToPage(currentVisiblePage + 1)}
+            disabled={currentVisiblePage >= pages.length}
+            className={currentVisiblePage >= pages.length ? tbBtnDisabled : tbBtnClass}
+            title="Next page"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

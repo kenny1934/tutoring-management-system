@@ -5,6 +5,14 @@ const changelogData = [
     "date": "2026-03-27",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**PDF page navigation bar** — bottom bar with prev/next buttons and a page number input for jumping directly to any page in multi-page exercises"
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {
