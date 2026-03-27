@@ -282,10 +282,10 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       {selectedCount > 0 && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-[#a0704b]/10 dark:bg-[#a0704b]/20 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
           <span className="text-xs font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>
-          <button onClick={onBulkMoveToFolder} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]">
+          <button disabled title="Coming soon" className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50">
             <FolderInput className="w-3 h-3" /> Move
           </button>
-          <button onClick={onBulkAddTag} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]">
+          <button disabled title="Coming soon" className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50">
             <Tag className="w-3 h-3" /> Tag
           </button>
           <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]">

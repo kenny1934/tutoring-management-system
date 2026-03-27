@@ -19,8 +19,8 @@ export interface CreateDocumentModalProps {
 export default function CreateDocumentModal({ createStep, setCreateStep, onClose, onCreate }: CreateDocumentModalProps) {
   const [creating, setCreating] = useState(false);
   const { data: templates, isLoading: loadingTemplates } = useSWR(
-    createStep.step === "template" ? ["templates-for-picker"] : null,
-    () => documentsAPI.list({ is_template: true, limit: 50 }),
+    createStep.step === "template" ? ["templates-for-picker", createStep.docType] : null,
+    () => documentsAPI.list({ is_template: true, doc_type: createStep.step === "template" ? createStep.docType : undefined, limit: 50 }),
     { revalidateOnFocus: false }
   );
 

@@ -14,7 +14,7 @@ export interface DocumentsTableProps {
   isLoading: boolean;
   selectedIds: Set<number>;
   onToggleSelect: (id: number) => void;
-  onToggleSelectAll: () => void;
+  onToggleSelectAll: (visibleIds: number[]) => void;
   expandedIds: Set<number>;
   onToggleExpand: (id: number) => void;
   onDocClick: (docId: number) => void;
@@ -110,10 +110,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 8 }).map((_, i) => (
+            {[65, 45, 78, 52, 70, 40, 58, 73].map((w, i) => (
               <tr key={i} className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
                 <td className="py-3 px-2"><div className="w-4 h-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
-                <td className="py-3"><div className="h-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" style={{ width: `${40 + Math.random() * 40}%` }} /></td>
+                <td className="py-3"><div className="h-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" style={{ width: `${w}%` }} /></td>
                 <td className="py-3 hidden sm:table-cell"><div className="h-5 w-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
                 <td className="py-3 hidden md:table-cell"><div className="h-4 w-16 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
                 <td className="py-3 hidden lg:table-cell" />
@@ -147,7 +147,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 type="checkbox"
                 checked={allSelected}
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                onChange={onToggleSelectAll}
+                onChange={() => onToggleSelectAll(allVisibleIds)}
                 className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 accent-[#a0704b]"
               />
             </th>
@@ -203,9 +203,9 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-400 transition-transform", isExpanded && "rotate-90")} />
                       </button>
                     ) : isVariant ? (
-                      <span className="shrink-0 w-4.5 text-center text-gray-300 dark:text-gray-600 text-xs select-none">└</span>
+                      <span className="shrink-0 w-5 text-center text-gray-300 dark:text-gray-600 text-xs select-none">└</span>
                     ) : (
-                      <span className="shrink-0 w-4.5" />
+                      <span className="shrink-0 w-5" />
                     )}
 
                     {/* Type icon */}

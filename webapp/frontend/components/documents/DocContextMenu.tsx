@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { MoreVertical, Copy, Tag, Stamp, Trash2, ArchiveRestore, FolderInput, FolderOpen, ChevronDown } from "lucide-react";
+import { MoreVertical, Copy, Tag, Stamp, Trash2, Archive, ArchiveRestore, FolderInput, FolderOpen, ChevronDown } from "lucide-react";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
 import type { Document, DocumentFolder } from "@/types";
@@ -79,7 +79,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
       <button
         ref={btnRef}
         onClick={(e) => { e.stopPropagation(); setMenuOpenId(isOpen ? null : doc.id); }}
-        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity"
       >
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
@@ -135,9 +135,9 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Archive className="w-3.5 h-3.5" />
             Archive
           </button>
         )}

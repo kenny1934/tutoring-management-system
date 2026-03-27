@@ -20,6 +20,7 @@ import { getRecentDocIds, trackDocView } from "@/lib/recent-docs";
 import DocumentsToolbar, { SORT_OPTIONS } from "@/components/documents/DocumentsToolbar";
 import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import DocumentsTable from "@/components/documents/DocumentsTable";
+import DocContextMenu from "@/components/documents/DocContextMenu";
 import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
@@ -149,6 +150,14 @@ export default function DocumentsPage() {
     setSelectedIds(new Set());
   }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
 
+  // Clear folder/tag filters when switching to templates tab (sidebar is hidden there)
+  useEffect(() => {
+    if (activeTab === "templates") {
+      setActiveFolderId(null);
+      setActiveTag(null);
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     if (!mobileDrawerOpen) return;
     document.body.style.overflow = "hidden";
@@ -204,9 +213,9 @@ export default function DocumentsPage() {
     });
   }, []);
 
-  const handleToggleSelectAll = useCallback(() => {
-    if (!documents) return;
-    const allIds = documents.map(d => d.id);
+  const handleToggleSelectAll = useCallback((visibleIds?: number[]) => {
+    const allIds = visibleIds ?? documents?.map(d => d.id) ?? [];
+    if (!allIds.length) return;
     setSelectedIds(prev => {
       const allSelected = allIds.every(id => prev.has(id));
       return allSelected ? new Set() : new Set(allIds);
@@ -487,7 +496,6 @@ export default function DocumentsPage() {
                 emptyMessage={emptyMessage}
               />
             ) : (
-              /* Grid view placeholder — preserved for backward compatibility */
               <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
@@ -502,7 +510,7 @@ export default function DocumentsPage() {
                         key={doc.id}
                         onClick={() => handleDocClick(doc.id)}
                         className={cn(
-                          "group rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
+                          "group relative rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
                           doc.is_archived
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
                             : doc.is_template
@@ -513,6 +521,23 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
                           {doc.locked_by && <Lock className="w-3 h-3 text-amber-500" />}
+                          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+                            {!isReadOnly && (
+                              <DocContextMenu
+                                doc={doc}
+                                menuOpenId={menuOpenId}
+                                setMenuOpenId={setMenuOpenId}
+                                onDuplicate={handleDuplicate}
+                                onArchive={handleArchive}
+                                onUnarchive={handleUnarchive}
+                                onPermanentDelete={handlePermanentDelete}
+                                onSaveAsTemplate={isTemplatesTab ? undefined : handleSaveAsTemplate}
+                                folders={folders}
+                                onMoveToFolder={(folderId) => handleMoveToFolder(doc.id, folderId)}
+                                onEditTags={() => setTagEditDocId(doc.id)}
+                              />
+                            )}
+                          </div>
                         </div>
                         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
