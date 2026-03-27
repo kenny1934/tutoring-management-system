@@ -1,19 +1,15 @@
 "use client";
 
 import useSWR from "swr";
-import { X, ExternalLink, Printer, FileText, BookOpen, Lock } from "lucide-react";
+import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, CheckCircle2 } from "lucide-react";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
+import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import { cn } from "@/lib/utils";
 import type { DocType } from "@/types";
-
-const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string }> = {
-  worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-  lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-};
 
 interface DocumentPreviewPaneProps {
   docId: number | null;
@@ -35,8 +31,10 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint }: D
     left: doc?.page_layout?.margins?.left ?? 25.4,
   };
 
-  const typeInfo = doc ? DOC_TYPE_LABELS[doc.doc_type as DocType] : null;
+  const typeInfo = doc ? DOC_TYPE_CONFIG[doc.doc_type as DocType] : null;
   const TypeIcon = typeInfo?.icon ?? FileText;
+  const questionCount = doc?.questions?.length ?? 0;
+  const solvedCount = doc?.solutions ? Object.keys(doc.solutions).length : 0;
 
   // ── Empty state (no document selected) ─────────────────────────
 
@@ -127,8 +125,8 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint }: D
               </div>
             )}
 
-            {/* Print buttons — opens editor in new tab for full-fidelity print */}
-            <div className="flex items-center gap-2">
+            {/* Print buttons */}
+            <div className="flex items-center gap-2 mb-3">
               <button
                 onClick={() => onPrint(docId, "student")}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
@@ -143,6 +141,61 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint }: D
                 With Answers
               </button>
             </div>
+
+            {/* Variant tree */}
+            {(doc.parent_id || (doc.children && doc.children.length > 0)) && (
+              <div className="py-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                  <GitBranch className="w-3 h-3" />
+                  Variants
+                </div>
+                <div className="space-y-0.5 text-xs">
+                  {doc.parent_id && (
+                    <button
+                      onClick={() => onOpenEditor(doc.parent_id!)}
+                      className="flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-[#a0704b] dark:text-[#cd853f] transition-colors"
+                    >
+                      <FileText className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{doc.parent_title || `Doc #${doc.parent_id}`}</span>
+                      <span className="text-[9px] text-gray-400 ml-auto shrink-0">parent</span>
+                    </button>
+                  )}
+                  <div className={cn("flex items-center gap-1.5 px-2 py-1 text-gray-700 dark:text-gray-300 font-medium", doc.parent_id && "pl-5")}>
+                    <FileText className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{doc.title}</span>
+                    <span className="text-[9px] text-gray-400 ml-auto shrink-0">current</span>
+                  </div>
+                  {doc.children?.map((child) => (
+                    <button
+                      key={child.id}
+                      onClick={() => onOpenEditor(child.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 w-full px-2 py-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-left text-[#a0704b] dark:text-[#cd853f] transition-colors",
+                        !doc.parent_id && "pl-5"
+                      )}
+                    >
+                      <span className="text-gray-300 dark:text-gray-600 text-[10px] shrink-0">└</span>
+                      <span className="truncate">{child.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {questionCount > 0 && (
+              <div className="py-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-4 text-[11px] text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1">
+                  <ListChecks className="w-3.5 h-3.5" />
+                  {questionCount} question{questionCount !== 1 ? "s" : ""}
+                </span>
+                {solvedCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    {solvedCount}/{questionCount} solved
+                  </span>
+                )}
+              </div>
+            )}
           </>
         ) : null}
       </div>

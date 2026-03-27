@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Stamp, PanelRight, User, Clock, ScanLine } from "lucide-react";
+import { FileText, Lock } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -15,119 +15,72 @@ import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
-import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
 import { getRecentDocIds, trackDocView } from "@/lib/recent-docs";
-import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
+import DocumentsToolbar, { SORT_OPTIONS } from "@/components/documents/DocumentsToolbar";
+import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
+import DocumentsTable from "@/components/documents/DocumentsTable";
+import TagPopover from "@/components/documents/TagPopover";
+import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
-
-const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
-  worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", iconColor: "text-blue-700 dark:text-blue-300" },
-  lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300", iconColor: "text-green-700 dark:text-green-300" },
-};
+import type { Document, DocType, DocumentFolder } from "@/types";
 
 const PAGE_SIZE = 24;
-
-const SORT_OPTIONS = [
-  { label: "Last modified", sort_by: "updated_at", sort_order: "desc" },
-  { label: "Newest first", sort_by: "created_at", sort_order: "desc" },
-  { label: "Oldest first", sort_by: "created_at", sort_order: "asc" },
-  { label: "Title A\u2013Z", sort_by: "title", sort_order: "asc" },
-  { label: "Title Z\u2013A", sort_by: "title", sort_order: "desc" },
-] as const;
 
 export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
   const { showToast } = useToast();
   const { isReadOnly } = useAuth();
+
+  // --- Filter / navigation state ---
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "templates">("all");
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [sortIdx, setSortIdx] = useState(0);
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+
+  // --- View state ---
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("doc-view-mode") as "grid" | "list") || "grid";
+      const stored = localStorage.getItem("doc-view-mode");
+      if (stored === "grid") return "grid";
     }
-    return "grid";
+    return "table";
   });
   const [previewEnabled, setPreviewEnabled] = useState<boolean>(() =>
     typeof window !== "undefined" && localStorage.getItem("doc-preview-enabled") === "true"
   );
   const [previewDocId, setPreviewDocId] = useState<number | null>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
 
-  // Tag & folder filters
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+  // --- Selection + expansion ---
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+
+  // --- UI ephemeral state ---
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [tagEditDocId, setTagEditDocId] = useState<number | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
+  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number } | { type: "delete-bulk" } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
 
   const sort = SORT_OPTIONS[sortIdx];
+  const isTemplatesTab = activeTab === "templates";
+  const recentIds = useMemo(() => activeTab === "recent" ? getRecentDocIds() : [], [activeTab]);
 
-  // Fetch tags and folders
+  // --- Data fetching ---
   const { data: allTags = [], mutate: mutateTags } = useSWR("document-tags", () => documentsAPI.listTags(), { revalidateOnFocus: false });
   const { data: folders = [], mutate: mutateFolders } = useSWR("document-folders", () => foldersAPI.list(), { revalidateOnFocus: false });
-
-  // Close sort menu on outside click
-  useEffect(() => {
-    if (!showSortMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setShowSortMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showSortMenu]);
-
-  // Lock body scroll when mobile drawer is open
-  useEffect(() => {
-    if (!mobileDrawerOpen) return;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, [mobileDrawerOpen]);
-
-  const toggleViewMode = useCallback((mode: "grid" | "list") => {
-    setViewMode(mode);
-    localStorage.setItem("doc-view-mode", mode);
-  }, []);
-
-  const togglePreview = useCallback((enabled: boolean) => {
-    setPreviewEnabled(enabled);
-    localStorage.setItem("doc-preview-enabled", String(enabled));
-    if (!enabled) setPreviewDocId(null);
-  }, []);
-
-  const handleDocClick = useCallback((docId: number) => {
-    trackDocView(docId);
-    if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
-      setPreviewDocId(docId);
-    } else {
-      router.push(`/documents/${docId}`);
-    }
-  }, [previewEnabled, router]);
-
-  // Paginated fetch: SWR loads first page, "Load more" appends
-  const [extraDocs, setExtraDocs] = useState<Document[]>([]);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [moreExhausted, setMoreExhausted] = useState(false);
-
-  const isTemplatesTab = activeTab === "templates";
-  const recentIds = activeTab === "recent" ? getRecentDocIds() : [];
 
   const { data: firstPage, isLoading, mutate } = useSWR(
     ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
     () => {
-      // For "recent" tab with no tracked IDs, return empty immediately
-      if (activeTab === "recent" && recentIds.length === 0) {
-        return Promise.resolve([] as Document[]);
-      }
+      if (activeTab === "recent" && recentIds.length === 0) return Promise.resolve([] as Document[]);
       return documentsAPI.list({
         doc_type: filterType === "all" ? undefined : filterType,
         search: debouncedSearch || undefined,
@@ -145,47 +98,13 @@ export default function DocumentsPage() {
     { revalidateOnFocus: false }
   );
 
-  // Revalidate list after auto-delete of an empty document
-  useEffect(() => {
-    if (sessionStorage.getItem("doc_auto_deleted")) {
-      const t = setTimeout(() => {
-        sessionStorage.removeItem("doc_auto_deleted");
-        mutate();
-      }, 300);
-      return () => clearTimeout(t);
-    }
-  }, [mutate]);
-
-  // Reset extra pages and preview when filters/sort/tab change
-  useEffect(() => {
-    setExtraDocs([]);
-    setMoreExhausted(false);
-    setPreviewDocId(null);
-  }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
-
-  // Keyboard shortcuts for preview pane
-  useEffect(() => {
-    if (!previewEnabled || previewDocId === null) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if (document.querySelector('[role="dialog"]')) return;
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
-        const tag = document.activeElement?.tagName;
-        if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
-        router.push(`/documents/${previewDocId}`);
-      }
-      if (e.key === "Escape") {
-        setPreviewDocId(null);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [previewEnabled, previewDocId, router]);
-
-  const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
+  // --- Pagination ---
+  const [extraDocs, setExtraDocs] = useState<Document[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreExhausted, setMoreExhausted] = useState(false);
+  const documents = useMemo(() => firstPage ? [...firstPage, ...extraDocs] : undefined, [firstPage, extraDocs]);
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
-  // Ref to hold current filter params so loadMore doesn't recreate on every state change
   const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
   filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
@@ -215,8 +134,94 @@ export default function DocumentsPage() {
     }
   }, [loadingMore, hasMore]);
 
-  const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
+  // --- Effects ---
+  useEffect(() => {
+    if (sessionStorage.getItem("doc_auto_deleted")) {
+      const t = setTimeout(() => { sessionStorage.removeItem("doc_auto_deleted"); mutate(); }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [mutate]);
 
+  useEffect(() => {
+    setExtraDocs([]);
+    setMoreExhausted(false);
+    setPreviewDocId(null);
+    setSelectedIds(new Set());
+  }, [filterType, debouncedSearch, showArchived, sortIdx, activeTag, activeFolderId, activeTab]);
+
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileDrawerOpen]);
+
+  useEffect(() => {
+    if (!previewEnabled || previewDocId === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || document.querySelector('[role="dialog"]')) return;
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+        const tag = document.activeElement?.tagName;
+        if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
+        router.push(`/documents/${previewDocId}`);
+      }
+      if (e.key === "Escape") setPreviewDocId(null);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [previewEnabled, previewDocId, router]);
+
+  // --- View callbacks ---
+  const toggleViewMode = useCallback((mode: "table" | "grid") => {
+    setViewMode(mode);
+    localStorage.setItem("doc-view-mode", mode);
+    if (mode === "grid") setSelectedIds(new Set());
+  }, []);
+
+  const togglePreview = useCallback(() => {
+    setPreviewEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("doc-preview-enabled", String(next));
+      if (!next) setPreviewDocId(null);
+      return next;
+    });
+  }, []);
+
+  const handleDocClick = useCallback((docId: number) => {
+    trackDocView(docId);
+    if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
+      setPreviewDocId(docId);
+    } else {
+      router.push(`/documents/${docId}`);
+    }
+  }, [previewEnabled, router]);
+
+  // --- Selection callbacks ---
+  const handleToggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (!documents) return;
+    const allIds = documents.map(d => d.id);
+    setSelectedIds(prev => {
+      const allSelected = allIds.every(id => prev.has(id));
+      return allSelected ? new Set() : new Set(allIds);
+    });
+  }, [documents]);
+
+  const handleToggleExpand = useCallback((id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // --- CRUD callbacks ---
   const handleCreate = useCallback(async (docType: DocType, templateDoc?: Document) => {
     try {
       const doc = await documentsAPI.create({
@@ -229,30 +234,21 @@ export default function DocumentsPage() {
       setShowCreateModal(false);
       setCreateStep({ step: "type" });
       router.push(`/documents/${doc.id}`);
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    } catch (err) { showToast((err as Error).message, "error"); }
   }, [router, showToast, activeFolderId]);
 
   const handleCreateTemplate = useCallback(async () => {
     try {
-      const doc = await documentsAPI.create({
-        title: "Untitled Template",
-        doc_type: "worksheet",
-        is_template: true,
-      });
+      const doc = await documentsAPI.create({ title: "Untitled Template", doc_type: "worksheet", is_template: true });
       router.push(`/documents/${doc.id}`);
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    } catch (err) { showToast((err as Error).message, "error"); }
   }, [router, showToast]);
 
   const handleSaveAsTemplate = useCallback(async (id: number) => {
     try {
       const source = await documentsAPI.get(id);
       await documentsAPI.create({
-        title: `${source.title} (Template)`,
-        doc_type: source.doc_type,
+        title: `${source.title} (Template)`, doc_type: source.doc_type,
         ...(source.page_layout ? { page_layout: source.page_layout } : {}),
         ...(source.content ? { content: source.content } : {}),
         is_template: true,
@@ -260,178 +256,158 @@ export default function DocumentsPage() {
       showToast("Template created", "success");
       setActiveTab("templates");
       mutate();
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    } catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [showToast, mutate]);
 
   const handleArchive = useCallback(async (id: number) => {
-    try {
-      await documentsAPI.delete(id);
-      mutate();
-      showToast("Document archived", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await documentsAPI.delete(id); mutate(); showToast("Document archived", "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [mutate, showToast]);
 
   const handleDuplicate = useCallback(async (id: number) => {
-    try {
-      const copy = await documentsAPI.duplicate(id);
-      router.push(`/documents/${copy.id}`);
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { const copy = await documentsAPI.duplicate(id); router.push(`/documents/${copy.id}`); }
+    catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [router, showToast]);
 
   const handleUnarchive = useCallback(async (id: number) => {
-    try {
-      await documentsAPI.update(id, { is_archived: false });
-      mutate();
-      showToast("Document restored", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await documentsAPI.update(id, { is_archived: false }); mutate(); showToast("Document restored", "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [mutate, showToast]);
 
-  const handlePermanentDelete = useCallback((id: number) => {
-    setMenuOpenId(null);
-    setConfirmAction({ type: "delete-doc", id });
-  }, []);
-
+  const handlePermanentDelete = useCallback((id: number) => { setMenuOpenId(null); setConfirmAction({ type: "delete-doc", id }); }, []);
   const executePermanentDelete = useCallback(async (id: number) => {
-    try {
-      await documentsAPI.permanentDelete(id);
-      mutate();
-      showToast("Document permanently deleted", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await documentsAPI.permanentDelete(id); mutate(); showToast("Document permanently deleted", "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
     setConfirmAction(null);
   }, [mutate, showToast]);
 
   const handleMoveToFolder = useCallback(async (docId: number, folderId: number | null) => {
     try {
       await documentsAPI.update(docId, { folder_id: folderId === null ? 0 : folderId });
-      mutate();
-      mutateFolders();
+      mutate(); mutateFolders();
       showToast(folderId ? "Moved to folder" : "Removed from folder", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    } catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [mutate, mutateFolders, showToast]);
 
   const handleUpdateTags = useCallback(async (docId: number, tags: string[]) => {
-    try {
-      await documentsAPI.update(docId, { tags });
-      mutate();
-      mutateTags();
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await documentsAPI.update(docId, { tags }); mutate(); mutateTags(); }
+    catch (err) { showToast((err as Error).message, "error"); }
   }, [mutate, mutateTags, showToast]);
 
   const handleToggleTag = useCallback(async (docId: number, tag: string, checked: boolean) => {
     const doc = documents?.find((d) => d.id === docId);
     if (!doc) return;
     const currentTags = doc.tags ?? [];
-    const newTags = checked
-      ? [...currentTags, tag]
-      : currentTags.filter((t) => t !== tag);
-    await handleUpdateTags(docId, newTags);
+    await handleUpdateTags(docId, checked ? [...currentTags, tag] : currentTags.filter((t) => t !== tag));
   }, [documents, handleUpdateTags]);
 
   const handleCreateTag = useCallback(async (docId: number, tag: string) => {
     const doc = documents?.find((d) => d.id === docId);
     if (!doc) return;
     const currentTags = doc.tags ?? [];
-    if (!currentTags.includes(tag)) {
-      await handleUpdateTags(docId, [...currentTags, tag]);
-    }
+    if (!currentTags.includes(tag)) await handleUpdateTags(docId, [...currentTags, tag]);
   }, [documents, handleUpdateTags]);
 
+  // --- Folder callbacks ---
   const handleCreateFolder = useCallback(async (name: string, parentId?: number | null) => {
     if (!name.trim()) return;
-    try {
-      await foldersAPI.create({ name: name.trim(), parent_id: parentId ?? undefined });
-      mutateFolders();
-      showToast("Folder created", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await foldersAPI.create({ name: name.trim(), parent_id: parentId ?? undefined }); mutateFolders(); showToast("Folder created", "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
   }, [mutateFolders, showToast]);
 
   const handleRenameFolder = useCallback(async (folder: DocumentFolder, newName: string) => {
-    try {
-      await foldersAPI.update(folder.id, { name: newName });
-      mutateFolders();
-      showToast("Folder renamed", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+    try { await foldersAPI.update(folder.id, { name: newName }); mutateFolders(); showToast("Folder renamed", "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
   }, [mutateFolders, showToast]);
 
-  const handleDeleteFolder = useCallback((folder: DocumentFolder) => {
-    setConfirmAction({ type: "delete-folder", folder });
-  }, []);
-
+  const handleDeleteFolder = useCallback((folder: DocumentFolder) => { setConfirmAction({ type: "delete-folder", folder }); }, []);
   const executeDeleteFolder = useCallback(async (folder: DocumentFolder) => {
     try {
-      await foldersAPI.delete(folder.id);
-      mutateFolders();
+      await foldersAPI.delete(folder.id); mutateFolders();
       if (activeFolderId === folder.id) setActiveFolderId(null);
-      mutate();
-      showToast("Folder deleted", "success");
-    } catch (err) {
-      showToast((err as Error).message, "error");
-    }
+      mutate(); showToast("Folder deleted", "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
     setConfirmAction(null);
   }, [mutateFolders, mutate, showToast, activeFolderId]);
 
+  // --- Bulk actions ---
+  const handleBulkArchive = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(ids.map((id) => documentsAPI.delete(id)));
+      mutate(); setSelectedIds(new Set());
+      showToast(`${ids.length} document(s) archived`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+  }, [selectedIds, mutate, showToast]);
+
+  const handleBulkDelete = useCallback(() => {
+    setConfirmAction({ type: "delete-bulk" });
+  }, []);
+
+  const executeBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(ids.map((id) => documentsAPI.permanentDelete(id)));
+      mutate(); setSelectedIds(new Set());
+      showToast(`${ids.length} document(s) deleted`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setConfirmAction(null);
+  }, [selectedIds, mutate, showToast]);
+
+  const handleBulkMoveToFolder = useCallback(() => {
+    showToast("Bulk move coming soon", "info");
+  }, [showToast]);
+
+  const handleBulkAddTag = useCallback(() => {
+    showToast("Bulk tag coming soon", "info");
+  }, [showToast]);
+
   const activeFolder = folders.find((f) => f.id === activeFolderId);
+
+  // Empty state text
+  const emptyTitle = !documents?.length
+    ? activeTab === "recent" ? "No recently viewed documents"
+    : activeTab === "mine" ? "No documents found"
+    : isTemplatesTab ? (debouncedSearch || filterType !== "all" ? "No matching templates" : "No templates yet")
+    : (debouncedSearch || filterType !== "all" || activeTag || activeFolderId ? "No matching documents" : "No documents yet")
+    : "";
+  const emptyMessage = !documents?.length
+    ? activeTab === "recent" ? "Documents you open will appear here"
+    : activeTab === "mine" ? "Documents you create or edit will appear here"
+    : isTemplatesTab ? (debouncedSearch || filterType !== "all" ? "Try adjusting your search or filters" : "Create your first template to get started")
+    : (debouncedSearch || filterType !== "all" || activeTag || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
+    : "";
 
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-1 min-h-0">
-        {/* Sidebar — desktop (collapses smoothly on templates tab) */}
+        {/* Sidebar — desktop */}
         <FolderSidebar
           hidden={isTemplatesTab}
           folders={folders}
           allTags={allTags}
           activeFolderId={activeFolderId}
           activeTag={activeTag}
-          onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
-          onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
+          onSelectFolder={setActiveFolderId}
+          onSelectTag={setActiveTag}
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
-          totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
           isReadOnly={isReadOnly}
         />
 
-        {/* Mobile drawer backdrop + sidebar — always mounted, animated (hidden on templates tab) */}
-        {!isTemplatesTab && (
-          <div
-            className={cn(
-              "fixed inset-0 z-40 md:hidden transition-opacity duration-200",
-              mobileDrawerOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-            )}
-            onClick={() => setMobileDrawerOpen(false)}
-          >
-            <div className="absolute inset-0 bg-black/40" />
-            <div
-              className={cn(
-                "absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto transition-transform duration-200 ease-out",
-                mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
-              )}
-              onClick={(e) => e.stopPropagation()}
-            >
+        {/* Mobile sidebar drawer */}
+        {mobileDrawerOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setMobileDrawerOpen(false)} />
+            <div className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto">
               <FolderSidebar
+                mobile
                 folders={folders}
                 allTags={allTags}
                 activeFolderId={activeFolderId}
@@ -441,7 +417,6 @@ export default function DocumentsPage() {
                 onCreateFolder={handleCreateFolder}
                 onRenameFolder={handleRenameFolder}
                 onDeleteFolder={handleDeleteFolder}
-                mobile
                 isReadOnly={isReadOnly}
               />
             </div>
@@ -449,560 +424,143 @@ export default function DocumentsPage() {
         )}
 
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className={cn("mx-auto", previewEnabled ? "max-w-[56rem]" : "max-w-6xl")}>
-        {/* Header + Filters card */}
-        <div className="relative z-20 bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2 sm:gap-3">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FileText className="w-5 h-5 sm:w-7 sm:h-7 text-[#a0704b] dark:text-[#cd853f]" />
-                  Documents
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                    Beta
-                  </span>
-                </h1>
-                {!isTemplatesTab && activeFolder && (
-                  <span className="sm:hidden text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 ml-1">
-                    / <FolderOpen className="w-3 h-3" /> {activeFolder.name}
-                  </span>
-                )}
-                <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {activeTab === "mine"
-                    ? "Documents you created or edited"
-                    : activeTab === "recent"
-                    ? "Documents you recently opened"
-                    : isTemplatesTab
-                    ? "Reusable templates for new documents"
-                    : activeFolder
-                    ? <span className="flex items-center gap-1"><FolderOpen className="w-3.5 h-3.5" />{activeFolder.name}</span>
-                    : "Create and edit worksheets, exams, and lesson plans"}
-                </p>
-              </div>
-            </div>
-            {!isReadOnly && (isTemplatesTab ? (
-              <button
-                onClick={handleCreateTemplate}
-                className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm"
-              >
-                <Stamp className="w-4 h-4" />
-                <span className="hidden sm:inline">New Template</span>
-              </button>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <DocumentsToolbar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            search={search}
+            onSearchChange={setSearch}
+            filterType={filterType}
+            onFilterTypeChange={setFilterType}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((p) => !p)}
+            sortIdx={sortIdx}
+            onSortChange={setSortIdx}
+            viewMode={viewMode}
+            onViewModeChange={toggleViewMode}
+            previewEnabled={previewEnabled}
+            onTogglePreview={togglePreview}
+            activeTag={activeTag}
+            onClearTag={() => setActiveTag(null)}
+            activeFolderId={activeFolderId}
+            activeFolder={activeFolder}
+            onClearFolder={() => setActiveFolderId(null)}
+            onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+            onCreateDocument={() => setShowCreateModal(true)}
+            onImportWorksheet={() => setShowImportModal(true)}
+            onCreateTemplate={handleCreateTemplate}
+            isReadOnly={isReadOnly}
+            selectedCount={selectedIds.size}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onBulkArchive={handleBulkArchive}
+            onBulkDelete={handleBulkDelete}
+            onBulkMoveToFolder={handleBulkMoveToFolder}
+            onBulkAddTag={handleBulkAddTag}
+          />
+
+          <div className="flex-1 overflow-y-auto">
+            {viewMode === "table" ? (
+              <DocumentsTable
+                documents={documents ?? []}
+                isLoading={isLoading}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
+                onDocClick={handleDocClick}
+                previewDocId={previewDocId}
+                menuOpenId={menuOpenId}
+                onMenuOpen={setMenuOpenId}
+                onDuplicate={handleDuplicate}
+                onArchive={handleArchive}
+                onUnarchive={handleUnarchive}
+                onPermanentDelete={handlePermanentDelete}
+                onSaveAsTemplate={handleSaveAsTemplate}
+                onEditTags={setTagEditDocId}
+                folders={folders}
+                onMoveToFolder={handleMoveToFolder}
+                isReadOnly={isReadOnly}
+                isTemplatesTab={isTemplatesTab}
+                activeFolderId={activeFolderId}
+                emptyTitle={emptyTitle}
+                emptyMessage={emptyMessage}
+              />
             ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors text-sm font-medium"
-                  title="Import scanned worksheet via AI OCR"
-                >
-                  <ScanLine className="w-4 h-4" />
-                  <span className="hidden sm:inline">Import</span>
-                </button>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">New Document</span>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 w-fit max-w-full overflow-x-auto bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1 mb-2">
-            {([
-              { key: "all", label: "All Docs", icon: FileText },
-              { key: "mine", label: "My Docs", icon: User },
-              { key: "recent", label: "Recent", icon: Clock },
-              { key: "templates", label: "Templates", icon: Stamp },
-            ] as const).map(({ key, label, icon: TabIcon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                  activeTab === key
-                    ? key === "templates"
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "bg-primary text-primary-foreground shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
+              /* Grid view placeholder — preserved for backward compatibility */
+              <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                  ))
+                ) : documents?.length ? (
+                  documents.map((doc) => {
+                    const meta = DOC_TYPE_CONFIG[doc.doc_type as DocType] || DOC_TYPE_CONFIG.worksheet;
+                    const Icon = meta.icon;
+                    return (
+                      <div
+                        key={doc.id}
+                        onClick={() => handleDocClick(doc.id)}
+                        className={cn(
+                          "group rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
+                          doc.is_archived
+                            ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
+                            : doc.is_template
+                            ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-[#a0704b]/40"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
+                          {doc.locked_by && <Lock className="w-3 h-3 text-amber-500" />}
+                        </div>
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                          {doc.created_by_name}
+                          {doc.updated_at && <> · {formatTimeAgo(doc.updated_at)}</>}
+                        </p>
+                        {doc.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {doc.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-medium", getTagColor(tag))}>{tag}</span>
+                            ))}
+                            {doc.tags.length > 3 && <span className="text-[9px] text-gray-400">+{doc.tags.length - 3}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full flex flex-col items-center py-20 text-center">
+                    <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{emptyTitle}</p>
+                    <p className="text-xs text-gray-400 mt-1">{emptyMessage}</p>
+                  </div>
                 )}
-              >
-                <TabIcon className="w-3.5 h-3.5" />
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-[20rem]">
-            {!isTemplatesTab && (
-              <button
-                onClick={() => setMobileDrawerOpen(true)}
-                className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border border-gray-200 dark:border-gray-700/30 shrink-0"
-                title="Folders & Tags"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-                Folders
-              </button>
-            )}
-            <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder={isTemplatesTab ? "Search templates..." : "Search documents..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={cn("w-full pl-9 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40", search ? "pr-8" : "pr-3")}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-              >
-                <X className="w-3.5 h-3.5 text-gray-400" />
-              </button>
-            )}
-            </div>
-          </div>
-          <div className="flex gap-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1">
-            {(["all", "worksheet", "lesson_plan"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                  filterType === type
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-white/8"
-                )}
-              >
-                {type === "all" ? "All" : DOC_TYPE_LABELS[type].label}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setShowArchived(!showArchived)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-              showArchived
-                ? "bg-[#f5ede3] dark:bg-[#2d2618] border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5"
-            )}
-          >
-            <Archive className="w-3.5 h-3.5" />
-            Archived
-          </button>
-          <div className="relative ml-auto" ref={sortRef}>
-            <button
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5" />
-              {sort.label}
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            {showSortMenu && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] overflow-hidden">
-                {SORT_OPTIONS.map((opt, i) => (
-                  <button
-                    key={opt.label}
-                    onClick={() => { setSortIdx(i); setShowSortMenu(false); }}
-                    className={cn(
-                      "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                      i === sortIdx && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
               </div>
             )}
-          </div>
-          <div className="flex bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-lg p-0.5">
-            <button
-              onClick={() => toggleViewMode("grid")}
-              className={cn("p-1.5 rounded transition-colors", viewMode === "grid" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
-              title="Grid view"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => toggleViewMode("list")}
-              className={cn("p-1.5 rounded transition-colors", viewMode === "list" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
-              title="List view"
-            >
-              <ListIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          {/* Preview panel toggle — desktop only */}
-          <button
-            onClick={() => togglePreview(!previewEnabled)}
-            className={cn(
-              "hidden lg:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-              previewEnabled
-                ? "bg-[#f5ede3] dark:bg-[#2d2618] border-[#a0704b]/30 text-[#a0704b] dark:text-[#cd853f]"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5"
-            )}
-            title={previewEnabled ? "Hide preview panel" : "Show preview panel"}
-            aria-label={previewEnabled ? "Hide preview panel" : "Show preview panel"}
-          >
-            <PanelRight className="w-3.5 h-3.5" />
-          </button>
-          </div>
 
-          {/* Active filter indicators */}
-          {!isTemplatesTab && (activeTag || activeFolderId) && (
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              {activeFolderId && activeFolder && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f]">
-                  <FolderOpen className="w-3 h-3" />
-                  {activeFolder.name}
-                  <button onClick={() => setActiveFolderId(null)} className="ml-0.5 hover:opacity-70" aria-label="Clear folder filter"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              {activeTag && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f]">
-                  <Tag className="w-3 h-3" />
-                  {activeTag}
-                  <button onClick={() => setActiveTag(null)} className="ml-0.5 hover:opacity-70" aria-label="Clear tag filter"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-            </div>
-          )}
+            {/* Load more */}
+            {hasMore && !isLoading && (
+              <div className="flex justify-center py-4">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+            {documents && (
+              <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 pb-4">
+                Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Document list */}
-        {isLoading ? (
-          viewMode === "grid" ? (
-            <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", previewEnabled ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
-              {([
-                ["w-16", "w-2/3"],
-                ["w-20", "w-1/2"],
-                ["w-16", "w-3/5"],
-                ["w-20", "w-1/3"],
-                ["w-16", "w-2/5"],
-                ["w-20", "w-1/2"],
-              ] as const).map(([badgeW, titleW], i) => (
-                <div key={i} className="relative bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl p-4 overflow-hidden">
-                  <div className={cn("h-5 rounded-full bg-gray-200 dark:bg-gray-700 mb-3", badgeW)} />
-                  <div className={cn("h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2", titleW)} />
-                  <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl overflow-hidden">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="relative flex items-center gap-4 px-4 py-3 border-b border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 overflow-hidden">
-                  <div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-4 flex-1 max-w-xs rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                  <div className="h-3 w-14 rounded bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                  <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.1}s` }} />
-                </div>
-              ))}
-            </div>
-          )
-        ) : !documents?.length ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-700 dark:text-gray-400">
-            {activeTab === "mine" ? <User className="w-12 h-12 mb-3 opacity-40" />
-              : activeTab === "recent" ? <Clock className="w-12 h-12 mb-3 opacity-40" />
-              : isTemplatesTab ? <Stamp className="w-12 h-12 mb-3 opacity-40" />
-              : <FileText className="w-12 h-12 mb-3 opacity-40" />}
-            <p className="text-lg font-medium">
-              {activeTab === "mine"
-                ? "No documents found"
-                : activeTab === "recent"
-                ? "No recently viewed documents"
-                : debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
-                ? isTemplatesTab ? "No matching templates" : "No matching documents"
-                : isTemplatesTab ? "No templates yet" : "No documents yet"}
-            </p>
-            <p className="text-sm mt-1">
-              {activeTab === "mine"
-                ? "Documents you create or edit will appear here"
-                : activeTab === "recent"
-                ? "Documents you open will appear here"
-                : debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId
-                ? "Try adjusting your search or filters"
-                : isTemplatesTab ? "Create your first template to get started" : "Create your first document to get started"}
-            </p>
-          </div>
-        ) : viewMode === "grid" ? (
-          <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", previewEnabled ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
-            {documents.map((doc) => {
-              const typeInfo = DOC_TYPE_LABELS[doc.doc_type as DocType];
-              const Icon = typeInfo?.icon ?? FileText;
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => handleDocClick(doc.id)}
-                  className={cn(
-                    "relative group border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all",
-                    doc.is_archived
-                      ? "bg-white dark:bg-[#1a1a1a] border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 opacity-60"
-                      : doc.is_template
-                      ? "bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/50"
-                      : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50",
-                    previewDocId === doc.id && "ring-2 ring-[#a0704b]/50 ring-offset-1 dark:ring-offset-[#1a1a1a]"
-                  )}
-                >
-                  {/* Type badge */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
-                        <Icon className="w-3 h-3" />
-                        {typeInfo?.label}
-                      </span>
-                      {doc.is_template && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                          <Stamp className="w-3 h-3" />
-                          Template
-                        </span>
-                      )}
-                    </div>
-                    {!isReadOnly && <DocContextMenu
-                      doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
-                      onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
-                      onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
-                      folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
-                      onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
-                    />}
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0.5">{doc.title}</h3>
-                  {doc.source_filename && (
-                    <p className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 mb-0.5 min-w-0">
-                      <span className="truncate" title={doc.source_filename}>Imported from: {doc.source_filename}</span>
-                      <button
-                        className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        title="Copy source path"
-                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(doc.source_filename!); showToast("Path copied", "success"); }}
-                      >
-                        <Copy className="w-2.5 h-2.5" />
-                      </button>
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>
-                      {doc.updated_by_name && doc.updated_by !== doc.created_by
-                        ? <>{doc.created_by_name} &middot; Edited by {doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
-                        : <>{doc.created_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
-                      }
-                    </span>
-                    {doc.locked_by && (
-                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
-                        <Lock className="w-3 h-3" />
-                        <span className="truncate max-w-[5rem]">{doc.locked_by_name}</span>
-                      </span>
-                    )}
-                  </div>
-                  {/* Tags */}
-                  {doc.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {doc.tags.map((tag) => (
-                        <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getTagColor(tag))}>{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Folder indicator */}
-                  {doc.folder_name && !activeFolderId && (
-                    <div className="flex items-center gap-1 mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
-                      <FolderOpen className="w-3 h-3" />
-                      {doc.folder_name}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl overflow-hidden">
-            {/* List header */}
-            <div className="hidden sm:flex items-center gap-4 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf5ef] dark:bg-[#1f1a14] rounded-t-xl text-[10px] font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
-              <span className="w-24">Type</span>
-              <span className="flex-1">Title</span>
-              <span className="w-28">Author</span>
-              <span className="w-36">Modified</span>
-              <span className="w-8" />
-            </div>
-            {documents.map((doc) => {
-              const typeInfo = DOC_TYPE_LABELS[doc.doc_type as DocType];
-              const Icon = typeInfo?.icon ?? FileText;
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => handleDocClick(doc.id)}
-                  className={cn(
-                    "group flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
-                    doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]",
-                    doc.is_template && !doc.is_archived && "border-l-2 border-l-purple-400 dark:border-l-purple-600 bg-purple-50/30 dark:bg-purple-950/10",
-                    previewDocId === doc.id && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/50 ring-1 ring-inset ring-[#a0704b]/30"
-                  )}
-                >
-                  {/* Type badge — desktop only */}
-                  <span className={cn("hidden sm:inline-flex items-center gap-1 w-24 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
-                    <Icon className="w-3 h-3" />
-                    {typeInfo?.label}
-                  </span>
-                  {/* Title row — full width on mobile */}
-                  <span className="flex-1 min-w-0 flex items-center gap-2">
-                    <span className="sm:hidden shrink-0"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
-                    {doc.source_filename && (
-                      <span className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 shrink-0 max-w-[16rem]">
-                        <span className="truncate" title={doc.source_filename}>from: {doc.source_filename}</span>
-                        <button
-                          className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                          title="Copy source path"
-                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(doc.source_filename!); showToast("Path copied", "success"); }}
-                        >
-                          <Copy className="w-2.5 h-2.5" />
-                        </button>
-                      </span>
-                    )}
-                    {doc.is_template && (
-                      <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0">
-                        <Stamp className="w-2.5 h-2.5" />
-                        Template
-                      </span>
-                    )}
-                    {doc.locked_by && (
-                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 shrink-0" title={`Locked by ${doc.locked_by_name}`}>
-                        <Lock className="w-3 h-3" />
-                      </span>
-                    )}
-                    {doc.tags?.length > 0 && (
-                      <span className="hidden lg:inline-flex items-center gap-1 shrink-0">
-                        {doc.tags.slice(0, 3).map((tag) => (
-                          <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getTagColor(tag))}>{tag}</span>
-                        ))}
-                        {doc.tags.length > 3 && <span className="text-[10px] text-gray-500 dark:text-gray-400">+{doc.tags.length - 3}</span>}
-                      </span>
-                    )}
-                    {/* Mobile menu — at end of title row */}
-                    {!isReadOnly && <span className="sm:hidden shrink-0 ml-auto">
-                      <DocContextMenu
-                        doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
-                        onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
-                        onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
-                        folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
-                        onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
-                      />
-                    </span>}
-                  </span>
-                  {/* Mobile meta row — type badge + editor + timestamp below title */}
-                  <span className="flex sm:hidden items-center gap-2 w-full pl-6 text-xs text-gray-500 dark:text-gray-400">
-                    <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", typeInfo?.color)}>{typeInfo?.label}</span>
-                    {doc.is_template && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Template</span>
-                    )}
-                    <span>
-                      {doc.updated_by_name && doc.updated_by !== doc.created_by
-                        ? <>{doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
-                        : formatTimeAgo(doc.updated_at)
-                      }
-                    </span>
-                  </span>
-                  {/* Desktop: author + modified + menu */}
-                  <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{doc.created_by_name}</span>
-                  <span className="hidden sm:block w-36 shrink-0 text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {doc.updated_by_name && doc.updated_by !== doc.created_by
-                      ? <>{doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
-                      : formatTimeAgo(doc.updated_at)
-                    }
-                  </span>
-                  {!isReadOnly && <span className="hidden sm:block shrink-0">
-                    <DocContextMenu
-                      doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
-                      onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
-                      onSaveAsTemplate={!isTemplatesTab ? handleSaveAsTemplate : undefined}
-                      folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
-                      onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
-                    />
-                  </span>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Load more */}
-        {!isLoading && documents && documents.length > 0 && hasMore && (
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
-            >
-              {loadingMore ? "Loading..." : "Load more"}
-            </button>
-          </div>
-        )}
-
-        {/* Showing count */}
-        {!isLoading && documents && documents.length > 0 && (
-          <p className="text-center text-xs text-gray-600 dark:text-gray-400 mt-3">
-            <span className="bg-white/80 dark:bg-[#1a1a1a]/60 backdrop-blur-sm rounded-full px-3 py-1">
-              Showing {documents.length} {isTemplatesTab ? "template" : "document"}{documents.length !== 1 ? "s" : ""}
-            </span>
-          </p>
-        )}
-
-        {/* Create Modal */}
-        {showCreateModal && (
-          <CreateDocumentModal
-            createStep={createStep}
-            setCreateStep={setCreateStep}
-            onClose={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
-            onCreate={handleCreate}
-          />
-        )}
-
-        <ImportWorksheetModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          onSuccess={() => mutate()}
-          defaultFolderId={activeFolderId}
-        />
-
-        {/* Tag Popover */}
-        {tagEditDocId !== null && documents?.find((d) => d.id === tagEditDocId) && (
-          <TagPopover
-            doc={documents.find((d) => d.id === tagEditDocId)!}
-            allTags={allTags}
-            onToggleTag={handleToggleTag}
-            onCreateTag={handleCreateTag}
-            onClose={() => setTagEditDocId(null)}
-          />
-        )}
-        {/* Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={confirmAction !== null}
-          onCancel={() => setConfirmAction(null)}
-          onConfirm={() => {
-            if (!confirmAction) return;
-            if (confirmAction.type === "delete-doc") executePermanentDelete(confirmAction.id);
-            else executeDeleteFolder(confirmAction.folder);
-          }}
-          title={confirmAction?.type === "delete-doc" ? "Delete Document" : "Delete Folder"}
-          message={confirmAction?.type === "delete-doc"
-            ? "Permanently delete this document? This cannot be undone."
-            : confirmAction?.type === "delete-folder"
-            ? `Delete folder "${confirmAction.folder.name}"?`
-            : ""}
-          consequences={confirmAction?.type === "delete-folder" ? ["Documents inside will become unfiled"] : undefined}
-          confirmText="Delete"
-          variant="danger"
-        />
-          </div>{/* end max-w container */}
-        </div>{/* end overflow-y-auto main content */}
-
-        {/* Preview pane — desktop only, when toggle is on */}
+        {/* Preview pane — desktop */}
         {previewEnabled && (
           <DocumentPreviewPane
             docId={previewDocId}
@@ -1012,364 +570,60 @@ export default function DocumentsPage() {
           />
         )}
       </PageTransition>
-    </DeskSurface>
-  );
-}
 
-/* Tag popover — checkbox-based, instant save */
-function TagPopover({ doc, allTags, onToggleTag, onCreateTag, onClose }: {
-  doc: Document;
-  allTags: string[];
-  onToggleTag: (docId: number, tag: string, checked: boolean) => void;
-  onCreateTag: (docId: number, tag: string) => void;
-  onClose: () => void;
-}) {
-  const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const tags = doc.tags ?? [];
-
-  const filtered = allTags.filter((t) => t.toLowerCase().includes(search.toLowerCase()));
-  const showCreate = search.trim() && !allTags.some((t) => t.toLowerCase() === search.trim().toLowerCase());
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl"
-        style={{ width: "18rem", maxWidth: "calc(100vw - 2rem)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-3 pt-3 pb-2">
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{doc.title}</p>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              ref={inputRef}
-              autoFocus
-              type="text"
-              placeholder="Search or create tag..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && showCreate) {
-                  e.preventDefault();
-                  onCreateTag(doc.id, search.trim());
-                  setSearch("");
-                }
-                if (e.key === "Escape") onClose();
-              }}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
-            />
-          </div>
-        </div>
-
-        <div className="max-h-48 overflow-y-auto px-1 pb-1">
-          {filtered.map((tag) => {
-            const checked = tags.includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() => onToggleTag(doc.id, tag, !checked)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-              >
-                <div className={cn(
-                  "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                  checked
-                    ? "bg-[#a0704b] border-[#a0704b] text-white"
-                    : "border-gray-300 dark:border-gray-600"
-                )}>
-                  {checked && (
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <span className={cn("px-1.5 py-0.5 rounded-full text-xs font-medium", getTagColor(tag))}>
-                  {tag}
-                </span>
-              </button>
-            );
-          })}
-          {showCreate && (
-            <button
-              onClick={() => {
-                onCreateTag(doc.id, search.trim());
-                setSearch("");
-              }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Create &ldquo;{search.trim()}&rdquo;
-            </button>
-          )}
-          {filtered.length === 0 && !showCreate && (
-            <p className="px-2 py-3 text-xs text-gray-400 text-center">No tags found</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Context menu (3-dot) shared between grid and list views */
-function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, onSaveAsTemplate, folders, onMoveToFolder, onEditTags }: {
-  doc: Document;
-  menuOpenId: number | null;
-  setMenuOpenId: (id: number | null) => void;
-  onDuplicate: (id: number) => void;
-  onArchive: (id: number) => void;
-  onUnarchive: (id: number) => void;
-  onPermanentDelete: (id: number) => void;
-  onSaveAsTemplate?: (id: number) => void;
-  folders: DocumentFolder[];
-  onMoveToFolder: (folderId: number | null) => void;
-  onEditTags: () => void;
-}) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const isOpen = menuOpenId === doc.id;
-  // Only show dropdown if the trigger button is actually visible (not display:none).
-  // In list view, there are separate mobile/desktop DocContextMenu instances sharing menuOpenId.
-  const isVisible = isOpen && btnRef.current?.offsetParent !== null;
-  const close = useCallback(() => setMenuOpenId(null), [setMenuOpenId]);
-
-  return (
-    <div className="relative shrink-0">
-      <button
-        ref={btnRef}
-        onClick={(e) => { e.stopPropagation(); setMenuOpenId(isOpen ? null : doc.id); }}
-        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-      >
-        <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-      </button>
-      <FloatingDropdown
-        triggerRef={btnRef}
-        isOpen={isVisible}
-        onClose={close}
-        className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden"
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-        >
-          <Copy className="w-3.5 h-3.5" />
-          Duplicate
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onEditTags(); }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-        >
-          <Tag className="w-3.5 h-3.5" />
-          Edit Tags
-        </button>
-        {onSaveAsTemplate && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-          >
-            <Stamp className="w-3.5 h-3.5" />
-            Save as Template
-          </button>
-        )}
-        {folders.length > 0 && (
-          <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
-        )}
-        {doc.is_archived ? (
-          <>
-            <button
-              onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-            >
-              <ArchiveRestore className="w-3.5 h-3.5" />
-              Restore
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete Permanently
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Archive
-          </button>
-        )}
-      </FloatingDropdown>
-    </div>
-  );
-}
-
-/* Create document modal with dynamic template picker */
-function CreateDocumentModal({ createStep, setCreateStep, onClose, onCreate }: {
-  createStep: { step: "type" } | { step: "template"; docType: DocType };
-  setCreateStep: (step: { step: "type" } | { step: "template"; docType: DocType }) => void;
-  onClose: () => void;
-  onCreate: (docType: DocType, templateDoc?: Document) => void;
-}) {
-  const [creating, setCreating] = useState(false);
-  const { data: templates, isLoading: loadingTemplates } = useSWR(
-    createStep.step === "template" ? ["templates-for-picker"] : null,
-    () => documentsAPI.list({ is_template: true, limit: 50 }),
-    { revalidateOnFocus: false }
-  );
-
-  const handlePickTemplate = useCallback(async (docType: DocType, tplId: number) => {
-    setCreating(true);
-    try {
-      const fullDoc = await documentsAPI.get(tplId);
-      onCreate(docType, fullDoc);
-    } catch {
-      onCreate(docType);
-    }
-  }, [onCreate]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
-        style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {createStep.step === "type" ? (
-          <>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose a document type:</p>
-            <div className="flex flex-col gap-3">
-              {(Object.entries(DOC_TYPE_LABELS) as [DocType, typeof DOC_TYPE_LABELS[DocType]][]).map(([type, info]) => {
-                const Icon = info.icon;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setCreateStep({ step: "template", docType: type })}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
-                  >
-                    <div className={cn("p-2 rounded-lg", info.color)}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{info.label}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {type === "worksheet" ? "Exercises, exams, practice sheets" : "Teaching guides and outlines"}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Template</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Start with a blank page or pick a template:
-            </p>
-            <div className="flex flex-col gap-3 max-h-80 overflow-y-auto">
-              <button
-                onClick={() => onCreate(createStep.docType)}
-                className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
-              >
-                <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
-                </div>
-              </button>
-              {loadingTemplates ? (
-                <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
-                  <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
-                  <div className="h-4 w-24 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-                </div>
-              ) : templates && templates.length > 0 ? (
-                templates.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    disabled={creating}
-                    onClick={() => handlePickTemplate(createStep.docType, tpl.id)}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left disabled:opacity-50"
-                  >
-                    <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                      <Stamp className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{tpl.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {tpl.created_by_name ? `by ${tpl.created_by_name}` : DOC_TYPE_LABELS[tpl.doc_type as DocType]?.label ?? tpl.doc_type}
-                        {tpl.updated_at ? ` · ${formatTimeAgo(tpl.updated_at)}` : ""}
-                      </p>
-                    </div>
-                  </button>
-                ))
-              ) : null}
-            </div>
-            <button
-              onClick={() => setCreateStep({ step: "type" })}
-              className="w-full mt-4 py-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
-            >
-              Back
-            </button>
-          </>
-        )}
-        <button
-          onClick={onClose}
-          className="w-full mt-2 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* Folder submenu inside context menu */
-function FolderSubmenu({ doc, folders, onMoveToFolder }: {
-  doc: Document;
-  folders: DocumentFolder[];
-  onMoveToFolder: (folderId: number | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-      >
-        <FolderInput className="w-3.5 h-3.5" />
-        Move to
-        <ChevronDown className={cn("w-3 h-3 ml-auto transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="py-0.5 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
-          <button
-            onClick={(e) => { e.stopPropagation(); onMoveToFolder(null); }}
-            className={cn(
-              "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
-              !doc.folder_id && "font-semibold"
-            )}
-          >
-            <FolderOpen className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-            No folder
-          </button>
-          {folders.map((f) => (
-            <button
-              key={f.id}
-              onClick={(e) => { e.stopPropagation(); onMoveToFolder(f.id); }}
-              className={cn(
-                "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
-                doc.folder_id === f.id && "font-semibold"
-              )}
-            >
-              <FolderOpen className="w-3.5 h-3.5 text-[#a0704b]" />
-              {f.name}
-            </button>
-          ))}
-        </div>
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateDocumentModal
+          createStep={createStep}
+          setCreateStep={setCreateStep}
+          onClose={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
+          onCreate={handleCreate}
+        />
       )}
-    </div>
+      {showImportModal && (
+        <ImportWorksheetModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => { setShowImportModal(false); mutate(); }}
+          defaultFolderId={activeFolderId}
+        />
+      )}
+      {(() => {
+        const tagEditDoc = tagEditDocId !== null ? documents?.find((d) => d.id === tagEditDocId) : undefined;
+        return tagEditDoc ? (
+          <TagPopover
+            doc={tagEditDoc}
+            allTags={allTags}
+            onToggleTag={handleToggleTag}
+            onCreateTag={handleCreateTag}
+            onClose={() => setTagEditDocId(null)}
+          />
+        ) : null;
+      })()}
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (!confirmAction) return;
+          if (confirmAction.type === "delete-bulk") executeBulkDelete();
+          else if (confirmAction.type === "delete-doc") executePermanentDelete(confirmAction.id);
+          else executeDeleteFolder(confirmAction.folder);
+        }}
+        title={confirmAction?.type === "delete-bulk"
+          ? `Delete ${selectedIds.size} Document(s)`
+          : confirmAction?.type === "delete-doc" ? "Delete Document"
+          : "Delete Folder"}
+        message={confirmAction?.type === "delete-bulk"
+          ? `Permanently delete ${selectedIds.size} document(s)? This cannot be undone.`
+          : confirmAction?.type === "delete-doc"
+          ? "Permanently delete this document? This cannot be undone."
+          : confirmAction?.type === "delete-folder"
+          ? `Delete folder "${confirmAction.folder.name}"?`
+          : ""}
+        consequences={confirmAction?.type === "delete-folder" ? ["Documents inside will become unfiled"] : undefined}
+        confirmText="Delete"
+        variant="danger"
+      />
+    </DeskSurface>
   );
 }
