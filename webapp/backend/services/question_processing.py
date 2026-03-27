@@ -82,6 +82,16 @@ def text_to_tiptap_nodes(text: str) -> list[dict]:
     if not text:
         return [{"type": "paragraph"}]
 
+    # Replace LaTeX line breaks (\\) with newlines, but only outside $...$ math
+    parts = _MATH_RE.split(text)  # alternates: text, math_content, text, ...
+    for i in range(0, len(parts), 2):  # even indices are outside math
+        parts[i] = parts[i].replace("\\\\", "\n")
+    # Rejoin: re-wrap odd parts (math content) with $...$
+    rebuilt = []
+    for i, p in enumerate(parts):
+        rebuilt.append(f"${p}$" if i % 2 == 1 else p)
+    text = "".join(rebuilt)
+
     paragraphs: list[dict] = []
     for line in text.split("\n"):
         line = line.strip()
@@ -96,10 +106,12 @@ def text_to_tiptap_nodes(text: str) -> list[dict]:
             before = line[last_end:m.start()]
             if before:
                 content.append({"type": "text", "text": before})
-            # Math node
+            # Math node — normalize double backslashes to single for LaTeX commands
+            latex = m.group(1)
+            latex = re.sub(r"\\\\([a-zA-Z])", r"\\\1", latex)
             content.append({
                 "type": "inlineMath",
-                "attrs": {"latex": m.group(1)},
+                "attrs": {"latex": latex},
             })
             last_end = m.end()
         # Trailing text
@@ -194,37 +206,50 @@ def _wrap_bare_latex(text: str) -> str:
     return "\n".join(result)
 
 
-_VALID_JSON_ESCAPES = set('ntrfbu"\\/')
+# LaTeX commands that collide with JSON escapes (\b, \f, \n, \r, \t)
+# \beta→\b+eta, \frac→\f+rac, \nu→\n+u, \rho→\r+ho, \theta→\t+heta
+_LATEX_COLLISIONS = re.compile(
+    r"(?<!\\)\\("  # single backslash (not preceded by another backslash)
+    r"beta|boldsymbol|binom|bm|bar|boxed|begin|"  # \b...
+    r"frac|dfrac|flat|forall|"                      # \f...
+    r"nu|neg|nabla|nolimits|notin|neq|ngeq|nleq|"  # \n...
+    r"rho|right|rightarrow|Rightarrow|rm|"          # \r...
+    r"theta|tan|text|to|top|times|tilde|triangle"   # \t...
+    r")(?![a-zA-Z])"
+)
 
 
 def _fix_json_escapes(text: str) -> str:
     """Fix unescaped LaTeX backslashes that break JSON parsing.
 
-    Gemini sometimes outputs \\sqrt, \\sin, etc. without double-escaping
-    inside JSON strings. This replaces \\X with \\\\X when X is not a
-    valid JSON escape character, while correctly skipping already-escaped
-    \\\\ sequences.
+    Two problems:
+    1. \\sin, \\cos etc. — \\s is not a valid JSON escape, causes parse error
+    2. \\theta, \\beta, \\frac etc. — \\t, \\b, \\f ARE valid JSON escapes,
+       so json.loads silently converts them to tab/backspace/formfeed
+
+    Solution: double-escape all bare LaTeX commands before parsing.
+    Already-escaped \\\\theta is left alone (negative lookbehind).
     """
+    # First: escape LaTeX commands that collide with JSON escapes (\b→backspace, \t→tab, etc.)
+    text = _LATEX_COLLISIONS.sub(lambda m: "\\\\" + m.group(1), text)
+
+    # Second: fix remaining bare backslashes (not valid JSON escapes, not already doubled)
     result = []
     i = 0
     while i < len(text):
         if text[i] == "\\" and i + 1 < len(text):
             next_char = text[i + 1]
             if next_char == "\\":
-                # Already escaped backslash — pass both through and skip
                 result.append("\\\\")
                 i += 2
                 continue
-            elif next_char in _VALID_JSON_ESCAPES:
-                # Valid JSON escape like \n, \t — pass through
+            elif next_char in ('"', '/', 'b', 'f', 'n', 'r', 't', 'u'):
                 result.append("\\")
                 result.append(next_char)
                 i += 2
                 continue
             else:
-                # Invalid escape like \s in \sin — double the backslash
                 result.append("\\\\")
-                # Don't skip next_char — it'll be appended in the next iteration
                 i += 1
                 continue
         result.append(text[i])
@@ -285,7 +310,8 @@ def _process_one_question_sync(question_text: str, use_vary: bool) -> tuple[dict
         # Try to salvage truncated JSON by closing the string and object
         text = _salvage_truncated_json(text)
 
-    # Always fix LaTeX escapes before parsing — model frequently outputs \sin, \cos etc.
+    # Must always fix escapes before parsing — \beta, \theta, \frac etc.
+    # collide with JSON escape sequences (\b, \t, \f) and get silently mangled
     fixed = _fix_json_escapes(text)
     try:
         result = json.loads(fixed)
