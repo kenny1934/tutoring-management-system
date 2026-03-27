@@ -1,4 +1,4 @@
-import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, DocumentVersion, DocumentVersionDetail, ExtractedQuestion } from "@/types";
+import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, DocumentVersion, DocumentVersionDetail, ExtractedQuestion, ProcessQuestionResult, ProcessQuestionsResponse } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -147,6 +147,38 @@ export const documentsAPI = {
     return fetchAPI<{ questions: ExtractedQuestion[]; count: number }>(
       `/documents/${docId}/extract-questions`,
       { method: "POST" }
+    );
+  },
+
+  processQuestions(docId: number, params: {
+    actions: string[];
+    question_indices?: number[];
+  }) {
+    return fetchAPI<ProcessQuestionsResponse>(
+      `/documents/${docId}/process-questions`,
+      { method: "POST", body: JSON.stringify(params) }
+    );
+  },
+
+  applySolutions(docId: number, params: {
+    results: ProcessQuestionResult[];
+    replace_existing?: boolean;
+  }) {
+    return fetchAPI<Document>(
+      `/documents/${docId}/apply-solutions`,
+      { method: "POST", body: JSON.stringify(params) }
+    );
+  },
+
+  createVariantDocument(docId: number, params: {
+    results: ProcessQuestionResult[];
+    title?: string;
+    folder_id?: number | null;
+    include_solutions?: boolean;
+  }) {
+    return fetchAPI<Document>(
+      `/documents/${docId}/create-variant-document`,
+      { method: "POST", body: JSON.stringify(params) }
     );
   },
 };

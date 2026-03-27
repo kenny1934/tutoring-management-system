@@ -79,6 +79,8 @@ def generate(
     max_output_tokens: int = 4096,
     temperature: float = 0.3,
     model: str = MODEL_ID,
+    response_mime_type: str | None = None,
+    response_schema: dict | None = None,
 ) -> tuple[str, int, int, bool]:
     """
     Call Gemini (text-only) and return (response_text, input_tokens, output_tokens, is_truncated).
@@ -87,18 +89,26 @@ def generate(
     from google.genai import types
 
     full_prompt = f"{context}\n\n---\n\n{prompt}" if context else prompt
-    sdk_level = _get_thinking_level(thinking_level)
+
+    config_kwargs: dict = {
+        "temperature": temperature,
+        "max_output_tokens": max_output_tokens,
+    }
+    # thinking_level is supported by 3.x models; 2.5 models use automatic thinking
+    if model.startswith("gemini-3"):
+        sdk_level = _get_thinking_level(thinking_level)
+        config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=sdk_level)
+    if response_mime_type:
+        config_kwargs["response_mime_type"] = response_mime_type
+    if response_schema:
+        config_kwargs["response_schema"] = response_schema
 
     try:
         client = _get_client()
         response = client.models.generate_content(
             model=model,
             contents=full_prompt,
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_level=sdk_level),
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
     except Exception as exc:
         logger.error("Gemini API error: %s", exc, exc_info=True)
@@ -138,12 +148,13 @@ def generate_multimodal(
     for image_bytes, mime_type in images:
         contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
 
-    sdk_level = _get_thinking_level(thinking_level)
     config_kwargs: dict = {
-        "thinking_config": types.ThinkingConfig(thinking_level=sdk_level),
         "temperature": temperature,
         "max_output_tokens": max_output_tokens,
     }
+    if model.startswith("gemini-3"):
+        sdk_level = _get_thinking_level(thinking_level)
+        config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=sdk_level)
     if response_mime_type:
         config_kwargs["response_mime_type"] = response_mime_type
     if response_schema:

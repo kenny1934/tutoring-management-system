@@ -2197,6 +2197,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         {/* Question panel */}
         <QuestionPanel
           docId={doc.id}
+          doc={doc}
           isOpen={questionPanelOpen}
           onClose={() => setQuestionPanelOpen(false)}
           questions={questions}
@@ -2217,6 +2218,14 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             } else if (domNode.node.parentElement) {
               domNode.node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" });
             }
+          }}
+          onContentRefresh={(content) => {
+            queueMicrotask(() => {
+              const ed = editorInstanceRef.current;
+              if (ed) {
+                ed.commands.setContent(content || { type: "doc", content: [{ type: "paragraph" }] });
+              }
+            });
           }}
         />
 

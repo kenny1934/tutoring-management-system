@@ -110,6 +110,8 @@ def parse_questions(content: dict) -> list[dict]:
                 "sub_questions": [],
             }
         elif current is not None:
+            if node.get("type") == "answerSection":
+                continue
             text = _extract_text(node)
             sub_match = _SUB_Q_PATTERN.match(text)
             if sub_match:
@@ -128,6 +130,8 @@ def parse_questions(content: dict) -> list[dict]:
     for q in questions:
         body_parts = []
         for node in nodes[q["start_node"] + 1 : q["end_node"]]:
+            if node.get("type") == "answerSection":
+                continue
             t = _extract_text_with_math(node).strip()
             if t:
                 body_parts.append(t)

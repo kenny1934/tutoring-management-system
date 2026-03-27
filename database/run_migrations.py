@@ -14,9 +14,11 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "094_buddy_access_cards.sql",
     "086_document_source_filename.sql",
     "087_document_questions.sql",
+    "088_document_solutions.sql",
+    "089_document_variants.sql",
+    "094_buddy_access_cards.sql",
 ]
 
 def main():

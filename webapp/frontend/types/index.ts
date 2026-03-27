@@ -1884,6 +1884,8 @@ export interface Document {
   folder_name?: string;
   source_filename?: string | null;
   questions?: ExtractedQuestion[] | null;
+  solutions?: Record<string, { text: string; topic?: string; subtopic?: string; difficulty?: string }> | null;
+  variants?: Record<string, { text: string; solution_text?: string }> | null;
 }
 
 export interface ExtractedQuestion {
@@ -1897,6 +1899,33 @@ export interface ExtractedQuestion {
   difficulty?: "easy" | "medium" | "hard" | null;
   marks?: number | null;
   sub_questions?: string[];
+}
+
+export interface ProcessQuestionResult {
+  index: number;
+  label: string;
+  solution_nodes?: Record<string, unknown>[] | null;
+  variant_nodes?: Record<string, unknown>[] | null;
+  variant_solution_nodes?: Record<string, unknown>[] | null;
+  solution_text?: string | null;
+  variant_text?: string | null;
+  variant_solution_text?: string | null;
+  topic?: string | null;
+  subtopic?: string | null;
+  difficulty?: "easy" | "medium" | "hard" | null;
+}
+
+export interface ProcessQuestionError {
+  index: number;
+  label: string;
+  error: string;
+}
+
+export interface ProcessQuestionsResponse {
+  results: ProcessQuestionResult[];
+  questions: ExtractedQuestion[];
+  usage: { input_tokens: number; output_tokens: number };
+  errors?: ProcessQuestionError[];
 }
 
 export interface DocumentCreate {

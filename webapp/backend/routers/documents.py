@@ -194,6 +194,8 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
     }
     if include_content:
         data["content"] = doc.content
+        data["solutions"] = doc.solutions
+        data["variants"] = doc.variants
     return data
 
 
@@ -923,5 +925,189 @@ async def extract_questions(
     db.commit()
 
     return {"questions": questions, "count": len(questions)}
+
+
+# ─── Question Processing (solve / variant generation) ────────────────
+
+@router.post("/documents/{doc_id}/process-questions")
+async def process_questions_endpoint(
+    doc_id: int,
+    body: dict,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """
+    Process questions with Gemini — solve and/or generate variants.
+
+    Body:
+        actions: ["solve"] | ["vary"] | ["solve", "vary"]
+        question_indices: [0, 1, 3] (optional, default: all)
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.questions:
+        raise HTTPException(status_code=400, detail="No questions extracted — run extract-questions first")
+    if not doc.content:
+        raise HTTPException(status_code=400, detail="Document has no content")
+
+    actions = body.get("actions", [])
+    if not actions or not any(a in actions for a in ("solve", "vary")):
+        raise HTTPException(status_code=400, detail="actions must include 'solve' and/or 'vary'")
+
+    question_indices = body.get("question_indices")
+
+    from services.question_processing import process_questions
+
+    results, errors, input_tokens, output_tokens = await process_questions(
+        questions=doc.questions,
+        content=doc.content,
+        actions=actions,
+        question_indices=question_indices,
+    )
+
+    # Update question metadata with topic/difficulty from results
+    result_map = {r["index"]: r for r in results}
+    for q in doc.questions:
+        r = result_map.get(q["index"])
+        if r:
+            q["topic"] = r.get("topic") or q.get("topic")
+            q["subtopic"] = r.get("subtopic") or q.get("subtopic")
+            q["difficulty"] = r.get("difficulty") or q.get("difficulty")
+    flag_modified(doc, "questions")
+
+    # Persist raw text to solutions/variants columns
+    sol_data = dict(doc.solutions or {})
+    for r in results:
+        sol_data[str(r["index"])] = {
+            "text": r.get("solution_text", ""),
+            "topic": r.get("topic"),
+            "subtopic": r.get("subtopic"),
+            "difficulty": r.get("difficulty"),
+        }
+    doc.solutions = sol_data
+    flag_modified(doc, "solutions")
+
+    if "vary" in actions:
+        var_data = dict(doc.variants or {})
+        for r in results:
+            if r.get("variant_text"):
+                var_data[str(r["index"])] = {
+                    "text": r["variant_text"],
+                    "solution_text": r.get("variant_solution_text", ""),
+                }
+        doc.variants = var_data
+        flag_modified(doc, "variants")
+
+    db.commit()
+
+    response = {
+        "results": results,
+        "questions": doc.questions,
+        "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+    }
+    if errors:
+        response["errors"] = errors
+    return response
+
+
+@router.post("/documents/{doc_id}/apply-solutions")
+async def apply_solutions_endpoint(
+    doc_id: int,
+    body: dict,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """
+    Insert answerSection nodes into the document after each solved question.
+
+    Body:
+        results: [...] (from process-questions response)
+        replace_existing: bool (default: false — skip questions that already have answers)
+    """
+    doc = _doc_query(db).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.content or not doc.questions:
+        raise HTTPException(status_code=400, detail="Document has no content or questions")
+
+    results = body.get("results", [])
+    if not results:
+        raise HTTPException(status_code=400, detail="No results provided")
+
+    replace_existing = body.get("replace_existing", False)
+
+    from services.question_processing import apply_solutions_to_content
+
+    new_content = apply_solutions_to_content(
+        content=doc.content,
+        questions=doc.questions,
+        results=results,
+        replace_existing=replace_existing,
+    )
+
+    doc.content = new_content
+    flag_modified(doc, "content")
+    doc.updated_by = current_user.id
+    doc.updated_at = hk_now()
+    db.commit()
+
+    return _doc_to_response(doc)
+
+
+@router.post("/documents/{doc_id}/create-variant-document")
+async def create_variant_document_endpoint(
+    doc_id: int,
+    body: dict,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new document from variant question results.
+
+    Body:
+        results: [...] (from process-questions response, must have variant_nodes)
+        title: str
+        folder_id: int | null
+        include_solutions: bool (default: true)
+    """
+    source_doc = _doc_query(db).filter(Document.id == doc_id).first()
+    if not source_doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    results = body.get("results", [])
+    variant_results = [r for r in results if r.get("variant_nodes")]
+    if not variant_results:
+        raise HTTPException(status_code=400, detail="No variant results provided")
+
+    title = body.get("title") or f"{source_doc.title} — Variant"
+    folder_id = body.get("folder_id", source_doc.folder_id)
+    include_solutions = body.get("include_solutions", True)
+
+    from services.question_processing import build_variant_document
+
+    variant_content = build_variant_document(
+        results=variant_results,
+        include_solutions=include_solutions,
+    )
+
+    new_doc = Document(
+        title=title,
+        doc_type=source_doc.doc_type,
+        content=variant_content,
+        page_layout=source_doc.page_layout,
+        created_by=current_user.id,
+        created_at=hk_now(),
+        updated_at=hk_now(),
+        is_template=False,
+        folder_id=folder_id,
+        tags=source_doc.tags or [],
+    )
+    db.add(new_doc)
+    db.commit()
+    db.refresh(new_doc)
+
+    new_doc = _doc_query(db).filter(Document.id == new_doc.id).first()
+    return _doc_to_response(new_doc)
 
 
