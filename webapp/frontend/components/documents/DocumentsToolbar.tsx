@@ -103,8 +103,8 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               className={cn(
                 "px-2.5 py-1 text-[13px] font-medium rounded-md transition-colors",
                 activeTab === tab.id
-                  ? "text-[#a0704b] dark:text-[#cd853f] bg-[#a0704b]/10 dark:bg-[#cd853f]/10"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  ? "text-[#a0704b] dark:text-[#cd853f] bg-[#a0704b]/10 dark:bg-[#cd853f]/10 border-b-2 border-[#a0704b] dark:border-[#cd853f] rounded-b-none"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b-2 border-transparent"
               )}
             >
               {tab.label}
@@ -147,7 +147,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       </div>
 
       {/* Row 2: Search + filters + view controls */}
-      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
         <div className="relative flex-1 min-w-0 max-w-[14rem]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
@@ -188,7 +188,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <div ref={sortRef} className="relative">
           <button
             onClick={() => setShowSortMenu(!showSortMenu)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-[12px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[12px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-warm"
             title="Sort"
           >
             <span className="hidden sm:inline">{SORT_OPTIONS[sortIdx].label}</span>
@@ -216,7 +216,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <button
           onClick={onToggleArchived}
           className={cn(
-            "hidden sm:flex items-center p-1.5 rounded-md transition-colors",
+            "hidden sm:flex items-center p-1.5 rounded-md transition-colors focus-warm",
             showArchived
               ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
               : "text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -250,7 +250,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <button
           onClick={() => onTogglePreview()}
           className={cn(
-            "hidden lg:flex p-1.5 rounded-md transition-colors",
+            "hidden lg:flex p-1.5 rounded-md transition-colors focus-warm",
             previewEnabled
               ? "bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f]"
               : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"

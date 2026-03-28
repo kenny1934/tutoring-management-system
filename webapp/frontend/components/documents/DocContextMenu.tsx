@@ -68,7 +68,7 @@ export interface DocContextMenuProps {
   onEditTags: () => void;
 }
 
-const menuItemCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]";
+const menuItemCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] [&>svg]:text-gray-400 [&>svg]:dark:text-gray-500 [&>svg]:shrink-0";
 const menuDangerCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20";
 
 export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, onSaveAsTemplate, folders, onMoveToFolder, onEditTags }: DocContextMenuProps) {
@@ -90,7 +90,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         triggerRef={btnRef}
         isOpen={isVisible}
         onClose={close}
-        className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden"
+        className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
       >
         <button
           onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
@@ -118,7 +118,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         {folders.length > 0 && (
           <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
         )}
-        <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+        <div className="my-1 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40" />
         <button
           onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}`, "_blank"); close(); }}
           className={menuItemCls}
@@ -142,7 +142,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           <Download className="w-3.5 h-3.5" />
           Export PDF
         </button>
-        <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+        <div className="my-1 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40" />
         {doc.is_archived ? (
           <>
             <button

@@ -452,7 +452,7 @@ export default function DocumentsPage() {
         {/* Mobile sidebar drawer */}
         {mobileDrawerOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setMobileDrawerOpen(false)} />
+            <div className="absolute inset-0 bg-black/30 animate-backdrop-in" onClick={() => setMobileDrawerOpen(false)} />
             <div className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto">
               <FolderSidebar
                 mobile
@@ -542,7 +542,7 @@ export default function DocumentsPage() {
                     <div key={i} className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
                   ))
                 ) : documents?.length ? (
-                  documents.map((doc) => {
+                  documents.map((doc, i) => {
                     const meta = DOC_TYPE_CONFIG[doc.doc_type as DocType] || DOC_TYPE_CONFIG.worksheet;
                     const Icon = meta.icon;
                     return (
@@ -550,13 +550,13 @@ export default function DocumentsPage() {
                         key={doc.id}
                         onClick={() => handleDocClick(doc.id)}
                         className={cn(
-                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover",
-                          doc.doc_type === "worksheet" ? "border-l-blue-400" : "border-l-green-400",
+                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none",
+                          doc.doc_type === "worksheet" ? "border-l-[#7ba7c7]" : "border-l-[#6aa87a]",
                           doc.is_archived
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
                             : doc.is_template
                             ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20 border-l-purple-400"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] shadow-[var(--shadow-paper-sm)] dark:shadow-none"
                         )}
                       >
                         <div className="flex items-center gap-2 mb-2">
@@ -598,9 +598,11 @@ export default function DocumentsPage() {
                   })
                 ) : (
                   <div className="col-span-full flex flex-col items-center py-20 text-center">
-                    <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{emptyTitle}</p>
-                    <p className="text-xs text-gray-400 mt-1">{emptyMessage}</p>
+                    <div className="animate-empty-float w-16 h-16 rounded-2xl bg-[#f5ede3] dark:bg-[#2d2618] flex items-center justify-center mb-4">
+                      <FileText className="w-8 h-8 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[20rem]">{emptyMessage}</p>
                   </div>
                 )}
               </div>
@@ -614,7 +616,13 @@ export default function DocumentsPage() {
                   disabled={loadingMore}
                   className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
                 >
-                  {loadingMore ? "Loading..." : "Load more"}
+                  {loadingMore ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1 h-1 rounded-full bg-[#a0704b] animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </span>
+                  ) : "Load more"}
                 </button>
               </div>
             )}

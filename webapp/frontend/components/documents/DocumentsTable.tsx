@@ -106,7 +106,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   if (!documents.length) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-[#f5ede3] dark:bg-[#2d2618] flex items-center justify-center mb-4">
+        <div className="animate-empty-float w-14 h-14 rounded-2xl bg-[#f5ede3] dark:bg-[#2d2618] flex items-center justify-center mb-4">
           <FileText className="w-7 h-7 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
         </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
@@ -118,7 +118,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[500px]">
-        <thead className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a]">
+        <thead className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a] docs-table-header">
           <tr className="border-b border-gray-200 dark:border-gray-700/50">
             <th className="w-10 py-2.5 px-4">
               <input
@@ -129,7 +129,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 accent-[#a0704b]"
               />
             </th>
-            <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Name</th>
+            <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
             <th className="w-24 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden md:table-cell">Tags</th>
             <th className="w-28 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden sm:table-cell">Modified</th>
             <th className="w-8 py-2.5" />
@@ -153,7 +153,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
                   selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
                   isPreviewing && !selected && "bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-400",
-                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/40 hover:bg-gray-50 dark:hover:bg-gray-800/30",
+                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]/40",
                   doc.is_archived && "opacity-40",
                 )}
               >
@@ -169,7 +169,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
 
                 {/* Name cell: icon + title + inline badges */}
                 <td className="py-2.5 pl-1 pr-4">
-                  <div className="flex items-center gap-2 min-w-0" style={indent ? { paddingLeft: `${indent * 1.25}rem` } : undefined}>
+                  <div className="flex items-center gap-2 min-w-0 table-row-name-hover" style={indent ? { paddingLeft: `${indent * 1.25}rem` } : undefined}>
                     {hasChildren ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleExpand(doc.id); }}
@@ -178,8 +178,8 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-600 transition-transform", isExpanded && "rotate-90")} />
                       </button>
                     ) : isVariant ? (
-                      <svg className="shrink-0 w-[18px] h-[18px] text-gray-300 dark:text-gray-600" viewBox="0 0 18 18" fill="none">
-                        <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      <svg className="shrink-0 w-[18px] h-[18px] text-[#a0704b]/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                        <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-path-draw" />
                       </svg>
                     ) : (
                       <span className="shrink-0 w-[18px]" />

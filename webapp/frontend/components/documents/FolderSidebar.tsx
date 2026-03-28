@@ -114,10 +114,10 @@ function FolderTreeItem({
     <div>
       <div
         className={cn(
-          "group/folder flex items-center gap-1 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer transition-colors text-sm",
+          "group/folder flex items-center gap-1 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isActive
-            ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f] font-medium"
-            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+            ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+            : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5 hover:translate-x-0.5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(isActive ? null : node.id)}
@@ -142,7 +142,11 @@ function FolderTreeItem({
 
         <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
-        <span className="text-[10px] opacity-50 shrink-0 tabular-nums">{node.document_count}</span>
+        {node.document_count > 0 && (
+          <span className="text-[9px] font-semibold tabular-nums bg-[#a0704b]/10 dark:bg-[#cd853f]/10 text-[#a0704b] dark:text-[#cd853f] px-1.5 py-0.5 rounded-full shrink-0">
+            {node.document_count}
+          </span>
+        )}
 
         {/* Hover menu trigger */}
         {!isReadOnly && <div className="relative shrink-0" ref={menuRef}>
@@ -452,10 +456,10 @@ export default function FolderSidebar({
             <button
               onClick={() => onSelectFolder(null)}
               className={cn(
-                "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-colors",
+                "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
                 activeFolderId === null
-                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f] font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+                  ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
               )}
             >
               <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
@@ -493,19 +497,26 @@ export default function FolderSidebar({
 
             {/* Empty state */}
             {!isReadOnly && tree.length === 0 && !creating && (
-              <button
-                onClick={() => setCreating({ parentId: null })}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"
-              >
-                <FolderPlus className="w-3.5 h-3.5" />
-                Create a folder
-              </button>
+              <div className="mx-1 mt-2 px-3 py-4 rounded-xl border border-dashed border-[#e8d4b8] dark:border-[#4a3a2a] bg-[#fef9f3]/60 dark:bg-white/[0.02] text-center">
+                <FolderOpen className="w-6 h-6 mx-auto mb-1.5 text-[#c4a882] dark:text-[#6b5a4a]" />
+                <p className="text-[11px] text-gray-500 dark:text-gray-500 mb-2 leading-relaxed">
+                  Organise your documents into folders
+                </p>
+                <button
+                  onClick={() => setCreating({ parentId: null })}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#a0704b] text-white hover:bg-[#8b5e3c] transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  New folder
+                </button>
+              </div>
             )}
           </div>
 
           {/* Tags section */}
           {allTags.length > 0 && (
-            <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 px-3 pt-2 pb-3 mt-2">
+            <div className="relative px-3 pt-3 pb-3 mt-1">
+              <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
                 Tags
               </span>
@@ -515,10 +526,10 @@ export default function FolderSidebar({
                     key={tag}
                     onClick={() => onSelectTag(activeTag === tag ? null : tag)}
                     className={cn(
-                      "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-colors",
+                      "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer",
                       activeTag === tag
-                        ? "ring-2 ring-[#a0704b]/50 ring-offset-1 dark:ring-offset-[#1a1a1a]"
-                        : "hover:opacity-80",
+                        ? "ring-2 ring-[#a0704b]/60 ring-offset-1 dark:ring-offset-[#1a1a1a] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
+                        : "hover:scale-[1.03] hover:shadow-sm",
                       getTagColor(tag)
                     )}
                   >

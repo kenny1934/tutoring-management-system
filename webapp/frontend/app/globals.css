@@ -565,6 +565,99 @@
   animation: scaleIn var(--timing-medium) var(--ease-spring);
 }
 
+/* Context menu item stagger — scoped to menus with the stagger class */
+.animate-menu-stagger > button,
+.animate-menu-stagger > div {
+  animation: fadeSlideIn 150ms ease-out both;
+}
+.animate-menu-stagger > *:nth-child(1) { animation-delay: 20ms; }
+.animate-menu-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.animate-menu-stagger > *:nth-child(3) { animation-delay: 60ms; }
+.animate-menu-stagger > *:nth-child(4) { animation-delay: 80ms; }
+.animate-menu-stagger > *:nth-child(5) { animation-delay: 100ms; }
+.animate-menu-stagger > *:nth-child(6) { animation-delay: 110ms; }
+.animate-menu-stagger > *:nth-child(7) { animation-delay: 120ms; }
+.animate-menu-stagger > *:nth-child(n+8) { animation-delay: 130ms; }
+
+/* View mode switch crossfade — reuses existing slideUp keyframe */
+.animate-view-enter {
+  animation: slideUp var(--timing-medium) var(--ease-out) both;
+}
+
+/* Grid card stagger entrance */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-card-enter {
+  animation: cardEnter var(--timing-medium) var(--ease-spring) both;
+}
+
+/* Variant tree connector draw-in */
+@keyframes pathDraw {
+  from { stroke-dashoffset: 30; opacity: 0.3; }
+  to   { stroke-dashoffset: 0;  opacity: 1; }
+}
+.animate-path-draw {
+  stroke-dasharray: 30;
+  animation: pathDraw 200ms ease-out both;
+}
+
+/* Empty state breathing float */
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0px) rotate(-0.5deg); }
+  50%      { transform: translateY(-5px) rotate(0.5deg); }
+}
+.animate-empty-float {
+  animation: emptyFloat 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-empty-float { animation: none; }
+}
+
+/* Warm focus ring for toolbar/sidebar interactive elements */
+.focus-warm:focus-visible {
+  outline: 2px solid rgba(160, 112, 75, 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Table row name nudge on hover */
+.table-row-name-hover {
+  transition: transform var(--timing-fast) ease-out;
+}
+tr:hover .table-row-name-hover {
+  transform: translateX(2px);
+}
+
+/* Sticky table header shadow */
+.docs-table-header {
+  position: relative;
+}
+.docs-table-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 8px;
+  background: linear-gradient(to bottom, rgba(160,112,75,0.06), transparent);
+  pointer-events: none;
+}
+
+/* Preview pane desk surface */
+.preview-desk-surface {
+  background-color: #f0e8dc;
+}
+.dark .preview-desk-surface {
+  background-color: rgba(17, 17, 17, 0.6);
+}
+
+/* Preview page paper shadow — extends paper-sm with an inset border */
+.shadow-paper-preview {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.04);
+}
+
 .animate-shimmer {
   background: linear-gradient(
     to right,

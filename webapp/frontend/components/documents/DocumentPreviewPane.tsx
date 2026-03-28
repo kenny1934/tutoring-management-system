@@ -69,21 +69,28 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
     >
       {docId === null ? (
         /* Empty state */
-        <div className={cn("flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 p-6", !collapsed && "min-w-[20rem]")}>
-          <FileText className="w-10 h-10 mb-3 opacity-40" />
-          <p className="text-sm">Select a document to preview</p>
+        <div className={cn("flex-1 flex flex-col items-center justify-center p-6 text-center", !collapsed && "min-w-[20rem]")}>
+          <div className={cn("relative mb-4", !collapsed && "animate-empty-float")}>
+            <div className="absolute inset-0 translate-x-1 translate-y-1 rounded-lg bg-[#e8d4b8]/50 dark:bg-[#6b5a4a]/20" />
+            <div className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-lg bg-[#f5ede3]/70 dark:bg-[#2d2618]/50" />
+            <div className="relative w-12 h-16 rounded-lg bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-[var(--shadow-paper-sm)] flex items-center justify-center">
+              <FileText className="w-6 h-6 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
+            </div>
+          </div>
+          <p className="text-[13px] font-medium text-gray-400 dark:text-gray-500">No document selected</p>
+          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click any row to preview</p>
         </div>
       ) : (
         <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && "min-w-[20rem]")}>
           {/* Header */}
-          <div className="border-b border-gray-200 dark:border-gray-700/50 px-3 py-2.5 shrink-0">
+          <div className="border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 px-3 py-3 shrink-0 bg-gradient-to-b from-[#fef9f3] to-[#fdf4ec] dark:from-[#1c1811] dark:to-[#181410]">
             {/* Top row: open + close */}
             <div className="flex items-center justify-between mb-1.5">
               <button
                 onClick={() => onOpenEditor(docId)}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#e8a84a] transition-colors group/open"
               >
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3 h-3 transition-transform duration-150 group-hover/open:translate-x-0.5 group-hover/open:-translate-y-0.5" />
                 Open in Editor
               </button>
               <button
@@ -114,7 +121,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                     {doc.title || "Untitled"}
                   </h2>
                   {typeInfo && (
-                    <span className={cn("shrink-0 px-1 py-0.5 rounded text-[9px] font-medium", typeInfo.color)}>
+                    <span className={cn("shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-tight", typeInfo.color)}>
                       {typeInfo.abbr}
                     </span>
                   )}
@@ -141,7 +148,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                 </div>
 
                 {/* Print buttons */}
-                <div className="flex items-center gap-1.5 mb-2">
+                <div className="flex items-center gap-1.5 mb-2 p-1.5 rounded-lg bg-gray-50/80 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.04]">
                   <button
                     onClick={() => onPrint(docId, "student")}
                     className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
@@ -151,7 +158,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                   </button>
                   <button
                     onClick={() => onPrint(docId, "answers")}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-400 border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
                   >
                     With Answers
                   </button>
@@ -189,7 +196,9 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                             !doc.parent_id && "pl-5"
                           )}
                         >
-                          <span className="text-gray-300 dark:text-gray-600 text-[10px] shrink-0">└</span>
+                          <svg className="shrink-0 w-[14px] h-[14px] text-[#a0704b]/25 dark:text-[#cd853f]/20" viewBox="0 0 18 18" fill="none">
+                        <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
                           <span className="truncate">{child.title}</span>
                         </button>
                       ))}
@@ -211,7 +220,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                     {solvedCount > 0 && (
                       <div className="h-1 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-green-500 transition-[width] duration-500"
+                          className={cn("h-full rounded-full transition-[width] duration-700 ease-out", solvedCount === questionCount ? "bg-[#6aa87a]" : "bg-[#a0704b]")}
                           style={{ width: `${(solvedCount / questionCount) * 100}%` }}
                         />
                       </div>
@@ -239,8 +248,8 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                 This document is empty.
               </div>
             ) : doc ? (
-              <div className="p-3">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-sm shadow-[var(--shadow-paper-sm)] overflow-hidden paper-mode">
+              <div className="p-4 preview-desk-surface">
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-[2px] paper-mode overflow-hidden shadow-paper-preview">
                 <div
                   style={{
                     padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
