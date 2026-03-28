@@ -33,6 +33,7 @@ import {
   BranchBadges,
   CopyableCell,
   INTENTION_LABELS,
+  OUTREACH_BADGE_COLORS,
 } from "@/components/summer/prospect-badges";
 import type {
   PrimaryProspect,
@@ -428,16 +429,6 @@ export default function AdminProspectsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Sync modal with refreshed list data after save (prospects-only dep to avoid update loop)
-  const selectedProspectRef = useRef(selectedProspect);
-  selectedProspectRef.current = selectedProspect;
-  useEffect(() => {
-    if (!selectedProspectRef.current || !prospects) return;
-    const updated = prospects.find((p) => p.id === selectedProspectRef.current!.id);
-    if (updated) setSelectedProspect(updated);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
-
   const swrKey = tab === "list" && year
     ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search]
     : null;
@@ -456,7 +447,17 @@ export default function AdminProspectsPage() {
     { revalidateOnFocus: false }
   );
 
-  const statsKey = tab === "dashboard" && year ? `admin-prospect-stats-${year}` : null;
+  // Sync modal with refreshed list data after save (prospects-only dep to avoid update loop)
+  const selectedProspectRef = useRef(selectedProspect);
+  selectedProspectRef.current = selectedProspect;
+  useEffect(() => {
+    if (!selectedProspectRef.current || !prospects) return;
+    const updated = prospects.find((p) => p.id === selectedProspectRef.current!.id);
+    if (updated) setSelectedProspect(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
+
+  const statsKey = year ? `admin-prospect-stats-${year}` : null;
   const { data: stats } = useSWR(
     statsKey,
     () => prospectsAPI.stats(year!),
@@ -609,23 +610,29 @@ export default function AdminProspectsPage() {
               }`}
             >
               All
+              {stats && stats.length > 0 && (
+                <span className="ml-1 opacity-60">{stats.reduce((sum, s) => sum + s.total, 0)}</span>
+              )}
             </button>
-            {PROSPECT_BRANCHES.map((b) => (
-              <button
-                key={b}
-                onClick={() => setFilters((f) => ({ ...f, branch: f.branch === b ? "" : b }))}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
-                  filters.branch === b
-                    ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} shadow-sm ring-1 ring-current/20`
-                    : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                }`}
-              >
-                {b}
-                {filters.branch === b && prospects && (
-                  <span className="ml-1 opacity-60">{prospects.length}</span>
-                )}
-              </button>
-            ))}
+            {PROSPECT_BRANCHES.map((b) => {
+              const branchTotal = stats?.find((s) => s.branch === b)?.total;
+              return (
+                <button
+                  key={b}
+                  onClick={() => setFilters((f) => ({ ...f, branch: f.branch === b ? "" : b }))}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                    filters.branch === b
+                      ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} shadow-sm ring-1 ring-current/20`
+                      : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  {b}
+                  {branchTotal != null && (
+                    <span className="ml-1 opacity-60">{branchTotal}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Search + Filters */}
@@ -845,16 +852,21 @@ export default function AdminProspectsPage() {
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
             <span className="text-xs text-muted-foreground">|</span>
             <span className="text-xs text-muted-foreground">Set outreach:</span>
-            {OUTREACH_OPTIONS.map((o) => (
-              <button
-                key={o}
-                onClick={() => handleBulkOutreach(o)}
-                className="text-xs px-1.5 py-0.5 border rounded-lg hover:bg-primary/5 transition-colors"
-                title={OUTREACH_STATUS_HINTS[o]}
-              >
-                {o}
-              </button>
-            ))}
+            {OUTREACH_OPTIONS.map((o) => {
+              const label = o.startsWith("WeChat - ") ? o.replace("WeChat - ", "") : o;
+              const showWeChatIcon = o.startsWith("WeChat");
+              return (
+                <button
+                  key={o}
+                  onClick={() => handleBulkOutreach(o)}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[o] || "bg-gray-100"}`}
+                  title={OUTREACH_STATUS_HINTS[o]}
+                >
+                  {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
+                  {label}
+                </button>
+              );
+            })}
             <button onClick={() => setSelectedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
               <X className="h-4 w-4" />
             </button>
