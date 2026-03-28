@@ -20,13 +20,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
+import { buildFolderTree, type FolderTreeNode } from "@/lib/folder-utils";
 import type { DocumentFolder } from "@/types";
-
-/* ── Types ─────────────────────────────────────────────── */
-
-interface FolderTreeNode extends DocumentFolder {
-  children: FolderTreeNode[];
-}
 
 interface FolderSidebarProps {
   folders: DocumentFolder[];
@@ -39,6 +34,8 @@ interface FolderSidebarProps {
   onCreateFolder: (name: string, parentId?: number | null) => void;
   onRenameFolder: (folder: DocumentFolder, newName: string) => void;
   onDeleteFolder: (folder: DocumentFolder) => void;
+  onRenameTag?: (oldName: string, newName: string) => void;
+  onDeleteTag?: (tag: string) => void;
   totalDocCount?: number;
   /** When true, always show (skip hidden md:flex). Used inside mobile drawer. */
   mobile?: boolean;
@@ -46,37 +43,6 @@ interface FolderSidebarProps {
   hidden?: boolean;
   /** When true, hide all folder CRUD actions (create, rename, delete). */
   isReadOnly?: boolean;
-}
-
-/* ── Build tree from flat list ─────────────────────────── */
-
-function buildFolderTree(folders: DocumentFolder[]): FolderTreeNode[] {
-  const map = new Map<number, FolderTreeNode>();
-  const roots: FolderTreeNode[] = [];
-
-  // Create nodes
-  for (const f of folders) {
-    map.set(f.id, { ...f, children: [] });
-  }
-
-  // Build tree
-  for (const f of folders) {
-    const node = map.get(f.id)!;
-    if (f.parent_id && map.has(f.parent_id)) {
-      map.get(f.parent_id)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-
-  // Sort children alphabetically
-  const sortChildren = (nodes: FolderTreeNode[]) => {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
-    nodes.forEach((n) => sortChildren(n.children));
-  };
-  sortChildren(roots);
-
-  return roots;
 }
 
 /* ── Folder Tree Item ──────────────────────────────────── */
@@ -117,7 +83,7 @@ function FolderTreeItem({
           "group/folder flex items-center gap-1 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isActive
             ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-            : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5 hover:translate-x-0.5"
+            : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(isActive ? null : node.id)}
@@ -289,6 +255,8 @@ export default function FolderSidebar({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  onRenameTag,
+  onDeleteTag,
   totalDocCount,
   mobile,
   hidden,
@@ -304,6 +272,9 @@ export default function FolderSidebar({
   const [creating, setCreating] = useState<{ parentId: number | null } | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<DocumentFolder | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [tagMenuOpen, setTagMenuOpen] = useState<{ tag: string; x: number; y: number } | null>(null);
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameTagValue, setRenameTagValue] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
 
   const tree = useMemo(() => {
@@ -525,6 +496,12 @@ export default function FolderSidebar({
                   <button
                     key={tag}
                     onClick={() => onSelectTag(activeTag === tag ? null : tag)}
+                    onContextMenu={(e) => {
+                      if (onRenameTag || onDeleteTag) {
+                        e.preventDefault();
+                        setTagMenuOpen({ tag, x: e.clientX, y: e.clientY });
+                      }
+                    }}
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer",
                       activeTag === tag
@@ -540,6 +517,33 @@ export default function FolderSidebar({
                   </button>
                 ))}
               </div>
+              {/* Tag context menu (right-click) */}
+              {tagMenuOpen && (
+                <div className="fixed inset-0 z-50" onClick={() => setTagMenuOpen(null)}>
+                  <div
+                    className="absolute bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[8rem] animate-scale-in"
+                    style={{ top: Math.min(tagMenuOpen.y, window.innerHeight - 80), left: Math.min(tagMenuOpen.x, window.innerWidth - 140) }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {onRenameTag && (
+                      <button
+                        onClick={() => { setRenamingTag(tagMenuOpen.tag); setRenameTagValue(tagMenuOpen.tag); setTagMenuOpen(null); }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                      >
+                        <Pencil className="w-3 h-3" /> Rename
+                      </button>
+                    )}
+                    {onDeleteTag && (
+                      <button
+                        onClick={() => { onDeleteTag(tagMenuOpen.tag); setTagMenuOpen(null); }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -576,6 +580,45 @@ export default function FolderSidebar({
               <button
                 onClick={handleSubmitRename}
                 disabled={!renameValue.trim()}
+                className="flex-1 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tag rename modal */}
+      {renamingTag && onRenameTag && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRenamingTag(null)}>
+          <div
+            className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5"
+            style={{ width: "20rem", maxWidth: "calc(100vw - 2rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Rename Tag</h3>
+            <input
+              autoFocus
+              type="text"
+              value={renameTagValue}
+              onChange={(e) => setRenameTagValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameTagValue.trim() && renameTagValue.trim() !== renamingTag) {
+                  onRenameTag(renamingTag, renameTagValue.trim());
+                  setRenamingTag(null);
+                }
+                if (e.key === "Escape") setRenamingTag(null);
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40 mb-3"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setRenamingTag(null)} className="flex-1 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors rounded-lg border border-border">
+                Cancel
+              </button>
+              <button
+                onClick={() => { if (renameTagValue.trim() && renameTagValue.trim() !== renamingTag) { onRenameTag(renamingTag, renameTagValue.trim()); setRenamingTag(null); } }}
+                disabled={!renameTagValue.trim() || renameTagValue.trim() === renamingTag}
                 className="flex-1 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 Rename

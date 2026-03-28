@@ -25,6 +25,8 @@ from schemas import (
     FolderCreate,
     FolderUpdate,
     FolderResponse,
+    BulkDocumentUpdate,
+    TagRenameRequest,
 )
 from auth.dependencies import get_current_user, reject_guest, reject_read_only, ADMIN_WRITE_ROLES
 
@@ -240,15 +242,16 @@ async def list_documents(
     if doc_type:
         query = query.filter(Document.doc_type == doc_type)
     if search:
-        query = query.filter(Document.title.ilike(f"%{search}%"))
+        query = query.filter(or_(
+            Document.title.ilike(f"%{search}%"),
+            sa_func.json_contains(Document.tags, f'"{search}"'),
+        ))
     if tag:
         query = query.filter(sa_func.json_contains(Document.tags, f'"{tag}"'))
     if folder_id is not None:
         query = query.filter(Document.folder_id == folder_id)
     if my_docs:
-        query = query.filter(
-            or_(Document.created_by == current_user.id, Document.updated_by == current_user.id)
-        )
+        query = query.filter(Document.created_by == current_user.id)
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
         if id_list:
@@ -260,22 +263,109 @@ async def list_documents(
     return [_doc_to_response(d, include_content=False) for d in docs]
 
 
-@router.get("/documents/tags", response_model=List[str])
+@router.get("/documents/tags")
 async def list_all_tags(
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
 ):
-    """Get all unique tags used across documents."""
+    """Get all unique tags with counts used across documents."""
     docs = db.query(Document.tags).filter(
         Document.tags.isnot(None),
         Document.is_archived == False,
         Document.is_template == False,
     ).all()
-    all_tags = set()
+    tag_counts: dict[str, int] = {}
     for (tags,) in docs:
         if tags:
-            all_tags.update(tags)
-    return sorted(all_tags)
+            for tag in tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    return [{"name": t, "count": c} for t, c in sorted(tag_counts.items())]
+
+
+@router.patch("/documents/bulk")
+async def bulk_update_documents(
+    data: BulkDocumentUpdate,
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """Bulk update multiple documents (move, tag, archive)."""
+    docs = db.query(Document).filter(Document.id.in_(data.ids)).all()
+    updated = 0
+    skipped = 0
+    for doc in docs:
+        if doc.created_by != current_user.id and current_user.role not in ADMIN_WRITE_ROLES:
+            skipped += 1
+            continue
+        if data.folder_id is not None:
+            doc.folder_id = data.folder_id if data.folder_id != 0 else None
+        if data.is_archived is not None:
+            doc.is_archived = data.is_archived
+        if data.tags_add:
+            current_tags = list(doc.tags or [])
+            for tag in data.tags_add:
+                if tag not in current_tags:
+                    current_tags.append(tag)
+            doc.tags = current_tags
+            flag_modified(doc, "tags")
+        if data.tags_remove:
+            current_tags = list(doc.tags or [])
+            doc.tags = [t for t in current_tags if t not in data.tags_remove]
+            flag_modified(doc, "tags")
+        doc.updated_at = hk_now()
+        doc.updated_by = current_user.id
+        updated += 1
+    db.commit()
+    return {"updated": updated, "skipped": skipped}
+
+
+@router.put("/documents/tags/rename")
+async def rename_tag(
+    data: TagRenameRequest,
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """Rename a tag across all documents."""
+    if current_user.role not in ADMIN_WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="Only admins can rename tags globally")
+    if data.old_name == data.new_name:
+        return {"updated": 0}
+    docs = db.query(Document).filter(
+        sa_func.json_contains(Document.tags, f'"{data.old_name}"')
+    ).all()
+    count = 0
+    for doc in docs:
+        tags = list(doc.tags or [])
+        if data.old_name in tags:
+            tags = [data.new_name if t == data.old_name else t for t in tags]
+            # Deduplicate in case new_name already existed
+            doc.tags = list(dict.fromkeys(tags))
+            flag_modified(doc, "tags")
+            count += 1
+    db.commit()
+    return {"updated": count}
+
+
+@router.delete("/documents/tags/{tag_name}")
+async def delete_tag(
+    tag_name: str,
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """Remove a tag from all documents."""
+    if current_user.role not in ADMIN_WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="Only admins can delete tags globally")
+    docs = db.query(Document).filter(
+        sa_func.json_contains(Document.tags, f'"{tag_name}"')
+    ).all()
+    count = 0
+    for doc in docs:
+        tags = list(doc.tags or [])
+        if tag_name in tags:
+            doc.tags = [t for t in tags if t != tag_name]
+            flag_modified(doc, "tags")
+            count += 1
+    db.commit()
+    return {"updated": count}
 
 
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)

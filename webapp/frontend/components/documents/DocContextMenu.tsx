@@ -1,38 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { MoreVertical, Copy, Tag, Stamp, Trash2, Archive, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, GitBranch, Download } from "lucide-react";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
+import { flattenFolderTree } from "@/lib/folder-utils";
 import type { Document, DocumentFolder } from "@/types";
-
-/* Folder submenu inside context menu — shows hierarchy via indentation */
-function flattenFolderTree(folders: DocumentFolder[]): { folder: DocumentFolder; depth: number }[] {
-  const map = new Map<number, DocumentFolder[]>();
-  const roots: DocumentFolder[] = [];
-  for (const f of folders) {
-    if (f.parent_id && folders.some(p => p.id === f.parent_id)) {
-      const siblings = map.get(f.parent_id) || [];
-      siblings.push(f);
-      map.set(f.parent_id, siblings);
-    } else {
-      roots.push(f);
-    }
-  }
-  const result: { folder: DocumentFolder; depth: number }[] = [];
-  const visited = new Set<number>();
-  const walk = (items: DocumentFolder[], depth: number) => {
-    for (const f of items.sort((a, b) => a.name.localeCompare(b.name))) {
-      if (visited.has(f.id)) continue;
-      visited.add(f.id);
-      result.push({ folder: f, depth });
-      const children = map.get(f.id);
-      if (children) walk(children, depth + 1);
-    }
-  };
-  walk(roots, 0);
-  return result;
-}
 
 function FolderSubmenu({ doc, folders, onMoveToFolder }: {
   doc: Document;
@@ -40,7 +13,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
   onMoveToFolder: (folderId: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const tree = open ? flattenFolderTree(folders) : [];
+  const tree = useMemo(() => open ? flattenFolderTree(folders) : [], [open, folders]);
   return (
     <div>
       <button

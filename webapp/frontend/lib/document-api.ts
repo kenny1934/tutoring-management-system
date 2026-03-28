@@ -115,7 +115,7 @@ export const documentsAPI = {
   },
 
   listTags() {
-    return fetchAPI<string[]>("/documents/tags");
+    return fetchAPI<{ name: string; count: number }[]>("/documents/tags");
   },
 
   async importWorksheet(file: File, options?: {
@@ -179,6 +179,33 @@ export const documentsAPI = {
     return fetchAPI<Document>(
       `/documents/${docId}/create-variant-document`,
       { method: "POST", body: JSON.stringify(params) }
+    );
+  },
+
+  bulkUpdate(data: {
+    ids: number[];
+    folder_id?: number | null;
+    tags_add?: string[];
+    tags_remove?: string[];
+    is_archived?: boolean;
+  }) {
+    return fetchAPI<{ updated: number; skipped: number }>(
+      "/documents/bulk",
+      { method: "PATCH", body: JSON.stringify(data) }
+    );
+  },
+
+  renameTag(oldName: string, newName: string) {
+    return fetchAPI<{ updated: number }>(
+      "/documents/tags/rename",
+      { method: "PUT", body: JSON.stringify({ old_name: oldName, new_name: newName }) }
+    );
+  },
+
+  deleteTag(tagName: string) {
+    return fetchAPI<{ updated: number }>(
+      `/documents/tags/${encodeURIComponent(tagName)}`,
+      { method: "DELETE" }
     );
   },
 };

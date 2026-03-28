@@ -1956,6 +1956,21 @@ class FolderCreate(BaseModel):
     parent_id: Optional[int] = None
 
 
+class BulkDocumentUpdate(BaseModel):
+    """Bulk update multiple documents at once."""
+    ids: List[int] = Field(..., min_length=1)
+    folder_id: Optional[int] = None
+    tags_add: Optional[List[str]] = None
+    tags_remove: Optional[List[str]] = None
+    is_archived: Optional[bool] = None
+
+
+class TagRenameRequest(BaseModel):
+    """Rename a tag across all documents."""
+    old_name: str = Field(..., min_length=1, max_length=100)
+    new_name: str = Field(..., min_length=1, max_length=100)
+
+
 class FolderUpdate(BaseModel):
     """Update a document folder."""
     name: Optional[str] = Field(None, max_length=255)

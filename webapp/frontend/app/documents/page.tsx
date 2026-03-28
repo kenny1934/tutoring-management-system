@@ -111,27 +111,17 @@ export default function DocumentsPage() {
   const [moreExhausted, setMoreExhausted] = useState(false);
   const documents = useMemo(() => {
     if (!firstPage) return undefined;
-    const all = [...firstPage, ...extraDocs];
-    // Preserve recency order for the Recent tab (backend sort overrides localStorage order)
-    if (activeTab === "recent" && recentIds.length > 0) {
-      const idOrder = new Map(recentIds.map((id, i) => [id, i]));
-      all.sort((a, b) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
-    }
-    return all;
-  }, [firstPage, extraDocs, activeTab, recentIds]);
+    return [...firstPage, ...extraDocs];
+  }, [firstPage, extraDocs]);
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
-  // Only show tag counts when all results are loaded (no more pages), otherwise counts are misleading
+  // Tag names and counts from server-side endpoint
+  const tagNames = useMemo(() => allTags.map(t => t.name), [allTags]);
   const tagCounts = useMemo(() => {
-    if (!documents || hasMore) return {};
     const counts: Record<string, number> = {};
-    for (const doc of documents) {
-      for (const tag of doc.tags || []) {
-        counts[tag] = (counts[tag] || 0) + 1;
-      }
-    }
+    for (const t of allTags) counts[t.name] = t.count;
     return counts;
-  }, [documents, hasMore]);
+  }, [allTags]);
 
   const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
   filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
@@ -386,6 +376,16 @@ export default function DocumentsPage() {
   }, [mutateFolders, showToast]);
 
   const handleDeleteFolder = useCallback((folder: DocumentFolder) => { setConfirmAction({ type: "delete-folder", folder }); }, []);
+
+  const handleRenameTag = useCallback(async (oldName: string, newName: string) => {
+    try { await documentsAPI.renameTag(oldName, newName); mutate(); mutateTags(); showToast(`Tag renamed to "${newName}"`, "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
+  }, [mutate, mutateTags, showToast]);
+
+  const handleDeleteTag = useCallback(async (tag: string) => {
+    try { await documentsAPI.deleteTag(tag); mutate(); mutateTags(); if (activeTag === tag) setActiveTag(null); showToast(`Tag "${tag}" removed`, "success"); }
+    catch (err) { showToast((err as Error).message, "error"); }
+  }, [mutate, mutateTags, showToast, activeTag]);
   const executeDeleteFolder = useCallback(async (folder: DocumentFolder) => {
     try {
       await foldersAPI.delete(folder.id); mutateFolders();
@@ -399,7 +399,8 @@ export default function DocumentsPage() {
   const handleBulkArchive = useCallback(async () => {
     const ids = Array.from(selectedIds);
     try {
-      await Promise.all(ids.map((id) => documentsAPI.delete(id)));
+      await documentsAPI.bulkUpdate({ ids, is_archived: true });
+      ids.forEach(removeFromRecent);
       mutate(); setSelectedIds(new Set());
       showToast(`${ids.length} document(s) archived`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
@@ -429,7 +430,7 @@ export default function DocumentsPage() {
     const ids = Array.from(selectedIds);
     try {
       // Backend treats folder_id=0 as "unset folder" (NULL), distinct from folder_id=null which means "no change"
-      await Promise.all(ids.map((id) => documentsAPI.update(id, { folder_id: folderId === null ? 0 : folderId })));
+      await documentsAPI.bulkUpdate({ ids, folder_id: folderId === null ? 0 : folderId });
       mutate(); setSelectedIds(new Set());
       showToast(`${ids.length} document(s) moved`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
@@ -444,23 +445,14 @@ export default function DocumentsPage() {
 
   const executeBulkAddTag = useCallback(async (tag: string) => {
     const ids = Array.from(selectedIds);
-    const docsToUpdate = (documents ?? []).filter((d) => ids.includes(d.id) && !(d.tags || []).includes(tag));
-    if (docsToUpdate.length === 0) {
-      showToast(`All selected documents already have tag "${tag}"`, "info");
-      setBulkTagPickerOpen(false);
-      setBulkTagValue("");
-      return;
-    }
     try {
-      await Promise.all(docsToUpdate.map((doc) =>
-        documentsAPI.update(doc.id, { tags: [...(doc.tags || []), tag] })
-      ));
+      const result = await documentsAPI.bulkUpdate({ ids, tags_add: [tag] });
       mutate(); mutateTags(); setSelectedIds(new Set());
-      showToast(`Tag "${tag}" added to ${docsToUpdate.length} document(s)`, "success");
+      showToast(`Tag "${tag}" added to ${result.updated} document(s)`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
     setBulkTagPickerOpen(false);
     setBulkTagValue("");
-  }, [selectedIds, documents, mutate, mutateTags, showToast]);
+  }, [selectedIds, mutate, mutateTags, showToast]);
 
   const activeFolder = folders.find((f) => f.id === activeFolderId);
 
@@ -473,7 +465,7 @@ export default function DocumentsPage() {
     : "";
   const emptyMessage = !documents?.length
     ? activeTab === "recent" ? "Documents you open will appear here"
-    : activeTab === "mine" ? "Documents you create or edit will appear here"
+    : activeTab === "mine" ? "Documents you create will appear here"
     : isTemplatesTab ? (debouncedSearch || filterType !== "all" ? "Try adjusting your search or filters" : "Create your first template to get started")
     : (debouncedSearch || filterType !== "all" || activeTag || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
     : "";
@@ -486,7 +478,7 @@ export default function DocumentsPage() {
         <FolderSidebar
           hidden={isTemplatesTab}
           folders={folders}
-          allTags={allTags}
+          allTags={tagNames}
           tagCounts={tagCounts}
           activeFolderId={activeFolderId}
           activeTag={activeTag}
@@ -495,6 +487,8 @@ export default function DocumentsPage() {
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
+          onRenameTag={handleRenameTag}
+          onDeleteTag={handleDeleteTag}
           isReadOnly={isReadOnly}
         />
 
@@ -506,7 +500,7 @@ export default function DocumentsPage() {
               <FolderSidebar
                 mobile
                 folders={folders}
-                allTags={allTags}
+                allTags={tagNames}
                 tagCounts={tagCounts}
                 activeFolderId={activeFolderId}
                 activeTag={activeTag}
@@ -729,7 +723,7 @@ export default function DocumentsPage() {
         return tagEditDoc ? (
           <TagPopover
             doc={tagEditDoc}
-            allTags={allTags}
+            allTags={tagNames}
             onToggleTag={handleToggleTag}
             onCreateTag={handleCreateTag}
             onClose={() => setTagEditDocId(null)}
@@ -806,9 +800,9 @@ export default function DocumentsPage() {
               onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
               className="w-full px-3 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
             />
-            {allTags.length > 0 && (
+            {tagNames.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
-                {allTags.slice(0, 20).map((tag) => (
+                {tagNames.filter(t => !bulkTagValue || t.toLowerCase().includes(bulkTagValue.toLowerCase())).slice(0, 20).map((tag) => (
                   <button key={tag} onClick={() => executeBulkAddTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80", getTagColor(tag))}>
                     {tag}
                   </button>
