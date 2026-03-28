@@ -394,7 +394,8 @@ export default function DocumentsPage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex flex-1 min-h-0">
+      <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
+        <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
         {/* Sidebar — desktop */}
         <FolderSidebar
           hidden={isTemplatesTab}
@@ -585,7 +586,7 @@ export default function DocumentsPage() {
           </div>
         </div>
 
-        {/* Preview pane — desktop */}
+        {/* Preview pane — desktop, inside the card */}
         {previewEnabled && (
           <DocumentPreviewPane
             docId={previewDocId}
@@ -594,6 +595,7 @@ export default function DocumentsPage() {
             onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
           />
         )}
+        </div>{/* end white card */}
       </PageTransition>
 
       {/* Modals */}

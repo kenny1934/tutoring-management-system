@@ -40,7 +40,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint }: D
 
   if (docId === null) {
     return (
-      <aside className="hidden lg:flex flex-col w-[24rem] shrink-0 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white dark:bg-[#1a1a1a] h-full overflow-hidden">
+      <aside className="hidden lg:flex flex-col w-[20rem] shrink-0 border-l border-gray-200 dark:border-gray-700/50 h-full overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 p-6">
           <FileText className="w-10 h-10 mb-3 opacity-40" />
           <p className="text-sm">Select a document to preview</p>
@@ -52,9 +52,9 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint }: D
   // ── Document selected ──────────────────────────────────────────
 
   return (
-    <aside className="hidden lg:flex flex-col w-[24rem] shrink-0 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white dark:bg-[#1a1a1a] h-full overflow-hidden">
+    <aside className="hidden lg:flex flex-col w-[20rem] shrink-0 border-l border-gray-200 dark:border-gray-700/50 h-full overflow-hidden">
       {/* Header */}
-      <div className="border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 p-4 shrink-0">
+      <div className="border-b border-gray-200 dark:border-gray-700/50 p-4 shrink-0">
         {/* Top row: open + close */}
         <div className="flex items-center justify-between mb-2">
           <button
