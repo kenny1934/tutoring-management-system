@@ -550,12 +550,13 @@ export default function DocumentsPage() {
                         key={doc.id}
                         onClick={() => handleDocClick(doc.id)}
                         className={cn(
-                          "group relative rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
+                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover",
+                          doc.doc_type === "worksheet" ? "border-l-blue-400" : "border-l-green-400",
                           doc.is_archived
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
                             : doc.is_template
-                            ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-[#a0704b]/40"
+                            ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20 border-l-purple-400"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
                         )}
                       >
                         <div className="flex items-center gap-2 mb-2">
@@ -625,15 +626,14 @@ export default function DocumentsPage() {
           </div>
         </div>
 
-        {/* Preview pane — desktop, inside the card */}
-        {previewEnabled && (
-          <DocumentPreviewPane
-            docId={previewDocId}
-            onClose={() => setPreviewDocId(null)}
-            onOpenEditor={(id) => router.push(`/documents/${id}`)}
-            onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
-          />
-        )}
+        {/* Preview pane — desktop, inside the card (always mounted for slide animation) */}
+        <DocumentPreviewPane
+          docId={previewEnabled ? previewDocId : null}
+          collapsed={!previewEnabled}
+          onClose={() => setPreviewDocId(null)}
+          onOpenEditor={(id) => router.push(`/documents/${id}`)}
+          onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
+        />
         </div>{/* end white card */}
       </PageTransition>
 

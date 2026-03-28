@@ -94,9 +94,9 @@ export default function DocumentsTable(props: DocumentsTableProps) {
       <div className="px-2 sm:px-4 py-1">
         {[72, 55, 85, 48, 68, 42, 60, 78].map((w, i) => (
           <div key={i} className="flex items-center gap-3 py-3 border-b border-gray-100 dark:border-gray-800/50">
-            <div className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800 animate-pulse shrink-0" />
-            <div className="h-4 rounded bg-gray-100 dark:bg-gray-800 animate-pulse" style={{ width: `${w}%` }} />
-            <div className="ml-auto h-3 w-16 rounded bg-gray-100 dark:bg-gray-800 animate-pulse shrink-0 hidden sm:block" />
+            <div className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800 shimmer-sepia shrink-0" />
+            <div className="h-4 rounded bg-gray-100 dark:bg-gray-800 shimmer-sepia" style={{ width: `${w}%` }} />
+            <div className="ml-auto h-3 w-16 rounded bg-gray-100 dark:bg-gray-800 shimmer-sepia shrink-0 hidden sm:block" />
           </div>
         ))}
       </div>
@@ -106,7 +106,9 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   if (!documents.length) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <FileText className="w-10 h-10 text-gray-200 dark:text-gray-700 mb-3" />
+        <div className="w-14 h-14 rounded-2xl bg-[#f5ede3] dark:bg-[#2d2618] flex items-center justify-center mb-4">
+          <FileText className="w-7 h-7 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
+        </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[20rem]">{emptyMessage}</p>
       </div>
@@ -148,7 +150,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 data-doc-id={doc.id}
                 className={cn(
                   "group border-l-2 border-b border-b-gray-100 dark:border-b-gray-800/40 cursor-pointer transition-colors",
-                  isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20",
+                  isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
                   selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
                   isPreviewing && !selected && "bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-400",
                   !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/40 hover:bg-gray-50 dark:hover:bg-gray-800/30",
@@ -176,7 +178,9 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-600 transition-transform", isExpanded && "rotate-90")} />
                       </button>
                     ) : isVariant ? (
-                      <span className="shrink-0 w-[18px] text-center text-gray-300 dark:text-gray-600 text-[11px] select-none">└</span>
+                      <svg className="shrink-0 w-[18px] h-[18px] text-gray-300 dark:text-gray-600" viewBox="0 0 18 18" fill="none">
+                        <path d="M5 0L5 10Q5 14 9 14L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
                     ) : (
                       <span className="shrink-0 w-[18px]" />
                     )}
@@ -203,7 +207,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                       </span>
                     )}
                     {questionCount > 0 && (
-                      <span className="shrink-0 text-[10px] text-gray-400 hidden lg:inline">{questionCount}Q</span>
+                      <span className="shrink-0 text-[9px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
                     )}
                   </div>
                   {/* Mobile subtitle */}
@@ -235,7 +239,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 </td>
 
                 {/* Actions */}
-                <td className="py-2.5 pr-2" onClick={(e) => e.stopPropagation()}>
+                <td className="py-2.5 pr-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150" onClick={(e) => e.stopPropagation()}>
                   {!isReadOnly && (
                     <DocContextMenu
                       doc={doc}

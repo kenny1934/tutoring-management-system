@@ -523,8 +523,8 @@ export default function FolderSidebar({
                     )}
                   >
                     {tag}
-                    {tagCounts?.[tag] != null && (
-                      <span className="text-[9px] opacity-60 tabular-nums ml-0.5">({tagCounts[tag]})</span>
+                    {tagCounts?.[tag] != null && tagCounts[tag] > 0 && (
+                      <span className="ml-1 text-[9px] font-semibold tabular-nums bg-black/10 dark:bg-white/10 px-1 rounded-full">{tagCounts[tag]}</span>
                     )}
                   </button>
                 ))}

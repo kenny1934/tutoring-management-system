@@ -195,7 +195,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             <ChevronDown className={cn("w-3 h-3 transition-transform", showSortMenu && "rotate-180")} />
           </button>
           {showSortMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[10rem]">
+            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[10rem] animate-scale-in">
               {SORT_OPTIONS.map((opt, i) => (
                 <button
                   key={i}
@@ -263,7 +263,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
       {(activeTag || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/20">
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/20 animate-slide-down">
           {selectedCount > 0 ? (
             <>
               <span className="text-[12px] font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>

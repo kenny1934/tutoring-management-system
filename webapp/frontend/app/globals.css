@@ -557,6 +557,10 @@
   animation: slideDown var(--timing-medium) var(--ease-out);
 }
 
+.animate-fade-slide-in {
+  animation: fadeSlideIn 150ms ease-out both;
+}
+
 .animate-scale-in {
   animation: scaleIn var(--timing-medium) var(--ease-spring);
 }
