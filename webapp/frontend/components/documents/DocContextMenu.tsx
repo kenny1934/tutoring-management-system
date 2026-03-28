@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { MoreVertical, Copy, Tag, Stamp, Trash2, Archive, ArchiveRestore, FolderInput, FolderOpen, ChevronDown } from "lucide-react";
+import { MoreVertical, Copy, Tag, Stamp, Trash2, Archive, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, GitBranch, Download } from "lucide-react";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
 import type { Document, DocumentFolder } from "@/types";
@@ -68,6 +68,9 @@ export interface DocContextMenuProps {
   onEditTags: () => void;
 }
 
+const menuItemCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]";
+const menuDangerCls = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20";
+
 export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete, onSaveAsTemplate, folders, onMoveToFolder, onEditTags }: DocContextMenuProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const isOpen = menuOpenId === doc.id;
@@ -91,14 +94,14 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
       >
         <button
           onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          className={menuItemCls}
         >
           <Copy className="w-3.5 h-3.5" />
           Duplicate
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onEditTags(); }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          className={menuItemCls}
         >
           <Tag className="w-3.5 h-3.5" />
           Edit Tags
@@ -106,7 +109,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         {onSaveAsTemplate && (
           <button
             onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            className={menuItemCls}
           >
             <Stamp className="w-3.5 h-3.5" />
             Save as Template
@@ -115,18 +118,43 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         {folders.length > 0 && (
           <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
         )}
+        <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+        <button
+          onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}`, "_blank"); close(); }}
+          className={menuItemCls}
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Open in New Tab
+        </button>
+        {!doc.is_template && !doc.is_archived && (
+          <button
+            onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}?panel=questions`, "_blank"); close(); }}
+            className={menuItemCls}
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            Create Variant
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}?print=student`, "_blank"); close(); }}
+          className={menuItemCls}
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export PDF
+        </button>
+        <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
         {doc.is_archived ? (
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+              className={cn(menuItemCls, "text-[#a0704b] dark:text-[#cd853f]")}
             >
               <ArchiveRestore className="w-3.5 h-3.5" />
               Restore
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+              className={menuDangerCls}
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete Permanently
@@ -135,7 +163,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            className={menuItemCls}
           >
             <Archive className="w-3.5 h-3.5" />
             Archive

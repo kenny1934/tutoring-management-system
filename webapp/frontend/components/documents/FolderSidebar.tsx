@@ -15,6 +15,8 @@ import {
   FileText,
   PanelLeftClose,
   PanelLeft,
+  Search,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
@@ -29,6 +31,7 @@ interface FolderTreeNode extends DocumentFolder {
 interface FolderSidebarProps {
   folders: DocumentFolder[];
   allTags: string[];
+  tagCounts?: Record<string, number>;
   activeFolderId: number | null;
   activeTag: string | null;
   onSelectFolder: (id: number | null) => void;
@@ -274,6 +277,7 @@ function InlineCreateFolder({ parentId, onCreate, onCancel }: {
 export default function FolderSidebar({
   folders,
   allTags,
+  tagCounts,
   activeFolderId,
   activeTag,
   onSelectFolder,
@@ -286,6 +290,7 @@ export default function FolderSidebar({
   hidden,
   isReadOnly,
 }: FolderSidebarProps) {
+  const [folderSearch, setFolderSearch] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("doc-sidebar-collapsed") === "true";
@@ -297,11 +302,17 @@ export default function FolderSidebar({
   const [renameValue, setRenameValue] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
 
-  const tree = useMemo(() => buildFolderTree(folders), [folders]);
+  const tree = useMemo(() => {
+    const filtered = folderSearch.trim()
+      ? folders.filter(f => f.name.toLowerCase().includes(folderSearch.toLowerCase()))
+      : folders;
+    return buildFolderTree(filtered);
+  }, [folders, folderSearch]);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
+      if (next) setFolderSearch("");
       localStorage.setItem("doc-sidebar-collapsed", String(next));
       return next;
     });
@@ -415,6 +426,27 @@ export default function FolderSidebar({
             </div>
           </div>
 
+          {/* Folder search */}
+          {folders.length > 5 && (
+            <div className="px-3 pb-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Filter folders..."
+                  value={folderSearch}
+                  onChange={(e) => setFolderSearch(e.target.value)}
+                  className="w-full pl-7 pr-6 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                />
+                {folderSearch && (
+                  <button onClick={() => setFolderSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <X className="w-2.5 h-2.5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* All Documents */}
           <div className="px-1 mb-1">
             <button
@@ -491,6 +523,9 @@ export default function FolderSidebar({
                     )}
                   >
                     {tag}
+                    {tagCounts?.[tag] != null && (
+                      <span className="text-[9px] opacity-60 tabular-nums ml-0.5">({tagCounts[tag]})</span>
+                    )}
                   </button>
                 ))}
               </div>

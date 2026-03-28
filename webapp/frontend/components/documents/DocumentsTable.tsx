@@ -116,7 +116,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[500px]">
-        <thead>
+        <thead className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a]">
           <tr className="border-b border-gray-200 dark:border-gray-700/50">
             <th className="w-10 py-2.5 px-4">
               <input
@@ -145,12 +145,14 @@ export default function DocumentsTable(props: DocumentsTableProps) {
               <tr
                 key={doc.id}
                 onClick={() => onDocClick(doc.id)}
+                data-doc-id={doc.id}
                 className={cn(
-                  "group border-b border-gray-100 dark:border-gray-800/40 cursor-pointer transition-colors",
-                  selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10",
-                  isPreviewing && !selected && "bg-blue-50/50 dark:bg-blue-900/10",
+                  "group border-l-2 border-b border-b-gray-100 dark:border-b-gray-800/40 cursor-pointer transition-colors",
+                  isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20",
+                  selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
+                  isPreviewing && !selected && "bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-400",
+                  !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/40 hover:bg-gray-50 dark:hover:bg-gray-800/30",
                   doc.is_archived && "opacity-40",
-                  !selected && !isPreviewing && "hover:bg-gray-50 dark:hover:bg-gray-800/30",
                 )}
               >
                 {/* Checkbox */}

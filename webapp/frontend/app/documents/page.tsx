@@ -106,6 +106,18 @@ export default function DocumentsPage() {
   const documents = useMemo(() => firstPage ? [...firstPage, ...extraDocs] : undefined, [firstPage, extraDocs]);
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
+  // Only show tag counts when all results are loaded (no more pages), otherwise counts are misleading
+  const tagCounts = useMemo(() => {
+    if (!documents || hasMore) return {};
+    const counts: Record<string, number> = {};
+    for (const doc of documents) {
+      for (const tag of doc.tags || []) {
+        counts[tag] = (counts[tag] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [documents, hasMore]);
+
   const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
   filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
@@ -164,20 +176,45 @@ export default function DocumentsPage() {
     return () => { document.body.style.overflow = ""; };
   }, [mobileDrawerOpen]);
 
+  // Keyboard navigation: arrow keys to move between rows, Enter to open, Escape to deselect
+  // Uses ref for previewDocId so the listener doesn't re-register on every arrow key press
+  const previewDocIdRef = useRef(previewDocId);
+  previewDocIdRef.current = previewDocId;
+
   useEffect(() => {
-    if (!previewEnabled || previewDocId === null) return;
+    if (viewMode !== "table") return;
     const handler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || document.querySelector('[role="dialog"]')) return;
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
-        const tag = document.activeElement?.tagName;
-        if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
-        router.push(`/documents/${previewDocId}`);
+      const tag = document.activeElement?.tagName;
+      if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
+
+      const rowEls = document.querySelectorAll<HTMLTableRowElement>("tr[data-doc-id]");
+      const visibleIds = Array.from(rowEls).map(el => Number(el.dataset.docId));
+      if (!visibleIds.length) return;
+
+      const currentId = previewDocIdRef.current;
+      const currentIdx = currentId !== null ? visibleIds.indexOf(currentId) : -1;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const nextIdx = currentIdx < visibleIds.length - 1 ? currentIdx + 1 : 0;
+        setPreviewDocId(visibleIds[nextIdx]);
+        rowEls[nextIdx]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : visibleIds.length - 1;
+        setPreviewDocId(visibleIds[prevIdx]);
+        rowEls[prevIdx]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && currentId !== null) {
+        e.preventDefault();
+        router.push(`/documents/${currentId}`);
+      } else if (e.key === "Escape") {
+        setPreviewDocId(null);
       }
-      if (e.key === "Escape") setPreviewDocId(null);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [previewEnabled, previewDocId, router]);
+  }, [viewMode, router]);
 
   // --- View callbacks ---
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
@@ -401,6 +438,7 @@ export default function DocumentsPage() {
           hidden={isTemplatesTab}
           folders={folders}
           allTags={allTags}
+          tagCounts={tagCounts}
           activeFolderId={activeFolderId}
           activeTag={activeTag}
           onSelectFolder={setActiveFolderId}
@@ -420,6 +458,7 @@ export default function DocumentsPage() {
                 mobile
                 folders={folders}
                 allTags={allTags}
+                tagCounts={tagCounts}
                 activeFolderId={activeFolderId}
                 activeTag={activeTag}
                 onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
