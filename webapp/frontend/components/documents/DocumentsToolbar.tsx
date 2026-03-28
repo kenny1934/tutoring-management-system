@@ -166,7 +166,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
         {/* Type filter */}
         {!isTemplatesTab && (
-          <div className="hidden sm:flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
+          <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -268,7 +268,13 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             <>
               <span className="text-[12px] font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>
               <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
-              <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <button onClick={onBulkMoveToFolder} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                <FolderInput className="w-3 h-3" /> Move
+              </button>
+              <button onClick={onBulkAddTag} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                <Tag className="w-3 h-3" /> Tag
+              </button>
+              <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
                 <Archive className="w-3 h-3" /> Archive
               </button>
               <button onClick={onBulkDelete} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">

@@ -71,17 +71,18 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     }
 
     const result: RowData[] = [];
-    for (const doc of roots) {
-      const children = childrenMap.get(doc.id);
-      const hasChildren = !!children?.length;
-      const isExpanded = expandedIds.has(doc.id);
-      result.push({ doc, indent: 0, isVariant: false, hasChildren, isExpanded });
-      if (isExpanded && children) {
-        children.forEach((child) => {
-          result.push({ doc: child, indent: 1, isVariant: true, hasChildren: false, isExpanded: false });
-        });
+    const addRows = (docs: Document[], indent: number) => {
+      for (const doc of docs) {
+        const children = childrenMap.get(doc.id);
+        const hasChildren = !!children?.length;
+        const isExpanded = expandedIds.has(doc.id);
+        result.push({ doc, indent, isVariant: indent > 0, hasChildren, isExpanded });
+        if (isExpanded && children) {
+          addRows(children, indent + 1);
+        }
       }
-    }
+    };
+    addRows(roots, 0);
     return result;
   }, [documents, expandedIds]);
 

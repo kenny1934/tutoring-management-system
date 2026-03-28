@@ -26,6 +26,11 @@ export function getRecentDocIds(): number[] {
     .map((e) => e.id);
 }
 
+/** Remove a document from the recent list (e.g., on archive/delete). */
+export function removeFromRecent(id: number): void {
+  save(load().filter((e) => e.id !== id));
+}
+
 /** Record that a document was viewed now. */
 export function trackDocView(id: number): void {
   const entries = load().filter((e) => e.id !== id);

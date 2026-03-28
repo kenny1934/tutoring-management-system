@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { FileText, Lock } from "lucide-react";
+import { FileText, Lock, FolderOpen } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -16,7 +16,7 @@ import { getTagColor } from "@/lib/tag-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
 import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
-import { getRecentDocIds, trackDocView } from "@/lib/recent-docs";
+import { getRecentDocIds, trackDocView, removeFromRecent } from "@/lib/recent-docs";
 import DocumentsToolbar, { SORT_OPTIONS } from "@/components/documents/DocumentsToolbar";
 import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import DocumentsTable from "@/components/documents/DocumentsTable";
@@ -40,7 +40,13 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [showArchived, setShowArchived] = useState(false);
-  const [sortIdx, setSortIdx] = useState(0);
+  const [sortIdx, setSortIdx] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("doc-sort-idx");
+      if (stored) { const n = parseInt(stored, 10); if (n >= 0 && n < SORT_OPTIONS.length) return n; }
+    }
+    return 0;
+  });
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
 
@@ -103,7 +109,16 @@ export default function DocumentsPage() {
   const [extraDocs, setExtraDocs] = useState<Document[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreExhausted, setMoreExhausted] = useState(false);
-  const documents = useMemo(() => firstPage ? [...firstPage, ...extraDocs] : undefined, [firstPage, extraDocs]);
+  const documents = useMemo(() => {
+    if (!firstPage) return undefined;
+    const all = [...firstPage, ...extraDocs];
+    // Preserve recency order for the Recent tab (backend sort overrides localStorage order)
+    if (activeTab === "recent" && recentIds.length > 0) {
+      const idOrder = new Map(recentIds.map((id, i) => [id, i]));
+      all.sort((a, b) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
+    }
+    return all;
+  }, [firstPage, extraDocs, activeTab, recentIds]);
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
   // Only show tag counts when all results are loaded (no more pages), otherwise counts are misleading
@@ -220,7 +235,6 @@ export default function DocumentsPage() {
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
     setViewMode(mode);
     localStorage.setItem("doc-view-mode", mode);
-    if (mode === "grid") setSelectedIds(new Set());
   }, []);
 
   const togglePreview = useCallback(() => {
@@ -307,7 +321,7 @@ export default function DocumentsPage() {
   }, [showToast, mutate]);
 
   const handleArchive = useCallback(async (id: number) => {
-    try { await documentsAPI.delete(id); mutate(); showToast("Document archived", "success"); }
+    try { await documentsAPI.delete(id); removeFromRecent(id); mutate(); showToast("Document archived", "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
   }, [mutate, showToast]);
@@ -326,7 +340,7 @@ export default function DocumentsPage() {
 
   const handlePermanentDelete = useCallback((id: number) => { setMenuOpenId(null); setConfirmAction({ type: "delete-doc", id }); }, []);
   const executePermanentDelete = useCallback(async (id: number) => {
-    try { await documentsAPI.permanentDelete(id); mutate(); showToast("Document permanently deleted", "success"); }
+    try { await documentsAPI.permanentDelete(id); removeFromRecent(id); mutate(); showToast("Document permanently deleted", "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
     setConfirmAction(null);
   }, [mutate, showToast]);
@@ -399,19 +413,54 @@ export default function DocumentsPage() {
     const ids = Array.from(selectedIds);
     try {
       await Promise.all(ids.map((id) => documentsAPI.permanentDelete(id)));
+      ids.forEach(removeFromRecent);
       mutate(); setSelectedIds(new Set());
       showToast(`${ids.length} document(s) deleted`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
     setConfirmAction(null);
   }, [selectedIds, mutate, showToast]);
 
+  const [bulkFolderPickerOpen, setBulkFolderPickerOpen] = useState(false);
   const handleBulkMoveToFolder = useCallback(() => {
-    showToast("Bulk move coming soon", "info");
-  }, [showToast]);
+    setBulkFolderPickerOpen(true);
+  }, []);
 
+  const executeBulkMove = useCallback(async (folderId: number | null) => {
+    const ids = Array.from(selectedIds);
+    try {
+      // Backend treats folder_id=0 as "unset folder" (NULL), distinct from folder_id=null which means "no change"
+      await Promise.all(ids.map((id) => documentsAPI.update(id, { folder_id: folderId === null ? 0 : folderId })));
+      mutate(); setSelectedIds(new Set());
+      showToast(`${ids.length} document(s) moved`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setBulkFolderPickerOpen(false);
+  }, [selectedIds, mutate, showToast]);
+
+  const [bulkTagPickerOpen, setBulkTagPickerOpen] = useState(false);
+  const [bulkTagValue, setBulkTagValue] = useState("");
   const handleBulkAddTag = useCallback(() => {
-    showToast("Bulk tag coming soon", "info");
-  }, [showToast]);
+    setBulkTagPickerOpen(true);
+  }, []);
+
+  const executeBulkAddTag = useCallback(async (tag: string) => {
+    const ids = Array.from(selectedIds);
+    const docsToUpdate = (documents ?? []).filter((d) => ids.includes(d.id) && !(d.tags || []).includes(tag));
+    if (docsToUpdate.length === 0) {
+      showToast(`All selected documents already have tag "${tag}"`, "info");
+      setBulkTagPickerOpen(false);
+      setBulkTagValue("");
+      return;
+    }
+    try {
+      await Promise.all(docsToUpdate.map((doc) =>
+        documentsAPI.update(doc.id, { tags: [...(doc.tags || []), tag] })
+      ));
+      mutate(); mutateTags(); setSelectedIds(new Set());
+      showToast(`Tag "${tag}" added to ${docsToUpdate.length} document(s)`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setBulkTagPickerOpen(false);
+    setBulkTagValue("");
+  }, [selectedIds, documents, mutate, mutateTags, showToast]);
 
   const activeFolder = folders.find((f) => f.id === activeFolderId);
 
@@ -484,7 +533,7 @@ export default function DocumentsPage() {
             showArchived={showArchived}
             onToggleArchived={() => setShowArchived((p) => !p)}
             sortIdx={sortIdx}
-            onSortChange={setSortIdx}
+            onSortChange={(i) => { setSortIdx(i); localStorage.setItem("doc-sort-idx", String(i)); }}
             viewMode={viewMode}
             onViewModeChange={toggleViewMode}
             previewEnabled={previewEnabled}
@@ -550,7 +599,8 @@ export default function DocumentsPage() {
                         key={doc.id}
                         onClick={() => handleDocClick(doc.id)}
                         className={cn(
-                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none",
+                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
+                          selectedIds.has(doc.id) && "ring-2 ring-[#a0704b]/50 ring-offset-1",
                           doc.doc_type === "worksheet" ? "border-l-[#7ba7c7]" : "border-l-[#6aa87a]",
                           doc.is_archived
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
@@ -559,6 +609,18 @@ export default function DocumentsPage() {
                             : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] shadow-[var(--shadow-paper-sm)] dark:shadow-none paper-texture"
                         )}
                       >
+                        {/* Grid card checkbox */}
+                        <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(doc.id)}
+                            onChange={() => handleToggleSelect(doc.id)}
+                            className={cn(
+                              "w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b] transition-opacity",
+                              selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+                            )}
+                          />
+                        </div>
                         <div className="flex items-center gap-2 mb-2">
                           <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
                           {doc.locked_by && <Lock className="w-3 h-3 text-amber-500" />}
@@ -698,6 +760,64 @@ export default function DocumentsPage() {
         confirmText="Delete"
         variant="danger"
       />
+
+      {/* Bulk move to folder picker */}
+      {bulkFolderPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkFolderPickerOpen(false)}>
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move {selectedIds.size} document(s) to</h3>
+            <div className="space-y-0.5">
+              <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                <FolderOpen className="w-4 h-4 text-gray-400" /> No folder
+              </button>
+              {(() => {
+                // Compute depth for each folder to show hierarchy
+                const depthMap = new Map<number, number>();
+                const getDepth = (f: typeof folders[0]): number => {
+                  if (depthMap.has(f.id)) return depthMap.get(f.id)!;
+                  const parent = f.parent_id ? folders.find(p => p.id === f.parent_id) : null;
+                  const d = parent ? getDepth(parent) + 1 : 0;
+                  depthMap.set(f.id, d);
+                  return d;
+                };
+                folders.forEach(getDepth);
+                return [...folders].sort((a, b) => a.name.localeCompare(b.name)).map((f) => (
+                  <button key={f.id} onClick={() => executeBulkMove(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + (depthMap.get(f.id) || 0) * 16}px` }}>
+                    <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk add tag picker */}
+      {bulkTagPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); }}>
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Add tag to {selectedIds.size} document(s)</h3>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Type a tag name..."
+              value={bulkTagValue}
+              onChange={(e) => setBulkTagValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
+              className="w-full px-3 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+            />
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {allTags.slice(0, 20).map((tag) => (
+                  <button key={tag} onClick={() => executeBulkAddTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80", getTagColor(tag))}>
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </DeskSurface>
   );
 }

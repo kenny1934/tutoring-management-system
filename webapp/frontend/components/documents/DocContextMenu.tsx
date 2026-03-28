@@ -6,13 +6,41 @@ import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
 import type { Document, DocumentFolder } from "@/types";
 
-/* Folder submenu inside context menu */
+/* Folder submenu inside context menu — shows hierarchy via indentation */
+function flattenFolderTree(folders: DocumentFolder[]): { folder: DocumentFolder; depth: number }[] {
+  const map = new Map<number, DocumentFolder[]>();
+  const roots: DocumentFolder[] = [];
+  for (const f of folders) {
+    if (f.parent_id && folders.some(p => p.id === f.parent_id)) {
+      const siblings = map.get(f.parent_id) || [];
+      siblings.push(f);
+      map.set(f.parent_id, siblings);
+    } else {
+      roots.push(f);
+    }
+  }
+  const result: { folder: DocumentFolder; depth: number }[] = [];
+  const visited = new Set<number>();
+  const walk = (items: DocumentFolder[], depth: number) => {
+    for (const f of items.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (visited.has(f.id)) continue;
+      visited.add(f.id);
+      result.push({ folder: f, depth });
+      const children = map.get(f.id);
+      if (children) walk(children, depth + 1);
+    }
+  };
+  walk(roots, 0);
+  return result;
+}
+
 function FolderSubmenu({ doc, folders, onMoveToFolder }: {
   doc: Document;
   folders: DocumentFolder[];
   onMoveToFolder: (folderId: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const tree = open ? flattenFolderTree(folders) : [];
   return (
     <div>
       <button
@@ -35,14 +63,15 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
             <FolderOpen className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
             No folder
           </button>
-          {folders.map((f) => (
+          {tree.map(({ folder: f, depth }) => (
             <button
               key={f.id}
               onClick={(e) => { e.stopPropagation(); onMoveToFolder(f.id); }}
               className={cn(
-                "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                "w-full flex items-center gap-2 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
                 doc.folder_id === f.id && "font-semibold"
               )}
+              style={{ paddingLeft: `${32 + depth * 16}px` }}
             >
               <FolderOpen className="w-3.5 h-3.5 text-[#a0704b]" />
               {f.name}
