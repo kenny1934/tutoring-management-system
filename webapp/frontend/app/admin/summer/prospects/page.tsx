@@ -180,6 +180,8 @@ function ProspectDetailModal({
                 <BranchBadges branches={prospect.preferred_branches || []} />
               </div>
             </div>
+            <InfoItem icon={Clock} label="Time / Tutor Pref" value={[prospect.preferred_time_note, prospect.preferred_tutor_note].filter(Boolean).join(" / ") || null} />
+            <InfoItem icon={User} label="Sibling" value={prospect.sibling_info} />
           </div>
 
           {/* Tutor Remark */}
@@ -201,19 +203,6 @@ function ProspectDetailModal({
               <IntentionBadge value={prospect.wants_regular} />
             </div>
           </div>
-
-          {(prospect.preferred_time_note || prospect.preferred_tutor_note) && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Preferences:</span>{" "}
-              {[prospect.preferred_time_note, prospect.preferred_tutor_note].filter(Boolean).join(" / ")}
-            </p>
-          )}
-
-          {prospect.sibling_info && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Sibling:</span> {prospect.sibling_info}
-            </p>
-          )}
 
           {/* Admin Controls */}
           <div className="border-t border-border pt-5 space-y-4">
@@ -709,7 +698,7 @@ export default function AdminProspectsPage() {
           ) : (
             <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[1000px]">
+                <table className="w-full text-sm min-w-[900px]">
                   <thead className="bg-primary/5 border-b border-border">
                     <tr>
                       <th className="px-2 py-2 w-8">
@@ -754,9 +743,6 @@ export default function AdminProspectsPage() {
                         <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>
                         <td className="px-2 py-2 font-medium text-foreground">
                           <CopyableCell text={p.student_name} />
-                          {!filters.branch && (
-                            <span className="ml-1.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{p.source_branch}</span>
-                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>
                         <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>
@@ -788,14 +774,11 @@ export default function AdminProspectsPage() {
                         </td>
                         <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-2 py-2"><ProspectStatusBadge status={p.status} /></td>
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-2 text-center">
                           {p.summer_application_id ? (
-                            <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium" title={p.matched_application_ref || ""}>
-                              <Link2 className="h-3 w-3" />
-                              Linked
-                            </span>
+                            <Link2 className="h-3.5 w-3.5 text-green-600" title={p.matched_application_ref || "Linked"} />
                           ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
+                            <span className="text-xs text-muted-foreground/30">-</span>
                           )}
                         </td>
                         <td
