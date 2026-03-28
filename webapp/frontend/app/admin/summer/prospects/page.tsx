@@ -25,6 +25,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { prospectsAPI, summerAPI } from "@/lib/api";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
+import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -99,6 +100,10 @@ function ProspectDetailModal({
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const unlinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  const hasChanges = outreachStatus !== prospect.outreach_status
+    || status !== prospect.status
+    || (contactNotes || "") !== (prospect.contact_notes || "");
+
   const { data: matchResult } = useSWR(
     !prospect.summer_application_id ? `prospect-match-${prospect.id}` : null,
     () => prospectsAPI.findMatches(prospect.id),
@@ -155,8 +160,9 @@ function ProspectDetailModal({
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-xl font-bold text-foreground">{prospect.student_name}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {prospect.source_branch} &middot; {prospect.primary_student_id || "No ID"} &middot; {prospect.grade}
+              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${BRANCH_INFO[prospect.source_branch]?.badge || "bg-gray-100"}`}>{prospect.source_branch}</span>
+                {prospect.primary_student_id || "No ID"} &middot; {prospect.grade}
               </p>
             </div>
             <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 transition-colors">
@@ -181,7 +187,6 @@ function ProspectDetailModal({
               </div>
             </div>
             <InfoItem icon={Clock} label="Time / Tutor Pref" value={[prospect.preferred_time_note, prospect.preferred_tutor_note].filter(Boolean).join(" / ") || null} />
-            <InfoItem icon={User} label="Sibling" value={prospect.sibling_info} />
           </div>
 
           {/* Tutor Remark */}
@@ -259,10 +264,10 @@ function ProspectDetailModal({
 
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !hasChanges}
               className="w-full py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-medium transition-colors duration-200"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : hasChanges ? "Save Changes" : "No Changes"}
             </button>
           </div>
 
@@ -422,6 +427,16 @@ export default function AdminProspectsPage() {
     }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // Sync modal with refreshed list data after save (prospects-only dep to avoid update loop)
+  const selectedProspectRef = useRef(selectedProspect);
+  selectedProspectRef.current = selectedProspect;
+  useEffect(() => {
+    if (!selectedProspectRef.current || !prospects) return;
+    const updated = prospects.find((p) => p.id === selectedProspectRef.current!.id);
+    if (updated) setSelectedProspect(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
 
   const swrKey = tab === "list" && year
     ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search]
@@ -601,11 +616,14 @@ export default function AdminProspectsPage() {
                 onClick={() => setFilters((f) => ({ ...f, branch: f.branch === b ? "" : b }))}
                 className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                   filters.branch === b
-                    ? "bg-primary text-white shadow-sm"
+                    ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} shadow-sm ring-1 ring-current/20`
                     : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
                 }`}
               >
                 {b}
+                {filters.branch === b && prospects && (
+                  <span className="ml-1 opacity-60">{prospects.length}</span>
+                )}
               </button>
             ))}
           </div>
@@ -823,7 +841,7 @@ export default function AdminProspectsPage() {
       {/* Floating bulk action bar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
             <span className="text-xs text-muted-foreground">|</span>
             <span className="text-xs text-muted-foreground">Set outreach:</span>
@@ -915,7 +933,12 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
           <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
             {stats.map((s, i) => (
               <tr key={s.branch} className={i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}>
-                <td className="px-3 py-2 font-semibold text-foreground">{s.branch}</td>
+                <td className="px-3 py-2 font-semibold text-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${BRANCH_INFO[s.branch]?.dot || "bg-gray-400"}`} />
+                    {s.branch}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-right font-medium">{s.total}</td>
                 <td className="px-3 py-2 text-right text-green-600 font-medium">{s.wants_summer_yes}</td>
                 <td className="px-3 py-2 text-right text-yellow-600">{s.wants_summer_considering}</td>
