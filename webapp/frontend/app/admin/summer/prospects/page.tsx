@@ -23,6 +23,7 @@ import {
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { prospectsAPI, summerAPI } from "@/lib/api";
+import { parseHKTimestamp, formatTimeAgo } from "@/lib/formatters";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -62,24 +63,6 @@ const STATUS_OPTIONS: ProspectStatus[] = [
 ];
 
 const INTENTION_OPTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
-
-/** Prospect timestamps are UTC (Cloud SQL func.now()). Append Z so the browser displays in local time. */
-function parseUTC(ts: string): Date {
-  return ts.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(ts) ? new Date(ts) : new Date(ts + "Z");
-}
-
-function relativeTimeUTC(ts: string): string {
-  const diffMs = Date.now() - parseUTC(ts).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(diffMs / 3600000);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(diffMs / 86400000);
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-  return parseUTC(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
@@ -380,7 +363,7 @@ function ProspectDetailModal({
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                   {prospect.edit_history.map((h, i) => (
                     <div key={i} className="text-xs text-muted-foreground font-mono">
-                      {parseUTC(h.timestamp).toLocaleString()} — {h.field}: {h.old_value ?? "null"} &rarr; {h.new_value ?? "null"}
+                      {parseHKTimestamp(h.timestamp).toLocaleString()} — {h.field}: {h.old_value ?? "null"} &rarr; {h.new_value ?? "null"}
                     </div>
                   ))}
                 </div>
@@ -814,8 +797,8 @@ export default function AdminProspectsPage() {
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-[10px] text-muted-foreground" title={p.updated_at ? parseUTC(p.updated_at).toLocaleString() : undefined}>
-                          {p.updated_at ? relativeTimeUTC(p.updated_at) : "-"}
+                        <td className="px-2 py-2 text-[10px] text-muted-foreground" title={p.updated_at ? parseHKTimestamp(p.updated_at).toLocaleString() : undefined}>
+                          {p.updated_at ? formatTimeAgo(p.updated_at) : "-"}
                         </td>
                       </tr>
                     ))}

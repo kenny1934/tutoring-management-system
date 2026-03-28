@@ -337,6 +337,7 @@ def admin_update_prospect(
     for field, value in update_data.items():
         setattr(prospect, field, value)
 
+    prospect.updated_at = hk_now()
     db.commit()
     db.refresh(prospect)
     return _prospect_to_response(prospect)
@@ -355,7 +356,10 @@ def admin_bulk_outreach(
     updated = (
         db.query(PrimaryProspect)
         .filter(PrimaryProspect.id.in_(payload.ids))
-        .update({PrimaryProspect.outreach_status: payload.outreach_status}, synchronize_session="fetch")
+        .update({
+            PrimaryProspect.outreach_status: payload.outreach_status,
+            PrimaryProspect.updated_at: hk_now(),
+        }, synchronize_session="fetch")
     )
     db.commit()
     return {"updated": updated}
@@ -514,6 +518,7 @@ def admin_auto_match(
             prospect.summer_application_id = app.id
             if prospect.status == 'New':
                 prospect.status = 'Applied'
+            prospect.updated_at = hk_now()
             matched_count += 1
 
     db.commit()
