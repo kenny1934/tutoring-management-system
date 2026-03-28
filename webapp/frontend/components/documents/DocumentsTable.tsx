@@ -119,14 +119,14 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[500px]">
         <thead className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a] docs-table-header">
-          <tr className="border-b border-gray-200 dark:border-gray-700/50">
+          <tr className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]/50">
             <th className="w-10 py-2.5 px-4">
               <input
                 type="checkbox"
                 checked={allSelected}
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={() => onToggleSelectAll(allVisibleIds)}
-                className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 accent-[#a0704b]"
+                className="w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b]"
               />
             </th>
             <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
@@ -149,10 +149,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 onClick={() => onDocClick(doc.id)}
                 data-doc-id={doc.id}
                 className={cn(
-                  "group border-l-2 border-b border-b-gray-100 dark:border-b-gray-800/40 cursor-pointer transition-colors",
+                  "group border-l-2 border-b border-b-[#e8d4b8]/30 dark:border-b-[#6b5a4a]/30 cursor-pointer transition-colors",
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
                   selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
-                  isPreviewing && !selected && "bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-400",
+                  isPreviewing && !selected && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/30 border-l-[#a0704b]",
                   !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]/40",
                   doc.is_archived && "opacity-40",
                 )}
@@ -163,7 +163,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     type="checkbox"
                     checked={selected}
                     onChange={() => onToggleSelect(doc.id)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 accent-[#a0704b]"
+                    className="w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b]"
                   />
                 </td>
 

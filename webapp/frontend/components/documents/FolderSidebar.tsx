@@ -382,7 +382,7 @@ export default function FolderSidebar({
             <FileText className="w-4 h-4" />
           </button>
           {tree.length > 0 && (
-            <div className="w-5 border-t border-gray-200 dark:border-gray-700 my-2" />
+            <div className="w-5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 my-2" />
           )}
           {tree.slice(0, 6).map((node) => (
             <button

@@ -539,7 +539,7 @@ export default function DocumentsPage() {
               <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                    <div key={i} className="h-32 rounded-xl bg-[#f5ede3] dark:bg-[#2d2618] shimmer-sepia" />
                   ))
                 ) : documents?.length ? (
                   documents.map((doc, i) => {

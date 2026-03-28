@@ -103,8 +103,8 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
 
             {isLoading ? (
               <div className="space-y-2">
-                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700 skeleton-shimmer" />
-                <div className="h-3 w-1/2 rounded bg-gray-200 dark:bg-gray-700 skeleton-shimmer" />
+                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700 shimmer-sepia" />
+                <div className="h-3 w-1/2 rounded bg-gray-200 dark:bg-gray-700 shimmer-sepia" />
               </div>
             ) : error ? (
               <div className="text-xs text-red-500">Failed to load document.</div>
@@ -236,7 +236,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
             {isLoading ? (
               <div className="p-4 space-y-3">
                 {[85, 70, 95, 60, 80, 90, 65, 75].map((w, i) => (
-                  <div key={i} className="h-3 rounded bg-gray-200 dark:bg-gray-700 skeleton-shimmer" style={{ width: `${w}%` }} />
+                  <div key={i} className="h-3 rounded bg-gray-200 dark:bg-gray-700 shimmer-sepia" style={{ width: `${w}%` }} />
                 ))}
               </div>
             ) : error ? (

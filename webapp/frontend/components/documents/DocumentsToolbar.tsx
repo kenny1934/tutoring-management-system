@@ -84,7 +84,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
   return (
     <div className="shrink-0">
       {/* Row 1: Tabs + create actions */}
-      <div className="flex items-center px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50">
+      <div className="flex items-center px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
         {/* Mobile: Folder drawer trigger */}
         {!isTemplatesTab && (
           <button
@@ -147,7 +147,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       </div>
 
       {/* Row 2: Search + filters + view controls */}
-      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
         <div className="relative flex-1 min-w-0 max-w-[14rem]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
@@ -155,7 +155,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             placeholder="Search..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-7 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40 focus:border-[#a0704b]/40 transition-colors"
+            className="w-full pl-8 pr-7 py-1 rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a]/50 text-[13px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40 focus:border-[#a0704b]/40 transition-colors"
           />
           {search && (
             <button onClick={() => onSearchChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
@@ -166,7 +166,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
         {/* Type filter */}
         {!isTemplatesTab && (
-          <div className="hidden sm:flex items-center gap-px rounded-md bg-gray-100 dark:bg-gray-800 p-0.5">
+          <div className="hidden sm:flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -229,17 +229,17 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
 
         {/* View toggle */}
-        <div className="flex items-center gap-px rounded-md bg-gray-100 dark:bg-gray-800 p-0.5">
+        <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
           <button
             onClick={() => onViewModeChange("table")}
-            className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-gray-700 shadow-sm text-gray-700 dark:text-gray-200" : "text-gray-400 hover:text-gray-600")}
+            className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
             title="Table view"
           >
             <Table2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onViewModeChange("grid")}
-            className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-gray-700 shadow-sm text-gray-700 dark:text-gray-200" : "text-gray-400 hover:text-gray-600")}
+            className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
             title="Grid view"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -263,7 +263,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
       {(activeTag || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/20 animate-slide-down">
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/80 dark:bg-[#2d2618]/30 animate-slide-down">
           {selectedCount > 0 ? (
             <>
               <span className="text-[12px] font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>
