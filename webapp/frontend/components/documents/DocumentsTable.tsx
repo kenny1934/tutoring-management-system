@@ -138,7 +138,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   }
 
   return (
-    <div className="px-1 sm:px-3">
+    <div className="px-1 sm:px-3 overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -209,7 +209,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     )}
 
                     {/* Type icon */}
-                    <meta.icon className={cn("w-4 h-4 shrink-0", meta.color.split(" ").slice(1).join(" "))} />
+                    <meta.icon className={cn("w-4 h-4 shrink-0", meta.iconColor)} />
 
                     {/* Title text */}
                     <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{doc.title}</span>

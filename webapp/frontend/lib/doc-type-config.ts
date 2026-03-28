@@ -6,6 +6,7 @@ export const DOC_TYPE_CONFIG: Record<DocType, {
   abbr: string;
   icon: typeof FileText;
   color: string;
+  iconColor: string;
   desc: string;
 }> = {
   worksheet: {
@@ -13,6 +14,7 @@ export const DOC_TYPE_CONFIG: Record<DocType, {
     abbr: "WS",
     icon: FileText,
     color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    iconColor: "text-blue-700 dark:text-blue-300",
     desc: "Exercises, exams, practice sheets",
   },
   lesson_plan: {
@@ -20,6 +22,7 @@ export const DOC_TYPE_CONFIG: Record<DocType, {
     abbr: "LP",
     icon: BookOpen,
     color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    iconColor: "text-green-700 dark:text-green-300",
     desc: "Teaching guides and outlines",
   },
 };
