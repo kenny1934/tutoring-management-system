@@ -162,6 +162,12 @@ export function formatTimeAgo(timestamp: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Check if a record was edited after submission (> 5s difference). */
+export function wasEdited(submitted: string | null, updated: string | null): boolean {
+  if (!submitted || !updated) return false;
+  return parseHKTimestamp(updated).getTime() - parseHKTimestamp(submitted).getTime() > 5000;
+}
+
 /**
  * Format a date-only string (YYYY-MM-DD) as day-level relative time.
  * Use instead of formatTimeAgo when the source has no time component.

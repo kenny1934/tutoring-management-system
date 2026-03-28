@@ -19,11 +19,12 @@ import {
   ExternalLink,
   X,
   Clock,
+  Pencil,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { prospectsAPI, summerAPI } from "@/lib/api";
-import { parseHKTimestamp, formatTimeAgo } from "@/lib/formatters";
+import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -797,8 +798,17 @@ export default function AdminProspectsPage() {
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-[10px] text-muted-foreground" title={p.updated_at ? parseHKTimestamp(p.updated_at).toLocaleString() : undefined}>
-                          {p.updated_at ? formatTimeAgo(p.updated_at) : "-"}
+                        <td
+                          className="px-2 py-2 text-[10px] text-muted-foreground"
+                          title={[
+                            p.submitted_at && `Submitted: ${parseHKTimestamp(p.submitted_at).toLocaleString()}`,
+                            wasEdited(p.submitted_at, p.updated_at) && `Edited: ${parseHKTimestamp(p.updated_at!).toLocaleString()}`,
+                          ].filter(Boolean).join("\n") || undefined}
+                        >
+                          {p.submitted_at ? formatTimeAgo(p.submitted_at) : "-"}
+                          {wasEdited(p.submitted_at, p.updated_at) && (
+                            <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground/50" />
+                          )}
                         </td>
                       </tr>
                     ))}

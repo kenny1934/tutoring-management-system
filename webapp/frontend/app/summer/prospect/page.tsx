@@ -40,6 +40,7 @@ import {
   Copy,
 } from "lucide-react";
 import { prospectsAPI } from "@/lib/api";
+import { wasEdited } from "@/lib/formatters";
 import { useFormDirtyTracking, useCooldown } from "@/lib/ui-hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
@@ -88,10 +89,6 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(days / 7)}w`;
 }
 
-function wasEdited(submitted: string | null, updated: string | null): boolean {
-  if (!submitted || !updated) return false;
-  return new Date(updated).getTime() - new Date(submitted).getTime() > 5000;
-}
 
 function outreachUrgency(status: ProspectOutreachStatus): "action" | "progress" | "done" {
   if (status === "Not Started" || status === "No Response") return "action";
