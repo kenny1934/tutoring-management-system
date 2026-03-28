@@ -556,7 +556,7 @@ export default function DocumentsPage() {
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
                             : doc.is_template
                             ? "border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/20 border-l-purple-400"
-                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] shadow-[var(--shadow-paper-sm)] dark:shadow-none"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] shadow-[var(--shadow-paper-sm)] dark:shadow-none paper-texture"
                         )}
                       >
                         <div className="flex items-center gap-2 mb-2">

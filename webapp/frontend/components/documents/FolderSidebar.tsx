@@ -354,7 +354,7 @@ export default function FolderSidebar({
               !isHidden && "border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40",
               !isCollapsed && !isHidden && "w-56 lg:w-60"
             ),
-        "flex-col shrink-0 bg-white/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
+        "flex-col shrink-0 bg-[#fef9f3]/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
         !isCollapsed && !isHidden && !mobile && "overflow-y-auto"
       )}
       style={!mobile ? (isHidden ? { width: 0 } : isCollapsed ? { width: 40 } : undefined) : undefined}

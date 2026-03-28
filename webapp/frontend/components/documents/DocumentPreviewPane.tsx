@@ -249,7 +249,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
               </div>
             ) : doc ? (
               <div className="p-4 preview-desk-surface">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-[2px] paper-mode overflow-hidden shadow-paper-preview">
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-[2px] paper-mode overflow-hidden shadow-paper-preview paper-texture">
                 <div
                   style={{
                     padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
