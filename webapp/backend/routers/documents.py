@@ -217,6 +217,7 @@ async def list_documents(
     doc_type: Optional[str] = Query(None, pattern="^(worksheet|lesson_plan)$"),
     search: Optional[str] = Query(None),
     include_archived: bool = Query(False),
+    archived_only: bool = Query(False),
     is_template: Optional[bool] = Query(None),
     sort_by: str = Query("updated_at", pattern="^(updated_at|created_at|title)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
@@ -232,7 +233,9 @@ async def list_documents(
     """List documents with optional filters."""
     query = _doc_query(db)
 
-    if not include_archived:
+    if archived_only:
+        query = query.filter(Document.is_archived == True)
+    elif not include_archived:
         query = query.filter(Document.is_archived == False)
     # Filter by is_template: explicit true/false, or default to excluding templates
     if is_template is not None:
@@ -300,6 +303,7 @@ async def bulk_update_documents(
             doc.folder_id = data.folder_id if data.folder_id != 0 else None
         if data.is_archived is not None:
             doc.is_archived = data.is_archived
+            doc.archived_at = hk_now() if data.is_archived else None
         if data.tags_add:
             current_tags = list(doc.tags or [])
             for tag in data.tags_add:
@@ -468,6 +472,7 @@ async def update_document(
         flag_modified(doc, "page_layout")
     if data.is_archived is not None:
         doc.is_archived = data.is_archived
+        doc.archived_at = hk_now() if data.is_archived else None
     if data.is_template is not None:
         doc.is_template = data.is_template
     if data.tags is not None:
@@ -500,8 +505,9 @@ async def delete_document(
         raise HTTPException(status_code=403, detail="You can only delete your own documents")
 
     doc.is_archived = True
+    doc.archived_at = hk_now()
     db.commit()
-    return {"message": "Document archived successfully"}
+    return {"message": "Document moved to trash"}
 
 
 @router.delete("/documents/{doc_id}/permanent")
@@ -510,16 +516,20 @@ async def permanently_delete_document(
     current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
-    """Hard-delete an archived document permanently."""
+    """Hard-delete a trashed document permanently."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.is_archived:
+        raise HTTPException(status_code=400, detail="Document must be in trash before permanent deletion")
 
     is_owner = doc.created_by == current_user.id
     is_admin = current_user.role in ADMIN_WRITE_ROLES
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only delete your own documents")
 
+    # Unlink child documents so they don't get orphaned FK references
+    db.query(Document).filter(Document.parent_id == doc_id).update({"parent_id": None})
     db.delete(doc)
     db.commit()
     return {"message": "Document permanently deleted"}

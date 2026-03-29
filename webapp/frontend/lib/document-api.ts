@@ -50,11 +50,12 @@ async function fetchFormData<T>(endpoint: string, formData: FormData, fallbackEr
 }
 
 export const documentsAPI = {
-  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; is_template?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number; tag?: string; folder_id?: number; my_docs?: boolean; ids?: string }) {
+  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; archived_only?: boolean; is_template?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number; tag?: string; folder_id?: number; my_docs?: boolean; ids?: string }) {
     const qs = new URLSearchParams();
     if (params?.doc_type) qs.set("doc_type", params.doc_type);
     if (params?.search) qs.set("search", params.search);
     if (params?.include_archived) qs.set("include_archived", "true");
+    if (params?.archived_only) qs.set("archived_only", "true");
     if (params?.is_template !== undefined) qs.set("is_template", String(params.is_template));
     if (params?.sort_by) qs.set("sort_by", params.sort_by);
     if (params?.sort_order) qs.set("sort_order", params.sort_order);

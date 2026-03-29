@@ -1907,6 +1907,7 @@ class DocumentResponse(BaseModel):
     updated_by: Optional[int] = None
     updated_by_name: str = ""
     is_archived: bool = False
+    archived_at: Optional[datetime] = None
     is_template: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""
@@ -1936,6 +1937,7 @@ class DocumentListItem(BaseModel):
     updated_by: Optional[int] = None
     updated_by_name: str = ""
     is_archived: bool = False
+    archived_at: Optional[datetime] = None
     is_template: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""

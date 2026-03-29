@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useClickOutside } from "@/lib/hooks";
-import { Search, X, ChevronDown, Archive, LayoutGrid, Table2, PanelRight, Plus, ScanLine, FolderOpen, Tag, Trash2, FolderInput } from "lucide-react";
+import { Search, X, ChevronDown, ArchiveRestore, LayoutGrid, Table2, PanelRight, Plus, ScanLine, FolderOpen, Tag, Trash2, FolderInput } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import type { DocType, DocumentFolder } from "@/types";
@@ -17,7 +17,7 @@ const SORT_OPTIONS = [
 
 export { SORT_OPTIONS };
 
-type Tab = "all" | "mine" | "recent" | "templates";
+type Tab = "all" | "mine" | "recent" | "templates" | "trash";
 
 export interface DocumentsToolbarProps {
   activeTab: Tab;
@@ -26,8 +26,6 @@ export interface DocumentsToolbarProps {
   onSearchChange: (value: string) => void;
   filterType: DocType | "all";
   onFilterTypeChange: (type: DocType | "all") => void;
-  showArchived: boolean;
-  onToggleArchived: () => void;
   sortIdx: number;
   onSortChange: (idx: number) => void;
   viewMode: "table" | "grid";
@@ -68,15 +66,16 @@ const TYPE_FILTERS: { value: DocType | "all"; label: string }[] = [
 export default function DocumentsToolbar(props: DocumentsToolbarProps) {
   const {
     activeTab, onTabChange, search, onSearchChange, filterType, onFilterTypeChange,
-    showArchived, onToggleArchived, sortIdx, onSortChange,
+    sortIdx, onSortChange,
     viewMode, onViewModeChange, previewEnabled, onTogglePreview,
     activeTag, onClearTag, activeFolderId, activeFolder, onClearFolder,
     onOpenMobileDrawer, onCreateDocument, onImportWorksheet, onCreateTemplate,
     isReadOnly, selectedCount, onClearSelection,
-    onBulkArchive, onBulkDelete,
+    onBulkArchive, onBulkDelete, onBulkMoveToFolder, onBulkAddTag,
   } = props;
 
   const isTemplatesTab = activeTab === "templates";
+  const isTrashTab = activeTab === "trash";
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   useClickOutside(sortRef, () => setShowSortMenu(false), showSortMenu);
@@ -86,7 +85,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
       {/* Row 1: Tabs + create actions */}
       <div className="flex items-center px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
         {/* Mobile: Folder drawer trigger */}
-        {!isTemplatesTab && (
+        {!isTemplatesTab && !isTrashTab && (
           <button
             onClick={onOpenMobileDrawer}
             className="lg:hidden p-1.5 mr-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -102,7 +101,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 "px-2.5 py-1 text-[13px] font-medium rounded-md transition-colors",
-                activeTab === tab.id
+                activeTab === tab.id && !isTrashTab
                   ? "text-[#a0704b] dark:text-[#cd853f] bg-[#a0704b]/10 dark:bg-[#cd853f]/10 border-b-2 border-[#a0704b] dark:border-[#cd853f] rounded-b-none"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b-2 border-transparent"
               )}
@@ -165,7 +164,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
         </div>
 
         {/* Type filter */}
-        {!isTemplatesTab && (
+        {!isTemplatesTab && !isTrashTab && (
           <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
             {TYPE_FILTERS.map((f) => (
               <button
@@ -212,22 +211,6 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           )}
         </div>
 
-        {/* Archive toggle */}
-        <button
-          onClick={onToggleArchived}
-          className={cn(
-            "hidden sm:flex items-center p-1.5 rounded-md transition-colors focus-warm",
-            showArchived
-              ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
-              : "text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-          )}
-          title={showArchived ? "Hide archived" : "Show archived"}
-        >
-          <Archive className="w-3.5 h-3.5" />
-        </button>
-
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-
         {/* View toggle */}
         <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
           <button
@@ -268,18 +251,28 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             <>
               <span className="text-[12px] font-medium text-[#a0704b] dark:text-[#cd853f]">{selectedCount} selected</span>
               <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
-              <button onClick={onBulkMoveToFolder} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                <FolderInput className="w-3 h-3" /> Move
-              </button>
-              <button onClick={onBulkAddTag} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                <Tag className="w-3 h-3" /> Tag
-              </button>
-              <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                <Archive className="w-3 h-3" /> Archive
-              </button>
-              <button onClick={onBulkDelete} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                <Trash2 className="w-3 h-3" /> Delete
-              </button>
+              {isTrashTab ? (
+                <>
+                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                    <ArchiveRestore className="w-3 h-3" /> Restore
+                  </button>
+                  <button onClick={onBulkDelete} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <Trash2 className="w-3 h-3" /> Delete Forever
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={onBulkMoveToFolder} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                    <FolderInput className="w-3 h-3" /> Move
+                  </button>
+                  <button onClick={onBulkAddTag} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                    <Tag className="w-3 h-3" /> Tag
+                  </button>
+                  <button onClick={onBulkArchive} className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                    <Trash2 className="w-3 h-3" /> Trash
+                  </button>
+                </>
+              )}
               <div className="flex-1" />
               <button onClick={onClearSelection} className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                 Clear

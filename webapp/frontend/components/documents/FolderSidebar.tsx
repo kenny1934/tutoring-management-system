@@ -43,6 +43,9 @@ interface FolderSidebarProps {
   hidden?: boolean;
   /** When true, hide all folder CRUD actions (create, rename, delete). */
   isReadOnly?: boolean;
+  activeTab?: "all" | "mine" | "recent" | "templates" | "trash";
+  onTrashClick?: () => void;
+  trashCount?: number;
 }
 
 /* ── Folder Tree Item ──────────────────────────────────── */
@@ -261,6 +264,9 @@ export default function FolderSidebar({
   mobile,
   hidden,
   isReadOnly,
+  activeTab,
+  onTrashClick,
+  trashCount,
 }: FolderSidebarProps) {
   const [folderSearch, setFolderSearch] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
@@ -428,12 +434,12 @@ export default function FolderSidebar({
               onClick={() => onSelectFolder(null)}
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
-                activeFolderId === null
+                activeFolderId === null && activeTab !== "trash"
                   ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
                   : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
               )}
             >
-              <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
               <span className="flex-1 text-left">All Documents</span>
               {totalDocCount !== undefined && (
                 <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
@@ -547,6 +553,29 @@ export default function FolderSidebar({
             </div>
           )}
         </>
+      )}
+
+      {/* Trash entry — at bottom of sidebar */}
+      {onTrashClick && !isCollapsed && !isHidden && (
+        <div className="px-3 py-2 mt-auto border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <button
+            onClick={onTrashClick}
+            className={cn(
+              "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
+              activeTab === "trash"
+                ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                : "text-gray-500 dark:text-gray-400 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+            )}
+          >
+            <Trash2 className="w-4 h-4" />
+            Trash
+            {(trashCount ?? 0) > 0 && (
+              <span className="ml-auto text-[9px] font-semibold tabular-nums bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">
+                {trashCount}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {/* Rename modal (inline overlay) */}

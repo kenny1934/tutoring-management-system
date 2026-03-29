@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChevronRight, FileText, Lock, Stamp, GitBranch } from "lucide-react";
+import { ChevronRight, FileText, Lock, Stamp, GitBranch, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
@@ -31,6 +31,7 @@ export interface DocumentsTableProps {
   onMoveToFolder: (docId: number, folderId: number | null) => void;
   isReadOnly: boolean;
   isTemplatesTab: boolean;
+  isTrashTab?: boolean;
   activeFolderId: number | null;
   emptyTitle: string;
   emptyMessage: string;
@@ -50,7 +51,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     expandedIds, onToggleExpand, onDocClick, previewDocId,
     menuOpenId, onMenuOpen, onDuplicate, onArchive, onUnarchive, onPermanentDelete,
     onSaveAsTemplate, onEditTags, folders, onMoveToFolder,
-    isReadOnly, isTemplatesTab, activeFolderId,
+    isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
     emptyTitle, emptyMessage,
   } = props;
 
@@ -107,8 +108,8 @@ export default function DocumentsTable(props: DocumentsTableProps) {
   if (!documents.length) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="animate-empty-float w-14 h-14 rounded-2xl bg-[#f5ede3] dark:bg-[#2d2618] flex items-center justify-center mb-4">
-          <FileText className="w-7 h-7 text-[#a0704b]/40 dark:text-[#cd853f]/30" />
+        <div className={cn("animate-empty-float w-14 h-14 rounded-2xl flex items-center justify-center mb-4", isTrashTab ? "bg-red-50 dark:bg-red-950/20" : "bg-[#f5ede3] dark:bg-[#2d2618]")}>
+          {isTrashTab ? <Trash2 className="w-7 h-7 text-red-300 dark:text-red-800" /> : <FileText className="w-7 h-7 text-[#a0704b]/40 dark:text-[#cd853f]/30" />}
         </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[20rem]">{emptyMessage}</p>
@@ -131,8 +132,8 @@ export default function DocumentsTable(props: DocumentsTableProps) {
               />
             </th>
             <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-            <th className="w-24 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden md:table-cell">Tags</th>
-            <th className="w-28 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden sm:table-cell">Modified</th>
+            <th className="w-24 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden md:table-cell">{isTrashTab ? "Location" : "Tags"}</th>
+            <th className="w-28 py-2.5 px-2 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden sm:table-cell">{isTrashTab ? "Trashed" : "Modified"}</th>
             <th className="w-8 py-2.5" />
           </tr>
         </thead>
@@ -155,7 +156,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                   selected && "bg-[#a0704b]/5 dark:bg-[#a0704b]/10 border-l-[#a0704b]",
                   isPreviewing && !selected && "bg-[#f5ede3]/50 dark:bg-[#2d2618]/30 border-l-[#a0704b]",
                   !selected && !isPreviewing && "border-l-transparent hover:border-l-[#a0704b]/60 hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]/40",
-                  doc.is_archived && "opacity-40",
+                  doc.is_archived && !isTrashTab && "opacity-40",
                 )}
               >
                 {/* Checkbox */}
@@ -190,13 +191,13 @@ export default function DocumentsTable(props: DocumentsTableProps) {
 
                     <span className={cn(
                       "truncate text-[13px]",
-                      isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
+                      isTrashTab ? "text-gray-400 dark:text-gray-500" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
                     )}>
                       {doc.title}
                     </span>
 
                     {/* Inline type abbreviation — subtle */}
-                    <span className={cn("shrink-0 text-[10px] font-medium px-1 py-0.5 rounded", meta.color, "opacity-70")}>
+                    <span className={cn("shrink-0 text-[10px] font-medium px-1 py-0.5 rounded", meta.color, isTrashTab ? "opacity-40" : "opacity-70")}>
                       {meta.abbr}
                     </span>
 
@@ -218,24 +219,32 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                   </div>
                 </td>
 
-                {/* Tags */}
+                {/* Tags / Location (trash) */}
                 <td className="py-2.5 px-2 hidden md:table-cell">
-                  <div className="flex items-center gap-1">
-                    {(doc.tags || []).slice(0, 2).map((tag) => (
-                      <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", getTagColor(tag))}>
-                        {tag}
-                      </span>
-                    ))}
-                    {(doc.tags || []).length > 2 && (
-                      <span className="text-[10px] text-gray-400">+{doc.tags!.length - 2}</span>
-                    )}
-                  </div>
+                  {isTrashTab ? (
+                    <span className="text-[12px] text-gray-400 dark:text-gray-500 truncate">
+                      {doc.folder_name || "—"}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      {(doc.tags || []).slice(0, 2).map((tag) => (
+                        <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", getTagColor(tag))}>
+                          {tag}
+                        </span>
+                      ))}
+                      {(doc.tags || []).length > 2 && (
+                        <span className="text-[10px] text-gray-400">+{doc.tags!.length - 2}</span>
+                      )}
+                    </div>
+                  )}
                 </td>
 
-                {/* Modified */}
+                {/* Modified / Trashed date */}
                 <td className="py-2.5 px-2 hidden sm:table-cell">
                   <span className="text-[12px] text-gray-400 dark:text-gray-500">
-                    {doc.updated_at && formatTimeAgo(doc.updated_at)}
+                    {isTrashTab && doc.archived_at
+                      ? formatTimeAgo(doc.archived_at)
+                      : doc.updated_at && formatTimeAgo(doc.updated_at)}
                   </span>
                 </td>
 

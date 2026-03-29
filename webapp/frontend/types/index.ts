@@ -1875,6 +1875,7 @@ export interface Document {
   updated_by?: number | null;
   updated_by_name?: string;
   is_archived: boolean;
+  archived_at?: string | null;
   is_template: boolean;
   locked_by?: number | null;
   locked_by_name?: string | null;

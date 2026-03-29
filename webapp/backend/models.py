@@ -1034,6 +1034,7 @@ class Document(Base):
     updated_at = Column(DateTime, server_default=func.now())
     updated_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     is_archived = Column(Boolean, default=False)
+    archived_at = Column(DateTime, nullable=True)
     is_template = Column(Boolean, default=False)
     locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     lock_expires_at = Column(DateTime, nullable=True)

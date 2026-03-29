@@ -126,7 +126,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                     </span>
                   )}
                   {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-500" />}
-                  {doc.is_archived && <span className="text-[9px] text-gray-400 italic shrink-0">Archived</span>}
+                  {doc.is_archived && <span className="text-[9px] text-red-400 dark:text-red-500 italic shrink-0">In Trash</span>}
                 </div>
 
                 {/* Metadata line */}

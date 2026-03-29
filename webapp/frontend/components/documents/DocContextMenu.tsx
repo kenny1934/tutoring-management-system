@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import { MoreVertical, Copy, Tag, Stamp, Trash2, Archive, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, GitBranch, Download } from "lucide-react";
+import { MoreVertical, Copy, Tag, Stamp, Trash2, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, GitBranch, Download } from "lucide-react";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
 import { flattenFolderTree } from "@/lib/folder-utils";
@@ -167,8 +167,8 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
             onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
             className={menuItemCls}
           >
-            <Archive className="w-3.5 h-3.5" />
-            Archive
+            <Trash2 className="w-3.5 h-3.5" />
+            Move to Trash
           </button>
         )}
       </FloatingDropdown>
