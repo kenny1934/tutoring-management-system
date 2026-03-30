@@ -362,8 +362,6 @@ async def bulk_update_documents(
             current_tags = list(doc.tags or [])
             doc.tags = [t for t in current_tags if t not in data.tags_remove]
             flag_modified(doc, "tags")
-        doc.updated_at = hk_now()
-        doc.updated_by = current_user.id
         updated += 1
     db.commit()
     return {"updated": updated, "skipped": skipped}
@@ -530,7 +528,9 @@ async def update_document(
         flag_modified(doc, "tags")
     if data.folder_id is not None:
         doc.folder_id = target_folder
-    doc.updated_at = hk_now()
+    # Only update timestamp for content modifications (not organizational changes like move/archive/tag)
+    if data.title is not None or data.content is not None or data.page_layout is not None:
+        doc.updated_at = hk_now()
     doc.updated_by = current_user.id
 
     db.commit()
