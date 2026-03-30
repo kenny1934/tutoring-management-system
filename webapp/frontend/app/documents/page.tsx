@@ -190,6 +190,9 @@ export default function DocumentsPage() {
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const showShortcutHintsRef = useRef(showShortcutHints);
   showShortcutHintsRef.current = showShortcutHints;
+  const handleBulkArchiveRef = useRef<() => void>();
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -203,8 +206,8 @@ export default function DocumentsPage() {
         if (e.key === "Escape" && showShortcutHintsRef.current) { setShowShortcutHints(false); return; }
         if (e.key === "/") { e.preventDefault(); document.querySelector<HTMLInputElement>('[placeholder*="Search"]')?.focus(); return; }
         if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); setShowCreateModal(true); return; }
-        if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
-          e.preventDefault(); handleBulkArchive(); return;
+        if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.size > 0) {
+          e.preventDefault(); handleBulkArchiveRef.current?.(); return;
         }
       }
 
@@ -238,7 +241,7 @@ export default function DocumentsPage() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [viewMode, router, selectedIds, handleBulkArchive]);
+  }, [viewMode, router]);
 
   // --- View callbacks ---
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
@@ -448,6 +451,7 @@ export default function DocumentsPage() {
       showToast(restoring ? `${ids.length} document(s) restored` : `${ids.length} document(s) moved to trash`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
   }, [selectedIds, isTrashTab, mutate, mutateTrashCount, showToast]);
+  handleBulkArchiveRef.current = handleBulkArchive;
 
   const handleBulkDelete = useCallback(() => {
     setConfirmAction({ type: "delete-bulk" });
@@ -503,8 +507,10 @@ export default function DocumentsPage() {
   const [bulkTagMode, setBulkTagMode] = useState<"add" | "remove">("add");
   const bulkFolderRef = useRef<HTMLDivElement>(null);
   const bulkTagRef = useRef<HTMLDivElement>(null);
+  const moveFolderRef = useRef<HTMLDivElement>(null);
   useFocusTrap(bulkFolderPickerOpen, bulkFolderRef);
   useFocusTrap(bulkTagPickerOpen, bulkTagRef);
+  useFocusTrap(movingFolderId !== null, moveFolderRef);
   const handleBulkAddTag = useCallback(() => {
     setBulkTagPickerOpen(true);
   }, []);
@@ -984,29 +990,29 @@ export default function DocumentsPage() {
       </AnimatePresence>
 
       {/* Folder move picker */}
-      {movingFolderId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setMovingFolderId(null)}>
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
-            <div className="space-y-0.5">
-              <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
-                <FolderOpen className="w-4 h-4 text-gray-400" /> Root (no parent)
-              </button>
-              {flattenFolderTree(folders).filter(({ folder: f }) => {
-                // Exclude self and descendants
-                const descendants = new Set<number>();
-                const collect = (id: number) => { descendants.add(id); folders.filter(x => x.parent_id === id).forEach(x => collect(x.id)); };
-                collect(movingFolderId);
-                return !descendants.has(f.id);
-              }).map(({ folder: f, depth }) => (
-                <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
-                  <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
+      {movingFolderId !== null && (() => {
+        // Precompute descendants to exclude (self + children)
+        const excludeIds = new Set<number>();
+        const collectDesc = (id: number) => { excludeIds.add(id); folders.filter(x => x.parent_id === id).forEach(x => collectDesc(x.id)); };
+        collectDesc(movingFolderId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setMovingFolderId(null)}>
+            <div ref={moveFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
+              <div className="space-y-0.5">
+                <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                  <FolderOpen className="w-4 h-4 text-gray-400" /> Root (no parent)
                 </button>
-              ))}
+                {flattenFolderTree(folders).filter(({ folder: f }) => !excludeIds.has(f.id)).map(({ folder: f, depth }) => (
+                  <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
+                    <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </DeskSurface>
   );
 }
