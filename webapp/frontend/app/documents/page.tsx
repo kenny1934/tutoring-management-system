@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { FileText, Lock, FolderOpen, Trash2 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
-import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { usePageTitle, useDebouncedValue, useFocusTrap } from "@/lib/hooks";
 import { formatTimeAgo } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -470,6 +470,10 @@ export default function DocumentsPage() {
 
   const [bulkTagPickerOpen, setBulkTagPickerOpen] = useState(false);
   const [bulkTagValue, setBulkTagValue] = useState("");
+  const bulkFolderRef = useRef<HTMLDivElement>(null);
+  const bulkTagRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(bulkFolderPickerOpen, bulkFolderRef);
+  useFocusTrap(bulkTagPickerOpen, bulkTagRef);
   const handleBulkAddTag = useCallback(() => {
     setBulkTagPickerOpen(true);
   }, []);
@@ -485,7 +489,13 @@ export default function DocumentsPage() {
     setBulkTagValue("");
   }, [selectedIds, mutate, mutateTags, showToast]);
 
-  const activeFolder = folders.find((f) => f.id === activeFolderId);
+  const folderPath = useMemo(() => {
+    if (!activeFolderId) return [];
+    const path: typeof folders = [];
+    let f = folders.find(x => x.id === activeFolderId);
+    while (f) { path.unshift(f); f = f.parent_id ? folders.find(x => x.id === f!.parent_id) : undefined; }
+    return path;
+  }, [activeFolderId, folders]);
 
   // Empty state text
   const emptyTitle = !documents?.length
@@ -572,8 +582,8 @@ export default function DocumentsPage() {
             activeTags={activeTags}
             onClearTag={(tag) => tag ? setActiveTags(prev => prev.filter(t => t !== tag)) : setActiveTags([])}
             activeFolderId={activeFolderId}
-            activeFolder={activeFolder}
-            onClearFolder={() => setActiveFolderId(null)}
+            folderPath={folderPath}
+            onClearFolder={(folderId) => setActiveFolderId(folderId ?? null)}
             onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
             onCreateDocument={() => setShowCreateModal(true)}
             onImportWorksheet={() => setShowImportModal(true)}
@@ -823,7 +833,7 @@ export default function DocumentsPage() {
       {/* Bulk move to folder picker */}
       {bulkFolderPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkFolderPickerOpen(false)}>
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkFolderRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move {selectedIds.size} document(s) to</h3>
             <div className="space-y-0.5">
               <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
@@ -842,7 +852,7 @@ export default function DocumentsPage() {
       {/* Bulk add tag picker */}
       {bulkTagPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); }}>
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
+          <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Add tag to {selectedIds.size} document(s)</h3>
             <input
               autoFocus

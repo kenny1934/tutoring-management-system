@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { FileText, Stamp } from "lucide-react";
+import { useFocusTrap } from "@/lib/hooks";
 import { documentsAPI } from "@/lib/document-api";
 import { formatTimeAgo } from "@/lib/formatters";
 import type { Document } from "@/types";
@@ -13,6 +14,8 @@ export interface CreateDocumentModalProps {
 }
 
 export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumentModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, modalRef);
   const [creating, setCreating] = useState(false);
   const { data: templates, isLoading: loadingTemplates } = useSWR(
     "templates-for-picker",
@@ -35,6 +38,7 @@ export default function CreateDocumentModal({ onClose, onCreate }: CreateDocumen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
+        ref={modalRef}
         className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
         style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
         onClick={(e) => e.stopPropagation()}

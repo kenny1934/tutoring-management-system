@@ -33,8 +33,8 @@ export interface DocumentsToolbarProps {
   activeTags: string[];
   onClearTag: (tag?: string) => void;
   activeFolderId: number | null;
-  activeFolder: DocumentFolder | undefined;
-  onClearFolder: () => void;
+  folderPath?: DocumentFolder[];
+  onClearFolder: (folderId?: number) => void;
   onOpenMobileDrawer: () => void;
   onCreateDocument: () => void;
   onImportWorksheet: () => void;
@@ -61,7 +61,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
     activeTab, onTabChange, search, onSearchChange,
     sortIdx, onSortChange,
     viewMode, onViewModeChange, previewEnabled, onTogglePreview,
-    activeTags, onClearTag, activeFolderId, activeFolder, onClearFolder,
+    activeTags, onClearTag, activeFolderId, folderPath, onClearFolder,
     onOpenMobileDrawer, onCreateDocument, onImportWorksheet, onCreateTemplate,
     isReadOnly, selectedCount, onClearSelection,
     onBulkArchive, onBulkDelete, onBulkMoveToFolder, onBulkAddTag,
@@ -253,11 +253,18 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             </>
           ) : (
             <>
-              {activeFolder && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                  <FolderOpen className="w-3 h-3 text-gray-400" />
-                  {activeFolder.name}
-                  <button onClick={onClearFolder} className="ml-0.5 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
+              {folderPath && folderPath.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <FolderOpen className="w-3 h-3 text-[#a0704b]/60" />
+                  {folderPath.map((f, i) => (
+                    <span key={f.id} className="inline-flex items-center gap-1">
+                      {i > 0 && <span className="text-gray-300 dark:text-gray-600">/</span>}
+                      <button onClick={() => onClearFolder(f.id)} className="hover:text-[#a0704b] transition-colors" title={`Go to ${f.name}`}>
+                        {f.name}
+                      </button>
+                    </span>
+                  ))}
+                  <button onClick={() => onClearFolder()} className="ml-0.5 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {activeTags.map((tag) => (
