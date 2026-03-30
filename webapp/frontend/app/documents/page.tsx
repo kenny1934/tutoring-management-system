@@ -19,13 +19,12 @@ import FolderSidebar from "@/components/documents/FolderSidebar";
 import { DocumentPreviewPane } from "@/components/documents/DocumentPreviewPane";
 import { getRecentDocIds, trackDocView, removeFromRecent } from "@/lib/recent-docs";
 import DocumentsToolbar, { SORT_OPTIONS } from "@/components/documents/DocumentsToolbar";
-import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import DocumentsTable from "@/components/documents/DocumentsTable";
 import DocContextMenu from "@/components/documents/DocContextMenu";
 import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
-import type { Document, DocType, DocumentFolder } from "@/types";
+import type { Document, DocumentFolder } from "@/types";
 
 const PAGE_SIZE = 24;
 
@@ -37,7 +36,6 @@ export default function DocumentsPage() {
 
   // --- Filter / navigation state ---
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "templates" | "trash">("all");
-  const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [sortIdx, setSortIdx] = useState(() => {
@@ -73,7 +71,6 @@ export default function DocumentsPage() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
   const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number; title?: string } | { type: "delete-bulk" } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
@@ -90,11 +87,10 @@ export default function DocumentsPage() {
 
   const isTrashTab = activeTab === "trash";
   const { data: firstPage, isLoading, mutate } = useSWR(
-    ["documents", filterType, debouncedSearch, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
+    ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
     () => {
       if (activeTab === "recent" && recentIds.length === 0) return Promise.resolve([] as Document[]);
       return documentsAPI.list({
-        doc_type: filterType === "all" ? undefined : filterType,
         search: debouncedSearch || undefined,
         archived_only: isTrashTab || undefined,
         is_template: isTemplatesTab,
@@ -128,8 +124,8 @@ export default function DocumentsPage() {
     return counts;
   }, [allTags]);
 
-  const filtersRef = useRef({ filterType, debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
-  filtersRef.current = { filterType, debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
+  const filtersRef = useRef({ debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
+  filtersRef.current = { debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -137,7 +133,6 @@ export default function DocumentsPage() {
     setLoadingMore(true);
     try {
       const next = await documentsAPI.list({
-        doc_type: f.filterType === "all" ? undefined : f.filterType,
         search: f.debouncedSearch || undefined,
         archived_only: f.isTrashTab || undefined,
         is_template: f.isTemplatesTab,
@@ -170,7 +165,7 @@ export default function DocumentsPage() {
     setMoreExhausted(false);
     setPreviewDocId(null);
     setSelectedIds(new Set());
-  }, [filterType, debouncedSearch, isTrashTab, sortIdx, activeTag, activeFolderId, activeTab]);
+  }, [debouncedSearch, isTrashTab, sortIdx, activeTag, activeFolderId, activeTab]);
 
   // Clear folder/tag filters when switching to templates or trash tab (sidebar is hidden)
   useEffect(() => {
@@ -277,17 +272,16 @@ export default function DocumentsPage() {
   }, []);
 
   // --- CRUD callbacks ---
-  const handleCreate = useCallback(async (docType: DocType, templateDoc?: Document) => {
+  const handleCreate = useCallback(async (templateDoc?: Document) => {
     try {
       const doc = await documentsAPI.create({
         title: "Untitled Document",
-        doc_type: docType,
+        doc_type: "worksheet", // soft default — type selection removed from UI
         ...(templateDoc?.page_layout ? { page_layout: templateDoc.page_layout } : {}),
         ...(templateDoc?.content ? { content: templateDoc.content } : {}),
         ...(activeFolderId ? { folder_id: activeFolderId } : {}),
       });
       setShowCreateModal(false);
-      setCreateStep({ step: "type" });
       router.push(`/documents/${doc.id}`);
     } catch (err) { showToast((err as Error).message, "error"); }
   }, [router, showToast, activeFolderId]);
@@ -484,15 +478,15 @@ export default function DocumentsPage() {
     ? isTrashTab ? "Trash is empty"
     : activeTab === "recent" ? "No recently viewed documents"
     : activeTab === "mine" ? "No documents found"
-    : isTemplatesTab ? (debouncedSearch || filterType !== "all" ? "No matching templates" : "No templates yet")
-    : (debouncedSearch || filterType !== "all" || activeTag || activeFolderId ? "No matching documents" : "No documents yet")
+    : isTemplatesTab ? (debouncedSearch ? "No matching templates" : "No templates yet")
+    : (debouncedSearch || activeTag || activeFolderId ? "No matching documents" : "No documents yet")
     : "";
   const emptyMessage = !documents?.length
     ? isTrashTab ? "Documents you delete will appear here for recovery"
     : activeTab === "recent" ? "Documents you open will appear here"
     : activeTab === "mine" ? "Documents you create will appear here"
-    : isTemplatesTab ? (debouncedSearch || filterType !== "all" ? "Try adjusting your search or filters" : "Create your first template to get started")
-    : (debouncedSearch || filterType !== "all" || activeTag || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
+    : isTemplatesTab ? (debouncedSearch ? "Try adjusting your search or filters" : "Create your first template to get started")
+    : (debouncedSearch || activeTag || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
     : "";
 
   return (
@@ -550,8 +544,6 @@ export default function DocumentsPage() {
             onTabChange={setActiveTab}
             search={search}
             onSearchChange={setSearch}
-            filterType={filterType}
-            onFilterTypeChange={setFilterType}
             sortIdx={sortIdx}
             onSortChange={(i) => { setSortIdx(i); localStorage.setItem("doc-sort-idx", String(i)); }}
             viewMode={viewMode}
@@ -632,8 +624,6 @@ export default function DocumentsPage() {
                   ))
                 ) : documents?.length ? (
                   documents.map((doc, i) => {
-                    const meta = DOC_TYPE_CONFIG[doc.doc_type as DocType] || DOC_TYPE_CONFIG.worksheet;
-                    const Icon = meta.icon;
                     return (
                       <div
                         key={doc.id}
@@ -641,7 +631,7 @@ export default function DocumentsPage() {
                         className={cn(
                           "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
                           selectedIds.has(doc.id) && "ring-2 ring-[#a0704b]/50 ring-offset-1",
-                          doc.doc_type === "worksheet" ? "border-l-[#7ba7c7]" : "border-l-[#6aa87a]",
+                          "border-l-[#a0704b]/40",
                           doc.is_archived && !isTrashTab
                             ? "border-dashed border-gray-300 dark:border-gray-600 opacity-60"
                             : doc.is_template
@@ -662,7 +652,6 @@ export default function DocumentsPage() {
                           />
                         </div>
                         <div className="flex items-center gap-2 mb-2">
-                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold", meta.color)}>{meta.label}</span>
                           {doc.locked_by && <Lock className="w-3 h-3 text-amber-500" />}
                           <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
                             {!isReadOnly && (
@@ -750,9 +739,7 @@ export default function DocumentsPage() {
       {/* Modals */}
       {showCreateModal && (
         <CreateDocumentModal
-          createStep={createStep}
-          setCreateStep={setCreateStep}
-          onClose={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
+          onClose={() => setShowCreateModal(false)}
           onCreate={handleCreate}
         />
       )}

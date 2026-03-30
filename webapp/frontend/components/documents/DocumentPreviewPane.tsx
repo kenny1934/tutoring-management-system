@@ -8,9 +8,7 @@ import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
-import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import { cn } from "@/lib/utils";
-import type { DocType } from "@/types";
 
 interface DocumentPreviewPaneProps {
   docId: number | null;
@@ -34,7 +32,6 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
     left: doc?.page_layout?.margins?.left ?? 25.4,
   };
 
-  const typeInfo = doc ? DOC_TYPE_CONFIG[doc.doc_type as DocType] : null;
   const questionCount = doc?.questions?.length ?? 0;
   const solvedCount = doc?.solutions ? Object.keys(doc.solutions).length : 0;
 
@@ -120,11 +117,6 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {doc.title || "Untitled"}
                   </h2>
-                  {typeInfo && (
-                    <span className={cn("shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-tight", typeInfo.color)}>
-                      {typeInfo.abbr}
-                    </span>
-                  )}
                   {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-500" />}
                   {doc.is_archived && <span className="text-[9px] text-red-400 dark:text-red-500 italic shrink-0">In Trash</span>}
                 </div>

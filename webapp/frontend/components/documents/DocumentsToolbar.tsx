@@ -5,7 +5,7 @@ import { useClickOutside } from "@/lib/hooks";
 import { Search, X, ChevronDown, ArchiveRestore, LayoutGrid, Table2, PanelRight, Plus, ScanLine, FolderOpen, Tag, Trash2, FolderInput } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
-import type { DocType, DocumentFolder } from "@/types";
+import type { DocumentFolder } from "@/types";
 
 const SORT_OPTIONS = [
   { label: "Last modified", sort_by: "updated_at", sort_order: "desc" },
@@ -24,8 +24,6 @@ export interface DocumentsToolbarProps {
   onTabChange: (tab: Tab) => void;
   search: string;
   onSearchChange: (value: string) => void;
-  filterType: DocType | "all";
-  onFilterTypeChange: (type: DocType | "all") => void;
   sortIdx: number;
   onSortChange: (idx: number) => void;
   viewMode: "table" | "grid";
@@ -57,15 +55,10 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "templates", label: "Templates" },
 ];
 
-const TYPE_FILTERS: { value: DocType | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "worksheet", label: "WS" },
-  { value: "lesson_plan", label: "LP" },
-];
 
 export default function DocumentsToolbar(props: DocumentsToolbarProps) {
   const {
-    activeTab, onTabChange, search, onSearchChange, filterType, onFilterTypeChange,
+    activeTab, onTabChange, search, onSearchChange,
     sortIdx, onSortChange,
     viewMode, onViewModeChange, previewEnabled, onTogglePreview,
     activeTag, onClearTag, activeFolderId, activeFolder, onClearFolder,
@@ -162,26 +155,6 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
             </button>
           )}
         </div>
-
-        {/* Type filter */}
-        {!isTemplatesTab && !isTrashTab && (
-          <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
-            {TYPE_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => onFilterTypeChange(f.value)}
-                className={cn(
-                  "px-2 py-0.5 text-[11px] font-medium rounded transition-all",
-                  filterType === f.value
-                    ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Sort */}
         <div ref={sortRef} className="relative">

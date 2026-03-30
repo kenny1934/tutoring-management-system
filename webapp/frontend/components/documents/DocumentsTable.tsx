@@ -5,9 +5,8 @@ import { ChevronRight, FileText, Lock, Stamp, GitBranch, Trash2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
-import { DOC_TYPE_CONFIG } from "@/lib/doc-type-config";
 import DocContextMenu from "./DocContextMenu";
-import type { Document, DocType, DocumentFolder } from "@/types";
+import type { Document, DocumentFolder } from "@/types";
 
 export interface DocumentsTableProps {
   documents: Document[];
@@ -142,7 +141,6 @@ export default function DocumentsTable(props: DocumentsTableProps) {
             const { doc, indent, isVariant, hasChildren, isExpanded } = row;
             const selected = selectedIds.has(doc.id);
             const isPreviewing = previewDocId === doc.id;
-            const meta = DOC_TYPE_CONFIG[doc.doc_type as DocType] || DOC_TYPE_CONFIG.worksheet;
             const questionCount = doc.questions?.length ?? 0;
 
             return (
@@ -187,18 +185,13 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                       <span className="shrink-0 w-[18px]" />
                     )}
 
-                    <meta.icon className={cn("w-4 h-4 shrink-0", meta.iconColor)} />
+                    <FileText className="w-4 h-4 shrink-0 text-[#a0704b]/60 dark:text-[#cd853f]/50" />
 
                     <span className={cn(
                       "truncate text-[13px]",
                       isTrashTab ? "text-gray-400 dark:text-gray-500" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
                     )}>
                       {doc.title}
-                    </span>
-
-                    {/* Inline type abbreviation — subtle */}
-                    <span className={cn("shrink-0 text-[10px] font-medium px-1 py-0.5 rounded", meta.color, isTrashTab ? "opacity-40" : "opacity-70")}>
-                      {meta.abbr}
                     </span>
 
                     {doc.is_template && <Stamp className="w-3 h-3 shrink-0 text-purple-400" />}
