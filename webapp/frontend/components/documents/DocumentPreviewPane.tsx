@@ -75,7 +75,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
             </div>
           </div>
           <p className="text-[13px] font-medium text-gray-400 dark:text-gray-500">No document selected</p>
-          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Click any row to preview</p>
+          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Select a document to preview</p>
         </div>
       ) : (
         <div ref={fadeRef} className={cn("flex flex-col h-full", !collapsed && "min-w-[20rem]")}>

@@ -250,7 +250,11 @@ async def list_documents(
             sa_func.json_contains(Document.tags, f'"{search}"'),
         ))
     if tag:
-        query = query.filter(sa_func.json_contains(Document.tags, f'"{tag}"'))
+        # Support comma-separated tags for multi-tag filter (AND logic)
+        for t in tag.split(","):
+            t = t.strip()
+            if t:
+                query = query.filter(sa_func.json_contains(Document.tags, f'"{t}"'))
     if folder_id is not None:
         query = query.filter(Document.folder_id == folder_id)
     if my_docs:
@@ -488,13 +492,32 @@ async def update_document(
     return _doc_to_response(doc)
 
 
+@router.delete("/documents/trash/empty")
+async def empty_trash(
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete all trashed documents owned by the user (or all if admin)."""
+    query = db.query(Document).filter(Document.is_archived == True)
+    if current_user.role not in ADMIN_WRITE_ROLES:
+        query = query.filter(Document.created_by == current_user.id)
+    doc_ids = [d.id for d in query.with_entities(Document.id).all()]
+    if not doc_ids:
+        return {"deleted": 0}
+    # Bulk unlink children and delete in two queries
+    db.query(Document).filter(Document.parent_id.in_(doc_ids)).update({"parent_id": None}, synchronize_session=False)
+    count = db.query(Document).filter(Document.id.in_(doc_ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": count}
+
+
 @router.delete("/documents/{doc_id}")
 async def delete_document(
     doc_id: int,
     current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
-    """Soft-delete a document (archive it)."""
+    """Soft-delete a document (move to trash)."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

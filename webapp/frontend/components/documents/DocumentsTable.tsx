@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { ChevronRight, FileText, Lock, Stamp, GitBranch, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -28,6 +28,7 @@ export interface DocumentsTableProps {
   onEditTags: (id: number) => void;
   folders: DocumentFolder[];
   onMoveToFolder: (docId: number, folderId: number | null) => void;
+  onRename?: (id: number, title: string) => void;
   isReadOnly: boolean;
   isTemplatesTab: boolean;
   isTrashTab?: boolean;
@@ -50,7 +51,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     expandedIds, onToggleExpand, onDocClick, previewDocId,
     menuOpenId, onMenuOpen, onDuplicate, onArchive, onUnarchive, onPermanentDelete,
     onSaveAsTemplate, onEditTags, folders, onMoveToFolder,
-    isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
+    onRename, isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
     emptyTitle, emptyMessage,
   } = props;
 
@@ -85,6 +86,28 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     addRows(roots, 0);
     return result;
   }, [documents, expandedIds]);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
+
+  const startRename = useCallback((doc: Document) => {
+    if (isReadOnly || !onRename) return;
+    committedRef.current = false;
+    setEditingId(doc.id);
+    setEditValue(doc.title);
+    setTimeout(() => editInputRef.current?.select(), 0);
+  }, [isReadOnly, onRename]);
+
+  const commitRename = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    if (editingId !== null && editValue.trim() && onRename) {
+      onRename(editingId, editValue.trim());
+    }
+    setEditingId(null);
+  }, [editingId, editValue, onRename]);
 
   const allVisibleIds = useMemo(() => rows.map(r => r.doc.id), [rows]);
   const allSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
@@ -128,6 +151,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={() => onToggleSelectAll(allVisibleIds)}
                 className="w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b]"
+                aria-label="Select all documents"
               />
             </th>
             <th className="py-2.5 pl-1 pr-4 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
@@ -174,6 +198,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleExpand(doc.id); }}
                         className="shrink-0 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        aria-label={isExpanded ? "Collapse variants" : "Expand variants"}
                       >
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-600 transition-transform", isExpanded && "rotate-90")} />
                       </button>
@@ -187,12 +212,28 @@ export default function DocumentsTable(props: DocumentsTableProps) {
 
                     <FileText className="w-4 h-4 shrink-0 text-[#a0704b]/60 dark:text-[#cd853f]/50" />
 
-                    <span className={cn(
-                      "truncate text-[13px]",
-                      isTrashTab ? "text-gray-400 dark:text-gray-500" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
-                    )}>
-                      {doc.title}
-                    </span>
+                    {editingId === doc.id ? (
+                      <input
+                        ref={editInputRef}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={commitRename}
+                        onKeyDown={(e) => { if (e.key === "Enter") { commitRename(); (e.target as HTMLInputElement).blur(); } if (e.key === "Escape") { setEditingId(null); (e.target as HTMLInputElement).blur(); } }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[13px] font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a1a1a] border border-[#a0704b]/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-[#a0704b]/40 min-w-0 w-full"
+                      />
+                    ) : (
+                      <span
+                        title={doc.title}
+                        onDoubleClick={(e) => { e.stopPropagation(); startRename(doc); }}
+                        className={cn(
+                          "truncate text-[13px]",
+                          isTrashTab ? "text-gray-400 dark:text-gray-500" : isVariant ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-200 font-medium"
+                        )}
+                      >
+                        {doc.title}
+                      </span>
+                    )}
 
                     {doc.is_template && <Stamp className="w-3 h-3 shrink-0 text-purple-400" />}
                     {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-400" />}
@@ -226,7 +267,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                         </span>
                       ))}
                       {(doc.tags || []).length > 2 && (
-                        <span className="text-[10px] text-gray-400">+{doc.tags!.length - 2}</span>
+                        <span className="text-[10px] text-gray-400 cursor-default" title={doc.tags!.slice(2).join(", ")}>+{doc.tags!.length - 2}</span>
                       )}
                     </div>
                   )}

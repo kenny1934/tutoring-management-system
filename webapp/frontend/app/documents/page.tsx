@@ -45,7 +45,7 @@ export default function DocumentsPage() {
     }
     return 0;
   });
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
 
   // --- View state ---
@@ -71,7 +71,7 @@ export default function DocumentsPage() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number; title?: string } | { type: "delete-bulk" } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number; title?: string } | { type: "delete-bulk" } | { type: "empty-trash" } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
   const sort = SORT_OPTIONS[sortIdx];
@@ -87,7 +87,7 @@ export default function DocumentsPage() {
 
   const isTrashTab = activeTab === "trash";
   const { data: firstPage, isLoading, mutate } = useSWR(
-    ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTag, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
+    ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTags, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
     () => {
       if (activeTab === "recent" && recentIds.length === 0) return Promise.resolve([] as Document[]);
       return documentsAPI.list({
@@ -97,7 +97,7 @@ export default function DocumentsPage() {
         sort_by: sort.sort_by,
         sort_order: sort.sort_order,
         limit: PAGE_SIZE,
-        tag: (isTemplatesTab || isTrashTab) ? undefined : (activeTag || undefined),
+        tag: (isTemplatesTab || isTrashTab) ? undefined : (activeTags.length > 0 ? activeTags.join(",") : undefined),
         folder_id: (isTemplatesTab || isTrashTab) ? undefined : (activeFolderId ?? undefined),
         my_docs: activeTab === "mine" ? true : undefined,
         ids: activeTab === "recent" ? recentIds.join(",") : undefined,
@@ -124,8 +124,8 @@ export default function DocumentsPage() {
     return counts;
   }, [allTags]);
 
-  const filtersRef = useRef({ debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
-  filtersRef.current = { debouncedSearch, isTrashTab, sort, activeTag, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
+  const filtersRef = useRef({ debouncedSearch, isTrashTab, sort, activeTags, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
+  filtersRef.current = { debouncedSearch, isTrashTab, sort, activeTags, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -140,7 +140,7 @@ export default function DocumentsPage() {
         sort_order: f.sort.sort_order,
         limit: PAGE_SIZE,
         offset: (f.firstPage?.length ?? 0) + f.extraDocs.length,
-        tag: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeTag || undefined),
+        tag: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeTags.length > 0 ? f.activeTags.join(",") : undefined),
         folder_id: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeFolderId ?? undefined),
         my_docs: f.activeTab === "mine" ? true : undefined,
         ids: f.activeTab === "recent" ? f.recentIds.join(",") : undefined,
@@ -165,13 +165,13 @@ export default function DocumentsPage() {
     setMoreExhausted(false);
     setPreviewDocId(null);
     setSelectedIds(new Set());
-  }, [debouncedSearch, isTrashTab, sortIdx, activeTag, activeFolderId, activeTab]);
+  }, [debouncedSearch, isTrashTab, sortIdx, activeTags, activeFolderId, activeTab]);
 
   // Clear folder/tag filters when switching to templates or trash tab (sidebar is hidden)
   useEffect(() => {
     if (activeTab === "templates" || activeTab === "trash") {
       setActiveFolderId(null);
-      setActiveTag(null);
+      setActiveTags([]);
     }
   }, [activeTab]);
 
@@ -382,15 +382,20 @@ export default function DocumentsPage() {
 
   const handleDeleteFolder = useCallback((folder: DocumentFolder) => { setConfirmAction({ type: "delete-folder", folder }); }, []);
 
+  const handleRename = useCallback(async (id: number, title: string) => {
+    try { await documentsAPI.update(id, { title }); mutate(); }
+    catch (err) { showToast((err as Error).message, "error"); }
+  }, [mutate, showToast]);
+
   const handleRenameTag = useCallback(async (oldName: string, newName: string) => {
     try { await documentsAPI.renameTag(oldName, newName); mutate(); mutateTags(); showToast(`Tag renamed to "${newName}"`, "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
   }, [mutate, mutateTags, showToast]);
 
   const handleDeleteTag = useCallback(async (tag: string) => {
-    try { await documentsAPI.deleteTag(tag); mutate(); mutateTags(); if (activeTag === tag) setActiveTag(null); showToast(`Tag "${tag}" removed`, "success"); }
+    try { await documentsAPI.deleteTag(tag); mutate(); mutateTags(); setActiveTags(prev => prev.filter(t => t !== tag)); showToast(`Tag "${tag}" removed`, "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
-  }, [mutate, mutateTags, showToast, activeTag]);
+  }, [mutate, mutateTags, showToast]);
   const executeDeleteFolder = useCallback(async (folder: DocumentFolder) => {
     setConfirmLoading(true);
     try {
@@ -433,10 +438,19 @@ export default function DocumentsPage() {
 
   const handleEmptyTrash = useCallback(() => {
     if (!documents?.length) return;
-    setConfirmAction({ type: "delete-bulk" });
-    // Select all visible trashed docs so executeBulkDelete picks them up
-    setSelectedIds(new Set(documents.map(d => d.id)));
+    setConfirmAction({ type: "empty-trash" });
   }, [documents]);
+
+  const executeEmptyTrash = useCallback(async () => {
+    setConfirmLoading(true);
+    try {
+      const result = await documentsAPI.emptyTrash();
+      mutate(); mutateTrashCount();
+      showToast(`${result.deleted} document(s) permanently deleted`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setConfirmLoading(false);
+    setConfirmAction(null);
+  }, [mutate, mutateTrashCount, showToast]);
 
   const [bulkFolderPickerOpen, setBulkFolderPickerOpen] = useState(false);
   const handleBulkMoveToFolder = useCallback(() => {
@@ -479,14 +493,14 @@ export default function DocumentsPage() {
     : activeTab === "recent" ? "No recently viewed documents"
     : activeTab === "mine" ? "No documents found"
     : isTemplatesTab ? (debouncedSearch ? "No matching templates" : "No templates yet")
-    : (debouncedSearch || activeTag || activeFolderId ? "No matching documents" : "No documents yet")
+    : (debouncedSearch || activeTags.length > 0 || activeFolderId ? "No matching documents" : "No documents yet")
     : "";
   const emptyMessage = !documents?.length
     ? isTrashTab ? "Documents you delete will appear here for recovery"
     : activeTab === "recent" ? "Documents you open will appear here"
     : activeTab === "mine" ? "Documents you create will appear here"
     : isTemplatesTab ? (debouncedSearch ? "Try adjusting your search or filters" : "Create your first template to get started")
-    : (debouncedSearch || activeTag || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
+    : (debouncedSearch || activeTags.length > 0 || activeFolderId ? "Try adjusting your search or filters" : "Create your first document to get started")
     : "";
 
   return (
@@ -500,9 +514,9 @@ export default function DocumentsPage() {
           allTags={tagNames}
           tagCounts={tagCounts}
           activeFolderId={activeFolderId}
-          activeTag={activeTag}
+          activeTags={activeTags}
           onSelectFolder={(id) => { if (isTrashTab) setActiveTab("all"); setActiveFolderId(id); }}
-          onSelectTag={(tag) => { if (isTrashTab) setActiveTab("all"); setActiveTag(tag); }}
+          onSelectTag={(tag) => { if (isTrashTab) setActiveTab("all"); setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]); }}
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
@@ -525,13 +539,18 @@ export default function DocumentsPage() {
                 allTags={tagNames}
                 tagCounts={tagCounts}
                 activeFolderId={activeFolderId}
-                activeTag={activeTag}
+                activeTags={activeTags}
                 onSelectFolder={(id) => { if (isTrashTab) setActiveTab("all"); setActiveFolderId(id); setMobileDrawerOpen(false); }}
-                onSelectTag={(tag) => { if (isTrashTab) setActiveTab("all"); setActiveTag(tag); setMobileDrawerOpen(false); }}
+                onSelectTag={(tag) => { if (isTrashTab) setActiveTab("all"); setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]); setMobileDrawerOpen(false); }}
                 onCreateFolder={handleCreateFolder}
                 onRenameFolder={handleRenameFolder}
                 onDeleteFolder={handleDeleteFolder}
+                onRenameTag={handleRenameTag}
+                onDeleteTag={handleDeleteTag}
                 isReadOnly={isReadOnly}
+                activeTab={activeTab}
+                onTrashClick={() => { setActiveTab("trash"); setMobileDrawerOpen(false); }}
+                trashCount={trashCount}
               />
             </div>
           </div>
@@ -550,8 +569,8 @@ export default function DocumentsPage() {
             onViewModeChange={toggleViewMode}
             previewEnabled={previewEnabled}
             onTogglePreview={togglePreview}
-            activeTag={activeTag}
-            onClearTag={() => setActiveTag(null)}
+            activeTags={activeTags}
+            onClearTag={(tag) => tag ? setActiveTags(prev => prev.filter(t => t !== tag)) : setActiveTags([])}
             activeFolderId={activeFolderId}
             activeFolder={activeFolder}
             onClearFolder={() => setActiveFolderId(null)}
@@ -610,6 +629,7 @@ export default function DocumentsPage() {
                 folders={folders}
                 onMoveToFolder={handleMoveToFolder}
                 isReadOnly={isReadOnly}
+                onRename={handleRename}
                 isTemplatesTab={isTemplatesTab}
                 isTrashTab={isTrashTab}
                 activeFolderId={activeFolderId}
@@ -647,7 +667,7 @@ export default function DocumentsPage() {
                             onChange={() => handleToggleSelect(doc.id)}
                             className={cn(
                               "w-3.5 h-3.5 rounded border-[#e8d4b8] dark:border-[#6b5a4a] accent-[#a0704b] transition-opacity",
-                              selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+                              selectedIds.has(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                             )}
                           />
                         </div>
@@ -671,7 +691,7 @@ export default function DocumentsPage() {
                             )}
                           </div>
                         </div>
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
+                        <h3 title={doc.title} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                           {doc.created_by_name}
                           {(isTrashTab ? doc.archived_at : doc.updated_at) && <> · {formatTimeAgo((isTrashTab ? doc.archived_at : doc.updated_at)!)}</>}
@@ -768,16 +788,21 @@ export default function DocumentsPage() {
         onCancel={() => { setConfirmAction(null); setConfirmLoading(false); }}
         onConfirm={() => {
           if (!confirmAction) return;
-          if (confirmAction.type === "delete-bulk") executeBulkDelete();
+          if (confirmAction.type === "empty-trash") executeEmptyTrash();
+          else if (confirmAction.type === "delete-bulk") executeBulkDelete();
           else if (confirmAction.type === "delete-doc") executePermanentDelete(confirmAction.id);
           else executeDeleteFolder(confirmAction.folder);
         }}
-        title={confirmAction?.type === "delete-bulk"
+        title={confirmAction?.type === "empty-trash"
+          ? "Empty Trash"
+          : confirmAction?.type === "delete-bulk"
           ? `Delete ${selectedIds.size} Document(s) Permanently`
           : confirmAction?.type === "delete-doc"
           ? `Delete "${confirmAction.title || "Untitled"}" Permanently`
           : "Delete Folder"}
-        message={confirmAction?.type === "delete-bulk"
+        message={confirmAction?.type === "empty-trash"
+          ? "Permanently delete all items in Trash? This cannot be undone."
+          : confirmAction?.type === "delete-bulk"
           ? `Permanently delete ${selectedIds.size} document(s)? This cannot be undone.`
           : confirmAction?.type === "delete-doc"
           ? "This document and all its version history will be permanently deleted."
@@ -787,7 +812,7 @@ export default function DocumentsPage() {
         consequences={
           confirmAction?.type === "delete-folder" ? ["Documents inside will become unfiled"]
           : confirmAction?.type === "delete-doc" ? ["All version history will be lost", "Variant links to this document will be removed"]
-          : confirmAction?.type === "delete-bulk" ? ["All version history will be lost", "This cannot be undone"]
+          : (confirmAction?.type === "delete-bulk" || confirmAction?.type === "empty-trash") ? ["All version history will be lost", "This cannot be undone"]
           : undefined
         }
         confirmText="Delete Forever"

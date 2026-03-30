@@ -30,8 +30,8 @@ export interface DocumentsToolbarProps {
   onViewModeChange: (mode: "table" | "grid") => void;
   previewEnabled: boolean;
   onTogglePreview: () => void;
-  activeTag: string | null;
-  onClearTag: () => void;
+  activeTags: string[];
+  onClearTag: (tag?: string) => void;
   activeFolderId: number | null;
   activeFolder: DocumentFolder | undefined;
   onClearFolder: () => void;
@@ -61,7 +61,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
     activeTab, onTabChange, search, onSearchChange,
     sortIdx, onSortChange,
     viewMode, onViewModeChange, previewEnabled, onTogglePreview,
-    activeTag, onClearTag, activeFolderId, activeFolder, onClearFolder,
+    activeTags, onClearTag, activeFolderId, activeFolder, onClearFolder,
     onOpenMobileDrawer, onCreateDocument, onImportWorksheet, onCreateTemplate,
     isReadOnly, selectedCount, onClearSelection,
     onBulkArchive, onBulkDelete, onBulkMoveToFolder, onBulkAddTag,
@@ -120,7 +120,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               <>
                 <button
                   onClick={onImportWorksheet}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <ScanLine className="w-3.5 h-3.5" />
                   Import
@@ -161,7 +161,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           <button
             onClick={() => setShowSortMenu(!showSortMenu)}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-[12px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-warm"
-            title="Sort"
+            title="Sort" aria-label="Sort documents"
           >
             <span className="hidden sm:inline">{SORT_OPTIONS[sortIdx].label}</span>
             <ChevronDown className={cn("w-3 h-3 transition-transform", showSortMenu && "rotate-180")} />
@@ -189,14 +189,14 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           <button
             onClick={() => onViewModeChange("table")}
             className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
-            title="Table view"
+            title="Table view" aria-label="Table view"
           >
             <Table2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onViewModeChange("grid")}
             className={cn("p-1 rounded transition-all", viewMode === "grid" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}
-            title="Grid view"
+            title="Grid view" aria-label="Grid view"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
@@ -211,14 +211,14 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
               ? "bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f]"
               : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50"
           )}
-          title="Preview pane"
+          title="Preview pane" aria-label="Toggle preview pane"
         >
           <PanelRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Row 3 (conditional): Active filters or bulk actions */}
-      {(activeTag || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
+      {(activeTags.length > 0 || activeFolderId || selectedCount > 0) && !isTemplatesTab && (
         <div className="flex items-center gap-2 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/80 dark:bg-[#2d2618]/30 animate-slide-down">
           {selectedCount > 0 ? (
             <>
@@ -260,12 +260,12 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                   <button onClick={onClearFolder} className="ml-0.5 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
                 </span>
               )}
-              {activeTag && (
-                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium", getTagColor(activeTag))}>
-                  {activeTag}
-                  <button onClick={onClearTag} className="ml-0.5 hover:text-red-500"><X className="w-3 h-3" /></button>
+              {activeTags.map((tag) => (
+                <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium", getTagColor(tag))}>
+                  {tag}
+                  <button onClick={() => onClearTag(tag)} className="ml-0.5 hover:text-red-500"><X className="w-3 h-3" /></button>
                 </span>
-              )}
+              ))}
             </>
           )}
         </div>

@@ -28,9 +28,9 @@ interface FolderSidebarProps {
   allTags: string[];
   tagCounts?: Record<string, number>;
   activeFolderId: number | null;
-  activeTag: string | null;
+  activeTags: string[];
   onSelectFolder: (id: number | null) => void;
-  onSelectTag: (tag: string | null) => void;
+  onSelectTag: (tag: string) => void;
   onCreateFolder: (name: string, parentId?: number | null) => void;
   onRenameFolder: (folder: DocumentFolder, newName: string) => void;
   onDeleteFolder: (folder: DocumentFolder) => void;
@@ -252,7 +252,7 @@ export default function FolderSidebar({
   allTags,
   tagCounts,
   activeFolderId,
-  activeTag,
+  activeTags,
   onSelectFolder,
   onSelectTag,
   onCreateFolder,
@@ -284,10 +284,20 @@ export default function FolderSidebar({
   const renameRef = useRef<HTMLInputElement>(null);
 
   const tree = useMemo(() => {
-    const filtered = folderSearch.trim()
-      ? folders.filter(f => f.name.toLowerCase().includes(folderSearch.toLowerCase()))
-      : folders;
-    return buildFolderTree(filtered);
+    if (!folderSearch.trim()) return buildFolderTree(folders);
+    // Include matching folders AND their ancestors to preserve tree structure
+    const query = folderSearch.toLowerCase();
+    const byId = new Map(folders.map(f => [f.id, f]));
+    const matchIds = new Set(folders.filter(f => f.name.toLowerCase().includes(query)).map(f => f.id));
+    const includeIds = new Set(matchIds);
+    for (const id of matchIds) {
+      let f = byId.get(id);
+      while (f?.parent_id) {
+        includeIds.add(f.parent_id);
+        f = byId.get(f.parent_id);
+      }
+    }
+    return buildFolderTree(folders.filter(f => includeIds.has(f.id)));
   }, [folders, folderSearch]);
 
   const toggleCollapse = useCallback(() => {
@@ -350,7 +360,7 @@ export default function FolderSidebar({
             onClick={() => onSelectFolder(null)}
             className={cn(
               "p-1.5 rounded transition-colors",
-              activeFolderId === null && !activeTag
+              activeFolderId === null && activeTags.length === 0
                 ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
@@ -495,13 +505,13 @@ export default function FolderSidebar({
             <div className="relative px-3 pt-3 pb-3 mt-1">
               <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
-                Tags
+                Tags <span className="font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">(right-click to manage)</span>
               </span>
               <div className="flex flex-wrap gap-1">
                 {allTags.map((tag) => (
                   <button
                     key={tag}
-                    onClick={() => onSelectTag(activeTag === tag ? null : tag)}
+                    onClick={() => onSelectTag(tag)}
                     onContextMenu={(e) => {
                       if (onRenameTag || onDeleteTag) {
                         e.preventDefault();
@@ -510,7 +520,7 @@ export default function FolderSidebar({
                     }}
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer",
-                      activeTag === tag
+                      activeTags.includes(tag)
                         ? "ring-2 ring-[#a0704b]/60 ring-offset-1 dark:ring-offset-[#1a1a1a] shadow-[0_0_0_3px_rgba(160,112,75,0.08)] scale-[1.04]"
                         : "hover:scale-[1.03] hover:shadow-sm",
                       getTagColor(tag)

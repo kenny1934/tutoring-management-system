@@ -203,6 +203,13 @@ export const documentsAPI = {
     );
   },
 
+  emptyTrash() {
+    return fetchAPI<{ deleted: number }>(
+      "/documents/trash/empty",
+      { method: "DELETE" }
+    );
+  },
+
   deleteTag(tagName: string) {
     return fetchAPI<{ updated: number }>(
       `/documents/tags/${encodeURIComponent(tagName)}`,
