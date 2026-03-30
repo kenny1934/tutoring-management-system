@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { FileText, Lock, FolderOpen, Trash2, X as XIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -416,7 +416,7 @@ export default function DocumentsPage() {
   }, [mutate, showToast]);
 
   const handleRename = useCallback(async (id: number, title: string) => {
-    try { await documentsAPI.update(id, { title }); mutate(); }
+    try { await documentsAPI.update(id, { title }); mutate(); globalMutate(["document-preview", id]); }
     catch (err) { showToast((err as Error).message, "error"); }
   }, [mutate, showToast]);
 
@@ -833,6 +833,7 @@ export default function DocumentsPage() {
           onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
           onRename={handleRename}
           onToggleStar={handleToggleStar}
+          onEditTags={setTagEditDocId}
         />
         </div>{/* end white card */}
       </PageTransition>

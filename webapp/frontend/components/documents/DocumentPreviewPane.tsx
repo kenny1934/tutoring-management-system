@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useLayoutEffect, useState, useCallback } from "react";
+import { useRef, useLayoutEffect, useEffect, useState, useCallback } from "react";
 import useSWR from "swr";
-import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, ScanLine, Star } from "lucide-react";
+import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus } from "lucide-react";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
@@ -17,15 +17,46 @@ interface DocumentPreviewPaneProps {
   onPrint: (id: number, mode: "student" | "answers") => void;
   onRename?: (id: number, title: string) => void;
   onToggleStar?: (id: number) => void;
+  onEditTags?: (id: number) => void;
   /** When true, collapse to zero width with animation (always mounted). */
   collapsed?: boolean;
 }
 
-export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onRename, onToggleStar, collapsed }: DocumentPreviewPaneProps) {
+export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onRename, onToggleStar, onEditTags, collapsed }: DocumentPreviewPaneProps) {
   const { data: doc, error, isLoading } = useSWR(
     docId !== null ? ["document-preview", docId] : null,
     () => documentsAPI.get(docId!)
   );
+
+  // Inline rename
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
+
+  const startRename = useCallback(() => {
+    if (!doc || !onRename) return;
+    setTitleDraft(doc.title || "");
+    setEditingTitle(true);
+    committedRef.current = false;
+    requestAnimationFrame(() => renameInputRef.current?.select());
+  }, [doc, onRename]);
+
+  const commitRename = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    setEditingTitle(false);
+    const trimmed = titleDraft.trim();
+    if (trimmed && docId !== null && trimmed !== doc?.title) {
+      onRename?.(docId, trimmed);
+    }
+  }, [titleDraft, docId, doc?.title, onRename]);
+
+  // Reset rename state when switching documents
+  useEffect(() => {
+    setEditingTitle(false);
+    committedRef.current = false;
+  }, [docId]);
 
   const margins = {
     top: doc?.page_layout?.margins?.top ?? 25.4,
@@ -121,9 +152,30 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onR
                       <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-400" : "text-gray-300 dark:text-gray-600")} />
                     </button>
                   )}
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {doc.title || "Untitled"}
-                  </h2>
+                  {editingTitle ? (
+                    <input
+                      ref={renameInputRef}
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") { committedRef.current = true; setEditingTitle(false); }
+                      }}
+                      className="flex-1 min-w-0 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-[#a0704b]/40 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    />
+                  ) : (
+                    <h2
+                      className={cn(
+                        "text-sm font-semibold text-gray-900 dark:text-gray-100 truncate",
+                        onRename && "cursor-pointer hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                      )}
+                      onDoubleClick={startRename}
+                      title={onRename ? "Double-click to rename" : undefined}
+                    >
+                      {doc.title || "Untitled"}
+                    </h2>
+                  )}
                   {doc.locked_by && <Lock className="w-3 h-3 shrink-0 text-amber-500" />}
                   {doc.is_archived && <span className="text-[9px] text-red-400 dark:text-red-500 italic shrink-0">In Trash</span>}
                 </div>
@@ -138,6 +190,15 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onR
                   {doc.tags?.map((tag) => (
                     <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium", getTagColor(tag))}>{tag}</span>
                   ))}
+                  {onEditTags && (
+                    <button
+                      onClick={() => onEditTags(docId)}
+                      className="inline-flex items-center justify-center w-5 h-5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-[#a0704b] hover:text-[#a0704b] dark:hover:border-[#cd853f] dark:hover:text-[#cd853f] transition-colors"
+                      title="Edit tags"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
                   {doc.source_filename && (
                     <span className="inline-flex items-center gap-0.5 text-[9px] text-gray-400" title={doc.source_filename}>
                       <ScanLine className="w-2.5 h-2.5" />
