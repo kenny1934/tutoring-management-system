@@ -90,7 +90,7 @@ function FolderTreeItem({
     <div>
       <div
         className={cn(
-          "group/folder flex items-center gap-1 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
+          "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isActive
             ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
             : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
@@ -98,23 +98,22 @@ function FolderTreeItem({
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(isActive ? null : node.id)}
       >
-        {/* Expand toggle */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (hasChildren) setExpanded(!expanded);
-          }}
-          className={cn(
-            "p-0.5 rounded shrink-0 transition-colors",
-            hasChildren ? "hover:bg-gray-200 dark:hover:bg-white/10" : "invisible"
-          )}
-        >
-          {expanded ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-        </button>
+        {/* Expand toggle — only rendered when folder has children to avoid dead space */}
+        {hasChildren && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            className="p-0.5 rounded shrink-0 transition-colors hover:bg-gray-200 dark:hover:bg-white/10"
+          >
+            {expanded ? (
+              <ChevronDown className="w-3 h-3" />
+            ) : (
+              <ChevronRight className="w-3 h-3" />
+            )}
+          </button>
+        )}
 
         <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
@@ -372,7 +371,7 @@ export default function FolderSidebar({
     >
       {/* Collapsed icon strip */}
       {isCollapsed && (
-        <div className="flex flex-col items-center py-3 w-10">
+        <div className="flex flex-col items-center py-3 w-10 h-full">
           <button
             onClick={toggleCollapse}
             className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors mb-3"
@@ -384,7 +383,7 @@ export default function FolderSidebar({
             onClick={() => onSelectFolder(null)}
             className={cn(
               "p-1.5 rounded transition-colors",
-              activeFolderId === null && activeTags.length === 0
+              activeFolderId === null && activeTags.length === 0 && activeTab !== "trash"
                 ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
@@ -392,6 +391,20 @@ export default function FolderSidebar({
           >
             <FileText className="w-4 h-4" />
           </button>
+          {onStarredClick && (
+            <button
+              onClick={onStarredClick}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                isStarredActive
+                  ? "bg-[#f5ede3] dark:bg-[#2d2618]"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
+              title="Starred"
+            >
+              <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "")} />
+            </button>
+          )}
           {tree.length > 0 && (
             <div className="w-5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 my-2" />
           )}
@@ -410,32 +423,99 @@ export default function FolderSidebar({
               <FolderOpen className="w-4 h-4" />
             </button>
           ))}
+          {/* Trash at bottom */}
+          {onTrashClick && (
+            <div className="mt-auto pt-2">
+              <div className="w-5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 mb-2" />
+              <button
+                onClick={onTrashClick}
+                className={cn(
+                  "relative p-1.5 rounded transition-colors",
+                  activeTab === "trash"
+                    ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                )}
+                title="Trash"
+              >
+                <Trash2 className="w-4 h-4" />
+                {(trashCount ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold bg-red-500 text-white rounded-full px-0.5">
+                    {trashCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Expanded content */}
       {!isCollapsed && (
         <>
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Folders
-            </span>
-            <div className="flex items-center gap-0.5">
-              {!isReadOnly && <button
-                onClick={() => setCreating({ parentId: null })}
+          {/* Collapse button */}
+          {!mobile && (
+            <div className="flex justify-end px-3 pt-3 pb-0">
+              <button
+                onClick={toggleCollapse}
                 className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-                title="New folder"
+                title="Collapse sidebar"
               >
-                <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-              </button>}
-              {!mobile && (
+                <PanelLeftClose className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+          )}
+
+          {/* All Documents */}
+          <div className={cn("px-1", mobile ? "pt-3" : "pt-1")}>
+            <button
+              onClick={() => onSelectFolder(null)}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
+                activeFolderId === null && activeTab !== "trash"
+                  ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+              )}
+            >
+              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+              <span className="flex-1 text-left">All Documents</span>
+              {totalDocCount !== undefined && (
+                <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
+              )}
+            </button>
+          </div>
+
+          {/* Starred */}
+          {onStarredClick && (
+            <div className="px-1">
+              <button
+                onClick={onStarredClick}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
+                  isStarredActive
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                )}
+              >
+                <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "text-gray-400")} />
+                <span className="flex-1 text-left">Starred</span>
+              </button>
+            </div>
+          )}
+
+          {/* Folders section header */}
+          <div className="relative px-3 pt-3 pb-1">
+            <div className="absolute top-0 left-3 right-3 h-px" style={{ background: "linear-gradient(to right, transparent, #e8d4b8 20%, #e8d4b8 80%, transparent)" }} />
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Folders
+              </span>
+              {!isReadOnly && (
                 <button
-                  onClick={toggleCollapse}
+                  onClick={() => setCreating({ parentId: null })}
                   className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-                  title="Collapse sidebar"
+                  title="New folder"
                 >
-                  <PanelLeftClose className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                  <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                 </button>
               )}
             </div>
@@ -459,43 +539,6 @@ export default function FolderSidebar({
                   </button>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* All Documents */}
-          <div className="px-1 mb-1">
-            <button
-              onClick={() => onSelectFolder(null)}
-              className={cn(
-                "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
-                activeFolderId === null && activeTab !== "trash"
-                  ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
-              )}
-            >
-              <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
-              <span className="flex-1 text-left">All Documents</span>
-              {totalDocCount !== undefined && (
-                <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
-              )}
-            </button>
-          </div>
-
-          {/* Starred */}
-          {onStarredClick && (
-            <div className="px-1 mb-1">
-              <button
-                onClick={onStarredClick}
-                className={cn(
-                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
-                  isStarredActive
-                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
-                )}
-              >
-                <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "text-gray-400")} />
-                <span className="flex-1 text-left">Starred</span>
-              </button>
             </div>
           )}
 
