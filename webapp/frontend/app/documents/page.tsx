@@ -48,6 +48,7 @@ export default function DocumentsPage() {
   });
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+  const [showStarred, setShowStarred] = useState(false);
 
   // --- View state ---
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
@@ -88,12 +89,13 @@ export default function DocumentsPage() {
 
   const isTrashTab = activeTab === "trash";
   const { data: firstPage, isLoading, mutate } = useSWR(
-    ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTags, activeFolderId, activeTab, activeTab === "recent" ? recentIds.join(",") : ""],
+    ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTags, activeFolderId, activeTab, showStarred, activeTab === "recent" ? recentIds.join(",") : ""],
     () => {
       if (activeTab === "recent" && recentIds.length === 0) return Promise.resolve([] as Document[]);
       return documentsAPI.list({
         search: debouncedSearch || undefined,
         archived_only: isTrashTab || undefined,
+        starred_only: showStarred || undefined,
         is_template: isTemplatesTab,
         sort_by: sort.sort_by,
         sort_order: sort.sort_order,
@@ -166,7 +168,7 @@ export default function DocumentsPage() {
     setMoreExhausted(false);
     setPreviewDocId(null);
     setSelectedIds(new Set());
-  }, [debouncedSearch, isTrashTab, sortIdx, activeTags, activeFolderId, activeTab]);
+  }, [debouncedSearch, isTrashTab, sortIdx, activeTags, activeFolderId, activeTab, showStarred]);
 
   // Clear folder/tag filters when switching to templates or trash tab (sidebar is hidden)
   useEffect(() => {
@@ -404,6 +406,11 @@ export default function DocumentsPage() {
 
   const handleDeleteFolder = useCallback((folder: DocumentFolder) => { setConfirmAction({ type: "delete-folder", folder }); }, []);
 
+  const handleToggleStar = useCallback(async (id: number) => {
+    try { await documentsAPI.toggleStar(id); mutate(); }
+    catch (err) { showToast((err as Error).message, "error"); }
+  }, [mutate, showToast]);
+
   const handleRename = useCallback(async (id: number, title: string) => {
     try { await documentsAPI.update(id, { title }); mutate(); }
     catch (err) { showToast((err as Error).message, "error"); }
@@ -583,6 +590,8 @@ export default function DocumentsPage() {
           onDeleteTag={handleDeleteTag}
           isReadOnly={isReadOnly}
           activeTab={activeTab}
+          onStarredClick={() => setShowStarred(prev => !prev)}
+          isStarredActive={showStarred}
           onTrashClick={() => setActiveTab("trash")}
           trashCount={trashCount}
         />
@@ -609,7 +618,9 @@ export default function DocumentsPage() {
                 onDeleteTag={handleDeleteTag}
                 isReadOnly={isReadOnly}
                 activeTab={activeTab}
-                onTrashClick={() => { setActiveTab("trash"); setMobileDrawerOpen(false); }}
+                onStarredClick={() => setShowStarred(prev => !prev)}
+          isStarredActive={showStarred}
+          onTrashClick={() => { setActiveTab("trash"); setMobileDrawerOpen(false); }}
                 trashCount={trashCount}
               />
             </div>
@@ -690,6 +701,7 @@ export default function DocumentsPage() {
                 onMoveToFolder={handleMoveToFolder}
                 isReadOnly={isReadOnly}
                 onRename={handleRename}
+                onToggleStar={handleToggleStar}
                 isTemplatesTab={isTemplatesTab}
                 isTrashTab={isTrashTab}
                 activeFolderId={activeFolderId}
@@ -752,6 +764,9 @@ export default function DocumentsPage() {
                           </div>
                         </div>
                         <h3 title={doc.title} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
+                        {doc.content_preview && (
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-2 mt-0.5">{doc.content_preview}</p>
+                        )}
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                           {doc.created_by_name}
                           {(isTrashTab ? doc.archived_at : doc.updated_at) && <> · {formatTimeAgo((isTrashTab ? doc.archived_at : doc.updated_at)!)}</>}
@@ -812,6 +827,8 @@ export default function DocumentsPage() {
           onClose={() => setPreviewDocId(null)}
           onOpenEditor={(id) => router.push(`/documents/${id}`)}
           onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
+          onRename={handleRename}
+          onToggleStar={handleToggleStar}
         />
         </div>{/* end white card */}
       </PageTransition>

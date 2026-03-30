@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useCallback } from "react";
-import { ChevronRight, FileText, Lock, Stamp, GitBranch, Trash2 } from "lucide-react";
+import { ChevronRight, FileText, Lock, Stamp, GitBranch, Trash2, Clock, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
@@ -29,6 +29,7 @@ export interface DocumentsTableProps {
   folders: DocumentFolder[];
   onMoveToFolder: (docId: number, folderId: number | null) => void;
   onRename?: (id: number, title: string) => void;
+  onToggleStar?: (id: number) => void;
   isReadOnly: boolean;
   isTemplatesTab: boolean;
   isTrashTab?: boolean;
@@ -51,7 +52,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     expandedIds, onToggleExpand, onDocClick, previewDocId,
     menuOpenId, onMenuOpen, onDuplicate, onArchive, onUnarchive, onPermanentDelete,
     onSaveAsTemplate, onEditTags, folders, onMoveToFolder,
-    onRename, isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
+    onRename, onToggleStar, isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
     emptyTitle, emptyMessage,
   } = props;
 
@@ -210,6 +211,11 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                       <span className="shrink-0 w-[18px]" />
                     )}
 
+                    {onToggleStar && (
+                      <button onClick={(e) => { e.stopPropagation(); onToggleStar(doc.id); }} className="shrink-0 p-0.5 -ml-0.5 rounded transition-colors hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]" aria-label={doc.is_starred ? "Unstar" : "Star"}>
+                        <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-400" : "text-gray-300 dark:text-gray-600")} />
+                      </button>
+                    )}
                     <FileText className="w-4 h-4 shrink-0 text-[#a0704b]/60 dark:text-[#cd853f]/50" />
 
                     {editingId === doc.id ? (
@@ -244,6 +250,10 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     )}
                     {questionCount > 0 && (
                       <span className="shrink-0 text-[9px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hidden lg:inline tabular-nums">{questionCount}Q</span>
+                    )}
+                    {(doc.version_count ?? 0) > 1 && (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-400 hidden lg:inline-flex" title={`${doc.version_count} versions`}>
+                        <Clock className="w-3 h-3" />v{doc.version_count}</span>
                     )}
                   </div>
                   {/* Mobile subtitle */}

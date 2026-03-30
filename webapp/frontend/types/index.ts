@@ -1877,6 +1877,7 @@ export interface Document {
   is_archived: boolean;
   archived_at?: string | null;
   is_template: boolean;
+  is_starred?: boolean;
   locked_by?: number | null;
   locked_by_name?: string | null;
   lock_expires_at?: string | null;
@@ -1890,6 +1891,8 @@ export interface Document {
   parent_id?: number | null;
   parent_title?: string;
   children?: { id: number; title: string }[];
+  version_count?: number;
+  content_preview?: string;
 }
 
 export interface ExtractedQuestion {

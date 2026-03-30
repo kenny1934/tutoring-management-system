@@ -170,6 +170,27 @@ def _is_lock_active(doc: Document) -> bool:
     return doc.locked_by is not None and doc.lock_expires_at is not None and doc.lock_expires_at > hk_now()
 
 
+def _extract_text_preview(content: dict | None, max_len: int = 150) -> str:
+    """Extract first N chars of plain text from TipTap JSON content."""
+    if not content:
+        return ""
+    parts: list[str] = []
+    def walk(node: dict | list):
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+            return
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "text":
+            parts.append(node.get("text", ""))
+        for child in node.get("content", []):
+            walk(child)
+    walk(content)
+    text = " ".join(parts).strip()
+    return text[:max_len] if len(text) > max_len else text
+
+
 def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
     """Convert a Document ORM object to response dict."""
     data = {
@@ -185,6 +206,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "updated_by_name": doc.updater.tutor_name if doc.updater else "",
         "is_archived": doc.is_archived,
         "is_template": doc.is_template,
+        "is_starred": doc.is_starred,
         "locked_by": doc.locked_by if _is_lock_active(doc) else None,
         "locked_by_name": doc.locker.tutor_name if _is_lock_active(doc) and doc.locker else "",
         "lock_expires_at": doc.lock_expires_at if _is_lock_active(doc) else None,
@@ -194,6 +216,8 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "source_filename": doc.source_filename,
         "questions": doc.questions,
         "parent_id": doc.parent_id,
+        "version_count": len(doc.versions) if doc.versions else 0,
+        "content_preview": _extract_text_preview(doc.content),
     }
     if include_content:
         data["content"] = doc.content
@@ -218,6 +242,7 @@ async def list_documents(
     search: Optional[str] = Query(None),
     include_archived: bool = Query(False),
     archived_only: bool = Query(False),
+    starred_only: bool = Query(False),
     is_template: Optional[bool] = Query(None),
     sort_by: str = Query("updated_at", pattern="^(updated_at|created_at|title)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
@@ -237,6 +262,8 @@ async def list_documents(
         query = query.filter(Document.is_archived == True)
     elif not include_archived:
         query = query.filter(Document.is_archived == False)
+    if starred_only:
+        query = query.filter(Document.is_starred == True)
     # Filter by is_template: explicit true/false, or default to excluding templates
     if is_template is not None:
         query = query.filter(Document.is_template == is_template)
@@ -490,6 +517,21 @@ async def update_document(
     db.commit()
     db.refresh(doc)
     return _doc_to_response(doc)
+
+
+@router.post("/documents/{doc_id}/star")
+async def toggle_star(
+    doc_id: int,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """Toggle the starred status of a document."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    doc.is_starred = not doc.is_starred
+    db.commit()
+    return {"is_starred": doc.is_starred}
 
 
 @router.delete("/documents/trash/empty")

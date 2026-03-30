@@ -1909,6 +1909,7 @@ class DocumentResponse(BaseModel):
     is_archived: bool = False
     archived_at: Optional[datetime] = None
     is_template: bool = False
+    is_starred: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None
@@ -1920,6 +1921,8 @@ class DocumentResponse(BaseModel):
     parent_id: Optional[int] = None
     parent_title: str = ""
     children: List[dict] = []
+    version_count: int = 0
+    content_preview: str = ""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1939,6 +1942,7 @@ class DocumentListItem(BaseModel):
     is_archived: bool = False
     archived_at: Optional[datetime] = None
     is_template: bool = False
+    is_starred: bool = False
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None
@@ -1948,6 +1952,8 @@ class DocumentListItem(BaseModel):
     source_filename: Optional[str] = None
     questions: Optional[List[dict]] = None
     parent_id: Optional[int] = None
+    version_count: int = 0
+    content_preview: str = ""
 
     model_config = ConfigDict(from_attributes=True)
 

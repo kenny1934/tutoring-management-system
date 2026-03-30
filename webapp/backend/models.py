@@ -1036,6 +1036,7 @@ class Document(Base):
     is_archived = Column(Boolean, default=False)
     archived_at = Column(DateTime, nullable=True)
     is_template = Column(Boolean, default=False)
+    is_starred = Column(Boolean, default=False)
     locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     lock_expires_at = Column(DateTime, nullable=True)
     tags = Column(JSON, default=list)

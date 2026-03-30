@@ -11,6 +11,7 @@ import {
   Pencil,
   Trash2,
   FolderInput,
+  Star,
   Plus,
   Tag,
   FileText,
@@ -48,6 +49,8 @@ interface FolderSidebarProps {
   activeTab?: "all" | "mine" | "recent" | "templates" | "trash";
   onTrashClick?: () => void;
   trashCount?: number;
+  onStarredClick?: () => void;
+  isStarredActive?: boolean;
 }
 
 /* ── Folder Tree Item ──────────────────────────────────── */
@@ -286,6 +289,8 @@ export default function FolderSidebar({
   activeTab,
   onTrashClick,
   trashCount,
+  onStarredClick,
+  isStarredActive,
 }: FolderSidebarProps) {
   const [folderSearch, setFolderSearch] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
@@ -475,6 +480,24 @@ export default function FolderSidebar({
               )}
             </button>
           </div>
+
+          {/* Starred */}
+          {onStarredClick && (
+            <div className="px-1 mb-1">
+              <button
+                onClick={onStarredClick}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-150",
+                  isStarredActive
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                )}
+              >
+                <Star className={cn("w-4 h-4", isStarredActive ? "fill-amber-400 text-amber-400" : "text-gray-400")} />
+                <span className="flex-1 text-left">Starred</span>
+              </button>
+            </div>
+          )}
 
           {/* Folder tree */}
           <div className="px-1 flex-1">

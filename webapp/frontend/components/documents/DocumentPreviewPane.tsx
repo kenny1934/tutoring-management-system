@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useLayoutEffect } from "react";
+import { useRef, useLayoutEffect, useState, useCallback } from "react";
 import useSWR from "swr";
-import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, ScanLine } from "lucide-react";
+import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, ScanLine, Star } from "lucide-react";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
@@ -15,11 +15,13 @@ interface DocumentPreviewPaneProps {
   onClose: () => void;
   onOpenEditor: (id: number) => void;
   onPrint: (id: number, mode: "student" | "answers") => void;
+  onRename?: (id: number, title: string) => void;
+  onToggleStar?: (id: number) => void;
   /** When true, collapse to zero width with animation (always mounted). */
   collapsed?: boolean;
 }
 
-export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, collapsed }: DocumentPreviewPaneProps) {
+export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onRename, onToggleStar, collapsed }: DocumentPreviewPaneProps) {
   const { data: doc, error, isLoading } = useSWR(
     docId !== null ? ["document-preview", docId] : null,
     () => documentsAPI.get(docId!)
@@ -112,8 +114,13 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, col
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mb-0.5">{doc.folder_name}</p>
                 )}
 
-                {/* Title + type */}
+                {/* Title + star */}
                 <div className="flex items-center gap-1.5 mb-1">
+                  {onToggleStar && (
+                    <button onClick={() => onToggleStar(docId)} className="shrink-0 p-0.5 rounded transition-colors hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]" aria-label={doc.is_starred ? "Unstar" : "Star"}>
+                      <Star className={cn("w-3.5 h-3.5", doc.is_starred ? "fill-amber-400 text-amber-400" : "text-gray-300 dark:text-gray-600")} />
+                    </button>
+                  )}
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {doc.title || "Untitled"}
                   </h2>
