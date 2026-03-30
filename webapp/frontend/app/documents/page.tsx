@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { FileText, Lock, FolderOpen, Trash2, X as XIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue, useFocusTrap } from "@/lib/hooks";
@@ -25,7 +26,22 @@ import DocContextMenu from "@/components/documents/DocContextMenu";
 import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
+import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import type { Document, DocumentFolder } from "@/types";
+
+function DraggableCard({ doc, selectedIds, disabled, children, className, onClick }: {
+  doc: Document; selectedIds: Set<number>; disabled: boolean;
+  children: React.ReactNode; className?: string; onClick: () => void;
+}) {
+  const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
+    docId: doc.id, docTitle: doc.title, selectedIds, disabled, idPrefix: "doc-card",
+  });
+  return (
+    <div ref={setNodeRef} {...dragProps} onClick={onClick} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
+      {children}
+    </div>
+  );
+}
 
 const PAGE_SIZE = 24;
 
@@ -556,6 +572,15 @@ export default function DocumentsPage() {
     return path;
   }, [activeFolderId, folders]);
 
+  // --- Drag-and-drop ---
+  const dndEnabled = !isReadOnly && !isTrashTab && !isTemplatesTab;
+  const { sensors, activeDragData, handleDragStart, handleDragEnd, handleDragCancel } = useDndDocuments({
+    selectedIds,
+    onMoveToFolder: handleMoveToFolder,
+    onBulkMove: (folderId) => executeBulkMove(folderId),
+    enabled: dndEnabled,
+  });
+
   // Empty state text
   const emptyTitle = !documents?.length
     ? isTrashTab ? "Trash is empty"
@@ -575,6 +600,7 @@ export default function DocumentsPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex flex-col flex-1 min-h-0 p-2 sm:p-4">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="flex flex-1 min-h-0 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
         {/* Sidebar — desktop */}
         <FolderSidebar
@@ -721,8 +747,11 @@ export default function DocumentsPage() {
                 ) : documents?.length ? (
                   documents.map((doc, i) => {
                     return (
-                      <div
+                      <DraggableCard
                         key={doc.id}
+                        doc={doc}
+                        selectedIds={selectedIds}
+                        disabled={!dndEnabled}
                         onClick={() => handleDocClick(doc.id)}
                         className={cn(
                           "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
@@ -783,7 +812,7 @@ export default function DocumentsPage() {
                             {doc.tags.length > 3 && <span className="text-[9px] text-gray-400">+{doc.tags.length - 3}</span>}
                           </div>
                         )}
-                      </div>
+                      </DraggableCard>
                     );
                   })
                 ) : (
@@ -836,6 +865,20 @@ export default function DocumentsPage() {
           onEditTags={setTagEditDocId}
         />
         </div>{/* end white card */}
+        <DragOverlay dropAnimation={null}>
+          {activeDragData && (
+            <div className="px-3 py-2 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg border border-[#a0704b]/40 text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2 pointer-events-none">
+              <FileText className="w-4 h-4 text-[#a0704b]" />
+              <span className="truncate max-w-[200px]">{activeDragData.docTitle}</span>
+              {activeDragData.selectedIds.length > 1 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#a0704b] text-white text-[10px] font-bold">
+                  {activeDragData.selectedIds.length}
+                </span>
+              )}
+            </div>
+          )}
+        </DragOverlay>
+        </DndContext>
       </PageTransition>
 
       {/* Modals */}

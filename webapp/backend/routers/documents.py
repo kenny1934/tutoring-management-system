@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload, load_only, subqueryload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm.exc import StaleDataError
-from sqlalchemy import desc, asc, or_, func as sa_func
+from sqlalchemy import desc, asc, or_, func as sa_func, text
 from typing import List, Optional
 from database import get_db
 from constants import hk_now
@@ -170,8 +170,8 @@ def _is_lock_active(doc: Document) -> bool:
     return doc.locked_by is not None and doc.lock_expires_at is not None and doc.lock_expires_at > hk_now()
 
 
-def _extract_text_preview(content: dict | None, max_len: int = 150) -> str:
-    """Extract first N chars of plain text from TipTap JSON content."""
+def _extract_text_preview(content: dict | None, max_len: int | None = 150) -> str:
+    """Extract plain text from TipTap JSON content. Pass max_len=None for full text."""
     if not content:
         return ""
     parts: list[str] = []
@@ -187,8 +187,15 @@ def _extract_text_preview(content: dict | None, max_len: int = 150) -> str:
         for child in node.get("content", []):
             walk(child)
     walk(content)
-    text = " ".join(parts).strip()
-    return text[:max_len] if len(text) > max_len else text
+    full = " ".join(parts).strip()
+    if max_len and len(full) > max_len:
+        return full[:max_len]
+    return full
+
+
+def _extract_search_text(content: dict | None) -> str:
+    """Extract all plain text from TipTap JSON for full-text search indexing."""
+    return _extract_text_preview(content, max_len=None)
 
 
 def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
@@ -274,10 +281,17 @@ async def list_documents(
     if doc_type:
         query = query.filter(Document.doc_type == doc_type)
     if search:
-        query = query.filter(or_(
+        conditions = [
             Document.title.ilike(f"%{search}%"),
             sa_func.json_contains(Document.tags, f'"{search}"'),
-        ))
+        ]
+        safe_search = search.replace('+', '').replace('-', '').replace('*', '').replace('"', '').strip()
+        if safe_search:
+            conditions.append(
+                text("MATCH(documents.search_text) AGAINST(:search_term IN BOOLEAN MODE)")
+                .bindparams(search_term=f"*{safe_search}*")
+            )
+        query = query.filter(or_(*conditions))
     if tag:
         # Support comma-separated tags for multi-tag filter (AND logic)
         for t in tag.split(","):
@@ -438,10 +452,12 @@ async def create_document(
     base_title = data.title.strip() or "Untitled Document"
     title = _resolve_unique_title(db, base_title, data.folder_id, data.is_template)
 
+    content = data.content if data.content else {"type": "doc", "content": [{"type": "paragraph"}]}
     doc = Document(
         title=title,
         doc_type=data.doc_type,
-        content=data.content if data.content else {"type": "doc", "content": [{"type": "paragraph"}]},
+        content=content,
+        search_text=_extract_search_text(content),
         page_layout=data.page_layout,
         tags=data.tags or [],
         folder_id=data.folder_id,
@@ -500,6 +516,7 @@ async def update_document(
         doc.title = new_title
     if data.content is not None:
         doc.content = data.content
+        doc.search_text = _extract_search_text(data.content)
     if data.page_layout is not None:
         doc.page_layout = data.page_layout
         flag_modified(doc, "page_layout")
@@ -619,6 +636,7 @@ async def duplicate_document(
         title=copy_title,
         doc_type=source.doc_type,
         content=source.content,
+        search_text=_extract_search_text(source.content),
         page_layout=source.page_layout,
         tags=list(source.tags) if source.tags else [],
         folder_id=source.folder_id,
@@ -847,6 +865,7 @@ async def restore_version(
     # Apply version content
     doc.title = _resolve_unique_title(db, ver.title, doc.folder_id, doc.is_template, exclude_id=doc.id)
     doc.content = ver.content
+    doc.search_text = _extract_search_text(ver.content)
     doc.page_layout = ver.page_layout
     flag_modified(doc, "page_layout")
     doc.updated_at = hk_now()
@@ -1054,6 +1073,7 @@ async def import_worksheet(
         title=final_title,
         doc_type="worksheet",
         content=tiptap_content,
+        search_text=_extract_search_text(tiptap_content),
         page_layout=template_layout,
         tags=["imported", "ocr"],
         folder_id=folder_id,
@@ -1223,6 +1243,7 @@ async def apply_solutions_endpoint(
     )
 
     doc.content = new_content
+    doc.search_text = _extract_search_text(new_content)
     flag_modified(doc, "content")
     doc.updated_by = current_user.id
     doc.updated_at = hk_now()
@@ -1271,6 +1292,7 @@ async def create_variant_document_endpoint(
         title=title,
         doc_type=source_doc.doc_type,
         content=variant_content,
+        search_text=_extract_search_text(variant_content),
         page_layout=source_doc.page_layout,
         created_by=current_user.id,
         created_at=hk_now(),

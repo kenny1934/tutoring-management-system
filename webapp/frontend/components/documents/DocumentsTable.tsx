@@ -6,7 +6,22 @@ import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTagColor } from "@/lib/tag-colors";
 import DocContextMenu from "./DocContextMenu";
+import { useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import type { Document, DocumentFolder } from "@/types";
+
+function DraggableRow({ doc, selectedIds, isReadOnly, children, className, onClick, dataDocId }: {
+  doc: Document; selectedIds: Set<number>; isReadOnly: boolean;
+  children: React.ReactNode; className?: string; onClick: () => void; dataDocId: number;
+}) {
+  const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
+    docId: doc.id, docTitle: doc.title, selectedIds, disabled: isReadOnly,
+  });
+  return (
+    <tr ref={setNodeRef} {...dragProps} onClick={onClick} data-doc-id={dataDocId} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
+      {children}
+    </tr>
+  );
+}
 
 export interface DocumentsTableProps {
   documents: Document[];
@@ -169,10 +184,13 @@ export default function DocumentsTable(props: DocumentsTableProps) {
             const questionCount = doc.questions?.length ?? 0;
 
             return (
-              <tr
+              <DraggableRow
                 key={doc.id}
+                doc={doc}
+                selectedIds={selectedIds}
+                isReadOnly={isReadOnly}
                 onClick={() => onDocClick(doc.id)}
-                data-doc-id={doc.id}
+                dataDocId={doc.id}
                 className={cn(
                   "group border-l-2 border-b border-b-[#e8d4b8]/30 dark:border-b-[#6b5a4a]/30 cursor-pointer transition-colors",
                   isVariant && !selected && !isPreviewing && "bg-gray-50/70 dark:bg-gray-800/20 animate-fade-slide-in",
@@ -310,7 +328,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     />
                   )}
                 </td>
-              </tr>
+              </DraggableRow>
             );
           })}
         </tbody>

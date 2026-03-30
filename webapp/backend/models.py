@@ -1048,6 +1048,7 @@ class Document(Base):
     questions = Column(JSON, nullable=True, comment="Extracted question metadata: boundaries, topics, difficulty")
     solutions = Column(JSON, nullable=True, comment="AI-generated solutions per question: {index: {text, topic, subtopic, difficulty}}")
     variants = Column(JSON, nullable=True, comment="AI-generated variant questions per question: {index: {text, solution_text}}")
+    search_text = Column(Text, nullable=True)
 
     creator = relationship("Tutor", foreign_keys=[created_by])
     updater = relationship("Tutor", foreign_keys=[updated_by])

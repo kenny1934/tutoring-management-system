@@ -20,10 +20,12 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import { buildFolderTree, type FolderTreeNode } from "@/lib/folder-utils";
 import type { DocumentFolder } from "@/types";
+import type { DropData } from "@/lib/hooks/useDndDocuments";
 
 interface FolderSidebarProps {
   folders: DocumentFolder[];
@@ -86,14 +88,22 @@ function FolderTreeItem({
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   useClickOutside(menuRef, closeMenu, menuOpen);
 
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `folder-${node.id}`,
+    data: { type: "folder", folderId: node.id, folderName: node.name } satisfies DropData,
+  });
+
   return (
     <div>
       <div
+        ref={setDropRef}
         className={cn(
           "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
-          isActive
-            ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-            : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+          isOver
+            ? "ring-2 ring-[#a0704b] bg-[#f5ede3] dark:bg-[#2d2618]"
+            : isActive
+              ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+              : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(isActive ? null : node.id)}
@@ -332,6 +342,11 @@ export default function FolderSidebar({
     });
   }, []);
 
+  const { setNodeRef: setAllDocsDropRef, isOver: isOverAllDocs } = useDroppable({
+    id: "folder-all-docs",
+    data: { type: "folder", folderId: null, folderName: "All Documents" } satisfies DropData,
+  });
+
   const handleCreateSubfolder = useCallback((parentId: number) => {
     setCreating({ parentId });
   }, []);
@@ -468,12 +483,15 @@ export default function FolderSidebar({
           {/* All Documents */}
           <div className={cn("px-1", mobile ? "pt-3" : "pt-1")}>
             <button
+              ref={setAllDocsDropRef}
               onClick={() => onSelectFolder(null)}
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-all duration-150",
-                activeFolderId === null && activeTab !== "trash"
-                  ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
+                isOverAllDocs
+                  ? "ring-2 ring-[#a0704b] bg-[#f5ede3] dark:bg-[#2d2618]"
+                  : activeFolderId === null && activeTab !== "trash"
+                    ? "bg-gradient-to-r from-[#f5ede3] to-[#fef9f3] dark:from-[#2d2618] dark:to-[#1a1410] text-[#a0704b] dark:text-[#cd853f] font-medium shadow-[inset_2px_0_0_#a0704b]"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-[#fdf6ee] dark:hover:bg-white/5"
               )}
             >
               <FileText className={cn("w-4 h-4", activeFolderId === null && activeTab !== "trash" ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
