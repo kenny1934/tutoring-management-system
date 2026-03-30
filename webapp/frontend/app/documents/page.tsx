@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { FileText, Lock, FolderOpen, Trash2 } from "lucide-react";
+import { FileText, Lock, FolderOpen, Trash2, X as XIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue, useFocusTrap } from "@/lib/hooks";
@@ -186,12 +187,30 @@ export default function DocumentsPage() {
   const previewDocIdRef = useRef(previewDocId);
   previewDocIdRef.current = previewDocId;
 
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
+  const showShortcutHintsRef = useRef(showShortcutHints);
+  showShortcutHintsRef.current = showShortcutHints;
+
   useEffect(() => {
-    if (viewMode !== "table") return;
     const handler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || document.querySelector('[role="dialog"]')) return;
       const tag = document.activeElement?.tagName;
-      if (tag && ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(tag)) return;
+      const onInput = tag && ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
+
+      // Global shortcuts (work even when not on an input)
+      if (!onInput) {
+        if (e.key === "?") { e.preventDefault(); setShowShortcutHints(prev => !prev); return; }
+        if (e.key === "Escape" && showShortcutHintsRef.current) { setShowShortcutHints(false); return; }
+        if (e.key === "/") { e.preventDefault(); document.querySelector<HTMLInputElement>('[placeholder*="Search"]')?.focus(); return; }
+        if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); setShowCreateModal(true); return; }
+        if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
+          e.preventDefault(); handleBulkArchive(); return;
+        }
+      }
+
+      // Table-only navigation
+      if (viewMode !== "table" || onInput) return;
+      if (tag && ["BUTTON", "A"].includes(tag)) return;
 
       const rowEls = document.querySelectorAll<HTMLTableRowElement>("tr[data-doc-id]");
       const visibleIds = Array.from(rowEls).map(el => Number(el.dataset.docId));
@@ -219,7 +238,7 @@ export default function DocumentsPage() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [viewMode, router]);
+  }, [viewMode, router, selectedIds, handleBulkArchive]);
 
   // --- View callbacks ---
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
@@ -387,6 +406,17 @@ export default function DocumentsPage() {
     catch (err) { showToast((err as Error).message, "error"); }
   }, [mutate, showToast]);
 
+  const [movingFolderId, setMovingFolderId] = useState<number | null>(null);
+  const handleMoveFolder = useCallback((folderId: number) => { setMovingFolderId(folderId); }, []);
+  const executeMoveFolder = useCallback(async (newParentId: number | null) => {
+    if (movingFolderId === null) return;
+    try {
+      await foldersAPI.update(movingFolderId, { parent_id: newParentId });
+      mutateFolders(); showToast("Folder moved", "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setMovingFolderId(null);
+  }, [movingFolderId, mutateFolders, showToast]);
+
   const handleRenameTag = useCallback(async (oldName: string, newName: string) => {
     try { await documentsAPI.renameTag(oldName, newName); mutate(); mutateTags(); showToast(`Tag renamed to "${newName}"`, "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
@@ -470,6 +500,7 @@ export default function DocumentsPage() {
 
   const [bulkTagPickerOpen, setBulkTagPickerOpen] = useState(false);
   const [bulkTagValue, setBulkTagValue] = useState("");
+  const [bulkTagMode, setBulkTagMode] = useState<"add" | "remove">("add");
   const bulkFolderRef = useRef<HTMLDivElement>(null);
   const bulkTagRef = useRef<HTMLDivElement>(null);
   useFocusTrap(bulkFolderPickerOpen, bulkFolderRef);
@@ -484,6 +515,17 @@ export default function DocumentsPage() {
       const result = await documentsAPI.bulkUpdate({ ids, tags_add: [tag] });
       mutate(); mutateTags(); setSelectedIds(new Set());
       showToast(`Tag "${tag}" added to ${result.updated} document(s)`, "success");
+    } catch (err) { showToast((err as Error).message, "error"); }
+    setBulkTagPickerOpen(false);
+    setBulkTagValue("");
+  }, [selectedIds, mutate, mutateTags, showToast]);
+
+  const executeBulkRemoveTag = useCallback(async (tag: string) => {
+    const ids = Array.from(selectedIds);
+    try {
+      const result = await documentsAPI.bulkUpdate({ ids, tags_remove: [tag] });
+      mutate(); mutateTags(); setSelectedIds(new Set());
+      showToast(`Tag "${tag}" removed from ${result.updated} document(s)`, "success");
     } catch (err) { showToast((err as Error).message, "error"); }
     setBulkTagPickerOpen(false);
     setBulkTagValue("");
@@ -530,6 +572,7 @@ export default function DocumentsPage() {
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
+          onMoveFolder={handleMoveFolder}
           onRenameTag={handleRenameTag}
           onDeleteTag={handleDeleteTag}
           isReadOnly={isReadOnly}
@@ -555,6 +598,7 @@ export default function DocumentsPage() {
                 onCreateFolder={handleCreateFolder}
                 onRenameFolder={handleRenameFolder}
                 onDeleteFolder={handleDeleteFolder}
+          onMoveFolder={handleMoveFolder}
                 onRenameTag={handleRenameTag}
                 onDeleteTag={handleDeleteTag}
                 isReadOnly={isReadOnly}
@@ -849,29 +893,117 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* Bulk add tag picker */}
+      {/* Bulk tag picker (add/remove) */}
       {bulkTagPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkTagPickerOpen(false); setBulkTagValue(""); setBulkTagMode("add"); }}>
           <div ref={bulkTagRef} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Add tag to {selectedIds.size} document(s)</h3>
-            <input
-              autoFocus
-              type="text"
-              placeholder="Type a tag name..."
-              value={bulkTagValue}
-              onChange={(e) => setBulkTagValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
-              className="w-full px-3 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
-            />
-            {tagNames.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {tagNames.filter(t => !bulkTagValue || t.toLowerCase().includes(bulkTagValue.toLowerCase())).slice(0, 20).map((tag) => (
-                  <button key={tag} onClick={() => executeBulkAddTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80", getTagColor(tag))}>
-                    {tag}
-                  </button>
-                ))}
-              </div>
+            {/* Add / Remove tabs */}
+            <div className="flex gap-1 mb-3 p-0.5 rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60">
+              {(["add", "remove"] as const).map((mode) => (
+                <button key={mode} onClick={() => { setBulkTagMode(mode); setBulkTagValue(""); }}
+                  className={cn("flex-1 px-2 py-1 text-[11px] font-medium rounded transition-all capitalize",
+                    bulkTagMode === mode ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400"
+                  )}>{mode} tag</button>
+              ))}
+            </div>
+
+            {bulkTagMode === "add" ? (
+              <>
+                <input autoFocus type="text" placeholder="Type a tag name..."
+                  value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && bulkTagValue.trim()) executeBulkAddTag(bulkTagValue.trim()); if (e.key === "Escape") { setBulkTagPickerOpen(false); setBulkTagValue(""); } }}
+                  className="w-full px-3 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#1a1a1a] text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+                />
+                {tagNames.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {tagNames.filter(t => !bulkTagValue || t.toLowerCase().includes(bulkTagValue.toLowerCase())).slice(0, 20).map((tag) => (
+                      <button key={tag} onClick={() => executeBulkAddTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80", getTagColor(tag))}>{tag}</button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 mb-2">Click a tag to remove it from {selectedIds.size} document(s)</p>
+                {(() => {
+                  // Collect tags from selected docs
+                  const selectedDocs = (documents ?? []).filter(d => selectedIds.has(d.id));
+                  const tagSet = new Set(selectedDocs.flatMap(d => d.tags || []));
+                  const tags = [...tagSet].sort();
+                  return tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {tags.map((tag) => (
+                        <button key={tag} onClick={() => executeBulkRemoveTag(tag)} className={cn("px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80 hover:line-through", getTagColor(tag))}>{tag}</button>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs text-gray-400 italic">Selected documents have no tags</p>;
+                })()}
+              </>
             )}
+          </div>
+        </div>
+      )}
+      {/* Keyboard shortcut hints */}
+      {!showShortcutHints && (
+        <button onClick={() => setShowShortcutHints(true)}
+          className="hidden md:flex fixed right-4 bottom-4 z-40 w-8 h-8 rounded-full bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md items-center justify-center"
+          title="Keyboard shortcuts (?)" aria-label="Show keyboard shortcuts"
+        >
+          <span className="text-sm font-mono">?</span>
+        </button>
+      )}
+      <AnimatePresence>
+        {showShortcutHints && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47] text-sm w-64"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">Keyboard Shortcuts</span>
+              <button onClick={() => setShowShortcutHints(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
+              {[
+                ["↑ ↓", "Navigate documents"],
+                ["Enter", "Open document"],
+                ["Esc", "Clear selection"],
+                ["/", "Focus search"],
+                ["N", "New document"],
+                ["Del", "Trash selected"],
+                ["?", "Toggle this panel"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">{key}</kbd>
+                  <span>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Folder move picker */}
+      {movingFolderId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setMovingFolderId(null)}>
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-5 w-72 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Move folder to</h3>
+            <div className="space-y-0.5">
+              <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
+                <FolderOpen className="w-4 h-4 text-gray-400" /> Root (no parent)
+              </button>
+              {flattenFolderTree(folders).filter(({ folder: f }) => {
+                // Exclude self and descendants
+                const descendants = new Set<number>();
+                const collect = (id: number) => { descendants.add(id); folders.filter(x => x.parent_id === id).forEach(x => collect(x.id)); };
+                collect(movingFolderId);
+                return !descendants.has(f.id);
+              }).map(({ folder: f, depth }) => (
+                <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
+                  <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

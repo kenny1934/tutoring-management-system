@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  FolderInput,
   Plus,
   Tag,
   FileText,
@@ -34,6 +35,7 @@ interface FolderSidebarProps {
   onCreateFolder: (name: string, parentId?: number | null) => void;
   onRenameFolder: (folder: DocumentFolder, newName: string) => void;
   onDeleteFolder: (folder: DocumentFolder) => void;
+  onMoveFolder?: (folderId: number) => void;
   onRenameTag?: (oldName: string, newName: string) => void;
   onDeleteTag?: (tag: string) => void;
   totalDocCount?: number;
@@ -58,6 +60,7 @@ function FolderTreeItem({
   onCreateSubfolder,
   onRename,
   onDelete,
+  onMoveFolder,
   isReadOnly,
 }: {
   node: FolderTreeNode;
@@ -67,6 +70,7 @@ function FolderTreeItem({
   onCreateSubfolder: (parentId: number) => void;
   onRename: (folder: DocumentFolder) => void;
   onDelete: (folder: DocumentFolder) => void;
+  onMoveFolder?: (folderId: number) => void;
   isReadOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -151,6 +155,19 @@ function FolderTreeItem({
                 <FolderPlus className="w-3.5 h-3.5" />
                 New Subfolder
               </button>
+              {onMoveFolder && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onMoveFolder(node.id);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                >
+                  <FolderInput className="w-3.5 h-3.5" />
+                  Move to...
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -191,6 +208,7 @@ function FolderTreeItem({
               onCreateSubfolder={onCreateSubfolder}
               onRename={onRename}
               onDelete={onDelete}
+              onMoveFolder={onMoveFolder}
               isReadOnly={isReadOnly}
             />
           ))}
@@ -258,6 +276,7 @@ export default function FolderSidebar({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  onMoveFolder,
   onRenameTag,
   onDeleteTag,
   totalDocCount,
@@ -469,6 +488,7 @@ export default function FolderSidebar({
                 onCreateSubfolder={handleCreateSubfolder}
                 onRename={handleStartRename}
                 onDelete={onDeleteFolder}
+                onMoveFolder={onMoveFolder}
                 isReadOnly={isReadOnly}
               />
             ))}
