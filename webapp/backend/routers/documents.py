@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only, subqueryload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy import desc, asc, or_, func as sa_func
@@ -193,6 +193,7 @@ def _extract_text_preview(content: dict | None, max_len: int = 150) -> str:
 
 def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
     """Convert a Document ORM object to response dict."""
+    lock_active = _is_lock_active(doc)
     data = {
         "id": doc.id,
         "title": doc.title,
@@ -207,9 +208,9 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "is_archived": doc.is_archived,
         "is_template": doc.is_template,
         "is_starred": doc.is_starred,
-        "locked_by": doc.locked_by if _is_lock_active(doc) else None,
-        "locked_by_name": doc.locker.tutor_name if _is_lock_active(doc) and doc.locker else "",
-        "lock_expires_at": doc.lock_expires_at if _is_lock_active(doc) else None,
+        "locked_by": doc.locked_by if lock_active else None,
+        "locked_by_name": doc.locker.tutor_name if lock_active and doc.locker else "",
+        "lock_expires_at": doc.lock_expires_at if lock_active else None,
         "tags": doc.tags or [],
         "folder_id": doc.folder_id,
         "folder_name": doc.folder.name if doc.folder else "",
@@ -233,6 +234,7 @@ def _doc_query(db: Session):
         joinedload(Document.updater),
         joinedload(Document.locker),
         joinedload(Document.folder),
+        subqueryload(Document.versions).load_only(DocumentVersion.id),
     )
 
 

@@ -29,6 +29,28 @@ import type { Document, DocumentFolder } from "@/types";
 
 const PAGE_SIZE = 24;
 
+type ListFilters = {
+  debouncedSearch: string; isTrashTab: boolean; sort: { sort_by: string; sort_order: string };
+  activeTags: string[]; activeFolderId: number | null; isTemplatesTab: boolean;
+  activeTab: string; recentIds: number[];
+};
+
+function buildDocListParams(f: ListFilters, offset?: number) {
+  return {
+    search: f.debouncedSearch || undefined,
+    archived_only: f.isTrashTab || undefined,
+    is_template: f.isTemplatesTab,
+    sort_by: f.sort.sort_by,
+    sort_order: f.sort.sort_order,
+    limit: PAGE_SIZE,
+    offset,
+    tag: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeTags.length > 0 ? f.activeTags.join(",") : undefined),
+    folder_id: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeFolderId ?? undefined),
+    my_docs: f.activeTab === "mine" ? true : undefined,
+    ids: f.activeTab === "recent" ? f.recentIds.join(",") : undefined,
+  };
+}
+
 export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
@@ -92,19 +114,8 @@ export default function DocumentsPage() {
     ["documents", debouncedSearch, sort.sort_by, sort.sort_order, activeTags, activeFolderId, activeTab, showStarred, activeTab === "recent" ? recentIds.join(",") : ""],
     () => {
       if (activeTab === "recent" && recentIds.length === 0) return Promise.resolve([] as Document[]);
-      return documentsAPI.list({
-        search: debouncedSearch || undefined,
-        archived_only: isTrashTab || undefined,
-        starred_only: showStarred || undefined,
-        is_template: isTemplatesTab,
-        sort_by: sort.sort_by,
-        sort_order: sort.sort_order,
-        limit: PAGE_SIZE,
-        tag: (isTemplatesTab || isTrashTab) ? undefined : (activeTags.length > 0 ? activeTags.join(",") : undefined),
-        folder_id: (isTemplatesTab || isTrashTab) ? undefined : (activeFolderId ?? undefined),
-        my_docs: activeTab === "mine" ? true : undefined,
-        ids: activeTab === "recent" ? recentIds.join(",") : undefined,
-      });
+      const params = buildDocListParams({ debouncedSearch, isTrashTab, sort, activeTags, activeFolderId, isTemplatesTab, activeTab, recentIds });
+      return documentsAPI.list({ ...params, starred_only: showStarred || undefined });
     },
     { revalidateOnFocus: false }
   );
@@ -127,6 +138,8 @@ export default function DocumentsPage() {
     return counts;
   }, [allTags]);
 
+  const flatFolders = useMemo(() => flattenFolderTree(folders), [folders]);
+
   const filtersRef = useRef({ debouncedSearch, isTrashTab, sort, activeTags, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds });
   filtersRef.current = { debouncedSearch, isTrashTab, sort, activeTags, activeFolderId, firstPage, extraDocs, isTemplatesTab, activeTab, recentIds };
 
@@ -135,19 +148,8 @@ export default function DocumentsPage() {
     const f = filtersRef.current;
     setLoadingMore(true);
     try {
-      const next = await documentsAPI.list({
-        search: f.debouncedSearch || undefined,
-        archived_only: f.isTrashTab || undefined,
-        is_template: f.isTemplatesTab,
-        sort_by: f.sort.sort_by,
-        sort_order: f.sort.sort_order,
-        limit: PAGE_SIZE,
-        offset: (f.firstPage?.length ?? 0) + f.extraDocs.length,
-        tag: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeTags.length > 0 ? f.activeTags.join(",") : undefined),
-        folder_id: (f.isTemplatesTab || f.isTrashTab) ? undefined : (f.activeFolderId ?? undefined),
-        my_docs: f.activeTab === "mine" ? true : undefined,
-        ids: f.activeTab === "recent" ? f.recentIds.join(",") : undefined,
-      });
+      const offset = (f.firstPage?.length ?? 0) + f.extraDocs.length;
+      const next = await documentsAPI.list(buildDocListParams(f, offset));
       setExtraDocs((prev) => [...prev, ...next]);
       if (next.length < PAGE_SIZE) setMoreExhausted(true);
     } finally {
@@ -192,9 +194,11 @@ export default function DocumentsPage() {
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const showShortcutHintsRef = useRef(showShortcutHints);
   showShortcutHintsRef.current = showShortcutHints;
-  const handleBulkArchiveRef = useRef<() => void>();
+  const handleBulkArchiveRef = useRef<() => void>(undefined);
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
+  const viewModeRef = useRef(viewMode);
+  viewModeRef.current = viewMode;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -214,7 +218,7 @@ export default function DocumentsPage() {
       }
 
       // Table-only navigation
-      if (viewMode !== "table" || onInput) return;
+      if (viewModeRef.current !== "table" || onInput) return;
       if (tag && ["BUTTON", "A"].includes(tag)) return;
 
       const rowEls = document.querySelectorAll<HTMLTableRowElement>("tr[data-doc-id]");
@@ -243,7 +247,7 @@ export default function DocumentsPage() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [viewMode, router]);
+  }, [router]);
 
   // --- View callbacks ---
   const toggleViewMode = useCallback((mode: "table" | "grid") => {
@@ -300,7 +304,7 @@ export default function DocumentsPage() {
     try {
       const doc = await documentsAPI.create({
         title: "Untitled Document",
-        doc_type: "worksheet", // soft default — type selection removed from UI
+        doc_type: "worksheet",
         ...(templateDoc?.page_layout ? { page_layout: templateDoc.page_layout } : {}),
         ...(templateDoc?.content ? { content: templateDoc.content } : {}),
         ...(activeFolderId ? { folder_id: activeFolderId } : {}),
@@ -906,7 +910,7 @@ export default function DocumentsPage() {
               <button onClick={() => executeBulkMove(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
                 <FolderOpen className="w-4 h-4 text-gray-400" /> No folder
               </button>
-              {flattenFolderTree(folders).map(({ folder: f, depth }) => (
+              {flatFolders.map(({ folder: f, depth }) => (
                 <button key={f.id} onClick={() => executeBulkMove(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
                   <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
                 </button>
@@ -1020,7 +1024,7 @@ export default function DocumentsPage() {
                 <button onClick={() => executeMoveFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors">
                   <FolderOpen className="w-4 h-4 text-gray-400" /> Root (no parent)
                 </button>
-                {flattenFolderTree(folders).filter(({ folder: f }) => !excludeIds.has(f.id)).map(({ folder: f, depth }) => (
+                {flatFolders.filter(({ folder: f }) => !excludeIds.has(f.id)).map(({ folder: f, depth }) => (
                   <button key={f.id} onClick={() => executeMoveFolder(f.id)} className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg text-sm hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors" style={{ paddingLeft: `${12 + depth * 16}px` }}>
                     <FolderOpen className="w-4 h-4 text-[#a0704b]" /> {f.name}
                   </button>

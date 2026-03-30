@@ -33,28 +33,13 @@ export function buildFolderTree(folders: DocumentFolder[]): FolderTreeNode[] {
 
 /** Flatten a folder list into depth-annotated entries for rendering in dropdowns. */
 export function flattenFolderTree(folders: DocumentFolder[]): { folder: DocumentFolder; depth: number }[] {
-  const map = new Map<number, DocumentFolder[]>();
-  const roots: DocumentFolder[] = [];
-  for (const f of folders) {
-    if (f.parent_id && folders.some(p => p.id === f.parent_id)) {
-      const siblings = map.get(f.parent_id) || [];
-      siblings.push(f);
-      map.set(f.parent_id, siblings);
-    } else {
-      roots.push(f);
-    }
-  }
   const result: { folder: DocumentFolder; depth: number }[] = [];
-  const visited = new Set<number>();
-  const walk = (items: DocumentFolder[], depth: number) => {
-    for (const f of items.sort((a, b) => a.name.localeCompare(b.name))) {
-      if (visited.has(f.id)) continue;
-      visited.add(f.id);
-      result.push({ folder: f, depth });
-      const children = map.get(f.id);
-      if (children) walk(children, depth + 1);
+  const walk = (nodes: FolderTreeNode[], depth: number) => {
+    for (const node of nodes) {
+      result.push({ folder: node, depth });
+      walk(node.children, depth + 1);
     }
   };
-  walk(roots, 0);
+  walk(buildFolderTree(folders), 0);
   return result;
 }
