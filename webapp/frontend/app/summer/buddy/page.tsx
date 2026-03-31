@@ -1117,7 +1117,14 @@ export default function BuddyTrackerPage() {
                 </div>
                 {(showChineseName || formNameZh) ? (
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Chinese Name</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-muted-foreground">Chinese Name</label>
+                      {!formNameZh && (
+                        <button type="button" onClick={() => setShowChineseName(false)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                          Hide
+                        </button>
+                      )}
+                    </div>
                     <input
                       value={formNameZh}
                       onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
@@ -1238,24 +1245,34 @@ export default function BuddyTrackerPage() {
                     <Check className="h-7 w-7 text-green-600" />
                   </div>
                   <div className="text-sm font-semibold text-foreground">Student Added!</div>
-                  <div>
-                    <div className="text-[10px] text-muted-foreground mb-1">Buddy Code</div>
+                  {isGroupFull ? (
+                    <div>
+                      <div className="text-[10px] text-muted-foreground mb-1">Buddy Code</div>
+                      <span className="font-mono font-bold text-2xl tracking-widest text-foreground">{formSuccess}</span>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">Group is complete!</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-[10px] text-muted-foreground mb-1">Buddy Code</div>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(formSuccess); handleCopyToast(formSuccess); }}
+                        className="font-mono font-bold text-2xl tracking-widest text-foreground hover:text-primary transition-colors cursor-pointer"
+                        title="Tap to copy"
+                      >
+                        {formSuccess}
+                      </button>
+                      <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
+                    </div>
+                  )}
+                  {!isGroupFull && (
                     <button
-                      onClick={() => { navigator.clipboard.writeText(formSuccess); handleCopyToast(formSuccess); }}
-                      className="font-mono font-bold text-2xl tracking-widest text-foreground hover:text-primary transition-colors cursor-pointer"
-                      title="Tap to copy"
+                      onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)}
+                      className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
                     >
-                      {formSuccess}
+                      <Share2 className="h-4 w-4 inline mr-1.5" />
+                      Share Code with Family
                     </button>
-                    <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
-                  </div>
-                  <button
-                    onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)}
-                    className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-                  >
-                    <Share2 className="h-4 w-4 inline mr-1.5" />
-                    Share Code with Family
-                  </button>
+                  )}
                   <div className="flex gap-3 w-full">
                     <button
                       onClick={() => { setFormSuccess(null); setShowChineseName(false); setTimeout(() => studentIdRef.current?.focus(), 100); }}
