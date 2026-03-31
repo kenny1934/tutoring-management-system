@@ -956,8 +956,8 @@ export default function BuddyTrackerPage() {
         </div>
       </div>
 
-      {/* Filter Cards */}
-      {ownMembers.length > 0 && (
+      {/* Filter Cards — hidden, Board view columns already show the breakdown */}
+      {false && ownMembers.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {/* All Students */}
           <button
@@ -1033,6 +1033,7 @@ export default function BuddyTrackerPage() {
               style={{ width: `${Math.round((stats.paired / stats.total) * 100)}%` }} />
           </div>
           <span className="font-medium text-foreground">{Math.round((stats.paired / stats.total) * 100)}%</span>
+          {stats.solo > 0 && <span className="text-amber-600 dark:text-amber-400">· {stats.solo} need a partner</span>}
         </div>
       )}
 
