@@ -123,7 +123,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
                   className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <ScanLine className="w-3.5 h-3.5" />
-                  Import
+                  <span className="hidden sm:inline">Import</span>
                 </button>
                 <button
                   onClick={onCreateDocument}
@@ -140,7 +140,7 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
 
       {/* Row 2: Search + filters + view controls */}
       <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-[#fef9f3]/60 dark:bg-[#1a1a1a]/20">
-        <div className="relative flex-1 min-w-0 max-w-[14rem]">
+        <div className="relative flex-1 min-w-0 sm:max-w-[14rem]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
             type="text"
@@ -184,8 +184,8 @@ export default function DocumentsToolbar(props: DocumentsToolbarProps) {
           )}
         </div>
 
-        {/* View toggle */}
-        <div className="flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
+        {/* View toggle (hidden on small screens — card view is forced) */}
+        <div className="hidden sm:flex items-center gap-px rounded-md bg-[#f5ede3]/80 dark:bg-[#2d2618]/60 p-0.5">
           <button
             onClick={() => onViewModeChange("table")}
             className={cn("p-1 rounded transition-all", viewMode === "table" ? "bg-white dark:bg-[#1a1a1a] shadow-sm text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 hover:text-gray-600")}

@@ -221,7 +221,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                     {hasChildren ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleExpand(doc.id); }}
-                        className="shrink-0 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="shrink-0 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         aria-label={isExpanded ? "Collapse variants" : "Expand variants"}
                       >
                         <ChevronRight className={cn("w-3.5 h-3.5 text-gray-300 dark:text-gray-600 transition-transform", isExpanded && "rotate-90")} />

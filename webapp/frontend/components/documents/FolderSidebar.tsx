@@ -98,7 +98,7 @@ function FolderTreeItem({
       <div
         ref={setDropRef}
         className={cn(
-          "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer text-sm transition-all duration-150",
+          "group/folder flex items-center gap-2 px-2 py-1.5 md:py-1 [@media(pointer:coarse)]:py-2 rounded-lg cursor-pointer text-sm transition-all duration-150",
           isOver
             ? "ring-2 ring-[#a0704b] bg-[#f5ede3] dark:bg-[#2d2618]"
             : isActive

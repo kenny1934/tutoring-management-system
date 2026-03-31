@@ -27,6 +27,7 @@ import TagPopover from "@/components/documents/TagPopover";
 import CreateDocumentModal from "@/components/documents/CreateDocumentModal";
 import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
 import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Document, DocumentFolder } from "@/types";
 
 function DraggableCard({ doc, selectedIds, disabled, children, className, onClick, onDoubleClick }: {
@@ -72,6 +73,7 @@ export default function DocumentsPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { isReadOnly } = useAuth();
+  const isSmallScreen = useIsMobile(640); // sm breakpoint — force card view below
 
   // --- Filter / navigation state ---
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "recent" | "templates" | "trash">("all");
@@ -724,7 +726,7 @@ export default function DocumentsPage() {
           )}
 
           <div className="flex-1 overflow-y-auto">
-            {viewMode === "table" ? (
+            {viewMode === "table" && !isSmallScreen ? (
               <DocumentsTable
                 documents={documents ?? []}
                 isLoading={isLoading}
@@ -772,7 +774,7 @@ export default function DocumentsPage() {
                         onClick={(e) => handleDocClick(doc.id, e)}
                         onDoubleClick={() => router.push(`/documents/${doc.id}`)}
                         className={cn(
-                          "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
+                          "group relative rounded-xl border border-l-[3px] p-3 sm:p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
                           selectedIds.has(doc.id) && "ring-2 ring-[#a0704b]/50 ring-offset-1",
                           "border-l-[#a0704b]/40",
                           doc.is_archived && !isTrashTab
