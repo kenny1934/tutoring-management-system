@@ -556,24 +556,6 @@ export default function BuddyTrackerPage() {
     setConfirmDialog({ type: "unlink", memberId: id, memberName: name });
   }, []);
 
-  // Build overflow menu items for a member (shared across all views)
-  const buildOverflowItems = useCallback((m: BuddyMember, opts?: { onEdit?: () => void }): OverflowMenuItem[] => {
-    const isSolo = m.group_size < 2;
-    const onEdit = opts?.onEdit ?? (() => startEdit(m));
-    if (isSolo) {
-      return [
-        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: onEdit },
-        { label: "Register new partner", icon: <UserPlus className="h-3.5 w-3.5" />, onClick: () => prefillBuddyCode(m.buddy_code) },
-        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => confirmDeleteMember(m.id, m.student_name_en), destructive: true },
-      ];
-    }
-    return [
-      { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: onEdit },
-      { label: "Remove from pair", icon: <UnlinkIcon className="h-3.5 w-3.5" />, onClick: () => confirmUnlinkMember(m.id, m.student_name_en), warning: true },
-      { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => confirmDeleteMember(m.id, m.student_name_en), destructive: true },
-    ];
-  }, [startEdit, prefillBuddyCode, confirmDeleteMember, confirmUnlinkMember]);
-
   // ---- Deduplicate and group members for display ----
   // The API returns own-branch members + cross-branch siblings in the same groups.
   // Deduplicate by id and only show own-branch members as main rows.
@@ -586,6 +568,31 @@ export default function BuddyTrackerPage() {
       return m.source_branch === branch;
     });
   }, [members, branch]);
+
+  // Build overflow menu items for a member (shared across all views)
+  const buildOverflowItems = useCallback((m: BuddyMember, opts?: { onEdit?: () => void }): OverflowMenuItem[] => {
+    const isSolo = m.group_size < 2;
+    const onEdit = opts?.onEdit ?? (() => startEdit(m));
+    if (isSolo) {
+      return [
+        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: onEdit },
+        { label: "Register new partner", icon: <UserPlus className="h-3.5 w-3.5" />, onClick: () => prefillBuddyCode(m.buddy_code) },
+        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => confirmDeleteMember(m.id, m.student_name_en), destructive: true },
+      ];
+    }
+    // Only allow unlinking the member who joined later — the original member's
+    // code was already shared with families and should stay with them.
+    const isOriginal = !ownMembers.some(
+      other => other.id !== m.id
+        && other.buddy_group_id === m.buddy_group_id
+        && other.created_at < m.created_at
+    );
+    return [
+      { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: onEdit },
+      ...(!isOriginal ? [{ label: "Remove from pair", icon: <UnlinkIcon className="h-3.5 w-3.5" />, onClick: () => confirmUnlinkMember(m.id, m.student_name_en), warning: true }] : []),
+      { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => confirmDeleteMember(m.id, m.student_name_en), destructive: true },
+    ];
+  }, [startEdit, prefillBuddyCode, confirmDeleteMember, confirmUnlinkMember, ownMembers]);
 
   const filteredMembers = useMemo(() => {
     let list = ownMembers;
