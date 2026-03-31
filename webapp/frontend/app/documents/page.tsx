@@ -111,7 +111,7 @@ export default function DocumentsPage() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number; title?: string } | { type: "delete-bulk" } | { type: "empty-trash" } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number; title?: string } | { type: "delete-bulk" } | { type: "empty-trash" } | { type: "delete-folder"; folder: DocumentFolder } | { type: "delete-tag"; tag: string; count: number } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
   const sort = SORT_OPTIONS[sortIdx];
@@ -460,9 +460,17 @@ export default function DocumentsPage() {
     catch (err) { showToast((err as Error).message, "error"); }
   }, [mutate, mutateTags, showToast]);
 
-  const handleDeleteTag = useCallback(async (tag: string) => {
+  const handleDeleteTag = useCallback((tag: string) => {
+    const count = tagCounts[tag] ?? 0;
+    setConfirmAction({ type: "delete-tag", tag, count });
+  }, [tagCounts]);
+
+  const executeDeleteTag = useCallback(async (tag: string) => {
+    setConfirmLoading(true);
     try { await documentsAPI.deleteTag(tag); mutate(); mutateTags(); setActiveTags(prev => prev.filter(t => t !== tag)); showToast(`Tag "${tag}" removed`, "success"); }
     catch (err) { showToast((err as Error).message, "error"); }
+    setConfirmLoading(false);
+    setConfirmAction(null);
   }, [mutate, mutateTags, showToast]);
   const executeDeleteFolder = useCallback(async (folder: DocumentFolder) => {
     setConfirmLoading(true);
@@ -925,6 +933,7 @@ export default function DocumentsPage() {
           if (confirmAction.type === "empty-trash") executeEmptyTrash();
           else if (confirmAction.type === "delete-bulk") executeBulkDelete();
           else if (confirmAction.type === "delete-doc") executePermanentDelete(confirmAction.id);
+          else if (confirmAction.type === "delete-tag") executeDeleteTag(confirmAction.tag);
           else executeDeleteFolder(confirmAction.folder);
         }}
         title={confirmAction?.type === "empty-trash"
@@ -933,6 +942,8 @@ export default function DocumentsPage() {
           ? `Delete ${selectedIds.size} Document(s) Permanently`
           : confirmAction?.type === "delete-doc"
           ? `Delete "${confirmAction.title || "Untitled"}" Permanently`
+          : confirmAction?.type === "delete-tag"
+          ? `Delete tag "${confirmAction.tag}"?`
           : "Delete Folder"}
         message={confirmAction?.type === "empty-trash"
           ? "Permanently delete all items in Trash? This cannot be undone."
@@ -940,6 +951,8 @@ export default function DocumentsPage() {
           ? `Permanently delete ${selectedIds.size} document(s)? This cannot be undone.`
           : confirmAction?.type === "delete-doc"
           ? "This document and all its version history will be permanently deleted."
+          : confirmAction?.type === "delete-tag"
+          ? `This will remove the tag from ${confirmAction.count} document${confirmAction.count !== 1 ? "s" : ""}.`
           : confirmAction?.type === "delete-folder"
           ? `Delete folder "${confirmAction.folder.name}"?`
           : ""}
@@ -949,7 +962,7 @@ export default function DocumentsPage() {
           : (confirmAction?.type === "delete-bulk" || confirmAction?.type === "empty-trash") ? ["All version history will be lost", "This cannot be undone"]
           : undefined
         }
-        confirmText="Delete Forever"
+        confirmText={confirmAction?.type === "delete-tag" ? "Delete Tag" : "Delete Forever"}
         variant="danger"
         loading={confirmLoading}
       />

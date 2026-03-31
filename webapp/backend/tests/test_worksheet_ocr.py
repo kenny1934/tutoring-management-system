@@ -242,8 +242,7 @@ class TestImportWorksheetEndpoint:
         data = resp.json()
         assert data["title"] == "My Worksheet"
         assert data["doc_type"] == "worksheet"
-        assert "imported" in data["tags"]
-        assert "ocr" in data["tags"]
+        assert data["tags"] == ["imported"]
         assert data["source_filename"] == "Center\\Math\\test.pdf"
         assert data["usage"] == {"input_tokens": 500, "output_tokens": 100}
 

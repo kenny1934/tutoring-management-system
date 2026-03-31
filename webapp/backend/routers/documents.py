@@ -1070,7 +1070,7 @@ async def import_worksheet(
         content=tiptap_content,
         search_text=_extract_search_text(tiptap_content),
         page_layout=template_layout,
-        tags=["imported", "ocr"],
+        tags=["imported"],
         folder_id=folder_id,
         is_template=False,
         source_filename=source_path.strip() or file.filename,
