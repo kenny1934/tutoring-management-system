@@ -860,7 +860,7 @@ export default function BuddyTrackerPage() {
             className="block w-full text-center py-2.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors animate-slide-up"
             style={{ animationDelay: `${BRANCHES.length * 50}ms`, animationFillMode: "backwards" }}
           >
-            All Branches (Admin)
+            All Branches
           </a>
         </div>
       </div>
