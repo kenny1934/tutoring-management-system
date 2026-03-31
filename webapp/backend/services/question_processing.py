@@ -435,20 +435,25 @@ def apply_solutions_to_content(
     nodes = list(content.get("content", []))
     result_map = {r["index"]: r for r in results}
 
-    # Re-derive question boundaries from the live document nodes
-    # (stored boundaries go stale after answerSection inserts)
-    h3_positions: list[int] = []
+    # Match question boundaries by heading label text (not positional index).
+    # This handles reordered questions and non-question h3 headings correctly.
+    from services.question_extraction import _extract_text
+
+    h3_by_label: dict[str, int] = {}
+    h3_ordered: list[int] = []
     for i, node in enumerate(nodes):
         if node.get("type") == "heading" and node.get("attrs", {}).get("level") == 3:
-            h3_positions.append(i)
+            h3_ordered.append(i)
+            h3_by_label[_extract_text(node).strip()] = i
 
-    # Map question index → (start, end) from live h3 positions
-    boundaries: list[tuple[dict, int, int]] = []  # (question_dict, start, end)
-    for qi, q in enumerate(questions):
-        if qi >= len(h3_positions):
-            break
-        start = h3_positions[qi]
-        end = h3_positions[qi + 1] if qi + 1 < len(h3_positions) else len(nodes)
+    boundaries: list[tuple[dict, int, int]] = []
+    for q in questions:
+        qlabel = q.get("label", "").strip()
+        start = h3_by_label.get(qlabel)
+        if start is None:
+            continue
+        idx = h3_ordered.index(start)
+        end = h3_ordered[idx + 1] if idx + 1 < len(h3_ordered) else len(nodes)
         boundaries.append((q, start, end))
 
     # Process in reverse order so insertions don't shift later indices
@@ -471,8 +476,8 @@ def apply_solutions_to_content(
             nodes.pop(existing_pos)
             end -= 1
 
-        label_match = _LABEL_NUM_RE.match(q_meta.get("label", ""))
-        label = label_match.group(1) if label_match else ""
+        # Preserve full label (e.g. "2(a)") instead of extracting only leading digit
+        label = q_meta.get("label", "").strip().rstrip(".")
 
         answer_node = _build_answer_section(r["solution_nodes"], label=label)
 
@@ -502,9 +507,8 @@ def build_variant_document(
         if not r.get("variant_nodes"):
             continue
 
-        # Question heading
-        label_match = _LABEL_NUM_RE.match(r.get("label", ""))
-        number = label_match.group(1) if label_match else str(r["index"] + 1)
+        # Question heading — preserve full label (e.g. "2(a)")
+        number = r.get("label", "").strip().rstrip(".") or str(r["index"] + 1)
         doc_nodes.append({
             "type": "heading",
             "attrs": {"level": 3},

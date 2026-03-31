@@ -2874,14 +2874,11 @@ html {
   color: #a0704b;
 }
 
-/* Answer Section — floating collapsible overlay */
+/* Answer Section — inline collapsible block */
 .answer-section-wrapper {
   position: relative;
   display: block;
   margin: 0.25em 0;
-}
-.answer-section-wrapper:hover {
-  z-index: 2;
 }
 
 /* Alignment button strip */
@@ -2893,7 +2890,9 @@ html {
   pointer-events: none;
   transition: opacity 0.15s;
 }
-.answer-section-wrapper:hover .answer-align-buttons {
+.answer-section-wrapper:hover .answer-align-buttons,
+.answer-section-wrapper:focus-within .answer-align-buttons,
+.answer-section-wrapper.ProseMirror-selectednode .answer-align-buttons {
   opacity: 1;
   pointer-events: auto;
 }
@@ -2978,9 +2977,15 @@ html {
   opacity: 0;
   pointer-events: none;
 }
-.answer-section-wrapper:hover .answer-label-btn {
+.answer-section-wrapper:hover .answer-label-btn,
+.answer-section-wrapper:focus-within .answer-label-btn,
+.answer-section-wrapper.ProseMirror-selectednode .answer-label-btn {
   opacity: 1;
   pointer-events: auto;
+}
+.answer-section-wrapper button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 .answer-label-btn:hover {
   color: #a0704b;
@@ -3002,17 +3007,13 @@ html {
 
 .answer-float-content {
   display: none;
-  position: absolute;
-  left: 0;
-  top: calc(100% + 4px);
-  z-index: 20;
+  margin-top: 4px;
   background: white;
   border: 1.5px solid #a0704b;
   border-radius: 6px;
   padding: 8px 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   min-width: 200px;
-  max-width: 90%;
 }
 .answer-float-content.answer-float-open {
   display: block;
