@@ -520,10 +520,6 @@ def lookup_group(
     from datetime import datetime
     group = _lookup_group_by_code(db, code, year_filter=datetime.now().year)
     members = _get_group_members(db, group.id)
-    # Strip student_id for members from other branches (privacy)
-    for m in members:
-        if m.branch != branch:
-            m.student_id = None
     return BuddyGroupLookupResponse(
         buddy_code=group.buddy_code,
         year=group.year,
