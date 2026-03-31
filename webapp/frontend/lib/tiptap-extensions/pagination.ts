@@ -8,7 +8,8 @@ import {
   calculateBreakPositions,
   calculateChromePositions,
   calculatePageEndPadding,
-  createPrintPageBreak,
+  createPrintFooter,
+  createPrintHeader,
   estimateHFHeightPx,
   type PaginationConfig,
   type PageBreakInfo,
@@ -191,20 +192,34 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
                 })
               );
 
-              // 2. Print-only Widget Decoration: contains footer, break-trigger, header
-              //    Hidden on screen (display:none), shown only in print CSS.
-              const printElement = createPrintPageBreak({
+              // 2. Print-only Widget Decorations: separate footer and header elements.
+              //    Split into two widgets so break-after:page is on a top-level element
+              //    (not nested inside a transitioning parent — Chromium bug #41166263).
+              const breakConfig = {
                 pageNumber: brk.pageNumber,
                 nextPageNumber: brk.pageNumber + 1,
                 totalPages,
                 docTitle: docTitle || "",
                 metadata,
                 isExplicitBreak: brk.isExplicitBreak,
-              });
+                remainingPx: brk.remainingPx,
+              };
+
+              // Footer widget (side: -2 — renders before header widget)
+              const footerEl = createPrintFooter(breakConfig);
               decorations.push(
-                Decoration.widget(brk.pos, printElement, {
+                Decoration.widget(brk.pos, footerEl, {
+                  side: -2,
+                  key: `print-footer-${brk.pos}-${brk.pageNumber}-${hfKey}`,
+                })
+              );
+
+              // Header widget (side: -1 — renders after footer, before content)
+              const headerEl = createPrintHeader(breakConfig);
+              decorations.push(
+                Decoration.widget(brk.pos, headerEl, {
                   side: -1,
-                  key: `print-pb-${brk.pos}-${brk.pageNumber}-${hfKey}`,
+                  key: `print-header-${brk.pos}-${brk.pageNumber}-${hfKey}`,
                 })
               );
             }

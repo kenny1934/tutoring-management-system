@@ -800,8 +800,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         return false;
       },
     },
-    onUpdate: () => {
-      setSaveState("unsaved");
+    onUpdate: ({ transaction }) => {
+      if (transaction.docChanged) setSaveState("unsaved");
     },
   });
 
@@ -880,7 +880,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       const target = e.target as HTMLElement;
       // Skip images inside pagination decorations to avoid infinite recalculation loop
       if (!(target instanceof HTMLImageElement)) return;
-      if (target.closest(".print-page-break") || target.closest(".page-chrome-overlay")) return;
+      if (target.closest(".print-page-footer") || target.closest(".print-page-header") || target.closest(".page-chrome-overlay")) return;
       const { tr } = editor.state;
       tr.setMeta(paginationPluginKey, { __forceRecalc: true });
       tr.setMeta("addToHistory", false);
@@ -1231,6 +1231,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     bottom: docMetadata?.margins?.bottom ?? 25.4,
     left: docMetadata?.margins?.left ?? 25.4,
   };
+
   if (!editor) return null;
 
   return (

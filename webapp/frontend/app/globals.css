@@ -3178,7 +3178,8 @@ body.student-print .print-answer-key {
   padding-bottom: 0 !important;
 }
 /* Print-only Widget Decorations — hidden on screen, shown in print CSS */
-.print-page-break {
+.print-page-footer,
+.print-page-header {
   display: none !important;
 }
 
@@ -3232,10 +3233,6 @@ body.student-print .print-answer-key {
   box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.12);
 }
 
-/* Page break trigger (invisible, Chrome breaks here in print) */
-.page-break-trigger {
-  /* break-after: page set via inline style */
-}
 
 /* ─── First-page header and last-page footer (React components) ───── */
 .first-page-header,
@@ -3509,29 +3506,32 @@ body.student-print .print-answer-key {
     break-inside: avoid;
   }
 
-  /* 5. Explicit page-break nodes */
+  /* 5. Explicit page-break nodes — hidden in print; the print-page-footer
+     widget (which appears after this node in DOM) handles the actual break-after:page */
   .document-page .page-break-node {
     visibility: hidden !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
-    break-after: page;
   }
 
-  /* 6. Node Decorations — remove padding-bottom in print (CSS @page handles breaks) */
+  /* 6. Node Decorations — remove screen padding in print (footer margin-top handles spacing) */
   .page-end {
     padding-bottom: 0 !important;
   }
 
-  /* 7. Print-only Widget Decorations — shown in print for page breaks and headers/footers */
-  .print-page-break {
+  /* 7. Print-only Widget Decorations — shown in print for page breaks and headers/footers.
+     Split into separate footer/header elements so break-after:page is on a top-level
+     block element (Chromium bug #41166263 ignores break props inside flex/transitioning parents). */
+  .print-page-footer {
     display: block !important;
     background: white !important;
-  }
-  .page-break-trigger {
     break-after: page;
-    height: 0 !important;
+  }
+  .print-page-header {
+    display: block !important;
+    background: white !important;
   }
 
   /* 8. Page chrome overlay — hidden in print (print-only Widgets handle headers/footers) */

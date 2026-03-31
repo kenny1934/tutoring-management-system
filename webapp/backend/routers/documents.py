@@ -692,11 +692,6 @@ async def lock_document(
         locker_name = doc.locker.tutor_name if doc.locker else "another user"
         raise HTTPException(status_code=409, detail=f"Document is locked by {locker_name}")
 
-    # New lock acquisition (not just a refresh) → session_start version
-    is_new_lock = not _is_lock_active(doc) or doc.locked_by != current_user.id
-    if is_new_lock and doc.content:
-        _maybe_create_auto_version(db, doc, current_user.id, version_type="session_start")
-
     # Acquire or refresh lock
     doc.locked_by = current_user.id
     doc.lock_expires_at = now + LOCK_DURATION

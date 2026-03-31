@@ -340,54 +340,59 @@ export interface PrintBreakConfig {
   metadata: DocumentMetadata | null;
   /** If true, skip the break-trigger div (the explicit pageBreak node handles it) */
   isExplicitBreak?: boolean;
+  /** Remaining px on the page after content — used as margin-top to push footer to page bottom in print */
+  remainingPx?: number;
 }
 
 /**
- * Create a minimal DOM element for print-only Widget Decorations.
- * These are hidden on screen (display:none) and shown only in print CSS.
- * Contains: footer of ending page, break-after:page trigger, header of next page.
- * No spacer, no gap, no watermark (those are handled by Node Decorations + React overlay on screen).
+ * Create a print-only footer widget for the ending page.
+ * For automatic breaks, `break-after: page` is set ON THIS element (not a child)
+ * — the canonical pattern Chrome reliably honors (Chromium bug #41166263 ignores
+ * break props on children of flex containers or transitioning parents).
  */
-export function createPrintPageBreak(config: PrintBreakConfig): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "print-page-break not-prose";
-  wrapper.contentEditable = "false";
+export function createPrintFooter(config: PrintBreakConfig): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "print-page-footer not-prose";
+  el.contentEditable = "false";
 
-  // 1. Footer of current (ending) page
-  const footer = document.createElement("div");
-  footer.className = "page-footer-content";
+  // break-after:page is handled by the .print-page-footer CSS class rule in @media print
+  // (Chrome silently strips break-after from inline styles — must be in stylesheet).
+  // margin-top pushes footer to page bottom in print (element is display:none on screen, so no effect).
+  const marginTop = Math.max(0, config.remainingPx ?? 0);
   if (config.metadata?.footer?.enabled) {
     const fSize = config.metadata.footer.fontSize ?? 9;
     const fFont = buildHFontFamily(config.metadata.footer.fontFamily, config.metadata.footer.fontFamilyCjk);
     const fFontCss = fFont ? `font-family:${fFont};` : "";
-    footer.style.cssText = `padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
+    el.style.cssText = `margin-top:${marginTop}px;padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
     const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber, config.totalPages);
-    footer.appendChild(footerContent);
-  }
-  wrapper.appendChild(footer);
-
-  // 2. Page break trigger (skipped for explicit pageBreak nodes — they already have break-after:page)
-  if (!config.isExplicitBreak) {
-    const trigger = document.createElement("div");
-    trigger.className = "page-break-trigger";
-    trigger.style.cssText = "break-after:page;height:0;overflow:hidden;";
-    wrapper.appendChild(trigger);
+    el.appendChild(footerContent);
+  } else {
+    el.style.cssText = `margin-top:${marginTop}px;`;
   }
 
-  // 3. Header of next page
-  const header = document.createElement("div");
-  header.className = "page-header-content";
+  return el;
+}
+
+/**
+ * Create a print-only header widget for the next page.
+ * Placed after the footer widget — naturally starts on the new page
+ * after the footer's `break-after: page`.
+ */
+export function createPrintHeader(config: PrintBreakConfig): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "print-page-header not-prose";
+  el.contentEditable = "false";
+
   if (config.metadata?.header?.enabled) {
     const hSize = config.metadata.header.fontSize ?? 9;
     const hFont = buildHFontFamily(config.metadata.header.fontFamily, config.metadata.header.fontFamilyCjk);
     const hFontCss = hFont ? `font-family:${hFont};` : "";
-    header.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
+    el.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
     const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber, config.totalPages);
-    header.appendChild(headerContent);
+    el.appendChild(headerContent);
   }
-  wrapper.appendChild(header);
 
-  return wrapper;
+  return el;
 }
 
 // ─── DOM helper for print header/footer content ─────────────────────
