@@ -10,14 +10,15 @@
  *   - With Answers: answer content hidden inline; collected into Answer Key at end
  *   - Questions Only: body.student-print hides toggles + answer key via CSS
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Node as TipTapNode } from "@tiptap/core";
 import type { Editor } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import {
   ChevronRight, ChevronDown, KeyRound, GripVertical,
-  AlignLeft, AlignCenter, AlignRight, PanelLeft, PanelRight,
+  AlignLeft, AlignCenter, AlignRight, PanelLeft, PanelRight, Trash2,
 } from "lucide-react";
 
 declare module "@tiptap/core" {
@@ -54,7 +55,22 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
   const align = node.attrs.align as string;
   const label = (node.attrs.label as string) || "";
   const [editingLabel, setEditingLabel] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isEditable = editor.isEditable;
+
+  const deleteNode = useCallback(() => {
+    const pos = getPos?.();
+    if (pos === undefined) return;
+    editor.commands.setNodeSelection(pos);
+    editor.commands.deleteSelection();
+  }, [getPos, editor]);
+
+  // Empty paragraph = 4 ProseMirror units (node open/close + paragraph open/close)
+  const EMPTY_CONTENT_SIZE = 4;
+  const handleDelete = useCallback(() => {
+    if (node.content.size > EMPTY_CONTENT_SIZE) { setConfirmDelete(true); return; }
+    deleteNode();
+  }, [node, deleteNode]);
 
   useEffect(() => {
     if (!getPos) return;
@@ -122,6 +138,16 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
                 <Icon className="answer-align-icon" />
               </button>
             ))}
+            <button
+              type="button"
+              className="answer-delete-btn"
+              disabled={!isEditable}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleDelete}
+              title="Delete answer section"
+            >
+              <Trash2 className="answer-align-icon" />
+            </button>
           </div>
         </div>
       </div>
@@ -138,6 +164,15 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
       >
         <NodeViewContent className="answer-float-inner" />
       </div>
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onConfirm={() => { setConfirmDelete(false); deleteNode(); }}
+        onCancel={() => setConfirmDelete(false)}
+        title="Delete answer section?"
+        message="This answer section has content that will be lost."
+        confirmText="Delete"
+        variant="danger"
+      />
     </NodeViewWrapper>
   );
 }
@@ -153,33 +188,31 @@ function isCollapsedAt(editor: Editor, pos: number): boolean {
   return false;
 }
 
-function skipIfCollapsedAfter(editor: Editor): boolean {
+/** Find a collapsed answerSection after the cursor's top-level block. Returns its start position or null. */
+function findCollapsedAfter(editor: Editor): { pos: number; size: number } | null {
   const { $from } = editor.state.selection;
-  if ($from.depth < 1) return false;
+  if ($from.depth < 1) return null;
   const after = $from.after(1);
-  const nodeAfter = editor.state.doc.nodeAt(after);
-  if (nodeAfter?.type.name === "answerSection" && isCollapsedAt(editor, after)) {
-    editor.commands.setTextSelection(after + nodeAfter.nodeSize);
-    return true;
+  const node = editor.state.doc.nodeAt(after);
+  if (node?.type.name === "answerSection" && isCollapsedAt(editor, after)) {
+    return { pos: after, size: node.nodeSize };
   }
-  return false;
+  return null;
 }
 
-function skipIfCollapsedBefore(editor: Editor): boolean {
+/** Find a collapsed answerSection before the cursor's top-level block. Returns its start position or null. */
+function findCollapsedBefore(editor: Editor): { pos: number } | null {
   const { $from } = editor.state.selection;
-  if ($from.depth < 1) return false;
+  if ($from.depth < 1) return null;
   const before = $from.before(1);
-  if (before <= 0) return false;
+  if (before <= 0) return null;
   const resolved = editor.state.doc.resolve(before);
-  const nodeBefore = resolved.nodeBefore;
-  if (nodeBefore?.type.name === "answerSection") {
-    const startPos = before - nodeBefore.nodeSize;
-    if (isCollapsedAt(editor, startPos)) {
-      editor.commands.setTextSelection(startPos);
-      return true;
-    }
+  const node = resolved.nodeBefore;
+  if (node?.type.name === "answerSection") {
+    const startPos = before - node.nodeSize;
+    if (isCollapsedAt(editor, startPos)) return { pos: startPos };
   }
-  return false;
+  return null;
 }
 
 // ─── Extension definition ────────────────────────────────────────────
@@ -216,7 +249,14 @@ export const AnswerSection = TipTapNode.create({
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-type="answer-section"]' }];
+    return [{
+      tag: 'div[data-type="answer-section"]',
+      // Reject nested answer sections — prevents paste-nesting which produces malformed print output
+      getAttrs: (element) => {
+        if ((element as HTMLElement).parentElement?.closest?.('div[data-type="answer-section"]')) return false;
+        return {};
+      },
+    }];
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -250,10 +290,11 @@ export const AnswerSection = TipTapNode.create({
   addKeyboardShortcuts() {
     return {
       "Mod-Shift-a": () => this.editor.commands.insertAnswerSection(),
-      ArrowRight: () => skipIfCollapsedAfter(this.editor),
-      ArrowDown:  () => skipIfCollapsedAfter(this.editor),
-      ArrowLeft:  () => skipIfCollapsedBefore(this.editor),
-      ArrowUp:    () => skipIfCollapsedBefore(this.editor),
+      // Arrow keys skip over collapsed answer sections
+      ArrowRight: () => { const f = findCollapsedAfter(this.editor); if (f) { this.editor.commands.setTextSelection(f.pos + f.size); return true; } return false; },
+      ArrowDown:  () => { const f = findCollapsedAfter(this.editor); if (f) { this.editor.commands.setTextSelection(f.pos + f.size); return true; } return false; },
+      ArrowLeft:  () => { const f = findCollapsedBefore(this.editor); if (f) { this.editor.commands.setTextSelection(f.pos); return true; } return false; },
+      ArrowUp:    () => { const f = findCollapsedBefore(this.editor); if (f) { this.editor.commands.setTextSelection(f.pos); return true; } return false; },
     };
   },
 

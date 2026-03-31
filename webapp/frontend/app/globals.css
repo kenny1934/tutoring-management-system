@@ -2874,11 +2874,14 @@ html {
   color: #a0704b;
 }
 
-/* Answer Section — inline collapsible block */
+/* Answer Section — floating collapsible overlay */
 .answer-section-wrapper {
   position: relative;
   display: block;
   margin: 0.25em 0;
+}
+.answer-section-wrapper:hover {
+  z-index: 2;
 }
 
 /* Alignment button strip */
@@ -2909,6 +2912,17 @@ html {
 .answer-align-icon { width: 11px; height: 11px; }
 .dark .answer-align-btn:hover { color: #cd853f; background: #2d2618; }
 .dark .answer-align-btn.answer-align-active { color: #cd853f; background: #2d2618; }
+.answer-delete-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #c4b5a3;
+  margin-left: 2px;
+  transition: color 0.15s, background 0.15s;
+}
+.answer-delete-btn:hover { color: #dc2626; background: #fef2f2; }
+.dark .answer-delete-btn:hover { color: #f87171; background: #2d1818; }
 
 .answer-section-header {
   display: inline-flex;
@@ -3007,13 +3021,17 @@ html {
 
 .answer-float-content {
   display: none;
-  margin-top: 4px;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
   background: white;
   border: 1.5px solid #a0704b;
   border-radius: 6px;
   padding: 8px 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   min-width: 200px;
+  max-width: 90%;
 }
 .answer-float-content.answer-float-open {
   display: block;
