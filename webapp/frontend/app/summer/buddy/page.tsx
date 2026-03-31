@@ -286,7 +286,7 @@ export default function BuddyTrackerPage() {
   } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "groups" | "board">("list");
+  const [viewMode, setViewMode] = useState<"list" | "groups" | "board">("board");
   const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete" | "cross-branch">("all");
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -1289,7 +1289,9 @@ export default function BuddyTrackerPage() {
                 <span className="hidden sm:inline">Copy codes</span>
               </button>
             )}
-            <div className="flex border-2 border-border rounded-xl overflow-hidden">
+            {/* View toggle hidden — defaulting to Board view for simplicity.
+                Kept intact so we can re-enable if needed. */}
+            {false && <div className="flex border-2 border-border rounded-xl overflow-hidden">
               <button
                 onClick={() => setViewMode("list")}
                 className={`px-2 py-2 transition-colors flex items-center gap-1 ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
@@ -1314,7 +1316,7 @@ export default function BuddyTrackerPage() {
                 <Columns className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline text-[10px] font-medium">Board</span>
               </button>
-            </div>
+            </div>}
           </div>
         </div>
       )}
