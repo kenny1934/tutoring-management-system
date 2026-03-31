@@ -405,15 +405,14 @@ class TestGroupLookup:
         assert data["buddy_code"] == member["buddy_code"]
         assert data["total_size"] == 1
 
-    def test_lookup_strips_cross_branch_student_id(self, client):
-        """Cross-branch members should have student_id=None in lookup response."""
+    def test_lookup_preserves_cross_branch_student_id(self, client):
+        """Cross-branch members should retain student_id in lookup response."""
         mac = create_member(client, branch=BRANCH, student_id="1001")
         create_member(
             client, branch=OTHER_BRANCH, student_id="2001",
             student_name_en="Sibling", buddy_code=mac["buddy_code"], is_sibling=True,
         )
 
-        # Look up from MAC — MCP member should have student_id stripped
         resp = client.get(
             f"{API}/groups/{mac['buddy_code']}?branch={BRANCH}",
             headers=pin_headers(),
@@ -422,7 +421,7 @@ class TestGroupLookup:
         assert data["total_size"] == 2
         for m in data["members"]:
             if m["branch"] == OTHER_BRANCH:
-                assert m["student_id"] is None
+                assert m["student_id"] == "2001"
             else:
                 assert m["student_id"] == "1001"
 
