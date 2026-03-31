@@ -232,14 +232,12 @@ export default function BuddyTrackerPage() {
   }, []);
   const [formStudentId, setFormStudentId] = useState("");
   const [formNameEn, setFormNameEn] = useState("");
-  const [formNameZh, setFormNameZh] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formBuddyCode, setFormBuddyCode] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [formTouched, setFormTouched] = useState(false);
-  const [showChineseName, setShowChineseName] = useState(false);
 
   // Buddy code lookup
   const [lookupResult, setLookupResult] = useState<BuddyGroupLookup | null>(null);
@@ -410,7 +408,7 @@ export default function BuddyTrackerPage() {
       const result = await buddyTrackerAPI.create({
         student_id: formStudentId.trim(),
         student_name_en: formNameEn.trim(),
-        student_name_zh: formNameZh.trim() || null,
+        student_name_zh: null,
         parent_phone: formPhone.trim() || null,
         source_branch: branch,
         year: CURRENT_YEAR,
@@ -421,7 +419,6 @@ export default function BuddyTrackerPage() {
       const wasJoining = !!formBuddyCode.trim();
       setFormStudentId("");
       setFormNameEn("");
-      setFormNameZh("");
       setFormPhone("");
       setFormBuddyCode("");
       setFormTouched(false);
@@ -457,7 +454,7 @@ export default function BuddyTrackerPage() {
     } finally {
       setFormSubmitting(false);
     }
-  }, [branch, formStudentId, formNameEn, formNameZh, formPhone, formBuddyCode, isGroupFull, hasAnyOtherBranch, siblingConfirmed, swrKey]);
+  }, [branch, formStudentId, formNameEn, formPhone, formBuddyCode, isGroupFull, hasAnyOtherBranch, siblingConfirmed, swrKey]);
 
   // ---- Edit / Delete ----
   const startEdit = useCallback((m: BuddyMember) => {
@@ -937,9 +934,9 @@ export default function BuddyTrackerPage() {
           {ownMembers.length > 0 && (
             <button
               onClick={() => {
-                const header = "Student ID,English Name,Chinese Name,Phone,Buddy Code,Group Size,Status,Created";
+                const header = "Student ID,Name,Phone,Buddy Code,Group Size,Status,Created";
                 const rows = displayMembers.map(m =>
-                  [m.student_id, m.student_name_en, m.student_name_zh || "", m.parent_phone || "", m.buddy_code, m.group_size, m.group_size >= 2 ? "Paired" : "Solo", m.created_at.split("T")[0]]
+                  [m.student_id, m.student_name_en, m.parent_phone || "", m.buddy_code, m.group_size, m.group_size >= 2 ? "Paired" : "Solo", m.created_at.split("T")[0]]
                     .map(v => `"${String(v).replace(/"/g, '""')}"`)
                     .join(","));
                 const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
@@ -1099,7 +1096,7 @@ export default function BuddyTrackerPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">English Name <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Name <span className="text-red-500">*</span></label>
                   <input
                     value={formNameEn}
                     onChange={(e) => { setFormNameEn(e.target.value); setFormSuccess(null); }}
@@ -1110,33 +1107,6 @@ export default function BuddyTrackerPage() {
                     <p className="text-[10px] text-red-500 mt-0.5">Please enter the student's name</p>
                   )}
                 </div>
-                {(showChineseName || formNameZh) ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-medium text-muted-foreground">Chinese Name</label>
-                      {!formNameZh && (
-                        <button type="button" onClick={() => setShowChineseName(false)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                          Hide
-                        </button>
-                      )}
-                    </div>
-                    <input
-                      value={formNameZh}
-                      onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
-                      className={inputCls}
-                      placeholder="e.g. 蜜波比"
-                      autoFocus={showChineseName && !formNameZh}
-                    />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowChineseName(true)}
-                    className="text-xs text-primary hover:text-primary/80 transition-colors"
-                  >
-                    ＋ Add Chinese name
-                  </button>
-                )}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
                   <input
@@ -1265,7 +1235,7 @@ export default function BuddyTrackerPage() {
                   )}
                   <div className="flex gap-3 w-full">
                     <button
-                      onClick={() => { setFormSuccess(null); setShowChineseName(false); setTimeout(() => studentIdRef.current?.focus(), 100); }}
+                      onClick={() => { setFormSuccess(null); setTimeout(() => studentIdRef.current?.focus(), 100); }}
                       className="flex-1 py-2 text-xs font-medium border-2 border-border rounded-xl hover:bg-muted transition-colors"
                     >
                       Add Another
@@ -1436,7 +1406,7 @@ export default function BuddyTrackerPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                       <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
-                      {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
+
                       {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
                       {m.is_sibling && <SiblingBadge />}
                     </div>
@@ -1478,7 +1448,7 @@ export default function BuddyTrackerPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                             <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
-                            {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
+      
                             {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
                             {m.is_sibling && <SiblingBadge />}
                             <div className="ml-auto shrink-0">
@@ -1548,7 +1518,7 @@ export default function BuddyTrackerPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-[10px] text-muted-foreground">{soloMember.student_id}</span>
                           <span className="font-medium text-sm">{soloMember.student_name_en}</span>
-                          {soloMember.student_name_zh && <span className="text-xs text-muted-foreground">{soloMember.student_name_zh}</span>}
+
                           {soloMember.is_sibling && <SiblingBadge />}
                         </div>
                         {soloMember.parent_phone && (
@@ -1598,7 +1568,7 @@ export default function BuddyTrackerPage() {
                             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                               <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{m.student_id}</span>
                               <span className="font-medium">{m.student_name_en}</span>
-                              {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+
                               {m.is_sibling && <SiblingBadge />}
                               {m.parent_phone && <span className="text-muted-foreground">{m.parent_phone}</span>}
                               <div className="ml-auto shrink-0">
@@ -1838,7 +1808,7 @@ function DesktopRow({
         <td className="px-4 py-2.5 font-mono text-[10px]">{m.student_id}</td>
         <td className="px-4 py-2.5">
           <span className="font-medium">{m.student_name_en}</span>
-          {m.student_name_zh && <span className="text-muted-foreground ml-1.5">{m.student_name_zh}</span>}
+
           {m.is_sibling && <SiblingBadge />}
         </td>
         <td className="px-4 py-2.5 text-muted-foreground">{m.parent_phone || "—"}</td>
@@ -1909,7 +1879,7 @@ function MobileCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{m.student_name_en}</span>
-            {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
+
             {m.is_sibling && <SiblingBadge />}
           </div>
           <div className="flex items-center gap-1.5">
@@ -1994,19 +1964,15 @@ function EditForm({
   const phoneInvalid = touched && phoneVal.length > 0 && phoneVal.length !== 8;
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Student ID</label>
           <input value={editData.student_id || ""} onChange={(e) => onChange("student_id", e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} className={`${inputSmall} ${idInvalid ? "border-red-400" : ""}`} />
           {idInvalid && <p className="text-[10px] text-red-500 mt-0.5">Must be 4 digits</p>}
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground mb-1">English Name</label>
+          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Name</label>
           <input value={editData.student_name_en || ""} onChange={(e) => onChange("student_name_en", e.target.value)} className={inputSmall} />
-        </div>
-        <div>
-          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Chinese Name</label>
-          <input value={editData.student_name_zh || ""} onChange={(e) => onChange("student_name_zh", e.target.value)} className={inputSmall} />
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Phone</label>
