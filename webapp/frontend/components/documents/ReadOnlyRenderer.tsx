@@ -17,7 +17,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, Indent, LineSpacing } from "@/lib/tiptap-extensions";
+import { createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, Indent, LineSpacing } from "@/lib/tiptap-extensions";
 import { cn } from "@/lib/utils";
 import "katex/dist/katex.min.css";
 
@@ -86,7 +86,6 @@ const readOnlyExtensions = [
   Highlight.configure({ multicolor: true }),
   Link.configure({ openOnClick: false, HTMLAttributes: { class: "doc-link" } }),
   Mathematics.configure({ katexOptions: { throwOnError: false } }),
-  createMathInputRules(),
   createGeometryDiagramNode({}),
   ResizableImage.configure({
     inline: false,

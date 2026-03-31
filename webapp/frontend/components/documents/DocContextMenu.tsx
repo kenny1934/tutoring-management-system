@@ -95,7 +95,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden animate-menu-stagger"
       >
         <button
-          onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+          onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); close(); }}
           className={menuItemCls}
         >
           <Copy className="w-3.5 h-3.5" />
@@ -110,7 +110,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
         </button>
         {onSaveAsTemplate && (
           <button
-            onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
+            onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); close(); }}
             className={menuItemCls}
           >
             <Stamp className="w-3.5 h-3.5" />

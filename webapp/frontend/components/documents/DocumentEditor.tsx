@@ -333,30 +333,30 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     return null;
   });
   const lockAcquiredRef = useRef(false);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    heartbeatRef.current = setInterval(async () => {
+      try {
+        await documentsAPI.heartbeat(doc.id);
+      } catch {
+        lockAcquiredRef.current = false;
+        setLockedByOther("another user");
+        if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+      }
+    }, HEARTBEAT_INTERVAL);
+  }, [doc.id]);
 
   // Acquire lock on mount, release on unmount
   useEffect(() => {
-    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
     const acquireLock = async () => {
       try {
         await documentsAPI.lock(doc.id);
         lockAcquiredRef.current = true;
         setLockedByOther(null);
-
-        // Start heartbeat
-        heartbeatTimer = setInterval(async () => {
-          try {
-            await documentsAPI.heartbeat(doc.id);
-          } catch {
-            // Lost lock (expired or stolen)
-            lockAcquiredRef.current = false;
-            setLockedByOther("another user");
-            if (heartbeatTimer) clearInterval(heartbeatTimer);
-          }
-        }, HEARTBEAT_INTERVAL);
+        startHeartbeat();
       } catch (err: unknown) {
-        // 409 = locked by another user
         const msg = err instanceof Error ? err.message : "another user";
         setLockedByOther(msg.replace("Document is locked by ", ""));
       }
@@ -365,9 +365,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     acquireLock();
 
     return () => {
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
       if (lockAcquiredRef.current) {
-        // Release lock on unmount — keepalive survives tab close
         fetch(`/api/documents/${doc.id}/lock`, {
           method: "DELETE",
           credentials: "include",
@@ -376,7 +375,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         lockAcquiredRef.current = false;
       }
     };
-  }, [doc.id]);
+  }, [doc.id, startHeartbeat]);
 
   // Re-acquire lock when tab becomes visible after being hidden
   useEffect(() => {
@@ -386,6 +385,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           await documentsAPI.lock(doc.id);
           lockAcquiredRef.current = true;
           setLockedByOther(null);
+          startHeartbeat();
         } catch {
           // Still locked by someone else
         }
@@ -393,7 +393,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [doc.id]);
+  }, [doc.id, startHeartbeat]);
 
   const isReadOnly = roleReadOnly || lockedByOther !== null || doc.is_archived;
 
@@ -418,7 +418,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   }, [doc.id, onUpdate]);
 
   // Dropdown states — only one toolbar menu can be open at a time
-  type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | "orderedListStart" | null;
+  type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | "orderedListStart" | "lineSpacing" | null;
   const [activeMenu, setActiveMenu] = useState<MenuId>(null);
   const toggleMenu = (id: MenuId) => setActiveMenu(prev => prev === id ? null : id);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
@@ -806,14 +806,17 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     },
   });
 
-  const hasAnswerSections = useMemo(() => {
-    if (!editor) return false;
-    let found = false;
-    editor.state.doc.descendants((node) => {
-      if (node.type.name === "answerSection") { found = true; return false; }
-    });
-    return found;
-  }, [editor?.state.doc]);
+  const hasAnswerSections = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      if (!e) return false;
+      let found = false;
+      e.state.doc.descendants((node) => {
+        if (node.type.name === "answerSection") { found = true; return false; }
+      });
+      return found;
+    },
+  }) ?? false;
 
   useEffect(() => {
     editorInstanceRef.current = editor;

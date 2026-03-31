@@ -199,7 +199,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
 
                 {/* Metadata line */}
                 <div className="text-[11px] text-gray-400 dark:text-gray-500 mb-1.5">
-                  {doc.created_by_name} · {formatTimeAgo(doc.updated_at)}
+                  {doc.created_by_name}{doc.updated_at ? ` · ${formatTimeAgo(doc.updated_at)}` : ""}
                 </div>
 
                 {/* Tags + source */}
