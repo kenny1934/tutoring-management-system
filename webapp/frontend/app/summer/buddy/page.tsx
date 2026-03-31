@@ -68,7 +68,6 @@ function codeHue(code: string): number {
 }
 
 function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: string) => void; onClick?: () => void }) {
-  const hue = codeHue(code);
   const [popped, setPopped] = useState(false);
   const popTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleCopy = useCallback((c: string) => {
@@ -79,8 +78,7 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
   }, [onCopy]);
   return (
     <span
-      className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${popped ? "animate-pill-pop" : ""}`}
-      style={{ backgroundColor: `hsl(${hue} 40% 50% / 0.15)` }}
+      className={`inline-flex items-center gap-1 font-mono font-bold text-[11px] tracking-wider rounded-full px-2.5 py-0.5 bg-muted ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${popped ? "animate-pill-pop" : ""}`}
       onClick={(e) => { if (onClick) { e.stopPropagation(); onClick(); handleCopy(code); } }}
     >
       {code}
@@ -92,10 +90,8 @@ function CodePill({ code, onCopy, onClick }: { code: string; onCopy?: (code: str
 function relativeTime(dateStr: string): string {
   const days = daysAgo(dateStr);
   if (days === 0) return "Today";
-  if (days === 1) return "1 day";
-  if (days < 7) return `${days} days`;
-  const weeks = Math.floor(days / 7);
-  return weeks === 1 ? "1 wk" : `${weeks} wk`;
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
 }
 
 function CopyButton({ text, onCopy, large }: { text: string; onCopy?: (code: string) => void; large?: boolean }) {
@@ -1422,10 +1418,9 @@ export default function BuddyTrackerPage() {
                 {/* Status bar */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
-                  <GroupRing size={m.group_size} />
                   <CrossBranchIndicator members={m.group_members} currentBranch={m.source_branch} />
                   {waitDays >= 1 && (
-                    <span className={`text-[10px] ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`} title="Waiting for partner">
+                    <span className={`text-xs ${waitDays >= 3 ? "text-red-500 font-medium" : "text-amber-500"}`}>
                       {relativeTime(m.created_at)}
                     </span>
                   )}
@@ -1478,7 +1473,6 @@ export default function BuddyTrackerPage() {
               <div key={g.code} className="border-2 border-l-[3px] border-l-green-400 border-border rounded-xl p-3 bg-card">
                 <div className="flex items-center gap-2 mb-2">
                   <CodePill code={g.code} onCopy={handleCopyToast} />
-                  <GroupRing size={g.members.length + g.others.length} />
                   <CrossBranchIndicator members={g.others} currentBranch={branch!} />
                 </div>
                 <div className="space-y-2">
