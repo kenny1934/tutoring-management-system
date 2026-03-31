@@ -819,27 +819,34 @@ export default function BuddyTrackerPage() {
   // ============================================
   if (!validBranch) {
     return (
-      <div className="max-w-lg mx-auto py-4 animate-fade-in">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+      <div className="max-w-xl mx-auto py-4">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-8 sm:p-10 text-center space-y-6">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
             <Users className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-xl font-bold text-foreground">Summer Buddy Tracker</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage buddy groups for summer courses</p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-3">
-          {BRANCHES.map((b, i) => (
-            <a
-              key={b}
-              href={`${buddyBasePath}?branch=${b}`}
-              className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
-              style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
-            >
-              <span className={`w-2.5 h-2.5 rounded-full ${BRANCH_INFO[b]?.dot} opacity-80 group-hover:opacity-100 transition-opacity`} />
-              <span className="font-bold text-foreground text-sm">{b}</span>
-              <span className="text-xs text-muted-foreground/70 leading-tight">{BRANCH_INFO[b]?.district}</span>
-            </a>
-          ))}
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Summer Buddy Tracker</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage buddy groups for summer courses. Select your branch to begin.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {BRANCHES.map((b, i) => {
+              const info = BRANCH_INFO[b];
+              return (
+                <a
+                  key={b}
+                  href={`${buddyBasePath}?branch=${b}`}
+                  className="group flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-200 animate-slide-up w-28"
+                  style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${info?.dot} opacity-60 group-hover:opacity-100 transition-opacity`} />
+                  <span className="font-bold text-foreground text-sm">{b}</span>
+                  <span className="text-[10px] text-muted-foreground/70 leading-tight">{info?.district}</span>
+                </a>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
