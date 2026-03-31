@@ -1987,13 +1987,19 @@ function EditForm({
   onChange: (field: string, value: string) => void;
   onSave: () => void; onCancel: () => void;
 }) {
+  const [touched, setTouched] = useState(false);
   const inputSmall = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
+  const idVal = (editData.student_id || "").trim();
+  const phoneVal = (editData.parent_phone || "").trim();
+  const idInvalid = touched && idVal.length > 0 && idVal.length !== 4;
+  const phoneInvalid = touched && phoneVal.length > 0 && phoneVal.length !== 8;
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">Student ID</label>
-          <input value={editData.student_id || ""} onChange={(e) => onChange("student_id", e.target.value)} className={inputSmall} />
+          <input value={editData.student_id || ""} onChange={(e) => onChange("student_id", e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} className={`${inputSmall} ${idInvalid ? "border-red-400" : ""}`} />
+          {idInvalid && <p className="text-[10px] text-red-500 mt-0.5">Must be 4 digits</p>}
         </div>
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">English Name</label>
@@ -2004,8 +2010,9 @@ function EditForm({
           <input value={editData.student_name_zh || ""} onChange={(e) => onChange("student_name_zh", e.target.value)} className={inputSmall} />
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Parent Phone</label>
-          <input value={editData.parent_phone || ""} onChange={(e) => onChange("parent_phone", e.target.value)} className={inputSmall} />
+          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Phone</label>
+          <input value={editData.parent_phone || ""} onChange={(e) => onChange("parent_phone", e.target.value.replace(/[^0-9]/g, "").slice(0, 8))} inputMode="tel" maxLength={8} className={`${inputSmall} ${phoneInvalid ? "border-red-400" : ""}`} />
+          {phoneInvalid && <p className="text-[10px] text-red-500 mt-0.5">Must be 8 digits</p>}
         </div>
       </div>
       {editError && (
@@ -2014,7 +2021,7 @@ function EditForm({
         </p>
       )}
       <div className="flex gap-2">
-        <button onClick={onSave} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+        <button onClick={() => { setTouched(true); if (idVal && idVal.length !== 4) return; if (phoneVal && phoneVal.length !== 8) return; onSave(); }} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
           <Check className="h-3.5 w-3.5" /> Save
         </button>
         <button onClick={onCancel} className="px-3 py-1.5 text-xs font-medium border-2 border-border rounded-lg hover:bg-muted transition-colors">
