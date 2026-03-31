@@ -120,10 +120,13 @@ export default function DocumentsTable(props: DocumentsTableProps) {
     if (committedRef.current) return;
     committedRef.current = true;
     if (editingId !== null && editValue.trim() && onRename) {
-      onRename(editingId, editValue.trim());
+      const original = rows.find(r => r.doc.id === editingId)?.doc.title;
+      if (editValue.trim() !== original) {
+        onRename(editingId, editValue.trim());
+      }
     }
     setEditingId(null);
-  }, [editingId, editValue, onRename]);
+  }, [editingId, editValue, onRename, rows]);
 
   const allVisibleIds = useMemo(() => rows.map(r => r.doc.id), [rows]);
   const allSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
