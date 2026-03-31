@@ -2,7 +2,7 @@
 
 import { useRef, useLayoutEffect, useEffect, useState, useCallback } from "react";
 import useSWR from "swr";
-import { X, ExternalLink, Printer, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus } from "lucide-react";
+import { X, ExternalLink, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus } from "lucide-react";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
@@ -14,7 +14,6 @@ interface DocumentPreviewPaneProps {
   docId: number | null;
   onClose: () => void;
   onOpenEditor: (id: number) => void;
-  onPrint: (id: number, mode: "student" | "answers") => void;
   onRename?: (id: number, title: string) => void;
   onToggleStar?: (id: number) => void;
   onEditTags?: (id: number) => void;
@@ -22,7 +21,7 @@ interface DocumentPreviewPaneProps {
   collapsed?: boolean;
 }
 
-export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onRename, onToggleStar, onEditTags, collapsed }: DocumentPreviewPaneProps) {
+export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, onToggleStar, onEditTags, collapsed }: DocumentPreviewPaneProps) {
   const { data: doc, error, isLoading } = useSWR(
     docId !== null ? ["document-preview", docId] : null,
     () => documentsAPI.get(docId!)
@@ -207,22 +206,6 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onPrint, onR
                   )}
                 </div>
 
-                {/* Print buttons */}
-                <div className="flex items-center gap-1.5 mb-2 p-1.5 rounded-lg bg-gray-50/80 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.04]">
-                  <button
-                    onClick={() => onPrint(docId, "student")}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-                  >
-                    <Printer className="w-3 h-3" />
-                    Questions
-                  </button>
-                  <button
-                    onClick={() => onPrint(docId, "answers")}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-400 border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-                  >
-                    With Answers
-                  </button>
-                </div>
 
                 {/* Variant tree */}
                 {(doc.parent_id || (doc.children && doc.children.length > 0)) && (

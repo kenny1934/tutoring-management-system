@@ -1163,7 +1163,6 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     const timer = setTimeout(() => {
       if (printMode === "student") handlePrintStudent();
       else if (printMode === "answers") handlePrint();
-      // Clear the print param from URL so refreshing doesn't re-trigger
       const url = new URL(window.location.href);
       url.searchParams.delete("print");
       window.history.replaceState({}, "", url.toString());

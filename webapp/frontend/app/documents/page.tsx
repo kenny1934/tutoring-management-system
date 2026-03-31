@@ -862,7 +862,6 @@ export default function DocumentsPage() {
           collapsed={!previewEnabled}
           onClose={() => setPreviewDocId(null)}
           onOpenEditor={(id) => router.push(`/documents/${id}`)}
-          onPrint={(id, mode) => window.open(`/documents/${id}?print=${mode}`, "_blank")}
           onRename={handleRename}
           onToggleStar={handleToggleStar}
           onEditTags={setTagEditDocId}
