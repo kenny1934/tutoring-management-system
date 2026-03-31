@@ -257,6 +257,7 @@ export default function BuddyTrackerPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [formTouched, setFormTouched] = useState(false);
+  const [showChineseName, setShowChineseName] = useState(false);
 
   // Buddy code lookup
   const [lookupResult, setLookupResult] = useState<BuddyGroupLookup | null>(null);
@@ -293,6 +294,7 @@ export default function BuddyTrackerPage() {
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
   const recentlyAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const drawerCloseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const studentIdRef = useRef<HTMLInputElement>(null);
 
@@ -351,6 +353,7 @@ export default function BuddyTrackerPage() {
       clearTimeout(drawerCloseTimer.current);
       clearTimeout(copyToastTimer.current);
       clearTimeout(recentlyAddedTimer.current);
+      clearTimeout(lookupTimer.current);
     };
   }, []);
 
@@ -392,6 +395,14 @@ export default function BuddyTrackerPage() {
       setLookupLoading(false);
     }
   }, [formBuddyCode, branch]);
+
+  // Auto-lookup when 4 chars entered
+  useEffect(() => {
+    clearTimeout(lookupTimer.current);
+    if (formBuddyCode.trim().length === 4 && branch) {
+      lookupTimer.current = setTimeout(() => handleLookup(), 500);
+    }
+  }, [formBuddyCode, branch, handleLookup]);
 
   const hasAnyOtherBranch = useMemo(() => {
     if (!lookupResult || !branch) return false;
@@ -1070,8 +1081,9 @@ export default function BuddyTrackerPage() {
               </button>
             </div>
             <div className="p-5 space-y-4">
+              {!formSuccess && <>
               {/* Student fields */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Student ID <span className="text-red-500">*</span></label>
                   <input
@@ -1092,26 +1104,37 @@ export default function BuddyTrackerPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">English Name <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Student Name <span className="text-red-500">*</span></label>
                   <input
                     value={formNameEn}
                     onChange={(e) => { setFormNameEn(e.target.value); setFormSuccess(null); }}
                     className={`${inputCls} ${formTouched && !formNameEn.trim() ? "border-red-400" : ""}`}
-                    placeholder="Full name"
+                    placeholder="English name"
                   />
                   {formTouched && !formNameEn.trim() && (
                     <p className="text-[10px] text-red-500 mt-0.5">Required</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Chinese Name</label>
-                  <input
-                    value={formNameZh}
-                    onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
-                    className={inputCls}
-                    placeholder="中文名"
-                  />
-                </div>
+                {(showChineseName || formNameZh) ? (
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Chinese Name</label>
+                    <input
+                      value={formNameZh}
+                      onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
+                      className={inputCls}
+                      placeholder="中文名"
+                      autoFocus={showChineseName && !formNameZh}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowChineseName(true)}
+                    className="text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    ＋ Add Chinese name
+                  </button>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Parent Phone</label>
                   <input
@@ -1125,44 +1148,32 @@ export default function BuddyTrackerPage() {
               </div>
 
               {/* Buddy code */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Buddy Code</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 flex items-center border-2 border-border rounded-lg bg-card focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary transition-colors">
-                      <span className="pl-2.5 text-xs font-mono tracking-wider text-muted-foreground select-none">BG-</span>
-                      <input
-                        value={formBuddyCode}
-                        onChange={(e) => {
-                          const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-                          setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
-                        }}
-                        onPaste={(e) => {
-                          const pasted = e.clipboardData.getData("text").trim().toUpperCase();
-                          if (pasted.startsWith("BG-")) {
-                            e.preventDefault();
-                            const v = pasted.slice(3).replace(/[^A-Z0-9]/g, "").slice(0, 4);
-                            setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
-                          }
-                        }}
-                        className="flex-1 text-xs bg-transparent border-0 px-0.5 py-2 font-mono tracking-wider"
-                        style={{ outline: "none", boxShadow: "none" }}
-                        placeholder="XXXX"
-                        maxLength={4}
-                      />
-                    </div>
-                    {formBuddyCode.trim() && (
-                      <button
-                        onClick={handleLookup}
-                        disabled={lookupLoading}
-                        className="px-3 py-2 text-xs font-medium border-2 border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-40"
-                      >
-                        {lookupLoading ? "..." : "Look Up"}
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Leave blank to create a new group.</p>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Buddy Code</label>
+                <div className="flex items-center border-2 border-border rounded-lg bg-card focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary transition-colors">
+                  <span className="pl-2.5 text-xs font-mono tracking-wider text-muted-foreground select-none">BG-</span>
+                  <input
+                    value={formBuddyCode}
+                    onChange={(e) => {
+                      const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+                      setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData("text").trim().toUpperCase();
+                      if (pasted.startsWith("BG-")) {
+                        e.preventDefault();
+                        const v = pasted.slice(3).replace(/[^A-Z0-9]/g, "").slice(0, 4);
+                        setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
+                      }
+                    }}
+                    className="flex-1 text-xs bg-transparent border-0 px-0.5 py-2 font-mono tracking-wider"
+                    style={{ outline: "none", boxShadow: "none" }}
+                    placeholder="XXXX"
+                    maxLength={4}
+                  />
+                  {lookupLoading && <RefreshCw className="h-3.5 w-3.5 text-muted-foreground animate-spin mr-2.5 shrink-0" />}
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Leave blank to create a new group</p>
               </div>
 
               {/* Lookup result */}
@@ -1220,41 +1231,61 @@ export default function BuddyTrackerPage() {
                   <X className="h-3.5 w-3.5" />{formError}
                 </p>
               )}
-              {formSuccess && (
-                <div className="border-2 border-dashed border-green-300 rounded-2xl p-4 flex items-center gap-4 relative animate-drawer-in">
-                  <div className="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
-                    <Check className="h-5 w-5 text-green-600" />
+              </>}
+              {formSuccess ? (
+                <div className="flex flex-col items-center text-center py-4 space-y-4 animate-drawer-in">
+                  <div className="w-14 h-14 rounded-full bg-green-500/15 flex items-center justify-center">
+                    <Check className="h-7 w-7 text-green-600" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Buddy Code</div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xl tracking-widest text-foreground">{formSuccess}</span>
-                      <CopyButton text={formSuccess} onCopy={handleCopyToast} large />
-                      <button onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary transition-colors" title="Share code">
-                        <Share2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <div className="text-sm font-semibold text-foreground">Student Added!</div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground mb-1">Buddy Code</div>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(formSuccess); handleCopyToast(formSuccess); }}
+                      className="font-mono font-bold text-2xl tracking-widest text-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Tap to copy"
+                    >
+                      {formSuccess}
+                    </button>
                     <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                   </div>
-                  <button onClick={() => setFormSuccess(null)} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground">
-                    <X className="h-3.5 w-3.5" />
+                  <button
+                    onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)}
+                    className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+                  >
+                    <Share2 className="h-4 w-4 inline mr-1.5" />
+                    Share Code with Family
                   </button>
+                  <div className="flex gap-3 w-full">
+                    <button
+                      onClick={() => { setFormSuccess(null); setShowChineseName(false); setTimeout(() => studentIdRef.current?.focus(), 100); }}
+                      className="flex-1 py-2 text-xs font-medium border-2 border-border rounded-xl hover:bg-muted transition-colors"
+                    >
+                      Add Another
+                    </button>
+                    <button
+                      onClick={closeDrawer}
+                      className="flex-1 py-2 text-xs font-medium border-2 border-border rounded-xl hover:bg-muted transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Submit */}
+                  <button
+                    onClick={() => {
+                      if (!formStudentId.trim() || !formNameEn.trim()) { setFormTouched(true); return; }
+                      handleAddStudent();
+                    }}
+                    disabled={formSubmitting || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
+                    className="w-full py-2.5 text-xs font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {formSubmitting ? "Adding..." : "Add Student"}
+                  </button>
+                </>
               )}
-
-              {/* Submit */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    if (!formStudentId.trim() || !formNameEn.trim()) { setFormTouched(true); return; }
-                    handleAddStudent();
-                  }}
-                  disabled={formSubmitting || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
-                  className="px-4 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {formSubmitting ? "Adding..." : formBuddyCode.trim() ? "Add to Group" : "Add & Generate Code"}
-                </button>
-              </div>
             </div>
           </div>
         </div>
