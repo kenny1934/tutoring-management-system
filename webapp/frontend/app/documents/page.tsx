@@ -385,13 +385,16 @@ export default function DocumentsPage() {
   }, [mutate, mutateTrashCount, showToast]);
 
   const handleMoveToFolder = useCallback(async (docId: number, folderId: number | null) => {
+    const doc = documents?.find(d => d.id === docId);
+    const currentFolderId = doc?.folder_id ?? null;
+    if (currentFolderId === folderId) return;
     try {
       await documentsAPI.update(docId, { folder_id: folderId === null ? 0 : folderId });
       mutate(); mutateFolders();
       showToast(folderId ? "Moved to folder" : "Removed from folder", "success");
     } catch (err) { showToast((err as Error).message, "error"); }
     setMenuOpenId(null);
-  }, [mutate, mutateFolders, showToast]);
+  }, [documents, mutate, mutateFolders, showToast]);
 
   const handleUpdateTags = useCallback(async (docId: number, tags: string[]) => {
     try { await documentsAPI.update(docId, { tags }); mutate(); mutateTags(); }
