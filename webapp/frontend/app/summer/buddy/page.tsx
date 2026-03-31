@@ -598,7 +598,12 @@ export default function BuddyTrackerPage() {
           m.student_name_en.toLowerCase().includes(q) ||
           (m.student_name_zh && m.student_name_zh.includes(q)) ||
           m.buddy_code.toLowerCase().includes(q) ||
-          (m.parent_phone && m.parent_phone.includes(q))
+          (m.parent_phone && m.parent_phone.includes(q)) ||
+          m.group_members.some(gm =>
+            gm.name.toLowerCase().includes(q) ||
+            (gm.student_id && gm.student_id.toLowerCase().includes(q)) ||
+            (gm.phone && gm.phone.includes(q))
+          )
       );
     }
     if (sortField) {
