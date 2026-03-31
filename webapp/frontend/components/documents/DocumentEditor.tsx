@@ -2123,8 +2123,8 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       <div className="flex flex-1 min-h-0">
         {/* Editor area — paginated A4 view */}
         <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
-          {previewContent !== null ? (
-            /* Side-by-side version comparison */
+          {/* Side-by-side version comparison (rendered when active) */}
+          {previewContent !== null && (
             <div className="flex gap-4 py-8 px-4">
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 text-center">Version {previewVersionNumber}</div>
@@ -2169,9 +2169,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 </div>
               </div>
             </div>
-          ) : (
-            /* Normal single-page editor */
-            <div className="py-8 px-4 print:p-0 print:m-0">
+          )}
+          {/* Normal single-page editor — always mounted, hidden during comparison to avoid flushSync error from TipTap unmount */}
+          <div className="py-8 px-4 print:p-0 print:m-0" style={{ display: previewContent !== null ? "none" : undefined }}>
               <div
                 ref={pageRef}
                 className={cn(
@@ -2258,7 +2258,6 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
                 </div>
               </div>
             </div>
-          )}
         </div>
 
         {/* Question panel */}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
@@ -11,6 +12,7 @@ import Superscript from "@tiptap/extension-superscript";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import { Extension } from "@tiptap/core";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -101,6 +103,8 @@ const readOnlyExtensions = [
   ROTableHeader,
   Indent,
   LineSpacing,
+  TaskList,
+  TaskItem.configure({ nested: true }),
 ];
 
 interface ReadOnlyRendererProps {
@@ -115,6 +119,13 @@ export function ReadOnlyRenderer({ content, paperMode = true }: ReadOnlyRenderer
     extensions: readOnlyExtensions,
     content: content || { type: "doc", content: [{ type: "paragraph" }] },
   });
+
+  // Sync content prop changes — useEditor only uses content at initialization
+  useEffect(() => {
+    if (editor && content) {
+      queueMicrotask(() => editor.commands.setContent(content));
+    }
+  }, [editor, content]);
 
   return (
     <EditorContent
