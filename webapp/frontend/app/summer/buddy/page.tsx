@@ -48,7 +48,7 @@ const BRANCHES = PROSPECT_BRANCHES;
 
 const SHARE_HINT = "Send this code to the family so their buddy can join";
 
-const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors";
+const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors placeholder:text-muted-foreground/40";
 
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
 
@@ -293,6 +293,7 @@ export default function BuddyTrackerPage() {
 
   const prefillBuddyCode = useCallback((code: string) => {
     setFormBuddyCode(code.startsWith("BG-") ? code.slice(3) : code);
+    setFormTouched(false);
     setDrawerOpen(true);
   }, []);
 
@@ -940,7 +941,7 @@ export default function BuddyTrackerPage() {
           {ownMembers.length > 0 && (
             <button
               onClick={() => {
-                const header = "Student ID,English Name,Chinese Name,Parent Phone,Buddy Code,Group Size,Status,Created";
+                const header = "Student ID,English Name,Chinese Name,Phone,Buddy Code,Group Size,Status,Created";
                 const rows = displayMembers.map(m =>
                   [m.student_id, m.student_name_en, m.student_name_zh || "", m.parent_phone || "", m.buddy_code, m.group_size, m.group_size >= 2 ? "Paired" : "Solo", m.created_at.split("T")[0]]
                     .map(v => `"${String(v).replace(/"/g, '""')}"`)
@@ -1045,7 +1046,7 @@ export default function BuddyTrackerPage() {
       {typeof document !== "undefined" && createPortal(
       <div className="buddy-theme">
       <button
-        onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)}
+        onClick={() => { if (drawerOpen) { closeDrawer(); } else { setFormTouched(false); setDrawerOpen(true); } }}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center ${
           drawerOpen ? "bg-muted text-muted-foreground rotate-90" : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
         }`}
@@ -1082,30 +1083,35 @@ export default function BuddyTrackerPage() {
                   <input
                     ref={studentIdRef}
                     value={formStudentId}
-                    onChange={(e) => { setFormStudentId(e.target.value); setFormSuccess(null); }}
+                    onChange={(e) => { setFormStudentId(e.target.value.replace(/[^0-9]/g, "").slice(0, 4)); setFormSuccess(null); }}
+                    inputMode="numeric"
+                    maxLength={4}
                     className={`${inputCls} ${formTouched && !formStudentId.trim() ? "border-red-400" : ""}`}
                     placeholder="e.g. 1234"
                   />
                   {formTouched && !formStudentId.trim() && (
-                    <p className="text-[10px] text-red-500 mt-0.5">Required</p>
+                    <p className="text-[10px] text-red-500 mt-0.5">Please enter the student ID</p>
+                  )}
+                  {formTouched && formStudentId.trim() && formStudentId.trim().length !== 4 && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Student ID must be 4 digits</p>
                   )}
                   {duplicateWarning && (
                     <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3 shrink-0" />
-                      Already in group {duplicateWarning}
+                      This student is already in group {duplicateWarning}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Student Name <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">English Name <span className="text-red-500">*</span></label>
                   <input
                     value={formNameEn}
                     onChange={(e) => { setFormNameEn(e.target.value); setFormSuccess(null); }}
                     className={`${inputCls} ${formTouched && !formNameEn.trim() ? "border-red-400" : ""}`}
-                    placeholder="English name"
+                    placeholder="e.g. Bobby MC"
                   />
                   {formTouched && !formNameEn.trim() && (
-                    <p className="text-[10px] text-red-500 mt-0.5">Required</p>
+                    <p className="text-[10px] text-red-500 mt-0.5">Please enter the student's name</p>
                   )}
                 </div>
                 {(showChineseName || formNameZh) ? (
@@ -1122,7 +1128,7 @@ export default function BuddyTrackerPage() {
                       value={formNameZh}
                       onChange={(e) => { setFormNameZh(e.target.value); setFormSuccess(null); }}
                       className={inputCls}
-                      placeholder="中文名"
+                      placeholder="e.g. 蜜波比"
                       autoFocus={showChineseName && !formNameZh}
                     />
                   </div>
@@ -1136,14 +1142,18 @@ export default function BuddyTrackerPage() {
                   </button>
                 )}
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Parent Phone</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
                   <input
                     value={formPhone}
-                    onChange={(e) => { setFormPhone(e.target.value); setFormSuccess(null); }}
+                    onChange={(e) => { setFormPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 8)); setFormSuccess(null); }}
                     inputMode="tel"
+                    maxLength={8}
                     className={inputCls}
-                    placeholder="Phone number"
+                    placeholder="e.g. 91234567"
                   />
+                  {formTouched && formPhone.trim() && formPhone.trim().length !== 8 && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Phone must be 8 digits</p>
+                  )}
                 </div>
               </div>
 
@@ -1166,14 +1176,14 @@ export default function BuddyTrackerPage() {
                         setFormBuddyCode(v); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false);
                       }
                     }}
-                    className="flex-1 text-xs bg-transparent border-0 px-0.5 py-2 font-mono tracking-wider"
+                    className="flex-1 text-xs bg-transparent border-0 px-0.5 py-2 font-mono tracking-wider placeholder:text-muted-foreground/40"
                     style={{ outline: "none", boxShadow: "none" }}
-                    placeholder="XXXX"
+                    placeholder="A1B2"
                     maxLength={4}
                   />
                   {lookupLoading && <RefreshCw className="h-3.5 w-3.5 text-muted-foreground animate-spin mr-2.5 shrink-0" />}
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Leave blank to create a new group</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Leave blank to create a new group</p>
               </div>
 
               {/* Lookup result */}
@@ -1277,7 +1287,10 @@ export default function BuddyTrackerPage() {
                   {/* Submit */}
                   <button
                     onClick={() => {
-                      if (!formStudentId.trim() || !formNameEn.trim()) { setFormTouched(true); return; }
+                      setFormTouched(true);
+                      if (!formStudentId.trim() || !formNameEn.trim()) return;
+                      if (formStudentId.trim().length !== 4) return;
+                      if (formPhone.trim() && formPhone.trim().length !== 8) return;
                       handleAddStudent();
                     }}
                     disabled={formSubmitting || isGroupFull || (hasAnyOtherBranch && !siblingConfirmed)}
