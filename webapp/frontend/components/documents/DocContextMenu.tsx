@@ -102,7 +102,7 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           Duplicate
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onEditTags(); }}
+          onClick={(e) => { e.stopPropagation(); onEditTags(); close(); }}
           className={menuItemCls}
         >
           <Tag className="w-3.5 h-3.5" />
