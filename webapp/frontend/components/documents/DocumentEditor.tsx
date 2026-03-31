@@ -454,6 +454,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
   // Toolbar label mode
   const [showLabels, setShowLabels] = useState(false);
+  const [sourceCopied, setSourceCopied] = useState(false);
   useEffect(() => {
     setShowLabels(localStorage.getItem("doc-editor-toolbar-labels") === "true");
   }, []);
@@ -462,7 +463,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   }, [showLabels]);
 
   // Toolbar tab state
-  const [activeTab, setActiveTab] = useState<ToolbarTab>("format");
+  const [activeTab, setActiveTab] = useState<ToolbarTab | null>("format");
 
   // Math editor state
   const [mathEditorOpen, setMathEditorOpen] = useState(false);
@@ -566,7 +567,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
   const handleTabSwitch = useCallback((tab: ToolbarTab) => {
     closeAllMenus();
-    setActiveTab(tab);
+    setActiveTab(prev => prev === tab ? null : tab);
   }, [closeAllMenus]);
 
   // Click-outside and Escape key to close dropdowns
@@ -1393,29 +1394,29 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           <div className="flex-1 min-w-0">
             <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-            <span>{doc.created_by_name}</span>
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 shrink-0 min-w-0 overflow-hidden">
+            <span className="shrink-0">{doc.created_by_name}</span>
             {doc.is_template && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-medium">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] font-medium shrink-0">
                 <Stamp className="w-2.5 h-2.5" />
                 Template
               </span>
             )}
             {doc.updated_by_name && doc.updated_by !== doc.created_by && (
-              <span>· Edited by {doc.updated_by_name}</span>
+              <span className="hidden sm:inline shrink-0">· Edited by {doc.updated_by_name}</span>
             )}
             {doc.updated_at && (
-              <span>· {formatTimeAgo(doc.updated_at)}</span>
+              <span className="shrink-0">· {formatTimeAgo(doc.updated_at)}</span>
             )}
             {doc.source_filename && (
-              <span className="inline-flex items-center gap-0.5">
-                <span className="truncate max-w-[20rem]" title={doc.source_filename}>· Imported from: {doc.source_filename}</span>
+              <span className="inline-flex items-center gap-0.5 min-w-0 overflow-hidden">
+                <span className="truncate" title={doc.source_filename}>· {doc.source_filename}</span>
                 <button
                   className="shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   title="Copy source path"
-                  onClick={() => { navigator.clipboard.writeText(doc.source_filename!); showToast("Source path copied", "success"); }}
+                  onClick={() => { navigator.clipboard.writeText(doc.source_filename!); setSourceCopied(true); setTimeout(() => setSourceCopied(false), 1500); }}
                 >
-                  <Copy className="w-2.5 h-2.5" />
+                  {sourceCopied ? <Check className="w-2.5 h-2.5 text-green-500" /> : <Copy className="w-2.5 h-2.5" />}
                 </button>
               </span>
             )}
@@ -1426,7 +1427,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       {/* Toolbar — Tabbed layout */}
       <div ref={toolbarRef} className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
         {/* Tab row: persistent controls + tab switcher + labels toggle */}
-        <div className="flex items-center gap-0.5 px-3 py-1 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="flex items-center gap-0.5 [@media(pointer:coarse)]:gap-1 px-3 py-1 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
           {/* Persistent: Undo/Redo */}
           <ToolbarBtn icon={Undo2} label="Undo" isActive={false} onClick={() => editor.chain().focus().undo().run()} />
           <ToolbarBtn icon={Redo2} label="Redo" isActive={false} onClick={() => editor.chain().focus().redo().run()} />
@@ -1450,7 +1451,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           </button>
           <button
             onClick={() => setShowShortcutsModal(true)}
-            className="p-1.5 rounded transition-colors text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            className="hidden sm:block p-1.5 rounded transition-colors text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
             title="Keyboard shortcuts (Ctrl+/)"
           >
             <Keyboard className="w-3.5 h-3.5" />
@@ -1458,7 +1459,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           <button
             onClick={() => setShowLabels(s => !s)}
             className={cn(
-              "p-1.5 rounded transition-colors",
+              "hidden sm:block p-1.5 rounded transition-colors",
               showLabels ? "bg-[#a0704b] text-white" : "text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
             )}
             title={showLabels ? "Hide labels" : "Show labels"}
@@ -1467,8 +1468,9 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           </button>
         </div>
 
-        {/* Tab content row */}
-        <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px]">
+        {/* Tab content row — collapses when clicking the active tab */}
+        {activeTab && (
+        <div className="flex items-center gap-0.5 [@media(pointer:coarse)]:gap-1 px-3 py-1.5 flex-wrap min-h-[32px]">
           {activeTab === "format" && (
             <>
               {/* Heading dropdown */}
@@ -2010,6 +2012,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* Find & Replace bar */}
@@ -2617,7 +2620,7 @@ function TabButton({ id, label, icon: Icon, activeTab, onClick }: {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  activeTab: string;
+  activeTab: string | null;
   onClick: () => void;
 }) {
   const isActive = activeTab === id;
@@ -2824,7 +2827,7 @@ function ToolbarBtn({ icon: Icon, label, isActive, onClick, showLabel }: { icon:
       onClick={onClick}
       className={cn(
         "rounded transition-colors",
-        showLabel ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5",
+        showLabel ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5 [@media(pointer:coarse)]:p-2",
         isActive
           ? "bg-[#a0704b] text-white"
           : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
