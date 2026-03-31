@@ -956,7 +956,6 @@ export default function BuddyTrackerPage() {
               title="Export CSV"
             >
               <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-[10px]">CSV</span>
             </button>
           )}
         </div>
