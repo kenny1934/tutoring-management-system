@@ -29,15 +29,15 @@ import ImportWorksheetModal from "@/components/documents/ImportWorksheetModal";
 import { useDndDocuments, useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import type { Document, DocumentFolder } from "@/types";
 
-function DraggableCard({ doc, selectedIds, disabled, children, className, onClick }: {
+function DraggableCard({ doc, selectedIds, disabled, children, className, onClick, onDoubleClick }: {
   doc: Document; selectedIds: Set<number>; disabled: boolean;
-  children: React.ReactNode; className?: string; onClick: () => void;
+  children: React.ReactNode; className?: string; onClick: () => void; onDoubleClick?: () => void;
 }) {
   const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
     docId: doc.id, docTitle: doc.title, selectedIds, disabled, idPrefix: "doc-card",
   });
   return (
-    <div ref={setNodeRef} {...dragProps} onClick={onClick} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
+    <div ref={setNodeRef} {...dragProps} onClick={onClick} onDoubleClick={onDoubleClick} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
       {children}
     </div>
   );
@@ -721,6 +721,7 @@ export default function DocumentsPage() {
                 expandedIds={expandedIds}
                 onToggleExpand={handleToggleExpand}
                 onDocClick={handleDocClick}
+                onDocOpen={(id) => router.push(`/documents/${id}`)}
                 previewDocId={previewDocId}
                 menuOpenId={menuOpenId}
                 onMenuOpen={setMenuOpenId}
@@ -756,6 +757,7 @@ export default function DocumentsPage() {
                         selectedIds={selectedIds}
                         disabled={!dndEnabled}
                         onClick={() => handleDocClick(doc.id)}
+                        onDoubleClick={() => router.push(`/documents/${doc.id}`)}
                         className={cn(
                           "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
                           selectedIds.has(doc.id) && "ring-2 ring-[#a0704b]/50 ring-offset-1",

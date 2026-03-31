@@ -9,15 +9,15 @@ import DocContextMenu from "./DocContextMenu";
 import { useDraggableDoc } from "@/lib/hooks/useDndDocuments";
 import type { Document, DocumentFolder } from "@/types";
 
-function DraggableRow({ doc, selectedIds, isReadOnly, children, className, onClick, dataDocId }: {
+function DraggableRow({ doc, selectedIds, isReadOnly, children, className, onClick, onDoubleClick, dataDocId }: {
   doc: Document; selectedIds: Set<number>; isReadOnly: boolean;
-  children: React.ReactNode; className?: string; onClick: () => void; dataDocId: number;
+  children: React.ReactNode; className?: string; onClick: () => void; onDoubleClick?: () => void; dataDocId: number;
 }) {
   const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
     docId: doc.id, docTitle: doc.title, selectedIds, disabled: isReadOnly,
   });
   return (
-    <tr ref={setNodeRef} {...dragProps} onClick={onClick} data-doc-id={dataDocId} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
+    <tr ref={setNodeRef} {...dragProps} onClick={onClick} onDoubleClick={onDoubleClick} data-doc-id={dataDocId} className={className} style={isDragging ? { opacity: 0.4 } : undefined}>
       {children}
     </tr>
   );
@@ -32,6 +32,7 @@ export interface DocumentsTableProps {
   expandedIds: Set<number>;
   onToggleExpand: (id: number) => void;
   onDocClick: (docId: number) => void;
+  onDocOpen?: (docId: number) => void;
   previewDocId: number | null;
   menuOpenId: number | null;
   onMenuOpen: (id: number | null) => void;
@@ -64,7 +65,7 @@ interface RowData {
 export default function DocumentsTable(props: DocumentsTableProps) {
   const {
     documents, isLoading, selectedIds, onToggleSelect, onToggleSelectAll,
-    expandedIds, onToggleExpand, onDocClick, previewDocId,
+    expandedIds, onToggleExpand, onDocClick, onDocOpen, previewDocId,
     menuOpenId, onMenuOpen, onDuplicate, onArchive, onUnarchive, onPermanentDelete,
     onSaveAsTemplate, onEditTags, folders, onMoveToFolder,
     onRename, onToggleStar, isReadOnly, isTemplatesTab, isTrashTab, activeFolderId,
@@ -193,6 +194,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 selectedIds={selectedIds}
                 isReadOnly={isReadOnly}
                 onClick={() => onDocClick(doc.id)}
+                onDoubleClick={onDocOpen ? () => onDocOpen(doc.id) : undefined}
                 dataDocId={doc.id}
                 className={cn(
                   "group border-l-2 border-b border-b-[#e8d4b8]/30 dark:border-b-[#6b5a4a]/30 cursor-pointer transition-colors",

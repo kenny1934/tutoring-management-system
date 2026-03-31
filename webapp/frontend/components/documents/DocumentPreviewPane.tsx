@@ -2,7 +2,7 @@
 
 import { useRef, useLayoutEffect, useEffect, useState, useCallback } from "react";
 import useSWR from "swr";
-import { X, ExternalLink, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus } from "lucide-react";
+import { X, ExternalLink, FileText, Lock, GitBranch, ListChecks, ScanLine, Star, Plus, Check } from "lucide-react";
 import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import { documentsAPI } from "@/lib/document-api";
 import { buildHFontFamily } from "@/lib/tiptap-extensions";
@@ -19,6 +19,24 @@ interface DocumentPreviewPaneProps {
   onEditTags?: (id: number) => void;
   /** When true, collapse to zero width with animation (always mounted). */
   collapsed?: boolean;
+}
+
+function SourceFileCopy({ filename }: { filename: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(filename);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="inline-flex items-center gap-0.5 text-[9px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+      title="Click to copy source path"
+    >
+      {copied ? <Check className="w-2.5 h-2.5 text-green-500" /> : <ScanLine className="w-2.5 h-2.5" />}
+      <span className="truncate max-w-[8rem]">{filename}</span>
+    </button>
+  );
 }
 
 export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, onToggleStar, onEditTags, collapsed }: DocumentPreviewPaneProps) {
@@ -199,10 +217,7 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                     </button>
                   )}
                   {doc.source_filename && (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] text-gray-400" title={doc.source_filename}>
-                      <ScanLine className="w-2.5 h-2.5" />
-                      <span className="truncate max-w-[8rem]">{doc.source_filename}</span>
-                    </span>
+                    <SourceFileCopy filename={doc.source_filename} />
                   )}
                 </div>
 
