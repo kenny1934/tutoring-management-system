@@ -147,7 +147,7 @@ export default function DocumentsPage() {
   const hasMore = !moreExhausted && !!firstPage && firstPage.length === PAGE_SIZE;
 
   // Tag names and counts from server-side endpoint
-  const tagNames = useMemo(() => allTags.map(t => t.name), [allTags]);
+  const tagNames = useMemo(() => allTags.map(t => t.name).filter(Boolean), [allTags]);
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of allTags) counts[t.name] = t.count;

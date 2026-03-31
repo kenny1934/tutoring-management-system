@@ -10,6 +10,7 @@ export const TAG_COLORS = [
 ];
 
 export function getTagColor(tag: string) {
+  if (!tag) return TAG_COLORS[0];
   let hash = 0;
   for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];

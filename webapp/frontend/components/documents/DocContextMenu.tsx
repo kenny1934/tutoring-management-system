@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import { MoreVertical, Copy, Tag, Stamp, Trash2, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, GitBranch, Download } from "lucide-react";
+import { MoreVertical, Copy, Tag, Stamp, Trash2, ArchiveRestore, FolderInput, FolderOpen, ChevronDown, ExternalLink, Download } from "lucide-react";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import { cn } from "@/lib/utils";
 import { flattenFolderTree } from "@/lib/folder-utils";
@@ -128,15 +128,6 @@ export default function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDupli
           <ExternalLink className="w-3.5 h-3.5" />
           Open in New Tab
         </button>
-        {!doc.is_template && !doc.is_archived && (
-          <button
-            onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}?panel=questions`, "_blank"); close(); }}
-            className={menuItemCls}
-          >
-            <GitBranch className="w-3.5 h-3.5" />
-            Create Variant
-          </button>
-        )}
         <button
           onClick={(e) => { e.stopPropagation(); window.open(`/documents/${doc.id}?print=student`, "_blank"); close(); }}
           className={menuItemCls}

@@ -6,6 +6,7 @@ import {
   Brain, Shuffle, ChevronDown, ChevronRight, FileOutput, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { documentsAPI } from "@/lib/document-api";
 import type { ExtractedQuestion, ProcessQuestionResult, ProcessQuestionError, ProcessQuestionsResponse, Document } from "@/types";
 import katex from "katex";
@@ -184,6 +185,8 @@ interface QuestionPanelProps {
   onContentRefresh?: (content: Record<string, unknown>) => void;
   /** Current top-level node count in the editor — used to detect stale extraction */
   editorNodeCount?: number;
+  /** Whether the document already contains answer section nodes */
+  hasAnswerSections?: boolean;
 }
 
 export function QuestionPanel({
@@ -197,6 +200,7 @@ export function QuestionPanel({
   onScrollToNode,
   onContentRefresh,
   editorNodeCount,
+  hasAnswerSections = false,
 }: QuestionPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -210,6 +214,7 @@ export function QuestionPanel({
   const [retryingIndex, setRetryingIndex] = useState<number | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
   const [variantUrl, setVariantUrl] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"solve" | "vary" | null>(null);
   // Node count at extraction time — used to detect stale question list
   const [extractedNodeCount, setExtractedNodeCount] = useState<number | null>(null);
   const isStale = extractedNodeCount !== null && editorNodeCount !== undefined && editorNodeCount !== extractedNodeCount;
@@ -473,20 +478,20 @@ export function QuestionPanel({
         <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2.5 space-y-2">
           <div className="flex gap-2">
             <button
-              onClick={() => handleProcess(["solve"])}
+              onClick={() => setPendingAction("solve")}
               disabled={processing}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
             >
               <Brain className="w-3.5 h-3.5" />
-              Solve
+              Solve ({questions.length})
             </button>
             <button
-              onClick={() => handleProcess(["solve", "vary"])}
+              onClick={() => setPendingAction("vary")}
               disabled={processing}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/30 transition-colors"
             >
               <Shuffle className="w-3.5 h-3.5" />
-              Variants
+              Variants ({questions.length})
             </button>
           </div>
 
@@ -516,6 +521,42 @@ export function QuestionPanel({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={pendingAction !== null}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action === "solve") handleProcess(["solve"]);
+          else if (action === "vary") handleProcess(hasSolutions ? ["vary"] : ["solve", "vary"]);
+        }}
+        onCancel={() => setPendingAction(null)}
+        title={pendingAction === "solve"
+          ? `Solve ${questions?.length ?? 0} questions?`
+          : `Generate variants for ${questions?.length ?? 0} questions?`}
+        message={(() => {
+          const n = questions?.length ?? 0;
+          // Rough estimate: ~300 input + ~400 output tokens per question (solve)
+          // Variants roughly double output. Gemini 2.5 Flash: $0.15/1M in, $0.60/1M out
+          const isVary = pendingAction === "vary";
+          const skipSolve = isVary && hasSolutions;
+          const inPerQ = 300;
+          const outPerQ = isVary ? 800 : 400;
+          const cost = n * (inPerQ * 0.15 + outPerQ * 0.60) / 1_000_000;
+          const costStr = cost < 0.01 ? "<$0.01" : `~$${cost.toFixed(2)}`;
+          const base = skipSolve
+            ? "Solutions already exist — only variants will be generated."
+            : "This will use Gemini AI credits.";
+          return `${base} Estimated cost: ${costStr}`;
+        })()}
+        consequences={(() => {
+          const c: string[] = [];
+          if (pendingAction === "solve" && hasSolutions) c.push("Previous solve results will be overwritten");
+          if (pendingAction === "vary" && hasVariants) c.push("Previous variant results will be overwritten");
+          return c.length > 0 ? c : undefined;
+        })()}
+        confirmText={pendingAction === "solve" ? "Solve All" : "Generate Variants"}
+      />
     </div>
   );
 }

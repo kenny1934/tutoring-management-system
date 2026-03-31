@@ -2271,6 +2271,14 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           questions={questions}
           onQuestionsUpdated={setQuestions}
           editorNodeCount={editor?.state.doc.childCount}
+          hasAnswerSections={(() => {
+            if (!editor) return false;
+            let found = false;
+            editor.state.doc.descendants((node) => {
+              if (node.type.name === "answerSection") { found = true; return false; }
+            });
+            return found;
+          })()}
           onScrollToNode={(nodeIndex) => {
             if (!editor) return;
             const { doc: pmDoc } = editor.state;
