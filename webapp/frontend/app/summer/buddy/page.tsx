@@ -1434,7 +1434,7 @@ export default function BuddyTrackerPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                      <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                       <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
                       {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
                       {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
@@ -1476,7 +1476,7 @@ export default function BuddyTrackerPage() {
                       ) : (
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                            <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                             <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
                             {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
                             {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
@@ -1492,8 +1492,7 @@ export default function BuddyTrackerPage() {
                   {g.others.map(m => (
                     <div key={`${m.source}-${m.id}`} className="py-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <BranchBadge branch={m.branch} />
-                        {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
+                        <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.branch}{m.student_id}</span>
                         <span className="font-semibold text-sm text-foreground">{m.name}</span>
                         {m.phone && <span className="text-[10px] text-muted-foreground">{m.phone}</span>}
                         {m.is_sibling && <SiblingBadge />}
