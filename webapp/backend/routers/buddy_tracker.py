@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import SummerApplication, SummerBuddyGroup, SummerBuddyMember
+from models import BuddyAccessCard, SummerApplication, SummerBuddyGroup, SummerBuddyMember
 from schemas import (
     BuddyGroupLookupResponse,
     BuddyGroupMemberInfo,
@@ -59,28 +59,49 @@ VALID_BRANCHES_OR_ALL = VALID_BRANCHES | {"ALL"}
 
 # ---- Helpers ----
 
-def _check_pin(request: Request, branch: str):
-    """Validate X-Branch-Pin header for buddy tracker endpoints."""
+def _check_pin(request: Request, branch: str, db: Optional[Session] = None):
+    """Validate X-Branch-Pin header or card number for buddy tracker endpoints."""
     pin = request.headers.get("X-Branch-Pin", "")
+    # Admin PIN check
     if branch == "ALL":
-        if not ADMIN_PIN or not hmac.compare_digest(pin, ADMIN_PIN):
-            check_ip_rate_limit(request, "buddy_pin_header:ALL")
-            logger.warning("Failed buddy admin PIN attempt from %s", get_client_ip(request))
-            raise HTTPException(status_code=403, detail="Invalid or missing admin PIN")
-        return
+        if ADMIN_PIN and hmac.compare_digest(pin, ADMIN_PIN):
+            return
+        # Fall back to card lookup
+        if db and _is_valid_card(db, pin, "ALL"):
+            return
+        check_ip_rate_limit(request, "buddy_pin_header:ALL")
+        logger.warning("Failed buddy admin PIN attempt from %s", get_client_ip(request))
+        raise HTTPException(status_code=403, detail="Invalid or missing admin PIN")
+    # Branch PIN check
     expected = BRANCH_PINS.get(branch, "")
-    if not expected or not hmac.compare_digest(pin, expected):
-        check_ip_rate_limit(request, f"buddy_pin_header:{branch}")
-        logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, get_client_ip(request))
-        raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
+    if expected and hmac.compare_digest(pin, expected):
+        return
+    # Fall back to card lookup
+    if db and _is_valid_card(db, pin, branch):
+        return
+    check_ip_rate_limit(request, f"buddy_pin_header:{branch}")
+    logger.warning("Failed buddy PIN attempt for branch %s from %s", branch, get_client_ip(request))
+    raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
 
-def _check_pin_or_admin(request: Request, branch: str):
-    """Accept either the branch PIN or the admin PIN."""
+def _check_pin_or_admin(request: Request, branch: str, db: Optional[Session] = None):
+    """Accept either the branch PIN, admin PIN, or a valid card number."""
     pin = request.headers.get("X-Branch-Pin", "")
     if ADMIN_PIN and hmac.compare_digest(pin, ADMIN_PIN):
         return
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
+
+
+def _is_valid_card(db: Session, card_number: str, branch: str) -> bool:
+    """Check if a card number is valid for the given branch."""
+    if not card_number or len(card_number) != 10 or not card_number.isdigit():
+        return False
+    card = db.query(BuddyAccessCard).filter(
+        BuddyAccessCard.card_number == card_number,
+    ).first()
+    if not card:
+        return False
+    return card.branch == branch or card.branch == "ALL"
 
 
 def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[int] = None) -> list[BuddyGroupMemberInfo]:
@@ -233,22 +254,46 @@ class _VerifyPinRequest(BaseModel):
 
 
 @router.post("/verify-pin")
-def verify_pin(request: Request, payload: _VerifyPinRequest):
-    """Verify a branch PIN for buddy tracker access."""
+def verify_pin(request: Request, payload: _VerifyPinRequest, db: Session = Depends(get_db)):
+    """Verify a branch PIN or card number for buddy tracker access."""
     if payload.branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
     check_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
+    # Try PIN first
+    pin_ok = False
     if payload.branch == "ALL":
-        if not ADMIN_PIN or not hmac.compare_digest(payload.pin, ADMIN_PIN):
-            logger.warning("Failed buddy admin PIN verification from %s", get_client_ip(request))
-            raise HTTPException(status_code=403, detail="Invalid PIN")
+        pin_ok = bool(ADMIN_PIN) and hmac.compare_digest(payload.pin, ADMIN_PIN)
     else:
         expected = BRANCH_PINS.get(payload.branch, "")
-        if not expected or not hmac.compare_digest(payload.pin, expected):
-            logger.warning("Failed buddy PIN verification for branch %s from %s", payload.branch, get_client_ip(request))
+        pin_ok = bool(expected) and hmac.compare_digest(payload.pin, expected)
+    # Fall back to card lookup
+    if not pin_ok:
+        if not _is_valid_card(db, payload.pin, payload.branch):
+            logger.warning("Failed buddy PIN/card verification for branch %s from %s", payload.branch, get_client_ip(request))
             raise HTTPException(status_code=403, detail="Invalid PIN")
     clear_ip_rate_limit(request, f"buddy_verify_pin:{payload.branch}")
     return {"valid": True}
+
+
+class _VerifyCardRequest(BaseModel):
+    card_number: str
+
+
+@router.post("/verify-card")
+def verify_card(request: Request, payload: _VerifyCardRequest, db: Session = Depends(get_db)):
+    """Verify a card number and return the branch it belongs to. Used on branch selection page."""
+    check_ip_rate_limit(request, "buddy_verify_card")
+    card_number = payload.card_number.strip()
+    if len(card_number) != 10 or not card_number.isdigit():
+        raise HTTPException(status_code=400, detail="Invalid card number")
+    card = db.query(BuddyAccessCard).filter(
+        BuddyAccessCard.card_number == card_number,
+    ).first()
+    if not card:
+        logger.warning("Failed buddy card verification from %s", get_client_ip(request))
+        raise HTTPException(status_code=403, detail="Invalid card")
+    clear_ip_rate_limit(request, "buddy_verify_card")
+    return {"valid": True, "branch": card.branch}
 
 
 @router.get("/members")
@@ -261,7 +306,7 @@ def list_members(
     """List all buddy members for a branch and year, with group info."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_list")
 
     from datetime import datetime
@@ -350,7 +395,7 @@ def create_member(
     """Add a student to the buddy tracker, optionally joining an existing group."""
     if data.source_branch not in VALID_BRANCHES:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin_or_admin(request, data.source_branch)
+    _check_pin_or_admin(request, data.source_branch, db)
     check_ip_rate_limit(request, "buddy_create")
 
     from datetime import datetime
@@ -400,7 +445,7 @@ def update_member(
     """Update a buddy member's details."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_update")
 
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
@@ -430,7 +475,7 @@ def delete_member(
     """Delete a buddy member. Cleans up empty groups."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_delete")
 
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
@@ -464,7 +509,7 @@ def link_member(
     """Move a member into a different buddy group (link/merge)."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_update")
 
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
@@ -507,7 +552,7 @@ def unlink_member(
     """Move a member out of their group into a new solo group."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_update")
 
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
@@ -539,7 +584,7 @@ def lookup_group(
     """Look up a buddy group by code. Requires PIN auth."""
     if branch not in VALID_BRANCHES_OR_ALL:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    _check_pin(request, branch)
+    _check_pin(request, branch, db)
     check_ip_rate_limit(request, "buddy_lookup")
 
     from datetime import datetime

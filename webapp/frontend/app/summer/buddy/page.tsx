@@ -338,6 +338,60 @@ export default function BuddyTrackerPage() {
     return () => clearTimeout(timeout);
   }, [branch, validBranch]);
 
+  // Card swipe detection — rapid 10-digit input within 200ms = card reader
+  useEffect(() => {
+    if (pinVerified) return;
+    let buffer = "";
+    let firstKeyTime = 0;
+    let resetTimer: ReturnType<typeof setTimeout>;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "Enter" && buffer.length === 10) {
+        const elapsed = Date.now() - firstKeyTime;
+        if (elapsed < 200) {
+          e.preventDefault();
+          const cardNumber = buffer;
+          buffer = "";
+          clearTimeout(resetTimer);
+          setPinChecking(true);
+          setPinError(null);
+          if (validBranch && branch) {
+            buddyTrackerAPI.verifyPin(branch, cardNumber)
+              .then(() => { sessionStorage.setItem("buddy_pin", cardNumber); setPinVerified(true); })
+              .catch(() => setPinError("Card not recognised"))
+              .finally(() => setPinChecking(false));
+          } else {
+            buddyTrackerAPI.verifyCard(cardNumber)
+              .then((res) => {
+                sessionStorage.setItem("buddy_pin", cardNumber);
+                window.location.href = `${buddyBasePath}?branch=${res.branch}`;
+              })
+              .catch(() => setPinError("Card not recognised"))
+              .finally(() => setPinChecking(false));
+          }
+        } else {
+          buffer = "";
+        }
+      } else if (/^\d$/.test(e.key)) {
+        if (buffer.length === 0) firstKeyTime = Date.now();
+        buffer += e.key;
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => { buffer = ""; }, 500);
+      } else {
+        buffer = "";
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(resetTimer);
+    };
+  }, [pinVerified, validBranch, branch, buddyBasePath]);
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {

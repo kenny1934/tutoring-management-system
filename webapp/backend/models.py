@@ -1153,6 +1153,18 @@ class SummerBuddyMember(Base):
     buddy_group = relationship("SummerBuddyGroup", back_populates="members")
 
 
+class BuddyAccessCard(Base):
+    """RFID access cards for buddy tracker authentication."""
+    __tablename__ = "buddy_access_cards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    card_number = Column(String(20), nullable=False, unique=True, index=True)
+    branch = Column(String(10), nullable=False)
+    staff_name = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class SummerApplication(Base):
     """Public summer course application submitted via form."""
     __tablename__ = "summer_applications"

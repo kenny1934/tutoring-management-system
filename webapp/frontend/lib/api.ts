@@ -2508,6 +2508,12 @@ export const buddyTrackerAPI = {
 
   adminLookupGroup: (code: string) =>
     fetchAPI<BuddyGroupLookup>(`/buddy-tracker/admin/groups/${code}`),
+
+  verifyCard: (cardNumber: string) =>
+    fetchAPI<{ valid: boolean; branch: string }>("/buddy-tracker/verify-card", {
+      method: "POST",
+      body: JSON.stringify({ card_number: cardNumber }),
+    }),
 };
 
 // Export all APIs as a single object

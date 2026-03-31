@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "085_buddy_tracker.sql",
+    "094_buddy_access_cards.sql",
 ]
 
 def main():
