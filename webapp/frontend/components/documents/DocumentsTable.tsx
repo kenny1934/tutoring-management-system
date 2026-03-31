@@ -11,7 +11,7 @@ import type { Document, DocumentFolder } from "@/types";
 
 function DraggableRow({ doc, selectedIds, isReadOnly, children, className, onClick, onDoubleClick, dataDocId }: {
   doc: Document; selectedIds: Set<number>; isReadOnly: boolean;
-  children: React.ReactNode; className?: string; onClick: () => void; onDoubleClick?: () => void; dataDocId: number;
+  children: React.ReactNode; className?: string; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void; dataDocId: number;
 }) {
   const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
     docId: doc.id, docTitle: doc.title, selectedIds, disabled: isReadOnly,
@@ -31,7 +31,7 @@ export interface DocumentsTableProps {
   onToggleSelectAll: (visibleIds: number[]) => void;
   expandedIds: Set<number>;
   onToggleExpand: (id: number) => void;
-  onDocClick: (docId: number) => void;
+  onDocClick: (docId: number, e?: React.MouseEvent) => void;
   onDocOpen?: (docId: number) => void;
   previewDocId: number | null;
   menuOpenId: number | null;
@@ -193,7 +193,7 @@ export default function DocumentsTable(props: DocumentsTableProps) {
                 doc={doc}
                 selectedIds={selectedIds}
                 isReadOnly={isReadOnly}
-                onClick={() => onDocClick(doc.id)}
+                onClick={(e) => onDocClick(doc.id, e)}
                 onDoubleClick={onDocOpen ? () => onDocOpen(doc.id) : undefined}
                 dataDocId={doc.id}
                 className={cn(

@@ -31,7 +31,7 @@ import type { Document, DocumentFolder } from "@/types";
 
 function DraggableCard({ doc, selectedIds, disabled, children, className, onClick, onDoubleClick }: {
   doc: Document; selectedIds: Set<number>; disabled: boolean;
-  children: React.ReactNode; className?: string; onClick: () => void; onDoubleClick?: () => void;
+  children: React.ReactNode; className?: string; onClick: (e: React.MouseEvent) => void; onDoubleClick?: () => void;
 }) {
   const { setNodeRef, dragProps, isDragging } = useDraggableDoc({
     docId: doc.id, docTitle: doc.title, selectedIds, disabled, idPrefix: "doc-card",
@@ -280,7 +280,12 @@ export default function DocumentsPage() {
     });
   }, []);
 
-  const handleDocClick = useCallback((docId: number) => {
+  const handleDocClick = useCallback((docId: number, e?: React.MouseEvent) => {
+    if (e && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      window.open(`/documents/${docId}`, "_blank");
+      return;
+    }
     trackDocView(docId);
     if (previewEnabled && window.matchMedia("(min-width: 1024px)").matches) {
       setPreviewDocId(docId);
@@ -756,7 +761,7 @@ export default function DocumentsPage() {
                         doc={doc}
                         selectedIds={selectedIds}
                         disabled={!dndEnabled}
-                        onClick={() => handleDocClick(doc.id)}
+                        onClick={(e) => handleDocClick(doc.id, e)}
                         onDoubleClick={() => router.push(`/documents/${doc.id}`)}
                         className={cn(
                           "group relative rounded-xl border border-l-[3px] p-4 cursor-pointer card-hover active:scale-[0.98] active:shadow-none transition-shadow",
