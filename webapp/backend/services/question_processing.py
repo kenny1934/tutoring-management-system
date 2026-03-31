@@ -12,6 +12,8 @@ import json
 import logging
 import re
 
+from services.question_extraction import _extract_text
+
 logger = logging.getLogger(__name__)
 
 PROCESS_MODEL = "gemini-2.5-flash"
@@ -74,7 +76,7 @@ Return ONLY valid JSON:
 # ---------------------------------------------------------------------------
 
 _MATH_RE = re.compile(r"\$([^$]+)\$")
-_LABEL_NUM_RE = re.compile(r"^(\d+)")
+
 
 
 def text_to_tiptap_nodes(text: str) -> list[dict]:
@@ -437,8 +439,6 @@ def apply_solutions_to_content(
 
     # Match question boundaries by heading label text (not positional index).
     # This handles reordered questions and non-question h3 headings correctly.
-    from services.question_extraction import _extract_text
-
     h3_by_label: dict[str, int] = {}
     h3_ordered: list[int] = []
     for i, node in enumerate(nodes):

@@ -45,28 +45,24 @@ const ALIGN_STYLES: Record<string, React.CSSProperties> = {
   "wrap-right": { float: "right", width: "45%", marginLeft:  "1em", marginBottom: "0.5em" },
 };
 
-// Tracks which node positions are currently collapsed, per editor instance.
-// Used by keyboard shortcut handlers to skip cursor over collapsed answer sections.
-const collapsedPositions = new WeakMap<object, Set<number>>();
+// Tracks collapsed answer section getPos callbacks per editor instance.
+// Positions are resolved live at arrow-key time (not cached) to avoid staleness after edits.
+const collapsedGetters = new WeakMap<object, Set<() => number | undefined>>();
 
 function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: NodeViewProps) {
-  // open/close is local React state — not persisted to the document.
-  // Prevents toggling from creating undo steps, triggering autosave, or polluting version history.
   const [open, setOpen] = useState<boolean>(() => node.attrs.open as boolean);
   const align = node.attrs.align as string;
   const label = (node.attrs.label as string) || "";
   const [editingLabel, setEditingLabel] = useState(false);
   const isEditable = editor.isEditable;
 
-  // Register/deregister collapsed positions for arrow-key skip logic
   useEffect(() => {
-    const pos = getPos?.();
-    if (pos === undefined) return;
+    if (!getPos) return;
     const key = editor as object;
-    if (!collapsedPositions.has(key)) collapsedPositions.set(key, new Set());
-    const set = collapsedPositions.get(key)!;
-    if (open) set.delete(pos); else set.add(pos);
-    return () => { set.delete(pos); };
+    if (!collapsedGetters.has(key)) collapsedGetters.set(key, new Set());
+    const set = collapsedGetters.get(key)!;
+    if (open) { set.delete(getPos); } else { set.add(getPos); }
+    return () => { set.delete(getPos); };
   }, [open, getPos, editor]);
 
   return (
@@ -106,7 +102,7 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
               className="answer-label-btn"
               disabled={!isEditable}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => isEditable && setEditingLabel(true)}
+              onClick={() => setEditingLabel(true)}
               title="Set custom label (overrides auto-number in print)"
             >
               {label || "#"}
@@ -120,7 +116,7 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
                 className={`answer-align-btn${align === value ? " answer-align-active" : ""}`}
                 disabled={!isEditable}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => isEditable && updateAttributes({ align: value })}
+                onClick={() => updateAttributes({ align: value })}
                 title={title}
               >
                 <Icon className="answer-align-icon" />
@@ -148,17 +144,21 @@ function AnswerSectionComponent({ node, updateAttributes, editor, getPos }: Node
 
 // ─── Arrow-key skip helpers for collapsed answer sections ────────────
 
-function isCollapsed(editor: Editor, pos: number): boolean {
-  return collapsedPositions.get(editor as object)?.has(pos) ?? false;
+function isCollapsedAt(editor: Editor, pos: number): boolean {
+  const set = collapsedGetters.get(editor as object);
+  if (!set) return false;
+  for (const gp of set) {
+    if (gp() === pos) return true;
+  }
+  return false;
 }
 
 function skipIfCollapsedAfter(editor: Editor): boolean {
   const { $from } = editor.state.selection;
-  // Find position right after the current top-level block
-  const depth = Math.max($from.depth, 1);
-  const after = $from.after(depth);
+  if ($from.depth < 1) return false;
+  const after = $from.after(1);
   const nodeAfter = editor.state.doc.nodeAt(after);
-  if (nodeAfter?.type.name === "answerSection" && isCollapsed(editor, after)) {
+  if (nodeAfter?.type.name === "answerSection" && isCollapsedAt(editor, after)) {
     editor.commands.setTextSelection(after + nodeAfter.nodeSize);
     return true;
   }
@@ -167,14 +167,14 @@ function skipIfCollapsedAfter(editor: Editor): boolean {
 
 function skipIfCollapsedBefore(editor: Editor): boolean {
   const { $from } = editor.state.selection;
-  const depth = Math.max($from.depth, 1);
-  const before = $from.before(depth);
+  if ($from.depth < 1) return false;
+  const before = $from.before(1);
   if (before <= 0) return false;
   const resolved = editor.state.doc.resolve(before);
   const nodeBefore = resolved.nodeBefore;
   if (nodeBefore?.type.name === "answerSection") {
     const startPos = before - nodeBefore.nodeSize;
-    if (isCollapsed(editor, startPos)) {
+    if (isCollapsedAt(editor, startPos)) {
       editor.commands.setTextSelection(startPos);
       return true;
     }
