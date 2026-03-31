@@ -1406,9 +1406,6 @@ export default function BuddyTrackerPage() {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button onClick={() => shareOrCopy(m.buddy_code, m.student_name_en, handleCopyToast)} className={actionBtnCls}>
-                        <Share2 className="h-3 w-3" /> Share Code
-                      </button>
                       <button onClick={() => setLinkingId(linkingId === m.id ? null : m.id)} className={linkingId === m.id ? actionBtnActiveCls : actionBtnCls} title={linkingId === m.id ? "Cancel" : "Pair with another student's code"}>
                         <Link2 className="h-3 w-3" /> {linkingId === m.id ? "Cancel" : "Pair with code"}
                       </button>
@@ -1540,12 +1537,6 @@ export default function BuddyTrackerPage() {
                     )}
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); shareOrCopy(g.code, soloMember.student_name_en, handleCopyToast); }}
-                        className="px-3 py-1.5 text-[11px] font-medium border-2 border-primary/30 text-primary rounded-lg hover:bg-primary/5 transition-colors"
-                      >
-                        <Share2 className="h-3 w-3 inline mr-1" />Share Code
-                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setLinkingId(linkingId === soloMember.id ? null : soloMember.id); }}
                         className={linkingId === soloMember.id
@@ -1851,9 +1842,6 @@ function DesktopRow({
                 <GroupDetail members={m.group_members} currentBranch={m.source_branch} />
                 {isSolo && (
                   <div className="flex items-center gap-3">
-                    <button onClick={() => shareOrCopy(m.buddy_code, m.student_name_en, onCopyToast)} className={actionBtnCls}>
-                      <Share2 className="h-3 w-3" /> Share Code
-                    </button>
                     <button onClick={onLink} className={isLinking ? actionBtnActiveCls : actionBtnCls} title={isLinking ? "Cancel" : "Pair with another student's code"}>
                       <Link2 className="h-3 w-3" /> {isLinking ? "Cancel" : "Pair with code"}
                     </button>
@@ -1889,15 +1877,6 @@ function MobileCard({
   const isSolo = m.group_size < 2;
   const isRecent = recentlyAddedId === m.id;
   const waitDays = daysAgo(m.created_at);
-  const shareCodeBtn = isSolo ? (
-    <button
-      onClick={() => shareOrCopy(m.buddy_code, m.student_name_en, onCopyToast)}
-      className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-    >
-      Share Code
-    </button>
-  ) : null;
-
   return (
     <div className={`border-2 rounded-xl transition-colors ${
       isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
@@ -1926,12 +1905,6 @@ function MobileCard({
           )}
         </div>
       </div>
-      {isSolo && !isExpanded && (
-        <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
-          {shareCodeBtn}
-          <p className="text-[10px] text-muted-foreground mt-1 text-center">{SHARE_HINT}</p>
-        </div>
-      )}
       {isExpanded && (
         <div className="border-t border-border px-3 py-3 space-y-3">
           {isEditing ? (
@@ -1949,7 +1922,6 @@ function MobileCard({
                 )}
                 <BuddyOverflowMenu items={overflowItems} />
               </div>
-              {shareCodeBtn}
               {linkPicker}
             </>
           )}
