@@ -245,6 +245,7 @@ export default function BuddyTrackerPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [formTouched, setFormTouched] = useState(false);
+  const [formBranch, setFormBranch] = useState<string>(BRANCHES[0]);
 
   // Buddy code lookup
   const [lookupResult, setLookupResult] = useState<BuddyGroupLookup | null>(null);
@@ -304,7 +305,8 @@ export default function BuddyTrackerPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Data
-  const validBranch = branch && BRANCHES.includes(branch as typeof BRANCHES[number]);
+  const isAllBranch = branch === "ALL";
+  const validBranch = branch && (BRANCHES.includes(branch as typeof BRANCHES[number]) || isAllBranch);
   const swrKey = validBranch && pinVerified ? `buddy-${branch}-${CURRENT_YEAR}` : null;
   const { data: members, isLoading, error } = useSWR(
     swrKey,
@@ -419,7 +421,7 @@ export default function BuddyTrackerPage() {
         student_name_en: formNameEn.trim(),
         student_name_zh: null,
         parent_phone: formPhone.trim() || null,
-        source_branch: branch,
+        source_branch: isAllBranch ? formBranch : branch!,
         year: CURRENT_YEAR,
         buddy_code: formBuddyCode.trim() ? `BG-${formBuddyCode.trim().toUpperCase()}` : null,
         is_sibling: hasAnyOtherBranch && siblingConfirmed,
@@ -463,7 +465,7 @@ export default function BuddyTrackerPage() {
     } finally {
       setFormSubmitting(false);
     }
-  }, [branch, formStudentId, formNameEn, formPhone, formBuddyCode, isGroupFull, hasAnyOtherBranch, siblingConfirmed, swrKey]);
+  }, [branch, isAllBranch, formBranch, formStudentId, formNameEn, formPhone, formBuddyCode, isGroupFull, hasAnyOtherBranch, siblingConfirmed, swrKey]);
 
   // ---- Edit / Delete ----
   const startEdit = useCallback((m: BuddyMember) => {
@@ -568,9 +570,9 @@ export default function BuddyTrackerPage() {
     return members.filter((m) => {
       if (seen.has(m.id)) return false;
       seen.add(m.id);
-      return m.source_branch === branch;
+      return isAllBranch || m.source_branch === branch;
     });
-  }, [members, branch]);
+  }, [members, branch, isAllBranch]);
 
   // Pre-compute which members are the original (earliest) in their group — O(n) once
   const originalIds = useMemo(() => {
@@ -847,6 +849,13 @@ export default function BuddyTrackerPage() {
               );
             })}
           </div>
+          <a
+            href={`${buddyBasePath}?branch=ALL`}
+            className="block w-full text-center py-2.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors animate-slide-up"
+            style={{ animationDelay: `${BRANCHES.length * 50}ms`, animationFillMode: "backwards" }}
+          >
+            All Branches (Admin)
+          </a>
         </div>
       </div>
     );
@@ -922,8 +931,8 @@ export default function BuddyTrackerPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <a href={buddyBasePath} className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white hover:opacity-80 transition-opacity ${BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`} title="Change branch">
-            {branch}
+          <a href={buddyBasePath} className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white hover:opacity-80 transition-opacity ${isAllBranch ? "bg-primary" : BRANCH_INFO[branch!]?.dot ?? "bg-primary"}`} title="Change branch">
+            {isAllBranch ? "All Branches" : branch}
           </a>
           <h1 className="text-lg font-bold text-foreground">Summer Buddy Tracker</h1>
           <span className="text-xs text-muted-foreground">{CURRENT_YEAR}</span>
@@ -1065,7 +1074,7 @@ export default function BuddyTrackerPage() {
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <UserPlus className="h-4 w-4 text-primary" />
                 Add Student
-                <BranchBadge branch={branch!} />
+                {!isAllBranch && <BranchBadge branch={branch!} />}
               </span>
               <button onClick={closeDrawer} className="p-1 text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -1075,6 +1084,18 @@ export default function BuddyTrackerPage() {
               {!formSuccess && <>
               {/* Student fields */}
               <div className="space-y-3">
+                {isAllBranch && (
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Branch <span className="text-red-500">*</span></label>
+                    <select
+                      value={formBranch}
+                      onChange={(e) => setFormBranch(e.target.value)}
+                      className={inputCls}
+                    >
+                      {BRANCHES.map(b => <option key={b} value={b}>{b} — {BRANCH_INFO[b]?.district}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Student ID <span className="text-red-500">*</span></label>
                   <input
@@ -1420,9 +1441,9 @@ export default function BuddyTrackerPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 flex-wrap">
+                      {isAllBranch && <BranchBadge branch={m.source_branch} />}
                       <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                       <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
-
                       {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
                       {m.is_sibling && <SiblingBadge />}
                     </div>
@@ -1462,6 +1483,7 @@ export default function BuddyTrackerPage() {
                       ) : (
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {isAllBranch && <BranchBadge branch={m.source_branch} />}
                             <span className="font-mono text-xs text-muted-foreground w-14 shrink-0">{m.student_id}</span>
                             <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
       
