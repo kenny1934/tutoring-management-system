@@ -1403,7 +1403,7 @@ export default function BuddyTrackerPage() {
             ) : boardSolo.map(m => {
               const waitDays = daysAgo(m.created_at);
               return (
-              <div key={m.id} className={`border-2 border-l-[3px] border-l-red-300 border-border rounded-xl p-3 space-y-2.5 ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : "bg-card"}`}>
+              <div key={m.id} className={`border-2 border-border rounded-xl p-3 space-y-2.5 ${recentlyAddedId === m.id ? "bg-green-500/20 animate-fade-in" : "bg-card"}`}>
                 {/* Status bar */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <CodePill code={m.buddy_code} onCopy={handleCopyToast} />
@@ -1452,7 +1452,7 @@ export default function BuddyTrackerPage() {
             {boardPaired.length === 0 ? (
               <div className="text-center py-8 text-xs text-muted-foreground">No paired groups yet</div>
             ) : boardPaired.map(g => (
-              <div key={g.code} className="border-2 border-l-[3px] border-l-green-400 border-border rounded-xl p-3 bg-card">
+              <div key={g.code} className="border-2 border-border rounded-xl p-3 bg-card">
                 <div className="flex items-center gap-2 mb-2">
                   <CodePill code={g.code} onCopy={handleCopyToast} />
                   <CrossBranchIndicator members={g.others} currentBranch={branch!} />
@@ -1509,7 +1509,7 @@ export default function BuddyTrackerPage() {
               <div
                 key={g.code}
                 className={`border-2 rounded-2xl overflow-hidden ${
-                  isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
+                  isSolo ? `border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-border"
                 }`}
               >
                 {isSolo && soloMember ? (
@@ -1819,7 +1819,7 @@ function DesktopRow({
     <>
       <tr
         className={`border-b border-border hover:bg-muted/20 transition-colors cursor-pointer ${
-          isSolo ? `border-l-[3px] border-l-red-300 ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400"
+          isSolo ? `${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : ""
         } ${isRecent ? "bg-green-500/20 animate-fade-in" : ""}`}
         style={!isRecent ? { backgroundColor: `hsl(${codeHue(m.buddy_code)}, 40%, 50%, 0.09)` } : undefined}
         onClick={onToggleExpand}
@@ -1892,7 +1892,7 @@ function MobileCard({
   const waitDays = daysAgo(m.created_at);
   return (
     <div className={`border-2 rounded-xl transition-colors ${
-      isSolo ? `border-l-[3px] border-l-red-300 border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-l-[3px] border-l-green-400 border-border"
+      isSolo ? `border-border ${waitDays >= 5 ? "animate-buddy-pulse" : ""}` : "border-border"
     } ${isRecent ? "bg-green-500/20 animate-fade-in" : isExpanded ? "bg-muted/20" : "bg-card"}`}>
       <div className="p-3 space-y-1.5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between">
