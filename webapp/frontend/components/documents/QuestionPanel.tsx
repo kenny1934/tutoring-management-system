@@ -124,7 +124,7 @@ function QuestionCard({
         </button>
       )}
       {errorMsg && (
-        <p className="text-[10px] text-red-500 mb-1">Failed: AI service error</p>
+        <p className="text-[10px] text-red-500 mb-1">Failed: {errorMsg}</p>
       )}
       {(q.topic || q.difficulty) && (
         <div className="flex flex-wrap items-center gap-1">
@@ -176,22 +176,27 @@ interface QuestionPanelProps {
   docId: number;
   doc: Document;
   isOpen: boolean;
+  isReadOnly?: boolean;
   onClose: () => void;
   questions: ExtractedQuestion[] | null | undefined;
   onQuestionsUpdated: (questions: ExtractedQuestion[]) => void;
   onScrollToNode: (nodeIndex: number) => void;
   onContentRefresh?: (content: Record<string, unknown>) => void;
+  /** Current top-level node count in the editor — used to detect stale extraction */
+  editorNodeCount?: number;
 }
 
 export function QuestionPanel({
   docId,
   doc,
   isOpen,
+  isReadOnly = false,
   onClose,
   questions,
   onQuestionsUpdated,
   onScrollToNode,
   onContentRefresh,
+  editorNodeCount,
 }: QuestionPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -203,6 +208,11 @@ export function QuestionPanel({
   const [creating, setCreating] = useState(false);
   const [lastActions, setLastActions] = useState<string[]>(["solve"]);
   const [retryingIndex, setRetryingIndex] = useState<number | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [variantUrl, setVariantUrl] = useState<string | null>(null);
+  // Node count at extraction time — used to detect stale question list
+  const [extractedNodeCount, setExtractedNodeCount] = useState<number | null>(null);
+  const isStale = extractedNodeCount !== null && editorNodeCount !== undefined && editorNodeCount !== extractedNodeCount;
 
   // Hydrate results from stored solutions/variants on mount
   useEffect(() => {
@@ -237,12 +247,15 @@ export function QuestionPanel({
       setProcessResults(null);
       setProcessErrors([]);
       setUsage(null);
+      setSuccessMsg("");
+      setVariantUrl(null);
+      if (editorNodeCount !== undefined) setExtractedNodeCount(editorNodeCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Extraction failed");
     } finally {
       setLoading(false);
     }
-  }, [docId, onQuestionsUpdated]);
+  }, [docId, onQuestionsUpdated, editorNodeCount]);
 
   const handleProcess = useCallback(async (actions: string[], questionIndices?: number[]) => {
     setProcessing(true);
@@ -305,6 +318,8 @@ export function QuestionPanel({
       if (onContentRefresh && updatedDoc.content) {
         onContentRefresh(updatedDoc.content as Record<string, unknown>);
       }
+      setSuccessMsg("Solutions applied to document");
+      setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply solutions");
     } finally {
@@ -321,7 +336,15 @@ export function QuestionPanel({
         results: processResults,
         include_solutions: true,
       });
-      window.open(`/documents/${newDoc.id}`, "_blank");
+      const url = `/documents/${newDoc.id}`;
+      const win = window.open(url, "_blank");
+      if (!win) {
+        // Popup blocked — show a clickable link as fallback
+        setVariantUrl(url);
+      } else {
+        setSuccessMsg("Variant document created");
+        setTimeout(() => setSuccessMsg(""), 3000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create variant");
     } finally {
@@ -344,7 +367,7 @@ export function QuestionPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="w-80 border-l border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] flex flex-col shrink-0 print:hidden">
+    <div role="complementary" aria-label="Questions panel" className="w-80 border-l border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] flex flex-col shrink-0 print:hidden max-md:fixed max-md:inset-0 max-md:w-full max-md:z-50">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         <div className="flex items-center gap-2">
@@ -360,8 +383,8 @@ export function QuestionPanel({
           {questions && questions.length > 0 && (
             <button
               onClick={handleExtract}
-              disabled={loading || processing}
-              className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+              disabled={loading || processing || isReadOnly}
+              className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               title="Re-extract questions"
             >
               <RefreshCw className={cn("w-3.5 h-3.5 text-gray-500", loading && "animate-spin")} />
@@ -369,12 +392,31 @@ export function QuestionPanel({
           )}
           <button
             onClick={onClose}
+            aria-label="Close questions panel"
             className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
       </div>
+
+      {/* Banners */}
+      {isStale && !loading && (
+        <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 text-[11px] text-amber-700 dark:text-amber-300 flex items-center justify-between">
+          <span>Document changed — questions may be outdated</span>
+          <button onClick={handleExtract} disabled={loading || processing} className="text-amber-600 dark:text-amber-400 hover:underline font-medium ml-2">Refresh</button>
+        </div>
+      )}
+      {successMsg && (
+        <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 text-[11px] text-green-700 dark:text-green-300">
+          {successMsg}
+        </div>
+      )}
+      {variantUrl && (
+        <div className="px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 text-[11px] text-purple-700 dark:text-purple-300">
+          Variant created — <a href={variantUrl} target="_blank" rel="noopener noreferrer" className="underline font-medium">open in new tab</a>
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
@@ -383,7 +425,7 @@ export function QuestionPanel({
             <Loader2 className="w-6 h-6 animate-spin" />
             <p className="text-xs">Extracting questions...</p>
           </div>
-        ) : processing && !retryingIndex ? (
+        ) : processing && retryingIndex === null ? (
           <div className="flex flex-col items-center gap-3 py-12 text-gray-400">
             <Loader2 className="w-6 h-6 animate-spin" />
             <p className="text-xs">Processing with AI...</p>
@@ -400,8 +442,8 @@ export function QuestionPanel({
             </div>
             <button
               onClick={handleExtract}
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm"
+              disabled={loading || isReadOnly}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Extract Questions
             </button>
@@ -427,7 +469,7 @@ export function QuestionPanel({
       </div>
 
       {/* Bottom toolbar */}
-      {questions && questions.length > 0 && !loading && (!processing || retryingIndex !== null) && (
+      {questions && questions.length > 0 && !loading && (!processing || retryingIndex !== null) && !isReadOnly && (
         <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2.5 space-y-2">
           <div className="flex gap-2">
             <button

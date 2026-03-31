@@ -340,7 +340,7 @@ async def process_questions(
     content: dict,
     actions: list[str],
     question_indices: list[int] | None = None,
-) -> tuple[list[dict], int, int]:
+) -> tuple[list[dict], list[dict], int, int]:
     """
     Process questions in parallel via Gemini.
 
@@ -351,7 +351,7 @@ async def process_questions(
         question_indices: Specific question indices to process (None = all).
 
     Returns:
-        (results, total_input_tokens, total_output_tokens)
+        (results, errors, total_input_tokens, total_output_tokens)
     """
     use_vary = "vary" in actions
 

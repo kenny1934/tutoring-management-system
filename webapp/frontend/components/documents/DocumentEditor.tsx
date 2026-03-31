@@ -1286,6 +1286,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 
         <button
           onClick={() => { setQuestionPanelOpen(!questionPanelOpen); if (!questionPanelOpen) setVersionPanelOpen(false); }}
+          aria-expanded={questionPanelOpen}
           className={cn(
             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
             questionPanelOpen
@@ -2265,9 +2266,11 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           docId={doc.id}
           doc={doc}
           isOpen={questionPanelOpen}
+          isReadOnly={isReadOnly || previewContent !== null}
           onClose={() => setQuestionPanelOpen(false)}
           questions={questions}
           onQuestionsUpdated={setQuestions}
+          editorNodeCount={editor?.state.doc.childCount}
           onScrollToNode={(nodeIndex) => {
             if (!editor) return;
             const { doc: pmDoc } = editor.state;
