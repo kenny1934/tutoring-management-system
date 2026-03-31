@@ -1433,19 +1433,12 @@ export default function BuddyTrackerPage() {
                   <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                 ) : (
                   <>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
-                        <span className="font-medium text-sm">{m.student_name_en}</span>
-                        {m.student_name_zh && <span className="text-xs text-muted-foreground">{m.student_name_zh}</span>}
-                        {m.is_sibling && <SiblingBadge />}
-                      </div>
-                      {m.parent_phone && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          <span>{m.parent_phone}</span>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
+                      <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
+                      {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
+                      {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
+                      {m.is_sibling && <SiblingBadge />}
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1482,39 +1475,29 @@ export default function BuddyTrackerPage() {
                         <EditForm editData={editData} editError={editError} onChange={(f, v) => setEditData(prev => ({ ...prev, [f]: v }))} onSave={saveEdit} onCancel={() => { setEditingId(null); setEditError(null); }} />
                       ) : (
                         <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>
-                            <span className="font-medium">{m.student_name_en}</span>
-                            {m.student_name_zh && <span className="text-muted-foreground">{m.student_name_zh}</span>}
+                            <span className="font-semibold text-sm text-foreground">{m.student_name_en}</span>
+                            {m.student_name_zh && <span className="text-[10px] text-muted-foreground">{m.student_name_zh}</span>}
+                            {m.parent_phone && <span className="text-[10px] text-muted-foreground">{m.parent_phone}</span>}
                             {m.is_sibling && <SiblingBadge />}
                             <div className="ml-auto shrink-0">
                               <BuddyOverflowMenu items={buildOverflowItems(m)} />
                             </div>
                           </div>
-                          {m.parent_phone && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" />
-                              <span>{m.parent_phone}</span>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
                   ))}
                   {g.others.map(m => (
-                    <div key={`${m.source}-${m.id}`} className="py-2 space-y-2">
-                      <div className="flex items-center gap-2 text-xs">
+                    <div key={`${m.source}-${m.id}`} className="py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <BranchBadge branch={m.branch} />
                         {m.student_id && <span className="font-mono text-[10px] text-muted-foreground">{m.student_id}</span>}
-                        <span className="font-medium">{m.name}</span>
+                        <span className="font-semibold text-sm text-foreground">{m.name}</span>
+                        {m.phone && <span className="text-[10px] text-muted-foreground">{m.phone}</span>}
                         {m.is_sibling && <SiblingBadge />}
                       </div>
-                      {m.phone && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          <span>{m.phone}</span>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
