@@ -21,7 +21,6 @@ import {
   AlertTriangle,
   UserPlus,
   Phone,
-  Share2,
   RefreshCw,
   LayoutList,
   LayoutGrid,
@@ -54,19 +53,6 @@ const inputCls = "w-full text-xs border-2 border-border rounded-lg px-2.5 py-2 b
 const actionBtnCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary/25 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/40 transition-colors";
 
 const actionBtnActiveCls = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-primary text-primary-foreground bg-primary shadow-sm transition-colors";
-
-async function shareOrCopy(code: string, name?: string, onCopy?: (c: string) => void) {
-  if (typeof navigator !== "undefined" && navigator.share) {
-    try {
-      await navigator.share({ title: "Buddy Code", text: `Buddy code: ${code}${name ? ` (${name})` : ""}` });
-      return;
-    } catch { /* cancelled — fall through to copy */ }
-  }
-  try {
-    await navigator.clipboard.writeText(code);
-    onCopy?.(code);
-  } catch { /* clipboard access denied */ }
-}
 
 
 function daysAgo(dateStr: string): number {
@@ -434,14 +420,14 @@ export default function BuddyTrackerPage() {
         buddy_code: formBuddyCode.trim() ? `BG-${formBuddyCode.trim().toUpperCase()}` : null,
         is_sibling: hasAnyOtherBranch && siblingConfirmed,
       });
-      // Clear form — keep buddy code if joining existing group for consecutive adds
+      // Clear form
       const wasJoining = !!formBuddyCode.trim();
       setFormStudentId("");
       setFormNameEn("");
       setFormNameZh("");
       setFormPhone("");
+      setFormBuddyCode("");
       setFormTouched(false);
-      if (!wasJoining) setFormBuddyCode("");
       if (wasJoining) {
         try {
           const updated = await buddyTrackerAPI.lookupGroup(`BG-${formBuddyCode.trim().toUpperCase()}`, branch);
@@ -1263,15 +1249,6 @@ export default function BuddyTrackerPage() {
                       </button>
                       <p className="text-[10px] text-muted-foreground mt-1">{SHARE_HINT}</p>
                     </div>
-                  )}
-                  {!isGroupFull && (
-                    <button
-                      onClick={() => shareOrCopy(formSuccess, undefined, handleCopyToast)}
-                      className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-                    >
-                      <Share2 className="h-4 w-4 inline mr-1.5" />
-                      Share Code with Family
-                    </button>
                   )}
                   <div className="flex gap-3 w-full">
                     <button
