@@ -483,6 +483,14 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   const [versionPanelOpen, setVersionPanelOpen] = useState(false);
   const [questionPanelOpen, setQuestionPanelOpen] = useState(false);
   const [questions, setQuestions] = useState(doc.questions ?? null);
+  const hasAnswerSections = useMemo(() => {
+    if (!editor) return false;
+    let found = false;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "answerSection") { found = true; return false; }
+    });
+    return found;
+  }, [editor?.state.doc]);
   const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
   const [previewVersionNumber, setPreviewVersionNumber] = useState<number | null>(null);
   const [previewContent, setPreviewContent] = useState<Record<string, unknown> | null>(null);
@@ -2270,14 +2278,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           questions={questions}
           onQuestionsUpdated={setQuestions}
           editorNodeCount={editor?.state.doc.childCount}
-          hasAnswerSections={(() => {
-            if (!editor) return false;
-            let found = false;
-            editor.state.doc.descendants((node) => {
-              if (node.type.name === "answerSection") { found = true; return false; }
-            });
-            return found;
-          })()}
+          hasAnswerSections={hasAnswerSections}
           onScrollToNode={(nodeIndex) => {
             if (!editor) return;
             const { doc: pmDoc } = editor.state;

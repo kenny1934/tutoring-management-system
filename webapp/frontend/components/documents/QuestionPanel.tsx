@@ -163,9 +163,11 @@ function QuestionCard({
   );
 }
 
+// Gemini 2.5 Flash pricing ($/1M tokens)
+const GEMINI_PRICING = { input: 0.15, output: 0.60 };
+
 function UsageSummary({ usage }: { usage: { input_tokens: number; output_tokens: number } }) {
-  // gemini-2.5-flash: $0.15/1M input, $0.60/1M output (non-thinking)
-  const cost = (usage.input_tokens * 0.15 + usage.output_tokens * 0.60) / 1_000_000;
+  const cost = (usage.input_tokens * GEMINI_PRICING.input + usage.output_tokens * GEMINI_PRICING.output) / 1_000_000;
   return (
     <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
       {usage.input_tokens.toLocaleString()} in / {usage.output_tokens.toLocaleString()} out &middot; ~${cost.toFixed(3)}
@@ -369,6 +371,28 @@ export function QuestionPanel({
   const hasVariants = useMemo(() => processResults?.some(r => r.variant_nodes != null || r.variant_text) ?? false, [processResults]);
   const hasSolutions = useMemo(() => processResults?.some(r => r.solution_nodes != null || r.solution_text) ?? false, [processResults]);
 
+  const confirmMessage = useMemo(() => {
+    if (!pendingAction) return "";
+    const n = questions?.length ?? 0;
+    const isVary = pendingAction === "vary";
+    const skipSolve = isVary && hasSolutions;
+    const inPerQ = 300;
+    const outPerQ = isVary ? 800 : 400;
+    const cost = n * (inPerQ * GEMINI_PRICING.input + outPerQ * GEMINI_PRICING.output) / 1_000_000;
+    const costStr = cost < 0.01 ? "<$0.01" : `~$${cost.toFixed(2)}`;
+    const base = skipSolve
+      ? "Solutions already exist — only variants will be generated."
+      : "This will use Gemini AI credits.";
+    return `${base} Estimated cost: ${costStr}`;
+  }, [pendingAction, hasSolutions, questions?.length]);
+
+  const confirmConsequences = useMemo(() => {
+    const c: string[] = [];
+    if (pendingAction === "solve" && hasSolutions) c.push("Previous solve results will be overwritten");
+    if (pendingAction === "vary" && hasVariants) c.push("Previous variant results will be overwritten");
+    return c.length > 0 ? c : undefined;
+  }, [pendingAction, hasSolutions, hasVariants]);
+
   if (!isOpen) return null;
 
   return (
@@ -534,27 +558,8 @@ export function QuestionPanel({
         title={pendingAction === "solve"
           ? `Solve ${questions?.length ?? 0} questions?`
           : `Generate variants for ${questions?.length ?? 0} questions?`}
-        message={(() => {
-          const n = questions?.length ?? 0;
-          // Rough estimate: ~300 input + ~400 output tokens per question (solve)
-          // Variants roughly double output. Gemini 2.5 Flash: $0.15/1M in, $0.60/1M out
-          const isVary = pendingAction === "vary";
-          const skipSolve = isVary && hasSolutions;
-          const inPerQ = 300;
-          const outPerQ = isVary ? 800 : 400;
-          const cost = n * (inPerQ * 0.15 + outPerQ * 0.60) / 1_000_000;
-          const costStr = cost < 0.01 ? "<$0.01" : `~$${cost.toFixed(2)}`;
-          const base = skipSolve
-            ? "Solutions already exist — only variants will be generated."
-            : "This will use Gemini AI credits.";
-          return `${base} Estimated cost: ${costStr}`;
-        })()}
-        consequences={(() => {
-          const c: string[] = [];
-          if (pendingAction === "solve" && hasSolutions) c.push("Previous solve results will be overwritten");
-          if (pendingAction === "vary" && hasVariants) c.push("Previous variant results will be overwritten");
-          return c.length > 0 ? c : undefined;
-        })()}
+        message={confirmMessage}
+        consequences={confirmConsequences}
         confirmText={pendingAction === "solve" ? "Solve All" : "Generate Variants"}
       />
     </div>

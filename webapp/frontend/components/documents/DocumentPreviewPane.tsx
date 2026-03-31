@@ -221,7 +221,6 @@ export function DocumentPreviewPane({ docId, onClose, onOpenEditor, onRename, on
                   )}
                 </div>
 
-
                 {/* Variant tree */}
                 {(doc.parent_id || (doc.children && doc.children.length > 0)) && (
                   <div className="py-2 border-t border-gray-100 dark:border-gray-800/50">
