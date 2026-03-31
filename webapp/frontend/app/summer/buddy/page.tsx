@@ -648,7 +648,7 @@ export default function BuddyTrackerPage() {
     if (filterTab === "solo") return filteredMembers.filter(m => m.group_size < 2);
     if (filterTab === "complete") return filteredMembers.filter(m => m.group_size >= 2);
     if (filterTab === "cross-branch") return filteredMembers.filter(m =>
-      m.is_sibling || m.group_members.some(gm => gm.branch !== branch)
+      m.is_sibling || m.group_members.some(gm => gm.branch !== m.source_branch)
     );
     return filteredMembers;
   }, [filteredMembers, filterTab, branch]);
@@ -682,7 +682,7 @@ export default function BuddyTrackerPage() {
     const groupIds = new Set(ownMembers.map((m) => m.buddy_group_id));
     const paired = ownMembers.filter((m) => m.group_size >= 2).length;
     const crossBranch = ownMembers.filter((m) =>
-      m.is_sibling || m.group_members.some(gm => gm.branch !== branch)
+      m.is_sibling || m.group_members.some(gm => gm.branch !== m.source_branch)
     ).length;
     return {
       total: ownMembers.length,
