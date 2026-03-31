@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
-  Lock,
   Users,
   Search,
   Copy,
@@ -230,6 +229,14 @@ export default function BuddyTrackerPage() {
     clearTimeout(drawerCloseTimer.current);
     drawerCloseTimer.current = setTimeout(() => { setDrawerClosing(false); setDrawerOpen(false); }, 200);
   }, []);
+  const resetDrawer = useCallback(() => {
+    setFormTouched(false);
+    setFormSuccess(null);
+    setFormError(null);
+    setLookupResult(null);
+    setLookupError(null);
+    setSiblingConfirmed(false);
+  }, []);
   const [formStudentId, setFormStudentId] = useState("");
   const [formNameEn, setFormNameEn] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -286,13 +293,10 @@ export default function BuddyTrackerPage() {
   }, []);
 
   const prefillBuddyCode = useCallback((code: string) => {
+    resetDrawer();
     setFormBuddyCode(code.startsWith("BG-") ? code.slice(3) : code);
-    setFormTouched(false);
-    setLookupResult(null);
-    setLookupError(null);
-    setSiblingConfirmed(false);
     setDrawerOpen(true);
-  }, []);
+  }, [resetDrawer]);
 
   // Sort
   type SortField = "student_id" | "student_name_en" | "buddy_code" | "group_size" | "created_at" | null;
@@ -380,13 +384,15 @@ export default function BuddyTrackerPage() {
     }
   }, [formBuddyCode, branch]);
 
-  // Auto-lookup when 4 chars entered
+  // Auto-lookup when 4 chars entered (use ref to avoid stale closure in timeout)
+  const handleLookupRef = useRef(handleLookup);
+  useEffect(() => { handleLookupRef.current = handleLookup; });
   useEffect(() => {
     clearTimeout(lookupTimer.current);
     if (formBuddyCode.trim().length === 4 && branch) {
-      lookupTimer.current = setTimeout(() => handleLookup(), 500);
+      lookupTimer.current = setTimeout(() => handleLookupRef.current(), 500);
     }
-  }, [formBuddyCode, branch, handleLookup]);
+  }, [formBuddyCode, branch]);
 
   const hasAnyOtherBranch = useMemo(() => {
     if (!lookupResult || !branch) return false;
@@ -566,6 +572,16 @@ export default function BuddyTrackerPage() {
     });
   }, [members, branch]);
 
+  // Pre-compute which members are the original (earliest) in their group — O(n) once
+  const originalIds = useMemo(() => {
+    const earliest = new Map<number, { id: number; created_at: string }>();
+    for (const m of ownMembers) {
+      const prev = earliest.get(m.buddy_group_id);
+      if (!prev || m.created_at < prev.created_at) earliest.set(m.buddy_group_id, { id: m.id, created_at: m.created_at });
+    }
+    return new Set(Array.from(earliest.values()).map(e => e.id));
+  }, [ownMembers]);
+
   // Build overflow menu items for a member (shared across all views)
   const buildOverflowItems = useCallback((m: BuddyMember, opts?: { onEdit?: () => void }): OverflowMenuItem[] => {
     const isSolo = m.group_size < 2;
@@ -579,17 +595,12 @@ export default function BuddyTrackerPage() {
     }
     // Only allow unlinking the member who joined later — the original member's
     // code was already shared with families and should stay with them.
-    const isOriginal = !ownMembers.some(
-      other => other.id !== m.id
-        && other.buddy_group_id === m.buddy_group_id
-        && other.created_at < m.created_at
-    );
     return [
       { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: onEdit },
-      ...(!isOriginal ? [{ label: "Remove from pair", icon: <UnlinkIcon className="h-3.5 w-3.5" />, onClick: () => confirmUnlinkMember(m.id, m.student_name_en), warning: true }] : []),
+      ...(!originalIds.has(m.id) ? [{ label: "Remove from pair", icon: <UnlinkIcon className="h-3.5 w-3.5" />, onClick: () => confirmUnlinkMember(m.id, m.student_name_en), warning: true }] : []),
       { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => confirmDeleteMember(m.id, m.student_name_en), destructive: true },
     ];
-  }, [startEdit, prefillBuddyCode, confirmDeleteMember, confirmUnlinkMember, ownMembers]);
+  }, [startEdit, prefillBuddyCode, confirmDeleteMember, confirmUnlinkMember, originalIds]);
 
   const filteredMembers = useMemo(() => {
     let list = ownMembers;
@@ -640,49 +651,28 @@ export default function BuddyTrackerPage() {
     return filteredMembers;
   }, [filteredMembers, filterTab, branch]);
 
-  // Grouped view data
-  const groupedData = useMemo(() => {
-    if (viewMode !== "groups") return [];
-    const map = new Map<number, { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[]; oldestCreated: string }>();
-    for (const m of displayMembers) {
-      if (!map.has(m.buddy_group_id)) {
-        map.set(m.buddy_group_id, { code: m.buddy_code, size: m.group_size, own: [], others: m.group_members, oldestCreated: m.created_at });
-      }
-      const g = map.get(m.buddy_group_id)!;
-      g.own.push(m);
-      if (m.created_at < g.oldestCreated) g.oldestCreated = m.created_at;
-    }
-    // Filter others to exclude members already shown in own
-    for (const g of map.values()) {
-      const ownIds = new Set(g.own.map((m) => m.id));
-      g.others = g.others.filter((m) => !(m.source === "primary" && ownIds.has(m.id)));
-    }
-    // Solo groups first (oldest first = most urgent), then complete (newest first)
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.size < 2 && b.size >= 2) return -1;
-      if (a.size >= 2 && b.size < 2) return 1;
-      if (a.size < 2 && b.size < 2) return a.oldestCreated.localeCompare(b.oldestCreated); // oldest first
-      return b.oldestCreated.localeCompare(a.oldestCreated); // newest first for complete
-    });
-  }, [displayMembers, viewMode]);
+  // Grouped view data — skipped while board is the only active view
+  const groupedData: { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[]; oldestCreated: string }[] = [];
 
-  // ---- Stats ----
-  // Board view: split into solo and paired
-  const boardSolo = useMemo(() =>
-    displayMembers.filter(m => m.group_size < 2).sort((a, b) => a.created_at.localeCompare(b.created_at)),
-    [displayMembers]
-  );
-  const boardPaired = useMemo(() => {
+  // Board view: partition into solo and paired in a single pass
+  const { boardSolo, boardPaired } = useMemo(() => {
     const displayIds = new Set(displayMembers.map(m => m.id));
-    const map = new Map<number, { code: string; members: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
-    for (const m of displayMembers.filter(m => m.group_size >= 2)) {
-      if (!map.has(m.buddy_group_id)) {
-        const others = m.group_members.filter(gm => !(gm.source === "primary" && displayIds.has(gm.id)));
-        map.set(m.buddy_group_id, { code: m.buddy_code, members: [], others });
+    const solo: BuddyMember[] = [];
+    const pairedMap = new Map<number, { code: string; members: BuddyMember[]; others: BuddyGroupMemberInfo[] }>();
+    for (const m of displayMembers) {
+      if (m.group_size < 2) {
+        solo.push(m);
+      } else {
+        if (!pairedMap.has(m.buddy_group_id)) {
+          const others = m.group_members.filter(gm => !(gm.source === "primary" && displayIds.has(gm.id)));
+          pairedMap.set(m.buddy_group_id, { code: m.buddy_code, members: [], others });
+        }
+        pairedMap.get(m.buddy_group_id)!.members.push(m);
       }
-      map.get(m.buddy_group_id)!.members.push(m);
     }
-    return Array.from(map.values()).sort((a, b) => b.members[0].created_at.localeCompare(a.members[0].created_at));
+    solo.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const paired = Array.from(pairedMap.values()).sort((a, b) => b.members[0].created_at.localeCompare(a.members[0].created_at));
+    return { boardSolo: solo, boardPaired: paired };
   }, [displayMembers]);
 
   const stats = useMemo(() => {
@@ -1046,7 +1036,7 @@ export default function BuddyTrackerPage() {
       {typeof document !== "undefined" && createPortal(
       <div className="buddy-theme">
       <button
-        onClick={() => { if (drawerOpen) { closeDrawer(); } else { setFormTouched(false); setFormSuccess(null); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false); setDrawerOpen(true); } }}
+        onClick={() => { if (drawerOpen) { closeDrawer(); } else { resetDrawer(); setDrawerOpen(true); } }}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center ${
           drawerOpen ? "bg-muted text-muted-foreground rotate-90" : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
         }`}
