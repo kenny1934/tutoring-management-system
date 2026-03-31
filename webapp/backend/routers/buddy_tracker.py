@@ -75,6 +75,14 @@ def _check_pin(request: Request, branch: str):
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
 
+def _check_pin_or_admin(request: Request, branch: str):
+    """Accept either the branch PIN or the admin PIN."""
+    pin = request.headers.get("X-Branch-Pin", "")
+    if ADMIN_PIN and hmac.compare_digest(pin, ADMIN_PIN):
+        return
+    _check_pin(request, branch)
+
+
 def _get_group_members(db: Session, group_id: int, exclude_member_id: Optional[int] = None) -> list[BuddyGroupMemberInfo]:
     """Get all members of a buddy group (both primary and secondary)."""
     members: list[BuddyGroupMemberInfo] = []
@@ -342,12 +350,7 @@ def create_member(
     """Add a student to the buddy tracker, optionally joining an existing group."""
     if data.source_branch not in VALID_BRANCHES:
         raise HTTPException(status_code=400, detail="Invalid branch")
-    # Accept either the branch PIN or the admin PIN
-    pin = request.headers.get("X-Branch-Pin", "")
-    if ADMIN_PIN and hmac.compare_digest(pin, ADMIN_PIN):
-        pass  # Admin PIN accepted
-    else:
-        _check_pin(request, data.source_branch)
+    _check_pin_or_admin(request, data.source_branch)
     check_ip_rate_limit(request, "buddy_create")
 
     from datetime import datetime
@@ -403,7 +406,7 @@ def update_member(
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
-    if member.source_branch != branch:
+    if branch != "ALL" and member.source_branch != branch:
         raise HTTPException(status_code=403, detail="Cannot edit member from another branch")
 
     update_data = data.model_dump(exclude_unset=True)
@@ -467,7 +470,7 @@ def link_member(
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
-    if member.source_branch != branch:
+    if branch != "ALL" and member.source_branch != branch:
         raise HTTPException(status_code=403, detail="Cannot link member from another branch")
 
     # Look up target group
@@ -510,7 +513,7 @@ def unlink_member(
     member = db.query(SummerBuddyMember).filter(SummerBuddyMember.id == member_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
-    if member.source_branch != branch:
+    if branch != "ALL" and member.source_branch != branch:
         raise HTTPException(status_code=403, detail="Cannot unlink member from another branch")
 
     old_group_id = member.buddy_group_id

@@ -233,6 +233,7 @@ export default function BuddyTrackerPage() {
     setFormTouched(false);
     setFormSuccess(null);
     setFormError(null);
+    setFormBranch(BRANCHES[0]);
     setLookupResult(null);
     setLookupError(null);
     setSiblingConfirmed(false);
@@ -696,7 +697,7 @@ export default function BuddyTrackerPage() {
       solo: ownMembers.length - paired,
       crossBranch,
     };
-  }, [ownMembers, branch]);
+  }, [ownMembers]);
 
   // Duplicate student ID detection
   const existingStudentIds = useMemo(() => {
