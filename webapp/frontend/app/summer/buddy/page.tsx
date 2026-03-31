@@ -277,6 +277,7 @@ export default function BuddyTrackerPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "groups" | "board">("board");
   const [filterTab, setFilterTab] = useState<"all" | "solo" | "complete" | "cross-branch">("all");
+  const [branchFilter, setBranchFilter] = useState<Set<string>>(new Set());
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const copyToastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
@@ -643,15 +644,19 @@ export default function BuddyTrackerPage() {
     }
   }, [sortField, sortDir]);
 
-  // Apply filter tab
+  // Apply filter tab + branch filter
   const displayMembers = useMemo(() => {
-    if (filterTab === "solo") return filteredMembers.filter(m => m.group_size < 2);
-    if (filterTab === "complete") return filteredMembers.filter(m => m.group_size >= 2);
-    if (filterTab === "cross-branch") return filteredMembers.filter(m =>
+    let list = filteredMembers;
+    if (branchFilter.size > 0) {
+      list = list.filter(m => branchFilter.has(m.source_branch));
+    }
+    if (filterTab === "solo") return list.filter(m => m.group_size < 2);
+    if (filterTab === "complete") return list.filter(m => m.group_size >= 2);
+    if (filterTab === "cross-branch") return list.filter(m =>
       m.is_sibling || m.group_members.some(gm => gm.branch !== m.source_branch)
     );
-    return filteredMembers;
-  }, [filteredMembers, filterTab, branch]);
+    return list;
+  }, [filteredMembers, filterTab, branchFilter]);
 
   // Grouped view data — skipped while board is the only active view
   const groupedData: { code: string; size: number; own: BuddyMember[]; others: BuddyGroupMemberInfo[]; oldestCreated: string }[] = [];
@@ -1367,6 +1372,38 @@ export default function BuddyTrackerPage() {
               </button>
             </div>}
           </div>
+          {isAllBranch && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {BRANCHES.map(b => {
+                const active = branchFilter.has(b);
+                return (
+                  <button
+                    key={b}
+                    onClick={() => setBranchFilter(prev => {
+                      const next = new Set(prev);
+                      if (next.has(b)) next.delete(b); else next.add(b);
+                      return next;
+                    })}
+                    className={`text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors ${
+                      active
+                        ? `text-white ${BRANCH_INFO[b]?.dot ?? "bg-primary"}`
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {b}
+                  </button>
+                );
+              })}
+              {branchFilter.size > 0 && (
+                <button
+                  onClick={() => setBranchFilter(new Set())}
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
