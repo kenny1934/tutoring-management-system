@@ -1046,7 +1046,7 @@ export default function BuddyTrackerPage() {
       {typeof document !== "undefined" && createPortal(
       <div className="buddy-theme">
       <button
-        onClick={() => { if (drawerOpen) { closeDrawer(); } else { setFormTouched(false); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false); setDrawerOpen(true); } }}
+        onClick={() => { if (drawerOpen) { closeDrawer(); } else { setFormTouched(false); setFormSuccess(null); setLookupResult(null); setLookupError(null); setSiblingConfirmed(false); setDrawerOpen(true); } }}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center ${
           drawerOpen ? "bg-muted text-muted-foreground rotate-90" : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
         }`}
