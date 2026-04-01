@@ -11,6 +11,7 @@
 
 ### Improvements
 
+* **Math editor LaTeX source mode** — toggle between the visual editor and raw LaTeX for direct source editing
 * **Editor mobile responsiveness** — toolbar collapses on small screens with touch-friendly targets
 * **Smart question detection** — works with both OCR-imported and manually created worksheets
 * **Print answer key** — shows document name, clean text over watermark, avoids splitting entries across pages

@@ -25,6 +25,9 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
+            "description": "**Math editor LaTeX source mode** — toggle between the visual editor and raw LaTeX for direct source editing"
+          },
+          {
             "description": "**Editor mobile responsiveness** — toolbar collapses on small screens with touch-friendly targets"
           },
           {
