@@ -4,13 +4,13 @@ import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
+import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, CalendarClock } from "lucide-react";
 import useSWR from "swr";
 import { parentCommunicationsAPI, authAPI } from "@/lib/api";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
 import { usefulTools } from "@/config/useful-tools";
-import { leaveRecords, getLeaveRecordUrl, ARK_BASE_URL, ARK_MY_LEAVE_URL, ARK_ADMIN_LEAVE_URL } from "@/config/leave-records";
+import { ARK_BASE_URL } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
@@ -19,8 +19,8 @@ import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveTutors, useTerminationReviewCount } from "@/lib/hooks";
-import { getTutorSortName, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { useTerminationReviewCount } from "@/lib/hooks";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
@@ -65,17 +65,16 @@ const quickLinks = [
   { id: 'parents', label: 'Parent Contacts', icon: Phone, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
-  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: dropdown or direct link based on role
+  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: direct link to ARK
 ];
 
 
 export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false, onRefresh, isRefreshing, lastUpdated }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const { viewMode } = useRole();
   const { user, isAdmin, isGuest } = useAuth();
-  const { data: tutors = [] } = useActiveTutors();
+
 
   // Daily emoji - deterministic based on date to avoid hydration mismatch
   const greetingEmoji = useMemo(() => {
@@ -97,41 +96,12 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   // Fetch termination review count for Terminated Students badge
   const { data: reviewCount } = useTerminationReviewCount(location, currentTutorId, !isGuest);
 
-  // Current user's leave record URL (for my-view mode)
-  const currentTutorName = tutors.find(t => t.id === currentTutorId)?.tutor_name;
-  const currentUserLeaveUrl = currentTutorName ? getLeaveRecordUrl(currentTutorName) : undefined;
-
-  // Filter tutors with leave records by location, sorted by first name
-  const tutorsWithLeaveRecords = useMemo(() => {
-    return tutors
-      .map((tutor) => ({
-        ...tutor,
-        sheetUrl: getLeaveRecordUrl(tutor.tutor_name),
-      }))
-      .filter((t) => t.sheetUrl) // Only show tutors that have a sheet configured
-      .filter((t) => {
-        // Filter by location if not "All Locations"
-        if (location && location !== "All Locations") {
-          return t.default_location === location;
-        }
-        return true;
-      })
-      .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
-  }, [tutors, location]);
-
   // Floating UI dropdowns
   const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(toolsOpen, setToolsOpen);
-  const {
-    refs: leaveRefs,
-    floatingStyles: leaveFloatingStyles,
-    getReferenceProps: getLeaveReferenceProps,
-    getFloatingProps: getLeaveFloatingProps,
-  } = useDropdown(leaveOpen, setLeaveOpen);
 
   // Cross-app SSO: fetch handoff token then open ARK with it
   const handleArkLeaveClick = useCallback(async (e: React.MouseEvent, arkPath: string) => {
     e.preventDefault();
-    setLeaveOpen(false);
     try {
       const { token } = await authAPI.getHandoffToken();
       window.open(
@@ -366,127 +336,25 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               return <TrialsQuickLink key={link.id} />;
             }
 
-            // Special handling for Leave Record — always a dropdown
+            // Leave Record — direct link to ARK with SSO handoff
             if (link.id === 'leave') {
-              const isMyView = viewMode === 'my-view';
+              const arkPath = viewMode === 'my-view' ? '/my/leave' : '/leave';
               return (
-                <div key={link.id} className="relative">
-                  <button
-                    ref={leaveRefs.setReference}
-                    {...getLeaveReferenceProps()}
-                    className={cn(
-                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-                      "text-[#a0704b] dark:text-[#cd853f]",
-                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
-                      leaveOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
-                    )}
-                  >
-                    <ArkIcon className="h-5 w-5" />
-                    <span className="hidden xs:inline">{link.label}</span>
-                    <span className="xs:hidden">Leave</span>
-                    <ChevronDown className={cn(
-                      "h-3.5 w-3.5 transition-transform",
-                      leaveOpen && "rotate-180"
-                    )} />
-                  </button>
-
-                  {/* Leave Record Dropdown */}
-                  {leaveOpen && (
-                    <FloatingPortal>
-                      <div
-                        ref={leaveRefs.setFloating}
-                        style={leaveFloatingStyles}
-                        {...getLeaveFloatingProps()}
-                        className={cn(
-                          "z-50 w-72 py-2 overflow-y-auto",
-                          "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
-                          "border border-[#e8d4b8] dark:border-[#6b5a4a]"
-                        )}
-                      >
-                        {/* ARK link — uses handoff token for seamless SSO */}
-                        <a
-                          href={isMyView ? ARK_MY_LEAVE_URL : ARK_ADMIN_LEAVE_URL}
-                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group cursor-pointer"
-                          onClick={(e) => handleArkLeaveClick(e, isMyView ? '/my/leave' : '/leave')}
-                        >
-                          <ArkIcon className="w-6 h-6 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {isMyView ? "My Leave" : "ARK Leave"}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {isMyView ? "Requests, balances & calendar" : "Leave requests & balances"}
-                            </div>
-                          </div>
-                          <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </a>
-
-                        {/* Google Sheet — my-view shows current user's sheet, center-view shows all tutors */}
-                        {isMyView ? (
-                          currentUserLeaveUrl && (
-                            <>
-                              <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
-                              <a
-                                href={currentUserLeaveUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
-                                onClick={() => setLeaveOpen(false)}
-                              >
-                                <FileSpreadsheet className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    Google Sheet
-                                  </div>
-                                  <div className="text-xs text-gray-400 dark:text-gray-500">
-                                    Legacy leave record
-                                  </div>
-                                </div>
-                                <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </a>
-                            </>
-                          )
-                        ) : (
-                          <>
-                            <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
-                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                              {location && location !== "All Locations" ? location : "All Tutors"} — Google Sheets
-                            </div>
-                            {tutorsWithLeaveRecords.map((tutor) => (
-                              <a
-                                key={tutor.id}
-                                href={tutor.sheetUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
-                                onClick={() => setLeaveOpen(false)}
-                              >
-                                <FileSpreadsheet className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                    {tutor.tutor_name}
-                                  </div>
-                                  {tutor.default_location && location === "All Locations" && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      {tutor.default_location}
-                                    </div>
-                                  )}
-                                </div>
-                                <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </a>
-                            ))}
-                            {tutorsWithLeaveRecords.length === 0 && (
-                              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                                No leave records configured
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </FloatingPortal>
+                <button
+                  key={link.id}
+                  onClick={(e) => handleArkLeaveClick(e, arkPath)}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                    "text-[#a0704b] dark:text-[#cd853f]",
+                    "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
                   )}
-                </div>
+                >
+                  <ArkIcon className="h-5 w-5" />
+                  <span className="hidden xs:inline">{link.label}</span>
+                  <span className="xs:hidden">Leave</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </button>
               );
             }
 
