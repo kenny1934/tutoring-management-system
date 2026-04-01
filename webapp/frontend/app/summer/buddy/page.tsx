@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
   Users,
@@ -204,6 +204,7 @@ function BuddyOverflowMenu({ items }: { items: OverflowMenuItem[] }) {
 
 export default function BuddyTrackerPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const branch = searchParams.get("branch")?.toUpperCase();
 
   // Subdomain detection for clean URLs
@@ -339,8 +340,11 @@ export default function BuddyTrackerPage() {
   }, [branch, validBranch]);
 
   // Card swipe detection — rapid 10-digit input within 200ms = card reader
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; });
   useEffect(() => {
     if (pinVerified) return;
+    let current = true;
     let buffer = "";
     let firstKeyTime = 0;
     let resetTimer: ReturnType<typeof setTimeout>;
@@ -360,17 +364,18 @@ export default function BuddyTrackerPage() {
           setPinError(null);
           if (validBranch && branch) {
             buddyTrackerAPI.verifyPin(branch, cardNumber)
-              .then(() => { sessionStorage.setItem("buddy_pin", cardNumber); setPinVerified(true); })
-              .catch(() => setPinError("Card not recognised"))
-              .finally(() => setPinChecking(false));
+              .then(() => { if (current) { sessionStorage.setItem("buddy_pin", cardNumber); setPinVerified(true); } })
+              .catch(() => { if (current) setPinError("Card not recognised"); })
+              .finally(() => { if (current) setPinChecking(false); });
           } else {
             buddyTrackerAPI.verifyCard(cardNumber)
               .then((res) => {
+                if (!current) return;
                 sessionStorage.setItem("buddy_pin", cardNumber);
-                window.location.href = `${buddyBasePath}?branch=${res.branch}`;
+                routerRef.current.push(`${buddyBasePath}?branch=${res.branch}`);
               })
-              .catch(() => setPinError("Card not recognised"))
-              .finally(() => setPinChecking(false));
+              .catch(() => { if (current) setPinError("Card not recognised"); })
+              .finally(() => { if (current) setPinChecking(false); });
           }
         } else {
           buffer = "";
@@ -387,6 +392,7 @@ export default function BuddyTrackerPage() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => {
+      current = false;
       document.removeEventListener("keydown", handleKeyDown);
       clearTimeout(resetTimer);
     };

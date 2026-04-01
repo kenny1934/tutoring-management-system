@@ -60,6 +60,7 @@ RATE_LIMITS = {
     "buddy_update": {"limit": 20, "window": 60},          # 20 edits/min
     "buddy_delete": {"limit": 10, "window": 60},          # 10 deletes/min
     "buddy_lookup": {"limit": 20, "window": 60},          # 20 lookups/min
+    "buddy_verify_card": {"limit": 5, "window": 300},    # 5 card attempts/5min (matches verify-pin)
 
     # Prospect PIN endpoints (verify_pin keys are per-branch via f"prospects_verify_pin:{branch}")
     "prospects_verify_pin": {"limit": 15, "window": 300},  # 15 attempts/5min per branch (shared WiFi: 10 staff + retries)
