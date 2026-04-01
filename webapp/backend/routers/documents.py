@@ -2,6 +2,7 @@
 Documents API endpoints.
 CRUD operations for courseware documents (worksheets, exams, lesson plans).
 """
+import json
 import logging
 from datetime import timedelta
 
@@ -283,7 +284,7 @@ async def list_documents(
     if search:
         conditions = [
             Document.title.ilike(f"%{search}%"),
-            sa_func.json_contains(Document.tags, f'"{search}"'),
+            sa_func.json_contains(Document.tags, json.dumps(search)),
         ]
         safe_search = search.replace('+', '').replace('-', '').replace('*', '').replace('"', '').strip()
         if safe_search:
@@ -297,7 +298,7 @@ async def list_documents(
         for t in tag.split(","):
             t = t.strip()
             if t:
-                query = query.filter(sa_func.json_contains(Document.tags, f'"{t}"'))
+                query = query.filter(sa_func.json_contains(Document.tags, json.dumps(t)))
     if folder_id is not None:
         query = query.filter(Document.folder_id == folder_id)
     if my_docs:
@@ -379,7 +380,7 @@ async def rename_tag(
     if data.old_name == data.new_name:
         return {"updated": 0}
     docs = db.query(Document).filter(
-        sa_func.json_contains(Document.tags, f'"{data.old_name}"')
+        sa_func.json_contains(Document.tags, json.dumps(data.old_name))
     ).all()
     count = 0
     for doc in docs:
@@ -404,7 +405,7 @@ async def delete_tag(
     if current_user.role not in ADMIN_WRITE_ROLES:
         raise HTTPException(status_code=403, detail="Only admins can delete tags globally")
     docs = db.query(Document).filter(
-        sa_func.json_contains(Document.tags, f'"{tag_name}"')
+        sa_func.json_contains(Document.tags, json.dumps(tag_name))
     ).all()
     count = 0
     for doc in docs:
