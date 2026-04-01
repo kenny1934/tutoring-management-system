@@ -3112,8 +3112,8 @@ html {
     color: #666 !important;
   }
   .print-answer-key-entry {
-    margin-bottom: 8px;
-    padding: 4px 0;
+    margin-bottom: 16px;
+    padding: 6px 0 12px;
     border-bottom: 1px solid #eee;
     font-size: 14px;
     line-height: 1.5;
@@ -3123,9 +3123,10 @@ html {
     break-inside: avoid;
   }
   .print-answer-key-ref {
+    display: block;
+    margin-bottom: 4px;
     font-weight: 700;
     color: #a0704b !important;
-    margin-right: 6px;
   }
 }
 
