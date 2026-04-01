@@ -18,6 +18,7 @@ import {
 
 // ─── Plugin key ──────────────────────────────────────────────────────
 export const paginationPluginKey = new PluginKey("pagination");
+export const PAGINATION_DEBOUNCE_MS = 80;
 
 // ─── Extension options ──────────────────────────────────────────────
 export interface PaginationOptions {
@@ -246,7 +247,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
         const scheduleRecalc = (view: EditorView) => {
           if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => recalculate(view), 80);
+          debounceTimer = setTimeout(() => recalculate(view), PAGINATION_DEBOUNCE_MS);
         };
 
         // ResizeObserver: detect external layout changes (font loading, CSS changes)
@@ -258,6 +259,18 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
           scheduleRecalc(editorView);
         });
         resizeObserver.observe(editorView.dom);
+
+        // Recalc after fonts load — text reflows when web fonts replace fallbacks,
+        // but ResizeObserver may miss it if total editor height stays the same.
+        document.fonts.ready.then(() => {
+          if (!editorView.isDestroyed) scheduleRecalc(editorView);
+        });
+
+        // Safety recalc after 500ms — catches any async layout changes
+        // (KaTeX rendering, late image loads) that happen shortly after mount.
+        const safetyTimer = setTimeout(() => {
+          if (!editorView.isDestroyed) scheduleRecalc(editorView);
+        }, 500);
 
         return {
           update(view) {
@@ -272,6 +285,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
           destroy() {
             if (debounceTimer) clearTimeout(debounceTimer);
+            clearTimeout(safetyTimer);
             resizeObserver.disconnect();
           },
         };

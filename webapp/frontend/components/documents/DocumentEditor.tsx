@@ -21,7 +21,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, CustomOrderedList, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, PAGINATION_DEBOUNCE_MS, SearchAndReplace, Indent, CustomOrderedList, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
@@ -850,6 +850,10 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     if (editor) editor.setEditable(!isReadOnly);
   }, [editor, isReadOnly]);
 
+  // Stable ref for editor — avoids re-creating callbacks when editor instance changes
+  const editorRef = useRef(editor);
+  useEffect(() => { editorRef.current = editor; }, [editor]);
+
   // Auto-calculate fit-to-width scale
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -1126,7 +1130,19 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     markPrintAncestors();
     const teardown = setup();
     window.addEventListener("afterprint", () => { cleanupPrintAncestors(); teardown(); }, { once: true });
-    window.print();
+
+    // Force fresh pagination recalc before printing if measurements are stale
+    const ed = editorRef.current;
+    const needsRecalc = ed && paginationPluginKey.getState(ed.state)?.needsRecalc;
+    if (ed && needsRecalc) {
+      const tr = ed.state.tr;
+      tr.setMeta(paginationPluginKey, { __forceRecalc: true });
+      tr.setMeta("addToHistory", false);
+      ed.view.dispatch(tr);
+      setTimeout(() => window.print(), PAGINATION_DEBOUNCE_MS + 40);
+    } else {
+      window.print();
+    }
   }, [markPrintAncestors, cleanupPrintAncestors]);
 
   const handlePrint = useCallback(() => {
