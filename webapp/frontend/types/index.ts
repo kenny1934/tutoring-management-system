@@ -1901,6 +1901,7 @@ export interface ExtractedQuestion {
   start_node: number;
   end_node: number;
   preview?: string;
+  full_text?: string;
   topic?: string | null;
   subtopic?: string | null;
   difficulty?: "easy" | "medium" | "hard" | null;

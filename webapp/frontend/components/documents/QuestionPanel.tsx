@@ -15,6 +15,17 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function balanceBraces(latex: string): string {
+  let depth = 0;
+  for (const ch of latex) {
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+  }
+  if (depth > 0) return latex + "}".repeat(depth);
+  if (depth < 0) return "{".repeat(-depth) + latex;
+  return latex;
+}
+
 function MathText({ text }: { text: string }) {
   const html = useMemo(() => {
     // Split on $...$ math delimiters, escape non-math segments to prevent XSS
@@ -25,7 +36,8 @@ function MathText({ text }: { text: string }) {
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) parts.push(escapeHtml(text.slice(lastIndex, match.index)));
       try {
-        parts.push(katex.renderToString(match[1], { throwOnError: false, output: "html" }));
+        const latex = balanceBraces(match[1]);
+        parts.push(katex.renderToString(latex, { throwOnError: false, output: "html" }));
       } catch {
         parts.push(`<code>${escapeHtml(match[1])}</code>`);
       }
@@ -88,8 +100,8 @@ function QuestionCard({
 }) {
   const [copied, setCopied] = useState(false);
   const { number, rest } = extractNumber(q.label);
-  const fullText = [rest, q.preview].filter(Boolean).join(" ");
-  const copyText = fullText || q.label;
+  const displayText = [rest, q.preview].filter(Boolean).join(" ");
+  const copyText = [rest, q.full_text || q.preview].filter(Boolean).join(" ") || q.label;
 
   return (
     <div className="w-full text-left px-4 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-b border-gray-100 dark:border-gray-800/50 last:border-0">
@@ -129,12 +141,12 @@ function QuestionCard({
           </button>
         </div>
       </div>
-      {fullText && (
+      {displayText && (
         <button
           onClick={() => onScrollToNode(q.start_node)}
           className="block text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-1 text-left line-clamp-3 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
         >
-          <MathText text={fullText} />
+          <MathText text={displayText} />
         </button>
       )}
       {errorMsg && (

@@ -12,7 +12,11 @@ import json
 import logging
 import re
 
-from services.question_extraction import _extract_text
+from services.question_extraction import (
+    _extract_text,
+    _find_heading_boundaries,
+    _find_numbered_para_boundaries,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -437,24 +441,24 @@ def apply_solutions_to_content(
     nodes = list(content.get("content", []))
     result_map = {r["index"]: r for r in results}
 
-    # Match question boundaries by heading label text (not positional index).
-    # This handles reordered questions and non-question h3 headings correctly.
-    h3_by_label: dict[str, int] = {}
-    h3_ordered: list[int] = []
-    for i, node in enumerate(nodes):
-        if node.get("type") == "heading" and node.get("attrs", {}).get("level") == 3:
-            h3_ordered.append(i)
-            h3_by_label[_extract_text(node).strip()] = i
+    # Detect question boundaries using the same strategy as parse_questions
+    detected = _find_heading_boundaries(nodes)
+    if not detected:
+        detected = _find_numbered_para_boundaries(nodes)
+
+    # Build label → (start, end) mapping from detected boundaries
+    boundary_by_label: dict[str, tuple[int, int]] = {}
+    for b_idx, (node_idx, label) in enumerate(detected):
+        end = detected[b_idx + 1][0] if b_idx + 1 < len(detected) else len(nodes)
+        boundary_by_label[label] = (node_idx, end)
 
     boundaries: list[tuple[dict, int, int]] = []
     for q in questions:
         qlabel = q.get("label", "").strip()
-        start = h3_by_label.get(qlabel)
-        if start is None:
+        match = boundary_by_label.get(qlabel)
+        if match is None:
             continue
-        idx = h3_ordered.index(start)
-        end = h3_ordered[idx + 1] if idx + 1 < len(h3_ordered) else len(nodes)
-        boundaries.append((q, start, end))
+        boundaries.append((q, match[0], match[1]))
 
     # Process in reverse order so insertions don't shift later indices
     for q_meta, start, end in reversed(boundaries):
