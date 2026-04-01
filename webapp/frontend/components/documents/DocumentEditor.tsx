@@ -1137,6 +1137,17 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
       let answerKeyContainer: HTMLDivElement | null = null;
 
       if (answerNodes.length > 0 && pageEl) {
+        // Temporarily reveal collapsed answer floats so the browser lays out
+        // KaTeX/math content before we capture innerHTML
+        const floats = pageEl.querySelectorAll<HTMLElement>('.answer-float-content');
+        floats.forEach((f) => {
+          f.style.display = "block";
+          f.style.position = "absolute";
+          f.style.visibility = "hidden";
+        });
+        // Force layout so KaTeX elements get proper dimensions
+        void pageEl.offsetHeight;
+
         const entries: string[] = [];
         answerNodes.forEach((el, i) => {
           const customLabel = el.getAttribute("data-label");
@@ -1147,6 +1158,13 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           entries.push(
             `<div class="print-answer-key-entry"><span class="print-answer-key-ref">${ref}.</span> ${content}</div>`
           );
+        });
+
+        // Restore collapsed state
+        floats.forEach((f) => {
+          f.style.display = "";
+          f.style.position = "";
+          f.style.visibility = "";
         });
 
         answerKeyContainer = document.createElement("div");

@@ -3073,14 +3073,30 @@ html {
   .print-answer-key {
     display: block !important;
     visibility: visible !important;
-    position: static !important;
+    position: relative !important;
     overflow: visible !important;
     break-before: page;
     padding-top: 1em;
     color: #1a1a1a !important;
   }
-  .print-answer-key-entry * {
-    color: inherit !important;
+  .print-answer-key-entry,
+  .print-answer-key-entry *:not(.print-answer-key-ref) {
+    color: #1a1a1a !important;
+  }
+  /* Answer key entries paint over the fixed watermark with a white background */
+  .print-answer-key,
+  .print-answer-key-title,
+  .print-answer-key-entry {
+    position: relative;
+    z-index: 1;
+    background: white;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-answer-key hr {
+    position: relative;
+    z-index: 1;
+    background: white;
   }
   .print-answer-key-title {
     font-size: 18px;
