@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, ChevronDown, ChevronRight } from "lucide-react";
+import { X, ChevronDown, ChevronRight, Eye, Code2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
 import { patchMathLiveMenu } from "@/lib/mathlive-utils";
@@ -46,9 +46,12 @@ export default function MathEditorModal({
   const [latex, setLatex] = useState(initialLatex);
   const [mathliveLoaded, setMathliveLoaded] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [sourceMode, setSourceMode] = useState(false);
   const [kbdHeight, setKbdHeight] = useState(0);
   const mathfieldRef = useRef<HTMLElement | null>(null);
   const inputListenerRef = useRef<(() => void) | null>(null);
+  const latexRef = useRef(latex);
+  useEffect(() => { latexRef.current = latex; }, [latex]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function MathEditorModal({
       setMode(initialMode);
       setLatex(initialLatex);
       setShowTemplates(false);
+      setSourceMode(false);
     }
   }, [isOpen, initialLatex, initialMode]);
 
@@ -155,6 +159,20 @@ export default function MathEditorModal({
     };
   }, [mathliveLoaded, isOpen]);
 
+  // Hide keyboard when entering source mode; sync mathfield when leaving
+  useEffect(() => {
+    if (sourceMode) {
+      const kbd = (window as any).mathVirtualKeyboard;
+      if (kbd) kbd.hide();
+    } else if (mathliveLoaded && isOpen) {
+      const mf = mathfieldRef.current as any;
+      const current = latexRef.current;
+      if (mf && mf.value !== current) {
+        mf.value = current;
+      }
+    }
+  }, [sourceMode, mathliveLoaded, isOpen]);
+
   // Patch MathLive menu to prevent scrim from dismissing on initial click
   useEffect(() => {
     if (!mathliveLoaded || !isOpen) return;
@@ -243,21 +261,45 @@ export default function MathEditorModal({
           <h3 id="math-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Equation" : "Insert Equation"}
           </h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="p-2 sm:p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setSourceMode((s) => !s)}
+              title={sourceMode ? "Visual editor" : "LaTeX source"}
+              className={cn(
+                "p-2 sm:p-1 rounded transition-colors",
+                sourceMode
+                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b]"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+              )}
+            >
+              {sourceMode ? <Eye className="h-4 w-4" /> : <Code2 className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="p-2 sm:p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content area */}
         <div className="flex-1 min-h-0 overflow-y-auto">
 
-        {/* Mathfield */}
+        {/* Mathfield / Source editor */}
         <div className="px-4 pt-4 pb-2">
-          {mathliveLoaded ? (
+          {sourceMode ? (
+            <textarea
+              value={latex}
+              onChange={(e) => setLatex(e.target.value)}
+              autoFocus
+              spellCheck={false}
+              className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-transparent text-gray-800 dark:text-gray-200 font-mono text-sm p-3 outline-none focus:ring-1 focus:ring-[#a0704b] resize-none"
+              style={{ minHeight: "80px" }}
+              placeholder="e.g. \frac{a}{b}"
+            />
+          ) : mathliveLoaded ? (
             <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
               <math-field
                 ref={mathfieldRef as any}
@@ -273,7 +315,6 @@ export default function MathEditorModal({
                   border: "none",
                   outline: "none",
                   background: "transparent",
-                  // --hue cascades into shadow DOM to tint toggle/menu icons, caret, selection
                   "--hue": "27",
                 } as React.CSSProperties}
               />
@@ -285,8 +326,8 @@ export default function MathEditorModal({
           )}
         </div>
 
-        {/* Templates */}
-        <div className="px-4 pb-2">
+        {/* Templates (visual mode only — they insert via mathfield API) */}
+        {!sourceMode && <div className="px-4 pb-2">
           <button
             type="button"
             onClick={() => setShowTemplates((s) => !s)}
@@ -320,7 +361,7 @@ export default function MathEditorModal({
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         </div>{/* end scrollable content */}
 
