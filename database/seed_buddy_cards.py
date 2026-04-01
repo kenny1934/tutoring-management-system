@@ -14,9 +14,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 # Card number → branch mapping
 # Add cards here, one per line: (card_number, branch, staff_name)
 CARDS = [
-    # ("0001348283", "MAC", "Amy Wong"),
-    # ("0001234567", "MCP", "John Lee"),
-    # ("0009999999", "ALL", "Admin Card"),
+    ("0001348283", "ALL", "Kenny Chiu"),
 ]
 
 

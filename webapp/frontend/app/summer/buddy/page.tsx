@@ -968,6 +968,7 @@ export default function BuddyTrackerPage() {
                 placeholder="Enter PIN"
                 autoFocus
               />
+              <p className="text-[10px] text-muted-foreground text-center">or swipe your staff card</p>
               {pinError && <p className="text-red-500 text-sm text-center">{pinError}</p>}
               <button
                 onClick={handlePinSubmit}
