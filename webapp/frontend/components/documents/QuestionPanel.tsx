@@ -11,15 +11,28 @@ import { documentsAPI } from "@/lib/document-api";
 import type { ExtractedQuestion, ProcessQuestionResult, ProcessQuestionError, ProcessQuestionsResponse, Document } from "@/types";
 import katex from "katex";
 
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function MathText({ text }: { text: string }) {
   const html = useMemo(() => {
-    return text.replace(/\$([^$]+)\$/g, (_, latex: string) => {
+    // Split on $...$ math delimiters, escape non-math segments to prevent XSS
+    const parts: string[] = [];
+    let lastIndex = 0;
+    const regex = /\$([^$]+)\$/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) parts.push(escapeHtml(text.slice(lastIndex, match.index)));
       try {
-        return katex.renderToString(latex, { throwOnError: false, output: "html" });
+        parts.push(katex.renderToString(match[1], { throwOnError: false, output: "html" }));
       } catch {
-        return `<code>${latex}</code>`;
+        parts.push(`<code>${escapeHtml(match[1])}</code>`);
       }
-    });
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) parts.push(escapeHtml(text.slice(lastIndex)));
+    return parts.join("");
   }, [text]);
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
 }

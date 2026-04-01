@@ -48,11 +48,12 @@ def pdf_to_page_images(pdf_bytes: bytes, dpi: int = 300) -> list[bytes]:
     """Render each page of a PDF to PNG bytes at the given DPI."""
     fitz = _ensure_fitz()
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    scale = dpi / 72
-    mat = fitz.Matrix(scale, scale)
-    pages = [page.get_pixmap(matrix=mat).tobytes("png") for page in doc]
-    doc.close()
-    return pages
+    try:
+        scale = dpi / 72
+        mat = fitz.Matrix(scale, scale)
+        return [page.get_pixmap(matrix=mat).tobytes("png") for page in doc]
+    finally:
+        doc.close()
 
 
 # ---------------------------------------------------------------------------

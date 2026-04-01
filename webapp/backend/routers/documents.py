@@ -1092,7 +1092,7 @@ async def import_worksheet(
 @router.post("/documents/{doc_id}/extract-questions")
 async def extract_questions(
     doc_id: int,
-    current_user: Tutor = Depends(reject_guest),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """
@@ -1124,7 +1124,7 @@ async def extract_questions(
 async def process_questions_endpoint(
     doc_id: int,
     body: dict,
-    current_user: Tutor = Depends(reject_guest),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """
@@ -1206,7 +1206,7 @@ async def process_questions_endpoint(
 async def apply_solutions_endpoint(
     doc_id: int,
     body: dict,
-    current_user: Tutor = Depends(reject_guest),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """
@@ -1251,7 +1251,7 @@ async def apply_solutions_endpoint(
 async def create_variant_document_endpoint(
     doc_id: int,
     body: dict,
-    current_user: Tutor = Depends(reject_guest),
+    current_user: Tutor = Depends(reject_read_only),
     db: Session = Depends(get_db),
 ):
     """
