@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.44](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.44) (2026-04-01)
+
+### New Features
+
+* **Worksheet OCR import** — upload scanned PDF worksheets and automatically extract content into the document editor with math, tables, and bilingual support
+* **Question extraction & AI processing** — split worksheets into individual questions, generate step-by-step solutions and variant questions with one click
+* **Documents page redesign** — table view with variant tree, folder sidebar with drag-and-drop, preview pane, bulk operations, tag management, and keyboard navigation
+* **Answer sections** — collapsible inline answers in the editor with a printable answer key page
+
+### Improvements
+
+* **Editor mobile responsiveness** — toolbar collapses on small screens with touch-friendly targets
+* **Smart question detection** — works with both OCR-imported and manually created worksheets
+* **Print answer key** — shows document name, clean text over watermark, avoids splitting entries across pages
+* **Print reliability** — page layout recalculates after fonts load to prevent content overlapping footers
+
+### Bug Fixes
+
+* **Page layout sometimes got out of sync** — content near page boundaries could overlap footers until a browser refresh
+* **Watermark too dark in print** — appeared much darker than the editor due to duplicate elements stacking
+* **Security fixes** — stricter permission checks on write endpoints and safer handling of special characters in tag filters
+
 ## [2.0.43](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.43) (2026-03-27)
 
 ### New Features
