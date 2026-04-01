@@ -1129,7 +1129,19 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   const executePrint = useCallback((setup: () => (() => void)) => {
     markPrintAncestors();
     const teardown = setup();
-    window.addEventListener("afterprint", () => { cleanupPrintAncestors(); teardown(); }, { once: true });
+
+    // Hide duplicate watermarks — one per page on screen, but all become
+    // position:fixed in print and stack at the same spot, multiplying opacity.
+    const pageEl = pageRef.current;
+    const watermarks = pageEl ? Array.from(pageEl.querySelectorAll<HTMLElement>('.document-watermark, .document-watermark-image')) : [];
+    const hiddenWatermarks = watermarks.slice(1); // keep first, hide rest
+    hiddenWatermarks.forEach(w => w.style.display = "none");
+
+    window.addEventListener("afterprint", () => {
+      cleanupPrintAncestors();
+      teardown();
+      hiddenWatermarks.forEach(w => w.style.display = "");
+    }, { once: true });
 
     // Force fresh pagination recalc before printing if measurements are stale
     const ed = editorRef.current;

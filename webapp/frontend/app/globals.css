@@ -3596,6 +3596,8 @@ body.student-print .print-answer-key {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Syntax highlighting: dark colors for light print background (all modes) */
