@@ -2707,3 +2707,46 @@ export interface BuddyGroupLookup {
   members: BuddyGroupMemberInfo[];
   total_size: number;
 }
+
+// ─── ARK Leave Integration ───
+
+export interface ArkLeaveType {
+  id: number;
+  name_en: string;
+  name_zh: string;
+}
+
+export interface ArkLeaveBalance {
+  id: number;
+  leave_type: ArkLeaveType;
+  entitlement_days: number;
+  carry_over_days: number;
+  used_days: number;
+  adjusted_days: number;
+  year: number;
+}
+
+export interface ArkLeaveRequest {
+  id: number;
+  staff_name: string | null;
+  leave_type: ArkLeaveType;
+  start_date: string;
+  end_date: string;
+  days_requested: number;
+  is_half_day: boolean;
+  half_day_period: string | null;
+  reason: string | null;
+  status: string;
+  reviewer_name: string | null;
+  created_at: string;
+}
+
+export interface ArkCreateLeaveRequest {
+  leave_type_id: number;
+  start_date: string;
+  end_date: string;
+  days_requested: number;
+  is_half_day?: boolean;
+  half_day_period?: string | null;
+  reason?: string | null;
+}

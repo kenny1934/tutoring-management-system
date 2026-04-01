@@ -335,7 +335,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
@@ -368,6 +368,7 @@ app.include_router(saved_reports.router, prefix="/api", tags=["saved-reports"])
 app.include_router(summer_course.router, prefix="/api", tags=["summer-course"])
 app.include_router(primary_prospects.router, prefix="/api", tags=["primary-prospects"])
 app.include_router(buddy_tracker.router, prefix="/api", tags=["buddy-tracker"])
+app.include_router(ark_proxy.router, prefix="/api", tags=["ark"])
 
 
 if __name__ == "__main__":

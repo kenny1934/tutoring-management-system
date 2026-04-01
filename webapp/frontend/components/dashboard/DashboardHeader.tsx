@@ -1,23 +1,22 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, CalendarClock } from "lucide-react";
 import useSWR from "swr";
-import { parentCommunicationsAPI, authAPI } from "@/lib/api";
+import { parentCommunicationsAPI } from "@/lib/api";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
+import { LeaveQuickLink } from "./LeaveQuickLink";
 import { usefulTools } from "@/config/useful-tools";
-import { ARK_BASE_URL } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
-import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTerminationReviewCount } from "@/lib/hooks";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
@@ -25,21 +24,6 @@ import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
 
-
-/** ARK vessel icon — favicon variant (white on indigo), copied from ark/components/ArkIcon.tsx */
-function ArkIcon({ className }: { className?: string }) {
-  return (
-    <div className={cn("bg-indigo-600 rounded flex items-center justify-center", className)}>
-      <svg viewBox="0 0 64 64" fill="none" className="w-[75%] h-[75%]">
-        <path d="M18 23 L21 14 L27 9 L32 7 L37 9 L43 14 L46 23 L41 23 L39 16 L35 12 L32 11 L29 12 L25 16 L23 23 Z" fill="#ffffff" />
-        <path d="M32 57 L7 43 L13 27 L32 22 Z" fill="#ffffff" />
-        <path d="M32 57 L57 43 L51 29 L32 24 Z" fill="#c7d2fe" />
-        <line x1="4" y1="43" x2="7" y2="43" stroke="#e0e7ff" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="57" y1="43" x2="60" y2="43" stroke="#e0e7ff" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    </div>
-  );
-}
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -65,14 +49,13 @@ const quickLinks = [
   { id: 'parents', label: 'Parent Contacts', icon: Phone, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
-  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: direct link to ARK
+  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: LeaveQuickLink component
 ];
 
 
 export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false, onRefresh, isRefreshing, lastUpdated }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
-  const { viewMode } = useRole();
   const { user, isAdmin, isGuest } = useAuth();
 
 
@@ -98,21 +81,6 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
 
   // Floating UI dropdowns
   const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(toolsOpen, setToolsOpen);
-
-  // Cross-app SSO: fetch handoff token then open ARK with it
-  const handleArkLeaveClick = useCallback(async (e: React.MouseEvent, arkPath: string) => {
-    e.preventDefault();
-    try {
-      const { token } = await authAPI.getHandoffToken();
-      window.open(
-        `${ARK_BASE_URL}/api/auth/cross-app-login?token=${token}&redirect=${encodeURIComponent(arkPath)}`,
-        '_blank'
-      );
-    } catch {
-      // Fallback: open ARK directly (user will need to OAuth)
-      window.open(`${ARK_BASE_URL}${arkPath}`, '_blank');
-    }
-  }, []);
 
   return (
     <div className={cn(
@@ -336,26 +304,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               return <TrialsQuickLink key={link.id} />;
             }
 
-            // Leave Record — direct link to ARK with SSO handoff
+            // Leave Record — dropdown with ARK leave data
             if (link.id === 'leave') {
-              const arkPath = viewMode === 'my-view' ? '/my/leave' : '/leave';
-              return (
-                <button
-                  key={link.id}
-                  onClick={(e) => handleArkLeaveClick(e, arkPath)}
-                  className={cn(
-                    "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                    "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
-                    "text-[#a0704b] dark:text-[#cd853f]",
-                    "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
-                  )}
-                >
-                  <ArkIcon className="h-5 w-5" />
-                  <span className="hidden xs:inline">{link.label}</span>
-                  <span className="xs:hidden">Leave</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-              );
+              return <LeaveQuickLink key={link.id} />;
             }
 
             // Regular link pills

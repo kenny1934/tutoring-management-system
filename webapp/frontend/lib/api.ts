@@ -2108,6 +2108,29 @@ export const authAPI = {
   getHandoffToken: () => fetchAPI<{ token: string }>('/auth/handoff-token'),
 };
 
+export const arkLeaveAPI = {
+  getTypes: () =>
+    fetchAPI<import("@/types").ArkLeaveType[]>("/ark/leave/types"),
+  getBalances: (year?: number) =>
+    fetchAPI<import("@/types").ArkLeaveBalance[]>(`/ark/leave/balances${year ? `?year=${year}` : ""}`),
+  getMyRequests: (status?: string) =>
+    fetchAPI<import("@/types").ArkLeaveRequest[]>(`/ark/leave/my-requests${status ? `?status=${status}` : ""}`),
+  createRequest: (data: import("@/types").ArkCreateLeaveRequest) =>
+    fetchAPI<import("@/types").ArkLeaveRequest>("/ark/leave/my-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getPending: () =>
+    fetchAPI<import("@/types").ArkLeaveRequest[]>("/ark/leave/pending"),
+  getPendingCount: () =>
+    fetchAPI<{ count: number }>("/ark/leave/pending/count"),
+  reviewRequest: (id: number, data: { status: string; reviewer_note?: string }) =>
+    fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/requests/${id}/review`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+};
+
 export const memosAPI = {
   getAll: (params?: {
     student_id?: number;
@@ -2545,4 +2568,5 @@ export const api = {
   prospects: prospectsAPI,
   buddyTracker: buddyTrackerAPI,
   auth: authAPI,
+  arkLeave: arkLeaveAPI,
 };
