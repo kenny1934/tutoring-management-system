@@ -3117,6 +3117,10 @@ html {
     border-bottom: 1px solid #eee;
     font-size: 14px;
     line-height: 1.5;
+    break-inside: avoid;
+  }
+  .print-answer-key-entry * {
+    break-inside: avoid;
   }
   .print-answer-key-ref {
     font-weight: 700;
