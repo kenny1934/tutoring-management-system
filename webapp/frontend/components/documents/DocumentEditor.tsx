@@ -1170,7 +1170,13 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
         answerKeyContainer = document.createElement("div");
         answerKeyContainer.className = "print-answer-key";
         answerKeyContainer.style.display = "none";
-        answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div><hr style="border:none;border-top:2px solid #333;margin:0 0 12px 0">${entries.join("")}`;
+        // Title includes document name for identification
+        const titleEl = document.createElement("div");
+        titleEl.className = "print-answer-key-title";
+        titleEl.innerHTML = `Answer Key <span class="print-answer-key-docname"></span>`;
+        titleEl.querySelector(".print-answer-key-docname")!.textContent = title;
+        answerKeyContainer.appendChild(titleEl);
+        answerKeyContainer.insertAdjacentHTML("beforeend", `<hr style="border:none;border-top:2px solid #333;margin:0 0 12px 0">${entries.join("")}`);
         pageEl.appendChild(answerKeyContainer);
       }
 

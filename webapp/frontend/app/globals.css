@@ -3083,7 +3083,7 @@ html {
   .print-answer-key-entry *:not(.print-answer-key-ref) {
     color: #1a1a1a !important;
   }
-  /* Answer key entries paint over the fixed watermark with a white background */
+  /* Answer key paints over the fixed watermark with a white background */
   .print-answer-key,
   .print-answer-key-title,
   .print-answer-key-entry {
@@ -3102,6 +3102,14 @@ html {
     font-size: 18px;
     font-weight: 700;
     color: #1a1a1a !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .print-answer-key-docname {
+    font-size: 12px;
+    font-weight: 400;
+    color: #666 !important;
   }
   .print-answer-key-entry {
     margin-bottom: 8px;
