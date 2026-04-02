@@ -995,7 +995,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex-1 px-3 py-2.5 text-xs font-medium transition-colors",
+                    "flex-1 px-2 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
                     activeTab === tab.id
                       ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
@@ -1005,9 +1005,9 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 >
                   {tab.label}
                   {tab.count && tab.count > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
+                    <sup className="ml-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                       {tab.count}
-                    </span>
+                    </sup>
                   )}
                 </button>
               ))}
