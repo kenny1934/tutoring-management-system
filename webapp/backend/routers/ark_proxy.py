@@ -114,6 +114,8 @@ class CreateLeaveRequest(BaseModel):
     leave_type_id: int
     start_date: str  # YYYY-MM-DD
     end_date: str
+    start_time: Optional[str] = None  # HH:MM
+    end_time: Optional[str] = None
     days_requested: float
     reason: Optional[str] = None
 
@@ -138,6 +140,38 @@ async def ark_cancel_request(
     """Cancel own pending leave request."""
     return await _ark_request(
         "PUT", f"/me/leave-requests/{request_id}/cancel", current_user.user_email,
+    )
+
+
+# ─── Overtime endpoints ───
+
+@router.get("/ark/overtime/my")
+async def ark_my_overtime(
+    year: Optional[int] = Query(None),
+    current_user: Tutor = Depends(get_current_user),
+):
+    """Current user's overtime records."""
+    params = {}
+    if year:
+        params["year"] = year
+    return await _ark_request("GET", "/me/overtime", current_user.user_email, params=params)
+
+
+class CreateOvertimeRequest(BaseModel):
+    date: str  # YYYY-MM-DD
+    hours: float
+    description: Optional[str] = None
+
+
+@router.post("/ark/overtime/my", status_code=201)
+async def ark_create_overtime(
+    data: CreateOvertimeRequest,
+    current_user: Tutor = Depends(get_current_user),
+):
+    """File an overtime record for the current user."""
+    return await _ark_request(
+        "POST", "/me/overtime", current_user.user_email,
+        json=data.model_dump(exclude_none=True),
     )
 
 

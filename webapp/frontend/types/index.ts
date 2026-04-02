@@ -2757,6 +2757,25 @@ export interface ArkCreateLeaveRequest {
   leave_type_id: number;
   start_date: string;
   end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   days_requested: number;
   reason?: string | null;
+}
+
+export interface ArkOvertimeRecord {
+  id: number;
+  staff_name?: string | null;
+  date: string;
+  hours: number;
+  description?: string | null;
+  compensation_type: string;
+  approver_name?: string | null;
+  created_at?: string | null;
+}
+
+export interface ArkCreateOvertime {
+  date: string;
+  hours: number;
+  description?: string | null;
 }

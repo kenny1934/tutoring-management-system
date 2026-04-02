@@ -115,22 +115,24 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
 }
 
 
-// ─── Weekday count helper ───
+// ─── Helpers ───
 
-function countWeekdays(start: string, end: string): number {
+function countDays(start: string, end: string): number {
   if (!start || !end) return 0;
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
   if (e < s) return 0;
-  let count = 0;
-  const d = new Date(s);
-  while (d <= e) {
-    const day = d.getDay();
-    if (day !== 0 && day !== 6) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
+  return Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
 }
+
+const HOURS_PER_DAY = 9;
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+const labelCls = "text-[10px] text-gray-500 dark:text-gray-400 ml-0.5";
 
 
 // ─── File leave form ───
@@ -142,38 +144,58 @@ function FileLeaveForm({
   isSubmitting,
 }: {
   balances: ArkLeaveBalance[];
-  onSubmit: (data: { leave_type_id: number; start_date: string; end_date: string; days_requested: number; reason?: string }) => void;
+  onSubmit: (data: { leave_type_id: number; start_date: string; end_date: string; start_time?: string; end_time?: string; days_requested: number; reason?: string }) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
   const [leaveTypeId, setLeaveTypeId] = useState<number>(0);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [days, setDays] = useState<number | "">("");
   const [daysManual, setDaysManual] = useState(false);
   const [reason, setReason] = useState("");
 
-  // Auto-calculate weekdays when dates change
-  useEffect(() => {
-    if (!daysManual && startDate && endDate) {
-      setDays(countWeekdays(startDate, endDate));
-    }
-  }, [startDate, endDate, daysManual]);
+  const isSameDay = startDate && endDate && startDate === endDate;
+  const hasTimeRange = isSameDay && startTime && endTime;
 
-  // Auto-set end date to start date when start changes (only if end is empty)
+  // Auto-calc days from time range or weekday count
+  useEffect(() => {
+    if (daysManual) return;
+    if (hasTimeRange) {
+      const mins = timeToMinutes(endTime) - timeToMinutes(startTime);
+      if (mins > 0) {
+        setDays(Math.round((mins / 60 / HOURS_PER_DAY) * 100) / 100);
+      }
+    } else if (startDate && endDate) {
+      setDays(countDays(startDate, endDate));
+    }
+  }, [startDate, endDate, startTime, endTime, daysManual, hasTimeRange]);
+
+  // Auto-set end date when start changes
   useEffect(() => {
     if (startDate) setEndDate((prev) => prev || startDate);
   }, [startDate]);
+
+  // Clear times when dates become multi-day
+  useEffect(() => {
+    if (startDate && endDate && startDate !== endDate) {
+      setStartTime("");
+      setEndTime("");
+    }
+  }, [startDate, endDate]);
 
   const selectedBalance = balances.find(b => b.leave_type.id === leaveTypeId);
   const remaining = selectedBalance
     ? totalEntitlement(selectedBalance) - Number(selectedBalance.used_days)
     : null;
 
-  const canSubmit = leaveTypeId > 0 && startDate && endDate && days && Number(days) > 0 && !isSubmitting;
+  const dateError = startDate && endDate && endDate < startDate;
+  const canSubmit = leaveTypeId > 0 && startDate && endDate && !dateError && days && Number(days) > 0 && !isSubmitting;
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="p-3 space-y-2.5">
       {/* Leave type */}
       <div>
         <select
@@ -185,13 +207,13 @@ function FileLeaveForm({
           <option value={0}>Select leave type...</option>
           {balances.map(b => (
             <option key={b.leave_type.id} value={b.leave_type.id}>
-              {b.leave_type.name_en}
+              {b.leave_type.name_en} ({b.leave_type.name_zh})
             </option>
           ))}
         </select>
         {remaining !== null && (
           <p className={cn("text-[11px] mt-0.5 ml-0.5", remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500")}>
-            {remaining} day{remaining !== 1 ? "s" : ""} remaining
+            {remaining.toFixed(2)} days remaining
           </p>
         )}
       </div>
@@ -199,77 +221,157 @@ function FileLeaveForm({
       {/* Dates */}
       <div className="flex gap-2">
         <div className="flex-1">
-          <label htmlFor="leave-start" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Start</label>
-          <input
-            id="leave-start"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className={inputCls}
-          />
+          <label htmlFor="leave-start" className={labelCls}>Start</label>
+          <input id="leave-start" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setDaysManual(false); }} className={inputCls} />
         </div>
         <div className="flex-1">
-          <label htmlFor="leave-end" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">End</label>
-          <input
-            id="leave-end"
-            type="date"
-            value={endDate}
-            min={startDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className={inputCls}
-          />
+          <label htmlFor="leave-end" className={labelCls}>End</label>
+          <input id="leave-end" type="date" value={endDate} min={startDate} onChange={(e) => { setEndDate(e.target.value); setDaysManual(false); }} className={inputCls} />
         </div>
       </div>
+      {dateError && <p className="text-[11px] text-red-500 -mt-1 ml-0.5">End date must be after start date</p>}
 
-      {/* Days + Reason on same row */}
+      {/* Time range (same-day only) */}
+      {isSameDay && (
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label htmlFor="leave-start-time" className={labelCls}>Start time</label>
+            <input id="leave-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="leave-end-time" className={labelCls}>End time</label>
+            <input id="leave-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+          </div>
+        </div>
+      )}
+
+      {/* Days + Reason */}
       <div className="flex gap-2">
         <div className="w-20 flex-shrink-0">
-          <label htmlFor="leave-days" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Days</label>
+          <label htmlFor="leave-days" className={labelCls}>Days</label>
           <input
-            id="leave-days"
-            type="number"
-            step="0.5"
-            min="0.5"
+            id="leave-days" type="number" step="0.01" min="0.01"
             value={days}
+            readOnly={!!hasTimeRange}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
-            className={inputCls}
+            className={cn(inputCls, hasTimeRange && "opacity-60")}
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="leave-reason" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Reason</label>
-          <input
-            id="leave-reason"
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Optional"
-            className={cn(inputCls, "placeholder-gray-400")}
-          />
+          <label htmlFor="leave-reason" className={labelCls}>Reason</label>
+          <input id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional" className={cn(inputCls, "placeholder-gray-400")} />
         </div>
       </div>
 
-      {/* Exceeds balance warning */}
+      {/* Balance warning */}
       {remaining !== null && days && Number(days) > remaining && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          This will exceed your available balance
+          This will exceed your available balance ({remaining.toFixed(2)} days remaining)
         </p>
       )}
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-2 pt-1">
-        <button
-          onClick={onCancel}
-          className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-        >
-          Back
-        </button>
+        <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">Back</button>
         <button
           onClick={() => canSubmit && onSubmit({
             leave_type_id: leaveTypeId,
             start_date: startDate,
             end_date: endDate,
+            start_time: startTime || undefined,
+            end_time: endTime || undefined,
             days_requested: Number(days),
             reason: reason || undefined,
+          })}
+          disabled={!canSubmit}
+          className="px-3 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
+        >
+          {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── File overtime form ───
+
+function FileOvertimeForm({
+  onSubmit,
+  onCancel,
+  isSubmitting,
+}: {
+  onSubmit: (data: { date: string; hours: number; description?: string }) => void;
+  onCancel: () => void;
+  isSubmitting: boolean;
+}) {
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [days, setDays] = useState<number | "">("");
+  const [daysManual, setDaysManual] = useState(false);
+  const [description, setDescription] = useState("");
+
+  const hasTimeRange = date && startTime && endTime;
+  const hpd = date ? (new Date(date + "T00:00:00").getDay() % 6 === 0 ? 10 : 9) : HOURS_PER_DAY;
+
+  // Auto-calc days from time range
+  useEffect(() => {
+    if (daysManual || !hasTimeRange) return;
+    const mins = timeToMinutes(endTime) - timeToMinutes(startTime);
+    if (mins > 0) {
+      setDays(Math.round((mins / 60 / hpd) * 100) / 100);
+    }
+  }, [startTime, endTime, daysManual, hasTimeRange, hpd]);
+
+  const canSubmit = date && days && Number(days) > 0 && !isSubmitting;
+
+  return (
+    <div className="p-3 space-y-2.5">
+      {/* Date */}
+      <div>
+        <label htmlFor="ot-date" className={labelCls}>Date</label>
+        <input id="ot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+      </div>
+
+      {/* Time range (optional) */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label htmlFor="ot-start-time" className={labelCls}>Start time</label>
+          <input id="ot-start-time" type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="ot-end-time" className={labelCls}>End time</label>
+          <input id="ot-end-time" type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setDaysManual(false); }} className={inputCls} />
+        </div>
+      </div>
+
+      {/* Days + Description */}
+      <div className="flex gap-2">
+        <div className="w-20 flex-shrink-0">
+          <label htmlFor="ot-days" className={labelCls}>Days</label>
+          <input
+            id="ot-days" type="number" step="0.01" min="0.01"
+            value={days} placeholder="e.g. 0.5"
+            readOnly={!!hasTimeRange}
+            onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
+            className={cn(inputCls, "placeholder-gray-400", hasTimeRange && "opacity-60")}
+          />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="ot-desc" className={labelCls}>Description</label>
+          <input id="ot-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" className={cn(inputCls, "placeholder-gray-400")} />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">Back</button>
+        <button
+          onClick={() => canSubmit && onSubmit({
+            date,
+            hours: Math.round(Number(days) * hpd * 10) / 10,
+            description: description || undefined,
           })}
           disabled={!canSubmit}
           className="px-3 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-md transition-colors disabled:opacity-40"
@@ -633,7 +735,7 @@ type TabId = "balances" | "requests" | "pending" | "calendar";
 export function LeaveQuickLink({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
-  const [showFileForm, setShowFileForm] = useState(false);
+  const [showForm, setShowForm] = useState<false | "leave" | "overtime">(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"upcoming" | "history">("upcoming");
   const { isAdmin } = useAuth();
@@ -719,17 +821,31 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   }, [showToast]);
 
   // File leave handler
-  const handleFileLeave = useCallback(async (data: { leave_type_id: number; start_date: string; end_date: string; days_requested: number; reason?: string }) => {
+  const handleFileLeave = useCallback(async (data: { leave_type_id: number; start_date: string; end_date: string; start_time?: string; end_time?: string; days_requested: number; reason?: string }) => {
     setIsSubmitting(true);
     try {
       await arkLeaveAPI.createRequest(data);
       showToast("Leave request submitted", "success");
-      setShowFileForm(false);
+      setShowForm(false);
       mutate("ark-leave-my-requests");
       mutate("ark-leave-my-pending-count");
       mutate("ark-leave-balances");
     } catch {
       showToast("Failed to submit leave request", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [showToast]);
+
+  // File overtime handler
+  const handleFileOvertime = useCallback(async (data: { date: string; hours: number; description?: string }) => {
+    setIsSubmitting(true);
+    try {
+      await arkLeaveAPI.createOvertime(data);
+      showToast("Overtime record submitted", "success");
+      setShowForm(false);
+    } catch {
+      showToast("Failed to submit overtime", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -754,7 +870,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   // Floating UI
   const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(
     isOpen,
-    (open) => { setIsOpen(open); if (!open) setShowFileForm(false); },
+    (open) => { setIsOpen(open); if (!open) setShowForm(false); },
   );
 
   // Sorted balances: only show types with entitlement > 0
@@ -836,19 +952,38 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
           >
-            {showFileForm ? (
+            {showForm ? (
               <>
-                {/* File leave form header */}
-                <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">File Leave</h4>
+                {/* Form header with toggle */}
+                <div className="px-4 py-2.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg flex items-center gap-2">
+                  <button
+                    onClick={() => setShowForm("leave")}
+                    className={cn("text-xs font-semibold px-2 py-1 rounded-md transition-colors",
+                      showForm === "leave" ? "bg-[#a0704b] text-white" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                  >Leave</button>
+                  <button
+                    onClick={() => setShowForm("overtime")}
+                    className={cn("text-xs font-semibold px-2 py-1 rounded-md transition-colors",
+                      showForm === "overtime" ? "bg-[#a0704b] text-white" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                  >Overtime</button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <FileLeaveForm
-                    balances={visibleBalances}
-                    onSubmit={handleFileLeave}
-                    onCancel={() => setShowFileForm(false)}
-                    isSubmitting={isSubmitting}
-                  />
+                  {showForm === "leave" ? (
+                    <FileLeaveForm
+                      balances={visibleBalances}
+                      onSubmit={handleFileLeave}
+                      onCancel={() => setShowForm(false)}
+                      isSubmitting={isSubmitting}
+                    />
+                  ) : (
+                    <FileOvertimeForm
+                      onSubmit={handleFileOvertime}
+                      onCancel={() => setShowForm(false)}
+                      isSubmitting={isSubmitting}
+                    />
+                  )}
                 </div>
               </>
             ) : (
@@ -988,10 +1123,10 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {/* Footer */}
             <div className="flex items-center border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
               <button
-                onClick={() => setShowFileForm(true)}
+                onClick={() => setShowForm("leave")}
                 className="flex-1 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-bl-lg transition-colors"
               >
-                + File Leave
+                + New Request
               </button>
               <div className="w-px h-6 bg-[#d4a574] dark:bg-[#8b6f47]" />
               <a

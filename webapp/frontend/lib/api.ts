@@ -2124,6 +2124,13 @@ export const arkLeaveAPI = {
     fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
   getCalendar: (year: number, month: number) =>
     fetchAPI<import("@/types").ArkCalendarEntry[]>(`/ark/leave/calendar?year=${year}&month=${month}`),
+  getMyOvertime: (year?: number) =>
+    fetchAPI<import("@/types").ArkOvertimeRecord[]>(`/ark/overtime/my${year ? `?year=${year}` : ""}`),
+  createOvertime: (data: import("@/types").ArkCreateOvertime) =>
+    fetchAPI<import("@/types").ArkOvertimeRecord>("/ark/overtime/my", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   getPending: () =>
     fetchAPI<import("@/types").ArkLeaveRequest[]>("/ark/leave/pending"),
   getPendingCount: () =>
