@@ -102,9 +102,9 @@ export function ConfirmDialog({
                   <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                     {title}
                   </h3>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     {message}
-                  </p>
+                  </div>
                   {consequences && consequences.length > 0 && (
                     <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
                       {consequences.map((item, index) => (

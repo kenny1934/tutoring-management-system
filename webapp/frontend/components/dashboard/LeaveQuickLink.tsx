@@ -16,23 +16,14 @@ import {
   Check,
   X,
   ChevronDown,
-  ChevronRight,
   Loader2,
   ExternalLink,
   Calendar,
   Clock,
   AlertCircle,
 } from "lucide-react";
-import {
-  useFloating,
-  offset,
-  flip,
-  shift,
-  useClick,
-  useDismiss,
-  useInteractions,
-  FloatingPortal,
-} from "@floating-ui/react";
+import { FloatingPortal } from "@floating-ui/react";
+import { useDropdown } from "@/lib/ui-hooks";
 
 
 /** ARK vessel icon */
@@ -51,10 +42,19 @@ function ArkIcon({ className }: { className?: string }) {
 }
 
 
+// ─── Helpers ───
+
+function totalEntitlement(b: ArkLeaveBalance): number {
+  return Number(b.entitlement_days) + Number(b.carry_over_days) + Number(b.adjusted_days);
+}
+
+const inputCls = "w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
+
+
 // ─── Balance row ───
 
 function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
-  const total = Number(balance.entitlement_days) + Number(balance.carry_over_days) + Number(balance.adjusted_days);
+  const total = totalEntitlement(balance);
   const used = Number(balance.used_days);
   const remaining = total - used;
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
@@ -138,7 +138,7 @@ function FileLeaveForm({
 
   const selectedBalance = balances.find(b => b.leave_type.id === leaveTypeId);
   const remaining = selectedBalance
-    ? Number(selectedBalance.entitlement_days) + Number(selectedBalance.carry_over_days) + Number(selectedBalance.adjusted_days) - Number(selectedBalance.used_days)
+    ? totalEntitlement(selectedBalance) - Number(selectedBalance.used_days)
     : null;
 
   const canSubmit = leaveTypeId > 0 && startDate && endDate && days && Number(days) > 0 && !isSubmitting;
@@ -150,7 +150,8 @@ function FileLeaveForm({
         <select
           value={leaveTypeId}
           onChange={(e) => setLeaveTypeId(Number(e.target.value))}
-          className="w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+          aria-label="Leave type"
+          className={inputCls}
         >
           <option value={0}>Select leave type...</option>
           {balances.map(b => (
@@ -169,22 +170,24 @@ function FileLeaveForm({
       {/* Dates */}
       <div className="flex gap-2">
         <div className="flex-1">
-          <label className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Start</label>
+          <label htmlFor="leave-start" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Start</label>
           <input
+            id="leave-start"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className={inputCls}
           />
         </div>
         <div className="flex-1">
-          <label className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">End</label>
+          <label htmlFor="leave-end" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">End</label>
           <input
+            id="leave-end"
             type="date"
             value={endDate}
             min={startDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className={inputCls}
           />
         </div>
       </div>
@@ -192,24 +195,26 @@ function FileLeaveForm({
       {/* Days + Reason on same row */}
       <div className="flex gap-2">
         <div className="w-20 flex-shrink-0">
-          <label className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Days</label>
+          <label htmlFor="leave-days" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Days</label>
           <input
+            id="leave-days"
             type="number"
             step="0.5"
             min="0.5"
             value={days}
             onChange={(e) => { setDays(e.target.value ? Number(e.target.value) : ""); setDaysManual(true); }}
-            className="w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className={inputCls}
           />
         </div>
         <div className="flex-1">
-          <label className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Reason</label>
+          <label htmlFor="leave-reason" className="text-[10px] text-gray-500 dark:text-gray-400 ml-0.5">Reason</label>
           <input
+            id="leave-reason"
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Optional"
-            className="w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+            className={cn(inputCls, "placeholder-gray-400")}
           />
         </div>
       </div>
@@ -542,24 +547,14 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   }, [isAdminView]);
 
   // Floating UI
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: (open) => { setIsOpen(open); if (!open) setShowFileForm(false); },
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: "end" }),
-      shift({ padding: 8 }),
-    ],
-    placement: "bottom-start",
-  });
-
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+  const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(
+    isOpen,
+    (open) => { setIsOpen(open); if (!open) setShowFileForm(false); },
+  );
 
   // Sorted balances: only show types with entitlement > 0
   const visibleBalances = useMemo(
-    () => (balances ?? []).filter(b => Number(b.entitlement_days) + Number(b.carry_over_days) + Number(b.adjusted_days) > 0),
+    () => (balances ?? []).filter(b => totalEntitlement(b) > 0),
     [balances]
   );
 
