@@ -29,6 +29,7 @@ import {
   Loader2,
   ExternalLink,
   Palmtree,
+  Plus,
   Clock,
   AlertCircle,
 } from "lucide-react";
@@ -1132,20 +1133,20 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
               <button
                 onClick={() => setShowForm("leave")}
-                className="flex-1 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-bl-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-md transition-colors"
               >
-                + New Request
+                <Plus className="h-3.5 w-3.5" />
+                New Request
               </button>
-              <div className="w-px h-6 bg-[#d4a574] dark:bg-[#8b6f47]" />
               <a
                 href="#"
                 onClick={handleOpenArk}
-                className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-br-lg transition-colors"
+                className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-md transition-colors"
               >
-                <ArkIcon className="h-4 w-4" /> ARK <ExternalLink className="h-3 w-3" />
+                <ArkIcon className="h-3.5 w-3.5" /> ARK <ExternalLink className="h-3 w-3" />
               </a>
             </div>
             </>
