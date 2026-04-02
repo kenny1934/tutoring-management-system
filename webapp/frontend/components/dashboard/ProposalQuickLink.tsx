@@ -539,7 +539,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             )}
           >
             {/* Tabs */}
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40">
+            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
               <button
                 onClick={() => setActiveTab("for-me")}
                 className={cn(

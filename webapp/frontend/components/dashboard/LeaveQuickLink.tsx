@@ -58,7 +58,7 @@ function totalEntitlement(b: ArkLeaveBalance): number {
   return Number(b.entitlement_days) + Number(b.carry_over_days) + Number(b.adjusted_days);
 }
 
-const inputCls = "w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-white dark:bg-[#2d2618] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
+const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
 
 
 // ─── Balance row ───
@@ -266,7 +266,7 @@ function FileLeaveForm({
       {/* Balance warning */}
       {remaining !== null && days && Number(days) > remaining && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          This will exceed your available balance ({remaining.toFixed(2)} days remaining)
+          This will exceed your available balance ({remaining.toFixed(2)} days remaining). It will still be submitted for approval.
         </p>
       )}
 
@@ -955,19 +955,30 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {showForm ? (
               <>
                 {/* Form header with toggle */}
-                <div className="px-4 py-2.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg flex items-center gap-2">
+                {/* Form header with toggle */}
+                <div className="px-4 py-2.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] rounded-t-lg flex items-center gap-3">
                   <button
                     onClick={() => setShowForm("leave")}
-                    className={cn("text-xs font-semibold px-2 py-1 rounded-md transition-colors",
-                      showForm === "leave" ? "bg-[#a0704b] text-white" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
+                      showForm === "leave"
+                        ? "text-[#a0704b] dark:text-[#cd853f]"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     )}
-                  >Leave</button>
+                  >
+                    <Palmtree className="h-3.5 w-3.5" />
+                    Leave
+                  </button>
                   <button
                     onClick={() => setShowForm("overtime")}
-                    className={cn("text-xs font-semibold px-2 py-1 rounded-md transition-colors",
-                      showForm === "overtime" ? "bg-[#a0704b] text-white" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className={cn("flex items-center gap-1 text-xs font-medium transition-colors",
+                      showForm === "overtime"
+                        ? "text-indigo-600 dark:text-indigo-400"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     )}
-                  >Overtime</button>
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    Overtime
+                  </button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {showForm === "leave" ? (
@@ -989,7 +1000,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             ) : (
             <>
             {/* Tabs */}
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40">
+            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
               {tabs.map((tab, i) => (
                 <button
                   key={tab.id}
