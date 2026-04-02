@@ -2746,7 +2746,5 @@ export interface ArkCreateLeaveRequest {
   start_date: string;
   end_date: string;
   days_requested: number;
-  is_half_day?: boolean;
-  half_day_period?: string | null;
   reason?: string | null;
 }

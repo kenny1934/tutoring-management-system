@@ -2120,6 +2120,8 @@ export const arkLeaveAPI = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  cancelRequest: (id: number) =>
+    fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
   getPending: () =>
     fetchAPI<import("@/types").ArkLeaveRequest[]>("/ark/leave/pending"),
   getPendingCount: () =>

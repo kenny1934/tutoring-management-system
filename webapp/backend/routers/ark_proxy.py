@@ -23,6 +23,24 @@ ARK_API_BASE_URL = os.getenv("ARK_API_BASE_URL", "https://ark.mathconceptseconda
 ARK_SERVICE_TOKEN = os.getenv("ARK_SERVICE_TOKEN", "")
 ARK_TIMEOUT = 10.0
 
+# Shared client for connection reuse across requests
+_ark_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _ark_client
+    if _ark_client is None:
+        _ark_client = httpx.AsyncClient(timeout=ARK_TIMEOUT)
+    return _ark_client
+
+
+async def shutdown_ark_client():
+    """Close the shared httpx client. Called from main.py shutdown event."""
+    global _ark_client
+    if _ark_client is not None:
+        await _ark_client.aclose()
+        _ark_client = None
+
 
 def _ark_headers(user_email: str) -> dict:
     """Build headers for ARK service-to-service requests."""
@@ -40,10 +58,9 @@ async def _ark_request(method: str, path: str, user_email: str, **kwargs):
 
     url = f"{ARK_API_BASE_URL}{path}"
     try:
-        async with httpx.AsyncClient(timeout=ARK_TIMEOUT) as client:
-            resp = await client.request(
-                method, url, headers=_ark_headers(user_email), **kwargs
-            )
+        resp = await _get_client().request(
+            method, url, headers=_ark_headers(user_email), **kwargs
+        )
     except httpx.RequestError:
         raise HTTPException(502, detail="ARK unavailable")
 
@@ -98,8 +115,6 @@ class CreateLeaveRequest(BaseModel):
     start_date: str  # YYYY-MM-DD
     end_date: str
     days_requested: float
-    is_half_day: bool = False
-    half_day_period: Optional[str] = None  # "AM" or "PM"
     reason: Optional[str] = None
 
 
@@ -112,6 +127,17 @@ async def ark_create_request(
     return await _ark_request(
         "POST", "/me/leave-requests", current_user.user_email,
         json=data.model_dump(exclude_none=True),
+    )
+
+
+@router.put("/ark/leave/my-requests/{request_id}/cancel")
+async def ark_cancel_request(
+    request_id: int,
+    current_user: Tutor = Depends(get_current_user),
+):
+    """Cancel own pending leave request."""
+    return await _ark_request(
+        "PUT", f"/me/leave-requests/{request_id}/cancel", current_user.user_email,
     )
 
 

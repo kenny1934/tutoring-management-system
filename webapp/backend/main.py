@@ -371,6 +371,11 @@ app.include_router(buddy_tracker.router, prefix="/api", tags=["buddy-tracker"])
 app.include_router(ark_proxy.router, prefix="/api", tags=["ark"])
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await ark_proxy.shutdown_ark_client()
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
