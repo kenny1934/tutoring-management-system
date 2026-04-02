@@ -71,7 +71,7 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
   const total = totalEntitlement(balance);
   const used = Number(balance.used_days);
   const remaining = total - used;
-  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+  const remainPct = total > 0 ? Math.max((remaining / total) * 100, 0) : 0;
 
   return (
     <div
@@ -87,9 +87,9 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                pct > 80 ? "bg-red-400" : pct > 50 ? "bg-amber-400" : "bg-emerald-400"
+                remainPct < 20 ? "bg-red-400" : remainPct < 50 ? "bg-amber-400" : "bg-emerald-400"
               )}
-              style={{ width: `${pct}%` }}
+              style={{ width: `${remainPct}%` }}
             />
           </div>
         </div>
@@ -989,7 +989,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             ) : (
             <>
             {/* Tabs */}
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40">
               {tabs.map((tab, i) => (
                 <button
                   key={tab.id}
