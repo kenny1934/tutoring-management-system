@@ -317,8 +317,12 @@ export default function SessionsPage() {
   // Convert proposal slots to session-like objects for display
   // Uses proposals fetched by slot date so ghost sessions appear on correct dates
   const proposedSessions = useMemo(() => {
-    return proposalSlotsToSessions(proposalsForSlots);
-  }, [proposalsForSlots]);
+    const allProposed = proposalSlotsToSessions(proposalsForSlots);
+    if (selectedLocation && selectedLocation !== "All Locations") {
+      return allProposed.filter(p => p.location === selectedLocation);
+    }
+    return allProposed;
+  }, [proposalsForSlots, selectedLocation]);
 
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
