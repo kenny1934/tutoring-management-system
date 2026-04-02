@@ -2122,6 +2122,8 @@ export const arkLeaveAPI = {
     }),
   cancelRequest: (id: number) =>
     fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
+  getCalendar: (year: number, month: number) =>
+    fetchAPI<import("@/types").ArkCalendarEntry[]>(`/ark/leave/calendar?year=${year}&month=${month}`),
   getPending: () =>
     fetchAPI<import("@/types").ArkLeaveRequest[]>("/ark/leave/pending"),
   getPendingCount: () =>

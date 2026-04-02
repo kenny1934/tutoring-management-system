@@ -11,11 +11,21 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ARK_BASE_URL } from "@/config/leave-records";
 import { mutate } from "swr";
 import useSWR from "swr";
-import type { ArkLeaveBalance, ArkLeaveRequest } from "@/types";
+import type { ArkLeaveBalance, ArkLeaveRequest, ArkCalendarEntry } from "@/types";
+import {
+  getMonthCalendarDates,
+  getMonthName,
+  getPreviousMonth,
+  getNextMonth,
+  isSameDay,
+  toDateString,
+} from "@/lib/calendar-utils";
 import {
   Check,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   ExternalLink,
   Calendar,
@@ -54,33 +64,52 @@ const inputCls = "w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] r
 // ─── Balance row ───
 
 function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
+  const [expanded, setExpanded] = useState(false);
+  const entitlement = Number(balance.entitlement_days);
+  const carryOver = Number(balance.carry_over_days);
+  const adjusted = Number(balance.adjusted_days);
   const total = totalEntitlement(balance);
   const used = Number(balance.used_days);
   const remaining = total - used;
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-          {balance.leave_type.name_en}
+    <div
+      className="px-3 py-2 cursor-pointer hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+            {balance.leave_type.name_en}
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                pct > 80 ? "bg-red-400" : pct > 50 ? "bg-amber-400" : "bg-emerald-400"
+              )}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
-        <div className="mt-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all",
-              pct > 80 ? "bg-red-400" : pct > 50 ? "bg-amber-400" : "bg-emerald-400"
-            )}
-            style={{ width: `${pct}%` }}
-          />
+        <div className="text-right flex-shrink-0">
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            {remaining}
+          </span>
+          <span className="text-xs text-gray-400">/{total}</span>
         </div>
       </div>
-      <div className="text-right flex-shrink-0">
-        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {remaining}
-        </span>
-        <span className="text-xs text-gray-400">/{total}</span>
-      </div>
+      {expanded && (
+        <div className="mt-2 ml-1 text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
+          <div className="flex justify-between"><span>Entitlement</span><span>{entitlement}</span></div>
+          {carryOver > 0 && <div className="flex justify-between"><span>Carry-over</span><span>+{carryOver}</span></div>}
+          {adjusted !== 0 && <div className="flex justify-between"><span>Adjustments</span><span>{adjusted > 0 ? "+" : ""}{adjusted}</span></div>}
+          <div className="flex justify-between font-medium text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700 pt-0.5 mt-0.5">
+            <span>Used</span><span>-{used}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -248,6 +277,150 @@ function FileLeaveForm({
           {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
         </button>
       </div>
+    </div>
+  );
+}
+
+
+// ─── Leave calendar (admin) ───
+
+const WEEKDAY_HEADERS = ["S", "M", "T", "W", "T", "F", "S"];
+
+// Map leave type name to a dot color
+function leaveTypeColor(leaveType: string): string {
+  const t = leaveType.toLowerCase();
+  if (t.includes("annual")) return "bg-blue-400";
+  if (t.includes("sick")) return "bg-red-400";
+  if (t.includes("compensation") || t.includes("補休")) return "bg-purple-400";
+  if (t.includes("birthday")) return "bg-pink-400";
+  if (t.includes("paternity") || t.includes("maternity")) return "bg-teal-400";
+  return "bg-amber-400";
+}
+
+function LeaveCalendarView() {
+  const [viewMonth, setViewMonth] = useState(() => new Date());
+  const calendarDates = useMemo(() => getMonthCalendarDates(viewMonth), [viewMonth]);
+  const currentMonth = viewMonth.getMonth();
+  const today = useMemo(() => new Date(), []);
+
+  // Fetch calendar data for the viewed month
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth() + 1; // 1-indexed
+  const { data: calEntries, isLoading: loadingCal } = useSWR(
+    `ark-leave-calendar-${year}-${month}`,
+    () => arkLeaveAPI.getCalendar(year, month),
+    { revalidateOnFocus: false }
+  );
+
+  // Build a map: dateStr → entries for that day
+  const dayMap = useMemo(() => {
+    const map = new Map<string, ArkCalendarEntry[]>();
+    for (const entry of calEntries ?? []) {
+      const start = new Date(entry.start_date + "T00:00:00");
+      const end = new Date(entry.end_date + "T00:00:00");
+      const d = new Date(start);
+      while (d <= end) {
+        const key = toDateString(d);
+        const arr = map.get(key) ?? [];
+        arr.push(entry);
+        map.set(key, arr);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return map;
+  }, [calEntries]);
+
+  const legendTypes = useMemo(
+    () => Array.from(new Set((calEntries ?? []).map(e => e.leave_type))),
+    [calEntries]
+  );
+
+  return (
+    <div className="p-3">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-2">
+        <button
+          onClick={() => setViewMonth(getPreviousMonth(viewMonth))}
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          {getMonthName(viewMonth)} {viewMonth.getFullYear()}
+        </span>
+        <button
+          onClick={() => setViewMonth(getNextMonth(viewMonth))}
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {WEEKDAY_HEADERS.map((day, i) => (
+          <div key={i} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      {loadingCal ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-7">
+          {calendarDates.map((date) => {
+            const isCurrentMonth = date.getMonth() === currentMonth;
+            const isToday = isSameDay(date, today);
+            const dateKey = toDateString(date);
+            const dayEntries = dayMap.get(dateKey) ?? [];
+
+            return (
+              <div
+                key={dateKey}
+                className={cn(
+                  "h-10 flex flex-col items-center justify-start pt-0.5 relative",
+                  !isCurrentMonth && "opacity-30",
+                )}
+                title={dayEntries.map(e => `${e.staff_name}: ${e.leave_type}`).join("\n") || undefined}
+              >
+                <span className={cn(
+                  "text-[10px] leading-none",
+                  isToday && "font-bold text-[#a0704b]",
+                  !isToday && "text-gray-600 dark:text-gray-400",
+                )}>
+                  {date.getDate()}
+                </span>
+                {dayEntries.length > 0 && (
+                  <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center max-w-[28px]">
+                    {dayEntries.slice(0, 3).map((e, i) => (
+                      <div key={i} className={cn("w-1.5 h-1.5 rounded-full", leaveTypeColor(e.leave_type))} />
+                    ))}
+                    {dayEntries.length > 3 && (
+                      <span className="text-[7px] text-gray-400">+{dayEntries.length - 3}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legend */}
+      {legendTypes.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-3 gap-y-1">
+          {legendTypes.map(type => (
+            <div key={type} className="flex items-center gap-1">
+              <div className={cn("w-2 h-2 rounded-full", leaveTypeColor(type))} />
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">{type}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -424,6 +597,8 @@ function RequestCard({
 }
 
 
+type TabId = "balances" | "requests" | "pending" | "calendar";
+
 // ─── Main component ───
 
 export function LeaveQuickLink({ className }: { className?: string }) {
@@ -438,7 +613,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const isAdminView = isAdmin && viewMode !== "my-view";
 
   // Default tab: admin sees pending review, staff sees balances
-  const [activeTab, setActiveTab] = useState<"balances" | "requests" | "pending">(
+  const [activeTab, setActiveTab] = useState<"balances" | "requests" | "pending" | "calendar">(
     isAdminView ? "pending" : "balances"
   );
 
@@ -574,12 +749,13 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
   // Tabs config
   const tabs = useMemo(() => {
-    const t: { id: "balances" | "requests" | "pending"; label: string; count?: number }[] = [
+    const t: { id: TabId; label: string; count?: number }[] = [
       { id: "balances", label: "Balances" },
-      { id: "requests", label: "My Requests", count: myPendingCount || undefined },
+      { id: "requests", label: "Requests", count: myPendingCount || undefined },
     ];
     if (isAdminView) {
       t.push({ id: "pending", label: "Review", count: pendingCount?.count || undefined });
+      t.push({ id: "calendar", label: "Calendar" });
     }
     return t;
   }, [isAdminView, myPendingCount, pendingCount]);
@@ -718,7 +894,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                     ))}
                   </div>
                 )
-              ) : (
+              ) : activeTab === "pending" ? (
                 // Pending review tab (admin)
                 loadingPending ? (
                   <div className="flex items-center justify-center py-8">
@@ -743,7 +919,9 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                     ))}
                   </div>
                 )
-              )}
+              ) : activeTab === "calendar" ? (
+                <LeaveCalendarView />
+              ) : null}
             </div>
 
             {/* Footer */}

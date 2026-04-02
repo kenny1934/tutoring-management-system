@@ -143,6 +143,19 @@ async def ark_cancel_request(
 
 # ─── Admin endpoints ───
 
+@router.get("/ark/leave/calendar")
+async def ark_leave_calendar(
+    year: int = Query(...),
+    month: int = Query(...),
+    current_user: Tutor = Depends(require_admin),
+):
+    """Team leave calendar for a month (admin only)."""
+    return await _ark_request(
+        "GET", "/leave-calendar", current_user.user_email,
+        params={"year": year, "month": month},
+    )
+
+
 @router.get("/ark/leave/pending")
 async def ark_pending_requests(
     current_user: Tutor = Depends(require_admin),

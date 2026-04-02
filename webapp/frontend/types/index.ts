@@ -2741,6 +2741,18 @@ export interface ArkLeaveRequest {
   created_at: string;
 }
 
+export interface ArkCalendarEntry {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  days_requested: number;
+  is_half_day: boolean;
+  half_day_period: string | null;
+}
+
 export interface ArkCreateLeaveRequest {
   leave_type_id: number;
   start_date: string;

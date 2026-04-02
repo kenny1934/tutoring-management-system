@@ -6,9 +6,9 @@ import useSWR from "swr";
 import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount } from "@/lib/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { parentCommunicationsAPI } from "@/lib/api";
+import { parentCommunicationsAPI, arkLeaveAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus, AlertTriangle, Calendar } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -71,6 +71,13 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch aged pending makeups count (all users with tutorId)
   const { data: agedMakeups } = useAgedPendingMakeupsCount(tutorId);
 
+  // Fetch ARK pending leave count (admin only)
+  const { data: pendingLeave } = useSWR(
+    showOverduePayments ? "ark-leave-pending-count" : null,
+    () => arkLeaveAPI.getPendingCount(),
+    { refreshInterval: 60000, revalidateOnFocus: false }
+  );
+
   // Build notification items
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
@@ -107,6 +114,18 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: pendingExtensions.count,
         severity: "warning",
         href: "/admin/extensions",
+      });
+    }
+
+    // Pending leave requests (admin only, from ARK)
+    if (showOverduePayments && pendingLeave?.count && pendingLeave.count > 0) {
+      items.push({
+        id: "leave-requests",
+        icon: <Calendar className="h-4 w-4" />,
+        label: "Pending Leave Requests",
+        count: pendingLeave.count,
+        severity: "warning",
+        href: "/", // Visible in leave dropdown on dashboard
       });
     }
 
@@ -179,7 +198,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
