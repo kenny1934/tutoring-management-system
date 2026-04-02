@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.0.45](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.45) (2026-04-02)
+
+### New Features
+
+* **ARK leave integration** — inline leave management dropdown on the dashboard with balances, request filing, and admin review — no more switching to ARK for common tasks
+* **Leave balances** — expandable rows showing entitlement, carry-over, adjustments, and remaining days with a visual bar
+* **File leave & overtime** — compact forms for submitting leave requests (with time range for partial days) and overtime records directly from the dropdown
+* **Admin leave review** — approve or reject pending leave requests inline with optional reviewer notes
+* **Team leave calendar** — month-view calendar for admins showing who's on approved leave with colored dots per leave type
+
+### Improvements
+
+* **Dashboard dropdown styling** — warm paper-cream background with texture, stronger shadows, and darker borders across all quick-link dropdowns
+* **Compact request cards** — two-line leave request cards with expandable detail (reason, reviewer, filed date)
+* **Upcoming/History filter** — My Requests tab defaults to upcoming leave, with a toggle to view past and cancelled requests
+* **Cancel approved leave** — cancel button available on both pending and approved requests (approved cancellation restores balance)
+* **Notification bell** — pending leave request count shown for admins alongside other notification items
+
+### Bug Fixes
+
+* **Leave day count** — now counts all calendar days instead of skipping weekends
+* **Dark mode contrast** — fixed approve/reject button text, select dropdown background, and footer divider visibility
+* **Dropdown corner bleed** — hover states on footers and form headers no longer poke outside rounded containers
+* **Proposed sessions location filter** — makeup proposal ghost sessions now correctly filter by branch location
+
 ## [2.0.44](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.44) (2026-04-01)
 
 ### New Features
