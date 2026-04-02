@@ -343,7 +343,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               {...getFloatingProps()}
               className={cn(
                 "z-50 w-80 max-h-[70vh] flex flex-col",
-                "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+                "paper-cream paper-texture rounded-lg shadow-lg",
                 "border border-[#e8d4b8] dark:border-[#6b5a4a]"
               )}
             >

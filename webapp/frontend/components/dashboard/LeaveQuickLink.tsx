@@ -58,7 +58,7 @@ function totalEntitlement(b: ArkLeaveBalance): number {
   return Number(b.entitlement_days) + Number(b.carry_over_days) + Number(b.adjusted_days);
 }
 
-const inputCls = "w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-transparent text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
+const inputCls = "w-full text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-white dark:bg-[#2d2618] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
 
 
 // ─── Balance row ───
@@ -508,7 +508,7 @@ function RequestCard({
             <button
               onClick={() => { setReviewerNote(""); setShowApproveConfirm(true); }}
               disabled={isActing === request.id}
-              className="px-2 py-1 text-xs text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
+              className="px-3 py-1.5 text-xs text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
             >
               {isActing === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 inline mr-0.5" />}
               Approve
@@ -516,7 +516,7 @@ function RequestCard({
             <button
               onClick={() => { setReviewerNote(""); setShowRejectConfirm(true); }}
               disabled={isActing === request.id}
-              className="px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+              className="px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
             >
               <X className="h-3.5 w-3.5 inline mr-0.5" />
               Reject
@@ -530,7 +530,7 @@ function RequestCard({
             <button
               onClick={() => setShowCancelConfirm(true)}
               disabled={isActing === request.id}
-              className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               {isActing === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Cancel"}
             </button>
@@ -792,14 +792,14 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {...getFloatingProps()}
             className={cn(
               "z-50 w-80 max-h-[70vh] flex flex-col",
-              "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+              "paper-cream paper-texture rounded-lg shadow-lg",
               "border border-[#e8d4b8] dark:border-[#6b5a4a]"
             )}
           >
             {showFileForm ? (
               <>
                 {/* File leave form header */}
-                <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820]">
+                <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">File Leave</h4>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -928,15 +928,15 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             <div className="flex items-center border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
               <button
                 onClick={() => setShowFileForm(true)}
-                className="flex-1 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors"
+                className="flex-1 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-bl-lg transition-colors"
               >
                 + File Leave
               </button>
-              <div className="w-px h-6 bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <div className="w-px h-6 bg-[#d4a574] dark:bg-[#8b6f47]" />
               <a
                 href="#"
                 onClick={handleOpenArk}
-                className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] transition-colors"
+                className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-br-lg transition-colors"
               >
                 ARK <ExternalLink className="h-3.5 w-3.5" />
               </a>

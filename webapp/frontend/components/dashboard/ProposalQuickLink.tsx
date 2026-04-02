@@ -129,7 +129,7 @@ function CompactSlotItem({
             <button
               onClick={handleApproveClick}
               disabled={isLoading}
-              className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
+              className="p-1 text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
               title="Approve"
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -137,7 +137,7 @@ function CompactSlotItem({
             <button
               onClick={handleRejectClick}
               disabled={isLoading}
-              className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+              className="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
               title="Reject"
             >
               <X className="h-4 w-4" />
@@ -534,7 +534,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             {...getFloatingProps()}
             className={cn(
               "z-50 w-80 max-h-[70vh] flex flex-col",
-              "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+              "paper-cream paper-texture rounded-lg shadow-lg",
               "border border-[#e8d4b8] dark:border-[#6b5a4a]"
             )}
           >
@@ -637,7 +637,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             <Link
               href="/proposals"
               onClick={() => setIsOpen(false)}
-              className="block px-4 py-3 text-sm text-center font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+              className="block px-4 py-3 text-sm text-center font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] border-t border-[#e8d4b8] dark:border-[#6b5a4a] rounded-b-lg transition-colors"
             >
               View All Proposals <ChevronRight className="h-4 w-4 inline" />
             </Link>

@@ -215,7 +215,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                         {...getFloatingProps()}
                         className={cn(
                           "z-50 w-80 sm:w-96 py-2 overflow-y-auto",
-                          "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+                          "paper-cream paper-texture rounded-lg shadow-lg",
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]"
                         )}
                       >
