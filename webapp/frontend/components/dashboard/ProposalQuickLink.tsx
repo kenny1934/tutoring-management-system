@@ -534,8 +534,8 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
             {...getFloatingProps()}
             className={cn(
               "z-50 w-80 max-h-[70vh] flex flex-col",
-              "paper-cream paper-texture rounded-lg shadow-lg",
-              "border border-[#e8d4b8] dark:border-[#6b5a4a]"
+              "paper-cream paper-texture rounded-lg shadow-xl",
+              "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
           >
             {/* Tabs */}

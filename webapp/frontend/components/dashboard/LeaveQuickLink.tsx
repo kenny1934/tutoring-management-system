@@ -28,7 +28,7 @@ import {
   ChevronRight,
   Loader2,
   ExternalLink,
-  Calendar,
+  Palmtree,
   Clock,
   AlertCircle,
 } from "lucide-react";
@@ -299,6 +299,7 @@ function leaveTypeColor(leaveType: string): string {
 
 function LeaveCalendarView() {
   const [viewMonth, setViewMonth] = useState(() => new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const calendarDates = useMemo(() => getMonthCalendarDates(viewMonth), [viewMonth]);
   const currentMonth = viewMonth.getMonth();
   const today = useMemo(() => new Date(), []);
@@ -340,7 +341,7 @@ function LeaveCalendarView() {
       {/* Month nav */}
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setViewMonth(getPreviousMonth(viewMonth))}
+          onClick={() => { setViewMonth(getPreviousMonth(viewMonth)); setSelectedDay(null); }}
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -349,7 +350,7 @@ function LeaveCalendarView() {
           {getMonthName(viewMonth)} {viewMonth.getFullYear()}
         </span>
         <button
-          onClick={() => setViewMonth(getNextMonth(viewMonth))}
+          onClick={() => { setViewMonth(getNextMonth(viewMonth)); setSelectedDay(null); }}
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[#8b6f47] dark:text-[#cd853f]"
         >
           <ChevronRight className="h-4 w-4" />
@@ -384,8 +385,10 @@ function LeaveCalendarView() {
                 className={cn(
                   "h-10 flex flex-col items-center justify-start pt-0.5 relative",
                   !isCurrentMonth && "opacity-30",
+                  dayEntries.length > 0 && "cursor-pointer",
+                  selectedDay === dateKey && "bg-[#f5ede3] dark:bg-[#3d3628] rounded",
                 )}
-                title={dayEntries.map(e => `${e.staff_name}: ${e.leave_type}`).join("\n") || undefined}
+                onClick={() => dayEntries.length > 0 && setSelectedDay(selectedDay === dateKey ? null : dateKey)}
               >
                 <span className={cn(
                   "text-[10px] leading-none",
@@ -407,6 +410,24 @@ function LeaveCalendarView() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Day detail panel */}
+      {selectedDay && dayMap.get(selectedDay) && (
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-[11px] font-medium text-gray-600 dark:text-gray-300 mb-1">
+            {new Date(selectedDay + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+          </div>
+          <div className="space-y-1">
+            {dayMap.get(selectedDay)!.map((e, i) => (
+              <div key={i} className="flex items-center gap-2 text-[11px]">
+                <div className={cn("w-2 h-2 rounded-full flex-shrink-0", leaveTypeColor(e.leave_type))} />
+                <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{e.staff_name}</span>
+                <span className="text-gray-400 dark:text-gray-500 ml-auto flex-shrink-0">{e.leave_type}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -443,36 +464,48 @@ function RequestCard({
   onCancel?: (id: number) => void;
   isActing: number | null;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [reviewerNote, setReviewerNote] = useState("");
 
   const canReview = isAdmin && request.status === "pending";
-  const canCancel = !!onCancel && request.status === "pending";
+  const canCancel = !!onCancel && (request.status === "pending" || request.status === "approved");
   const dateStr = request.start_date === request.end_date
     ? formatDateCompact(request.start_date)
     : `${formatDateCompact(request.start_date)} – ${formatDateCompact(request.end_date)}`;
 
   return (
     <>
-      <div className={cn(
-        "rounded-lg border p-2.5",
-        request.status === "approved"
-          ? "border-green-200 dark:border-green-800/40 bg-green-50/50 dark:bg-green-900/10"
-          : request.status === "rejected" || request.status === "cancelled"
-          ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 opacity-60"
-          : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
-      )}>
-        {/* Header: leave type + days */}
+      <div
+        className={cn(
+          "rounded-lg border px-2.5 py-2 cursor-pointer transition-colors",
+          request.status === "approved"
+            ? "border-green-200 dark:border-green-800/40 bg-green-50/50 dark:bg-green-900/10"
+            : request.status === "rejected" || request.status === "cancelled"
+            ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 opacity-60"
+            : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
+        )}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {/* Line 1: leave type + days */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
             {request.leave_type.name_en}
           </span>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {request.days_requested}{request.is_half_day ? ` (${request.half_day_period ?? "half"})` : "d"}
-            </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+            {request.days_requested}{request.is_half_day ? ` (${request.half_day_period ?? "half"})` : "d"}
+          </span>
+        </div>
+
+        {/* Line 2: date + status/cancel */}
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+            {dateStr}
+            {showStaffName && request.staff_name && ` · ${request.staff_name}`}
+          </span>
+          <div className="flex items-center gap-1 flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
             {request.status !== "pending" && (
               <span className={cn(
                 "px-1.5 py-0.5 text-[10px] font-medium rounded",
@@ -483,28 +516,34 @@ function RequestCard({
                 {request.status}
               </span>
             )}
+            {canCancel && (
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                disabled={isActing === request.id}
+                className="px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                {isActing === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Cancel"}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Date + staff name */}
-        <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
-          <Calendar className="h-3 w-3 flex-shrink-0" />
-          <span className="truncate">
-            {dateStr}
-            {showStaffName && request.staff_name && ` · ${request.staff_name}`}
-          </span>
-        </div>
-
-        {/* Reason */}
-        {request.reason && (
-          <div className="mt-1 text-xs text-gray-400 dark:text-gray-500 truncate italic">
-            &ldquo;{request.reason}&rdquo;
+        {/* Expanded: reason + detail */}
+        {expanded && (
+          <div className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
+            {request.reason && (
+              <div className="italic">&ldquo;{request.reason}&rdquo;</div>
+            )}
+            <div>Filed {new Date(request.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+            {request.reviewer_name && (
+              <div>{request.status === "approved" ? "Approved" : "Reviewed"} by {request.reviewer_name}</div>
+            )}
           </div>
         )}
 
         {/* Admin: approve/reject */}
         {canReview && (
-          <div className="flex items-center justify-end gap-1 mt-2">
+          <div className="flex items-center justify-end gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => { setReviewerNote(""); setShowApproveConfirm(true); }}
               disabled={isActing === request.id}
@@ -524,18 +563,6 @@ function RequestCard({
           </div>
         )}
 
-        {/* Staff: cancel own pending */}
-        {canCancel && (
-          <div className="flex items-center justify-end mt-2">
-            <button
-              onClick={() => setShowCancelConfirm(true)}
-              disabled={isActing === request.id}
-              className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              {isActing === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Cancel"}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Approve confirm with optional note */}
@@ -587,7 +614,9 @@ function RequestCard({
           onConfirm={() => { onCancel(request.id); setShowCancelConfirm(false); }}
           onCancel={() => setShowCancelConfirm(false)}
           title="Cancel Leave Request"
-          message={`Cancel your ${request.leave_type.name_en} request (${dateStr})?`}
+          message={request.status === "approved"
+            ? `Cancel your approved ${request.leave_type.name_en} request (${dateStr})? The balance will be restored.`
+            : `Cancel your ${request.leave_type.name_en} request (${dateStr})?`}
           confirmText="Cancel Request"
           variant="danger"
         />
@@ -606,6 +635,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const [reviewingId, setReviewingId] = useState<number | null>(null);
   const [showFileForm, setShowFileForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestFilter, setRequestFilter] = useState<"upcoming" | "history">("upcoming");
   const { isAdmin } = useAuth();
   const { viewMode } = useRole();
   const { showToast } = useToast();
@@ -733,15 +763,25 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     [balances]
   );
 
-  // Sort requests: pending first, then by created_at desc
-  const sortedMyRequests = useMemo(
-    () => [...(myRequests ?? [])].sort((a, b) => {
+  // Sort and filter requests
+  const sortedMyRequests = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let list = [...(myRequests ?? [])];
+    if (requestFilter === "upcoming") {
+      list = list.filter(r =>
+        r.status === "pending" || (r.status === "approved" && r.end_date >= todayStr)
+      );
+    } else {
+      list = list.filter(r =>
+        r.status === "rejected" || r.status === "cancelled" || (r.status === "approved" && r.end_date < todayStr)
+      );
+    }
+    return list.sort((a, b) => {
       if (a.status === "pending" && b.status !== "pending") return -1;
       if (b.status === "pending" && a.status !== "pending") return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    }),
-    [myRequests]
-  );
+    });
+  }, [myRequests, requestFilter]);
 
   const isArkError = !!balancesError;
 
@@ -773,7 +813,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
           isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
         )}
       >
-        <ArkIcon className="h-5 w-5" />
+        <Palmtree className="h-4 w-4" />
         <span className="hidden xs:inline">Leave Record</span>
         <span className="xs:hidden">Leave</span>
         {badgeCount > 0 && (
@@ -792,8 +832,8 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {...getFloatingProps()}
             className={cn(
               "z-50 w-80 max-h-[70vh] flex flex-col",
-              "paper-cream paper-texture rounded-lg shadow-lg",
-              "border border-[#e8d4b8] dark:border-[#6b5a4a]"
+              "paper-cream paper-texture rounded-lg shadow-xl",
+              "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
           >
             {showFileForm ? (
@@ -870,18 +910,38 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                   </div>
                 )
               ) : activeTab === "requests" ? (
-                loadingRequests ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                <>
+                  {/* Filter toggle */}
+                  <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+                    {(["upcoming", "history"] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setRequestFilter(f)}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
+                          requestFilter === f
+                            ? "bg-[#a0704b] text-white"
+                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        )}
+                      >
+                        {f === "upcoming" ? "Upcoming" : "History"}
+                      </button>
+                    ))}
                   </div>
-                ) : sortedMyRequests.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No leave requests</p>
-                  </div>
-                ) : (
-                  <div className="p-3 space-y-2">
-                    {sortedMyRequests.slice(0, 8).map((r) => (
+                  {loadingRequests ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                    </div>
+                  ) : sortedMyRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {requestFilter === "upcoming" ? "No upcoming leave" : "No past requests"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 pt-1 space-y-2">
+                      {sortedMyRequests.slice(0, 8).map((r) => (
                       <RequestCard
                         key={r.id}
                         request={r}
@@ -893,7 +953,8 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                       />
                     ))}
                   </div>
-                )
+                  )}
+                </>
               ) : activeTab === "pending" ? (
                 // Pending review tab (admin)
                 loadingPending ? (
@@ -938,7 +999,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 onClick={handleOpenArk}
                 className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium text-[#a0704b] hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] rounded-br-lg transition-colors"
               >
-                ARK <ExternalLink className="h-3.5 w-3.5" />
+                <ArkIcon className="h-4 w-4" /> ARK <ExternalLink className="h-3 w-3" />
               </a>
             </div>
             </>
