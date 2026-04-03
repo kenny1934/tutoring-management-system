@@ -1417,6 +1417,49 @@ class StudentRadarConfig(Base):
     tutor = relationship("Tutor")
 
 
+class WaitlistEntry(Base):
+    """Waitlist entry for prospective students or slot change requests."""
+    __tablename__ = "waitlist_entries"
+    __table_args__ = (
+        Index('idx_waitlist_active', 'is_active'),
+        Index('idx_waitlist_grade', 'grade'),
+        Index('idx_waitlist_student', 'student_id'),
+        Index('idx_waitlist_created', 'created_at'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_name = Column(String(255), nullable=False)
+    school = Column(String(255), nullable=False)
+    grade = Column(String(50), nullable=False)
+    lang_stream = Column(String(50), nullable=True)
+    phone = Column(String(50), nullable=False)
+    parent_name = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    entry_type = Column(String(20), nullable=False, default='New')
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    student = relationship("Student")
+    creator = relationship("Tutor", foreign_keys=[created_by])
+    slot_preferences = relationship("WaitlistSlotPreference", back_populates="entry", cascade="all, delete-orphan")
+
+
+class WaitlistSlotPreference(Base):
+    """Preferred day/time/location for a waitlist entry."""
+    __tablename__ = "waitlist_slot_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    waitlist_entry_id = Column(Integer, ForeignKey("waitlist_entries.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(100), nullable=False)
+    day_of_week = Column(String(10), nullable=True)
+    time_slot = Column(String(50), nullable=True)
+
+    entry = relationship("WaitlistEntry", back_populates="slot_preferences")
+
+
 class SavedReport(Base):
     """Internal saved report snapshots for tutor reference."""
     __tablename__ = "saved_reports"

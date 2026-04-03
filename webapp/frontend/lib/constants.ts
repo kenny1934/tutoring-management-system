@@ -32,6 +32,9 @@ export const GRADE_COLORS: Record<string, string> = {
 // Default color when grade/stream not found
 export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 
+// Grade levels
+export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6"] as const;
+
 /**
  * Get the color for a grade + language stream combination
  */

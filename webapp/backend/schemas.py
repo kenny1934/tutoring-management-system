@@ -2874,6 +2874,95 @@ class BuddyGroupLookupResponse(BaseModel):
     total_size: int
 
 
+# ============================================
+# Waitlist Schemas
+# ============================================
+
+WaitlistEntryType = Literal["New", "Slot Change"]
+
+
+class WaitlistSlotPreferenceCreate(BaseModel):
+    location: str = Field(..., max_length=100)
+    day_of_week: Optional[str] = Field(None, max_length=10)
+    time_slot: Optional[str] = Field(None, max_length=50)
+
+
+class WaitlistSlotPreferenceResponse(BaseModel):
+    id: int
+    location: str
+    day_of_week: Optional[str] = None
+    time_slot: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaitlistEntryCreate(BaseModel):
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: str = Field(..., min_length=1, max_length=255)
+    grade: str = Field(..., min_length=1, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    phone: str = Field(..., min_length=1, max_length=50)
+    parent_name: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str] = None
+    entry_type: WaitlistEntryType = "New"
+    student_id: Optional[int] = None
+    slot_preferences: List[WaitlistSlotPreferenceCreate] = []
+
+
+class WaitlistEntryBulkItem(BaseModel):
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: str = Field(..., min_length=1, max_length=255)
+    grade: str = Field(..., min_length=1, max_length=50)
+    phone: str = Field(..., min_length=1, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    parent_name: Optional[str] = Field(None, max_length=255)
+
+
+class WaitlistEntryBulkCreate(BaseModel):
+    entries: List[WaitlistEntryBulkItem]
+
+
+class WaitlistEntryUpdate(BaseModel):
+    student_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    school: Optional[str] = Field(None, min_length=1, max_length=255)
+    grade: Optional[str] = Field(None, min_length=1, max_length=50)
+    lang_stream: Optional[str] = None
+    phone: Optional[str] = Field(None, min_length=1, max_length=50)
+    parent_name: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+    entry_type: Optional[WaitlistEntryType] = None
+    student_id: Optional[int] = None
+    slot_preferences: Optional[List[WaitlistSlotPreferenceCreate]] = None
+
+
+class EnrollmentContextInfo(BaseModel):
+    label: str
+    enrollment_id: Optional[int] = None
+
+
+class WaitlistEntryResponse(BaseModel):
+    id: int
+    student_name: str
+    school: str
+    grade: str
+    lang_stream: Optional[str] = None
+    phone: str
+    parent_name: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: bool
+    entry_type: str
+    student_id: Optional[int] = None
+    created_by: int
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    slot_preferences: List[WaitlistSlotPreferenceResponse] = []
+    enrollment_context: Optional[EnrollmentContextInfo] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

@@ -169,6 +169,10 @@ import type {
   RadarChartConfig,
   SavedReportSummary,
   SavedReportDetail,
+  WaitlistEntry,
+  WaitlistEntryCreate,
+  WaitlistEntryBulkItem,
+  WaitlistEntryUpdate,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -2550,6 +2554,59 @@ export const buddyTrackerAPI = {
     }),
 };
 
+export const waitlistAPI = {
+  getAll: (params: {
+    is_active?: boolean;
+    location?: string;
+    grade?: string;
+    entry_type?: string;
+    search?: string;
+    sort_by?: string;
+    sort_order?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.is_active !== undefined) searchParams.append("is_active", String(params.is_active));
+    if (params.location) searchParams.append("location", params.location);
+    if (params.grade) searchParams.append("grade", params.grade);
+    if (params.entry_type) searchParams.append("entry_type", params.entry_type);
+    if (params.search) searchParams.append("search", params.search);
+    if (params.sort_by) searchParams.append("sort_by", params.sort_by);
+    if (params.sort_order) searchParams.append("sort_order", params.sort_order);
+    if (params.limit) searchParams.append("limit", params.limit.toString());
+    if (params.offset) searchParams.append("offset", params.offset.toString());
+    const query = searchParams.toString();
+    return fetchAPI<WaitlistEntry[]>(`/waitlist${query ? `?${query}` : ""}`);
+  },
+
+  getById: (id: number) =>
+    fetchAPI<WaitlistEntry>(`/waitlist/${id}`),
+
+  create: (data: WaitlistEntryCreate) =>
+    fetchAPI<WaitlistEntry>("/waitlist", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  bulkCreate: (entries: WaitlistEntryBulkItem[]) =>
+    fetchAPI<{ created: number }>("/waitlist/bulk", {
+      method: "POST",
+      body: JSON.stringify({ entries }),
+    }),
+
+  update: (id: number, data: WaitlistEntryUpdate) =>
+    fetchAPI<WaitlistEntry>(`/waitlist/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  remove: (id: number) =>
+    fetchAPI<{ deleted: boolean }>(`/waitlist/${id}`, {
+      method: "DELETE",
+    }),
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -2580,4 +2637,5 @@ export const api = {
   buddyTracker: buddyTrackerAPI,
   auth: authAPI,
   arkLeave: arkLeaveAPI,
+  waitlist: waitlistAPI,
 };

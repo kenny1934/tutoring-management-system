@@ -2779,3 +2779,81 @@ export interface ArkCreateOvertime {
   hours: number;
   description?: string | null;
 }
+
+// ============================================
+// Waitlist Types
+// ============================================
+
+export interface WaitlistSlotPreference {
+  id: number;
+  location: string;
+  day_of_week?: string | null;
+  time_slot?: string | null;
+}
+
+export interface WaitlistSlotPreferenceCreate {
+  location: string;
+  day_of_week?: string | null;
+  time_slot?: string | null;
+}
+
+export interface EnrollmentContextInfo {
+  label: string;
+  enrollment_id?: number | null;
+}
+
+export interface WaitlistEntry {
+  id: number;
+  student_name: string;
+  school: string;
+  grade: string;
+  lang_stream?: string | null;
+  phone: string;
+  parent_name?: string | null;
+  notes?: string | null;
+  is_active: boolean;
+  entry_type: "New" | "Slot Change";
+  student_id?: number | null;
+  created_by: number;
+  created_by_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  slot_preferences: WaitlistSlotPreference[];
+  enrollment_context?: EnrollmentContextInfo | null;
+}
+
+export interface WaitlistEntryCreate {
+  student_name: string;
+  school: string;
+  grade: string;
+  lang_stream?: string | null;
+  phone: string;
+  parent_name?: string | null;
+  notes?: string | null;
+  entry_type?: "New" | "Slot Change";
+  student_id?: number | null;
+  slot_preferences?: WaitlistSlotPreferenceCreate[];
+}
+
+export interface WaitlistEntryBulkItem {
+  student_name: string;
+  school: string;
+  grade: string;
+  phone: string;
+  lang_stream?: string | null;
+  parent_name?: string | null;
+}
+
+export interface WaitlistEntryUpdate {
+  student_name?: string;
+  school?: string;
+  grade?: string;
+  lang_stream?: string | null;
+  phone?: string;
+  parent_name?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+  entry_type?: "New" | "Slot Change";
+  student_id?: number | null;
+  slot_preferences?: WaitlistSlotPreferenceCreate[];
+}
