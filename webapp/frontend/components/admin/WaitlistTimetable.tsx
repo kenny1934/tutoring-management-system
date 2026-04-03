@@ -93,7 +93,7 @@ export function WaitlistTimetable({
   onEntryClick,
   highlight,
 }: WaitlistTimetableProps) {
-  const { data: enrollments = [], isLoading } = useAllStudents(
+  const { data: enrollments = [], isLoading, error } = useAllStudents(
     location !== "All Locations" ? location : undefined
   );
 
@@ -214,6 +214,16 @@ export function WaitlistTimetable({
       <div className="flex items-center justify-center py-12 text-foreground/40">
         <div className="animate-spin h-6 w-6 border-2 border-[#a0704b] border-t-transparent rounded-full mr-3" />
         Loading timetable...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12 text-red-500 dark:text-red-400">
+        <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+        <p className="text-sm font-medium">Failed to load enrollment data</p>
+        <p className="text-xs text-foreground/40 mt-1">Try refreshing the page</p>
       </div>
     );
   }

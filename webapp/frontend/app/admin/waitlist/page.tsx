@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
@@ -144,7 +144,15 @@ export default function AdminWaitlistPage() {
   const handleToggleActive = useCallback(
     async (entry: WaitlistEntry) => {
       try {
-        await waitlistAPI.update(entry.id, { is_active: !entry.is_active });
+        const updates: Record<string, unknown> = { is_active: !entry.is_active };
+        if (entry.is_active) {
+          const reason = prompt("Reason for closing (optional):");
+          if (reason) {
+            const existing = entry.notes || "";
+            updates.notes = existing ? `${existing}\n[Closed] ${reason}` : `[Closed] ${reason}`;
+          }
+        }
+        await waitlistAPI.update(entry.id, updates);
         showToast(entry.is_active ? "Marked as closed" : "Reactivated");
         mutate();
       } catch {
@@ -468,6 +476,17 @@ export default function AdminWaitlistPage() {
                   )}
                 </div>
               )}
+              {(search || gradeFilter || typeFilter) && (
+                <div className="mb-2 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                  <span>Filters active — timetable may not show all waitlist entries</span>
+                  <button
+                    onClick={() => { setSearch(""); setGradeFilter(""); setTypeFilter(""); }}
+                    className="font-medium hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
               <WaitlistTimetable
                 location={selectedLocation}
                 waitlistEntries={entries || []}
@@ -562,6 +581,59 @@ export default function AdminWaitlistPage() {
               )}
             </div>
           </div>
+
+          {/* Summary bar */}
+          {entries && entries.length > 0 && (() => {
+            const newCount = entries.filter((e) => e.entry_type === "New").length;
+            const scCount = entries.filter((e) => e.entry_type === "Slot Change").length;
+            const gradeCounts = new Map<string, number>();
+            for (const e of entries) {
+              const key = `${e.grade}${e.lang_stream || ""}`;
+              gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+            }
+            const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+            const oldest = entries.reduce((min, e) => {
+              if (!e.created_at) return min;
+              const d = new Date(e.created_at).getTime();
+              return d < min ? d : min;
+            }, Date.now());
+            const oldestDays = Math.floor((Date.now() - oldest) / 86400000);
+            return (
+              <div className="flex flex-wrap items-center gap-2 mb-3 text-[11px]">
+                {newCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-foreground/60 font-medium">
+                    New: {newCount}
+                  </span>
+                )}
+                {scCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">
+                    Slot Change: {scCount}
+                  </span>
+                )}
+                <span className="text-foreground/30">|</span>
+                {topGrades.map(([grade, count]) => (
+                  <span
+                    key={grade}
+                    className="px-1.5 py-0.5 rounded text-gray-800 font-medium"
+                    style={{ backgroundColor: getGradeColor(grade.replace(/[CE]$/, ""), grade.match(/[CE]$/)?.[0]) }}
+                  >
+                    {grade}: {count}
+                  </span>
+                ))}
+                {oldestDays > 0 && (
+                  <>
+                    <span className="text-foreground/30">|</span>
+                    <span className={cn(
+                      "font-medium",
+                      oldestDays > 30 ? "text-red-500" : oldestDays > 7 ? "text-amber-500" : "text-foreground/50"
+                    )}>
+                      Longest wait: {oldestDays}d
+                    </span>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Paste Zone */}
           {!isReadOnly && (
@@ -773,6 +845,15 @@ export default function AdminWaitlistPage() {
                           );
                         }
                       }}
+                      onDelete={async () => {
+                        try {
+                          await waitlistAPI.remove(entry.id);
+                          showToast("Entry deleted");
+                          mutate();
+                        } catch {
+                          showError("Failed to delete");
+                        }
+                      }}
                     />
                   ))}
                 </tbody>
@@ -838,6 +919,8 @@ export default function AdminWaitlistPage() {
           prefillStudent={enrollmentPrefillStudent || undefined}
           onSuccess={() => {
             mutate();
+            // Also invalidate the timetable's enrollment cache
+            globalMutate((key: unknown) => Array.isArray(key) && key[0] === "all-students");
             setCreateEnrollmentOpen(false);
             setEnrollmentPrefillStudent(null);
           }}
@@ -872,6 +955,7 @@ function WaitlistRow({
   onScheduleTrial,
   onEnrollDirectly,
   onViewEnrollment,
+  onDelete,
 }: {
   entry: WaitlistEntry;
   isReadOnly: boolean;
@@ -881,6 +965,7 @@ function WaitlistRow({
   onScheduleTrial: () => void;
   onEnrollDirectly: () => void;
   onViewEnrollment: (e: React.MouseEvent) => void;
+  onDelete: () => void;
 }) {
   const [showActions, setShowActions] = useState(false);
 
@@ -1088,6 +1173,18 @@ function WaitlistRow({
                           Reactivate
                         </>
                       )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowActions(false);
+                        if (confirm(`Delete "${entry.student_name}" from waitlist?`)) {
+                          onDelete();
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
                     </button>
                   </>
                 )}
