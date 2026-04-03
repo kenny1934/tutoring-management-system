@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -12,6 +12,7 @@ import { waitlistAPI, enrollmentsAPI } from "@/lib/api";
 import { getGradeColor, GRADES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
+import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { WaitlistTimetable } from "@/components/admin/WaitlistTimetable";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -57,6 +58,9 @@ export default function AdminWaitlistPage() {
   // View mode
   const [viewMode, setViewMode] = useState<"list" | "timetable">("list");
 
+  // Timetable: highlighted Slot Change entry
+  const [highlightedEntry, setHighlightedEntry] = useState<WaitlistEntry | null>(null);
+
   // Filters
   const [showActive, setShowActive] = useState(true);
   const [gradeFilter, setGradeFilter] = useState("");
@@ -75,6 +79,17 @@ export default function AdminWaitlistPage() {
   const [enrollmentPrefillStudent, setEnrollmentPrefillStudent] =
     useState<Student | null>(null);
   const [enrollmentTrialMode, setEnrollmentTrialMode] = useState(false);
+
+  const addStudentInitialData = useMemo(
+    () => addStudentForEntry ? {
+      student_name: addStudentForEntry.student_name,
+      school: addStudentForEntry.school,
+      grade: addStudentForEntry.grade,
+      lang_stream: addStudentForEntry.lang_stream || undefined,
+      phone: addStudentForEntry.phone,
+    } : undefined,
+    [addStudentForEntry]
+  );
 
   // Enrollment detail popover
   const [popoverEnrollment, setPopoverEnrollment] =
@@ -418,10 +433,56 @@ export default function AdminWaitlistPage() {
           </div>
 
           {viewMode === "timetable" ? (
-            <WaitlistTimetable
-              location={selectedLocation}
-              waitlistEntries={entries || []}
-            />
+            <>
+              {/* Slot Change entry selector */}
+              {entries && entries.filter((e) => e.entry_type === "Slot Change" && e.enrollment_context?.current_day).length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-foreground/50">Highlight Slot Change:</span>
+                  {entries
+                    .filter((e) => e.entry_type === "Slot Change" && e.enrollment_context?.current_day)
+                    .map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setHighlightedEntry(highlightedEntry?.id === e.id ? null : e)}
+                        className={cn(
+                          "px-2 py-1 rounded-lg text-xs font-medium transition-colors border",
+                          highlightedEntry?.id === e.id
+                            ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400"
+                            : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-foreground/60 hover:border-blue-300"
+                        )}
+                      >
+                        {e.student_name}
+                      </button>
+                    ))}
+                  {highlightedEntry && (
+                    <button
+                      onClick={() => setHighlightedEntry(null)}
+                      className="text-xs text-foreground/40 hover:text-foreground/60"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+              <WaitlistTimetable
+                location={selectedLocation}
+                waitlistEntries={entries || []}
+                onEntryClick={(entry) => {
+                  setEditingEntry(entry);
+                  setEntryModalOpen(true);
+                }}
+                highlight={highlightedEntry ? {
+                  currentDay: highlightedEntry.enrollment_context?.current_day,
+                  currentTime: highlightedEntry.enrollment_context?.current_time,
+                  currentLocation: highlightedEntry.enrollment_context?.current_location,
+                  preferredSlots: highlightedEntry.slot_preferences.map((sp) => ({
+                    day: sp.day_of_week,
+                    time: sp.time_slot,
+                    location: sp.location,
+                  })),
+                } : null}
+              />
+            </>
           ) : (
           <>
           {/* Filters */}
@@ -740,6 +801,7 @@ export default function AdminWaitlistPage() {
             setAddStudentForEntry(null);
           }}
           onSuccess={handleStudentCreated}
+          initialData={addStudentInitialData}
         />
       )}
 
@@ -825,6 +887,12 @@ function WaitlistRow({
             Parent: {entry.parent_name}
           </div>
         )}
+        {entry.entry_type === "Slot Change" && ctx?.current_day && (
+          <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+            Currently: {ctx.current_day} {ctx.current_time} {ctx.current_location}
+            {ctx.current_tutor && ` · ${ctx.current_tutor}`}
+          </div>
+        )}
       </td>
 
       {/* School */}
@@ -860,7 +928,7 @@ function WaitlistRow({
                 key={sp.id}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-medium text-foreground/60"
               >
-                <span className="text-[#a0704b]">{sp.location}</span>
+                <span className={cn("px-1 rounded", BRANCH_COLORS[sp.location]?.badge || "text-[#a0704b]")}>{sp.location}</span>
                 {sp.day_of_week && <span>{sp.day_of_week}</span>}
                 {sp.time_slot && <span>{sp.time_slot}</span>}
                 {!sp.day_of_week && !sp.time_slot && <span>Any</span>}

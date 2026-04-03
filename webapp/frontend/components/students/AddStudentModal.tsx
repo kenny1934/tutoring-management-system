@@ -27,12 +27,20 @@ interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (student: Student) => void;
+  initialData?: {
+    student_name?: string;
+    school?: string;
+    grade?: string;
+    lang_stream?: string;
+    phone?: string;
+  };
 }
 
 export function AddStudentModal({
   isOpen,
   onClose,
   onSuccess,
+  initialData,
 }: AddStudentModalProps) {
   const { showToast } = useToast();
   const { selectedLocation: appLocation, locations: allLocations } = useLocation();
@@ -76,7 +84,7 @@ export function AddStudentModal({
     studentsAPI.getSchools().then(setAllSchools).catch(() => { /* non-critical */ });
   }, []);
 
-  // Reset form when modal closes
+  // Reset form when modal closes, pre-fill when it opens
   useEffect(() => {
     if (!isOpen) {
       setStudentName("");
@@ -89,8 +97,14 @@ export function AddStudentModal({
       setLangStreamManuallySet(false);
       setNextId(null);
       setDuplicates([]);
+    } else if (initialData) {
+      if (initialData.student_name) setStudentName(initialData.student_name);
+      if (initialData.school) setSchool(initialData.school);
+      if (initialData.grade) setGrade(initialData.grade);
+      if (initialData.lang_stream) setLangStream(initialData.lang_stream);
+      if (initialData.phone) setContacts([{ phone: initialData.phone, label: '' }]);
     }
-  }, [isOpen, isLocationLocked, appLocation]);
+  }, [isOpen, isLocationLocked, appLocation, initialData]);
 
   // Set location from app context when modal opens (if locked)
   useEffect(() => {

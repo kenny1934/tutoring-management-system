@@ -2939,6 +2939,10 @@ class WaitlistEntryUpdate(BaseModel):
 class EnrollmentContextInfo(BaseModel):
     label: str
     enrollment_id: Optional[int] = None
+    current_day: Optional[str] = None
+    current_time: Optional[str] = None
+    current_location: Optional[str] = None
+    current_tutor: Optional[str] = None
 
 
 class WaitlistEntryResponse(BaseModel):

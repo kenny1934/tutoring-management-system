@@ -2800,6 +2800,10 @@ export interface WaitlistSlotPreferenceCreate {
 export interface EnrollmentContextInfo {
   label: string;
   enrollment_id?: number | null;
+  current_day?: string | null;
+  current_time?: string | null;
+  current_location?: string | null;
+  current_tutor?: string | null;
 }
 
 export interface WaitlistEntry {

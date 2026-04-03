@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
-import { getGradeColor, GRADES, DAY_NAMES, ALL_TIME_SLOTS } from "@/lib/constants";
+import { getGradeColor, GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
 import type {
   WaitlistEntry,
   WaitlistEntryCreate,
@@ -163,7 +163,19 @@ export function WaitlistEntryModal({
     value: string | null
   ) => {
     setSlotPreferences((prev) =>
-      prev.map((sp, i) => (i === index ? { ...sp, [field]: value } : sp))
+      prev.map((sp, i) => {
+        if (i !== index) return sp;
+        const updated = { ...sp, [field]: value };
+        // Clear time_slot if day changed and current time is invalid for the new day
+        if (field === "day_of_week" && updated.time_slot && value) {
+          const dayIdx = DAY_NAME_TO_INDEX[value] ?? 1;
+          const validSlots = getTimeSlotsForDay(dayIdx) as readonly string[];
+          if (!validSlots.includes(updated.time_slot)) {
+            updated.time_slot = null;
+          }
+        }
+        return updated;
+      })
     );
   };
 
@@ -559,7 +571,10 @@ export function WaitlistEntryModal({
                       className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b] flex-1"
                     >
                       <option value="">Any time</option>
-                      {ALL_TIME_SLOTS.map((t) => (
+                      {(sp.day_of_week
+                        ? getTimeSlotsForDay(DAY_NAME_TO_INDEX[sp.day_of_week] ?? 1)
+                        : ALL_TIME_SLOTS
+                      ).map((t) => (
                         <option key={t} value={t}>
                           {t}
                         </option>

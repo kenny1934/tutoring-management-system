@@ -25,9 +25,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class _EnrollmentInfo:
+    __slots__ = ("id", "type", "status", "day", "time", "location", "tutor_name")
+
+    def __init__(self, id, type, status, day=None, time=None, location=None, tutor_name=None):
+        self.id = id
+        self.type = type
+        self.status = status
+        self.day = day
+        self.time = time
+        self.location = location
+        self.tutor_name = tutor_name
+
+
 def _get_enrollment_map_for_student(
     student_id: int, db: Session
-) -> dict[int, tuple[int, str, str]]:
+) -> dict[int, _EnrollmentInfo]:
     """Fetch the most recent non-cancelled enrollment for a single student."""
     row = (
         db.query(
@@ -35,7 +48,12 @@ def _get_enrollment_map_for_student(
             Enrollment.id,
             Enrollment.enrollment_type,
             Enrollment.payment_status,
+            Enrollment.assigned_day,
+            Enrollment.assigned_time,
+            Enrollment.location,
+            Tutor.tutor_name,
         )
+        .outerjoin(Tutor, Enrollment.tutor_id == Tutor.id)
         .filter(
             Enrollment.student_id == student_id,
             Enrollment.payment_status != "Cancelled",
@@ -44,12 +62,12 @@ def _get_enrollment_map_for_student(
         .first()
     )
     if row:
-        return {row[0]: (row[1], row[2], row[3])}
+        return {row[0]: _EnrollmentInfo(row[1], row[2], row[3], row[4], row[5], row[6], row[7])}
     return {}
 
 
 def _derive_enrollment_context(
-    entry: WaitlistEntry, subsequent_map: dict[int, tuple[int, str, str]]
+    entry: WaitlistEntry, subsequent_map: dict[int, _EnrollmentInfo]
 ) -> EnrollmentContextInfo:
     """Derive enrollment context label for a waitlist entry."""
     if not entry.student_id:
@@ -59,16 +77,24 @@ def _derive_enrollment_context(
     if not info:
         return EnrollmentContextInfo(label="Student created")
 
-    enrollment_id, enrollment_type, payment_status = info
+    base = {"enrollment_id": info.id}
 
-    if payment_status == "Cancelled":
-        return EnrollmentContextInfo(label="Cancelled", enrollment_id=enrollment_id)
+    # Add current slot info for Slot Change entries
+    if entry.entry_type == "Slot Change":
+        base.update(
+            current_day=info.day,
+            current_time=info.time,
+            current_location=info.location,
+            current_tutor=info.tutor_name,
+        )
 
-    if enrollment_type == "Trial":
-        return EnrollmentContextInfo(label="Trial scheduled", enrollment_id=enrollment_id)
+    if info.status == "Cancelled":
+        return EnrollmentContextInfo(label="Cancelled", **base)
 
-    # Regular or One-Time enrollment exists
-    return EnrollmentContextInfo(label="Enrolled", enrollment_id=enrollment_id)
+    if info.type == "Trial":
+        return EnrollmentContextInfo(label="Trial scheduled", **base)
+
+    return EnrollmentContextInfo(label="Enrolled", **base)
 
 
 def _build_response(entry: WaitlistEntry, enrollment_context: Optional[EnrollmentContextInfo] = None) -> dict:
@@ -164,7 +190,7 @@ def list_waitlist(
 
     # Batch derive enrollment context for entries with student_id
     student_ids = {e.student_id for e in unique_entries if e.student_id}
-    subsequent_map: dict[int, tuple[int, str, str]] = {}
+    subsequent_map: dict[int, _EnrollmentInfo] = {}
     if student_ids:
         enrollments = (
             db.query(
@@ -172,7 +198,12 @@ def list_waitlist(
                 Enrollment.id,
                 Enrollment.enrollment_type,
                 Enrollment.payment_status,
+                Enrollment.assigned_day,
+                Enrollment.assigned_time,
+                Enrollment.location,
+                Tutor.tutor_name,
             )
+            .outerjoin(Tutor, Enrollment.tutor_id == Tutor.id)
             .filter(
                 Enrollment.student_id.in_(student_ids),
                 Enrollment.payment_status != "Cancelled",
@@ -181,9 +212,9 @@ def list_waitlist(
             .all()
         )
         # Keep the most recent enrollment per student
-        for student_id, eid, etype, pstatus in enrollments:
+        for student_id, eid, etype, pstatus, day, time, loc, tname in enrollments:
             if student_id not in subsequent_map:
-                subsequent_map[student_id] = (eid, etype, pstatus)
+                subsequent_map[student_id] = _EnrollmentInfo(eid, etype, pstatus, day, time, loc, tname)
 
     results = []
     for entry in unique_entries:
