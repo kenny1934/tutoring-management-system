@@ -40,7 +40,7 @@ def _get_enrollment_map_for_student(
             Enrollment.student_id == student_id,
             Enrollment.payment_status != "Cancelled",
         )
-        .order_by(Enrollment.created_at.desc())
+        .order_by(Enrollment.id.desc())
         .first()
     )
     if row:
@@ -86,7 +86,7 @@ def _build_response(entry: WaitlistEntry, enrollment_context: Optional[Enrollmen
         "entry_type": entry.entry_type,
         "student_id": entry.student_id,
         "created_by": entry.created_by,
-        "created_by_name": entry.creator.display_name if entry.creator else None,
+        "created_by_name": entry.creator.tutor_name if entry.creator else None,
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
         "slot_preferences": [
@@ -172,17 +172,16 @@ def list_waitlist(
                 Enrollment.id,
                 Enrollment.enrollment_type,
                 Enrollment.payment_status,
-                Enrollment.created_at,
             )
             .filter(
                 Enrollment.student_id.in_(student_ids),
                 Enrollment.payment_status != "Cancelled",
             )
-            .order_by(Enrollment.created_at.desc())
+            .order_by(Enrollment.id.desc())
             .all()
         )
         # Keep the most recent enrollment per student
-        for student_id, eid, etype, pstatus, _ in enrollments:
+        for student_id, eid, etype, pstatus in enrollments:
             if student_id not in subsequent_map:
                 subsequent_map[student_id] = (eid, etype, pstatus)
 

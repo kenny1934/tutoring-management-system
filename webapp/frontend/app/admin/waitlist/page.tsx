@@ -52,7 +52,7 @@ export default function AdminWaitlistPage() {
   usePageTitle("Waitlist");
   const { isLoading: authLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { selectedLocation } = useLocation();
-  const { showSuccess, showError } = useToast();
+  const { showToast, showError } = useToast();
 
   // View mode
   const [viewMode, setViewMode] = useState<"list" | "timetable">("list");
@@ -126,13 +126,13 @@ export default function AdminWaitlistPage() {
     async (entry: WaitlistEntry) => {
       try {
         await waitlistAPI.update(entry.id, { is_active: !entry.is_active });
-        showSuccess(entry.is_active ? "Marked as closed" : "Reactivated");
+        showToast(entry.is_active ? "Marked as closed" : "Reactivated");
         mutate();
       } catch {
         showError("Failed to update");
       }
     },
-    [mutate, showSuccess, showError]
+    [mutate, showToast, showError]
   );
 
   const handleCreateStudent = useCallback((entry: WaitlistEntry) => {
@@ -148,7 +148,7 @@ export default function AdminWaitlistPage() {
             student_id: student.id,
           });
           mutate();
-          showSuccess(`Student created & linked`);
+          showToast(`Student created & linked`);
         } catch {
           showError("Student created but failed to link to waitlist entry");
         }
@@ -156,7 +156,7 @@ export default function AdminWaitlistPage() {
       setAddStudentOpen(false);
       setAddStudentForEntry(null);
     },
-    [addStudentForEntry, mutate, showSuccess, showError]
+    [addStudentForEntry, mutate, showToast, showError]
   );
 
   const handleOpenEnrollment = useCallback(
@@ -316,7 +316,7 @@ export default function AdminWaitlistPage() {
     setBulkSaving(true);
     try {
       const result = await waitlistAPI.bulkCreate(pastedRows);
-      showSuccess(`Added ${result.created} entries to waitlist`);
+      showToast(`Added ${result.created} entries to waitlist`);
       setPastedRows([]);
       setPasteInfo("");
       setPasteExpanded(false);
@@ -326,7 +326,7 @@ export default function AdminWaitlistPage() {
     } finally {
       setBulkSaving(false);
     }
-  }, [pastedRows, mutate, showSuccess, showError]);
+  }, [pastedRows, mutate, showToast, showError]);
 
   const removePastedRow = useCallback((index: number) => {
     setPastedRows((prev) => prev.filter((_, i) => i !== index));

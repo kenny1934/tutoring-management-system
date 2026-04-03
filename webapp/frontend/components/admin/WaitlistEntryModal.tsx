@@ -22,7 +22,7 @@ interface WaitlistEntryModalProps {
 }
 
 const LANG_STREAMS = ["E", "C"];
-const DAYS = DAY_NAMES.filter((d) => d !== "Sun"); // Mon-Sat
+const DAYS = DAY_NAMES; // Sun-Sat
 
 export function WaitlistEntryModal({
   isOpen,
@@ -31,7 +31,7 @@ export function WaitlistEntryModal({
   entry,
 }: WaitlistEntryModalProps) {
   const { selectedLocation, locations } = useLocation();
-  const { showSuccess, showError } = useToast();
+  const { showToast, showError } = useToast();
 
   const [studentName, setStudentName] = useState("");
   const [school, setSchool] = useState("");
@@ -51,7 +51,7 @@ export function WaitlistEntryModal({
   const [studentSearch, setStudentSearch] = useState("");
   const [studentResults, setStudentResults] = useState<Student[]>([]);
   const [showStudentSearch, setShowStudentSearch] = useState(false);
-  const [linkedStudentName, setLinkedStudentName] = useState("");
+  const [linkedStudent, setLinkedStudent] = useState<Student | null>(null);
 
   // School autocomplete
   const [schoolOptions, setSchoolOptions] = useState<string[]>([]);
@@ -64,6 +64,7 @@ export function WaitlistEntryModal({
 
   // Populate form for edit mode
   useEffect(() => {
+    let cancelled = false;
     if (entry) {
       setStudentName(entry.student_name);
       setSchool(entry.school);
@@ -74,7 +75,13 @@ export function WaitlistEntryModal({
       setNotes(entry.notes || "");
       setEntryType(entry.entry_type);
       setStudentId(entry.student_id || null);
-      setLinkedStudentName(entry.student_id ? entry.student_name : "");
+      if (entry.student_id) {
+        studentsAPI.getById(entry.student_id)
+          .then((s) => { if (!cancelled) setLinkedStudent(s); })
+          .catch(() => { if (!cancelled) setLinkedStudent(null); });
+      } else {
+        setLinkedStudent(null);
+      }
       setSlotPreferences(
         entry.slot_preferences.map((sp) => ({
           location: sp.location,
@@ -92,9 +99,10 @@ export function WaitlistEntryModal({
       setNotes("");
       setEntryType("New");
       setStudentId(null);
-      setLinkedStudentName("");
+      setLinkedStudent(null);
       setSlotPreferences([]);
     }
+    return () => { cancelled = true; };
   }, [entry, isOpen]);
 
   // Student search
@@ -118,7 +126,7 @@ export function WaitlistEntryModal({
 
   const handleLinkStudent = (student: Student) => {
     setStudentId(student.id);
-    setLinkedStudentName(student.student_name);
+    setLinkedStudent(student);
     // Auto-fill fields from student if empty
     if (!studentName) setStudentName(student.student_name);
     if (!school && student.school) setSchool(student.school);
@@ -131,7 +139,7 @@ export function WaitlistEntryModal({
 
   const handleUnlinkStudent = () => {
     setStudentId(null);
-    setLinkedStudentName("");
+    setLinkedStudent(null);
   };
 
   const addSlotPreference = () => {
@@ -185,10 +193,10 @@ export function WaitlistEntryModal({
           ...data,
           slot_preferences: slotPreferences,
         });
-        showSuccess("Waitlist entry updated");
+        showToast("Waitlist entry updated");
       } else {
         await waitlistAPI.create(data);
-        showSuccess("Added to waitlist");
+        showToast("Added to waitlist");
       }
       onSuccess();
       onClose();
@@ -256,9 +264,35 @@ export function WaitlistEntryModal({
             </label>
             {studentId ? (
               <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                <span className="text-sm font-medium text-green-800 dark:text-green-300 flex-1">
-                  {linkedStudentName} (ID: {studentId})
-                </span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {linkedStudent?.school_student_id && (
+                    <span className="text-xs font-mono text-green-600 dark:text-green-400 flex-shrink-0">
+                      {linkedStudent.school_student_id}
+                    </span>
+                  )}
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300 truncate">
+                    {linkedStudent?.student_name || studentId}
+                  </span>
+                  {linkedStudent?.grade && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
+                      style={{
+                        backgroundColor: getGradeColor(
+                          linkedStudent.grade,
+                          linkedStudent.lang_stream || undefined
+                        ),
+                      }}
+                    >
+                      {linkedStudent.grade}
+                      {linkedStudent.lang_stream}
+                    </span>
+                  )}
+                  {linkedStudent?.school && (
+                    <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0">
+                      {linkedStudent.school}
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={handleUnlinkStudent}
                   className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
@@ -268,58 +302,57 @@ export function WaitlistEntryModal({
               </div>
             ) : (
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowStudentSearch(!showStudentSearch)}
-                  className="w-full text-left px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-foreground/50 hover:border-[#a0704b] transition-colors"
-                >
-                  <Search className="h-4 w-4 inline mr-2" />
-                  Search & link existing student...
-                </button>
-                {showStudentSearch && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 p-2">
-                    <input
-                      type="text"
-                      value={studentSearch}
-                      onChange={(e) => setStudentSearch(e.target.value)}
-                      placeholder="Type student name..."
-                      className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
-                      autoFocus
-                    />
-                    {studentResults.length > 0 && (
-                      <div className="mt-1 max-h-40 overflow-y-auto">
-                        {studentResults.map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => handleLinkStudent(s)}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => {
+                      setStudentSearch(e.target.value);
+                      setShowStudentSearch(true);
+                    }}
+                    onFocus={() => setShowStudentSearch(true)}
+                    placeholder="Search by name, ID, or phone..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                  />
+                </div>
+                {showStudentSearch && studentResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20 max-h-48 overflow-y-auto">
+                    {studentResults.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleLinkStudent(s)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        {s.school_student_id && (
+                          <span className="text-[10px] font-mono text-foreground/40 flex-shrink-0">
+                            {s.school_student_id}
+                          </span>
+                        )}
+                        <span className="font-medium truncate">
+                          {s.student_name}
+                        </span>
+                        {s.grade && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
+                            style={{
+                              backgroundColor: getGradeColor(
+                                s.grade,
+                                s.lang_stream || undefined
+                              ),
+                            }}
                           >
-                            <span className="font-medium">
-                              {s.student_name}
-                            </span>
-                            {s.grade && (
-                              <span
-                                className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-800"
-                                style={{
-                                  backgroundColor: getGradeColor(
-                                    s.grade,
-                                    s.lang_stream || undefined
-                                  ),
-                                }}
-                              >
-                                {s.grade}
-                                {s.lang_stream}
-                              </span>
-                            )}
-                            {s.school && (
-                              <span className="text-xs text-foreground/50">
-                                {s.school}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                            {s.grade}
+                            {s.lang_stream}
+                          </span>
+                        )}
+                        {s.school && (
+                          <span className="text-[10px] text-foreground/50 flex-shrink-0">
+                            {s.school}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

@@ -31,7 +31,7 @@ interface SchoolGroup {
 }
 
 const MAX_CAPACITY = 8;
-const DAYS = DAY_NAMES.filter((d) => d !== "Sun");
+const DAYS = DAY_NAMES; // Sun-Sat
 
 function normalizeTimeSlot(time: string): string {
   return time.replace(/\s/g, "");
