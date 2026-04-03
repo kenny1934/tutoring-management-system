@@ -8,11 +8,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle } from "@/lib/hooks";
-import { waitlistAPI, enrollmentsAPI } from "@/lib/api";
+import { waitlistAPI, enrollmentsAPI, studentsAPI } from "@/lib/api";
 import { getGradeColor, GRADES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { formatTimeAgo } from "@/lib/formatters";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { WaitlistTimetable } from "@/components/admin/WaitlistTimetable";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -29,7 +31,9 @@ import {
   X,
   ToggleLeft,
   ToggleRight,
-  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  MoreHorizontal,
   ClipboardPaste,
   Trash2,
   Upload,
@@ -67,7 +71,7 @@ export default function AdminWaitlistPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // Modals
   const [entryModalOpen, setEntryModalOpen] = useState(false);
@@ -181,9 +185,7 @@ export default function AdminWaitlistPage() {
         return;
       }
       try {
-        const student = await import("@/lib/api").then((m) =>
-          m.studentsAPI.getById(entry.student_id!)
-        );
+        const student = await studentsAPI.getById(entry.student_id!);
         setEnrollmentPrefillStudent(student);
         setEnrollmentTrialMode(trialMode);
         setCreateEnrollmentOpen(true);
@@ -360,7 +362,9 @@ export default function AdminWaitlistPage() {
     >
       {children}
       {sortBy === field && (
-        <ArrowUpDown className="h-3 w-3 text-[#a0704b]" />
+        sortOrder === "asc"
+          ? <ArrowUp className="h-3 w-3 text-[#a0704b]" />
+          : <ArrowDown className="h-3 w-3 text-[#a0704b]" />
       )}
     </button>
   );
@@ -482,6 +486,14 @@ export default function AdminWaitlistPage() {
                   })),
                 } : null}
               />
+              {entries && (() => {
+                const noSlotCount = entries.filter((e) => e.slot_preferences.length === 0).length;
+                return noSlotCount > 0 ? (
+                  <p className="text-xs text-foreground/40 mt-2 text-center">
+                    {noSlotCount} entr{noSlotCount === 1 ? "y" : "ies"} with no slot preference not shown in timetable
+                  </p>
+                ) : null;
+              })()}
             </>
           ) : (
           <>
@@ -583,7 +595,7 @@ export default function AdminWaitlistPage() {
                         Columns: Name, School, Grade, Phone (auto-detected)
                       </p>
                       <textarea
-                        className="absolute opacity-0 w-0 h-0"
+                        className="sr-only"
                         onPaste={handlePaste}
                         aria-label="Paste zone"
                       />
@@ -771,7 +783,17 @@ export default function AdminWaitlistPage() {
               <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-lg font-medium">No waitlist entries</p>
               <p className="text-sm mt-1">
-                {showActive
+                {(search || gradeFilter || typeFilter) ? (
+                  <>
+                    No entries match your filters.{" "}
+                    <button
+                      onClick={() => { setSearch(""); setGradeFilter(""); setTypeFilter(""); }}
+                      className="text-[#a0704b] hover:underline font-medium"
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                ) : showActive
                   ? "Add a new entry to start tracking prospects"
                   : "No closed entries found"}
               </p>
@@ -832,6 +854,7 @@ export default function AdminWaitlistPage() {
         clickPosition={popoverClickPos}
         onStatusChange={() => mutate()}
       />
+      <ScrollToTopButton />
     </DeskSurface>
   );
 }
@@ -916,7 +939,7 @@ function WaitlistRow({
 
       {/* Phone */}
       <td className="py-2.5 px-3 text-foreground/70 font-mono text-xs">
-        {entry.phone}
+        {entry.phone || <span className="text-foreground/30">—</span>}
       </td>
 
       {/* Preferred Slots */}
@@ -964,13 +987,17 @@ function WaitlistRow({
       </td>
 
       {/* Date Added */}
-      <td className="py-2.5 px-3 text-xs text-foreground/50">
-        {entry.created_at
-          ? new Date(entry.created_at).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-            })
-          : "—"}
+      <td className="py-2.5 px-3 text-xs">
+        {entry.created_at ? (() => {
+          const diffDays = Math.floor((Date.now() - new Date(entry.created_at!).getTime()) / 86400000);
+          const color = diffDays > 30 ? "text-red-600 dark:text-red-400" : diffDays > 7 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400";
+          const absDate = new Date(entry.created_at!).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+          return (
+            <span className={cn("font-medium", color)} title={`${absDate}${entry.created_by_name ? ` by ${entry.created_by_name}` : ""}`}>
+              {formatTimeAgo(entry.created_at!)}
+            </span>
+          );
+        })() : "—"}
       </td>
 
       {/* Actions */}
@@ -983,7 +1010,7 @@ function WaitlistRow({
             onClick={() => setShowActions(!showActions)}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronDown className="h-4 w-4 text-foreground/50" />
+            <MoreHorizontal className="h-4 w-4 text-foreground/50" />
           </button>
           {showActions && (
             <>
