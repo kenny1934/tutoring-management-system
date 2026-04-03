@@ -89,8 +89,10 @@ import {
   Stamp,
   Archive,
   GitBranch,
+  EllipsisVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { extractPlainText, extractHtml } from "@/lib/tiptap-text-extract";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -455,6 +457,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
   // Toolbar label mode
   const [showLabels, setShowLabels] = useState(false);
   const [sourceCopied, setSourceCopied] = useState(false);
+  const [allCopied, setAllCopied] = useState(false);
   useEffect(() => {
     setShowLabels(localStorage.getItem("doc-editor-toolbar-labels") === "true");
   }, []);
@@ -1235,8 +1238,30 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
     return () => clearTimeout(timer);
   }, [printMode, editor, handlePrintStudent, handlePrint]);
 
+  const handleCopyAll = useCallback(async () => {
+    if (!editor) return;
+    const json = editor.getJSON();
+    const plain = extractPlainText(json);
+    const html = extractHtml(json);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+    } catch {
+      try { await navigator.clipboard.writeText(plain); } catch { /* best-effort */ }
+    }
+    setAllCopied(true);
+    setTimeout(() => setAllCopied(false), 1500);
+  }, [editor]);
+
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const printMenuRef = useRef<HTMLDivElement>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(moreMenuRef, () => setShowMoreMenu(false));
 
   useEffect(() => {
     if (!showPrintMenu) return;
@@ -1306,7 +1331,7 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
 }`}</style>
       {/* Top bar */}
       <div className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
-        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 pt-2 pb-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-3 md:px-4 pt-2 pb-1">
         <button
           onClick={() => router.push("/documents")}
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
@@ -1363,27 +1388,82 @@ export function DocumentEditor({ document: doc, onUpdate, printMode }: DocumentE
           <span className="hidden sm:inline">Questions</span>
         </button>
 
+        {/* History, Layout, Copy All — visible on md+, collapsed into overflow menu on smaller screens */}
         <button
           onClick={() => { setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           title="Version history"
         >
           <History className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">History</span>
+          <span className="hidden lg:inline">History</span>
         </button>
 
         <button
           onClick={() => !isReadOnly && setPageLayoutOpen(true)}
           disabled={isReadOnly}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+            "hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
             isReadOnly ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
           )}
           title="Page layout settings"
         >
           <FileSliders className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Layout</span>
+          <span className="hidden lg:inline">Layout</span>
         </button>
+
+        <button
+          onClick={handleCopyAll}
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+          title="Copy all content as plain text with LaTeX"
+        >
+          {allCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+          <span className="hidden lg:inline">{allCopied ? "Copied" : "Copy All"}</span>
+        </button>
+
+        {/* Overflow menu — visible below md, contains History + Layout + Copy All */}
+        <div className="relative md:hidden" ref={moreMenuRef}>
+          <button
+            onClick={() => setShowMoreMenu(s => !s)}
+            className={cn(
+              "flex items-center p-1.5 rounded-lg text-sm font-medium border transition-colors",
+              showMoreMenu
+                ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                : "border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            )}
+            title="More actions"
+          >
+            <EllipsisVertical className="w-3.5 h-3.5" />
+          </button>
+          {showMoreMenu && (
+            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+              <button
+                onClick={() => { setShowMoreMenu(false); setVersionPanelOpen(true); setQuestionPanelOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+              >
+                <History className="w-3.5 h-3.5" />
+                History
+              </button>
+              <button
+                onClick={() => { setShowMoreMenu(false); if (!isReadOnly) setPageLayoutOpen(true); }}
+                disabled={isReadOnly}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded",
+                  isReadOnly ? "opacity-50 cursor-not-allowed text-gray-400" : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+                )}
+              >
+                <FileSliders className="w-3.5 h-3.5" />
+                Layout
+              </button>
+              <button
+                onClick={() => { setShowMoreMenu(false); handleCopyAll(); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
+              >
+                {allCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {allCopied ? "Copied!" : "Copy All"}
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="relative" ref={printMenuRef}>
           <div className="flex items-center">

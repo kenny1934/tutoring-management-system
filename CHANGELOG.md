@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.46](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.46) (2026-04-03)
+
+### New Features
+
+* **Copy All** — new toolbar button in the document editor copies all content (text, LaTeX math codes, and geometry diagram images) to the clipboard for easy export to other apps
+* **Dual-format clipboard** — rich text targets (Google Docs, Word) receive formatted HTML with embedded images; plain text targets get text with `$LaTeX$` codes preserved
+
+### Improvements
+
+* **Responsive document toolbar** — History, Layout, and Copy All buttons collapse into an overflow menu on smaller screens to reduce crowding
+
 ## [2.0.45](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.45) (2026-04-02)
 
 ### New Features
