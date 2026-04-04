@@ -49,9 +49,9 @@ function normalizeTimeSlot(time: string): string {
   return time.replace(/\s/g, "");
 }
 
-function getGradeGroups(enrollments: Enrollment[]): GradeGroup[] {
+function getGradeGroups(items: { grade?: string | null; lang_stream?: string | null }[]): GradeGroup[] {
   const map = new Map<string, number>();
-  for (const e of enrollments) {
+  for (const e of items) {
     const key = `${e.grade || "?"}${e.lang_stream || ""}`;
     map.set(key, (map.get(key) || 0) + 1);
   }
@@ -252,7 +252,7 @@ export function WaitlistTimetable({
   const [visibleDays, setVisibleDays] = useState<Set<string>>(new Set(DAYS));
   const allDaysVisible = visibleDays.size === DAYS.length;
 
-  // Auto-narrow when highlight changes
+  // Auto-narrow when highlight changes; reset only when clearing an active highlight
   useEffect(() => {
     if (highlight) {
       const relevantDays = new Set<string>();
@@ -262,7 +262,9 @@ export function WaitlistTimetable({
       }
       if (relevantDays.size > 0) setVisibleDays(relevantDays);
     } else {
-      setVisibleDays(new Set(DAYS));
+      setVisibleDays((prev) =>
+        prev.size === DAYS.length ? prev : new Set(DAYS)
+      );
     }
   }, [highlight]);
 
@@ -470,13 +472,9 @@ function TutorCard({ slot, onEntryClick, highlight }: {
   const schoolCount = schoolGroups.length;
 
   // Waitlist-only card (no tutor, no enrollments) — collapsible
+  const waitGradeGroups = useMemo(() => getGradeGroups(slot.waitlistEntries), [slot.waitlistEntries]);
+
   if (slot.tutorId === -1) {
-    const waitGrades = new Map<string, number>();
-    for (const w of slot.waitlistEntries) {
-      const k = `${w.grade}${w.lang_stream || ""}`;
-      waitGrades.set(k, (waitGrades.get(k) || 0) + 1);
-    }
-    const waitGradeList = [...waitGrades.entries()].sort((a, b) => b[1] - a[1]);
 
     return (
       <div
@@ -502,13 +500,13 @@ function TutorCard({ slot, onEntryClick, highlight }: {
             {/* Grade summary (collapsed) */}
             {!expanded && (
               <div className="flex gap-0.5 ml-0.5">
-                {waitGradeList.slice(0, 3).map(([g, c]) => (
+                {waitGradeGroups.slice(0, 3).map((g) => (
                   <span
-                    key={g}
+                    key={g.key}
                     className="px-0.5 rounded text-[8px] font-medium text-gray-800"
-                    style={{ backgroundColor: getGradeColor(g.replace(/[CE]$/, ""), g.match(/[CE]$/)?.[0]) }}
+                    style={{ backgroundColor: getGradeColor(g.key.replace(/[CE]$/, ""), g.key.match(/[CE]$/)?.[0]) }}
                   >
-                    {g}&times;{c}
+                    {g.key}&times;{g.count}
                   </span>
                 ))}
               </div>
