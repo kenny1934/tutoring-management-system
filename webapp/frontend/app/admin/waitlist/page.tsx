@@ -67,6 +67,7 @@ export default function AdminWaitlistPage() {
 
   // Timetable: highlighted Slot Change entry
   const [highlightedEntry, setHighlightedEntry] = useState<WaitlistEntry | null>(null);
+  const [slotChangeExpanded, setSlotChangeExpanded] = useState(false);
 
   // Filters
   const [showActive, setShowActive] = useState(true);
@@ -143,6 +144,11 @@ export default function AdminWaitlistPage() {
         sort_order: sortOrder,
       }),
     { refreshInterval: 60000 }
+  );
+
+  const slotChangeEntries = useMemo(
+    () => (entries || []).filter((e) => e.entry_type === "Slot Change" && e.enrollment_context?.current_day),
+    [entries]
   );
 
   const handleToggleActive = useCallback(
@@ -451,39 +457,92 @@ export default function AdminWaitlistPage() {
 
           {viewMode === "timetable" ? (
             <>
-              {/* Slot Change entry selector */}
-              {entries && entries.filter((e) => e.entry_type === "Slot Change" && e.enrollment_context?.current_day).length > 0 && (
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-foreground/50">Highlight Slot Change:</span>
-                  {entries
-                    .filter((e) => e.entry_type === "Slot Change" && e.enrollment_context?.current_day)
-                    .map((e) => (
-                      <button
-                        key={e.id}
-                        onClick={() => setHighlightedEntry(highlightedEntry?.id === e.id ? null : e)}
-                        className={cn(
-                          "px-2 py-1 rounded-lg text-xs font-medium transition-colors border",
-                          highlightedEntry?.id === e.id
-                            ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-foreground/60 hover:border-blue-300"
-                        )}
-                      >
-                        <span>{e.student_name}</span>
-                        <span className="text-[9px] opacity-70 ml-1">
-                          {e.enrollment_context?.current_day} {e.enrollment_context?.current_time}
-                        </span>
-                      </button>
-                    ))}
-                  {highlightedEntry && (
+              {/* Slot Change entry cards — collapsible */}
+              {slotChangeEntries.length > 0 && (() => {
+                const isOpen = slotChangeExpanded || !!highlightedEntry;
+                return (
+                  <div className="mb-3">
                     <button
-                      onClick={() => setHighlightedEntry(null)}
-                      className="text-xs text-foreground/40 hover:text-foreground/60"
+                      onClick={() => { setSlotChangeExpanded(!isOpen); if (isOpen) setHighlightedEntry(null); }}
+                      className="flex items-center gap-2 text-xs text-foreground/50 hover:text-foreground/70 transition-colors mb-1 w-full"
                     >
-                      Clear
+                      {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      <span>Slot Change Requests ({slotChangeEntries.length})</span>
+                      {highlightedEntry ? (
+                        <span
+                          onClick={(ev) => { ev.stopPropagation(); setHighlightedEntry(null); }}
+                          className="ml-auto text-foreground/40 hover:text-foreground/60"
+                        >
+                          Clear highlight
+                        </span>
+                      ) : !isOpen ? (
+                        <span className="text-foreground/30 ml-auto">Click to expand</span>
+                      ) : null}
                     </button>
-                  )}
-                </div>
-              )}
+                    {isOpen && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-1">
+                        {slotChangeEntries.map((e) => {
+                          const ctx = e.enrollment_context;
+                          const isSelected = highlightedEntry?.id === e.id;
+                          return (
+                            <button
+                              key={e.id}
+                              onClick={() => setHighlightedEntry(isSelected ? null : e)}
+                              className={cn(
+                                "text-left p-2.5 rounded-lg border transition-all",
+                                isSelected
+                                  ? "ring-2 ring-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/20"
+                                  : "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 hover:border-blue-300 dark:hover:border-blue-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1">
+                                {e.school_student_id && (
+                                  <span className="text-[10px] text-foreground/40 font-mono">{e.school_student_id}</span>
+                                )}
+                                <span className="text-sm font-medium text-foreground truncate">{e.student_name}</span>
+                                <span
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
+                                  style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream || undefined) }}
+                                >
+                                  {e.grade}{e.lang_stream}
+                                </span>
+                                {e.school && <span className="text-[10px] text-foreground/40 truncate">{e.school}</span>}
+                              </div>
+                              <div className="text-[11px] text-foreground/50 leading-relaxed">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-foreground/40">Now:</span>
+                                  <span className={cn("px-1 rounded text-[10px]", BRANCH_COLORS[ctx?.current_location || ""]?.badge || "text-foreground/60")}>
+                                    {ctx?.current_location}
+                                  </span>
+                                  {ctx?.current_day} {ctx?.current_time}
+                                  {ctx?.current_tutor && <span className="text-foreground/40">· {ctx.current_tutor}</span>}
+                                </div>
+                                {e.slot_preferences.length > 0 && (
+                                  <div className="flex items-start gap-1 mt-0.5">
+                                    <span className="text-foreground/40">Wants:</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {e.slot_preferences.map((sp) => (
+                                        <span key={sp.id} className="inline-flex items-center gap-0.5">
+                                          <span className={cn("px-1 rounded text-[10px]", BRANCH_COLORS[sp.location]?.badge || "text-foreground/60")}>
+                                            {sp.location}
+                                          </span>
+                                          {sp.day_of_week && <span>{sp.day_of_week}</span>}
+                                          {sp.time_slot && <span>{sp.time_slot}</span>}
+                                          {!sp.day_of_week && !sp.time_slot && <span>Any</span>}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {(search || gradeFilter || typeFilter) && (
                 <div className="mb-2 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between">
                   <span>Filters active — timetable may not show all waitlist entries</span>

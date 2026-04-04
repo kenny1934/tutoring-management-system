@@ -111,6 +111,7 @@ def _build_response(entry: WaitlistEntry, enrollment_context: Optional[Enrollmen
         "is_active": entry.is_active,
         "entry_type": entry.entry_type,
         "student_id": entry.student_id,
+        "school_student_id": entry.student.school_student_id if entry.student else None,
         "created_by": entry.created_by,
         "created_by_name": entry.creator.tutor_name if entry.creator else None,
         "created_at": entry.created_at,
@@ -144,6 +145,7 @@ def list_waitlist(
         .options(
             joinedload(WaitlistEntry.slot_preferences),
             joinedload(WaitlistEntry.creator),
+            joinedload(WaitlistEntry.student),
         )
     )
 
@@ -236,6 +238,7 @@ def get_waitlist_entry(
         .options(
             joinedload(WaitlistEntry.slot_preferences),
             joinedload(WaitlistEntry.creator),
+            joinedload(WaitlistEntry.student),
         )
         .filter(WaitlistEntry.id == entry_id)
         .first()
@@ -327,6 +330,7 @@ def update_waitlist_entry(
         .options(
             joinedload(WaitlistEntry.slot_preferences),
             joinedload(WaitlistEntry.creator),
+            joinedload(WaitlistEntry.student),
         )
         .filter(WaitlistEntry.id == entry_id)
         .first()

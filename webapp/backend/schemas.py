@@ -2957,6 +2957,7 @@ class WaitlistEntryResponse(BaseModel):
     is_active: bool
     entry_type: str
     student_id: Optional[int] = None
+    school_student_id: Optional[str] = None
     created_by: int
     created_by_name: Optional[str] = None
     created_at: Optional[datetime] = None

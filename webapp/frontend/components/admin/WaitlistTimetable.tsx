@@ -536,6 +536,9 @@ function TutorCard({ slot, onEntryClick, highlight }: {
                   >
                     {w.grade}{w.lang_stream}
                   </span>
+                  {w.school_student_id && (
+                    <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
+                  )}
                   <span className="truncate text-foreground/60 text-[9px]">{w.student_name}</span>
                   {w.school && (
                     <span className="text-[8px] text-foreground/30 flex-shrink-0">{w.school}</span>
@@ -679,6 +682,9 @@ function TutorCard({ slot, onEntryClick, highlight }: {
                 {e.grade}
                 {e.lang_stream}
               </span>
+              {e.school_student_id && (
+                <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{e.school_student_id}</span>
+              )}
               <span className="truncate text-foreground/80">
                 {e.student_name}
               </span>

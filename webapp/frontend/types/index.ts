@@ -2818,6 +2818,7 @@ export interface WaitlistEntry {
   is_active: boolean;
   entry_type: "New" | "Slot Change";
   student_id?: number | null;
+  school_student_id?: string | null;
   created_by: number;
   created_by_name?: string | null;
   created_at?: string | null;
