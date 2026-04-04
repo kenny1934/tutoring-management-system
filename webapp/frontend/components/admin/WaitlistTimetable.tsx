@@ -476,6 +476,26 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
   highlight?: "current" | "preferred" | "dimmed" | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const sortedEnrollments = useMemo(() => {
+    const enrollments = slot.enrollments;
+    // Find majority grade+lang_stream
+    const gradeCounts = new Map<string, number>();
+    for (const e of enrollments) {
+      const key = `${e.grade || ""}${e.lang_stream || ""}`;
+      gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+    }
+    const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    return [...enrollments].sort((a, b) => {
+      const aKey = `${a.grade || ""}${a.lang_stream || ""}`;
+      const bKey = `${b.grade || ""}${b.lang_stream || ""}`;
+      const aMain = aKey === mainGroup && mainGroup !== "" ? 0 : 1;
+      const bMain = bKey === mainGroup && mainGroup !== "" ? 0 : 1;
+      if (aMain !== bMain) return aMain - bMain;
+      const schoolCmp = (a.school || "").localeCompare(b.school || "");
+      if (schoolCmp !== 0) return schoolCmp;
+      return (a.school_student_id || "").localeCompare(b.school_student_id || "");
+    });
+  }, [slot.enrollments]);
   const count = slot.enrollments.length;
   const gradeGroups = useMemo(() => getGradeGroups(slot.enrollments), [slot.enrollments]);
   const schoolGroups = useMemo(() => getSchoolGroups(slot.enrollments), [slot.enrollments]);
@@ -669,7 +689,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
             </div>
           )}
 
-          {slot.enrollments.map((e) => (
+          {sortedEnrollments.map((e) => (
             <div
               key={e.id}
               className={cn("flex items-center gap-1.5 py-0.5", onEnrollmentClick && "cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/20 rounded transition-colors")}
