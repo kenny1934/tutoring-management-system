@@ -109,6 +109,10 @@ export default function AdminWaitlistPage() {
     y: number;
   } | null>(null);
 
+  // Close reason dialog
+  const [closingEntry, setClosingEntry] = useState<WaitlistEntry | null>(null);
+  const [closeReason, setCloseReason] = useState("");
+
   // Paste zone
   const [pasteExpanded, setPasteExpanded] = useState(false);
   const [pastedRows, setPastedRows] = useState<WaitlistEntryBulkItem[]>([]);
@@ -173,17 +177,16 @@ export default function AdminWaitlistPage() {
 
   const handleToggleActive = useCallback(
     async (entry: WaitlistEntry) => {
+      if (entry.is_active) {
+        // Show close reason dialog
+        setClosingEntry(entry);
+        setCloseReason("");
+        return;
+      }
+      // Reactivate directly
       try {
-        const updates: Record<string, unknown> = { is_active: !entry.is_active };
-        if (entry.is_active) {
-          const reason = prompt("Reason for closing (optional):");
-          if (reason) {
-            const existing = entry.notes || "";
-            updates.notes = existing ? `${existing}\n[Closed] ${reason}` : `[Closed] ${reason}`;
-          }
-        }
-        await waitlistAPI.update(entry.id, updates);
-        showToast(entry.is_active ? "Marked as closed" : "Reactivated");
+        await waitlistAPI.update(entry.id, { is_active: true });
+        showToast("Reactivated");
         mutate();
       } catch {
         showError("Failed to update");
@@ -191,6 +194,23 @@ export default function AdminWaitlistPage() {
     },
     [mutate, showToast, showError]
   );
+
+  const handleConfirmClose = useCallback(async () => {
+    if (!closingEntry) return;
+    try {
+      const updates: Record<string, unknown> = { is_active: false };
+      if (closeReason.trim()) {
+        const existing = closingEntry.notes || "";
+        updates.notes = existing ? `${existing}\n[Closed] ${closeReason.trim()}` : `[Closed] ${closeReason.trim()}`;
+      }
+      await waitlistAPI.update(closingEntry.id, updates);
+      showToast("Marked as closed");
+      mutate();
+    } catch {
+      showError("Failed to update");
+    }
+    setClosingEntry(null);
+  }, [closingEntry, closeReason, mutate, showToast, showError]);
 
   const handleCreateStudent = useCallback((entry: WaitlistEntry) => {
     setAddStudentForEntry(entry);
@@ -1034,6 +1054,29 @@ export default function AdminWaitlistPage() {
           setTrialPromptStudentId(null);
         }}
         onCancel={() => setTrialPromptStudentId(null)}
+      />
+      <ConfirmDialog
+        isOpen={!!closingEntry}
+        title="Close Entry"
+        message={
+          <div className="space-y-2">
+            <p>Close this waitlist entry for <strong>{closingEntry?.student_name || "this entry"}</strong>?</p>
+            <input
+              type="text"
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              placeholder="Reason (optional)"
+              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+              onKeyDown={(e) => { if (e.key === "Enter") handleConfirmClose(); }}
+              autoFocus
+            />
+          </div>
+        }
+        confirmText="Close Entry"
+        cancelText="Cancel"
+        variant="warning"
+        onConfirm={handleConfirmClose}
+        onCancel={() => setClosingEntry(null)}
       />
       <ScrollToTopButton />
     </DeskSurface>

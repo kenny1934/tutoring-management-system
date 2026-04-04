@@ -297,7 +297,7 @@ export function WaitlistEntryModal({
               {(["New", "Slot Change"] as const).map((type) => (
                 <button
                   key={type}
-                  onClick={() => setEntryType(type)}
+                  onClick={() => { setEntryType(type); setIsDirty(true); }}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     entryType === type

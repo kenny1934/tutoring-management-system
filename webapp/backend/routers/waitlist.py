@@ -41,7 +41,7 @@ class _EnrollmentInfo:
 def _get_enrollment_map_for_student(
     student_id: int, db: Session
 ) -> dict[int, _EnrollmentInfo]:
-    """Fetch the most recent non-cancelled enrollment for a single student."""
+    """Fetch the most recent enrollment for a single student (including cancelled)."""
     row = (
         db.query(
             Enrollment.student_id,
@@ -54,10 +54,7 @@ def _get_enrollment_map_for_student(
             Tutor.tutor_name,
         )
         .outerjoin(Tutor, Enrollment.tutor_id == Tutor.id)
-        .filter(
-            Enrollment.student_id == student_id,
-            Enrollment.payment_status != "Cancelled",
-        )
+        .filter(Enrollment.student_id == student_id)
         .order_by(Enrollment.id.desc())
         .first()
     )
@@ -213,10 +210,7 @@ def list_waitlist(
                 Tutor.tutor_name,
             )
             .outerjoin(Tutor, Enrollment.tutor_id == Tutor.id)
-            .filter(
-                Enrollment.student_id.in_(student_ids),
-                Enrollment.payment_status != "Cancelled",
-            )
+            .filter(Enrollment.student_id.in_(student_ids))
             .order_by(Enrollment.id.desc())
             .all()
         )
@@ -291,7 +285,18 @@ def create_waitlist_entry(
         db.add(pref)
 
     db.commit()
-    db.refresh(entry)
+
+    # Re-query with eager loads for the response
+    entry = (
+        db.query(WaitlistEntry)
+        .options(
+            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
+            joinedload(WaitlistEntry.creator),
+            joinedload(WaitlistEntry.student),
+        )
+        .filter(WaitlistEntry.id == entry.id)
+        .first()
+    )
 
     return _build_response(entry, _derive_enrollment_context(entry, {}))
 
@@ -304,9 +309,6 @@ def bulk_create_waitlist(
     db: Session = Depends(get_db),
 ):
     """Bulk create waitlist entries from paste (no slot preferences)."""
-    if len(payload.entries) > 200:
-        raise HTTPException(status_code=400, detail="Cannot submit more than 200 entries per request")
-
     created = []
     for item in payload.entries:
         entry = WaitlistEntry(
@@ -369,9 +371,22 @@ def update_waitlist_entry(
             db.add(pref)
 
     db.commit()
-    db.refresh(entry)
 
-    emap = _get_enrollment_map_for_student(entry.student_id, db) if entry.student_id else {}
+    # Re-query with eager loads for the response
+    entry_id = entry.id
+    student_id = entry.student_id
+    entry = (
+        db.query(WaitlistEntry)
+        .options(
+            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
+            joinedload(WaitlistEntry.creator),
+            joinedload(WaitlistEntry.student),
+        )
+        .filter(WaitlistEntry.id == entry_id)
+        .first()
+    )
+
+    emap = _get_enrollment_map_for_student(student_id, db) if student_id else {}
     return _build_response(entry, _derive_enrollment_context(entry, emap))
 
 

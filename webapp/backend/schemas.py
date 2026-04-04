@@ -2922,7 +2922,7 @@ class WaitlistEntryBulkItem(BaseModel):
 
 
 class WaitlistEntryBulkCreate(BaseModel):
-    entries: List[WaitlistEntryBulkItem]
+    entries: List[WaitlistEntryBulkItem] = Field(..., min_length=1, max_length=200)
 
 
 class WaitlistEntryUpdate(BaseModel):
@@ -2958,7 +2958,7 @@ class WaitlistEntryResponse(BaseModel):
     parent_name: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool
-    entry_type: str
+    entry_type: WaitlistEntryType
     student_id: Optional[int] = None
     school_student_id: Optional[str] = None
     created_by: int
