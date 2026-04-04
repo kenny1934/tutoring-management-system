@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -112,6 +112,8 @@ export default function AdminWaitlistPage() {
   // Close reason dialog
   const [closingEntry, setClosingEntry] = useState<WaitlistEntry | null>(null);
   const [closeReason, setCloseReason] = useState("");
+  const [closingInProgress, setClosingInProgress] = useState(false);
+  const closingRef = useRef(false);
 
   // Paste zone
   const [pasteExpanded, setPasteExpanded] = useState(false);
@@ -196,7 +198,9 @@ export default function AdminWaitlistPage() {
   );
 
   const handleConfirmClose = useCallback(async () => {
-    if (!closingEntry) return;
+    if (!closingEntry || closingRef.current) return;
+    closingRef.current = true;
+    setClosingInProgress(true);
     try {
       const updates: Record<string, unknown> = { is_active: false };
       if (closeReason.trim()) {
@@ -206,10 +210,13 @@ export default function AdminWaitlistPage() {
       await waitlistAPI.update(closingEntry.id, updates);
       showToast("Marked as closed");
       mutate();
+      setClosingEntry(null);
     } catch {
       showError("Failed to update");
+    } finally {
+      closingRef.current = false;
+      setClosingInProgress(false);
     }
-    setClosingEntry(null);
   }, [closingEntry, closeReason, mutate, showToast, showError]);
 
   const handleCreateStudent = useCallback((entry: WaitlistEntry) => {
@@ -1067,14 +1074,14 @@ export default function AdminWaitlistPage() {
               onChange={(e) => setCloseReason(e.target.value)}
               placeholder="Reason (optional)"
               className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] text-sm focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
-              onKeyDown={(e) => { if (e.key === "Enter") handleConfirmClose(); }}
-              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConfirmClose(); } }}
             />
           </div>
         }
         confirmText="Close Entry"
         cancelText="Cancel"
         variant="warning"
+        loading={closingInProgress}
         onConfirm={handleConfirmClose}
         onCancel={() => setClosingEntry(null)}
       />

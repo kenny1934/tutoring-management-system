@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _waitlist_query(db: Session):
+    """Base query for WaitlistEntry with all eager loads."""
+    return db.query(WaitlistEntry).options(
+        joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
+        joinedload(WaitlistEntry.creator),
+        joinedload(WaitlistEntry.student),
+    )
+
+
 class _EnrollmentInfo:
     __slots__ = ("id", "type", "status", "day", "time", "location", "tutor_name")
 
@@ -144,14 +153,7 @@ def list_waitlist(
     db: Session = Depends(get_db),
 ):
     """List waitlist entries with filters."""
-    query = (
-        db.query(WaitlistEntry)
-        .options(
-            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
-            joinedload(WaitlistEntry.creator),
-            joinedload(WaitlistEntry.student),
-        )
-    )
+    query = _waitlist_query(db)
 
     if is_active is not None:
         query = query.filter(WaitlistEntry.is_active == is_active)
@@ -234,16 +236,7 @@ def get_waitlist_entry(
     db: Session = Depends(get_db),
 ):
     """Get a single waitlist entry."""
-    entry = (
-        db.query(WaitlistEntry)
-        .options(
-            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
-            joinedload(WaitlistEntry.creator),
-            joinedload(WaitlistEntry.student),
-        )
-        .filter(WaitlistEntry.id == entry_id)
-        .first()
-    )
+    entry = _waitlist_query(db).filter(WaitlistEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Waitlist entry not found")
 
@@ -273,10 +266,11 @@ def create_waitlist_entry(
     )
     db.add(entry)
     db.flush()
+    entry_id = entry.id
 
     for sp in payload.slot_preferences:
         pref = WaitlistSlotPreference(
-            waitlist_entry_id=entry.id,
+            waitlist_entry_id=entry_id,
             location=sp.location,
             day_of_week=sp.day_of_week,
             time_slot=sp.time_slot,
@@ -286,18 +280,7 @@ def create_waitlist_entry(
 
     db.commit()
 
-    # Re-query with eager loads for the response
-    entry = (
-        db.query(WaitlistEntry)
-        .options(
-            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
-            joinedload(WaitlistEntry.creator),
-            joinedload(WaitlistEntry.student),
-        )
-        .filter(WaitlistEntry.id == entry.id)
-        .first()
-    )
-
+    entry = _waitlist_query(db).filter(WaitlistEntry.id == entry_id).first()
     return _build_response(entry, _derive_enrollment_context(entry, {}))
 
 
@@ -335,16 +318,7 @@ def update_waitlist_entry(
     db: Session = Depends(get_db),
 ):
     """Update a waitlist entry. Slot preferences are replaced if provided."""
-    entry = (
-        db.query(WaitlistEntry)
-        .options(
-            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
-            joinedload(WaitlistEntry.creator),
-            joinedload(WaitlistEntry.student),
-        )
-        .filter(WaitlistEntry.id == entry_id)
-        .first()
-    )
+    entry = _waitlist_query(db).filter(WaitlistEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Waitlist entry not found")
 
@@ -375,16 +349,7 @@ def update_waitlist_entry(
     # Re-query with eager loads for the response
     entry_id = entry.id
     student_id = entry.student_id
-    entry = (
-        db.query(WaitlistEntry)
-        .options(
-            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
-            joinedload(WaitlistEntry.creator),
-            joinedload(WaitlistEntry.student),
-        )
-        .filter(WaitlistEntry.id == entry_id)
-        .first()
-    )
+    entry = _waitlist_query(db).filter(WaitlistEntry.id == entry_id).first()
 
     emap = _get_enrollment_map_for_student(student_id, db) if student_id else {}
     return _build_response(entry, _derive_enrollment_context(entry, emap))
