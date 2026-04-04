@@ -160,7 +160,7 @@ export default function AdminWaitlistPage() {
       const key = `${e.grade}${e.lang_stream || ""}`;
       gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
     }
-    const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]);
     const oldest = entries.reduce((min, e) => {
       if (!e.created_at) return min;
       const ts = e.created_at.endsWith("Z") ? e.created_at : e.created_at + "Z";
