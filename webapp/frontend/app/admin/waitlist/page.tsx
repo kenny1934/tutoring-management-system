@@ -463,7 +463,10 @@ export default function AdminWaitlistPage() {
                             : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-foreground/60 hover:border-blue-300"
                         )}
                       >
-                        {e.student_name}
+                        <span>{e.student_name}</span>
+                        <span className="text-[9px] opacity-70 ml-1">
+                          {e.enrollment_context?.current_day} {e.enrollment_context?.current_time}
+                        </span>
                       </button>
                     ))}
                   {highlightedEntry && (

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAllStudents } from "@/lib/hooks";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { getGradeColor, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
+import { getGradeColor, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Users, AlertCircle } from "lucide-react";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -19,7 +19,6 @@ interface SlotChangeHighlight {
 interface WaitlistTimetableProps {
   location: string;
   waitlistEntries: WaitlistEntry[];
-  onSlotClick?: (day: string, time: string, tutorId: number) => void;
   onEntryClick?: (entry: WaitlistEntry) => void;
   highlight?: SlotChangeHighlight | null;
 }
@@ -89,7 +88,6 @@ function sortTutorSlots(slots: TutorSlot[]): TutorSlot[] {
 export function WaitlistTimetable({
   location,
   waitlistEntries,
-  onSlotClick,
   onEntryClick,
   highlight,
 }: WaitlistTimetableProps) {
@@ -183,6 +181,11 @@ export function WaitlistTimetable({
       }
     }
 
+    // Pre-sort all slots by location then tutor name
+    for (const [key, slots] of map) {
+      map.set(key, sortTutorSlots(slots));
+    }
+
     return map;
   }, [enrollments, waitlistEntries, location]);
 
@@ -193,9 +196,7 @@ export function WaitlistTimetable({
       const time = key.split("|")[1];
       active.add(time);
     }
-    // Canonical order: weekend slots first, then weekday-only slots
-    const allOrdered = [...WEEKEND_TIME_SLOTS, ...WEEKDAY_TIME_SLOTS];
-    return allOrdered.filter((t) => active.has(normalizeTimeSlot(t)));
+    return ALL_TIME_SLOTS.filter((t) => active.has(normalizeTimeSlot(t)));
   }, [slotMap]);
 
   // Valid time slots per day (for skipping invalid cells)
@@ -208,6 +209,74 @@ export function WaitlistTimetable({
     }
     return map;
   }, []);
+
+  // Aggregate stats per day and per time slot
+  const dayStats = useMemo(() => {
+    const stats = new Map<string, { enrolled: number; waiting: number }>();
+    for (const day of DAYS) stats.set(day, { enrolled: 0, waiting: 0 });
+    for (const [key, slots] of slotMap) {
+      const day = key.split("|")[0];
+      const s = stats.get(day);
+      if (!s) continue;
+      for (const slot of slots) {
+        s.enrolled += slot.enrollments.length;
+        s.waiting += slot.waitlistCount;
+      }
+    }
+    return stats;
+  }, [slotMap]);
+
+  const timeStats = useMemo(() => {
+    const stats = new Map<string, number>();
+    for (const [key, slots] of slotMap) {
+      const time = key.split("|")[1];
+      const waiting = slots.reduce((sum, s) => sum + s.waitlistCount, 0);
+      stats.set(time, (stats.get(time) || 0) + waiting);
+    }
+    return stats;
+  }, [slotMap]);
+
+  // Cell-level occupancy for heat tinting
+  const cellOccupancy = useMemo(() => {
+    const occ = new Map<string, number>();
+    for (const [key, slots] of slotMap) {
+      const tutorSlots = slots.filter((s) => s.tutorId !== -1);
+      if (tutorSlots.length === 0) { occ.set(key, 0); continue; }
+      const maxPct = Math.max(...tutorSlots.map((s) => s.enrollments.length / MAX_CAPACITY));
+      occ.set(key, maxPct);
+    }
+    return occ;
+  }, [slotMap]);
+
+  // Day filter state
+  const [visibleDays, setVisibleDays] = useState<Set<string>>(new Set(DAYS));
+  const allDaysVisible = visibleDays.size === DAYS.length;
+
+  // Auto-narrow when highlight changes
+  useEffect(() => {
+    if (highlight) {
+      const relevantDays = new Set<string>();
+      if (highlight.currentDay) relevantDays.add(highlight.currentDay);
+      for (const s of highlight.preferredSlots) {
+        if (s.day) relevantDays.add(s.day);
+      }
+      if (relevantDays.size > 0) setVisibleDays(relevantDays);
+    } else {
+      setVisibleDays(new Set(DAYS));
+    }
+  }, [highlight]);
+
+  const toggleDay = (day: string) => {
+    setVisibleDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        if (next.size > 1) next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -242,21 +311,64 @@ export function WaitlistTimetable({
 
   return (
     <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
-      <div className="overflow-auto max-h-[70vh]">
+      {/* Day filter chips */}
+      <div className="flex items-center gap-1 px-3 py-2 bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <span className="text-[9px] text-foreground/40 mr-1">Days:</span>
+        {DAYS.map((day) => {
+          const ds = dayStats.get(day);
+          const hasData = ds && (ds.enrolled > 0 || ds.waiting > 0);
+          return (
+            <button
+              key={day}
+              onClick={() => toggleDay(day)}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                visibleDays.has(day)
+                  ? hasData
+                    ? "bg-[#a0704b] text-white"
+                    : "bg-gray-300 dark:bg-gray-600 text-white"
+                  : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
+              )}
+            >
+              {day}
+            </button>
+          );
+        })}
+        {!allDaysVisible && (
+          <button
+            onClick={() => setVisibleDays(new Set(DAYS))}
+            className="text-[9px] text-[#a0704b] hover:underline ml-1"
+          >
+            All
+          </button>
+        )}
+      </div>
+      <div className="overflow-auto max-h-[65vh] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d4a574]/40">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20">
             <tr className="bg-[#faf8f5] dark:bg-[#1a1a1a] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
               <th className="text-left py-2 px-2 text-xs font-medium text-foreground/50 w-28 sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-30">
                 Time
               </th>
-              {DAYS.map((day) => (
-                <th
-                  key={day}
-                  className="text-center py-2 px-2 text-xs font-medium text-foreground/50 min-w-[160px]"
-                >
-                  {day}
-                </th>
-              ))}
+              {DAYS.filter((d) => visibleDays.has(d)).map((day) => {
+                const ds = dayStats.get(day);
+                return (
+                  <th
+                    key={day}
+                    className="text-center py-1.5 px-2 text-xs font-medium text-foreground/50 min-w-[130px] lg:min-w-[160px]"
+                  >
+                    <div>{day}</div>
+                    {ds && (ds.enrolled > 0 || ds.waiting > 0) && (
+                      <div className="text-[8px] font-normal mt-0.5">
+                        <span className="text-foreground/40">{ds.enrolled}</span>
+                        {ds.waiting > 0 && (
+                          <span className="text-orange-500 ml-1">+{ds.waiting}w</span>
+                        )}
+                      </div>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
         <tbody>
@@ -266,31 +378,42 @@ export function WaitlistTimetable({
               className="border-t border-gray-200 dark:border-gray-700"
             >
               <td className="py-2 px-2 text-xs font-mono text-foreground/50 align-top sticky left-0 bg-[#faf8f5] dark:bg-[#1a1a1a] z-10 border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
-                {timeSlot}
+                <div>{timeSlot}</div>
+                {(() => {
+                  const tw = timeStats.get(normalizeTimeSlot(timeSlot)) || 0;
+                  return tw > 0 ? (
+                    <div className="text-[8px] text-orange-500 font-sans mt-0.5">{tw} waiting</div>
+                  ) : null;
+                })()}
               </td>
-              {DAYS.map((day) => {
+              {DAYS.filter((d) => visibleDays.has(d)).map((day) => {
                 const normalizedTime = normalizeTimeSlot(timeSlot);
                 const isValidForDay = validSlotsForDay.get(day)?.has(normalizedTime) ?? false;
 
                 if (!isValidForDay) {
                   return (
-                    <td key={day} className="py-1 px-1 align-top bg-gray-50/50 dark:bg-gray-900/20">
-                      <div className="h-8" />
+                    <td key={day} className="py-1 px-1 align-top">
+                      <div className="h-8 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(0,0,0,0.03)_4px,rgba(0,0,0,0.03)_8px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(255,255,255,0.03)_4px,rgba(255,255,255,0.03)_8px)] rounded" />
                     </td>
                   );
                 }
 
                 const key = `${day}|${normalizedTime}`;
                 const tutorSlots = slotMap.get(key) || [];
+                const occ = cellOccupancy.get(key) ?? 0;
+                const heatClass = occ >= 1 ? "bg-red-50/60 dark:bg-red-950/20"
+                  : occ >= 0.75 ? "bg-orange-50/50 dark:bg-orange-950/15"
+                  : occ >= 0.5 ? "bg-amber-50/40 dark:bg-amber-950/10"
+                  : "";
 
                 return (
                   <td
                     key={day}
-                    className="py-1 px-1 align-top"
+                    className={cn("py-1 px-1 align-top", heatClass)}
                   >
                     {tutorSlots.length > 0 ? (
                       <div className="space-y-1">
-                        {sortTutorSlots(tutorSlots).map((slot) => {
+                        {tutorSlots.map((slot) => {
                           // Per-card highlight based on location + day + time
                           let cardHighlight: "current" | "preferred" | "dimmed" | null = null;
                           if (highlight) {
@@ -315,7 +438,9 @@ export function WaitlistTimetable({
                         })}
                       </div>
                     ) : (
-                      <div className="h-8" />
+                      <div className="h-8 flex items-center justify-center">
+                        <span className="text-[8px] text-foreground/15 select-none">No classes</span>
+                      </div>
                     )}
                   </td>
                 );
@@ -344,46 +469,77 @@ function TutorCard({ slot, onEntryClick, highlight }: {
   const schoolGroups = useMemo(() => getSchoolGroups(slot.enrollments), [slot.enrollments]);
   const schoolCount = schoolGroups.length;
 
-  // Waitlist-only card (no tutor, no enrollments)
+  // Waitlist-only card (no tutor, no enrollments) — collapsible
   if (slot.tutorId === -1) {
+    const waitGrades = new Map<string, number>();
+    for (const w of slot.waitlistEntries) {
+      const k = `${w.grade}${w.lang_stream || ""}`;
+      waitGrades.set(k, (waitGrades.get(k) || 0) + 1);
+    }
+    const waitGradeList = [...waitGrades.entries()].sort((a, b) => b[1] - a[1]);
+
     return (
       <div
         className={cn(
-          "rounded-lg border border-dashed text-xs",
+          "rounded-lg border border-dashed text-xs cursor-pointer",
           "border-orange-300 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-900/10",
           highlight === "preferred" && "border-2 border-dashed border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10",
-          highlight === "dimmed" && "opacity-25",
+          highlight === "dimmed" && "opacity-40",
         )}
+        onClick={() => setExpanded(!expanded)}
       >
         <div className="px-2 py-1.5">
-          <div className="flex items-center gap-1 mb-1">
+          {/* Header — always visible */}
+          <div className="flex items-center gap-1">
             {slot.location && (
               <span className={cn("text-[8px] font-medium px-1 rounded flex-shrink-0", BRANCH_COLORS[slot.location]?.badge || "bg-gray-200 text-foreground/50")}>
                 {slot.location}
               </span>
             )}
             <span className="text-[8px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-medium">
-              Waiting ({slot.waitlistEntries.length})
+              {slot.waitlistEntries.length}w
+            </span>
+            {/* Grade summary (collapsed) */}
+            {!expanded && (
+              <div className="flex gap-0.5 ml-0.5">
+                {waitGradeList.slice(0, 3).map(([g, c]) => (
+                  <span
+                    key={g}
+                    className="px-0.5 rounded text-[8px] font-medium text-gray-800"
+                    style={{ backgroundColor: getGradeColor(g.replace(/[CE]$/, ""), g.match(/[CE]$/)?.[0]) }}
+                  >
+                    {g}&times;{c}
+                  </span>
+                ))}
+              </div>
+            )}
+            <span className="ml-auto">
+              {expanded ? <ChevronUp className="h-2.5 w-2.5 text-orange-400" /> : <ChevronDown className="h-2.5 w-2.5 text-orange-400" />}
             </span>
           </div>
-          {slot.waitlistEntries.map((w) => (
-            <div
-              key={w.id}
-              className="flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded transition-colors"
-              onClick={() => onEntryClick?.(w)}
-            >
-              <span
-                className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
-                style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
-              >
-                {w.grade}{w.lang_stream}
-              </span>
-              <span className="truncate text-foreground/60 text-[9px]">{w.student_name}</span>
-              {w.school && (
-                <span className="text-[8px] text-foreground/30 flex-shrink-0">{w.school}</span>
-              )}
+          {/* Expanded: student list */}
+          {expanded && (
+            <div className="mt-1 space-y-0.5">
+              {slot.waitlistEntries.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onEntryClick?.(w); }}
+                >
+                  <span
+                    className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
+                    style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
+                  >
+                    {w.grade}{w.lang_stream}
+                  </span>
+                  <span className="truncate text-foreground/60 text-[9px]">{w.student_name}</span>
+                  {w.school && (
+                    <span className="text-[8px] text-foreground/30 flex-shrink-0">{w.school}</span>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
@@ -406,7 +562,7 @@ function TutorCard({ slot, onEntryClick, highlight }: {
           : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#d4a574] dark:hover:border-[#8b6f47]",
         highlight === "current" && "ring-2 ring-blue-400 dark:ring-blue-500 bg-blue-50 dark:bg-blue-900/20",
         highlight === "preferred" && "border-2 border-dashed border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10",
-        highlight === "dimmed" && "opacity-25",
+        highlight === "dimmed" && "opacity-40",
       )}
       onClick={() => setExpanded(!expanded)}
     >
@@ -432,9 +588,19 @@ function TutorCard({ slot, onEntryClick, highlight }: {
             <span className="font-medium text-foreground truncate">
               {slot.tutorName}
             </span>
-            <span className={cn("font-mono font-medium", capacityColor)}>
+            <span className={cn("font-mono text-[9px]", capacityColor)}>
               {count}/{MAX_CAPACITY}
             </span>
+          </div>
+          {/* Capacity bar */}
+          <div className="w-full h-1 rounded-full bg-gray-200 dark:bg-gray-700 mt-0.5">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                capacityPct >= 1 ? "bg-red-500" : capacityPct >= 0.75 ? "bg-amber-500" : "bg-green-500"
+              )}
+              style={{ width: `${Math.min(capacityPct * 100, 100)}%` }}
+            />
           </div>
           {/* Grade composition */}
           <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -455,8 +621,16 @@ function TutorCard({ slot, onEntryClick, highlight }: {
           </div>
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          {schoolCount >= 4 && (
-            <AlertCircle className="h-3 w-3 text-amber-500" />
+          {schoolCount >= 3 && (
+            <span
+              className={cn(
+                "text-[7px] px-1 rounded font-medium",
+                schoolCount >= 4 ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" : "bg-gray-100 dark:bg-gray-800 text-foreground/40"
+              )}
+              title={schoolGroups.map((s) => `${s.school}(${s.count})`).join(", ")}
+            >
+              {schoolCount}sch
+            </span>
           )}
           {expanded ? (
             <ChevronUp className="h-3 w-3 text-foreground/40" />
