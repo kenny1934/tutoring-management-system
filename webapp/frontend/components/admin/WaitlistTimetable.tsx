@@ -21,6 +21,7 @@ interface WaitlistTimetableProps {
   waitlistEntries: WaitlistEntry[];
   onEntryClick?: (entry: WaitlistEntry) => void;
   highlight?: SlotChangeHighlight | null;
+  gradeFilter?: string;
 }
 
 interface TutorSlot {
@@ -90,6 +91,7 @@ export function WaitlistTimetable({
   waitlistEntries,
   onEntryClick,
   highlight,
+  gradeFilter,
 }: WaitlistTimetableProps) {
   const { data: enrollments = [], isLoading, error } = useAllStudents(
     location !== "All Locations" ? location : undefined
@@ -144,7 +146,11 @@ export function WaitlistTimetable({
       }
     };
 
-    for (const entry of waitlistEntries) {
+    const filteredWaitlist = gradeFilter
+      ? waitlistEntries.filter((e) => e.grade === gradeFilter)
+      : waitlistEntries;
+
+    for (const entry of filteredWaitlist) {
       for (const pref of entry.slot_preferences) {
         if (location !== "All Locations" && pref.location !== location)
           continue;
@@ -187,7 +193,7 @@ export function WaitlistTimetable({
     }
 
     return map;
-  }, [enrollments, waitlistEntries, location]);
+  }, [enrollments, waitlistEntries, location, gradeFilter]);
 
   // Find which time slots actually have data, ordered correctly
   const activeTimeSlots = useMemo(() => {

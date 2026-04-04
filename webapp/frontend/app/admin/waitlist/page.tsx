@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -12,6 +13,7 @@ import { waitlistAPI, enrollmentsAPI, studentsAPI } from "@/lib/api";
 import { getGradeColor, GRADES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -84,6 +86,7 @@ export default function AdminWaitlistPage() {
   const [enrollmentPrefillStudent, setEnrollmentPrefillStudent] =
     useState<Student | null>(null);
   const [enrollmentTrialMode, setEnrollmentTrialMode] = useState(false);
+  const [trialPromptStudentId, setTrialPromptStudentId] = useState<number | null>(null);
 
   const addStudentInitialData = useMemo(
     () => addStudentForEntry ? {
@@ -177,6 +180,7 @@ export default function AdminWaitlistPage() {
           });
           mutate();
           showToast(`Student created & linked`);
+          setTrialPromptStudentId(student.id);
         } catch {
           showError("Student created but failed to link to waitlist entry");
         }
@@ -494,6 +498,7 @@ export default function AdminWaitlistPage() {
               <WaitlistTimetable
                 location={selectedLocation}
                 waitlistEntries={entries || []}
+                gradeFilter={gradeFilter || undefined}
                 onEntryClick={(entry) => {
                   setEditingEntry(entry);
                   setEntryModalOpen(true);
@@ -828,6 +833,7 @@ export default function AdminWaitlistPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  <AnimatePresence>
                   {entries.map((entry) => (
                     <WaitlistRow
                       key={entry.id}
@@ -860,6 +866,7 @@ export default function AdminWaitlistPage() {
                       }}
                     />
                   ))}
+                  </AnimatePresence>
                 </tbody>
               </table>
             </div>
@@ -941,6 +948,27 @@ export default function AdminWaitlistPage() {
         clickPosition={popoverClickPos}
         onStatusChange={() => mutate()}
       />
+      <ConfirmDialog
+        isOpen={!!trialPromptStudentId}
+        title="Schedule Trial?"
+        message="Student created and linked. Would you like to schedule a trial lesson now?"
+        confirmText="Schedule Trial"
+        cancelText="Not Now"
+        onConfirm={async () => {
+          if (trialPromptStudentId) {
+            try {
+              const student = await studentsAPI.getById(trialPromptStudentId);
+              setEnrollmentPrefillStudent(student);
+              setEnrollmentTrialMode(true);
+              setCreateEnrollmentOpen(true);
+            } catch {
+              showError("Failed to load student");
+            }
+          }
+          setTrialPromptStudentId(null);
+        }}
+        onCancel={() => setTrialPromptStudentId(null)}
+      />
       <ScrollToTopButton />
     </DeskSurface>
   );
@@ -978,7 +1006,10 @@ function WaitlistRow({
   const hasEnrollment = !!ctx?.enrollment_id;
 
   return (
-    <tr
+    <motion.tr
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
       className="border-b border-gray-100 dark:border-gray-800 hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
       onClick={onEdit}
     >
@@ -1198,6 +1229,6 @@ function WaitlistRow({
           )}
         </div>
       </td>
-    </tr>
+    </motion.tr>
   );
 }

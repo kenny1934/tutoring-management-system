@@ -237,7 +237,7 @@ export function WaitlistEntryModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="waitlist-modal-title">
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
@@ -245,7 +245,7 @@ export function WaitlistEntryModal({
       <div className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-[#1e1e1e] border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between rounded-t-xl z-10">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 id="waitlist-modal-title" className="text-lg font-semibold text-foreground">
             {entry ? "Edit Waitlist Entry" : "Add to Waitlist"}
           </h2>
           <button
