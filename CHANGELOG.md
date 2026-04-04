@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.47](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.47) (2026-04-05)
+
+### New Features
+
+* **Waitlist** — track prospective students (New) and slot change requests with a searchable list view, bulk paste import, and filters by grade, type, and location
+* **Waitlist timetable** — weekly grid overlay showing waitlist demand alongside enrolled students, with day-filter chips, cell heat tinting by occupancy, and collapsible tutor cards with capacity bars
+* **Preferred tutor** — optional tutor preference per slot; entries appear inside the preferred tutor's timetable card with a "Waiting" section
+* **Slot Change highlight** — collapsible card strip above the timetable showing current → preferred slot details; selecting an entry highlights the relevant tutor cards
+* **Enrollment workflow** — link waitlist entries to students, schedule trials with a one-click prompt after student creation, and view enrollment details from the timetable
+
 ## [2.0.46](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.46) (2026-04-03)
 
 ### New Features
