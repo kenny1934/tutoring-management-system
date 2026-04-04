@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Trash2, Search } from "lucide-react";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
@@ -483,10 +484,11 @@ export function WaitlistEntryModal({
             </div>
           </div>
 
-          {/* Parent Name */}
+          {/* Parent WeChat ID */}
           <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-              Parent Name
+            <label className="flex items-center gap-1.5 text-sm font-medium text-foreground/70 mb-1.5">
+              <WeChatIcon className="h-4 w-4 text-green-600" />
+              Parent WeChat ID
             </label>
             <input
               type="text"

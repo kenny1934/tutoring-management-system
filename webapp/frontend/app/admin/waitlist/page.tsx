@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { WaitlistTimetable } from "@/components/admin/WaitlistTimetable";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
@@ -48,7 +49,7 @@ const HEADER_PATTERNS: Record<string, RegExp> = {
   grade: /^(grade|form|class|年級|班別)/i,
   phone: /^(phone|tel|contact|電話|聯絡)/i,
   lang_stream: /^(stream|lang|language|語言)/i,
-  parent_name: /^(parent|guardian|家長)/i,
+  parent_name: /^(parent|guardian|wechat|微信|家長)/i,
 };
 const IS_PHONE = /^\d{8}$/;
 const IS_GRADE = /^[FfPp]\d$/;
@@ -994,8 +995,9 @@ function WaitlistRow({
           )}
         </div>
         {entry.parent_name && (
-          <div className="text-xs text-foreground/40 mt-0.5">
-            Parent: {entry.parent_name}
+          <div className="text-xs text-foreground/40 mt-0.5 flex items-center gap-1">
+            <WeChatIcon className="h-3 w-3 text-green-600 flex-shrink-0" />
+            {entry.parent_name}
           </div>
         )}
         {entry.entry_type === "Slot Change" && ctx?.current_day && (
