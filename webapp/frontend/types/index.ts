@@ -2789,12 +2789,15 @@ export interface WaitlistSlotPreference {
   location: string;
   day_of_week?: string | null;
   time_slot?: string | null;
+  preferred_tutor_id?: number | null;
+  preferred_tutor_name?: string | null;
 }
 
 export interface WaitlistSlotPreferenceCreate {
   location: string;
   day_of_week?: string | null;
   time_slot?: string | null;
+  preferred_tutor_id?: number | null;
 }
 
 export interface EnrollmentContextInfo {

@@ -117,7 +117,14 @@ def _build_response(entry: WaitlistEntry, enrollment_context: Optional[Enrollmen
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
         "slot_preferences": [
-            WaitlistSlotPreferenceResponse.model_validate(sp)
+            WaitlistSlotPreferenceResponse(
+                id=sp.id,
+                location=sp.location,
+                day_of_week=sp.day_of_week,
+                time_slot=sp.time_slot,
+                preferred_tutor_id=sp.preferred_tutor_id,
+                preferred_tutor_name=sp.preferred_tutor.tutor_name if sp.preferred_tutor else None,
+            )
             for sp in entry.slot_preferences
         ],
         "enrollment_context": enrollment_context,
@@ -143,7 +150,7 @@ def list_waitlist(
     query = (
         db.query(WaitlistEntry)
         .options(
-            joinedload(WaitlistEntry.slot_preferences),
+            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
             joinedload(WaitlistEntry.creator),
             joinedload(WaitlistEntry.student),
         )
@@ -236,7 +243,7 @@ def get_waitlist_entry(
     entry = (
         db.query(WaitlistEntry)
         .options(
-            joinedload(WaitlistEntry.slot_preferences),
+            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
             joinedload(WaitlistEntry.creator),
             joinedload(WaitlistEntry.student),
         )
@@ -279,6 +286,7 @@ def create_waitlist_entry(
             location=sp.location,
             day_of_week=sp.day_of_week,
             time_slot=sp.time_slot,
+            preferred_tutor_id=sp.preferred_tutor_id,
         )
         db.add(pref)
 
@@ -328,7 +336,7 @@ def update_waitlist_entry(
     entry = (
         db.query(WaitlistEntry)
         .options(
-            joinedload(WaitlistEntry.slot_preferences),
+            joinedload(WaitlistEntry.slot_preferences).joinedload(WaitlistSlotPreference.preferred_tutor),
             joinedload(WaitlistEntry.creator),
             joinedload(WaitlistEntry.student),
         )
@@ -356,6 +364,7 @@ def update_waitlist_entry(
                 location=sp_data["location"],
                 day_of_week=sp_data.get("day_of_week"),
                 time_slot=sp_data.get("time_slot"),
+                preferred_tutor_id=sp_data.get("preferred_tutor_id"),
             )
             db.add(pref)
 

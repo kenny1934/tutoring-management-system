@@ -2885,6 +2885,7 @@ class WaitlistSlotPreferenceCreate(BaseModel):
     location: str = Field(..., max_length=100)
     day_of_week: Optional[str] = Field(None, max_length=10)
     time_slot: Optional[str] = Field(None, max_length=50)
+    preferred_tutor_id: Optional[int] = None
 
 
 class WaitlistSlotPreferenceResponse(BaseModel):
@@ -2892,6 +2893,8 @@ class WaitlistSlotPreferenceResponse(BaseModel):
     location: str
     day_of_week: Optional[str] = None
     time_slot: Optional[str] = None
+    preferred_tutor_id: Optional[int] = None
+    preferred_tutor_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

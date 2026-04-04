@@ -13,7 +13,7 @@ interface SlotChangeHighlight {
   currentDay?: string | null;
   currentTime?: string | null;
   currentLocation?: string | null;
-  preferredSlots: { day?: string | null; time?: string | null; location?: string | null }[];
+  preferredSlots: { day?: string | null; time?: string | null; location?: string | null; preferred_tutor_id?: number | null }[];
 }
 
 interface WaitlistTimetableProps {
@@ -46,6 +46,8 @@ interface SchoolGroup {
 
 const MAX_CAPACITY = 8;
 const DAYS = DAY_NAMES; // Sun-Sat
+
+interface WaitlistPlacement { entry: WaitlistEntry; location: string; preferredTutorId: number | null }
 
 function normalizeTimeSlot(time: string): string {
   return time.replace(/\s/g, "");
@@ -133,18 +135,14 @@ export function WaitlistTimetable({
       tutorSlot.enrollments.push(enrollment);
     }
 
-    // Collect waitlist entries per slot
-    // Helper to add a waitlist entry to a slot key
-    // Waitlist entries tracked separately per slot+location, then merged after
-    const waitlistBySlot = new Map<string, Map<string, WaitlistEntry[]>>();
+    // Collect waitlist entries per slot, tracking preferred tutor if set
+    const waitlistBySlot = new Map<string, WaitlistPlacement[]>();
 
-    const addWaitlistToSlot = (key: string, entry: WaitlistEntry, loc: string) => {
-      if (!waitlistBySlot.has(key)) waitlistBySlot.set(key, new Map());
-      const locMap = waitlistBySlot.get(key)!;
-      if (!locMap.has(loc)) locMap.set(loc, []);
-      const entries = locMap.get(loc)!;
-      if (!entries.some((w) => w.id === entry.id)) {
-        entries.push(entry);
+    const addWaitlistToSlot = (key: string, entry: WaitlistEntry, loc: string, preferredTutorId: number | null) => {
+      if (!waitlistBySlot.has(key)) waitlistBySlot.set(key, []);
+      const placements = waitlistBySlot.get(key)!;
+      if (!placements.some((p) => p.entry.id === entry.id && p.preferredTutorId === preferredTutorId)) {
+        placements.push({ entry, location: loc, preferredTutorId: preferredTutorId || null });
       }
     };
 
@@ -157,27 +155,46 @@ export function WaitlistTimetable({
         if (location !== "All Locations" && pref.location !== location)
           continue;
 
+        const tutorId = pref.preferred_tutor_id || null;
         if (pref.day_of_week && pref.time_slot) {
-          // Specific day + time
-          addWaitlistToSlot(`${pref.day_of_week}|${normalizeTimeSlot(pref.time_slot)}`, entry, pref.location);
+          addWaitlistToSlot(`${pref.day_of_week}|${normalizeTimeSlot(pref.time_slot)}`, entry, pref.location, tutorId);
         } else if (pref.day_of_week && !pref.time_slot) {
-          // Specific day, any time — add to valid time slots for that day
           const dayIdx = DAY_NAME_TO_INDEX[pref.day_of_week] ?? 1;
           for (const ts of getTimeSlotsForDay(dayIdx)) {
-            addWaitlistToSlot(`${pref.day_of_week}|${normalizeTimeSlot(ts)}`, entry, pref.location);
+            addWaitlistToSlot(`${pref.day_of_week}|${normalizeTimeSlot(ts)}`, entry, pref.location, tutorId);
           }
         }
         // Fully open (no day, no time) — skip in timetable, shown in list only
       }
     }
 
-    // Merge waitlist entries into tutor slots — distribute by location
-    for (const [key, locMap] of waitlistBySlot) {
+    // Merge waitlist entries into slots — preferred tutor entries go into that tutor's card
+    for (const [key, placements] of waitlistBySlot) {
       if (!map.has(key)) map.set(key, []);
       const slots = map.get(key)!;
 
-      for (const [loc, entries] of locMap) {
-        // Always create a dedicated waitlist card per location — never mix with tutor cards
+      // Group unplaced entries by location for generic waitlist cards
+      const unplaced = new Map<string, WaitlistEntry[]>();
+
+      for (const { entry, location: loc, preferredTutorId } of placements) {
+        if (preferredTutorId) {
+          // Place into matching tutor's card
+          const tutorSlot = slots.find((s) => s.tutorId === preferredTutorId && s.location === loc);
+          if (tutorSlot) {
+            if (!tutorSlot.waitlistEntries.some((w) => w.id === entry.id)) {
+              tutorSlot.waitlistEntries.push(entry);
+              tutorSlot.waitlistCount++;
+            }
+            continue;
+          }
+        }
+        // No preferred tutor or tutor not found in this slot — generic card
+        if (!unplaced.has(loc)) unplaced.set(loc, []);
+        const arr = unplaced.get(loc)!;
+        if (!arr.some((w) => w.id === entry.id)) arr.push(entry);
+      }
+
+      for (const [loc, entries] of unplaced) {
         slots.push({
           tutorId: -1,
           tutorName: "",
@@ -431,9 +448,15 @@ export function WaitlistTimetable({
                               && highlight.currentTime && normalizeTimeSlot(highlight.currentTime) === normalizedTime
                               && highlight.currentLocation === slot.location;
                             const isPreferred = highlight.preferredSlots.some(
-                              (s) => s.day === day
-                                && (!s.time || normalizeTimeSlot(s.time) === normalizedTime)
-                                && s.location === slot.location
+                              (s) => {
+                                const dayMatch = s.day === day;
+                                const timeMatch = !s.time || normalizeTimeSlot(s.time) === normalizedTime;
+                                const locMatch = s.location === slot.location;
+                                if (!dayMatch || !timeMatch || !locMatch) return false;
+                                // If tutor specified, also require tutor match
+                                if (s.preferred_tutor_id) return s.preferred_tutor_id === slot.tutorId;
+                                return true;
+                              }
                             );
                             cardHighlight = isCurrent ? "current" : isPreferred ? "preferred" : "dimmed";
                           }
@@ -563,7 +586,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                   {w.school_student_id && (
                     <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
                   )}
-                  <span className="truncate text-foreground/60 text-[9px]">{w.student_name}</span>
+                  <span className="truncate text-orange-600/70 dark:text-orange-400/70 text-[9px]">{w.student_name || w.parent_name || "(unnamed)"}</span>
                   {w.school && (
                     <span className="text-[8px] text-foreground/30 flex-shrink-0">{w.school}</span>
                   )}
@@ -622,6 +645,9 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
             <span className={cn("font-mono text-[9px]", capacityColor)}>
               {count}/{MAX_CAPACITY}
             </span>
+            {slot.waitlistCount > 0 && (
+              <span className="text-[9px] text-orange-500 dark:text-orange-400 font-medium">+{slot.waitlistCount}w</span>
+            )}
           </div>
           {/* Capacity bar */}
           <div className="w-full h-1 rounded-full bg-gray-200 dark:bg-gray-700 mt-0.5">
@@ -720,10 +746,37 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
               )}
             </div>
           ))}
-          {slot.enrollments.length === 0 && (
+          {slot.enrollments.length === 0 && slot.waitlistEntries.length === 0 && (
             <div className="text-[9px] text-foreground/40 italic">
               No current students
             </div>
+          )}
+          {slot.waitlistEntries.length > 0 && (
+            <>
+              <div className="text-[8px] text-orange-500 dark:text-orange-400 font-medium mt-1 mb-0.5">
+                Waiting ({slot.waitlistEntries.length})
+              </div>
+              {slot.waitlistEntries.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onEntryClick?.(w); }}
+                >
+                  <span
+                    className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
+                    style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
+                  >
+                    {w.grade}{w.lang_stream}
+                  </span>
+                  {w.school_student_id && (
+                    <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
+                  )}
+                  <span className="truncate text-orange-600/70 dark:text-orange-400/70 text-[9px]">
+                    {w.student_name || w.parent_name || "(unnamed)"}
+                  </span>
+                </div>
+              ))}
+            </>
           )}
         </div>
       )}

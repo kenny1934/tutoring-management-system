@@ -1456,8 +1456,10 @@ class WaitlistSlotPreference(Base):
     location = Column(String(100), nullable=False)
     day_of_week = Column(String(10), nullable=True)
     time_slot = Column(String(50), nullable=True)
+    preferred_tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
 
     entry = relationship("WaitlistEntry", back_populates="slot_preferences")
+    preferred_tutor = relationship("Tutor")
 
 
 class SavedReport(Base):

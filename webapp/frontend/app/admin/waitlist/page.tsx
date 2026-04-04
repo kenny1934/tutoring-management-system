@@ -548,7 +548,8 @@ export default function AdminWaitlistPage() {
                                           </span>
                                           {sp.day_of_week && <span>{sp.day_of_week}</span>}
                                           {sp.time_slot && <span>{sp.time_slot}</span>}
-                                          {!sp.day_of_week && !sp.time_slot && <span>Any</span>}
+                                          {!sp.day_of_week && !sp.time_slot && !sp.preferred_tutor_name && <span>Any</span>}
+                                          {sp.preferred_tutor_name && <span className="text-foreground/40">· {sp.preferred_tutor_name}</span>}
                                         </span>
                                       ))}
                                     </div>
@@ -591,6 +592,7 @@ export default function AdminWaitlistPage() {
                     day: sp.day_of_week,
                     time: sp.time_slot,
                     location: sp.location,
+                    preferred_tutor_id: sp.preferred_tutor_id,
                   })),
                 } : null}
               />
@@ -1145,7 +1147,8 @@ function WaitlistRow({
                 <span className={cn("px-1 rounded", BRANCH_COLORS[sp.location]?.badge || "text-[#a0704b]")}>{sp.location}</span>
                 {sp.day_of_week && <span>{sp.day_of_week}</span>}
                 {sp.time_slot && <span>{sp.time_slot}</span>}
-                {!sp.day_of_week && !sp.time_slot && <span>Any</span>}
+                {!sp.day_of_week && !sp.time_slot && !sp.preferred_tutor_name && <span>Any</span>}
+                {sp.preferred_tutor_name && <span className="text-foreground/40">· {sp.preferred_tutor_name}</span>}
               </span>
             ))}
           </div>

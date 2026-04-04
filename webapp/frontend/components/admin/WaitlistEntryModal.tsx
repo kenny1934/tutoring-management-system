@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Plus, Trash2, Search } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useActiveTutors } from "@/lib/hooks";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { getGradeColor, GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
 import type {
   WaitlistEntry,
@@ -33,6 +36,7 @@ export function WaitlistEntryModal({
 }: WaitlistEntryModalProps) {
   const { selectedLocation, locations } = useLocation();
   const { showToast, showError } = useToast();
+  const { data: tutors = [] } = useActiveTutors();
 
   const [studentName, setStudentName] = useState("");
   const [school, setSchool] = useState("");
@@ -48,6 +52,8 @@ export function WaitlistEntryModal({
   >([]);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const modalScrollRef = useRef<HTMLDivElement>(null);
 
   // Student search for linking
   const [studentSearch, setStudentSearch] = useState("");
@@ -67,6 +73,7 @@ export function WaitlistEntryModal({
   // Populate form for edit mode
   useEffect(() => {
     setIsDirty(false);
+    setShowDiscardConfirm(false);
     let cancelled = false;
     if (entry) {
       setStudentName(entry.student_name);
@@ -90,6 +97,7 @@ export function WaitlistEntryModal({
           location: sp.location,
           day_of_week: sp.day_of_week || null,
           time_slot: sp.time_slot || null,
+          preferred_tutor_id: sp.preferred_tutor_id || null,
         }))
       );
     } else {
@@ -107,6 +115,15 @@ export function WaitlistEntryModal({
     }
     return () => { cancelled = true; };
   }, [entry, isOpen]);
+
+  // Scroll modal to bottom when a new slot preference is added
+  const prevSlotCountRef = useRef(0);
+  useEffect(() => {
+    if (slotPreferences.length > prevSlotCountRef.current && prevSlotCountRef.current > 0) {
+      modalScrollRef.current?.scrollTo({ top: modalScrollRef.current.scrollHeight, behavior: "smooth" });
+    }
+    prevSlotCountRef.current = slotPreferences.length;
+  }, [slotPreferences.length]);
 
   // Student search
   const searchStudents = useCallback(async (q: string) => {
@@ -151,10 +168,10 @@ export function WaitlistEntryModal({
     const defaultLoc =
       selectedLocation !== "All Locations"
         ? selectedLocation
-        : locations[0] || "MSA";
+        : locations.find((l) => l !== "All Locations") || "MSA";
     setSlotPreferences((prev) => [
       ...prev,
-      { location: defaultLoc, day_of_week: null, time_slot: null },
+      { location: defaultLoc, day_of_week: null, time_slot: null, preferred_tutor_id: null },
     ]);
     setIsDirty(true);
   };
@@ -167,7 +184,7 @@ export function WaitlistEntryModal({
   const updateSlotPreference = (
     index: number,
     field: keyof WaitlistSlotPreferenceCreate,
-    value: string | null
+    value: string | number | null
   ) => {
     setSlotPreferences((prev) =>
       prev.map((sp, i) => {
@@ -227,7 +244,10 @@ export function WaitlistEntryModal({
   };
 
   const handleClose = useCallback(() => {
-    if (isDirty && !confirm("You have unsaved changes. Discard?")) return;
+    if (isDirty) {
+      setShowDiscardConfirm(true);
+      return;
+    }
     onClose();
   }, [isDirty, onClose]);
 
@@ -253,7 +273,7 @@ export function WaitlistEntryModal({
         className="absolute inset-0 bg-black/40"
         onClick={handleClose}
       />
-      <div className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
+      <div ref={modalScrollRef} className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-[#1e1e1e] border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between rounded-t-xl z-10">
           <h2 id="waitlist-modal-title" className="text-lg font-semibold text-foreground">
@@ -603,6 +623,27 @@ export function WaitlistEntryModal({
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={sp.preferred_tutor_id ?? ""}
+                      onChange={(e) =>
+                        updateSlotPreference(
+                          i,
+                          "preferred_tutor_id",
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                      className="px-2 py-1.5 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                    >
+                      <option value="">Any tutor</option>
+                      {[...tutors]
+                        .filter((t) => !t.default_location || t.default_location === sp.location)
+                        .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.tutor_name}
+                          </option>
+                        ))}
+                    </select>
                     <button
                       onClick={() => removeSlotPreference(i)}
                       className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
@@ -633,6 +674,16 @@ export function WaitlistEntryModal({
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={showDiscardConfirm}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmText="Discard"
+        cancelText="Keep editing"
+        variant="warning"
+        onConfirm={() => { setShowDiscardConfirm(false); onClose(); }}
+        onCancel={() => setShowDiscardConfirm(false)}
+      />
     </div>
   );
 }
