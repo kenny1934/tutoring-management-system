@@ -2897,11 +2897,11 @@ class WaitlistSlotPreferenceResponse(BaseModel):
 
 
 class WaitlistEntryCreate(BaseModel):
-    student_name: str = Field(..., min_length=1, max_length=255)
-    school: str = Field(..., min_length=1, max_length=255)
-    grade: str = Field(..., min_length=1, max_length=50)
+    student_name: str = Field("", max_length=255)
+    school: str = Field("", max_length=255)
+    grade: str = Field("", max_length=50)
     lang_stream: Optional[str] = Field(None, max_length=50)
-    phone: str = Field(..., min_length=1, max_length=50)
+    phone: str = Field("", max_length=50)
     parent_name: Optional[str] = Field(None, max_length=255)
     notes: Optional[str] = None
     entry_type: WaitlistEntryType = "New"
@@ -2923,11 +2923,11 @@ class WaitlistEntryBulkCreate(BaseModel):
 
 
 class WaitlistEntryUpdate(BaseModel):
-    student_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    school: Optional[str] = Field(None, min_length=1, max_length=255)
-    grade: Optional[str] = Field(None, min_length=1, max_length=50)
+    student_name: Optional[str] = Field(None, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
     lang_stream: Optional[str] = None
-    phone: Optional[str] = Field(None, min_length=1, max_length=50)
+    phone: Optional[str] = Field(None, max_length=50)
     parent_name: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None

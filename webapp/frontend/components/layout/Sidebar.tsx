@@ -34,8 +34,8 @@ const adminNavigation = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
   { name: "Overdue Payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
-  { name: "Summer Course", href: "/admin/summer", icon: Sun },
   { name: "Waitlist", href: "/admin/waitlist", icon: ClipboardList },
+  { name: "Summer Course", href: "/admin/summer", icon: Sun },
 ];
 
 interface SidebarProps {

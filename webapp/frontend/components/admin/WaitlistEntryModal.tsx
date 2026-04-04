@@ -47,6 +47,7 @@ export function WaitlistEntryModal({
     WaitlistSlotPreferenceCreate[]
   >([]);
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Student search for linking
   const [studentSearch, setStudentSearch] = useState("");
@@ -65,6 +66,7 @@ export function WaitlistEntryModal({
 
   // Populate form for edit mode
   useEffect(() => {
+    setIsDirty(false);
     let cancelled = false;
     if (entry) {
       setStudentName(entry.student_name);
@@ -136,11 +138,13 @@ export function WaitlistEntryModal({
     if (!phone && student.phone) setPhone(student.phone);
     setShowStudentSearch(false);
     setStudentSearch("");
+    setIsDirty(true);
   };
 
   const handleUnlinkStudent = () => {
     setStudentId(null);
     setLinkedStudent(null);
+    setIsDirty(true);
   };
 
   const addSlotPreference = () => {
@@ -152,10 +156,12 @@ export function WaitlistEntryModal({
       ...prev,
       { location: defaultLoc, day_of_week: null, time_slot: null },
     ]);
+    setIsDirty(true);
   };
 
   const removeSlotPreference = (index: number) => {
     setSlotPreferences((prev) => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
   };
 
   const updateSlotPreference = (
@@ -181,8 +187,8 @@ export function WaitlistEntryModal({
   };
 
   const handleSubmit = async () => {
-    if (!studentName.trim() || !school.trim() || !grade || !phone.trim()) {
-      showError("Please fill in all required fields");
+    if (!studentName.trim() && !phone.trim() && !parentName.trim()) {
+      showError("At least one of student name, phone, or parent WeChat ID is required");
       return;
     }
 
@@ -220,15 +226,20 @@ export function WaitlistEntryModal({
     }
   };
 
+  const handleClose = useCallback(() => {
+    if (isDirty && !confirm("You have unsaved changes. Discard?")) return;
+    onClose();
+  }, [isDirty, onClose]);
+
   // Escape to close
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
@@ -240,7 +251,7 @@ export function WaitlistEntryModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="waitlist-modal-title">
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <div className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
@@ -249,14 +260,14 @@ export function WaitlistEntryModal({
             {entry ? "Edit Waitlist Entry" : "Add to Waitlist"}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4" onChangeCapture={() => setIsDirty(true)}>
           {/* Entry Type Toggle */}
           <div>
             <label className="block text-sm font-medium text-foreground/70 mb-1.5">
@@ -608,7 +619,7 @@ export function WaitlistEntryModal({
         {/* Footer */}
         <div className="sticky bottom-0 bg-white dark:bg-[#1e1e1e] border-t border-gray-200 dark:border-gray-700 px-5 py-3 flex justify-end gap-2 rounded-b-xl">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 text-sm font-medium text-foreground/70 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             Cancel

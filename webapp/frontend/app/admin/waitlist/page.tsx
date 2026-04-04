@@ -163,7 +163,8 @@ export default function AdminWaitlistPage() {
     const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
     const oldest = entries.reduce((min, e) => {
       if (!e.created_at) return min;
-      const d = new Date(e.created_at).getTime();
+      const ts = e.created_at.endsWith("Z") ? e.created_at : e.created_at + "Z";
+      const d = new Date(ts).getTime();
       return d < min ? d : min;
     }, Date.now());
     const oldestDays = Math.floor((Date.now() - oldest) / 86400000);
@@ -1176,15 +1177,17 @@ function WaitlistRow({
         )}
       </td>
 
-      {/* Date Added */}
+      {/* Date Added — DB stores UTC, append Z for correct parsing */}
       <td className="py-2.5 px-3 text-xs">
         {entry.created_at ? (() => {
-          const diffDays = Math.floor((Date.now() - new Date(entry.created_at!).getTime()) / 86400000);
+          const utcTs = entry.created_at!.endsWith("Z") ? entry.created_at! : entry.created_at! + "Z";
+          const date = new Date(utcTs);
+          const diffDays = Math.floor((Date.now() - date.getTime()) / 86400000);
           const color = diffDays > 30 ? "text-red-600 dark:text-red-400" : diffDays > 7 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400";
-          const absDate = new Date(entry.created_at!).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+          const absDate = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           return (
             <span className={cn("font-medium", color)} title={`${absDate}${entry.created_by_name ? ` by ${entry.created_by_name}` : ""}`}>
-              {formatTimeAgo(entry.created_at!)}
+              {formatTimeAgo(utcTs)}
             </span>
           );
         })() : "—"}
