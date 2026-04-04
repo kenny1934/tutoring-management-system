@@ -20,6 +20,7 @@ interface WaitlistTimetableProps {
   location: string;
   waitlistEntries: WaitlistEntry[];
   onEntryClick?: (entry: WaitlistEntry) => void;
+  onEnrollmentClick?: (enrollmentId: number, event: React.MouseEvent) => void;
   highlight?: SlotChangeHighlight | null;
   gradeFilter?: string;
 }
@@ -90,6 +91,7 @@ export function WaitlistTimetable({
   location,
   waitlistEntries,
   onEntryClick,
+  onEnrollmentClick,
   highlight,
   gradeFilter,
 }: WaitlistTimetableProps) {
@@ -440,6 +442,7 @@ export function WaitlistTimetable({
                               key={slot.tutorId === -1 ? `wait-${slot.location}` : slot.tutorId}
                               slot={slot}
                               onEntryClick={onEntryClick}
+                              onEnrollmentClick={onEnrollmentClick}
                               highlight={cardHighlight}
                             />
                           );
@@ -466,9 +469,10 @@ export function WaitlistTimetable({
 // Tutor Card (collapsed/expanded)
 // ============================================
 
-function TutorCard({ slot, onEntryClick, highlight }: {
+function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
   slot: TutorSlot;
   onEntryClick?: (entry: WaitlistEntry) => void;
+  onEnrollmentClick?: (enrollmentId: number, event: React.MouseEvent) => void;
   highlight?: "current" | "preferred" | "dimmed" | null;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -668,7 +672,8 @@ function TutorCard({ slot, onEntryClick, highlight }: {
           {slot.enrollments.map((e) => (
             <div
               key={e.id}
-              className="flex items-center gap-1.5 py-0.5"
+              className={cn("flex items-center gap-1.5 py-0.5", onEnrollmentClick && "cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/20 rounded transition-colors")}
+              onClick={onEnrollmentClick ? (ev) => { ev.stopPropagation(); onEnrollmentClick(e.id, ev); } : undefined}
             >
               <span
                 className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"

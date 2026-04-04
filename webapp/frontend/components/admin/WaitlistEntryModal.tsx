@@ -536,7 +536,7 @@ export function WaitlistEntryModal({
                 {slotPreferences.map((sp, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
+                    className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
                   >
                     <select
                       value={sp.location}

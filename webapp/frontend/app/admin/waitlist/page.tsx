@@ -151,6 +151,25 @@ export default function AdminWaitlistPage() {
     [entries]
   );
 
+  const summaryStats = useMemo(() => {
+    if (!entries || entries.length === 0) return null;
+    const newCount = entries.filter((e) => e.entry_type === "New").length;
+    const scCount = entries.filter((e) => e.entry_type === "Slot Change").length;
+    const gradeCounts = new Map<string, number>();
+    for (const e of entries) {
+      const key = `${e.grade}${e.lang_stream || ""}`;
+      gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+    }
+    const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const oldest = entries.reduce((min, e) => {
+      if (!e.created_at) return min;
+      const d = new Date(e.created_at).getTime();
+      return d < min ? d : min;
+    }, Date.now());
+    const oldestDays = Math.floor((Date.now() - oldest) / 86400000);
+    return { newCount, scCount, topGrades, oldestDays };
+  }, [entries]);
+
   const handleToggleActive = useCallback(
     async (entry: WaitlistEntry) => {
       try {
@@ -391,17 +410,17 @@ export default function AdminWaitlistPage() {
   const activeCount = entries?.length ?? 0;
 
   return (
-    <DeskSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+    <DeskSurface fullHeight>
+      <PageTransition className="h-full p-4 sm:p-6 flex flex-col">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 flex flex-col min-h-0 flex-1">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                 <ClipboardList className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Waitlist</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Waitlist</h1>
                 <p className="text-sm text-foreground/60">
                   {activeCount} {showActive ? "active" : "closed"} entr
                   {activeCount === 1 ? "y" : "ies"}
@@ -417,26 +436,26 @@ export default function AdminWaitlistPage() {
                 <button
                   onClick={() => setViewMode("list")}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
                     viewMode === "list"
                       ? "bg-[#a0704b] text-white"
                       : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
                 >
                   <List className="h-4 w-4" />
-                  List
+                  <span className="hidden sm:inline">List</span>
                 </button>
                 <button
                   onClick={() => setViewMode("timetable")}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium transition-colors",
                     viewMode === "timetable"
                       ? "bg-[#a0704b] text-white"
                       : "bg-transparent text-foreground/60 hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
                 >
                   <CalendarDays className="h-4 w-4" />
-                  Timetable
+                  <span className="hidden sm:inline">Timetable</span>
                 </button>
               </div>
 
@@ -446,10 +465,10 @@ export default function AdminWaitlistPage() {
                     setEditingEntry(null);
                     setEntryModalOpen(true);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b6040] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-[#a0704b] hover:bg-[#8b6040] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Entry
+                  <span className="hidden sm:inline">Add Entry</span>
                 </button>
               )}
             </div>
@@ -558,6 +577,7 @@ export default function AdminWaitlistPage() {
                 location={selectedLocation}
                 waitlistEntries={entries || []}
                 gradeFilter={gradeFilter || undefined}
+                onEnrollmentClick={handleViewEnrollment}
                 onEntryClick={(entry) => {
                   setEditingEntry(entry);
                   setEntryModalOpen(true);
@@ -630,7 +650,7 @@ export default function AdminWaitlistPage() {
             </select>
 
             {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-[140px] sm:min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
               <input
                 type="text"
@@ -651,57 +671,41 @@ export default function AdminWaitlistPage() {
           </div>
 
           {/* Summary bar */}
-          {entries && entries.length > 0 && (() => {
-            const newCount = entries.filter((e) => e.entry_type === "New").length;
-            const scCount = entries.filter((e) => e.entry_type === "Slot Change").length;
-            const gradeCounts = new Map<string, number>();
-            for (const e of entries) {
-              const key = `${e.grade}${e.lang_stream || ""}`;
-              gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
-            }
-            const topGrades = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-            const oldest = entries.reduce((min, e) => {
-              if (!e.created_at) return min;
-              const d = new Date(e.created_at).getTime();
-              return d < min ? d : min;
-            }, Date.now());
-            const oldestDays = Math.floor((Date.now() - oldest) / 86400000);
-            return (
-              <div className="flex flex-wrap items-center gap-2 mb-3 text-[11px]">
-                {newCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-foreground/60 font-medium">
-                    New: {newCount}
+          {summaryStats && (
+            <div className="flex flex-wrap items-center gap-2 mb-3 text-[11px]">
+              {summaryStats.newCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-foreground/60 font-medium">
+                  New: {summaryStats.newCount}
+                </span>
+              )}
+              {summaryStats.scCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">
+                  Slot Change: {summaryStats.scCount}
+                </span>
+              )}
+              <span className="text-foreground/30">|</span>
+              {summaryStats.topGrades.map(([grade, count]) => (
+                <span
+                  key={grade}
+                  className="px-1.5 py-0.5 rounded text-gray-800 font-medium"
+                  style={{ backgroundColor: getGradeColor(grade.replace(/[CE]$/, ""), grade.match(/[CE]$/)?.[0]) }}
+                >
+                  {grade}: {count}
+                </span>
+              ))}
+              {summaryStats.oldestDays > 0 && (
+                <>
+                  <span className="text-foreground/30">|</span>
+                  <span className={cn(
+                    "font-medium",
+                    summaryStats.oldestDays > 30 ? "text-red-500" : summaryStats.oldestDays > 7 ? "text-amber-500" : "text-foreground/50"
+                  )}>
+                    Longest wait: {summaryStats.oldestDays}d
                   </span>
-                )}
-                {scCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">
-                    Slot Change: {scCount}
-                  </span>
-                )}
-                <span className="text-foreground/30">|</span>
-                {topGrades.map(([grade, count]) => (
-                  <span
-                    key={grade}
-                    className="px-1.5 py-0.5 rounded text-gray-800 font-medium"
-                    style={{ backgroundColor: getGradeColor(grade.replace(/[CE]$/, ""), grade.match(/[CE]$/)?.[0]) }}
-                  >
-                    {grade}: {count}
-                  </span>
-                ))}
-                {oldestDays > 0 && (
-                  <>
-                    <span className="text-foreground/30">|</span>
-                    <span className={cn(
-                      "font-medium",
-                      oldestDays > 30 ? "text-red-500" : oldestDays > 7 ? "text-amber-500" : "text-foreground/50"
-                    )}>
-                      Longest wait: {oldestDays}d
-                    </span>
-                  </>
-                )}
-              </div>
-            );
-          })()}
+                </>
+              )}
+            </div>
+          )}
 
           {/* Paste Zone */}
           {!isReadOnly && (
@@ -758,8 +762,8 @@ export default function AdminWaitlistPage() {
                           </div>
                         </div>
                       )}
-                      <div className="max-h-60 overflow-y-auto">
-                        <table className="w-full text-xs">
+                      <div className="max-h-60 overflow-auto">
+                        <table className="w-full text-xs min-w-[400px]">
                           <thead>
                             <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                               <th className="text-left py-1.5 px-3 font-medium text-foreground/60">
@@ -853,25 +857,25 @@ export default function AdminWaitlistPage() {
               ))}
             </div>
           ) : entries && entries.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-[#faf8f5] dark:bg-[#1a1a1a]">
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="text-left py-2 px-3">
                       <SortHeader field="student_name">Name</SortHeader>
                     </th>
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 hidden md:table-cell">
                       <SortHeader field="school">School</SortHeader>
                     </th>
                     <th className="text-left py-2 px-3">
                       <SortHeader field="grade">Grade</SortHeader>
                     </th>
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 hidden sm:table-cell">
                       <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
                         Phone
                       </span>
                     </th>
-                    <th className="text-left py-2 px-3">
+                    <th className="text-left py-2 px-3 hidden lg:table-cell">
                       <span className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
                         Preferred Slots
                       </span>
@@ -1069,13 +1073,16 @@ function WaitlistRow({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
-      className="border-b border-gray-100 dark:border-gray-800 hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+      className="group border-b border-gray-100 dark:border-gray-800 hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
       onClick={onEdit}
     >
       {/* Name */}
       <td className="py-2.5 px-3">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground">
+          {entry.school_student_id && (
+            <span className="text-[10px] text-foreground/40 font-mono">{entry.school_student_id}</span>
+          )}
+          <span className="font-medium text-foreground group-hover:underline">
             {entry.student_name}
           </span>
           {entry.entry_type === "Slot Change" && (
@@ -1084,6 +1091,9 @@ function WaitlistRow({
             </span>
           )}
         </div>
+        {entry.school && (
+          <div className="text-xs text-foreground/40 mt-0.5 md:hidden">{entry.school}</div>
+        )}
         {entry.parent_name && (
           <div className="text-xs text-foreground/40 mt-0.5 flex items-center gap-1">
             <WeChatIcon className="h-3 w-3 text-green-600 flex-shrink-0" />
@@ -1099,7 +1109,7 @@ function WaitlistRow({
       </td>
 
       {/* School */}
-      <td className="py-2.5 px-3 text-foreground/70">{entry.school}</td>
+      <td className="py-2.5 px-3 text-foreground/70 hidden md:table-cell">{entry.school}</td>
 
       {/* Grade */}
       <td className="py-2.5 px-3">
@@ -1118,12 +1128,12 @@ function WaitlistRow({
       </td>
 
       {/* Phone */}
-      <td className="py-2.5 px-3 text-foreground/70 font-mono text-xs">
+      <td className="py-2.5 px-3 text-foreground/70 font-mono text-xs hidden sm:table-cell">
         {entry.phone || <span className="text-foreground/30">—</span>}
       </td>
 
       {/* Preferred Slots */}
-      <td className="py-2.5 px-3">
+      <td className="py-2.5 px-3 hidden lg:table-cell">
         {entry.slot_preferences.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {entry.slot_preferences.map((sp) => (
@@ -1155,7 +1165,7 @@ function WaitlistRow({
                 "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
               ctx.label === "Student created" &&
                 "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
-              ctx.label === "No student record" &&
+              ctx.label === "No student" &&
                 "bg-gray-100 dark:bg-gray-800 text-foreground/50",
               ctx.label === "Cancelled" &&
                 "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"

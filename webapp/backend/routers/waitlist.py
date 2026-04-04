@@ -71,7 +71,7 @@ def _derive_enrollment_context(
 ) -> EnrollmentContextInfo:
     """Derive enrollment context label for a waitlist entry."""
     if not entry.student_id:
-        return EnrollmentContextInfo(label="No student record")
+        return EnrollmentContextInfo(label="No student")
 
     info = subsequent_map.get(entry.student_id)
     if not info:
