@@ -33,6 +33,7 @@ interface ContactBuddyStepProps {
   handleCreateBuddyGroup: () => void;
   buddyReferrerName: string;
   setBuddyReferrerName: (v: string) => void;
+  buddyCodeIsOwn: boolean;
 }
 
 export function ContactBuddyStep({
@@ -55,6 +56,7 @@ export function ContactBuddyStep({
   handleCreateBuddyGroup,
   buddyReferrerName,
   setBuddyReferrerName,
+  buddyCodeIsOwn,
 }: ContactBuddyStepProps) {
   return (
     <div className="space-y-6">
@@ -160,55 +162,77 @@ export function ContactBuddyStep({
           >
             <div className="overflow-hidden">
               <div className="space-y-2 pt-1">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={buddyCode}
-                    onChange={(e) => {
-                      setBuddyCode(e.target.value.toUpperCase());
-                      setBuddyCodeValid(null);
-                    }}
-                    className={`${inputClass} flex-1`}
-                    placeholder="BG-XXXX"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => validateBuddyCode(buddyCode)}
-                    className="px-4 py-2.5 text-sm font-medium bg-secondary text-secondary-foreground rounded-xl hover:bg-muted transition-colors"
-                  >
-                    {t("驗證", "Verify", lang)}
-                  </button>
-                </div>
-                {buddyCodeValid === true && (
-                  <div className="text-xs text-green-600">
-                    {t(
-                      `同行碼有效（目前 ${buddyMemberCount} 人已加入）`,
-                      `Valid code (${buddyMemberCount} member(s) joined)`,
-                      lang
+                {buddyCodeIsOwn ? (
+                  /* Code creator: show read-only code with share prompt */
+                  <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 text-center space-y-1">
+                    <div className="text-xs text-muted-foreground">
+                      {t("你的同行碼", "Your buddy code", lang)}
+                    </div>
+                    <div className="text-lg font-mono font-bold text-primary">
+                      {buddyCode}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t(
+                        "請將此碼分享給你的朋友，讓他們報名時輸入",
+                        "Share this code with your friends to enter when they apply",
+                        lang
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Code joiner: input + verify */
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={buddyCode}
+                        onChange={(e) => {
+                          setBuddyCode(e.target.value.toUpperCase());
+                          setBuddyCodeValid(null);
+                        }}
+                        className={`${inputClass} flex-1`}
+                        placeholder="BG-XXXX"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => validateBuddyCode(buddyCode)}
+                        className="px-4 py-2.5 text-sm font-medium bg-secondary text-secondary-foreground rounded-xl hover:bg-muted transition-colors"
+                      >
+                        {t("驗證", "Verify", lang)}
+                      </button>
+                    </div>
+                    {buddyCodeValid === true && (
+                      <div className="text-xs text-green-600">
+                        {t(
+                          `同行碼有效（目前 ${buddyMemberCount} 人已加入）`,
+                          `Valid code (${buddyMemberCount} member(s) joined)`,
+                          lang
+                        )}
+                      </div>
                     )}
-                  </div>
+                    {buddyCodeValid === false && (
+                      <div className="text-xs text-red-600">
+                        {t("同行碼無效", "Invalid buddy code", lang)}
+                      </div>
+                    )}
+                    <div className="text-center text-xs text-muted-foreground">
+                      {t("或", "or", lang)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateBuddyGroup}
+                      className="w-full py-2.5 text-sm font-medium border-2 border-dashed border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors"
+                    >
+                      {t("建立新的同行碼", "Create a New Buddy Code", lang)}
+                    </button>
+                  </>
                 )}
-                {buddyCodeValid === false && (
-                  <div className="text-xs text-red-600">
-                    {t("同行碼無效", "Invalid buddy code", lang)}
-                  </div>
-                )}
-                <div className="text-center text-xs text-muted-foreground">
-                  {t("或", "or", lang)}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCreateBuddyGroup}
-                  className="w-full py-2.5 text-sm font-medium border-2 border-dashed border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors"
-                >
-                  {t("建立新的同行碼", "Create a New Buddy Code", lang)}
-                </button>
-                {buddyCodeValid && (
+                {buddyCodeValid && !buddyCodeIsOwn && (
                   <div className="pt-2">
                     <label className={labelClass}>
                       {t(
-                        "分享同行碼給你的朋友姓名：",
-                        "Name of the friend who shared this code:",
+                        "誰將此同行碼分享給你？",
+                        "Who shared this code with you?",
                         lang
                       )}
                       <RequiredMark />
@@ -224,13 +248,6 @@ export function ContactBuddyStep({
                         lang
                       )}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t(
-                        "為核實同行優惠資格，請填寫分享此碼給您的朋友姓名",
-                        "For verification purposes, please enter the name of the friend who shared this code with you",
-                        lang
-                      )}
-                    </p>
                   </div>
                 )}
               </div>

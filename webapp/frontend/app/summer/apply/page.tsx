@@ -56,6 +56,7 @@ export default function SummerApplyPage() {
   const [buddyNames, setBuddyNames] = useState("");
   const [buddyReferrerName, setBuddyReferrerName] = useState("");
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
+  const [buddyCodeIsOwn, setBuddyCodeIsOwn] = useState(false);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
     null
   );
@@ -84,9 +85,11 @@ export default function SummerApplyPage() {
     try {
       const result = await summerAPI.getBuddyGroup(code.trim());
       setBuddyCodeValid(true);
+      setBuddyCodeIsOwn(false);
       setBuddyMemberCount(result.member_count);
     } catch {
       setBuddyCodeValid(false);
+      setBuddyCodeIsOwn(false);
       setBuddyMemberCount(null);
     }
   }, []);
@@ -98,6 +101,7 @@ export default function SummerApplyPage() {
       setBuddyCode(result.buddy_code);
       setBuddyMode("code");
       setBuddyCodeValid(true);
+      setBuddyCodeIsOwn(true);
       setBuddyMemberCount(0);
     } catch (e: unknown) {
       setError(
@@ -175,7 +179,7 @@ export default function SummerApplyPage() {
           errors.push(
             t("請填寫聯絡電話", "Please enter a contact phone number", lang)
           );
-        if (buddyMode === "code" && buddyCodeValid && !buddyReferrerName.trim())
+        if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && !buddyReferrerName.trim())
           errors.push(
             t(
               "請填寫分享同行碼的朋友姓名",
@@ -454,6 +458,7 @@ export default function SummerApplyPage() {
             handleCreateBuddyGroup={handleCreateBuddyGroup}
             buddyReferrerName={buddyReferrerName}
             setBuddyReferrerName={setBuddyReferrerName}
+            buddyCodeIsOwn={buddyCodeIsOwn}
           />
         );
       case 5:
