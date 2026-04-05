@@ -344,6 +344,7 @@ export function SummerConfigEditor({
   const [centerOptions, setCenterOptions] = useState<WithId<SummerBilingualOption>[]>(
     []
   );
+  const [langStreamOptions, setLangStreamOptions] = useState<WithId<SummerBilingualOption>[]>([]);
   const [textContent, setTextContent] = useState<Record<string, string>>({});
 
   // Dirty state tracking
@@ -377,6 +378,7 @@ export function SummerConfigEditor({
       time_slots: [],
       existing_student_options: existingStudentOptions.length > 0 ? existingStudentOptions : null,
       center_options: centerOptions.length > 0 ? centerOptions : null,
+      lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
       banner_image_url: bannerImageUrl || null,
     }),
@@ -384,7 +386,7 @@ export function SummerConfigEditor({
       year, title, appOpenDate, appCloseDate,
       courseStartDate, courseEndDate, totalLessons, baseFee,
       registrationFee, discounts, locations, grades,
-      existingStudentOptions, centerOptions, textContent, bannerImageUrl,
+      existingStudentOptions, centerOptions, langStreamOptions, textContent, bannerImageUrl,
     ]
   );
 
@@ -491,6 +493,7 @@ export function SummerConfigEditor({
         setGrades(stampIds(config.available_grades, "g"));
         setExistingStudentOptions(stampIds(config.existing_student_options || [], "o"));
         setCenterOptions(stampIds(config.center_options || [], "c"));
+        setLangStreamOptions(stampIds(config.lang_stream_options || [], "ls"));
         setTextContent(config.text_content || {});
       } catch {
         showToast("Failed to load config", "error");
@@ -651,6 +654,7 @@ export function SummerConfigEditor({
       time_slots: [],
       existing_student_options: existingStudentOptions.length > 0 ? existingStudentOptions : null,
       center_options: centerOptions.length > 0 ? centerOptions : null,
+      lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
     };
 
@@ -717,7 +721,7 @@ export function SummerConfigEditor({
     const centerIdxMap = new Map(centerOptions.map((c, i) => [c._id, i]));
     return existingStudentOptions.map(opt => {
       const isNone = opt.name_en.toLowerCase() === "none" || opt.name.includes("皆非");
-      if (isNone) return { isNone: true as const, optionCenters: [] as WithId<SummerBilingualOption>[], groupFlatIndices: [] as number[] };
+      if (isNone) return { isNone: true as const, optionCenters: [] as WithId<SummerBilingualOption>[], groupFlatIndices: [] as number[], usesPrefix: false };
       const prefixMatched = opt.name_en
         ? centerOptions.filter(c => c.name_en.startsWith(opt.name_en))
         : [];
@@ -736,6 +740,7 @@ export function SummerConfigEditor({
         isNone: false as const,
         optionCenters,
         groupFlatIndices: optionCenters.map(c => centerIdxMap.get(c._id) ?? -1),
+        usesPrefix: prefixMatched.length > 0,
       };
     });
   }, [existingStudentOptions, centerOptions]);
@@ -1138,6 +1143,82 @@ export function SummerConfigEditor({
         )}
       </Section>
 
+      {/* Section 4b: Language Stream Options → Step 1 */}
+      <Section title="Language Stream Options" subtitle="Step 1" status={{ filled: langStreamOptions.length > 0, count: langStreamOptions.length > 0 ? `${langStreamOptions.length}` : undefined }} onOpen={() => setPreviewStep(1)}>
+        <Label>Language of Instruction</Label>
+        <p className="text-[10px] text-muted-foreground mb-2">Options shown on the public form. Leave empty to hide the question.</p>
+        <Reorder.Group axis="y" values={langStreamOptions.map(o => o._id)} onReorder={(newOrder) => setLangStreamOptions(reorderByIds(langStreamOptions, newOrder))} className="space-y-0">
+        {langStreamOptions.map((o, i) => (
+          <ReorderableItem key={o._id} value={o._id} disabled={isReadOnly}>
+          {(dragControls) => (
+          <div className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
+            <DragHandle controls={dragControls} />
+            <div>
+              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
+              <input
+                value={o.name}
+                onChange={(e) => {
+                  const next = [...langStreamOptions];
+                  next[i] = { ...o, name: e.target.value };
+                  setLangStreamOptions(next);
+                }}
+                className={inputClass}
+                disabled={isReadOnly}
+              />
+            </div>
+            <div>
+              {i === 0 && <span className="text-[10px] text-muted-foreground">Name (EN)</span>}
+              <input
+                value={o.name_en}
+                onChange={(e) => {
+                  const next = [...langStreamOptions];
+                  next[i] = { ...o, name_en: e.target.value };
+                  setLangStreamOptions(next);
+                }}
+                className={inputClass}
+                disabled={isReadOnly}
+              />
+            </div>
+            <div>
+              {i === 0 && <span className="text-[10px] text-muted-foreground">Value</span>}
+              <input
+                value={o.value || ""}
+                onChange={(e) => {
+                  const next = [...langStreamOptions];
+                  next[i] = { ...o, value: e.target.value };
+                  setLangStreamOptions(next);
+                }}
+                className={inputClass}
+                disabled={isReadOnly}
+              />
+            </div>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={() => deleteWithUndo(langStreamOptions, i, setLangStreamOptions, "Language Stream")}
+                className="p-2 text-red-500 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          )}
+          </ReorderableItem>
+        ))}
+        </Reorder.Group>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={() =>
+              setLangStreamOptions([...langStreamOptions, { _id: genId("ls"), name: "", name_en: "", value: "" }])
+            }
+            className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"
+          >
+            <Plus className="h-3 w-3" /> Add Language Stream
+          </button>
+        )}
+      </Section>
+
       {/* Section 5: Student Options → Step 2 */}
       <Section title="Student Options" subtitle="Step 2" status={{ filled: existingStudentOptions.length > 0 || centerOptions.length > 0, count: (existingStudentOptions.length + centerOptions.length) > 0 ? `${existingStudentOptions.length + centerOptions.length}` : undefined }} onOpen={() => setPreviewStep(2)}>
         <Label>Existing Student Options & Centers</Label>
@@ -1146,7 +1227,7 @@ export function SummerConfigEditor({
           setExistingStudentOptions(reorderByIds(existingStudentOptions, newOrder));
         }} className="space-y-2">
           {existingStudentOptions.map((opt, oi) => {
-            const { isNone, optionCenters, groupFlatIndices } = centerGrouping[oi] || { isNone: false, optionCenters: [], groupFlatIndices: [] };
+            const { isNone, optionCenters, groupFlatIndices, usesPrefix } = centerGrouping[oi] || { isNone: false, optionCenters: [], groupFlatIndices: [], usesPrefix: false };
             const optExpanded = expandedStudentOptions.has(opt._id);
             return (
               <ReorderableItem key={opt._id} value={opt._id} disabled={isReadOnly}>
@@ -1269,7 +1350,8 @@ export function SummerConfigEditor({
                               ? groupFlatIndices[groupFlatIndices.length - 1] + 1
                               : centerOptions.length;
                             const next = [...centerOptions];
-                            next.splice(insertAt, 0, { _id: genId("c"), name: "", name_en: "" });
+                            const name_en = usesPrefix ? `${opt.name_en} ()` : "";
+                            next.splice(insertAt, 0, { _id: genId("c"), name: "", name_en });
                             setCenterOptions(next);
                           }}
                           className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 mt-2"

@@ -1118,6 +1118,7 @@ class SummerCourseConfig(Base):
     existing_student_options = Column(JSON, default=list)
     center_options = Column(JSON, default=list)
     text_content = Column(JSON, default=dict)
+    lang_stream_options = Column(JSON, default=list)
     banner_image_url = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -1208,6 +1209,7 @@ class SummerApplication(Base):
     # Buddy group
     buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=True)
     buddy_names = Column(Text)
+    buddy_referrer_name = Column(String(255))
     # Existing student link
     existing_student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
     # Status

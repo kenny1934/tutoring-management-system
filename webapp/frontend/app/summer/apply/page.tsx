@@ -37,6 +37,7 @@ export default function SummerApplyPage() {
   const [studentName, setStudentName] = useState("");
   const [school, setSchool] = useState("");
   const [grade, setGrade] = useState("");
+  const [langStream, setLangStream] = useState("");
   const [isExistingStudent, setIsExistingStudent] = useState("");
   const [currentCenters, setCurrentCenters] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState("");
@@ -53,6 +54,7 @@ export default function SummerApplyPage() {
   );
   const [buddyCode, setBuddyCode] = useState("");
   const [buddyNames, setBuddyNames] = useState("");
+  const [buddyReferrerName, setBuddyReferrerName] = useState("");
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
     null
@@ -119,6 +121,14 @@ export default function SummerApplyPage() {
           );
         if (!grade)
           errors.push(t("請選擇年級", "Please select a grade", lang));
+        if (
+          config?.lang_stream_options &&
+          config.lang_stream_options.length > 0 &&
+          !langStream
+        )
+          errors.push(
+            t("請選擇教學語言", "Please select a language stream", lang)
+          );
         break;
       case 2:
         if (
@@ -164,6 +174,14 @@ export default function SummerApplyPage() {
         if (!contactPhone.trim())
           errors.push(
             t("請填寫聯絡電話", "Please enter a contact phone number", lang)
+          );
+        if (buddyMode === "code" && buddyCodeValid && !buddyReferrerName.trim())
+          errors.push(
+            t(
+              "請填寫分享同行碼的朋友姓名",
+              "Please enter the name of the friend who shared the buddy code",
+              lang
+            )
           );
         break;
     }
@@ -223,6 +241,7 @@ export default function SummerApplyPage() {
       student_name: studentName,
       school: school || null,
       grade,
+      lang_stream: langStream || null,
       is_existing_student: isExistingStudent || null,
       current_centers: currentCenters.length > 0 ? currentCenters : null,
       wechat_id: wechatId || null,
@@ -236,6 +255,8 @@ export default function SummerApplyPage() {
       buddy_code:
         buddyMode === "code" && buddyCodeValid ? buddyCode.trim() : null,
       buddy_names: buddyMode === "names" ? buddyNames : null,
+      buddy_referrer_name:
+        buddyMode === "code" && buddyCodeValid ? buddyReferrerName.trim() || null : null,
       form_language: lang,
       sessions_per_week: sessionsPerWeek,
     };
@@ -249,7 +270,7 @@ export default function SummerApplyPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       // Only show known user-facing messages; hide raw server errors
-      const knownErrors = ["Application period is not open", "Invalid buddy code", "already submitted"];
+      const knownErrors = ["Application period is not open", "Invalid buddy code", "already submitted", "This phone number has already submitted"];
       setError(knownErrors.some(k => msg.includes(k)) ? msg : "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
@@ -375,6 +396,8 @@ export default function SummerApplyPage() {
             setSchool={setSchool}
             grade={grade}
             setGrade={setGrade}
+            langStream={langStream}
+            setLangStream={setLangStream}
           />
         );
       case 2:
@@ -429,6 +452,8 @@ export default function SummerApplyPage() {
             buddyMemberCount={buddyMemberCount}
             validateBuddyCode={validateBuddyCode}
             handleCreateBuddyGroup={handleCreateBuddyGroup}
+            buddyReferrerName={buddyReferrerName}
+            setBuddyReferrerName={setBuddyReferrerName}
           />
         );
       case 5:
@@ -439,6 +464,7 @@ export default function SummerApplyPage() {
             studentName={studentName}
             school={school}
             grade={grade}
+            langStream={langStream}
             isExistingStudent={isExistingStudent}
             currentCenters={currentCenters}
             selectedLocation={selectedLocation}
@@ -453,6 +479,7 @@ export default function SummerApplyPage() {
             buddyMode={buddyMode}
             buddyCode={buddyCode}
             buddyNames={buddyNames}
+            buddyReferrerName={buddyReferrerName}
             confirmed={confirmed}
             setConfirmed={setConfirmed}
           />

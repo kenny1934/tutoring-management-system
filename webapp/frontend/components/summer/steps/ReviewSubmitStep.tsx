@@ -17,6 +17,7 @@ interface ReviewSubmitStepProps {
   studentName: string;
   school: string;
   grade: string;
+  langStream: string;
   isExistingStudent: string;
   currentCenters: string[];
   selectedLocation: string;
@@ -31,6 +32,7 @@ interface ReviewSubmitStepProps {
   buddyMode: "none" | "code" | "names";
   buddyCode: string;
   buddyNames: string;
+  buddyReferrerName: string;
   confirmed: boolean;
   setConfirmed: (v: boolean) => void;
 }
@@ -41,6 +43,7 @@ export function ReviewSubmitStep({
   studentName,
   school,
   grade,
+  langStream,
   isExistingStudent,
   currentCenters,
   selectedLocation,
@@ -55,6 +58,7 @@ export function ReviewSubmitStep({
   buddyMode,
   buddyCode,
   buddyNames,
+  buddyReferrerName,
   confirmed,
   setConfirmed,
 }: ReviewSubmitStepProps) {
@@ -75,6 +79,15 @@ export function ReviewSubmitStep({
       ? gradeData.name
       : gradeData.name_en
     : grade;
+
+  const langStreamData = config.lang_stream_options?.find(
+    (o) => (o.value || o.name_en) === langStream
+  );
+  const langStreamLabel = langStreamData
+    ? lang === "zh"
+      ? langStreamData.name
+      : langStreamData.name_en
+    : langStream;
 
   return (
     <div className="space-y-6">
@@ -101,6 +114,12 @@ export function ReviewSubmitStep({
             label={t("年級", "Grade", lang)}
             value={gradeLabel}
           />
+          {langStream && (
+            <SummaryRow
+              label={t("教學語言", "Language Stream", lang)}
+              value={langStreamLabel}
+            />
+          )}
           <SummaryRow
             label={t("現有學生", "Existing Student", lang)}
             value={isExistingStudent}
@@ -154,10 +173,18 @@ export function ReviewSubmitStep({
             value={contactPhone}
           />
           {buddyMode === "code" && buddyCode && (
-            <SummaryRow
-              label={t("同行碼", "Buddy Code", lang)}
-              value={buddyCode}
-            />
+            <>
+              <SummaryRow
+                label={t("同行碼", "Buddy Code", lang)}
+                value={buddyCode}
+              />
+              {buddyReferrerName && (
+                <SummaryRow
+                  label={t("同行朋友姓名", "Buddy Referrer", lang)}
+                  value={buddyReferrerName}
+                />
+              )}
+            </>
           )}
           {buddyMode === "names" && buddyNames && (
             <SummaryRow

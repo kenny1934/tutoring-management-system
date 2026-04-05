@@ -838,6 +838,7 @@ export function SummerApplicationDetailModal({
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Buddy Group</div>
                 {app.buddy_code && <FieldValue label="Code" value={app.buddy_code} mono copyable />}
+                {app.buddy_referrer_name && <FieldValue label="Referrer" value={app.buddy_referrer_name} />}
                 {app.buddy_names && <div className="text-xs text-muted-foreground">Requested: {app.buddy_names}</div>}
                 {buddyMembers.length > 0 ? (
                   <div className="mt-1 space-y-0.5">

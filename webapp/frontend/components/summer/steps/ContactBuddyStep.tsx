@@ -31,6 +31,8 @@ interface ContactBuddyStepProps {
   buddyMemberCount: number | null;
   validateBuddyCode: (code: string) => void;
   handleCreateBuddyGroup: () => void;
+  buddyReferrerName: string;
+  setBuddyReferrerName: (v: string) => void;
 }
 
 export function ContactBuddyStep({
@@ -51,6 +53,8 @@ export function ContactBuddyStep({
   buddyMemberCount,
   validateBuddyCode,
   handleCreateBuddyGroup,
+  buddyReferrerName,
+  setBuddyReferrerName,
 }: ContactBuddyStepProps) {
   return (
     <div className="space-y-6">
@@ -199,6 +203,36 @@ export function ContactBuddyStep({
                 >
                   {t("建立新的同行碼", "Create a New Buddy Code", lang)}
                 </button>
+                {buddyCodeValid && (
+                  <div className="pt-2">
+                    <label className={labelClass}>
+                      {t(
+                        "分享同行碼給你的朋友姓名：",
+                        "Name of the friend who shared this code:",
+                        lang
+                      )}
+                      <RequiredMark />
+                    </label>
+                    <input
+                      type="text"
+                      value={buddyReferrerName}
+                      onChange={(e) => setBuddyReferrerName(e.target.value)}
+                      className={inputClass}
+                      placeholder={t(
+                        "請輸入朋友的英文姓名",
+                        "Enter your friend's English name",
+                        lang
+                      )}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t(
+                        "為核實同行優惠資格，請填寫分享此碼給您的朋友姓名",
+                        "For verification purposes, please enter the name of the friend who shared this code with you",
+                        lang
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

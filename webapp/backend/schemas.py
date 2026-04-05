@@ -2052,6 +2052,7 @@ class SummerCourseFormConfig(BaseModel):
     time_slots: List[str]
     existing_student_options: Optional[List[Dict[str, Any]]] = None
     center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     banner_image_url: Optional[str] = None
 
@@ -2071,10 +2072,11 @@ class SummerApplicationCreate(BaseModel):
     preference_1_time: Optional[str] = Field(None, max_length=50)
     preference_2_day: Optional[str] = Field(None, max_length=20)
     preference_2_time: Optional[str] = Field(None, max_length=50)
-    unavailability_notes: Optional[str] = None
+    unavailability_notes: Optional[str] = Field(None, max_length=2000)
     buddy_code: Optional[str] = Field(None, max_length=20, description="Existing buddy group code to join")
-    buddy_names: Optional[str] = None
-    form_language: Optional[str] = Field("zh", max_length=10)
+    buddy_names: Optional[str] = Field(None, max_length=500)
+    buddy_referrer_name: Optional[str] = Field(None, max_length=255)
+    form_language: Optional[Literal["zh", "en"]] = "zh"
     sessions_per_week: int = Field(1, ge=1, le=3)
 
 
@@ -2111,6 +2113,7 @@ class SummerCourseConfigCreate(BaseModel):
     time_slots: List[str]
     existing_student_options: Optional[List[Dict[str, Any]]] = None
     center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     banner_image_url: Optional[str] = None
     is_active: bool = False
@@ -2131,6 +2134,7 @@ class SummerCourseConfigUpdate(BaseModel):
     time_slots: Optional[List[str]] = None
     existing_student_options: Optional[List[Dict[str, Any]]] = None
     center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     banner_image_url: Optional[str] = None
     is_active: Optional[bool] = None
@@ -2153,6 +2157,7 @@ class SummerCourseConfigResponse(BaseModel):
     time_slots: List[str]
     existing_student_options: Optional[List[Dict[str, Any]]] = None
     center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     banner_image_url: Optional[str] = None
     is_active: bool
@@ -2184,6 +2189,7 @@ class SummerApplicationResponse(BaseModel):
     buddy_group_id: Optional[int] = None
     buddy_code: Optional[str] = None
     buddy_names: Optional[str] = None
+    buddy_referrer_name: Optional[str] = None
     existing_student_id: Optional[int] = None
     application_status: str
     admin_notes: Optional[str] = None

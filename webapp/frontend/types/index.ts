@@ -2036,6 +2036,7 @@ export interface SummerCourseFormConfig {
   time_slots: string[];
   existing_student_options?: SummerBilingualOption[] | null;
   center_options?: SummerBilingualOption[] | null;
+  lang_stream_options?: SummerBilingualOption[] | null;
   text_content?: Record<string, string> | null;
   banner_image_url?: string | null;
 }
@@ -2057,6 +2058,7 @@ export interface SummerApplicationCreate {
   unavailability_notes?: string | null;
   buddy_code?: string | null;
   buddy_names?: string | null;
+  buddy_referrer_name?: string | null;
   form_language?: string;
   sessions_per_week?: number;
 }
@@ -2090,6 +2092,7 @@ export interface SummerCourseConfig {
   time_slots: string[];
   existing_student_options?: SummerBilingualOption[] | null;
   center_options?: SummerBilingualOption[] | null;
+  lang_stream_options?: SummerBilingualOption[] | null;
   text_content?: Record<string, string> | null;
   banner_image_url?: string | null;
   is_active: boolean;
@@ -2118,6 +2121,7 @@ export interface SummerApplication {
   buddy_group_id?: number | null;
   buddy_code?: string | null;
   buddy_names?: string | null;
+  buddy_referrer_name?: string | null;
   existing_student_id?: number | null;
   application_status: string;
   admin_notes?: string | null;

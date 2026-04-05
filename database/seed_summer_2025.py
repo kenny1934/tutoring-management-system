@@ -89,6 +89,11 @@ CONFIG_2025 = {
         {"name": "MathConcept中學教室", "name_en": "MathConcept Secondary Academy"},
         {"name": "以上皆非", "name_en": "None"},
     ]),
+    "lang_stream_options": json.dumps([
+        {"name": "中文部", "name_en": "Chinese-medium", "value": "CMI"},
+        {"name": "英文部", "name_en": "English-medium", "value": "EMI"},
+        {"name": "國際學校", "name_en": "International School", "value": "IS"},
+    ]),
     "center_options": json.dumps([
         {"name": "高士德分校", "name_en": "Costa Center"},
         {"name": "水坑尾分校", "name_en": "Campo Center"},

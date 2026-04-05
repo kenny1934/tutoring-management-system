@@ -121,6 +121,17 @@ def submit_application(
     if now < config.application_open_date or now > config.application_close_date:
         raise HTTPException(status_code=400, detail="Application period is not open")
 
+    # Check for duplicate submission (same phone + config)
+    existing_app = db.query(SummerApplication.id).filter(
+        SummerApplication.config_id == config.id,
+        SummerApplication.contact_phone == data.contact_phone.strip(),
+    ).first()
+    if existing_app:
+        raise HTTPException(
+            status_code=400,
+            detail="This phone number has already submitted an application. If you need to make changes, please contact us.",
+        )
+
     # Handle buddy code: join existing group or leave as None
     buddy_group_id = None
     buddy_code_out = None
@@ -157,6 +168,7 @@ def submit_application(
         unavailability_notes=data.unavailability_notes,
         buddy_group_id=buddy_group_id,
         buddy_names=data.buddy_names,
+        buddy_referrer_name=data.buddy_referrer_name,
         form_language=data.form_language or "zh",
         sessions_per_week=data.sessions_per_week,
         submitted_at=hk_now(),

@@ -32,6 +32,8 @@ interface StudentInfoStepProps {
   setSchool: (v: string) => void;
   grade: string;
   setGrade: (v: string) => void;
+  langStream: string;
+  setLangStream: (v: string) => void;
 }
 
 export function StudentInfoStep({
@@ -43,7 +45,10 @@ export function StudentInfoStep({
   setSchool,
   grade,
   setGrade,
+  langStream,
+  setLangStream,
 }: StudentInfoStepProps) {
+  const hasLangStream = !!(config.lang_stream_options && config.lang_stream_options.length > 0);
   const pricing = config.pricing_config;
   const ebDiscount = pricing.discounts?.find((d) => d.code === "EB");
   const eb3pDiscount = pricing.discounts?.find((d) => d.code === "EB3P");
@@ -233,12 +238,50 @@ export function StudentInfoStep({
             </IconLabel>
             <RequiredMark />
           </label>
-          <input
-            type="text"
-            value={school}
-            onChange={(e) => setSchool(e.target.value)}
-            className={inputClass}
-          />
+          {hasLangStream ? (
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <input
+                type="text"
+                value={school}
+                onChange={(e) => setSchool(e.target.value)}
+                className={`${inputClass} flex-1`}
+              />
+              <div className="flex gap-1 shrink-0">
+                {config.lang_stream_options!.map((opt, idx) => {
+                  const value = opt.value || opt.name_en;
+                  const label = lang === "zh" ? opt.name : opt.name_en;
+                  const selected = langStream === value;
+                  return (
+                    <label
+                      key={value || idx}
+                      className={`cursor-pointer inline-flex items-center justify-center px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                        selected
+                          ? "bg-primary/10 text-primary border-primary shadow-sm"
+                          : "bg-card text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="langStream"
+                        value={value}
+                        checked={selected}
+                        onChange={() => setLangStream(value)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              className={inputClass}
+            />
+          )}
         </div>
 
         <div>

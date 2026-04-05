@@ -238,16 +238,16 @@ async def deliver_scheduled_messages_once():
 
 
 # Initialize FastAPI app
+environment = os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
     title="Tutoring Management API",
     description="Read-only API for tutoring management system MVP",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if environment == "development" else None,
+    redoc_url="/redoc" if environment == "development" else None,
 )
 
 # Configure CORS - use specific origins even in development for better security practice
-environment = os.getenv("ENVIRONMENT", "development")
 if environment == "development":
     # Development: Allow localhost origins (can be overridden via ALLOWED_ORIGINS env var)
     allow_origins = os.getenv(

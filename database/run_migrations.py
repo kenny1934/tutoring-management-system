@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "096_waitlist_preferred_tutor.sql",
+    "097_summer_lang_stream_and_referrer.sql",
 ]
 
 def main():
