@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { PenLine } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -8,7 +7,6 @@ import {
   radioLabelClass,
   RadioCheck,
   RequiredMark,
-  IconLabel,
   shortCenterName,
 } from "@/lib/summer-utils";
 
@@ -112,13 +110,11 @@ export function StudentBackgroundStep({
   return (
     <div className={sectionClass}>
       <h2 className="text-base font-semibold text-foreground leading-snug">
-        <IconLabel icon={PenLine}>
-          {t(
-            config.text_content?.existing_student_question_zh || "學生是否現正就讀於MathConcept旗下教育中心？",
-            config.text_content?.existing_student_question_en || "Are you currently a MathConcept student?",
-            lang
-          )}
-        </IconLabel>
+        {t(
+          config.text_content?.existing_student_question_zh || "學生是否現正就讀於MathConcept旗下教育中心？",
+          config.text_content?.existing_student_question_en || "Are you currently a MathConcept student?",
+          lang
+        )}
         <RequiredMark />
       </h2>
 

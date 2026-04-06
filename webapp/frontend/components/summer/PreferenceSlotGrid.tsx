@@ -17,6 +17,22 @@ interface PreferenceSlotGridProps {
 const sameSlot = (a: PreferenceSlot | null, b: PreferenceSlot) =>
   !!a && a.day === b.day && a.time === b.time;
 
+/**
+ * Pure state transition for the tap-a-slot interaction. Preserves the
+ * invariant that if anything is selected, pref1 is always set — clearing
+ * pref1 promotes pref2 up rather than leaving an orphaned 2nd choice.
+ */
+export function nextPrefs(
+  pref1: PreferenceSlot | null,
+  pref2: PreferenceSlot | null,
+  tapped: PreferenceSlot
+): [PreferenceSlot | null, PreferenceSlot | null] {
+  if (sameSlot(pref1, tapped)) return [pref2, null];
+  if (sameSlot(pref2, tapped)) return [pref1, null];
+  if (!pref1) return [tapped, pref2];
+  return [pref1, tapped];
+}
+
 export function PreferenceSlotGrid({
   openDays,
   slotsByDay,
@@ -26,19 +42,8 @@ export function PreferenceSlotGrid({
   lang,
 }: PreferenceSlotGridProps) {
   const handleTap = (slot: PreferenceSlot) => {
-    if (sameSlot(pref1, slot)) {
-      onChange(null, pref2);
-      return;
-    }
-    if (sameSlot(pref2, slot)) {
-      onChange(pref1, null);
-      return;
-    }
-    if (!pref1) {
-      onChange(slot, pref2);
-      return;
-    }
-    onChange(pref1, slot);
+    const [next1, next2] = nextPrefs(pref1, pref2, slot);
+    onChange(next1, next2);
   };
 
   const badgeFor = (slot: PreferenceSlot): 1 | 2 | null => {
