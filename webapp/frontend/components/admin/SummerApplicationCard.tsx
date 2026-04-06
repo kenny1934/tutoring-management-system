@@ -145,6 +145,11 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           {app.is_existing_student && app.is_existing_student !== "None" && (
             <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">Existing</span>
           )}
+          {(app.sessions_per_week ?? 1) > 1 && (
+            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
+              {app.sessions_per_week}x/wk
+            </span>
+          )}
           {app.sessions && app.sessions.length > 0 && (
             <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
               Placed

@@ -834,13 +834,18 @@ export function SummerApplicationDetailModal({
           )}
 
           {/* Schedule Preferences */}
-          {(pref1 || pref2 || app.unavailability_notes) && (
+          {(pref1 || pref2 || app.unavailability_notes || (app.sessions_per_week ?? 1) > 1) && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg shrink-0">
                 <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Schedule Preferences</div>
+                {(app.sessions_per_week ?? 1) > 1 && (
+                  <div className="text-sm font-medium text-foreground">
+                    {app.sessions_per_week}× per week
+                  </div>
+                )}
                 {pref1 && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
