@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { summerAPI } from "@/lib/api";
 import type { SummerApplicationStatusResponse } from "@/types";
 import { type Lang, t, inputClass } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
+import { Users } from "lucide-react";
 
 const STATUS_STEPS = [
   "Submitted",
@@ -40,6 +41,67 @@ export default function SummerStatusPage() {
   const [result, setResult] = useState<SummerApplicationStatusResponse | null>(
     null
   );
+
+  // Buddy management state
+  const [buddyAction, setBuddyAction] = useState<"idle" | "join">("idle");
+  const [buddyInput, setBuddyInput] = useState("");
+  const [buddyReferrer, setBuddyReferrer] = useState("");
+  const [buddyValidating, setBuddyValidating] = useState(false);
+  const [buddyValid, setBuddyValid] = useState<boolean | null>(null);
+  const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(null);
+  const [buddyLoading, setBuddyLoading] = useState(false);
+  const [buddyError, setBuddyError] = useState<string | null>(null);
+
+  const resetBuddyState = () => {
+    setBuddyAction("idle");
+    setBuddyInput("");
+    setBuddyReferrer("");
+    setBuddyValid(null);
+    setBuddyMemberCount(null);
+    setBuddyError(null);
+  };
+
+  const validateBuddyInput = useCallback(async (code: string) => {
+    if (!code.trim()) return;
+    setBuddyValidating(true);
+    try {
+      const res = await summerAPI.getBuddyGroup(code.trim());
+      setBuddyValid(true);
+      setBuddyMemberCount(res.member_count);
+    } catch {
+      setBuddyValid(false);
+      setBuddyMemberCount(null);
+    } finally {
+      setBuddyValidating(false);
+    }
+  }, []);
+
+  const handleBuddyChange = async (action: "join" | "leave" | "create") => {
+    if (!result) return;
+    setBuddyLoading(true);
+    setBuddyError(null);
+    try {
+      const res = await summerAPI.changeBuddyGroup(
+        referenceCode.trim(),
+        phone.trim(),
+        {
+          action,
+          buddy_code: action === "join" ? buddyInput.trim() : undefined,
+          buddy_referrer_name: action === "join" ? buddyReferrer.trim() || undefined : undefined,
+        }
+      );
+      setResult({
+        ...result,
+        buddy_code: res.buddy_code,
+        buddy_group_member_count: res.member_count,
+      });
+      resetBuddyState();
+    } catch (e: unknown) {
+      setBuddyError(e instanceof Error ? e.message : "Failed to update buddy group");
+    } finally {
+      setBuddyLoading(false);
+    }
+  };
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,6 +268,156 @@ export default function SummerStatusPage() {
               )}
             </div>
           )}
+
+          {/* Buddy Group Section */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">
+                {t("同行優惠", "Buddy Group", lang)}
+              </span>
+            </div>
+
+            {buddyError && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+                {buddyError}
+              </div>
+            )}
+
+            {result.buddy_code ? (
+              /* Has a buddy group */
+              <div className="space-y-2">
+                <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 text-center space-y-1">
+                  <div className="text-xs text-muted-foreground">
+                    {t("同行碼", "Buddy Code", lang)}
+                  </div>
+                  <div className="text-lg font-mono font-bold text-primary">
+                    {result.buddy_code}
+                  </div>
+                  {result.buddy_group_member_count != null && (
+                    <div className="text-xs text-muted-foreground">
+                      {t(
+                        `${result.buddy_group_member_count} 人已加入`,
+                        `${result.buddy_group_member_count} member(s)`,
+                        lang
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleBuddyChange("leave")}
+                    disabled={buddyLoading}
+                    className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-50"
+                  >
+                    {buddyLoading
+                      ? t("處理中...", "Processing...", lang)
+                      : t("退出同行組", "Leave Group", lang)}
+                  </button>
+                </div>
+              </div>
+            ) : buddyAction === "idle" ? (
+              /* No buddy group — show options */
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBuddyAction("join")}
+                  className="w-full py-2.5 text-sm font-medium border-2 border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors"
+                >
+                  {t("輸入同行碼加入小組", "Enter a Buddy Code to Join", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBuddyChange("create")}
+                  disabled={buddyLoading}
+                  className="w-full py-2.5 text-sm font-medium border-2 border-dashed border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50"
+                >
+                  {buddyLoading
+                    ? t("建立中...", "Creating...", lang)
+                    : t("建立新的同行碼", "Create a New Buddy Code", lang)}
+                </button>
+              </div>
+            ) : (
+              /* Join flow */
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={buddyInput}
+                    onChange={(e) => {
+                      setBuddyInput(e.target.value.toUpperCase());
+                      setBuddyValid(null);
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData("text").trim().toUpperCase();
+                      if (/^BG-[A-Z0-9]{4}$/.test(pasted)) {
+                        e.preventDefault();
+                        setBuddyInput(pasted);
+                        validateBuddyInput(pasted);
+                      }
+                    }}
+                    className={`${inputClass} flex-1`}
+                    placeholder="BG-XXXX"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => validateBuddyInput(buddyInput)}
+                    disabled={buddyValidating}
+                    className="px-4 py-2.5 text-sm font-medium bg-secondary text-secondary-foreground rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {buddyValidating
+                      ? "..."
+                      : t("驗證", "Verify", lang)}
+                  </button>
+                </div>
+                {buddyValid === true && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-green-600">
+                      {t(
+                        `同行碼有效（目前 ${buddyMemberCount} 人已加入）`,
+                        `Valid code (${buddyMemberCount} member(s) joined)`,
+                        lang
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={buddyReferrer}
+                      onChange={(e) => setBuddyReferrer(e.target.value)}
+                      className={inputClass}
+                      placeholder={t(
+                        "誰將此同行碼分享給你？",
+                        "Who shared this code with you?",
+                        lang
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleBuddyChange("join")}
+                      disabled={buddyLoading || !buddyReferrer.trim()}
+                      className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    >
+                      {buddyLoading
+                        ? t("加入中...", "Joining...", lang)
+                        : t("加入同行組", "Join Group", lang)}
+                    </button>
+                  </div>
+                )}
+                {buddyValid === false && (
+                  <div className="text-xs text-red-600">
+                    {t("同行碼無效", "Invalid buddy code", lang)}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={resetBuddyState}
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                >
+                  {t("取消", "Cancel", lang)}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

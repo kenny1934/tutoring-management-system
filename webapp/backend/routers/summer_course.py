@@ -29,6 +29,8 @@ from schemas import (
     SummerApplicationCreate,
     SummerApplicationSubmitResponse,
     SummerApplicationStatusResponse,
+    SummerBuddyChangeRequest,
+    SummerBuddyChangeResponse,
     SummerCourseConfigCreate,
     SummerCourseConfigUpdate,
     SummerCourseConfigResponse,
@@ -89,6 +91,34 @@ def _generate_buddy_code() -> str:
     return f"BG-{code}"
 
 
+def _create_buddy_group(db: Session, config_id: int | None) -> SummerBuddyGroup:
+    """Create a new buddy group with a unique code (retry on collision)."""
+    for _ in range(10):
+        code = _generate_buddy_code()
+        existing = db.query(SummerBuddyGroup).filter(
+            SummerBuddyGroup.buddy_code == code
+        ).first()
+        if not existing:
+            break
+    else:
+        raise HTTPException(status_code=500, detail="Could not generate unique code")
+    group = SummerBuddyGroup(config_id=config_id, buddy_code=code)
+    db.add(group)
+    db.flush()
+    return group
+
+
+def _lookup_buddy_group(db: Session, code: str, config: SummerCourseConfig) -> SummerBuddyGroup | None:
+    """Look up a buddy group by code, scoped to the given config/year."""
+    return db.query(SummerBuddyGroup).filter(
+        SummerBuddyGroup.buddy_code == code.strip().upper(),
+        or_(
+            SummerBuddyGroup.config_id == config.id,
+            and_(SummerBuddyGroup.config_id.is_(None), SummerBuddyGroup.year == config.year),
+        ),
+    ).first()
+
+
 # ============================================
 # Public endpoints (no auth)
 # ============================================
@@ -136,13 +166,7 @@ def submit_application(
     buddy_group_id = None
     buddy_code_out = None
     if data.buddy_code:
-        group = db.query(SummerBuddyGroup).filter(
-            SummerBuddyGroup.buddy_code == data.buddy_code.strip().upper(),
-            or_(
-                SummerBuddyGroup.config_id == config.id,
-                and_(SummerBuddyGroup.config_id.is_(None), SummerBuddyGroup.year == config.year),
-            ),
-        ).first()
+        group = _lookup_buddy_group(db, data.buddy_code, config)
         if not group:
             raise HTTPException(status_code=400, detail="Invalid buddy code")
         buddy_group_id = group.id
@@ -203,18 +227,101 @@ def check_application_status(
 ):
     """Check application status by reference code + phone (for verification)."""
     check_ip_rate_limit(request, "summer_status")
+    app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.buddy_group)
+    ).filter(
+        SummerApplication.reference_code == reference_code.strip().upper(),
+        SummerApplication.contact_phone == phone.strip(),
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    buddy_code = None
+    buddy_member_count = None
+    if app.buddy_group:
+        buddy_code = app.buddy_group.buddy_code
+        buddy_member_count = _get_buddy_member_count(db, app.buddy_group.id)
+
+    return SummerApplicationStatusResponse(
+        reference_code=app.reference_code,
+        student_name=app.student_name,
+        application_status=app.application_status,
+        submitted_at=app.submitted_at,
+        buddy_code=buddy_code,
+        buddy_group_member_count=buddy_member_count,
+    )
+
+
+def _get_buddy_member_count(db: Session, group_id: int) -> int:
+    """Count all members in a buddy group (secondary apps + primary members)."""
+    app_count = db.query(func.count(SummerApplication.id)).filter(
+        SummerApplication.buddy_group_id == group_id
+    ).scalar() or 0
+    primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group_id
+    ).scalar() or 0
+    return app_count + primary_count
+
+
+@router.patch("/summer/public/application/{reference_code}/buddy", response_model=SummerBuddyChangeResponse)
+def change_buddy_group(
+    request: Request,
+    reference_code: str,
+    data: SummerBuddyChangeRequest,
+    phone: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """Change buddy group for an existing application (public, auth via ref code + phone)."""
+    check_ip_rate_limit(request, "summer_buddy")
+
+    config = _get_active_config(db)
+    if not config:
+        raise HTTPException(status_code=404, detail="No active summer course found")
+
+    now = hk_now()
+    if now < config.application_open_date or now > config.application_close_date:
+        raise HTTPException(status_code=400, detail="Application period is not open")
+
     app = db.query(SummerApplication).filter(
         SummerApplication.reference_code == reference_code.strip().upper(),
         SummerApplication.contact_phone == phone.strip(),
     ).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-    return SummerApplicationStatusResponse(
-        reference_code=app.reference_code,
-        student_name=app.student_name,
-        application_status=app.application_status,
-        submitted_at=app.submitted_at,
-    )
+
+    if data.action == "leave":
+        app.buddy_group_id = None
+        app.buddy_referrer_name = None
+        db.commit()
+        return SummerBuddyChangeResponse(buddy_code=None, member_count=0)
+
+    elif data.action == "join":
+        if not data.buddy_code:
+            raise HTTPException(status_code=400, detail="Buddy code is required to join a group")
+        group = _lookup_buddy_group(db, data.buddy_code, config)
+        if not group:
+            raise HTTPException(status_code=400, detail="Invalid buddy code")
+        app.buddy_group_id = group.id
+        app.buddy_referrer_name = data.buddy_referrer_name
+        app.buddy_names = None
+        db.commit()
+        return SummerBuddyChangeResponse(
+            buddy_code=group.buddy_code,
+            member_count=_get_buddy_member_count(db, group.id),
+        )
+
+    elif data.action == "create":
+        group = _create_buddy_group(db, config.id)
+        app.buddy_group_id = group.id
+        app.buddy_referrer_name = None
+        app.buddy_names = None
+        db.commit()
+        return SummerBuddyChangeResponse(
+            buddy_code=group.buddy_code,
+            member_count=_get_buddy_member_count(db, group.id),
+        )
+
+    raise HTTPException(status_code=400, detail="Invalid action")
 
 
 @router.post("/summer/public/buddy-group")
@@ -233,21 +340,9 @@ def create_buddy_group(
     if now < config.application_open_date or now > config.application_close_date:
         raise HTTPException(status_code=400, detail="Application period is not open")
 
-    # Generate unique code (retry on collision)
-    for _ in range(10):
-        code = _generate_buddy_code()
-        existing = db.query(SummerBuddyGroup).filter(
-            SummerBuddyGroup.buddy_code == code
-        ).first()
-        if not existing:
-            break
-    else:
-        raise HTTPException(status_code=500, detail="Could not generate unique code")
-
-    group = SummerBuddyGroup(config_id=config.id, buddy_code=code)
-    db.add(group)
+    group = _create_buddy_group(db, config.id)
     db.commit()
-    return {"buddy_code": code}
+    return {"buddy_code": group.buddy_code}
 
 
 @router.get("/summer/public/buddy-group/{code}")
@@ -267,13 +362,7 @@ def get_buddy_group(
     if not group:
         raise HTTPException(status_code=404, detail="Buddy group not found")
 
-    app_count = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == group.id
-    ).scalar() or 0
-    primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == group.id
-    ).scalar() or 0
-    return {"buddy_code": group.buddy_code, "member_count": app_count + primary_count}
+    return {"buddy_code": group.buddy_code, "member_count": _get_buddy_member_count(db, group.id)}
 
 
 # ============================================
@@ -551,6 +640,31 @@ def update_application(
         raise HTTPException(status_code=404, detail="Application not found")
 
     updates = data.model_dump(exclude_unset=True)
+
+    # Handle buddy_code changes specially
+    buddy_code_value = updates.pop("buddy_code", None)
+    if buddy_code_value is not None:
+        if buddy_code_value == "":
+            # Leave group
+            app.buddy_group_id = None
+            app.buddy_referrer_name = None
+        elif buddy_code_value == "NEW":
+            group = _create_buddy_group(db, app.config_id)
+            app.buddy_group_id = group.id
+            app.buddy_referrer_name = None
+        else:
+            # Join existing group by code
+            group = db.query(SummerBuddyGroup).filter(
+                SummerBuddyGroup.buddy_code == buddy_code_value.strip().upper()
+            ).first()
+            if not group:
+                raise HTTPException(status_code=400, detail="Invalid buddy code")
+            app.buddy_group_id = group.id
+            # Set referrer name if provided alongside the join
+            if "buddy_referrer_name" in updates:
+                app.buddy_referrer_name = updates.pop("buddy_referrer_name")
+        # Remove buddy_referrer_name from generic updates since we handled it
+        updates.pop("buddy_referrer_name", None)
 
     # Track reviewer when status changes
     if "application_status" in updates:

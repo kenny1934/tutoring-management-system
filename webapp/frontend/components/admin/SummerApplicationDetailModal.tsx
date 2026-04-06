@@ -133,6 +133,27 @@ export function SummerApplicationDetailModal({
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
   const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
 
+  // Buddy edit state
+  const [buddyEditing, setBuddyEditing] = useState(false);
+  const [buddyEditCode, setBuddyEditCode] = useState("");
+  const [buddyEditValid, setBuddyEditValid] = useState<boolean | null>(null);
+  const [buddyEditLoading, setBuddyEditLoading] = useState(false);
+
+  const handleBuddyUpdate = async (buddyCode: string, successMsg: string) => {
+    if (!app) return;
+    setBuddyEditLoading(true);
+    try {
+      await summerAPI.updateApplication(app.id, { buddy_code: buddyCode });
+      showToast(successMsg, "success");
+      setBuddyEditing(false);
+      onUpdated();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBuddyEditLoading(false);
+    }
+  };
+
   // Reset form when application changes or modal opens
   useEffect(() => {
     if (app && isOpen) {
@@ -147,6 +168,9 @@ export function SummerApplicationDetailModal({
       setManualIdInput("");
       setManualIdConfirmed("");
       autoFilledLangRef.current = null;
+      setBuddyEditing(false);
+      setBuddyEditCode("");
+      setBuddyEditValid(null);
     }
   }, [app, isOpen]);
 
@@ -829,17 +853,110 @@ export function SummerApplicationDetailModal({
             </div>
           </div>
 
-          {/* Buddy Group */}
-          {(app.buddy_group_id || app.buddy_names) && (
+          {/* Buddy Group — always shown so admins can assign/change groups */}
+          {(
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-violet-100 dark:bg-violet-900/30 rounded-lg shrink-0">
                 <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
-              <div className="min-w-0">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Buddy Group</div>
-                {app.buddy_code && <FieldValue label="Code" value={app.buddy_code} mono copyable />}
-                {app.buddy_referrer_name && <FieldValue label="Referrer" value={app.buddy_referrer_name} />}
-                {app.buddy_names && <div className="text-xs text-muted-foreground">Requested: {app.buddy_names}</div>}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Buddy Group</span>
+                  {!buddyEditing && (
+                    <button
+                      onClick={() => {
+                        setBuddyEditing(true);
+                        setBuddyEditCode("");
+                        setBuddyEditValid(null);
+                      }}
+                      className="text-[10px] text-primary hover:text-primary-hover underline"
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
+                {buddyEditing ? (
+                  <div className="mt-1 space-y-2">
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={buddyEditCode}
+                        onChange={(e) => {
+                          setBuddyEditCode(e.target.value.toUpperCase());
+                          setBuddyEditValid(null);
+                        }}
+                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
+                        placeholder="BG-XXXX"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!buddyEditCode.trim()) return;
+                          setBuddyEditLoading(true);
+                          try {
+                            await summerAPI.getBuddyGroup(buddyEditCode.trim());
+                            setBuddyEditValid(true);
+                          } catch {
+                            setBuddyEditValid(false);
+                          } finally {
+                            setBuddyEditLoading(false);
+                          }
+                        }}
+                        disabled={buddyEditLoading}
+                        className="text-[10px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                      >
+                        {buddyEditLoading ? "..." : "Verify"}
+                      </button>
+                    </div>
+                    {buddyEditValid === true && (
+                      <div className="text-[10px] text-green-600">Valid code</div>
+                    )}
+                    {buddyEditValid === false && (
+                      <div className="text-[10px] text-red-600">Invalid code</div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {buddyEditValid && (
+                        <button
+                          onClick={() => handleBuddyUpdate(buddyEditCode.trim(), "Joined buddy group")}
+                          disabled={buddyEditLoading}
+                          className="text-[10px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+                        >
+                          Join
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleBuddyUpdate("NEW", "Created new buddy group")}
+                        disabled={buddyEditLoading}
+                        className="text-[10px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
+                      >
+                        Create New
+                      </button>
+                      {app.buddy_group_id && (
+                        <button
+                          onClick={() => handleBuddyUpdate("", "Removed from buddy group")}
+                          disabled={buddyEditLoading}
+                          className="text-[10px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setBuddyEditing(false)}
+                        className="text-[10px] px-2 py-1 text-muted-foreground hover:text-foreground underline"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {app.buddy_code && <FieldValue label="Code" value={app.buddy_code} mono copyable />}
+                    {app.buddy_referrer_name && <FieldValue label="Referrer" value={app.buddy_referrer_name} />}
+                    {app.buddy_names && <div className="text-xs text-muted-foreground">Requested: {app.buddy_names}</div>}
+                    {!app.buddy_group_id && !app.buddy_names && (
+                      <div className="text-xs text-muted-foreground italic">No buddy group</div>
+                    )}
+                  </>
+                )}
                 {buddyMembers.length > 0 ? (
                   <div className="mt-1 space-y-0.5">
                     <span className="text-[10px] text-muted-foreground">Members:</span>

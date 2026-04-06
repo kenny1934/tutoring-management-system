@@ -110,6 +110,15 @@ export default function SummerApplyPage() {
     }
   };
 
+  // Reset buddy code selection (allow switching from creator to joiner)
+  const handleResetBuddyCode = () => {
+    setBuddyCode("");
+    setBuddyCodeValid(null);
+    setBuddyCodeIsOwn(false);
+    setBuddyMemberCount(null);
+    setBuddyReferrerName("");
+  };
+
   // Per-step validation — returns error messages for missing required fields
   const getStepErrors = (step: number): string[] => {
     const errors: string[] = [];
@@ -456,6 +465,7 @@ export default function SummerApplyPage() {
             buddyMemberCount={buddyMemberCount}
             validateBuddyCode={validateBuddyCode}
             handleCreateBuddyGroup={handleCreateBuddyGroup}
+            onResetBuddyCode={handleResetBuddyCode}
             buddyReferrerName={buddyReferrerName}
             setBuddyReferrerName={setBuddyReferrerName}
             buddyCodeIsOwn={buddyCodeIsOwn}

@@ -2073,6 +2073,8 @@ export interface SummerApplicationStatusResponse {
   reference_code: string;
   student_name: string;
   application_status: string;
+  buddy_code?: string | null;
+  buddy_group_member_count?: number | null;
   submitted_at?: string | null;
 }
 
@@ -2150,6 +2152,8 @@ export interface SummerApplicationUpdate {
   admin_notes?: string;
   existing_student_id?: number | null;
   lang_stream?: string;
+  buddy_code?: string;
+  buddy_referrer_name?: string;
 }
 
 export interface SummerApplicationStats {

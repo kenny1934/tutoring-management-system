@@ -2229,6 +2229,16 @@ export const summerAPI = {
       `/summer/public/buddy-group/${encodeURIComponent(code)}`
     ),
 
+  changeBuddyGroup: (
+    referenceCode: string,
+    phone: string,
+    data: { action: "join" | "leave" | "create"; buddy_code?: string; buddy_referrer_name?: string }
+  ) =>
+    fetchAPI<{ buddy_code: string | null; member_count: number }>(
+      `/summer/public/application/${encodeURIComponent(referenceCode)}/buddy?phone=${encodeURIComponent(phone)}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
+
   // Admin endpoints
   getConfigs: () =>
     fetchAPI<SummerCourseConfig[]>("/summer/configs"),

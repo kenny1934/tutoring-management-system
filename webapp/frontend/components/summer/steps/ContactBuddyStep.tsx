@@ -31,6 +31,7 @@ interface ContactBuddyStepProps {
   buddyMemberCount: number | null;
   validateBuddyCode: (code: string) => void;
   handleCreateBuddyGroup: () => void;
+  onResetBuddyCode: () => void;
   buddyReferrerName: string;
   setBuddyReferrerName: (v: string) => void;
   buddyCodeIsOwn: boolean;
@@ -54,6 +55,7 @@ export function ContactBuddyStep({
   buddyMemberCount,
   validateBuddyCode,
   handleCreateBuddyGroup,
+  onResetBuddyCode,
   buddyReferrerName,
   setBuddyReferrerName,
   buddyCodeIsOwn,
@@ -172,12 +174,25 @@ export function ContactBuddyStep({
                       {buddyCode}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {t(
-                        "請將此碼分享給你的朋友，讓他們報名時輸入",
-                        "Share this code with your friends to enter when they apply",
-                        lang
-                      )}
+                      {buddyMemberCount !== null && buddyMemberCount > 0
+                        ? t(
+                            `已有 ${buddyMemberCount} 人加入`,
+                            `${buddyMemberCount} member(s) joined`,
+                            lang
+                          )
+                        : t(
+                            "請將此碼分享給你的朋友，讓他們報名時輸入",
+                            "Share this code with your friends to enter when they apply",
+                            lang
+                          )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={onResetBuddyCode}
+                      className="text-xs text-primary/70 hover:text-primary underline mt-1"
+                    >
+                      {t("更改", "Change", lang)}
+                    </button>
                   </div>
                 ) : (
                   /* Code joiner: input + verify */
@@ -189,6 +204,14 @@ export function ContactBuddyStep({
                         onChange={(e) => {
                           setBuddyCode(e.target.value.toUpperCase());
                           setBuddyCodeValid(null);
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text").trim().toUpperCase();
+                          if (/^BG-[A-Z0-9]{4}$/.test(pasted)) {
+                            e.preventDefault();
+                            setBuddyCode(pasted);
+                            validateBuddyCode(pasted);
+                          }
                         }}
                         className={`${inputClass} flex-1`}
                         placeholder="BG-XXXX"

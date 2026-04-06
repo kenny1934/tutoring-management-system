@@ -2093,6 +2093,21 @@ class SummerApplicationStatusResponse(BaseModel):
     student_name: str
     application_status: str
     submitted_at: Optional[datetime] = None
+    buddy_code: Optional[str] = None
+    buddy_group_member_count: Optional[int] = None
+
+
+class SummerBuddyChangeRequest(BaseModel):
+    """Request to change buddy group from status page."""
+    action: Literal["join", "leave", "create"]
+    buddy_code: Optional[str] = Field(None, max_length=20)
+    buddy_referrer_name: Optional[str] = Field(None, max_length=255)
+
+
+class SummerBuddyChangeResponse(BaseModel):
+    """Response after buddy group change."""
+    buddy_code: Optional[str] = None
+    member_count: int = 0
 
 
 # -- Admin schemas --
@@ -2211,6 +2226,8 @@ class SummerApplicationUpdate(BaseModel):
     admin_notes: Optional[str] = None
     existing_student_id: Optional[int] = None
     lang_stream: Optional[str] = Field(None, max_length=10)
+    buddy_code: Optional[str] = Field(None, max_length=20, description="Set to code to join, empty string to leave, 'NEW' to create")
+    buddy_referrer_name: Optional[str] = Field(None, max_length=255)
 
 
 class SummerApplicationStats(BaseModel):
