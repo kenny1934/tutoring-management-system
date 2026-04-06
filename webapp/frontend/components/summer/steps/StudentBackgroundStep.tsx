@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { PenLine } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
@@ -124,8 +125,17 @@ export function StudentBackgroundStep({
       <div className="space-y-4">
         {educationCenters.length > 0 && (
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {lang === "zh" ? educationLabel?.name : educationLabel?.name_en}
+            <div className="flex items-center gap-2">
+              <Image
+                src="/summer/buddy/icon.png"
+                alt=""
+                width={20}
+                height={20}
+                className="h-5 w-5 object-contain"
+              />
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {lang === "zh" ? educationLabel?.name : educationLabel?.name_en}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2.5">
               {renderCenterChips(educationCenters, false)}
@@ -135,8 +145,17 @@ export function StudentBackgroundStep({
 
         {secondaryCenters.length > 0 && (
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {lang === "zh" ? secondaryLabel?.name : secondaryLabel?.name_en}
+            <div className="flex items-center gap-2">
+              <Image
+                src="/summer/icon.png"
+                alt=""
+                width={20}
+                height={20}
+                className="h-5 w-5 object-contain"
+              />
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {lang === "zh" ? secondaryLabel?.name : secondaryLabel?.name_en}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2.5">
               {renderCenterChips(secondaryCenters, true)}
