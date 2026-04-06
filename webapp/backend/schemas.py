@@ -2073,6 +2073,7 @@ class SummerSiblingInfo(BaseModel):
     source_branch: str
     verification_status: str  # Pending | Confirmed | Rejected
     declared_by_application_id: Optional[int] = None
+    declared_by_name: Optional[str] = None  # Admin context: who declared the sibling
     can_remove: bool = False  # True if caller can self-remove (Pending + own declaration)
 
 

@@ -104,6 +104,7 @@ export default function SummerApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
+  const [pendingSiblingOnly, setPendingSiblingOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -218,13 +219,14 @@ export default function SummerApplicationsPage() {
   };
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch;
-  const activeFilterCount = [gradeFilter, locationFilter].filter(Boolean).length;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly;
+  const activeFilterCount = [gradeFilter, locationFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setGradeFilter(null);
     setLocationFilter(null);
     setSearchQuery("");
+    setPendingSiblingOnly(false);
   }, []);
 
   // Close filter popover on click outside / escape
@@ -272,7 +274,10 @@ export default function SummerApplicationsPage() {
   // Client-side sorting
   const sortedApplications = useMemo(() => {
     if (!applications) return [];
-    const sorted = [...applications];
+    const filtered = pendingSiblingOnly
+      ? applications.filter((a) => (a.pending_sibling_count ?? 0) > 0)
+      : applications;
+    const sorted = [...filtered];
     const dir = sortDirection === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
       switch (sortField) {
@@ -295,7 +300,7 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -647,9 +652,18 @@ export default function SummerApplicationsPage() {
                           ))}
                         </select>
                       </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pendingSiblingOnly}
+                          onChange={(e) => setPendingSiblingOnly(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="text-xs text-foreground">Pending sibling verification</span>
+                      </label>
                       {activeFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setLocationFilter(null); }}
+                          onClick={() => { setGradeFilter(null); setLocationFilter(null); setPendingSiblingOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
                           Clear filters

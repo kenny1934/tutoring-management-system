@@ -323,7 +323,9 @@ def _get_buddy_member_count(db: Session, group_id: int) -> int:
 
 
 def _serialize_sibling(
-    member: SummerBuddyMember, caller_application_id: Optional[int] = None
+    member: SummerBuddyMember,
+    caller_application_id: Optional[int] = None,
+    declared_by_name: Optional[str] = None,
 ) -> SummerSiblingInfo:
     return SummerSiblingInfo(
         id=member.id,
@@ -332,12 +334,26 @@ def _serialize_sibling(
         source_branch=member.source_branch,
         verification_status=member.verification_status,
         declared_by_application_id=member.declared_by_application_id,
+        declared_by_name=declared_by_name,
         can_remove=(
             member.verification_status == PENDING
             and caller_application_id is not None
             and member.declared_by_application_id == caller_application_id
         ),
     )
+
+
+def _resolve_declarer_names(
+    db: Session, members: list[SummerBuddyMember]
+) -> dict[int, str]:
+    """Look up the student_name for each declared_by_application_id in one query."""
+    ids = {m.declared_by_application_id for m in members if m.declared_by_application_id}
+    if not ids:
+        return {}
+    rows = db.query(SummerApplication.id, SummerApplication.student_name).filter(
+        SummerApplication.id.in_(ids)
+    ).all()
+    return {r[0]: r[1] for r in rows}
 
 
 def _get_buddy_siblings(
@@ -347,7 +363,11 @@ def _get_buddy_siblings(
         SummerBuddyMember.buddy_group_id == group_id,
         SummerBuddyMember.verification_status != REJECTED,
     ).order_by(SummerBuddyMember.created_at.asc()).all()
-    return [_serialize_sibling(r, caller_application_id) for r in rows]
+    names = _resolve_declarer_names(db, rows)
+    return [
+        _serialize_sibling(r, caller_application_id, names.get(r.declared_by_application_id))
+        for r in rows
+    ]
 
 
 def _get_buddy_siblings_bulk(
@@ -360,9 +380,12 @@ def _get_buddy_siblings_bulk(
         SummerBuddyMember.buddy_group_id.in_(group_ids),
         SummerBuddyMember.verification_status != REJECTED,
     ).order_by(SummerBuddyMember.created_at.asc()).all()
+    names = _resolve_declarer_names(db, rows)
     by_group: dict[int, list[SummerSiblingInfo]] = {}
     for r in rows:
-        by_group.setdefault(r.buddy_group_id, []).append(_serialize_sibling(r))
+        by_group.setdefault(r.buddy_group_id, []).append(
+            _serialize_sibling(r, declared_by_name=names.get(r.declared_by_application_id))
+        )
     return by_group
 
 
@@ -602,7 +625,8 @@ def admin_update_sibling(
         member.student_id = data.student_id.strip() or None
     db.commit()
     db.refresh(member)
-    return _serialize_sibling(member)
+    declarer = _resolve_declarer_names(db, [member]).get(member.declared_by_application_id)
+    return _serialize_sibling(member, declared_by_name=declarer)
 
 
 @router.delete(

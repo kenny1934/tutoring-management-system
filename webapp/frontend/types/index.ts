@@ -2078,6 +2078,7 @@ export interface SummerSiblingInfo {
   source_branch: string;
   verification_status: "Pending" | "Confirmed" | "Rejected";
   declared_by_application_id?: number | null;
+  declared_by_name?: string | null;
   can_remove?: boolean;
 }
 

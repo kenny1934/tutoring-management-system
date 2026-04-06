@@ -137,6 +137,14 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
 
         {/* Row 2: grade + lang stream + location + indicators */}
         <div className="flex items-center gap-1.5 pl-6 text-xs text-muted-foreground">
+          {(app.pending_sibling_count ?? 0) > 0 && (
+            <span
+              className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold ring-1 ring-amber-300/60"
+              title="Sibling declared at Primary / KidsConcept — pending verification"
+            >
+              Sibling pending
+            </span>
+          )}
           {app.grade && <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{app.grade}</span>}
           {app.lang_stream && <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{app.lang_stream}</span>}
           {app.preferred_location && (
@@ -148,14 +156,6 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           {(app.sessions_per_week ?? 1) > 1 && (
             <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
               {app.sessions_per_week}x/wk
-            </span>
-          )}
-          {(app.pending_sibling_count ?? 0) > 0 && (
-            <span
-              className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-medium"
-              title="Sibling declared at Primary / KidsConcept — pending verification"
-            >
-              ⏳ Sibling pending
             </span>
           )}
           {app.sessions && app.sessions.length > 0 && (

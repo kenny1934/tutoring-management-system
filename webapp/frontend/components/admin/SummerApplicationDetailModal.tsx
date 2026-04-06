@@ -11,10 +11,10 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
-  Copy, Check, Loader2, ChevronLeft, ChevronRight, X, Search, UserCheck, Unlink,
+  Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink,
   Clock, Grid3X3,
 } from "lucide-react";
@@ -153,6 +153,17 @@ export function SummerApplicationDetailModal({
     | null
   >(null);
 
+  // Sibling overrides — applied optimistically so the UI flips immediately
+  // after Confirm/Reject without waiting for the list refetch.
+  const [siblingOverrides, setSiblingOverrides] = useState<
+    Record<number, "Pending" | "Confirmed" | "Rejected">
+  >({});
+  const [siblingPendingReject, setSiblingPendingReject] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [buddySectionCollapsed, setBuddySectionCollapsed] = useState(false);
+
   useEffect(() => {
     if (buddyEditMode !== "search" || !debouncedBuddySearch.trim() || !app) {
       setBuddySearchResults((prev) => (prev.length === 0 ? prev : []));
@@ -223,6 +234,9 @@ export function SummerApplicationDetailModal({
       setBuddySearchQuery("");
       setBuddySearchResults([]);
       setBuddyPendingAction(null);
+      setSiblingOverrides({});
+      setSiblingPendingReject(null);
+      setBuddySectionCollapsed(false);
     }
   }, [app, isOpen]);
 
@@ -334,12 +348,21 @@ export function SummerApplicationDetailModal({
     return source.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
   }, [app?.buddy_group_id, app?.id, allApplications, fetchedBuddyMembers]);
 
-  const verifySibling = async (id: number, status: "Confirmed" | "Rejected") => {
+  const verifySibling = async (
+    id: number,
+    status: "Pending" | "Confirmed" | "Rejected"
+  ) => {
+    setSiblingOverrides((prev) => ({ ...prev, [id]: status }));
     try {
       await summerAPI.adminUpdateSibling(id, { verification_status: status });
       showToast(`Sibling ${status.toLowerCase()}`, "success");
       onUpdated();
     } catch (e) {
+      setSiblingOverrides((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       showToast(e instanceof Error ? e.message : "Failed", "error");
     }
   };
@@ -399,6 +422,16 @@ export function SummerApplicationDetailModal({
   const reviewedDate = app.reviewed_at ? parseHKTimestamp(app.reviewed_at).toLocaleString() : null;
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
   const locationConfig = locations?.find(l => l.name === app.preferred_location);
+
+  // Apply optimistic overrides on top of the server response.
+  const effectiveSiblings = (app.buddy_siblings ?? []).map((s) => ({
+    ...s,
+    verification_status: siblingOverrides[s.id] ?? s.verification_status,
+  }));
+  const visibleSiblings = effectiveSiblings.filter((s) => s.verification_status !== "Rejected");
+  const pendingSiblingCount = visibleSiblings.filter((s) => s.verification_status === "Pending").length;
+  const hasBuddyContent =
+    !!app.buddy_group_id || !!app.buddy_names || visibleSiblings.length > 0;
 
   return (
     <Modal
@@ -915,8 +948,27 @@ export function SummerApplicationDetailModal({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Buddy Group</span>
-                  {!buddyEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setBuddySectionCollapsed((v) => !v)}
+                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-foreground"
+                  >
+                    {buddySectionCollapsed ? (
+                      <ChevronRight className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    <span>Buddy Group</span>
+                  </button>
+                  {pendingSiblingCount > 0 && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 ring-1 ring-amber-300/60"
+                      title="Sibling claims awaiting verification"
+                    >
+                      {pendingSiblingCount} pending
+                    </span>
+                  )}
+                  {!buddyEditing && !buddySectionCollapsed && (
                     <button
                       onClick={() => {
                         setBuddyEditing(true);
@@ -929,6 +981,23 @@ export function SummerApplicationDetailModal({
                     </button>
                   )}
                 </div>
+                {buddySectionCollapsed ? (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {app.buddy_code ? (
+                      <>
+                        <span className="font-mono">{app.buddy_code}</span>
+                        {visibleSiblings.length > 0 && (
+                          <span> · {visibleSiblings.length} sibling{visibleSiblings.length !== 1 ? "s" : ""}</span>
+                        )}
+                      </>
+                    ) : hasBuddyContent ? (
+                      "Buddy details hidden"
+                    ) : (
+                      "No buddy group"
+                    )}
+                  </div>
+                ) : (
+                  <>
                 {buddyEditing ? (
                   <div className="mt-1 space-y-2">
                     <div className="flex gap-1 text-[10px]">
@@ -1159,55 +1228,105 @@ export function SummerApplicationDetailModal({
                       </div>
                     ))}
                   </div>
-                ) : app.buddy_group_id && !(app.buddy_siblings && app.buddy_siblings.length) ? (
+                ) : app.buddy_group_id && visibleSiblings.length === 0 ? (
                   <div className="text-xs text-muted-foreground mt-1">No other members yet</div>
                 ) : null}
-                {(app.buddy_siblings && app.buddy_siblings.length > 0) && (
-                  <div className="mt-2 space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Declared Primary / KidsConcept Siblings:</span>
-                    {app.buddy_siblings.map(sib => (
-                      <div
-                        key={`sib-${sib.id}`}
-                        className="flex items-center gap-2 py-1 text-sm px-2 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-900/10"
-                      >
-                        <span className="text-foreground font-medium">{sib.name_en}</span>
-                        {sib.name_zh && (
-                          <span className="text-[10px] text-muted-foreground">{sib.name_zh}</span>
+                {visibleSiblings.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "text-[10px] uppercase tracking-wide",
+                          pendingSiblingCount > 0
+                            ? "text-amber-700 dark:text-amber-300 font-semibold"
+                            : "text-muted-foreground"
                         )}
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                          {sib.source_branch}
-                        </span>
-                        <span
+                      >
+                        {pendingSiblingCount > 0
+                          ? `⚠ ${pendingSiblingCount} sibling${pendingSiblingCount > 1 ? "s" : ""} pending verification`
+                          : "Declared Primary / KidsConcept Siblings"}
+                      </span>
+                    </div>
+                    {visibleSiblings.map((sib) => {
+                      const branchInfo = BRANCH_INFO[sib.source_branch];
+                      const branchTitle = branchInfo?.district || sib.source_branch;
+                      const isPending = sib.verification_status === "Pending";
+                      const isConfirmed = sib.verification_status === "Confirmed";
+                      const declaredByOther =
+                        sib.declared_by_application_id != null &&
+                        sib.declared_by_application_id !== app.id;
+                      return (
+                        <div
+                          key={`sib-${sib.id}`}
                           className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded font-medium",
-                            sib.verification_status === "Confirmed"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                              : sib.verification_status === "Rejected"
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                            "rounded-lg border p-2 space-y-1.5",
+                            isPending
+                              ? "border-amber-300 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-900/10"
+                              : "border-border bg-card"
                           )}
                         >
-                          {sib.verification_status}
-                        </span>
-                        {sib.verification_status === "Pending" && !readOnly && (
-                          <div className="ml-auto flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => verifySibling(sib.id, "Confirmed")}
-                              className="text-[10px] px-2 py-0.5 rounded bg-green-600 text-white hover:bg-green-700"
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">{sib.name_en}</span>
+                            <span
+                              className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                                branchInfo?.badge ?? "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
+                              )}
+                              title={branchTitle}
                             >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() => verifySibling(sib.id, "Rejected")}
-                              className="text-[10px] px-2 py-0.5 rounded border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              {sib.source_branch}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                                isConfirmed
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                  : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                              )}
                             >
-                              Reject
-                            </button>
+                              {sib.verification_status}
+                            </span>
+                            {declaredByOther && sib.declared_by_name && (
+                              <span className="text-[10px] text-muted-foreground">
+                                declared by {sib.declared_by_name}
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {!readOnly && (
+                            <div className="flex items-center gap-1.5">
+                              {isPending ? (
+                                <>
+                                  <button
+                                    onClick={() => verifySibling(sib.id, "Confirmed")}
+                                    className="text-xs font-medium px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setSiblingPendingReject({ id: sib.id, name: sib.name_en })
+                                    }
+                                    className="text-xs font-medium px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => verifySibling(sib.id, "Pending")}
+                                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                                >
+                                  Mark pending
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                )}
+                  </>
                 )}
               </div>
             </div>
@@ -1285,6 +1404,25 @@ export function SummerApplicationDetailModal({
         }
         variant={buddyPendingAction?.type === "remove" ? "danger" : "warning"}
         loading={buddyEditLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={siblingPendingReject !== null}
+        onCancel={() => setSiblingPendingReject(null)}
+        onConfirm={() => {
+          if (siblingPendingReject) {
+            verifySibling(siblingPendingReject.id, "Rejected");
+            setSiblingPendingReject(null);
+          }
+        }}
+        title="Reject sibling claim?"
+        message={
+          siblingPendingReject
+            ? `${siblingPendingReject.name} will be removed from this buddy group's member count, which may drop the group below the discount threshold.`
+            : ""
+        }
+        confirmText="Reject"
+        variant="danger"
       />
     </Modal>
   );
