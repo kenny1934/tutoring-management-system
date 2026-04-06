@@ -76,13 +76,24 @@ export function StudentBackgroundStep({
   const renderCenterChips = (
     centers: typeof educationCenters,
     isSecondary: boolean
-  ) =>
-    centers.map((c) => {
+  ) => {
+    // Disambiguate by section — Education and Secondary can have centers
+    // with the same display name, so match against isExistingStudent too.
+    const sectionOrg = isSecondary
+      ? "MathConcept Secondary Academy"
+      : "MathConcept Education";
+    return centers.map((c) => {
       const name = lang === "zh" ? c.name : c.name_en;
       const displayName = isSecondary ? shortCenterName(name) : name;
-      const selected = !notStudentSelected && selectedCenter === c.name;
+      const selected =
+        !notStudentSelected &&
+        isExistingStudent === sectionOrg &&
+        selectedCenter === c.name;
       return (
-        <label key={c.name} className={radioLabelClass(selected)}>
+        <label
+          key={`${sectionOrg}:${c.name}`}
+          className={radioLabelClass(selected)}
+        >
           <input
             type="radio"
             name="currentCenter"
@@ -95,6 +106,7 @@ export function StudentBackgroundStep({
         </label>
       );
     });
+  };
 
   return (
     <div className={sectionClass}>
