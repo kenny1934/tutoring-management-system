@@ -2039,6 +2039,7 @@ export interface SummerCourseFormConfig {
   lang_stream_options?: SummerBilingualOption[] | null;
   text_content?: Record<string, string> | null;
   banner_image_url?: string | null;
+  primary_branch_options?: SummerPrimaryBranchOption[];
 }
 
 export interface SummerApplicationCreate {
@@ -2061,6 +2062,29 @@ export interface SummerApplicationCreate {
   buddy_referrer_name?: string | null;
   form_language?: string;
   sessions_per_week?: number;
+  declared_sibling?: SummerSiblingDeclaration | null;
+}
+
+export interface SummerSiblingDeclaration {
+  name_en: string;
+  name_zh?: string | null;
+  source_branch: string;
+}
+
+export interface SummerSiblingInfo {
+  id: number;
+  name_en: string;
+  name_zh?: string | null;
+  source_branch: string;
+  verification_status: "Pending" | "Confirmed" | "Rejected";
+  declared_by_application_id?: number | null;
+  can_remove?: boolean;
+}
+
+export interface SummerPrimaryBranchOption {
+  code: string;
+  name_zh: string;
+  name_en: string;
 }
 
 export interface SummerApplicationSubmitResponse {
@@ -2075,6 +2099,8 @@ export interface SummerApplicationStatusResponse {
   application_status: string;
   buddy_code?: string | null;
   buddy_group_member_count?: number | null;
+  buddy_siblings?: SummerSiblingInfo[];
+  primary_branch_options?: SummerPrimaryBranchOption[];
   submitted_at?: string | null;
 }
 
@@ -2135,6 +2161,8 @@ export interface SummerApplication {
   sessions_per_week?: number;
   placed_count?: number;
   sessions?: SummerApplicationSessionInfo[];
+  pending_sibling_count?: number;
+  buddy_siblings?: SummerSiblingInfo[];
 }
 
 export interface SummerApplicationSessionInfo {

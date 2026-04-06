@@ -1,5 +1,6 @@
-import { Smartphone, Phone, BadgePercent } from "lucide-react";
-import type { SummerCourseFormConfig } from "@/types";
+import { useState } from "react";
+import { Smartphone, Phone, BadgePercent, Plus, X, Info } from "lucide-react";
+import type { SummerCourseFormConfig, SummerSiblingDeclaration } from "@/types";
 import {
   type Lang,
   t,
@@ -37,6 +38,8 @@ interface ContactBuddyStepProps {
   buddyCodeIsOwn: boolean;
   buddyGroupFull: boolean;
   buddyMaxMembers: number;
+  declaredSibling: SummerSiblingDeclaration | null;
+  setDeclaredSibling: (v: SummerSiblingDeclaration | null) => void;
 }
 
 export function ContactBuddyStep({
@@ -61,10 +64,17 @@ export function ContactBuddyStep({
   buddyCodeIsOwn,
   buddyGroupFull,
   buddyMaxMembers,
+  declaredSibling,
+  setDeclaredSibling,
 }: ContactBuddyStepProps) {
   const groupSavings = config
     ? getActiveSummerPromo(config.pricing_config, lang).groupSavings
     : null;
+  const primaryBranches = config?.primary_branch_options ?? [];
+  const buddyJoined = buddyMode === "code" && buddyCodeValid && !buddyGroupFull;
+  // Effective member count (group + this applicant if creator + declared sibling)
+  const effectiveCount = (buddyMemberCount ?? 0) + (declaredSibling ? 1 : 0);
+  const effectiveFull = effectiveCount >= buddyMaxMembers;
 
   return (
     <div className="space-y-6">
@@ -138,6 +148,16 @@ export function ContactBuddyStep({
                 lang
               )}
         </p>
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900 leading-relaxed flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+          <div>
+            {t(
+              "此同行碼只適用於 MathConcept 中學教室暑期課程。MathConcept 數學思維 / KidsConcept 使用獨立系統，編號並不通用。如有弟妹正報讀數學思維或 KidsConcept，請於下方登記，他們仍可計入同行優惠人數。",
+              "This buddy code is only for MathConcept Secondary Academy summer course. MathConcept Education / KidsConcept use a separate code system. If you have a younger sibling applying to a Primary or KidsConcept branch, declare them below — they still count toward the 3-person group.",
+              lang
+            )}
+          </div>
+        </div>
 
         <div className="space-y-3">
           <div className={radioGroupClass}>
@@ -252,16 +272,20 @@ export function ContactBuddyStep({
                         {t("同行碼無效", "Invalid buddy code", lang)}
                       </div>
                     )}
-                    <div className="text-center text-xs text-muted-foreground">
-                      {t("或", "or", lang)}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCreateBuddyGroup}
-                      className="w-full py-2.5 text-sm font-medium border-2 border-dashed border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors"
-                    >
-                      {t("建立新的同行碼", "Create a New Buddy Code", lang)}
-                    </button>
+                    {!(buddyCodeValid === true && !buddyGroupFull) && (
+                      <>
+                        <div className="text-center text-xs text-muted-foreground">
+                          {t("或", "or", lang)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCreateBuddyGroup}
+                          className="w-full py-2.5 text-sm font-medium border-2 border-dashed border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors"
+                        >
+                          {t("建立新的同行碼", "Create a New Buddy Code", lang)}
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
                 {buddyCodeValid && !buddyCodeIsOwn && !buddyGroupFull && (
@@ -287,11 +311,172 @@ export function ContactBuddyStep({
                     />
                   </div>
                 )}
+
+                {/* Self-declared primary-branch sibling */}
+                {buddyJoined && primaryBranches.length > 0 && (
+                  <SiblingDeclarationSection
+                    lang={lang}
+                    declared={declaredSibling}
+                    setDeclared={setDeclaredSibling}
+                    primaryBranches={primaryBranches}
+                    canAdd={!effectiveFull}
+                  />
+                )}
               </div>
             </div>
           </div>
 
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface SiblingDeclarationSectionProps {
+  lang: Lang;
+  declared: SummerSiblingDeclaration | null;
+  setDeclared: (v: SummerSiblingDeclaration | null) => void;
+  primaryBranches: { code: string; name_zh: string; name_en: string }[];
+  canAdd: boolean;
+}
+
+function SiblingDeclarationSection({
+  lang,
+  declared,
+  setDeclared,
+  primaryBranches,
+  canAdd,
+}: SiblingDeclarationSectionProps) {
+  if (declared) {
+    const branch = primaryBranches.find((b) => b.code === declared.source_branch);
+    const branchLabel = branch ? (lang === "zh" ? branch.name_zh : branch.name_en) : declared.source_branch;
+    return (
+      <div className="pt-3 border-t border-border space-y-2">
+        <div className="text-xs font-semibold text-foreground">
+          {t("數學思維 / KidsConcept 弟妹", "Younger Sibling at Primary / KidsConcept", lang)}
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-foreground truncate">{declared.name_en}</div>
+            <div className="text-[11px] text-muted-foreground">{branchLabel}</div>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium shrink-0">
+            {t("待管理員核實", "Pending verification", lang)}
+          </span>
+          <button
+            type="button"
+            onClick={() => setDeclared(null)}
+            className="p-1 text-muted-foreground hover:text-red-600 shrink-0"
+            aria-label={t("移除", "Remove", lang)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="pt-3 border-t border-border">
+      <SiblingInlineForm
+        lang={lang}
+        primaryBranches={primaryBranches}
+        canAdd={canAdd}
+        onSubmit={(v) => setDeclared(v)}
+      />
+    </div>
+  );
+}
+
+interface SiblingInlineFormProps {
+  lang: Lang;
+  primaryBranches: { code: string; name_zh: string; name_en: string }[];
+  canAdd: boolean;
+  onSubmit: (v: SummerSiblingDeclaration) => void;
+}
+
+function SiblingInlineForm({ lang, primaryBranches, canAdd, onSubmit }: SiblingInlineFormProps) {
+  const [open, setOpen] = useState(false);
+  const [nameEn, setNameEn] = useState("");
+  const [branch, setBranch] = useState("");
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={!canAdd}
+        onClick={() => setOpen(true)}
+        className="w-full py-2 text-xs font-medium border border-dashed border-amber-400 text-amber-800 rounded-xl hover:bg-amber-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {t(
+          "登記正報讀數學思維 / KidsConcept 的弟妹",
+          "Add a younger sibling applying to Primary / KidsConcept",
+          lang
+        )}
+      </button>
+    );
+  }
+  const canSave = nameEn.trim().length > 0 && branch.length > 0;
+  const reset = () => {
+    setOpen(false);
+    setNameEn("");
+    setBranch("");
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/40 p-2.5">
+      <div className="text-xs font-semibold text-foreground">
+        {t("數學思維 / KidsConcept 弟妹", "Younger Sibling at Primary / KidsConcept", lang)}
+      </div>
+      <input
+        type="text"
+        value={nameEn}
+        onChange={(e) => setNameEn(e.target.value)}
+        placeholder={t("弟妹英文姓名", "Younger sibling's English name", lang)}
+        className={inputClass}
+      />
+      <div className="text-[11px] text-muted-foreground">
+        {t("正報讀的分校", "Applying at branch", lang)}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {primaryBranches.map((b) => {
+          const selected = branch === b.code;
+          return (
+            <button
+              key={b.code}
+              type="button"
+              onClick={() => setBranch(b.code)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                selected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {lang === "zh" ? b.name_zh : b.name_en}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2 justify-end pt-1">
+        <button
+          type="button"
+          onClick={reset}
+          className="text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
+        >
+          {t("取消", "Cancel", lang)}
+        </button>
+        <button
+          type="button"
+          disabled={!canSave}
+          onClick={() => {
+            onSubmit({
+              name_en: nameEn.trim(),
+              source_branch: branch,
+            });
+            reset();
+          }}
+          className="text-[11px] font-medium px-3 py-1 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+        >
+          {t("加入", "Add", lang)}
+        </button>
       </div>
     </div>
   );

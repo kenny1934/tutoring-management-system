@@ -2055,6 +2055,38 @@ class SummerCourseFormConfig(BaseModel):
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     banner_image_url: Optional[str] = None
+    primary_branch_options: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class SummerSiblingDeclaration(BaseModel):
+    """A self-declared primary-branch sibling included in the apply submission."""
+    name_en: str = Field(..., min_length=1, max_length=255)
+    name_zh: Optional[str] = Field(None, max_length=255)
+    source_branch: str = Field(..., min_length=1, max_length=20)
+
+
+class SummerSiblingInfo(BaseModel):
+    """A buddy-group sibling row exposed to the public form, status page and admin."""
+    id: int
+    name_en: str
+    name_zh: Optional[str] = None
+    source_branch: str
+    verification_status: str  # Pending | Confirmed | Rejected
+    declared_by_application_id: Optional[int] = None
+    can_remove: bool = False  # True if caller can self-remove (Pending + own declaration)
+
+
+class SummerSiblingCreateRequest(BaseModel):
+    """Public POST body to declare a sibling on an existing application."""
+    name_en: str = Field(..., min_length=1, max_length=255)
+    name_zh: Optional[str] = Field(None, max_length=255)
+    source_branch: str = Field(..., min_length=1, max_length=20)
+
+
+class SummerSiblingAdminUpdate(BaseModel):
+    """Admin PATCH body for verifying / rejecting a declared sibling."""
+    verification_status: Literal["Pending", "Confirmed", "Rejected"]
+    student_id: Optional[str] = Field(None, max_length=50)
 
 
 class SummerApplicationCreate(BaseModel):
@@ -2078,6 +2110,7 @@ class SummerApplicationCreate(BaseModel):
     buddy_referrer_name: Optional[str] = Field(None, max_length=255)
     form_language: Optional[Literal["zh", "en"]] = "zh"
     sessions_per_week: int = Field(1, ge=1, le=3)
+    declared_sibling: Optional[SummerSiblingDeclaration] = None
 
 
 class SummerApplicationSubmitResponse(BaseModel):
@@ -2095,6 +2128,8 @@ class SummerApplicationStatusResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     buddy_code: Optional[str] = None
     buddy_group_member_count: Optional[int] = None
+    buddy_siblings: List[SummerSiblingInfo] = Field(default_factory=list)
+    primary_branch_options: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class SummerBuddyChangeRequest(BaseModel):
@@ -2108,6 +2143,14 @@ class SummerBuddyChangeResponse(BaseModel):
     """Response after buddy group change."""
     buddy_code: Optional[str] = None
     member_count: int = 0
+
+
+class SummerBuddyGroupPublicResponse(BaseModel):
+    """Public buddy-group lookup response (no PII)."""
+    buddy_code: str
+    member_count: int
+    is_full: bool
+    max_members: int
 
 
 # -- Admin schemas --
@@ -2216,6 +2259,8 @@ class SummerApplicationResponse(BaseModel):
     sessions_per_week: int = 1
     placed_count: int = 0
     sessions: List["SummerApplicationSessionInfo"] = []
+    pending_sibling_count: int = 0
+    buddy_siblings: List[SummerSiblingInfo] = []
 
     model_config = ConfigDict(from_attributes=True)
 

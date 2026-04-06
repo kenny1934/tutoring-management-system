@@ -142,3 +142,26 @@ class SummerPlacementStatus(str, Enum):
     TENTATIVE = 'Tentative'
     CONFIRMED = 'Confirmed'
     CANCELLED = 'Cancelled'
+
+
+class SummerSiblingVerificationStatus(str, Enum):
+    """Verification status for self-declared primary-branch sibling members of a buddy group."""
+    PENDING = 'Pending'
+    CONFIRMED = 'Confirmed'
+    REJECTED = 'Rejected'
+
+
+# Primary / KidsConcept branches that secondary applicants can declare a sibling at.
+# Display names are shown in the public form's branch picker. Codes match the
+# existing source_branch values used in summer_buddy_members.
+PRIMARY_BRANCH_OPTIONS = [
+    {"code": "MAC", "name_zh": "高士德分校",   "name_en": "Costa Center"},
+    {"code": "MCP", "name_zh": "水坑尾分校",   "name_en": "Campo Center"},
+    {"code": "MNT", "name_zh": "東方明珠分校", "name_en": "Areia Preta Center"},
+    {"code": "MTA", "name_zh": "氹仔美景I分校", "name_en": "Taipa Mei Keng Center I"},
+    {"code": "MLT", "name_zh": "林茂塘分校",   "name_en": "Lam Mau Tong Center"},
+    {"code": "MTR", "name_zh": "氹仔美景II分校", "name_en": "Taipa Mei Keng Center II"},
+    {"code": "MOT", "name_zh": "二龍喉分校",   "name_en": "Flora Garden Center"},
+    {"code": "KC",  "name_zh": "KidsConcept",  "name_en": "KidsConcept"},
+]
+PRIMARY_BRANCH_CODES = {b["code"] for b in PRIMARY_BRANCH_OPTIONS}

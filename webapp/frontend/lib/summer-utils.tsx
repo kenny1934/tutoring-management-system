@@ -17,6 +17,7 @@ export const BRANCH_INFO: Record<string, { district: string; dot: string; badge:
   MLT: { district: "林茂塘", dot: "bg-violet-500", badge: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
   MTR: { district: "氹仔美景II", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
   MOT: { district: "二龍喉", dot: "bg-orange-500", badge: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
+  KC:  { district: "KidsConcept", dot: "bg-pink-500", badge: "bg-pink-500/15 text-pink-600 dark:text-pink-400" },
 };
 
 /** Bilingual text selector. */

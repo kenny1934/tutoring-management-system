@@ -1145,22 +1145,36 @@ class SummerBuddyGroup(Base):
 
 
 class SummerBuddyMember(Base):
-    """Primary branch buddy group members tracked by branch staff."""
+    """Primary branch buddy group members.
+
+    Two creation paths:
+    - Primary-branch staff via /buddy-tracker (legacy, currently inactive).
+    - Self-declared by a Secondary applicant who has a sibling applying at a
+      Primary / KidsConcept branch. These rows have student_id NULL, a non-null
+      declared_by_application_id, and verification_status="Pending" until an
+      admin cross-checks and confirms.
+    """
     __tablename__ = "summer_buddy_members"
 
     id = Column(Integer, primary_key=True, index=True)
     buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=False)
-    student_id = Column(String(50), nullable=False)
+    student_id = Column(String(50), nullable=True)
     student_name_en = Column(String(255), nullable=False)
     student_name_zh = Column(String(255))
     parent_phone = Column(String(50))
-    source_branch = Column(String(10), nullable=False)
+    source_branch = Column(String(20), nullable=False)
     is_sibling = Column(Boolean, nullable=False, default=False)
+    verification_status = Column(String(20), nullable=False, default="Pending")
+    declared_by_application_id = Column(Integer, ForeignKey("summer_applications.id"), nullable=True)
     year = Column(Integer, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     buddy_group = relationship("SummerBuddyGroup", back_populates="members")
+
+    __table_args__ = (
+        Index("idx_buddy_member_group_status", "buddy_group_id", "verification_status"),
+    )
 
 
 class BuddyAccessCard(Base):

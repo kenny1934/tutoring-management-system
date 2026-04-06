@@ -136,6 +136,7 @@ import type {
   SummerApplicationCreate,
   SummerApplicationSubmitResponse,
   SummerApplicationStatusResponse,
+  SummerSiblingInfo,
   SummerCourseConfig,
   SummerApplication,
   SummerApplicationUpdate,
@@ -2225,9 +2226,40 @@ export const summerAPI = {
     fetchAPI<{ buddy_code: string }>("/summer/public/buddy-group", { method: "POST" }),
 
   getBuddyGroup: (code: string) =>
-    fetchAPI<{ buddy_code: string; member_count: number; is_full: boolean; max_members: number }>(
-      `/summer/public/buddy-group/${encodeURIComponent(code)}`
+    fetchAPI<{
+      buddy_code: string;
+      member_count: number;
+      is_full: boolean;
+      max_members: number;
+    }>(`/summer/public/buddy-group/${encodeURIComponent(code)}`),
+
+  declareSibling: (
+    referenceCode: string,
+    phone: string,
+    data: { name_en: string; name_zh?: string; source_branch: string }
+  ) =>
+    fetchAPI<SummerSiblingInfo>(
+      `/summer/public/application/${encodeURIComponent(referenceCode)}/sibling?phone=${encodeURIComponent(phone)}`,
+      { method: "POST", body: JSON.stringify(data) }
     ),
+
+  removeSibling: (referenceCode: string, phone: string, memberId: number) =>
+    fetchAPI<void>(
+      `/summer/public/application/${encodeURIComponent(referenceCode)}/sibling/${memberId}?phone=${encodeURIComponent(phone)}`,
+      { method: "DELETE" }
+    ),
+
+  adminUpdateSibling: (
+    memberId: number,
+    data: { verification_status: "Pending" | "Confirmed" | "Rejected"; student_id?: string }
+  ) =>
+    fetchAPI<SummerSiblingInfo>(`/summer/admin/buddy-siblings/${memberId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  adminDeleteSibling: (memberId: number) =>
+    fetchAPI<void>(`/summer/admin/buddy-siblings/${memberId}`, { method: "DELETE" }),
 
   changeBuddyGroup: (
     referenceCode: string,

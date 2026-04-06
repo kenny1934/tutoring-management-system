@@ -2,10 +2,13 @@
 
 import { useState, useCallback } from "react";
 import { summerAPI } from "@/lib/api";
-import type { SummerApplicationStatusResponse } from "@/types";
+import type {
+  SummerApplicationStatusResponse,
+  SummerSiblingInfo,
+} from "@/types";
 import { type Lang, t, inputClass } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
-import { Users } from "lucide-react";
+import { Users, Plus, X } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 
 const STATUS_STEPS = [
@@ -54,6 +57,57 @@ export default function SummerStatusPage() {
   const [buddyMaxMembers, setBuddyMaxMembers] = useState(3);
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState<string | null>(null);
+
+  const [siblingFormOpen, setSiblingFormOpen] = useState(false);
+  const [sibName, setSibName] = useState("");
+  const [sibBranch, setSibBranch] = useState("");
+  const [siblingSubmitting, setSiblingSubmitting] = useState(false);
+  const [siblingError, setSiblingError] = useState<string | null>(null);
+
+  const primaryBranches = result?.primary_branch_options ?? [];
+  const branchLabel = (code: string) => {
+    const b = primaryBranches.find((x) => x.code === code);
+    if (!b) return code;
+    return lang === "zh" ? b.name_zh : b.name_en;
+  };
+
+  const declareSibling = async () => {
+    if (!result) return;
+    setSiblingError(null);
+    setSiblingSubmitting(true);
+    try {
+      const sib = await summerAPI.declareSibling(referenceCode.trim(), phone.trim(), {
+        name_en: sibName.trim(),
+        source_branch: sibBranch,
+      });
+      setResult({
+        ...result,
+        buddy_siblings: [...(result.buddy_siblings ?? []), sib],
+        buddy_group_member_count: (result.buddy_group_member_count ?? 0) + 1,
+      });
+      setSibName("");
+      setSibBranch("");
+      setSiblingFormOpen(false);
+    } catch (e: unknown) {
+      setSiblingError(e instanceof Error ? e.message : "Failed to declare sibling");
+    } finally {
+      setSiblingSubmitting(false);
+    }
+  };
+
+  const removeSibling = async (sib: SummerSiblingInfo) => {
+    if (!result) return;
+    try {
+      await summerAPI.removeSibling(referenceCode.trim(), phone.trim(), sib.id);
+      setResult({
+        ...result,
+        buddy_siblings: (result.buddy_siblings ?? []).filter((s) => s.id !== sib.id),
+        buddy_group_member_count: Math.max(0, (result.buddy_group_member_count ?? 0) - 1),
+      });
+    } catch (e: unknown) {
+      setSiblingError(e instanceof Error ? e.message : "Failed to remove sibling");
+    }
+  };
 
   const resetBuddyState = () => {
     setBuddyAction("idle");
@@ -300,6 +354,126 @@ export default function SummerStatusPage() {
                   memberCount={result.buddy_group_member_count}
                   includesSelf
                 />
+
+                {/* Primary / KidsConcept siblings */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+                  <div className="text-xs font-semibold text-foreground">
+                    {t("數學思維 / KidsConcept 弟妹", "Younger Siblings at Primary / KidsConcept", lang)}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {t(
+                      "此同行碼只適用於中學教室。如有弟妹報讀數學思維或 KidsConcept，請於此登記，他們仍可計入同行優惠人數，由管理員核實。",
+                      "This buddy code is for Secondary only. If a younger sibling is applying to Primary / KidsConcept, declare them here so they count toward the group discount. An admin will verify.",
+                      lang
+                    )}
+                  </p>
+                  {(result.buddy_siblings ?? []).length > 0 && (
+                    <div className="space-y-1.5">
+                      {(result.buddy_siblings ?? []).map((sib) => (
+                        <div key={sib.id} className="flex items-center gap-2 rounded-lg bg-card border border-border p-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">{sib.name_en}</div>
+                            <div className="text-[11px] text-muted-foreground">{branchLabel(sib.source_branch)}</div>
+                          </div>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+                              sib.verification_status === "Confirmed"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {sib.verification_status === "Confirmed"
+                              ? t("已核實", "Confirmed", lang)
+                              : t("待核實", "Pending", lang)}
+                          </span>
+                          {sib.can_remove && (
+                            <button
+                              type="button"
+                              onClick={() => removeSibling(sib)}
+                              className="p-1 text-muted-foreground hover:text-red-600 shrink-0"
+                              aria-label={t("移除", "Remove", lang)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {siblingError && (
+                    <div className="text-[11px] text-red-600">{siblingError}</div>
+                  )}
+                  {!siblingFormOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setSiblingFormOpen(true)}
+                      disabled={
+                        (result.buddy_group_member_count ?? 0) >= 3 || primaryBranches.length === 0
+                      }
+                      className="w-full py-1.5 text-xs font-medium border border-dashed border-amber-400 text-amber-800 rounded-lg hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("登記弟妹", "Declare a younger sibling", lang)}
+                    </button>
+                  ) : (
+                    <div className="space-y-2 rounded-lg border border-amber-200 bg-card p-2">
+                      <input
+                        type="text"
+                        value={sibName}
+                        onChange={(e) => setSibName(e.target.value)}
+                        placeholder={t("弟妹英文姓名", "Younger sibling's English name", lang)}
+                        className={inputClass}
+                      />
+                      <div className="text-[11px] text-muted-foreground">
+                        {t("正報讀的分校", "Applying at branch", lang)}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {primaryBranches.map((b) => {
+                          const selected = sibBranch === b.code;
+                          return (
+                            <button
+                              key={b.code}
+                              type="button"
+                              onClick={() => setSibBranch(b.code)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                                selected
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-card text-foreground border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {lang === "zh" ? b.name_zh : b.name_en}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSiblingFormOpen(false);
+                            setSiblingError(null);
+                            setSibName("");
+                            setSibBranch("");
+                          }}
+                          className="text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
+                        >
+                          {t("取消", "Cancel", lang)}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!sibName.trim() || !sibBranch || siblingSubmitting}
+                          onClick={declareSibling}
+                          className="text-[11px] font-medium px-3 py-1 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                        >
+                          {siblingSubmitting
+                            ? t("提交中...", "Submitting...", lang)
+                            : t("加入", "Add", lang)}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="text-center">
                   <button
                     type="button"

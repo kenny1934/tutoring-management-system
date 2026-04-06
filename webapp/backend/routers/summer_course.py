@@ -31,6 +31,10 @@ from schemas import (
     SummerApplicationStatusResponse,
     SummerBuddyChangeRequest,
     SummerBuddyChangeResponse,
+    SummerBuddyGroupPublicResponse,
+    SummerSiblingCreateRequest,
+    SummerSiblingAdminUpdate,
+    SummerSiblingInfo,
     SummerCourseConfigCreate,
     SummerCourseConfigUpdate,
     SummerCourseConfigResponse,
@@ -64,7 +68,17 @@ from schemas import (
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.rate_limiter import check_ip_rate_limit
-from constants import hk_now, SummerApplicationStatus
+from constants import (
+    hk_now,
+    SummerApplicationStatus,
+    SummerSiblingVerificationStatus,
+    PRIMARY_BRANCH_OPTIONS,
+    PRIMARY_BRANCH_CODES,
+)
+
+PENDING = SummerSiblingVerificationStatus.PENDING.value
+CONFIRMED = SummerSiblingVerificationStatus.CONFIRMED.value
+REJECTED = SummerSiblingVerificationStatus.REJECTED.value
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -143,7 +157,26 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
     config = _get_active_config(db)
     if not config:
         raise HTTPException(status_code=404, detail="No active summer course found")
-    return config
+    return SummerCourseFormConfig(
+        year=config.year,
+        title=config.title,
+        description=config.description,
+        application_open_date=config.application_open_date,
+        application_close_date=config.application_close_date,
+        course_start_date=config.course_start_date,
+        course_end_date=config.course_end_date,
+        total_lessons=config.total_lessons,
+        pricing_config=config.pricing_config or {},
+        locations=config.locations or [],
+        available_grades=config.available_grades or [],
+        time_slots=config.time_slots or [],
+        existing_student_options=config.existing_student_options,
+        center_options=config.center_options,
+        lang_stream_options=config.lang_stream_options,
+        text_content=config.text_content,
+        banner_image_url=config.banner_image_url,
+        primary_branch_options=PRIMARY_BRANCH_OPTIONS,
+    )
 
 
 @router.post("/summer/public/apply", response_model=SummerApplicationSubmitResponse)
@@ -225,6 +258,13 @@ def submit_application(
     else:
         raise HTTPException(status_code=500, detail="Could not generate unique reference code")
 
+    # Self-declared sibling (optional). Requires a buddy group; silently
+    # ignored otherwise so stale UI state can't block the submission.
+    if data.declared_sibling and app.buddy_group_id:
+        _assert_buddy_group_not_full(db, app.buddy_group_id)
+        db.add(_create_sibling_member(app, data.declared_sibling, config.year))
+        db.commit()
+
     return SummerApplicationSubmitResponse(
         reference_code=app.reference_code,
         buddy_code=buddy_code_out,
@@ -252,9 +292,11 @@ def check_application_status(
 
     buddy_code = None
     buddy_member_count = None
+    siblings: list[SummerSiblingInfo] = []
     if app.buddy_group:
         buddy_code = app.buddy_group.buddy_code
         buddy_member_count = _get_buddy_member_count(db, app.buddy_group.id)
+        siblings = _get_buddy_siblings(db, app.buddy_group.id, caller_application_id=app.id)
 
     return SummerApplicationStatusResponse(
         reference_code=app.reference_code,
@@ -263,18 +305,91 @@ def check_application_status(
         submitted_at=app.submitted_at,
         buddy_code=buddy_code,
         buddy_group_member_count=buddy_member_count,
+        buddy_siblings=siblings,
+        primary_branch_options=PRIMARY_BRANCH_OPTIONS,
     )
 
 
 def _get_buddy_member_count(db: Session, group_id: int) -> int:
-    """Count all members in a buddy group (secondary apps + primary members)."""
+    """Total members counted toward the discount threshold (apps + non-rejected siblings)."""
     app_count = db.query(func.count(SummerApplication.id)).filter(
         SummerApplication.buddy_group_id == group_id
     ).scalar() or 0
-    primary_count = db.query(func.count(SummerBuddyMember.id)).filter(
-        SummerBuddyMember.buddy_group_id == group_id
+    sibling_count = db.query(func.count(SummerBuddyMember.id)).filter(
+        SummerBuddyMember.buddy_group_id == group_id,
+        SummerBuddyMember.verification_status != REJECTED,
     ).scalar() or 0
-    return app_count + primary_count
+    return app_count + sibling_count
+
+
+def _serialize_sibling(
+    member: SummerBuddyMember, caller_application_id: Optional[int] = None
+) -> SummerSiblingInfo:
+    return SummerSiblingInfo(
+        id=member.id,
+        name_en=member.student_name_en,
+        name_zh=member.student_name_zh,
+        source_branch=member.source_branch,
+        verification_status=member.verification_status,
+        declared_by_application_id=member.declared_by_application_id,
+        can_remove=(
+            member.verification_status == PENDING
+            and caller_application_id is not None
+            and member.declared_by_application_id == caller_application_id
+        ),
+    )
+
+
+def _get_buddy_siblings(
+    db: Session, group_id: int, caller_application_id: Optional[int] = None
+) -> list[SummerSiblingInfo]:
+    rows = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.buddy_group_id == group_id,
+        SummerBuddyMember.verification_status != REJECTED,
+    ).order_by(SummerBuddyMember.created_at.asc()).all()
+    return [_serialize_sibling(r, caller_application_id) for r in rows]
+
+
+def _get_buddy_siblings_bulk(
+    db: Session, group_ids: list[int]
+) -> dict[int, list[SummerSiblingInfo]]:
+    """Batch sibling lookup for multiple groups (avoids N+1 in list endpoints)."""
+    if not group_ids:
+        return {}
+    rows = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.buddy_group_id.in_(group_ids),
+        SummerBuddyMember.verification_status != REJECTED,
+    ).order_by(SummerBuddyMember.created_at.asc()).all()
+    by_group: dict[int, list[SummerSiblingInfo]] = {}
+    for r in rows:
+        by_group.setdefault(r.buddy_group_id, []).append(_serialize_sibling(r))
+    return by_group
+
+
+def _validate_primary_branch(branch: str) -> str:
+    code = (branch or "").strip().upper()
+    if code not in PRIMARY_BRANCH_CODES:
+        raise HTTPException(status_code=400, detail="Invalid primary branch")
+    return code
+
+
+def _create_sibling_member(
+    app: SummerApplication, data, year: int
+) -> SummerBuddyMember:
+    """Build (not commit) a new self-declared sibling row from a request payload."""
+    branch_code = _validate_primary_branch(data.source_branch)
+    name_zh = (data.name_zh or "").strip() or None if hasattr(data, "name_zh") else None
+    return SummerBuddyMember(
+        buddy_group_id=app.buddy_group_id,
+        student_id=None,
+        student_name_en=data.name_en.strip(),
+        student_name_zh=name_zh,
+        source_branch=branch_code,
+        is_sibling=True,
+        verification_status=PENDING,
+        declared_by_application_id=app.id,
+        year=year,
+    )
 
 
 @router.patch("/summer/public/application/{reference_code}/buddy", response_model=SummerBuddyChangeResponse)
@@ -362,7 +477,7 @@ def create_buddy_group(
     return {"buddy_code": group.buddy_code}
 
 
-@router.get("/summer/public/buddy-group/{code}")
+@router.get("/summer/public/buddy-group/{code}", response_model=SummerBuddyGroupPublicResponse)
 def get_buddy_group(
     request: Request,
     code: str,
@@ -380,12 +495,133 @@ def get_buddy_group(
         raise HTTPException(status_code=404, detail="Buddy group not found")
 
     count = _get_buddy_member_count(db, group.id)
-    return {
-        "buddy_code": group.buddy_code,
-        "member_count": count,
-        "is_full": count >= PUBLIC_BUDDY_GROUP_CAP,
-        "max_members": PUBLIC_BUDDY_GROUP_CAP,
-    }
+    # Sibling names are PII; only the authenticated status endpoint returns
+    # them. Anyone with the code can hit this lookup.
+    return SummerBuddyGroupPublicResponse(
+        buddy_code=group.buddy_code,
+        member_count=count,
+        is_full=count >= PUBLIC_BUDDY_GROUP_CAP,
+        max_members=PUBLIC_BUDDY_GROUP_CAP,
+    )
+
+
+# ---- Self-declared sibling endpoints (public, ref-code + phone auth) ----
+
+def _authenticate_application(
+    db: Session, reference_code: str, phone: str
+) -> SummerApplication:
+    app = db.query(SummerApplication).filter(
+        SummerApplication.reference_code == reference_code.strip().upper(),
+        SummerApplication.contact_phone == phone.strip(),
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return app
+
+
+@router.post(
+    "/summer/public/application/{reference_code}/sibling",
+    response_model=SummerSiblingInfo,
+)
+def declare_sibling(
+    request: Request,
+    reference_code: str,
+    data: SummerSiblingCreateRequest,
+    phone: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """Declare a primary-branch sibling on the caller's buddy group."""
+    check_ip_rate_limit(request, "summer_buddy")
+    app = _authenticate_application(db, reference_code, phone)
+    if not app.buddy_group_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Join or create a buddy group before declaring a sibling.",
+        )
+    _assert_buddy_group_not_full(db, app.buddy_group_id)
+    member = _create_sibling_member(app, data, app.config.year if app.config else hk_now().year)
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return _serialize_sibling(member, caller_application_id=app.id)
+
+
+@router.delete(
+    "/summer/public/application/{reference_code}/sibling/{member_id}",
+    status_code=204,
+)
+def remove_sibling(
+    request: Request,
+    reference_code: str,
+    member_id: int,
+    phone: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """Remove a Pending sibling the caller previously declared."""
+    check_ip_rate_limit(request, "summer_buddy")
+    app = _authenticate_application(db, reference_code, phone)
+    member = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.id == member_id,
+    ).first()
+    if not member or member.buddy_group_id != app.buddy_group_id:
+        raise HTTPException(status_code=404, detail="Sibling not found")
+    if member.verification_status != PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="Confirmed siblings cannot be removed by the parent. Please contact us.",
+        )
+    if member.declared_by_application_id != app.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the parent who declared this sibling may remove them.",
+        )
+    db.delete(member)
+    db.commit()
+
+
+# ---- Admin sibling endpoints ----
+
+@router.patch(
+    "/summer/admin/buddy-siblings/{member_id}",
+    response_model=SummerSiblingInfo,
+)
+def admin_update_sibling(
+    member_id: int,
+    data: SummerSiblingAdminUpdate,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Admin: confirm / reject a self-declared sibling."""
+    member = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.id == member_id
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Sibling not found")
+    member.verification_status = data.verification_status
+    if data.student_id is not None:
+        member.student_id = data.student_id.strip() or None
+    db.commit()
+    db.refresh(member)
+    return _serialize_sibling(member)
+
+
+@router.delete(
+    "/summer/admin/buddy-siblings/{member_id}",
+    status_code=204,
+)
+def admin_delete_sibling(
+    member_id: int,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Admin: hard-delete a sibling row (for cleanup)."""
+    member = db.query(SummerBuddyMember).filter(
+        SummerBuddyMember.id == member_id
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Sibling not found")
+    db.delete(member)
+    db.commit()
 
 
 # ============================================
@@ -526,8 +762,16 @@ def clone_config(
     return clone
 
 
-def _build_application_response(app: SummerApplication) -> SummerApplicationResponse:
-    """Build application response with embedded session info."""
+def _build_application_response(
+    app: SummerApplication,
+    siblings_by_group: Optional[dict[int, list[SummerSiblingInfo]]] = None,
+) -> SummerApplicationResponse:
+    """Build application response with embedded session and sibling info.
+
+    Pass `siblings_by_group` from `_get_buddy_siblings_bulk` to avoid N+1
+    in list endpoints. Single-app endpoints can pass `{group_id: siblings}`
+    or omit it entirely (empty siblings will be returned).
+    """
     sessions = []
     for s in (app.sessions or []):
         if s.session_status == "Cancelled":
@@ -545,9 +789,24 @@ def _build_application_response(app: SummerApplication) -> SummerApplicationResp
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
     data["placed_count"] = len(sessions)
-    # buddy_code is a @property (derived from buddy_group relationship), not a column
-    data["buddy_code"] = app.buddy_code
+    data["buddy_code"] = app.buddy_code  # @property, not a column
+
+    siblings = (siblings_by_group or {}).get(app.buddy_group_id or -1, [])
+    data["buddy_siblings"] = siblings
+    data["pending_sibling_count"] = sum(
+        1 for s in siblings if s.verification_status == PENDING
+    )
+
     return SummerApplicationResponse.model_validate(data)
+
+
+def _build_application_responses(
+    db: Session, apps: list[SummerApplication]
+) -> list[SummerApplicationResponse]:
+    """Build response list with a single batched sibling lookup."""
+    group_ids = [a.buddy_group_id for a in apps if a.buddy_group_id]
+    siblings_by_group = _get_buddy_siblings_bulk(db, group_ids)
+    return [_build_application_response(a, siblings_by_group) for a in apps]
 
 
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])
@@ -588,7 +847,7 @@ def list_applications(
         )
 
     apps = q.order_by(SummerApplication.submitted_at.desc()).all()
-    return [_build_application_response(a) for a in apps]
+    return _build_application_responses(db, apps)
 
 
 @router.get("/summer/applications/stats", response_model=SummerApplicationStats)
@@ -649,7 +908,7 @@ def get_application(
     ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-    return _build_application_response(app)
+    return _build_application_responses(db, [app])[0]
 
 
 @router.patch("/summer/applications/{app_id}", response_model=SummerApplicationResponse)
@@ -710,7 +969,7 @@ def update_application(
     ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-    return _build_application_response(app)
+    return _build_application_responses(db, [app])[0]
 
 
 # ─── Slot CRUD ───────────────────────────────────────────────────────────────
@@ -1354,7 +1613,7 @@ def list_unassigned(
         q = q.filter(SummerApplication.grade == grade)
 
     apps = q.order_by(SummerApplication.student_name).all()
-    return [_build_application_response(a) for a in apps]
+    return _build_application_responses(db, apps)
 
 
 # ─── Student Lessons Progress ────────────────────────────────────────────────

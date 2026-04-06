@@ -234,9 +234,9 @@ class TestGetBuddyGroupIsFull:
             code=full_group.buddy_code,
             db=db_session,
         )
-        assert result["is_full"] is True
-        assert result["member_count"] == 3
-        assert result["max_members"] == 3
+        assert result.is_full is True
+        assert result.member_count == 3
+        assert result.max_members == 3
 
     def test_is_full_false_below_cap(self, db_session, active_config, half_full_group):
         from routers.summer_course import get_buddy_group
@@ -246,8 +246,8 @@ class TestGetBuddyGroupIsFull:
             code=half_full_group.buddy_code,
             db=db_session,
         )
-        assert result["is_full"] is False
-        assert result["member_count"] == 1
+        assert result.is_full is False
+        assert result.member_count == 1
 
 
 class TestAdminCapBypass:

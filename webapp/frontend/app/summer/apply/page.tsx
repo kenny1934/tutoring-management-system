@@ -5,6 +5,7 @@ import { summerAPI } from "@/lib/api";
 import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
+  SummerSiblingDeclaration,
 } from "@/types";
 import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
@@ -60,6 +61,7 @@ export default function SummerApplyPage() {
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
     null
   );
+  const [declaredSibling, setDeclaredSibling] = useState<SummerSiblingDeclaration | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [refCopied, setRefCopied] = useState(false);
   const refCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,6 +128,7 @@ export default function SummerApplyPage() {
       setBuddyCodeValid(null);
       setBuddyMemberCount(null);
       setBuddyGroupFull(false);
+      setDeclaredSibling(null);
     }
   };
 
@@ -136,6 +139,7 @@ export default function SummerApplyPage() {
     setBuddyMemberCount(null);
     setBuddyGroupFull(false);
     setBuddyReferrerName("");
+    setDeclaredSibling(null);
   };
 
   // Per-step validation — returns error messages for missing required fields
@@ -303,6 +307,8 @@ export default function SummerApplyPage() {
         buddyMode === "code" && buddyCodeValid ? buddyReferrerName.trim() || null : null,
       form_language: lang,
       sessions_per_week: sessionsPerWeek,
+      declared_sibling:
+        buddyMode === "code" && buddyCodeValid && declaredSibling ? declaredSibling : null,
     };
 
     try {
@@ -539,6 +545,8 @@ export default function SummerApplyPage() {
             buddyCodeIsOwn={buddyCodeIsOwn}
             buddyGroupFull={buddyGroupFull}
             buddyMaxMembers={buddyMaxMembers}
+            declaredSibling={declaredSibling}
+            setDeclaredSibling={setDeclaredSibling}
           />
         );
       case 5:
