@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { MapPin, Megaphone, Calendar, Clock, Check } from "lucide-react";
+import { MapPin, Calendar, Check } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -15,6 +15,10 @@ import {
   RequiredMark,
   IconLabel,
 } from "@/lib/summer-utils";
+import {
+  PreferenceSlotGrid,
+  type PreferenceSlot,
+} from "@/components/summer/PreferenceSlotGrid";
 
 const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
   "Jardim de Vasco Center": "/summer/vasco-center.jpg",
@@ -63,13 +67,25 @@ export function ClassPreferencesStep({
   );
   const openDays = selectedLocationData?.open_days || [];
 
-  // Resolve time slots: per-location per-day → global fallback
-  const getTimeSlots = (day: string): string[] => {
-    const locSlots = selectedLocationData?.time_slots;
-    if (locSlots) {
-      return locSlots[day] || config.time_slots;
-    }
-    return config.time_slots;
+  const slotsByDay: Record<string, string[]> = {};
+  for (const day of openDays) {
+    slotsByDay[day] =
+      selectedLocationData?.time_slots?.[day] || config.time_slots;
+  }
+
+  const pref1: PreferenceSlot | null =
+    pref1Day && pref1Time ? { day: pref1Day, time: pref1Time } : null;
+  const pref2: PreferenceSlot | null =
+    pref2Day && pref2Time ? { day: pref2Day, time: pref2Time } : null;
+
+  const handlePrefChange = (
+    next1: PreferenceSlot | null,
+    next2: PreferenceSlot | null
+  ) => {
+    setPref1Day(next1?.day ?? "");
+    setPref1Time(next1?.time ?? "");
+    setPref2Day(next2?.day ?? "");
+    setPref2Time(next2?.time ?? "");
   };
 
   return (
@@ -202,185 +218,22 @@ export function ClassPreferencesStep({
       >
         <div className="overflow-hidden">
           <div className={sectionClass}>
-            {/* 1st preference */}
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm font-medium text-primary">
-                  <IconLabel icon={Megaphone}>
-                    {t(
-                      config.text_content?.preference_1_label_zh || "請家長選擇 第一理想 上課日子和時間。",
-                      config.text_content?.preference_1_label_en || "Please select your 1st preferred day and time.",
-                      lang
-                    )}
-                  </IconLabel>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {selectedLocationData &&
-                    t(
-                      `以下是${lang === "zh" ? selectedLocationData.name : selectedLocationData.name_en}提供的上課時間。`,
-                      `Below are the time slots for ${selectedLocationData.name_en}:`,
-                      lang
-                    )}
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>
-                  <IconLabel icon={Calendar}>
-                    {t(
-                      "請家長選擇 第一理想 的上課日子：",
-                      "Please select your 1st preferred day:",
-                      lang
-                    )}
-                  </IconLabel>
-                  <RequiredMark />
-                </label>
-                <div className={radioGroupClass}>
-                  {openDays.map((d) => (
-                    <label
-                      key={d}
-                      className={radioLabelClass(pref1Day === d)}
-                    >
-                      <input
-                        type="radio"
-                        name="pref1Day"
-                        value={d}
-                        checked={pref1Day === d}
-                        onChange={() => {
-                          setPref1Day(d);
-                          setPref1Time("");
-                        }}
-                        className="sr-only"
-                      />
-                      {pref1Day === d && <RadioCheck />}
-                      {dayLabel(d, lang)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {pref1Day && (
-              <div>
-                <label className={labelClass}>
-                  <IconLabel icon={Clock}>
-                    {t(
-                      "請家長選擇 第一理想 的上課時間段：",
-                      "Please select your 1st preferred time:",
-                      lang
-                    )}
-                  </IconLabel>
-                  <RequiredMark />
-                </label>
-                <div className={radioGroupClass}>
-                  {getTimeSlots(pref1Day).map((ts) => (
-                    <label
-                      key={ts}
-                      className={radioLabelClass(pref1Time === ts)}
-                    >
-                      <input
-                        type="radio"
-                        name="pref1Time"
-                        value={ts}
-                        checked={pref1Time === ts}
-                        onChange={() => setPref1Time(ts)}
-                        className="sr-only"
-                      />
-                      {pref1Time === ts && <RadioCheck />}
-                      {ts}
-                    </label>
-                  ))}
-                </div>
-              </div>
+            <h2 className="text-base font-semibold text-foreground leading-snug">
+              {t(
+                "請選擇上課時段",
+                "Select your class times",
+                lang
               )}
-            </div>
-
-            {/* 2nd preference */}
-            <div className="space-y-3 pt-4 border-t border-border-subtle">
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  <IconLabel icon={Megaphone}>
-                    {t(
-                      config.text_content?.preference_2_label_zh || "請家長選擇 第二理想 上課日子和時間。",
-                      config.text_content?.preference_2_label_en || "Please select your 2nd preferred day and time.",
-                      lang
-                    )}
-                  </IconLabel>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {selectedLocationData &&
-                    t(
-                      `以下是${lang === "zh" ? selectedLocationData.name : selectedLocationData.name_en}提供的上課時間。`,
-                      `Below are the time slots for ${selectedLocationData.name_en}:`,
-                      lang
-                    )}
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>
-                  <IconLabel icon={Calendar}>
-                    {t(
-                      "請家長選擇 第二理想 的上課日子：",
-                      "Please select your 2nd preferred day:",
-                      lang
-                    )}
-                  </IconLabel>
-                  <RequiredMark />
-                </label>
-                <div className={radioGroupClass}>
-                  {openDays.map((d) => (
-                    <label
-                      key={d}
-                      className={radioLabelClass(pref2Day === d)}
-                    >
-                      <input
-                        type="radio"
-                        name="pref2Day"
-                        value={d}
-                        checked={pref2Day === d}
-                        onChange={() => {
-                          setPref2Day(d);
-                          setPref2Time("");
-                        }}
-                        className="sr-only"
-                      />
-                      {pref2Day === d && <RadioCheck />}
-                      {dayLabel(d, lang)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {pref2Day && (
-              <div>
-                <label className={labelClass}>
-                  <IconLabel icon={Clock}>
-                    {t(
-                      "請家長選擇 第二理想 的上課時間段：",
-                      "Please select your 2nd preferred time:",
-                      lang
-                    )}
-                  </IconLabel>
-                  <RequiredMark />
-                </label>
-                <div className={radioGroupClass}>
-                  {getTimeSlots(pref2Day).map((ts) => (
-                    <label
-                      key={ts}
-                      className={radioLabelClass(pref2Time === ts)}
-                    >
-                      <input
-                        type="radio"
-                        name="pref2Time"
-                        value={ts}
-                        checked={pref2Time === ts}
-                        onChange={() => setPref2Time(ts)}
-                        className="sr-only"
-                      />
-                      {pref2Time === ts && <RadioCheck />}
-                      {ts}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              )}
-            </div>
+              <RequiredMark />
+            </h2>
+            <PreferenceSlotGrid
+              openDays={openDays}
+              slotsByDay={slotsByDay}
+              pref1={pref1}
+              pref2={pref2}
+              onChange={handlePrefChange}
+              lang={lang}
+            />
           </div>
         </div>
       </div>
