@@ -137,6 +137,7 @@ import type {
   SummerApplicationSubmitResponse,
   SummerApplicationStatusResponse,
   SummerSiblingInfo,
+  SiblingVerificationStatus,
   SummerCourseConfig,
   SummerApplication,
   SummerApplicationUpdate,
@@ -2251,7 +2252,7 @@ export const summerAPI = {
 
   adminUpdateSibling: (
     memberId: number,
-    data: { verification_status: "Pending" | "Confirmed" | "Rejected"; student_id?: string }
+    data: { verification_status: SiblingVerificationStatus; student_id?: string }
   ) =>
     fetchAPI<SummerSiblingInfo>(`/summer/admin/buddy-siblings/${memberId}`, {
       method: "PATCH",

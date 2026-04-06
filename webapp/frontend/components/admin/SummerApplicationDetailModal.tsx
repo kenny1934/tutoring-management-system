@@ -18,7 +18,7 @@ import {
   User, Phone, MapPin, FileText, Users, ExternalLink,
   Clock, Grid3X3,
 } from "lucide-react";
-import type { SummerApplication, SummerApplicationUpdate, SummerLocation } from "@/types";
+import type { SummerApplication, SummerApplicationUpdate, SummerLocation, SiblingVerificationStatus } from "@/types";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -153,10 +153,8 @@ export function SummerApplicationDetailModal({
     | null
   >(null);
 
-  // Sibling overrides — applied optimistically so the UI flips immediately
-  // after Confirm/Reject without waiting for the list refetch.
   const [siblingOverrides, setSiblingOverrides] = useState<
-    Record<number, "Pending" | "Confirmed" | "Rejected">
+    Record<number, SiblingVerificationStatus>
   >({});
   const [siblingPendingReject, setSiblingPendingReject] = useState<{
     id: number;
@@ -348,10 +346,7 @@ export function SummerApplicationDetailModal({
     return source.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
   }, [app?.buddy_group_id, app?.id, allApplications, fetchedBuddyMembers]);
 
-  const verifySibling = async (
-    id: number,
-    status: "Pending" | "Confirmed" | "Rejected"
-  ) => {
+  const verifySibling = async (id: number, status: SiblingVerificationStatus) => {
     setSiblingOverrides((prev) => ({ ...prev, [id]: status }));
     try {
       await summerAPI.adminUpdateSibling(id, { verification_status: status });
@@ -423,7 +418,6 @@ export function SummerApplicationDetailModal({
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
   const locationConfig = locations?.find(l => l.name === app.preferred_location);
 
-  // Apply optimistic overrides on top of the server response.
   const effectiveSiblings = (app.buddy_siblings ?? []).map((s) => ({
     ...s,
     verification_status: siblingOverrides[s.id] ?? s.verification_status,
@@ -1316,7 +1310,7 @@ export function SummerApplicationDetailModal({
                                   onClick={() => verifySibling(sib.id, "Pending")}
                                   className="text-[10px] text-muted-foreground hover:text-foreground underline"
                                 >
-                                  Mark pending
+                                  Undo
                                 </button>
                               )}
                             </div>

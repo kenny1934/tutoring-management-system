@@ -625,7 +625,11 @@ def admin_update_sibling(
         member.student_id = data.student_id.strip() or None
     db.commit()
     db.refresh(member)
-    declarer = _resolve_declarer_names(db, [member]).get(member.declared_by_application_id)
+    declarer = None
+    if member.declared_by_application_id:
+        declarer = db.query(SummerApplication.student_name).filter(
+            SummerApplication.id == member.declared_by_application_id
+        ).scalar()
     return _serialize_sibling(member, declared_by_name=declarer)
 
 

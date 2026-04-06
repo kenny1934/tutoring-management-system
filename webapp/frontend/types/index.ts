@@ -2071,12 +2071,14 @@ export interface SummerSiblingDeclaration {
   source_branch: string;
 }
 
+export type SiblingVerificationStatus = "Pending" | "Confirmed" | "Rejected";
+
 export interface SummerSiblingInfo {
   id: number;
   name_en: string;
   name_zh?: string | null;
   source_branch: string;
-  verification_status: "Pending" | "Confirmed" | "Rejected";
+  verification_status: SiblingVerificationStatus;
   declared_by_application_id?: number | null;
   declared_by_name?: string | null;
   can_remove?: boolean;
