@@ -11,6 +11,7 @@ import {
   RadioCheck,
   RequiredMark,
   IconLabel,
+  getActiveSummerPromo,
 } from "@/lib/summer-utils";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 
@@ -61,26 +62,9 @@ export function ContactBuddyStep({
   buddyGroupFull,
   buddyMaxMembers,
 }: ContactBuddyStepProps) {
-  // Current group-discount amount, aware of the early bird deadline.
-  // Before the deadline the early-bird group discount applies; after, the
-  // regular group discount does. Either way we show the full value of the
-  // buddy discount in effect right now.
-  const discounts = config?.pricing_config?.discounts || [];
-  const ebGroup = discounts.find(
-    (d) =>
-      (d.conditions?.min_group_size ?? 0) >= 3 && !!d.conditions?.before_date
-  );
-  const regularGroup = discounts.find(
-    (d) =>
-      (d.conditions?.min_group_size ?? 0) >= 3 && !d.conditions?.before_date
-  );
-  const ebDeadline = ebGroup?.conditions?.before_date
-    ? new Date(ebGroup.conditions.before_date)
+  const groupSavings = config
+    ? getActiveSummerPromo(config.pricing_config, lang).groupSavings
     : null;
-  const ebActive = ebDeadline ? ebDeadline > new Date() : false;
-  const groupSavings = ebActive && ebGroup
-    ? ebGroup.amount
-    : regularGroup?.amount ?? null;
 
   return (
     <div className="space-y-6">

@@ -421,7 +421,6 @@ export default function SummerApplyPage() {
           />
         )}
 
-        {/* Next steps callout — what they can do with their reference code */}
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
           <div className="flex items-start gap-2.5">
             <Pencil className="h-4 w-4 text-primary shrink-0 mt-0.5" />

@@ -4,6 +4,7 @@
 
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { SummerPricingConfig } from "@/types";
 
 export type Lang = "zh" | "en";
 
@@ -203,6 +204,67 @@ export const LOCATION_TO_CODE: Record<string, string> = {
 export function displayLocation(location: string | null | undefined): string {
   if (!location) return "";
   return LOCATION_TO_CODE[location] || location;
+}
+
+/** Minimum members needed to qualify as a "group" discount. */
+export const MIN_GROUP_SIZE = 3;
+
+export interface ActiveSummerPromo {
+  ebActive: boolean;
+  ebDeadline: Date | null;
+  ebDateFormatted: string;
+  daysUntilEb: number | null;
+  groupFee: number | null;
+  groupSavings: number | null;
+  soloFee: number | null;
+  soloSavings: number | null;
+}
+
+/**
+ * Derive the discount amounts to display right now from a pricing config.
+ * Group discounts are those requiring {@link MIN_GROUP_SIZE}+ members; early
+ * bird discounts are those with a `before_date` condition. Before the early
+ * bird deadline, the early-bird group/solo discounts apply; after, only the
+ * regular group discount does.
+ */
+export function getActiveSummerPromo(
+  pricing: SummerPricingConfig,
+  lang: Lang,
+  now: Date = new Date()
+): ActiveSummerPromo {
+  const discounts = pricing.discounts || [];
+  const isGroup = (d: { conditions?: { min_group_size?: number } }) =>
+    (d.conditions?.min_group_size ?? 0) >= MIN_GROUP_SIZE;
+
+  const ebGroup = discounts.find(
+    (d) => isGroup(d) && !!d.conditions?.before_date
+  );
+  const ebSolo = discounts.find(
+    (d) => !isGroup(d) && !!d.conditions?.before_date
+  );
+  const regularGroup = discounts.find(
+    (d) => isGroup(d) && !d.conditions?.before_date
+  );
+
+  const ebDateStr = ebGroup?.conditions?.before_date;
+  // Use the T00:00:00 parse used elsewhere to avoid UTC-vs-local drift.
+  const ebDeadline = ebDateStr ? new Date(ebDateStr + "T00:00:00") : null;
+  const ebActive = ebDeadline ? ebDeadline > now : false;
+  const activeGroup = ebActive ? ebGroup : regularGroup;
+  const activeSolo = ebActive ? ebSolo : null;
+
+  return {
+    ebActive,
+    ebDeadline,
+    ebDateFormatted: ebDateStr ? formatDate(ebDateStr, lang) : "",
+    daysUntilEb: ebDeadline
+      ? Math.max(0, Math.ceil((ebDeadline.getTime() - now.getTime()) / 86400000))
+      : null,
+    groupFee: activeGroup ? pricing.base_fee - activeGroup.amount : null,
+    groupSavings: activeGroup?.amount ?? null,
+    soloFee: activeSolo ? pricing.base_fee - activeSolo.amount : null,
+    soloSavings: activeSolo?.amount ?? null,
+  };
 }
 
 /** Format preference day+time pairs from a summer application. */

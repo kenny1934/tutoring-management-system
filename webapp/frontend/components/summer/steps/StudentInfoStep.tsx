@@ -23,6 +23,7 @@ import {
   RadioCheck,
   RequiredMark,
   IconLabel,
+  getActiveSummerPromo,
 } from "@/lib/summer-utils";
 
 interface StudentInfoStepProps {
@@ -52,42 +53,15 @@ export function StudentInfoStep({
 }: StudentInfoStepProps) {
   const hasLangStream = !!(config.lang_stream_options && config.lang_stream_options.length > 0);
   const pricing = config.pricing_config;
-
-  // Deadline-aware promo computation. "Group" discounts require 3+; "solo"
-  // discounts have no group requirement. Early bird applies before its date.
-  const discounts = pricing.discounts || [];
-  const ebGroup = discounts.find(
-    (d) => (d.conditions?.min_group_size ?? 0) >= 3 && !!d.conditions?.before_date
-  );
-  const ebSolo = discounts.find(
-    (d) => (d.conditions?.min_group_size ?? 0) < 3 && !!d.conditions?.before_date
-  );
-  const regularGroup = discounts.find(
-    (d) => (d.conditions?.min_group_size ?? 0) >= 3 && !d.conditions?.before_date
-  );
-  const ebDeadline = ebGroup?.conditions?.before_date
-    ? new Date(ebGroup.conditions.before_date)
-    : null;
-  const now = new Date();
-  const ebActive = ebDeadline ? ebDeadline > now : false;
-  const ebDateFormatted = ebGroup?.conditions?.before_date
-    ? formatDate(ebGroup.conditions.before_date, lang)
-    : "";
-  const daysUntilEb = ebDeadline
-    ? Math.max(0, Math.ceil((ebDeadline.getTime() - now.getTime()) / 86400000))
-    : null;
-
-  // Active group discount (what the group tile should display right now)
-  const activeGroup = ebActive ? ebGroup : regularGroup;
-  const groupFee = activeGroup ? pricing.base_fee - activeGroup.amount : null;
-  const groupSavings = activeGroup?.amount ?? null;
-
-  // Active solo discount (only during early bird window)
-  const activeSolo = ebActive ? ebSolo : null;
-  const soloFee = activeSolo ? pricing.base_fee - activeSolo.amount : null;
-  const soloSavings = activeSolo?.amount ?? null;
-
-  const hasPromo = groupFee !== null;
+  const {
+    ebActive,
+    ebDateFormatted,
+    daysUntilEb,
+    groupFee,
+    groupSavings,
+    soloFee,
+    soloSavings,
+  } = getActiveSummerPromo(pricing, lang);
 
   return (
     <div className="space-y-6">
@@ -187,10 +161,8 @@ export function StudentInfoStep({
         </div>
       </div>
 
-      {/* Promotion Callout */}
-      {hasPromo && (
+      {groupFee !== null && (
         <div className="rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-amber-100/40 p-5 sm:p-6 space-y-4">
-          {/* Header */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <BadgePercent className="h-5 w-5 text-amber-600" />
@@ -219,13 +191,12 @@ export function StudentInfoStep({
             </p>
           )}
 
-          {/* Hero group tile */}
           <div className="rounded-xl bg-white border-2 border-amber-300 p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="rounded-lg bg-amber-100 p-2 shrink-0">
                 <Users className="h-5 w-5 text-amber-700" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
                     {t("三人同行", "Group of 3+", lang)}
@@ -258,12 +229,11 @@ export function StudentInfoStep({
             </div>
           </div>
 
-          {/* Secondary solo tile (only during early bird) */}
           {soloFee !== null && (
             <div className="rounded-xl bg-white/70 border border-amber-200 p-3">
               <div className="flex items-center gap-2.5">
                 <User className="h-4 w-4 text-amber-700 shrink-0" />
-                <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                <div className="flex-1 flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-medium text-amber-900">
                     {t("單人報讀", "Individual", lang)}
                   </span>
@@ -280,7 +250,6 @@ export function StudentInfoStep({
             </div>
           )}
 
-          {/* Sept coupon */}
           <div className="flex items-start gap-2 text-xs text-amber-800 border-t border-amber-200 pt-3">
             <Ticket className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
