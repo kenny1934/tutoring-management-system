@@ -4,8 +4,6 @@ import {
   type Lang,
   t,
   sectionClass,
-  labelClass,
-  radioGroupClass,
   radioLabelClass,
   RadioCheck,
   RequiredMark,
@@ -22,6 +20,8 @@ interface StudentBackgroundStepProps {
   setCurrentCenters: (updater: (prev: string[]) => string[]) => void;
 }
 
+const SECONDARY_PREFIX = "MathConcept Secondary Academy";
+
 export function StudentBackgroundStep({
   config,
   lang,
@@ -37,106 +37,117 @@ export function StudentBackgroundStep({
     return null;
   }
 
-  const isSecondaryAcademy =
-    config.existing_student_options.find(
-      (o) => o.name_en === isExistingStudent || o.name === isExistingStudent
-    )?.name_en === "MathConcept Secondary Academy";
+  const educationCenters =
+    config.center_options?.filter(
+      (c) => !c.name_en.startsWith(SECONDARY_PREFIX)
+    ) ?? [];
+  const secondaryCenters =
+    config.center_options?.filter((c) =>
+      c.name_en.startsWith(SECONDARY_PREFIX)
+    ) ?? [];
 
-  const filteredCenters = config.center_options?.filter((c) => {
-    const isSecondaryCenter = c.name_en.startsWith(
-      "MathConcept Secondary Academy"
+  const notStudentSelected = isExistingStudent === "None";
+  const selectedCenter = currentCenters[0] ?? "";
+
+  const selectCenter = (centerName: string, isSecondary: boolean) => {
+    setIsExistingStudent(
+      isSecondary ? "MathConcept Secondary Academy" : "MathConcept Education"
     );
-    return isSecondaryAcademy ? isSecondaryCenter : !isSecondaryCenter;
-  });
+    setCurrentCenters(() => [centerName]);
+  };
 
-  const showCenters =
-    isExistingStudent &&
-    isExistingStudent !== "None" &&
-    filteredCenters &&
-    filteredCenters.length > 0;
+  const selectNotStudent = () => {
+    setIsExistingStudent("None");
+    setCurrentCenters(() => []);
+  };
+
+  const educationLabel =
+    config.existing_student_options.find(
+      (o) => o.name_en === "MathConcept Education"
+    );
+  const secondaryLabel =
+    config.existing_student_options.find(
+      (o) => o.name_en === "MathConcept Secondary Academy"
+    );
+  const noneLabel = config.existing_student_options.find(
+    (o) => o.name_en === "None"
+  );
+
+  const renderCenterChips = (
+    centers: typeof educationCenters,
+    isSecondary: boolean
+  ) =>
+    centers.map((c) => {
+      const name = lang === "zh" ? c.name : c.name_en;
+      const displayName = isSecondary ? shortCenterName(name) : name;
+      const selected = !notStudentSelected && selectedCenter === c.name;
+      return (
+        <label key={c.name} className={radioLabelClass(selected)}>
+          <input
+            type="radio"
+            name="currentCenter"
+            checked={selected}
+            onChange={() => selectCenter(c.name, isSecondary)}
+            className="sr-only"
+          />
+          {selected && <RadioCheck />}
+          {displayName}
+        </label>
+      );
+    });
 
   return (
     <div className={sectionClass}>
       <h2 className="text-base font-semibold text-foreground leading-snug">
         <IconLabel icon={PenLine}>
           {t(
-            config.text_content?.existing_student_question_zh || "學生是否現正就讀於MathConcept旗下教育中心？（包括MathConcept數學思維 和 MathConcept中學教室）",
-            config.text_content?.existing_student_question_en || "Are you currently a MathConcept student? (including MathConcept Education and MathConcept Secondary Academy)",
+            config.text_content?.existing_student_question_zh || "學生是否現正就讀於MathConcept旗下教育中心？",
+            config.text_content?.existing_student_question_en || "Are you currently a MathConcept student?",
             lang
           )}
         </IconLabel>
         <RequiredMark />
       </h2>
-      <div className={radioGroupClass}>
-        {config.existing_student_options.map((opt) => {
-          const value = opt.name_en;
-          const label = lang === "zh" ? opt.name : opt.name_en;
-          return (
-            <label
-              key={value}
-              className={radioLabelClass(isExistingStudent === value)}
-            >
-              <input
-                type="radio"
-                name="existingStudent"
-                value={value}
-                checked={isExistingStudent === value}
-                onChange={() => {
-                  if (value === isExistingStudent) return;
-                  setIsExistingStudent(value);
-                  setCurrentCenters([]);
-                }}
-                className="sr-only"
-              />
-              {isExistingStudent === value && <RadioCheck />}
-              {label}
-            </label>
-          );
-        })}
-      </div>
 
-      {/* Center selection — animated expand/collapse */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-          showCenters ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="pt-2">
-            <label className={labelClass}>
-              <IconLabel icon={PenLine}>
-                {t(
-                  config.text_content?.center_selection_prompt_zh || "如為現讀學生，請選擇現時所就讀的分校：",
-                  config.text_content?.center_selection_prompt_en || "If you are a current student, please select the center you are attending:",
-                  lang
-                )}
-              </IconLabel>
-              <RequiredMark />
-            </label>
-            <div className={radioGroupClass}>
-              {filteredCenters?.map((c) => {
-                const name = lang === "zh" ? c.name : c.name_en;
-                const displayName = isSecondaryAcademy ? shortCenterName(name) : name;
-                const selected = currentCenters.includes(c.name);
-                return (
-                  <label
-                    key={c.name}
-                    className={radioLabelClass(selected)}
-                  >
-                    <input
-                      type="radio"
-                      name="currentCenter"
-                      checked={selected}
-                      onChange={() => setCurrentCenters(() => [c.name])}
-                      className="sr-only"
-                    />
-                    {selected && <RadioCheck />}
-                    {displayName}
-                  </label>
-                );
-              })}
+      <div className="space-y-4">
+        {educationCenters.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {lang === "zh" ? educationLabel?.name : educationLabel?.name_en}
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {renderCenterChips(educationCenters, false)}
             </div>
           </div>
+        )}
+
+        {secondaryCenters.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {lang === "zh" ? secondaryLabel?.name : secondaryLabel?.name_en}
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {renderCenterChips(secondaryCenters, true)}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 border-t border-border">
+          <label className={radioLabelClass(notStudentSelected)}>
+            <input
+              type="radio"
+              name="currentCenter"
+              checked={notStudentSelected}
+              onChange={selectNotStudent}
+              className="sr-only"
+            />
+            {notStudentSelected && <RadioCheck />}
+            {t(
+              noneLabel?.name || "非MathConcept學生",
+              noneLabel?.name_en || "Not a current MathConcept student",
+              lang
+            )}
+          </label>
         </div>
       </div>
     </div>

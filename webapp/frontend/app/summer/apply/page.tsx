@@ -166,18 +166,14 @@ export default function SummerApplyPage() {
         if (
           config?.existing_student_options &&
           config.existing_student_options.length > 0 &&
-          !isExistingStudent
+          !(isExistingStudent === "None" || currentCenters.length > 0)
         )
           errors.push(
-            t("請選擇是否現正就讀於MathConcept", "Please select whether you are a current MathConcept student", lang)
-          );
-        if (
-          isExistingStudent &&
-          isExistingStudent !== "None" &&
-          currentCenters.length === 0
-        )
-          errors.push(
-            t("請選擇現時所就讀的分校", "Please select your current center", lang)
+            t(
+              "請選擇現時就讀的分校或表示非MathConcept學生",
+              "Please select your current center or indicate you are not a MathConcept student",
+              lang
+            )
           );
         break;
       case 3:
