@@ -522,6 +522,8 @@ def _build_application_response(app: SummerApplication) -> SummerApplicationResp
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
     data["placed_count"] = len(sessions)
+    # buddy_code is a @property (derived from buddy_group relationship), not a column
+    data["buddy_code"] = app.buddy_code
     return SummerApplicationResponse.model_validate(data)
 
 

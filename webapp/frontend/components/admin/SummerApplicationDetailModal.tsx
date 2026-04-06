@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
 import { summerAPI, studentsAPI, buddyTrackerAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -135,17 +136,60 @@ export function SummerApplicationDetailModal({
 
   // Buddy edit state
   const [buddyEditing, setBuddyEditing] = useState(false);
+  const [buddyEditMode, setBuddyEditMode] = useState<"code" | "search">("code");
   const [buddyEditCode, setBuddyEditCode] = useState("");
   const [buddyEditValid, setBuddyEditValid] = useState<boolean | null>(null);
   const [buddyEditLoading, setBuddyEditLoading] = useState(false);
+  const [buddySearchQuery, setBuddySearchQuery] = useState("");
+  const debouncedBuddySearch = useDebouncedValue(buddySearchQuery, 300);
+  const [buddySearchResults, setBuddySearchResults] = useState<SummerApplication[]>([]);
+  const [buddySearchLoading, setBuddySearchLoading] = useState(false);
+  const [buddyPendingAction, setBuddyPendingAction] = useState<
+    | { type: "join"; code: string; targetLabel: string }
+    | { type: "create" }
+    | { type: "remove" }
+    | null
+  >(null);
 
-  const handleBuddyUpdate = async (buddyCode: string, successMsg: string) => {
+  useEffect(() => {
+    if (buddyEditMode !== "search" || !debouncedBuddySearch.trim() || !app) {
+      setBuddySearchResults((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    const appId = app.id;
+    const configId = app.config_id;
+    let cancelled = false;
+    setBuddySearchLoading(true);
+    summerAPI
+      .getApplications({ config_id: configId, search: debouncedBuddySearch.trim() })
+      .then((results) => {
+        if (cancelled) return;
+        setBuddySearchResults(results.filter((r) => r.id !== appId).slice(0, 8));
+      })
+      .catch(() => {
+        if (!cancelled) setBuddySearchResults((prev) => (prev.length === 0 ? prev : []));
+      })
+      .finally(() => {
+        if (!cancelled) setBuddySearchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedBuddySearch, buddyEditMode, app?.id, app?.config_id]);
+
+  const runBuddyUpdate = async (buddyCode: string, successMsg: string) => {
     if (!app) return;
     setBuddyEditLoading(true);
     try {
       await summerAPI.updateApplication(app.id, { buddy_code: buddyCode });
       showToast(successMsg, "success");
       setBuddyEditing(false);
+      setBuddyEditMode("code");
+      setBuddyPendingAction(null);
+      setBuddyEditCode("");
+      setBuddyEditValid(null);
+      setBuddySearchQuery("");
+      setBuddySearchResults([]);
       onUpdated();
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed", "error");
@@ -169,8 +213,12 @@ export function SummerApplicationDetailModal({
       setManualIdConfirmed("");
       autoFilledLangRef.current = null;
       setBuddyEditing(false);
+      setBuddyEditMode("code");
       setBuddyEditCode("");
       setBuddyEditValid(null);
+      setBuddySearchQuery("");
+      setBuddySearchResults([]);
+      setBuddyPendingAction(null);
     }
   }, [app, isOpen]);
 
@@ -877,73 +925,180 @@ export function SummerApplicationDetailModal({
                 </div>
                 {buddyEditing ? (
                   <div className="mt-1 space-y-2">
-                    <div className="flex gap-1.5">
-                      <input
-                        type="text"
-                        value={buddyEditCode}
-                        onChange={(e) => {
-                          setBuddyEditCode(e.target.value.toUpperCase());
-                          setBuddyEditValid(null);
-                        }}
-                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
-                        placeholder="BG-XXXX"
-                      />
+                    <div className="flex gap-1 text-[10px]">
                       <button
-                        onClick={async () => {
-                          if (!buddyEditCode.trim()) return;
-                          setBuddyEditLoading(true);
-                          try {
-                            await summerAPI.getBuddyGroup(buddyEditCode.trim());
-                            setBuddyEditValid(true);
-                          } catch {
-                            setBuddyEditValid(false);
-                          } finally {
-                            setBuddyEditLoading(false);
-                          }
-                        }}
-                        disabled={buddyEditLoading}
-                        className="text-[10px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                        onClick={() => setBuddyEditMode("search")}
+                        className={cn(
+                          "px-2 py-1 rounded-md border transition-colors",
+                          buddyEditMode === "search"
+                            ? "bg-primary/10 border-primary text-primary"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        )}
                       >
-                        {buddyEditLoading ? "..." : "Verify"}
+                        Find application
+                      </button>
+                      <button
+                        onClick={() => setBuddyEditMode("code")}
+                        className={cn(
+                          "px-2 py-1 rounded-md border transition-colors",
+                          buddyEditMode === "code"
+                            ? "bg-primary/10 border-primary text-primary"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        Enter code
                       </button>
                     </div>
-                    {buddyEditValid === true && (
-                      <div className="text-[10px] text-green-600">Valid code</div>
+
+                    {buddyEditMode === "code" ? (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={buddyEditCode}
+                            onChange={(e) => {
+                              setBuddyEditCode(e.target.value.toUpperCase());
+                              setBuddyEditValid(null);
+                            }}
+                            className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
+                            placeholder="BG-XXXX"
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!buddyEditCode.trim()) return;
+                              setBuddyEditLoading(true);
+                              try {
+                                await summerAPI.getBuddyGroup(buddyEditCode.trim());
+                                setBuddyEditValid(true);
+                              } catch {
+                                setBuddyEditValid(false);
+                              } finally {
+                                setBuddyEditLoading(false);
+                              }
+                            }}
+                            disabled={buddyEditLoading}
+                            className="text-[10px] px-2 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                          >
+                            {buddyEditLoading ? "..." : "Verify"}
+                          </button>
+                        </div>
+                        {buddyEditValid === true && (
+                          <div className="text-[10px] text-green-600">Valid code</div>
+                        )}
+                        {buddyEditValid === false && (
+                          <div className="text-[10px] text-red-600">Invalid code</div>
+                        )}
+                        {buddyEditValid && (
+                          <button
+                            onClick={() =>
+                              setBuddyPendingAction({
+                                type: "join",
+                                code: buddyEditCode.trim(),
+                                targetLabel: `code ${buddyEditCode.trim()}`,
+                              })
+                            }
+                            className="text-[10px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover"
+                          >
+                            Join this group
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <input
+                          type="text"
+                          value={buddySearchQuery}
+                          onChange={(e) => setBuddySearchQuery(e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 rounded-lg border border-border bg-background"
+                          placeholder="Search by name, ref code, or phone..."
+                        />
+                        {buddySearchLoading && (
+                          <div className="text-[10px] text-muted-foreground">Searching...</div>
+                        )}
+                        {!buddySearchLoading && debouncedBuddySearch && buddySearchResults.length === 0 && (
+                          <div className="text-[10px] text-muted-foreground">No matches</div>
+                        )}
+                        {buddySearchResults.length > 0 && (
+                          <div className="max-h-40 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+                            {buddySearchResults.map((r) => {
+                              const sameGroup =
+                                r.buddy_group_id != null && r.buddy_group_id === app.buddy_group_id;
+                              return (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  disabled={sameGroup}
+                                  onClick={() => {
+                                    if (r.buddy_code) {
+                                      setBuddyPendingAction({
+                                        type: "join",
+                                        code: r.buddy_code,
+                                        targetLabel: `${r.student_name}'s group (${r.buddy_code})`,
+                                      });
+                                    } else {
+                                      showToast(
+                                        `${r.student_name} has no buddy group — create one from their application first`,
+                                        "error"
+                                      );
+                                    }
+                                  }}
+                                  className={cn(
+                                    "w-full text-left px-2 py-1.5 text-[11px] flex items-center gap-2",
+                                    sameGroup
+                                      ? "bg-muted/50 cursor-not-allowed opacity-60"
+                                      : "hover:bg-muted"
+                                  )}
+                                >
+                                  <span className="flex-1 truncate">
+                                    <span className="font-medium">{r.student_name}</span>
+                                    {r.reference_code && (
+                                      <span className="ml-1.5 font-mono text-muted-foreground">
+                                        {r.reference_code}
+                                      </span>
+                                    )}
+                                  </span>
+                                  {r.buddy_code ? (
+                                    <span className="font-mono text-primary shrink-0">
+                                      {r.buddy_code}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground shrink-0 italic">
+                                      no group
+                                    </span>
+                                  )}
+                                  {sameGroup && (
+                                    <span className="text-[9px] text-muted-foreground shrink-0">
+                                      same group
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {buddyEditValid === false && (
-                      <div className="text-[10px] text-red-600">Invalid code</div>
-                    )}
-                    <div className="flex flex-wrap gap-1.5">
-                      {buddyEditValid && (
-                        <button
-                          onClick={() => handleBuddyUpdate(buddyEditCode.trim(), "Joined buddy group")}
-                          disabled={buddyEditLoading}
-                          className="text-[10px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
-                        >
-                          Join
-                        </button>
-                      )}
+
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border">
                       <button
-                        onClick={() => handleBuddyUpdate("NEW", "Created new buddy group")}
-                        disabled={buddyEditLoading}
-                        className="text-[10px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
+                        onClick={() => setBuddyPendingAction({ type: "create" })}
+                        className="text-[10px] px-2 py-1 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/10"
                       >
-                        Create New
+                        Create new group
                       </button>
                       {app.buddy_group_id && (
                         <button
-                          onClick={() => handleBuddyUpdate("", "Removed from buddy group")}
-                          disabled={buddyEditLoading}
-                          className="text-[10px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+                          onClick={() => setBuddyPendingAction({ type: "remove" })}
+                          className="text-[10px] px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
-                          Remove
+                          Remove from group
                         </button>
                       )}
                       <button
                         onClick={() => setBuddyEditing(false)}
-                        className="text-[10px] px-2 py-1 text-muted-foreground hover:text-foreground underline"
+                        className="text-[10px] px-2 py-1 text-muted-foreground hover:text-foreground underline ml-auto"
                       >
-                        Cancel
+                        Close
                       </button>
                     </div>
                   </div>
@@ -1033,6 +1188,56 @@ export function SummerApplicationDetailModal({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={buddyPendingAction !== null}
+        onCancel={() => {
+          if (!buddyEditLoading) setBuddyPendingAction(null);
+        }}
+        onConfirm={() => {
+          if (!buddyPendingAction) return;
+          if (buddyPendingAction.type === "join") {
+            runBuddyUpdate(buddyPendingAction.code, "Joined buddy group");
+          } else if (buddyPendingAction.type === "create") {
+            runBuddyUpdate("NEW", "Created new buddy group");
+          } else if (buddyPendingAction.type === "remove") {
+            runBuddyUpdate("", "Removed from buddy group");
+          }
+        }}
+        title={
+          buddyPendingAction?.type === "join"
+            ? "Join buddy group?"
+            : buddyPendingAction?.type === "create"
+            ? "Create new buddy group?"
+            : "Remove from buddy group?"
+        }
+        message={
+          buddyPendingAction?.type === "join"
+            ? `${app?.student_name} will be moved to ${buddyPendingAction.targetLabel}.`
+            : buddyPendingAction?.type === "create"
+            ? `${app?.student_name} will be placed in a newly created buddy group.`
+            : `${app?.student_name} will be removed from their current buddy group.`
+        }
+        consequences={
+          app?.buddy_group_id && buddyPendingAction?.type !== "remove"
+            ? [
+                `Currently in ${app.buddy_code ? `group ${app.buddy_code}` : "a buddy group"}. This connection will be replaced.`,
+                "Other members of the old group are not affected.",
+              ]
+            : buddyPendingAction?.type === "remove"
+            ? ["The applicant will no longer be part of any buddy group."]
+            : undefined
+        }
+        confirmText={
+          buddyPendingAction?.type === "join"
+            ? "Join"
+            : buddyPendingAction?.type === "create"
+            ? "Create"
+            : "Remove"
+        }
+        variant={buddyPendingAction?.type === "remove" ? "danger" : "warning"}
+        loading={buddyEditLoading}
+      />
     </Modal>
   );
 }

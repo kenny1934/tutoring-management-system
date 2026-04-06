@@ -8,10 +8,14 @@ interface BuddyCodeCardProps {
   code: string;
   lang: Lang;
   memberCount?: number | null;
-  /** Text shown below the code when memberCount is 0 or null */
+  /** Text shown below the code when memberCount is 0 or null (or when includesSelf and only self is in group) */
   subtitle?: string;
   /** Visual variant */
   variant?: "primary" | "amber";
+  /** True if the current user is one of the counted members (affects phrasing) */
+  includesSelf?: boolean;
+  /** Minimum members needed to unlock the group discount (default 3) */
+  discountThreshold?: number;
 }
 
 function getShareMessage(code: string, lang: Lang): string {
@@ -26,6 +30,8 @@ export function BuddyCodeCard({
   memberCount,
   subtitle,
   variant = "primary",
+  includesSelf = false,
+  discountThreshold = 3,
 }: BuddyCodeCardProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -82,13 +88,45 @@ export function BuddyCodeCard({
       <div className={`text-lg font-mono font-bold ${codeClass}`}>
         {code}
       </div>
-      {memberCount != null && memberCount > 0 ? (
-        <div className="text-xs text-muted-foreground">
-          {t(`已有 ${memberCount} 人加入`, `${memberCount} member(s) joined`, lang)}
-        </div>
-      ) : subtitle ? (
-        <div className="text-xs text-muted-foreground">{subtitle}</div>
-      ) : null}
+      {(() => {
+        if (memberCount == null) {
+          return subtitle ? <div className="text-xs text-muted-foreground">{subtitle}</div> : null;
+        }
+        const reached = memberCount >= discountThreshold;
+        const needed = Math.max(0, discountThreshold - memberCount);
+        const countLabel = includesSelf
+          ? t(
+              `共 ${memberCount} 人（包括你）`,
+              `${memberCount} member${memberCount === 1 ? "" : "s"} (including you)`,
+              lang
+            )
+          : t(
+              `目前 ${memberCount} 人`,
+              `${memberCount} member${memberCount === 1 ? "" : "s"} so far`,
+              lang
+            );
+        return (
+          <div className="space-y-0.5">
+            <div className="text-xs text-muted-foreground">{countLabel}</div>
+            {reached ? (
+              <div className="text-xs text-green-600 font-medium">
+                {t("✓ 已達同行優惠人數", "✓ Group discount unlocked", lang)}
+              </div>
+            ) : (
+              <div className="text-xs text-amber-700">
+                {t(
+                  `再 ${needed} 位即可享同行優惠（需 ${discountThreshold} 人）`,
+                  `${needed} more needed for group discount (${discountThreshold} total)`,
+                  lang
+                )}
+              </div>
+            )}
+            {memberCount === 0 && subtitle && (
+              <div className="text-xs text-muted-foreground pt-0.5">{subtitle}</div>
+            )}
+          </div>
+        );
+      })()}
       <div className="flex items-center justify-center gap-2 pt-1">
         <button
           type="button"

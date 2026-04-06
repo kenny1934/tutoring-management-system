@@ -292,6 +292,7 @@ export default function SummerStatusPage() {
                   code={result.buddy_code}
                   lang={lang}
                   memberCount={result.buddy_group_member_count}
+                  includesSelf
                 />
                 <div className="text-center">
                   <button
