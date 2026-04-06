@@ -59,6 +59,7 @@ export default function SummerApplyPage() {
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
   const [buddyCodeIsOwn, setBuddyCodeIsOwn] = useState(false);
   const [buddyGroupFull, setBuddyGroupFull] = useState(false);
+  const [buddyMaxMembers, setBuddyMaxMembers] = useState(3);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
     null
   );
@@ -93,6 +94,7 @@ export default function SummerApplyPage() {
       setBuddyCodeIsOwn(false);
       setBuddyMemberCount(result.member_count);
       setBuddyGroupFull(result.is_full);
+      setBuddyMaxMembers(result.max_members);
     } catch {
       setBuddyCodeValid(false);
       setBuddyCodeIsOwn(false);
@@ -119,6 +121,15 @@ export default function SummerApplyPage() {
   };
 
   // Reset buddy code selection (allow switching from creator to joiner)
+  const handleBuddyModeChange = (mode: "none" | "code" | "names") => {
+    setBuddyMode(mode);
+    if (mode !== "code") {
+      setBuddyCodeValid(null);
+      setBuddyMemberCount(null);
+      setBuddyGroupFull(false);
+    }
+  };
+
   const handleResetBuddyCode = () => {
     setBuddyCode("");
     setBuddyCodeValid(null);
@@ -208,8 +219,8 @@ export default function SummerApplyPage() {
         if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && buddyGroupFull)
           errors.push(
             t(
-              "此同行組已滿（最多3人）。請建立新的同行碼或輸入其他同行碼。",
-              "This group is already full (max 3 members). Please create a new code or enter a different one.",
+              `此同行組已滿（最多${buddyMaxMembers}人）。請建立新的同行碼或輸入其他同行碼。`,
+              `This group is already full (max ${buddyMaxMembers} members). Please create a new code or enter a different one.`,
               lang
             )
           );
@@ -507,7 +518,7 @@ export default function SummerApplyPage() {
             contactPhone={contactPhone}
             setContactPhone={setContactPhone}
             buddyMode={buddyMode}
-            setBuddyMode={setBuddyMode}
+            setBuddyMode={handleBuddyModeChange}
             buddyCode={buddyCode}
             setBuddyCode={setBuddyCode}
             buddyNames={buddyNames}
@@ -522,6 +533,7 @@ export default function SummerApplyPage() {
             setBuddyReferrerName={setBuddyReferrerName}
             buddyCodeIsOwn={buddyCodeIsOwn}
             buddyGroupFull={buddyGroupFull}
+            buddyMaxMembers={buddyMaxMembers}
           />
         );
       case 5:

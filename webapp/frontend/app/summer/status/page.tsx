@@ -51,6 +51,7 @@ export default function SummerStatusPage() {
   const [buddyValid, setBuddyValid] = useState<boolean | null>(null);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(null);
   const [buddyGroupFull, setBuddyGroupFull] = useState(false);
+  const [buddyMaxMembers, setBuddyMaxMembers] = useState(3);
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState<string | null>(null);
 
@@ -72,6 +73,7 @@ export default function SummerStatusPage() {
       setBuddyValid(true);
       setBuddyMemberCount(res.member_count);
       setBuddyGroupFull(res.is_full);
+      setBuddyMaxMembers(res.max_members);
     } catch {
       setBuddyValid(false);
       setBuddyMemberCount(null);
@@ -372,8 +374,8 @@ export default function SummerStatusPage() {
                 {buddyValid === true && buddyGroupFull && (
                   <div className="text-xs text-red-600">
                     {t(
-                      "此同行組已滿（最多3人）。請建立新的同行碼或輸入其他同行碼。",
-                      "This group is full (max 3 members). Please create a new code or enter a different one.",
+                      `此同行組已滿（最多${buddyMaxMembers}人）。請建立新的同行碼或輸入其他同行碼。`,
+                      `This group is full (max ${buddyMaxMembers} members). Please create a new code or enter a different one.`,
                       lang
                     )}
                   </div>

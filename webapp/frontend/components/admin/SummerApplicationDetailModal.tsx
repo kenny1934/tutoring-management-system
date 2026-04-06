@@ -140,6 +140,7 @@ export function SummerApplicationDetailModal({
   const [buddyEditCode, setBuddyEditCode] = useState("");
   const [buddyEditValid, setBuddyEditValid] = useState<boolean | null>(null);
   const [buddyEditGroupFull, setBuddyEditGroupFull] = useState(false);
+  const [buddyEditMaxMembers, setBuddyEditMaxMembers] = useState(3);
   const [buddyEditLoading, setBuddyEditLoading] = useState(false);
   const [buddySearchQuery, setBuddySearchQuery] = useState("");
   const debouncedBuddySearch = useDebouncedValue(buddySearchQuery, 300);
@@ -974,6 +975,7 @@ export function SummerApplicationDetailModal({
                                 const res = await summerAPI.getBuddyGroup(buddyEditCode.trim());
                                 setBuddyEditValid(true);
                                 setBuddyEditGroupFull(res.is_full);
+                                setBuddyEditMaxMembers(res.max_members);
                               } catch {
                                 setBuddyEditValid(false);
                                 setBuddyEditGroupFull(false);
@@ -992,7 +994,7 @@ export function SummerApplicationDetailModal({
                         )}
                         {buddyEditValid === true && buddyEditGroupFull && (
                           <div className="text-[10px] text-amber-600">
-                            ⚠ Group already has 3 members — admin override will add a 4th (public cap bypassed).
+                            ⚠ Group already has {buddyEditMaxMembers} members — admin override will add a {buddyEditMaxMembers + 1}th (public cap bypassed).
                           </div>
                         )}
                         {buddyEditValid === false && (
@@ -1237,7 +1239,9 @@ export function SummerApplicationDetailModal({
             items.push("Other members of the old group are not affected.");
           }
           if (buddyPendingAction?.type === "join" && buddyEditGroupFull) {
-            items.push("⚠ Target group is already at the 3-member public cap — this will add a 4th member (admin override).");
+            items.push(
+              `⚠ Target group is already at the ${buddyEditMaxMembers}-member public cap — this will add a ${buddyEditMaxMembers + 1}th member (admin override).`
+            );
           }
           if (buddyPendingAction?.type === "remove") {
             items.push("The applicant will no longer be part of any buddy group.");

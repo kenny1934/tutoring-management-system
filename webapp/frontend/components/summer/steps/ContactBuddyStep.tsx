@@ -37,6 +37,7 @@ interface ContactBuddyStepProps {
   setBuddyReferrerName: (v: string) => void;
   buddyCodeIsOwn: boolean;
   buddyGroupFull: boolean;
+  buddyMaxMembers: number;
 }
 
 export function ContactBuddyStep({
@@ -62,6 +63,7 @@ export function ContactBuddyStep({
   setBuddyReferrerName,
   buddyCodeIsOwn,
   buddyGroupFull,
+  buddyMaxMembers,
 }: ContactBuddyStepProps) {
   return (
     <div className="space-y-6">
@@ -234,8 +236,8 @@ export function ContactBuddyStep({
                     {buddyCodeValid === true && buddyGroupFull && (
                       <div className="text-xs text-red-600">
                         {t(
-                          "此同行組已滿（最多3人）。請建立新的同行碼或輸入其他同行碼。",
-                          "This group is full (max 3 members). Please create a new code or enter a different one.",
+                          `此同行組已滿（最多${buddyMaxMembers}人）。請建立新的同行碼或輸入其他同行碼。`,
+                          `This group is full (max ${buddyMaxMembers} members). Please create a new code or enter a different one.`,
                           lang
                         )}
                       </div>
