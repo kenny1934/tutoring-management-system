@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { summerAPI } from "@/lib/api";
 import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
 } from "@/types";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Copy, Check } from "lucide-react";
+import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 import { type Lang, t } from "@/lib/summer-utils";
 import {
   FormProgressBar,
@@ -61,6 +62,9 @@ export default function SummerApplyPage() {
     null
   );
   const [confirmed, setConfirmed] = useState(false);
+  const [refCopied, setRefCopied] = useState(false);
+  const refCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (refCopyTimer.current) clearTimeout(refCopyTimer.current); }, []);
   const [stepErrors, setStepErrors] = useState<string[]>([]);
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(
     () => new Set([1])
@@ -187,6 +191,14 @@ export default function SummerApplyPage() {
         if (!contactPhone.trim())
           errors.push(
             t("請填寫聯絡電話", "Please enter a contact phone number", lang)
+          );
+        if (buddyMode === "code" && !buddyCodeIsOwn && buddyCode.trim() && !buddyCodeValid)
+          errors.push(
+            t(
+              "請先驗證同行碼",
+              "Please verify the buddy code first",
+              lang
+            )
           );
         if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && !buddyReferrerName.trim())
           errors.push(
@@ -319,6 +331,12 @@ export default function SummerApplyPage() {
             <p className="mt-2 text-muted-foreground">
               {t("請稍後再試", "Please check back later", lang)}
             </p>
+            <a
+              href="/summer/status"
+              className="inline-block mt-6 text-sm text-primary hover:text-primary-hover underline"
+            >
+              {t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)}
+            </a>
           </>
         )}
       </div>
@@ -340,23 +358,44 @@ export default function SummerApplyPage() {
           <div className="text-2xl font-mono font-bold text-primary">
             {submitted.reference_code}
           </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(submitted.reference_code);
+                if (refCopyTimer.current) clearTimeout(refCopyTimer.current);
+                setRefCopied(true);
+                refCopyTimer.current = setTimeout(() => setRefCopied(false), 2000);
+              } catch {
+                // clipboard denied
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/15 transition-colors mx-auto"
+          >
+            {refCopied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-green-600" />
+                {t("已複製", "Copied", lang)}
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 text-primary" />
+                {t("複製編號", "Copy Code", lang)}
+              </>
+            )}
+          </button>
         </div>
         {submitted.buddy_code && (
-          <div className="bg-amber-50 rounded-xl p-4 space-y-2">
-            <div className="text-sm text-muted-foreground">
-              {t("同行優惠碼", "Buddy Group Code", lang)}
-            </div>
-            <div className="text-xl font-mono font-bold text-amber-700">
-              {submitted.buddy_code}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t(
-                "請分享此碼給您的朋友，他們報名時輸入即可加入同行優惠",
-                "Share this code with your friends to join the group discount",
-                lang
-              )}
-            </div>
-          </div>
+          <BuddyCodeCard
+            code={submitted.buddy_code}
+            lang={lang}
+            variant="amber"
+            subtitle={t(
+              "請分享此碼給您的朋友，他們報名時輸入即可加入同行優惠",
+              "Share this code with your friends to join the group discount",
+              lang
+            )}
+          />
         )}
         <p className="text-sm text-muted-foreground">
           {t(
@@ -518,6 +557,17 @@ export default function SummerApplyPage() {
         }}
         onStepClick={handleStepClick}
       />
+
+      {currentStep === 1 && (
+        <div className="text-center">
+          <a
+            href="/summer/status"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
+          >
+            {t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)}
+          </a>
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (

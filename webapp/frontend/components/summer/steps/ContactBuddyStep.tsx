@@ -12,6 +12,7 @@ import {
   RequiredMark,
   IconLabel,
 } from "@/lib/summer-utils";
+import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 
 interface ContactBuddyStepProps {
   config?: SummerCourseFormConfig;
@@ -162,40 +163,31 @@ export function ContactBuddyStep({
               buddyMode === "code" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
             }`}
           >
-            <div className="overflow-hidden">
+            <div className="overflow-hidden px-1 pb-1">
               <div className="space-y-2 pt-1">
                 {buddyCodeIsOwn ? (
-                  /* Code creator: show read-only code with share prompt */
-                  <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 text-center space-y-1">
-                    <div className="text-xs text-muted-foreground">
-                      {t("你的同行碼", "Your buddy code", lang)}
+                  <div className="space-y-1">
+                    <BuddyCodeCard
+                      code={buddyCode}
+                      lang={lang}
+                      memberCount={buddyMemberCount}
+                      subtitle={t(
+                        "請將此碼分享給你的朋友，讓他們報名時輸入",
+                        "Share this code with your friends to enter when they apply",
+                        lang
+                      )}
+                    />
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={onResetBuddyCode}
+                        className="text-xs text-primary/70 hover:text-primary underline"
+                      >
+                        {t("更改", "Change", lang)}
+                      </button>
                     </div>
-                    <div className="text-lg font-mono font-bold text-primary">
-                      {buddyCode}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {buddyMemberCount !== null && buddyMemberCount > 0
-                        ? t(
-                            `已有 ${buddyMemberCount} 人加入`,
-                            `${buddyMemberCount} member(s) joined`,
-                            lang
-                          )
-                        : t(
-                            "請將此碼分享給你的朋友，讓他們報名時輸入",
-                            "Share this code with your friends to enter when they apply",
-                            lang
-                          )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onResetBuddyCode}
-                      className="text-xs text-primary/70 hover:text-primary underline mt-1"
-                    >
-                      {t("更改", "Change", lang)}
-                    </button>
                   </div>
                 ) : (
-                  /* Code joiner: input + verify */
                   <>
                     <div className="flex gap-2">
                       <input
@@ -219,7 +211,11 @@ export function ContactBuddyStep({
                       <button
                         type="button"
                         onClick={() => validateBuddyCode(buddyCode)}
-                        className="px-4 py-2.5 text-sm font-medium bg-secondary text-secondary-foreground rounded-xl hover:bg-muted transition-colors"
+                        className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                          buddyCode.trim() && buddyCodeValid === null
+                            ? "bg-primary text-primary-foreground hover:bg-primary-hover animate-pulse"
+                            : "bg-secondary text-secondary-foreground hover:bg-muted"
+                        }`}
                       >
                         {t("驗證", "Verify", lang)}
                       </button>
@@ -283,7 +279,7 @@ export function ContactBuddyStep({
               buddyMode === "names" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
             }`}
           >
-            <div className="overflow-hidden">
+            <div className="overflow-hidden px-1 pb-1">
               <div className="pt-1">
                 <label className={labelClass}>
                   {t("朋友姓名", "Friends' Names", lang)}

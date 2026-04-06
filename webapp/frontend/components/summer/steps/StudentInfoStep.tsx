@@ -246,7 +246,7 @@ export function StudentInfoStep({
                 onChange={(e) => setSchool(e.target.value)}
                 className={`${inputClass} flex-1`}
               />
-              <div className="flex gap-1 shrink-0">
+              <div className="flex sm:inline-flex rounded-xl border-2 border-border overflow-hidden shrink-0 sm:self-stretch">
                 {config.lang_stream_options!.map((opt, idx) => {
                   const value = opt.value || opt.name_en;
                   const label = lang === "zh" ? opt.name : opt.name_en;
@@ -254,10 +254,10 @@ export function StudentInfoStep({
                   return (
                     <label
                       key={value || idx}
-                      className={`cursor-pointer inline-flex items-center justify-center px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      className={`cursor-pointer flex-1 sm:flex-initial inline-flex items-center justify-center px-2 py-2.5 sm:px-3 sm:py-0 text-xs font-medium transition-colors duration-150 sm:whitespace-nowrap text-center border-r border-border last:border-r-0 ${
                         selected
-                          ? "bg-primary/10 text-primary border-primary shadow-sm"
-                          : "bg-card text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
                       <input

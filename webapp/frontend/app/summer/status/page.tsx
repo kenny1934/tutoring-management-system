@@ -6,6 +6,7 @@ import type { SummerApplicationStatusResponse } from "@/types";
 import { type Lang, t, inputClass } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { Users } from "lucide-react";
+import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 
 const STATUS_STEPS = [
   "Submitted",
@@ -287,23 +288,11 @@ export default function SummerStatusPage() {
             {result.buddy_code ? (
               /* Has a buddy group */
               <div className="space-y-2">
-                <div className="rounded-xl border-2 border-primary bg-primary/5 p-3 text-center space-y-1">
-                  <div className="text-xs text-muted-foreground">
-                    {t("同行碼", "Buddy Code", lang)}
-                  </div>
-                  <div className="text-lg font-mono font-bold text-primary">
-                    {result.buddy_code}
-                  </div>
-                  {result.buddy_group_member_count != null && (
-                    <div className="text-xs text-muted-foreground">
-                      {t(
-                        `${result.buddy_group_member_count} 人已加入`,
-                        `${result.buddy_group_member_count} member(s)`,
-                        lang
-                      )}
-                    </div>
-                  )}
-                </div>
+                <BuddyCodeCard
+                  code={result.buddy_code}
+                  lang={lang}
+                  memberCount={result.buddy_group_member_count}
+                />
                 <div className="text-center">
                   <button
                     type="button"
@@ -364,7 +353,11 @@ export default function SummerStatusPage() {
                     type="button"
                     onClick={() => validateBuddyInput(buddyInput)}
                     disabled={buddyValidating}
-                    className="px-4 py-2.5 text-sm font-medium bg-secondary text-secondary-foreground rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
+                    className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 ${
+                      buddyInput.trim() && buddyValid === null
+                        ? "bg-primary text-primary-foreground hover:bg-primary-hover animate-pulse"
+                        : "bg-secondary text-secondary-foreground hover:bg-muted"
+                    }`}
                   >
                     {buddyValidating
                       ? "..."
