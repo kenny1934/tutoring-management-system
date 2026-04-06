@@ -6,7 +6,7 @@ import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
 } from "@/types";
-import { CheckCircle2, Copy, Check } from "lucide-react";
+import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 import { type Lang, t } from "@/lib/summer-utils";
 import {
@@ -50,11 +50,8 @@ export default function SummerApplyPage() {
   const [unavailability, setUnavailability] = useState("");
   const [wechatId, setWechatId] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [buddyMode, setBuddyMode] = useState<"none" | "code" | "names">(
-    "none"
-  );
+  const [buddyMode, setBuddyMode] = useState<"none" | "code">("none");
   const [buddyCode, setBuddyCode] = useState("");
-  const [buddyNames, setBuddyNames] = useState("");
   const [buddyReferrerName, setBuddyReferrerName] = useState("");
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
   const [buddyCodeIsOwn, setBuddyCodeIsOwn] = useState(false);
@@ -111,7 +108,9 @@ export default function SummerApplyPage() {
       setBuddyMode("code");
       setBuddyCodeValid(true);
       setBuddyCodeIsOwn(true);
-      setBuddyMemberCount(0);
+      // The applicant will become member 1 upon submitting this form —
+      // show the count from their perspective so "N more needed" reads correctly.
+      setBuddyMemberCount(1);
       setBuddyGroupFull(false);
     } catch (e: unknown) {
       setError(
@@ -121,7 +120,7 @@ export default function SummerApplyPage() {
   };
 
   // Reset buddy code selection (allow switching from creator to joiner)
-  const handleBuddyModeChange = (mode: "none" | "code" | "names") => {
+  const handleBuddyModeChange = (mode: "none" | "code") => {
     setBuddyMode(mode);
     if (mode !== "code") {
       setBuddyCodeValid(null);
@@ -303,7 +302,7 @@ export default function SummerApplyPage() {
       unavailability_notes: unavailability || null,
       buddy_code:
         buddyMode === "code" && buddyCodeValid ? buddyCode.trim() : null,
-      buddy_names: buddyMode === "names" ? buddyNames : null,
+      buddy_names: null,
       buddy_referrer_name:
         buddyMode === "code" && buddyCodeValid ? buddyReferrerName.trim() || null : null,
       form_language: lang,
@@ -421,13 +420,32 @@ export default function SummerApplyPage() {
             )}
           />
         )}
-        <p className="text-sm text-muted-foreground">
-          {t(
-            "請保存以上編號，可在狀態查詢頁面查看報名進度",
-            "Please save the reference code above. You can check your application status on the status page.",
-            lang
-          )}
-        </p>
+
+        {/* Next steps callout — what they can do with their reference code */}
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
+          <div className="flex items-start gap-2.5">
+            <Pencil className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm text-foreground leading-relaxed">
+              <div className="font-semibold mb-0.5">
+                {t("請保存您的參考編號", "Save your reference code", lang)}
+              </div>
+              <div className="text-muted-foreground text-xs leading-relaxed">
+                {t(
+                  "用參考編號及聯絡電話即可在狀態查詢頁面隨時查看報名進度，及加入、建立或更改同行碼。",
+                  "Use your reference code and contact phone anytime on the status page to check your application progress and to join, create, or change a buddy code.",
+                  lang
+                )}
+              </div>
+            </div>
+          </div>
+          <a
+            href="/summer/status"
+            className="block w-full text-center px-6 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover transition-colors font-medium text-sm"
+          >
+            {t("前往狀態查詢頁面 →", "Go to Status Page →", lang)}
+          </a>
+        </div>
+
         <p className="text-sm text-foreground">
           {t(
             config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！",
@@ -435,12 +453,6 @@ export default function SummerApplyPage() {
             lang
           )}
         </p>
-        <a
-          href="/summer/status"
-          className="inline-block mt-4 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover transition-colors font-medium"
-        >
-          {t("查看報名狀態", "Check Status", lang)}
-        </a>
       </div>
     );
   }
@@ -521,8 +533,6 @@ export default function SummerApplyPage() {
             setBuddyMode={handleBuddyModeChange}
             buddyCode={buddyCode}
             setBuddyCode={setBuddyCode}
-            buddyNames={buddyNames}
-            setBuddyNames={setBuddyNames}
             buddyCodeValid={buddyCodeValid}
             setBuddyCodeValid={setBuddyCodeValid}
             buddyMemberCount={buddyMemberCount}
@@ -558,7 +568,6 @@ export default function SummerApplyPage() {
             contactPhone={contactPhone}
             buddyMode={buddyMode}
             buddyCode={buddyCode}
-            buddyNames={buddyNames}
             buddyReferrerName={buddyReferrerName}
             confirmed={confirmed}
             setConfirmed={setConfirmed}

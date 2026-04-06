@@ -1,4 +1,4 @@
-import { Smartphone, Phone } from "lucide-react";
+import { Smartphone, Phone, BadgePercent } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -21,12 +21,10 @@ interface ContactBuddyStepProps {
   setWechatId: (v: string) => void;
   contactPhone: string;
   setContactPhone: (v: string) => void;
-  buddyMode: "none" | "code" | "names";
-  setBuddyMode: (v: "none" | "code" | "names") => void;
+  buddyMode: "none" | "code";
+  setBuddyMode: (v: "none" | "code") => void;
   buddyCode: string;
   setBuddyCode: (v: string) => void;
-  buddyNames: string;
-  setBuddyNames: (v: string) => void;
   buddyCodeValid: boolean | null;
   setBuddyCodeValid: (v: boolean | null) => void;
   buddyMemberCount: number | null;
@@ -51,8 +49,6 @@ export function ContactBuddyStep({
   setBuddyMode,
   buddyCode,
   setBuddyCode,
-  buddyNames,
-  setBuddyNames,
   buddyCodeValid,
   setBuddyCodeValid,
   buddyMemberCount,
@@ -65,6 +61,27 @@ export function ContactBuddyStep({
   buddyGroupFull,
   buddyMaxMembers,
 }: ContactBuddyStepProps) {
+  // Current group-discount amount, aware of the early bird deadline.
+  // Before the deadline the early-bird group discount applies; after, the
+  // regular group discount does. Either way we show the full value of the
+  // buddy discount in effect right now.
+  const discounts = config?.pricing_config?.discounts || [];
+  const ebGroup = discounts.find(
+    (d) =>
+      (d.conditions?.min_group_size ?? 0) >= 3 && !!d.conditions?.before_date
+  );
+  const regularGroup = discounts.find(
+    (d) =>
+      (d.conditions?.min_group_size ?? 0) >= 3 && !d.conditions?.before_date
+  );
+  const ebDeadline = ebGroup?.conditions?.before_date
+    ? new Date(ebGroup.conditions.before_date)
+    : null;
+  const ebActive = ebDeadline ? ebDeadline > new Date() : false;
+  const groupSavings = ebActive && ebGroup
+    ? ebGroup.amount
+    : regularGroup?.amount ?? null;
+
   return (
     <div className="space-y-6">
       {/* Contact */}
@@ -109,19 +126,33 @@ export function ContactBuddyStep({
 
       {/* Buddy Group */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-foreground leading-snug">
-          {t(
-            config?.text_content?.buddy_title_zh || "同行優惠",
-            config?.text_content?.buddy_title_en || "Buddy Group Discount",
-            lang
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-base font-semibold text-foreground leading-snug">
+            {t(
+              config?.text_content?.buddy_title_zh || "同行優惠",
+              config?.text_content?.buddy_title_en || "Buddy Group Discount",
+              lang
+            )}
+          </h2>
+          {groupSavings !== null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              <BadgePercent className="h-3 w-3" />
+              {t(`每人減 $${groupSavings}`, `$${groupSavings} off each`, lang)}
+            </span>
           )}
-        </h2>
+        </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          {t(
-            config?.text_content?.buddy_description_zh || "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
-            config?.text_content?.buddy_description_en || "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
-            lang
-          )}
+          {groupSavings !== null
+            ? t(
+                `三人或以上同行報名，每人可減 $${groupSavings}。輸入朋友的同行碼加入小組，或建立新的同行碼分享給朋友。`,
+                `When 3 or more apply together, each person saves $${groupSavings}. Enter a friend's buddy code to join their group, or create a new code to share.`,
+                lang
+              )
+            : t(
+                config?.text_content?.buddy_description_zh || "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
+                config?.text_content?.buddy_description_en || "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
+                lang
+              )}
         </p>
 
         <div className="space-y-3">
@@ -146,18 +177,7 @@ export function ContactBuddyStep({
                 className="sr-only"
               />
               {buddyMode === "code" && <RadioCheck />}
-              {t("輸入同行碼", "Enter Buddy Code", lang)}
-            </label>
-            <label className={radioLabelClass(buddyMode === "names")}>
-              <input
-                type="radio"
-                name="buddyMode"
-                checked={buddyMode === "names"}
-                onChange={() => setBuddyMode("names")}
-                className="sr-only"
-              />
-              {buddyMode === "names" && <RadioCheck />}
-              {t("填寫朋友姓名", "Enter Friends' Names", lang)}
+              {t("輸入或建立同行碼", "Enter or Create Buddy Code", lang)}
             </label>
           </div>
 
@@ -175,6 +195,7 @@ export function ContactBuddyStep({
                       code={buddyCode}
                       lang={lang}
                       memberCount={buddyMemberCount}
+                      includesSelf
                       subtitle={t(
                         "請將此碼分享給你的朋友，讓他們報名時輸入",
                         "Share this code with your friends to enter when they apply",
@@ -286,31 +307,6 @@ export function ContactBuddyStep({
             </div>
           </div>
 
-          {/* Buddy names section — animated */}
-          <div
-            className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-              buddyMode === "names" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-            }`}
-          >
-            <div className="overflow-hidden px-1 pb-1">
-              <div className="pt-1">
-                <label className={labelClass}>
-                  {t("朋友姓名", "Friends' Names", lang)}
-                </label>
-                <textarea
-                  value={buddyNames}
-                  onChange={(e) => setBuddyNames(e.target.value)}
-                  rows={2}
-                  className={inputClass}
-                  placeholder={t(
-                    "請填寫您同行朋友的英文姓名",
-                    "Enter your friends' English names",
-                    lang
-                  )}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -29,9 +29,8 @@ interface ReviewSubmitStepProps {
   unavailability: string;
   wechatId: string;
   contactPhone: string;
-  buddyMode: "none" | "code" | "names";
+  buddyMode: "none" | "code";
   buddyCode: string;
-  buddyNames: string;
   buddyReferrerName: string;
   confirmed: boolean;
   setConfirmed: (v: boolean) => void;
@@ -57,7 +56,6 @@ export function ReviewSubmitStep({
   contactPhone,
   buddyMode,
   buddyCode,
-  buddyNames,
   buddyReferrerName,
   confirmed,
   setConfirmed,
@@ -185,12 +183,6 @@ export function ReviewSubmitStep({
                 />
               )}
             </>
-          )}
-          {buddyMode === "names" && buddyNames && (
-            <SummaryRow
-              label={t("同行朋友", "Buddy Names", lang)}
-              value={buddyNames}
-            />
           )}
         </div>
       </div>

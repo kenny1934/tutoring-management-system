@@ -4,9 +4,11 @@ import {
   Calendar,
   Clock,
   DollarSign,
-  Bird,
+  BadgePercent,
   Ticket,
   PenLine,
+  Users,
+  User,
 } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
@@ -50,16 +52,42 @@ export function StudentInfoStep({
 }: StudentInfoStepProps) {
   const hasLangStream = !!(config.lang_stream_options && config.lang_stream_options.length > 0);
   const pricing = config.pricing_config;
-  const ebDiscount = pricing.discounts?.find((d) => d.code === "EB");
-  const eb3pDiscount = pricing.discounts?.find((d) => d.code === "EB3P");
-  const ebDate = ebDiscount?.conditions?.before_date;
-  const ebDateFormatted = ebDate ? formatDate(ebDate, lang) : "";
-  const ebIndividualFee = ebDiscount
-    ? pricing.base_fee - ebDiscount.amount
+
+  // Deadline-aware promo computation. "Group" discounts require 3+; "solo"
+  // discounts have no group requirement. Early bird applies before its date.
+  const discounts = pricing.discounts || [];
+  const ebGroup = discounts.find(
+    (d) => (d.conditions?.min_group_size ?? 0) >= 3 && !!d.conditions?.before_date
+  );
+  const ebSolo = discounts.find(
+    (d) => (d.conditions?.min_group_size ?? 0) < 3 && !!d.conditions?.before_date
+  );
+  const regularGroup = discounts.find(
+    (d) => (d.conditions?.min_group_size ?? 0) >= 3 && !d.conditions?.before_date
+  );
+  const ebDeadline = ebGroup?.conditions?.before_date
+    ? new Date(ebGroup.conditions.before_date)
     : null;
-  const eb3pFee = eb3pDiscount
-    ? pricing.base_fee - eb3pDiscount.amount
+  const now = new Date();
+  const ebActive = ebDeadline ? ebDeadline > now : false;
+  const ebDateFormatted = ebGroup?.conditions?.before_date
+    ? formatDate(ebGroup.conditions.before_date, lang)
+    : "";
+  const daysUntilEb = ebDeadline
+    ? Math.max(0, Math.ceil((ebDeadline.getTime() - now.getTime()) / 86400000))
     : null;
+
+  // Active group discount (what the group tile should display right now)
+  const activeGroup = ebActive ? ebGroup : regularGroup;
+  const groupFee = activeGroup ? pricing.base_fee - activeGroup.amount : null;
+  const groupSavings = activeGroup?.amount ?? null;
+
+  // Active solo discount (only during early bird window)
+  const activeSolo = ebActive ? ebSolo : null;
+  const soloFee = activeSolo ? pricing.base_fee - activeSolo.amount : null;
+  const soloSavings = activeSolo?.amount ?? null;
+
+  const hasPromo = groupFee !== null;
 
   return (
     <div className="space-y-6">
@@ -160,44 +188,100 @@ export function StudentInfoStep({
       </div>
 
       {/* Promotion Callout */}
-      {ebDiscount && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <Bird className="h-5 w-5 text-amber-600" />
-            <span className="text-sm font-bold text-amber-800">
-              {t(
-                `${config.year} 暑期優惠`,
-                `${config.year} Special Offer`,
-                lang
-              )}
-            </span>
+      {hasPromo && (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-amber-100/40 p-5 sm:p-6 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <BadgePercent className="h-5 w-5 text-amber-600" />
+              <span className="text-sm font-bold text-amber-900">
+                {t(`${config.year} 暑期優惠`, `${config.year} Special Offer`, lang)}
+              </span>
+            </div>
+            {ebActive && daysUntilEb !== null && (
+              <span className="inline-flex items-center rounded-full bg-amber-600 text-white px-2.5 py-0.5 text-xs font-semibold">
+                {t(
+                  `早鳥倒數 ${daysUntilEb} 日`,
+                  `Early bird: ${daysUntilEb} day${daysUntilEb === 1 ? "" : "s"} left`,
+                  lang
+                )}
+              </span>
+            )}
           </div>
-          <div className="text-sm text-amber-900">
-            <p className="font-semibold">
+
+          {ebActive && ebDateFormatted && (
+            <p className="text-xs text-amber-800 -mt-2">
               {t(
-                `早鳥優惠（${ebDateFormatted}前報名）`,
-                `Early Bird Offer (enrol before ${ebDateFormatted})`,
+                `於 ${ebDateFormatted} 或之前報名即享早鳥優惠`,
+                `Enrol on or before ${ebDateFormatted} for early bird pricing`,
                 lang
               )}
             </p>
-            <ul className="mt-1.5 space-y-1 list-disc list-inside">
-              <li>
-                {t(
-                  `三人同行：每人 $${eb3pFee?.toLocaleString()}`,
-                  `Group of 3+: $${eb3pFee?.toLocaleString()} per person`,
-                  lang
-                )}
-              </li>
-              <li>
-                {t(
-                  `單人報讀：$${ebIndividualFee?.toLocaleString()}`,
-                  `Individual: $${ebIndividualFee?.toLocaleString()}`,
-                  lang
-                )}
-              </li>
-            </ul>
+          )}
+
+          {/* Hero group tile */}
+          <div className="rounded-xl bg-white border-2 border-amber-300 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-amber-100 p-2 shrink-0">
+                <Users className="h-5 w-5 text-amber-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
+                    {t("三人同行", "Group of 3+", lang)}
+                  </div>
+                  {groupSavings !== null && (
+                    <span className="inline-flex items-center rounded-full bg-amber-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                      {t(`省 $${groupSavings}`, `Save $${groupSavings}`, lang)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-bold text-amber-900">
+                    ${groupFee?.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("/ 每人", "/ per person", lang)}
+                  </span>
+                  <span className="text-xs text-muted-foreground line-through">
+                    ${pricing.base_fee.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 mt-1.5 leading-relaxed">
+                  {t(
+                    "在報名表中建立或輸入同行碼即可享優惠",
+                    "Create or enter a buddy code on the form to unlock",
+                    lang
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex items-start gap-2 text-sm text-amber-800">
+
+          {/* Secondary solo tile (only during early bird) */}
+          {soloFee !== null && (
+            <div className="rounded-xl bg-white/70 border border-amber-200 p-3">
+              <div className="flex items-center gap-2.5">
+                <User className="h-4 w-4 text-amber-700 shrink-0" />
+                <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-amber-900">
+                    {t("單人報讀", "Individual", lang)}
+                  </span>
+                  <span className="text-sm font-semibold text-amber-900">
+                    ${soloFee.toLocaleString()}
+                  </span>
+                  {soloSavings !== null && (
+                    <span className="text-[10px] text-amber-700 font-medium">
+                      {t(`(省 $${soloSavings})`, `(save $${soloSavings})`, lang)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sept coupon */}
+          <div className="flex items-start gap-2 text-xs text-amber-800 border-t border-amber-200 pt-3">
             <Ticket className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
               {t(
@@ -215,11 +299,7 @@ export function StudentInfoStep({
         <div>
           <label className={labelClass}>
             <IconLabel icon={PenLine}>
-              {t(
-                "學生英文姓名 (e.g. Bobby MC)：",
-                "English name of the student: (e.g. Bobby MC)",
-                lang
-              )}
+              {t("學生英文姓名：", "English name of the student:", lang)}
             </IconLabel>
             <RequiredMark />
           </label>
@@ -228,6 +308,7 @@ export function StudentInfoStep({
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
             className={inputClass}
+            placeholder="e.g. Bobby Mc"
           />
         </div>
 
