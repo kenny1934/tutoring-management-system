@@ -50,6 +50,7 @@ export default function SummerStatusPage() {
   const [buddyValidating, setBuddyValidating] = useState(false);
   const [buddyValid, setBuddyValid] = useState<boolean | null>(null);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(null);
+  const [buddyGroupFull, setBuddyGroupFull] = useState(false);
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState<string | null>(null);
 
@@ -59,6 +60,7 @@ export default function SummerStatusPage() {
     setBuddyReferrer("");
     setBuddyValid(null);
     setBuddyMemberCount(null);
+    setBuddyGroupFull(false);
     setBuddyError(null);
   };
 
@@ -69,9 +71,11 @@ export default function SummerStatusPage() {
       const res = await summerAPI.getBuddyGroup(code.trim());
       setBuddyValid(true);
       setBuddyMemberCount(res.member_count);
+      setBuddyGroupFull(res.is_full);
     } catch {
       setBuddyValid(false);
       setBuddyMemberCount(null);
+      setBuddyGroupFull(false);
     } finally {
       setBuddyValidating(false);
     }
@@ -365,7 +369,16 @@ export default function SummerStatusPage() {
                       : t("驗證", "Verify", lang)}
                   </button>
                 </div>
-                {buddyValid === true && (
+                {buddyValid === true && buddyGroupFull && (
+                  <div className="text-xs text-red-600">
+                    {t(
+                      "此同行組已滿（最多3人）。請建立新的同行碼或輸入其他同行碼。",
+                      "This group is full (max 3 members). Please create a new code or enter a different one.",
+                      lang
+                    )}
+                  </div>
+                )}
+                {buddyValid === true && !buddyGroupFull && (
                   <div className="space-y-2">
                     <div className="text-xs text-green-600">
                       {t(

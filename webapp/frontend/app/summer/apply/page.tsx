@@ -58,6 +58,7 @@ export default function SummerApplyPage() {
   const [buddyReferrerName, setBuddyReferrerName] = useState("");
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
   const [buddyCodeIsOwn, setBuddyCodeIsOwn] = useState(false);
+  const [buddyGroupFull, setBuddyGroupFull] = useState(false);
   const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
     null
   );
@@ -91,10 +92,12 @@ export default function SummerApplyPage() {
       setBuddyCodeValid(true);
       setBuddyCodeIsOwn(false);
       setBuddyMemberCount(result.member_count);
+      setBuddyGroupFull(result.is_full);
     } catch {
       setBuddyCodeValid(false);
       setBuddyCodeIsOwn(false);
       setBuddyMemberCount(null);
+      setBuddyGroupFull(false);
     }
   }, []);
 
@@ -107,6 +110,7 @@ export default function SummerApplyPage() {
       setBuddyCodeValid(true);
       setBuddyCodeIsOwn(true);
       setBuddyMemberCount(0);
+      setBuddyGroupFull(false);
     } catch (e: unknown) {
       setError(
         e instanceof Error ? e.message : "Failed to create buddy group"
@@ -120,6 +124,7 @@ export default function SummerApplyPage() {
     setBuddyCodeValid(null);
     setBuddyCodeIsOwn(false);
     setBuddyMemberCount(null);
+    setBuddyGroupFull(false);
     setBuddyReferrerName("");
   };
 
@@ -200,7 +205,15 @@ export default function SummerApplyPage() {
               lang
             )
           );
-        if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && !buddyReferrerName.trim())
+        if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && buddyGroupFull)
+          errors.push(
+            t(
+              "此同行組已滿（最多3人）。請建立新的同行碼或輸入其他同行碼。",
+              "This group is already full (max 3 members). Please create a new code or enter a different one.",
+              lang
+            )
+          );
+        if (buddyMode === "code" && buddyCodeValid && !buddyCodeIsOwn && !buddyGroupFull && !buddyReferrerName.trim())
           errors.push(
             t(
               "請填寫分享同行碼的朋友姓名",
@@ -508,6 +521,7 @@ export default function SummerApplyPage() {
             buddyReferrerName={buddyReferrerName}
             setBuddyReferrerName={setBuddyReferrerName}
             buddyCodeIsOwn={buddyCodeIsOwn}
+            buddyGroupFull={buddyGroupFull}
           />
         );
       case 5:

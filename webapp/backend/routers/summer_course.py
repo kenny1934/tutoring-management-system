@@ -69,6 +69,19 @@ from constants import hk_now, SummerApplicationStatus
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Public cap on buddy group size. Admin PATCH bypasses this to allow manual overflow pairing.
+PUBLIC_BUDDY_GROUP_CAP = 3
+
+
+def _assert_buddy_group_not_full(db: Session, group_id: int) -> None:
+    """Raise 400 if a buddy group has reached PUBLIC_BUDDY_GROUP_CAP. Locks the row."""
+    db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).with_for_update().first()
+    if _get_buddy_member_count(db, group_id) >= PUBLIC_BUDDY_GROUP_CAP:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Group is full (max {PUBLIC_BUDDY_GROUP_CAP} members). Please create a new group or contact us for help.",
+        )
+
 
 def _get_active_config(db: Session) -> SummerCourseConfig | None:
     """Get the currently active summer course config."""
@@ -169,6 +182,7 @@ def submit_application(
         group = _lookup_buddy_group(db, data.buddy_code, config)
         if not group:
             raise HTTPException(status_code=400, detail="Invalid buddy code")
+        _assert_buddy_group_not_full(db, group.id)
         buddy_group_id = group.id
         buddy_code_out = group.buddy_code
 
@@ -301,6 +315,9 @@ def change_buddy_group(
         group = _lookup_buddy_group(db, data.buddy_code, config)
         if not group:
             raise HTTPException(status_code=400, detail="Invalid buddy code")
+        # Don't count the applicant if they are already in this same group (no-op join)
+        if app.buddy_group_id != group.id:
+            _assert_buddy_group_not_full(db, group.id)
         app.buddy_group_id = group.id
         app.buddy_referrer_name = data.buddy_referrer_name
         app.buddy_names = None
@@ -362,7 +379,13 @@ def get_buddy_group(
     if not group:
         raise HTTPException(status_code=404, detail="Buddy group not found")
 
-    return {"buddy_code": group.buddy_code, "member_count": _get_buddy_member_count(db, group.id)}
+    count = _get_buddy_member_count(db, group.id)
+    return {
+        "buddy_code": group.buddy_code,
+        "member_count": count,
+        "is_full": count >= PUBLIC_BUDDY_GROUP_CAP,
+        "max_members": PUBLIC_BUDDY_GROUP_CAP,
+    }
 
 
 # ============================================

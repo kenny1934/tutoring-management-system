@@ -2225,7 +2225,7 @@ export const summerAPI = {
     fetchAPI<{ buddy_code: string }>("/summer/public/buddy-group", { method: "POST" }),
 
   getBuddyGroup: (code: string) =>
-    fetchAPI<{ buddy_code: string; member_count: number }>(
+    fetchAPI<{ buddy_code: string; member_count: number; is_full: boolean; max_members: number }>(
       `/summer/public/buddy-group/${encodeURIComponent(code)}`
     ),
 

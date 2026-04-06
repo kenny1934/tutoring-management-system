@@ -139,6 +139,7 @@ export function SummerApplicationDetailModal({
   const [buddyEditMode, setBuddyEditMode] = useState<"code" | "search">("code");
   const [buddyEditCode, setBuddyEditCode] = useState("");
   const [buddyEditValid, setBuddyEditValid] = useState<boolean | null>(null);
+  const [buddyEditGroupFull, setBuddyEditGroupFull] = useState(false);
   const [buddyEditLoading, setBuddyEditLoading] = useState(false);
   const [buddySearchQuery, setBuddySearchQuery] = useState("");
   const debouncedBuddySearch = useDebouncedValue(buddySearchQuery, 300);
@@ -188,6 +189,7 @@ export function SummerApplicationDetailModal({
       setBuddyPendingAction(null);
       setBuddyEditCode("");
       setBuddyEditValid(null);
+      setBuddyEditGroupFull(false);
       setBuddySearchQuery("");
       setBuddySearchResults([]);
       onUpdated();
@@ -216,6 +218,7 @@ export function SummerApplicationDetailModal({
       setBuddyEditMode("code");
       setBuddyEditCode("");
       setBuddyEditValid(null);
+      setBuddyEditGroupFull(false);
       setBuddySearchQuery("");
       setBuddySearchResults([]);
       setBuddyPendingAction(null);
@@ -968,10 +971,12 @@ export function SummerApplicationDetailModal({
                               if (!buddyEditCode.trim()) return;
                               setBuddyEditLoading(true);
                               try {
-                                await summerAPI.getBuddyGroup(buddyEditCode.trim());
+                                const res = await summerAPI.getBuddyGroup(buddyEditCode.trim());
                                 setBuddyEditValid(true);
+                                setBuddyEditGroupFull(res.is_full);
                               } catch {
                                 setBuddyEditValid(false);
+                                setBuddyEditGroupFull(false);
                               } finally {
                                 setBuddyEditLoading(false);
                               }
@@ -982,8 +987,13 @@ export function SummerApplicationDetailModal({
                             {buddyEditLoading ? "..." : "Verify"}
                           </button>
                         </div>
-                        {buddyEditValid === true && (
+                        {buddyEditValid === true && !buddyEditGroupFull && (
                           <div className="text-[10px] text-green-600">Valid code</div>
+                        )}
+                        {buddyEditValid === true && buddyEditGroupFull && (
+                          <div className="text-[10px] text-amber-600">
+                            ⚠ Group already has 3 members — admin override will add a 4th (public cap bypassed).
+                          </div>
                         )}
                         {buddyEditValid === false && (
                           <div className="text-[10px] text-red-600">Invalid code</div>
@@ -1218,16 +1228,22 @@ export function SummerApplicationDetailModal({
             ? `${app?.student_name} will be placed in a newly created buddy group.`
             : `${app?.student_name} will be removed from their current buddy group.`
         }
-        consequences={
-          app?.buddy_group_id && buddyPendingAction?.type !== "remove"
-            ? [
-                `Currently in ${app.buddy_code ? `group ${app.buddy_code}` : "a buddy group"}. This connection will be replaced.`,
-                "Other members of the old group are not affected.",
-              ]
-            : buddyPendingAction?.type === "remove"
-            ? ["The applicant will no longer be part of any buddy group."]
-            : undefined
-        }
+        consequences={(() => {
+          const items: string[] = [];
+          if (app?.buddy_group_id && buddyPendingAction?.type !== "remove") {
+            items.push(
+              `Currently in ${app.buddy_code ? `group ${app.buddy_code}` : "a buddy group"}. This connection will be replaced.`
+            );
+            items.push("Other members of the old group are not affected.");
+          }
+          if (buddyPendingAction?.type === "join" && buddyEditGroupFull) {
+            items.push("⚠ Target group is already at the 3-member public cap — this will add a 4th member (admin override).");
+          }
+          if (buddyPendingAction?.type === "remove") {
+            items.push("The applicant will no longer be part of any buddy group.");
+          }
+          return items.length > 0 ? items : undefined;
+        })()}
         confirmText={
           buddyPendingAction?.type === "join"
             ? "Join"
