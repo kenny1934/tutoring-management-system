@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.0.48](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.48) (2026-04-07)
+
+### New Features
+
+* **Summer application self-edit** — applicants can now edit their submitted form from the status page (time slots, location, school, grade, language stream, WeChat) as long as the application is still in Submitted state; once admin moves it to Under Review the form locks and a banner directs them to contact staff
+* **Summer edit audit trail** — every change (applicant or admin) is captured in a per-field history visible in the admin detail modal, with timestamps, editor name, and old → new values
+* **Admin application detail editing** — new "Edit details" toggle in the admin modal swaps identity, schedule, and preference fields into inline editors; moving an application out of Submitted now prompts a confirmation so admins know the applicant will lose self-service access
+* **Sibling declaration on buddy groups** — secondary applicants with a younger sibling applying at a Primary branch (or KidsConcept) can declare them on the buddy group; admin confirms against the proprietary system and the sibling counts toward the 3-person discount threshold
+* **Draft autosave** — apply form now saves in-progress data to the browser so a reload or accidental close doesn't wipe half-filled applications; a "Resume draft?" banner offers to restore it
+* **Unload warning** — the browser now asks for confirmation before leaving the apply page with unsaved changes
+
+### Improvements
+
+* **Summer form — merged student-background question** — "Are you a current student?" and "Which center?" collapsed into one chip selector grouped by organisation, saving a tap
+* **Summer form — tap-a-slot grid** — class time selection replaced the four cascading dropdowns with a visual day-by-time grid; tap once for 1st preference, again for 2nd
+* **Summer form — pill selection** — center, grade, session frequency, and buddy mode chips no longer shift layout when selected; selection is signalled by colour alone following modern pill conventions
+* **Summer form — brand WeChat icon** — WeChat ID field now uses the brand icon on the apply form, status page, and admin modal
+* **Phone format tolerance** — summer applicants can now enter their number with spaces, hyphens, or parentheses without issue; the status page accepts any format on lookup
+* **Duplicate detection** — same parent can now submit multiple siblings (same phone, different student name); the duplicate check correctly blocks same-student resubmissions only
+* **Capacity headroom** — raised submission, status, and self-edit rate limits to tolerate shared school or office wifi; Cloud Run backend and frontend now scale up to 3 instances for failover and burst capacity
+* **Admin modal — sibling verification UX** — pending sibling chips, confirm/reject buttons, and branch-tagged rows for cleaner verification workflow
+
+### Fixes
+
+* **Buddy cap race** — submitting with both a buddy code and a declared sibling now pre-flights capacity so the user gets the cap error before anything commits, instead of leaving the application saved with a confusing sibling error
+* **Status page translation** — grade, language stream, and location now show their proper Chinese or English label based on the selected language, instead of the raw stored value
+* **Admin config preview drift** — the admin form preview now stays automatically in sync with the real apply form as fields evolve
+
 ## [2.0.47](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.47) (2026-04-05)
 
 ### New Features
