@@ -98,16 +98,10 @@ def _build_status_response(
     buddy_code = None
     buddy_member_count = None
     siblings: list[SummerSiblingInfo] = []
-    if app.buddy_group_id:
-        group = (
-            db.query(SummerBuddyGroup)
-            .filter(SummerBuddyGroup.id == app.buddy_group_id)
-            .first()
-        )
-        if group:
-            buddy_code = group.buddy_code
-            buddy_member_count = _get_buddy_member_count(db, group.id)
-            siblings = _get_buddy_siblings(db, group.id, caller_application_id=app.id)
+    if app.buddy_group:
+        buddy_code = app.buddy_group.buddy_code
+        buddy_member_count = _get_buddy_member_count(db, app.buddy_group.id)
+        siblings = _get_buddy_siblings(db, app.buddy_group.id, caller_application_id=app.id)
     return SummerApplicationStatusResponse(
         reference_code=app.reference_code,
         student_name=app.student_name,

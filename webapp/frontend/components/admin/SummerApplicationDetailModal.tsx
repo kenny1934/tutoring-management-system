@@ -169,7 +169,6 @@ export function SummerApplicationDetailModal({
   } | null>(null);
   const [buddySectionCollapsed, setBuddySectionCollapsed] = useState(false);
 
-  // Detail edit mode (schedule + background fields)
   const [editingDetails, setEditingDetails] = useState(false);
   const [dStudentName, setDStudentName] = useState("");
   const [dGrade, setDGrade] = useState("");
@@ -183,19 +182,13 @@ export function SummerApplicationDetailModal({
   const [dPref2Time, setDPref2Time] = useState("");
   const [dUnavail, setDUnavail] = useState("");
 
-  // Status transition confirmation (Submitted → anything else locks applicant edits)
   const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
-
-  // Audit trail drawer
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Form config (lazy: only fetched when edit mode opens)
   const { data: formConfig } = useSWR(
     editingDetails ? "summer-form-config" : null,
     () => summerAPI.getFormConfig()
   );
-
-  // Audit history (lazy: only fetched when drawer opens)
   const { data: editHistory } = useSWR(
     historyOpen && app ? ["summer-edits", app.id] : null,
     () => summerAPI.getApplicationEdits(app!.id)

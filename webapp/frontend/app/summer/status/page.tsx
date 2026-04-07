@@ -9,7 +9,7 @@ import type {
   SummerLocation,
   SummerSiblingInfo,
 } from "@/types";
-import { type Lang, t, inputClass, dayLabel } from "@/lib/summer-utils";
+import { type Lang, t, inputClass, dayLabel, labelForOption, frequencyLabel } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { Users, Plus, X, Pencil, Lock } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
@@ -148,16 +148,6 @@ export default function SummerStatusPage() {
     } finally {
       setEditSaving(false);
     }
-  };
-
-  const labelForOption = (
-    options: { name: string; name_en: string; value?: string }[] | null | undefined,
-    value: string | null | undefined,
-  ): string => {
-    if (!value) return "—";
-    const opt = options?.find((o) => (o.value ?? o.name) === value);
-    if (!opt) return value;
-    return lang === "zh" ? opt.name : opt.name_en;
   };
 
   const selectedLocation: SummerLocation | undefined = formConfig?.locations.find(
@@ -553,11 +543,11 @@ export default function SummerStatusPage() {
             ) : (
               <dl className="grid grid-cols-2 gap-y-1 text-xs">
                 <dt className="text-muted-foreground">{t("年級", "Grade", lang)}</dt>
-                <dd className="text-foreground">{labelForOption(formConfig?.available_grades, result.grade)}</dd>
+                <dd className="text-foreground">{labelForOption(formConfig?.available_grades, result.grade, lang)}</dd>
                 <dt className="text-muted-foreground">{t("學校", "School", lang)}</dt>
                 <dd className="text-foreground">{result.school || "—"}</dd>
                 <dt className="text-muted-foreground">{t("授課語言", "Language Stream", lang)}</dt>
-                <dd className="text-foreground">{labelForOption(formConfig?.lang_stream_options, result.lang_stream)}</dd>
+                <dd className="text-foreground">{labelForOption(formConfig?.lang_stream_options, result.lang_stream, lang)}</dd>
                 <dt className="text-muted-foreground">WeChat</dt>
                 <dd className="text-foreground">{result.wechat_id || "—"}</dd>
               </dl>
@@ -623,8 +613,8 @@ export default function SummerStatusPage() {
                     onChange={(e) => setEditForm({ ...editForm, sessions_per_week: Number(e.target.value) })}
                     className={inputClass}
                   >
-                    <option value={1}>{t("每週一堂", "Once a week", lang)}</option>
-                    <option value={2}>{t("每週兩堂", "Twice a week", lang)}</option>
+                    <option value={1}>{frequencyLabel(1, lang)}</option>
+                    <option value={2}>{frequencyLabel(2, lang)}</option>
                   </select>
                 </div>
                 {([1, 2] as const).map((n) => {
@@ -714,19 +704,9 @@ export default function SummerStatusPage() {
             ) : (
               <dl className="grid grid-cols-2 gap-y-1 text-xs">
                 <dt className="text-muted-foreground">{t("分校", "Location", lang)}</dt>
-                <dd className="text-foreground">
-                  {(() => {
-                    const loc = formConfig?.locations.find((l) => l.name === result.preferred_location);
-                    if (!loc) return result.preferred_location || "—";
-                    return lang === "zh" ? loc.name : loc.name_en;
-                  })()}
-                </dd>
+                <dd className="text-foreground">{labelForOption(formConfig?.locations, result.preferred_location, lang)}</dd>
                 <dt className="text-muted-foreground">{t("每週堂數", "Sessions per week", lang)}</dt>
-                <dd className="text-foreground">
-                  {(result.sessions_per_week ?? 1) === 2
-                    ? t("每週兩堂", "Twice a week", lang)
-                    : t("每週一堂", "Once a week", lang)}
-                </dd>
+                <dd className="text-foreground">{frequencyLabel(result.sessions_per_week ?? 1, lang)}</dd>
                 <dt className="text-muted-foreground">{t("第一志願", "1st preference", lang)}</dt>
                 <dd className="text-foreground">
                   {result.preference_1_day ? dayLabel(result.preference_1_day, lang) : "—"} {result.preference_1_time || ""}

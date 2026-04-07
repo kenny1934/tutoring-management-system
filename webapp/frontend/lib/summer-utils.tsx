@@ -54,6 +54,18 @@ export const frequencyLabel = (n: number, lang: Lang) =>
     ? t("每星期一次（標準）", "Once per week (standard)", lang)
     : t("每星期兩次", "Twice per week", lang);
 
+/** Pick the bilingual label of an option list entry, falling back to the raw value. */
+export function labelForOption(
+  options: { name: string; name_en: string; value?: string }[] | null | undefined,
+  value: string | null | undefined,
+  lang: Lang,
+): string {
+  if (!value) return "—";
+  const opt = options?.find((o) => (o.value ?? o.name) === value);
+  if (!opt) return value;
+  return lang === "zh" ? opt.name : opt.name_en;
+}
+
 /** Format a date string like "2025-07-05" to compact "Jul 5". */
 export function formatCompactDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
