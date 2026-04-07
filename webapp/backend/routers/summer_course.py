@@ -769,7 +769,7 @@ def edit_application(
     the application out of Submitted, this returns 409 and the status page
     hides edit affordances.
     """
-    check_ip_rate_limit(request, "summer_apply")
+    check_ip_rate_limit(request, "summer_edit")
     app = _authenticate_application(db, reference_code, phone)
 
     if app.application_status != SummerApplicationStatus.SUBMITTED.value:
