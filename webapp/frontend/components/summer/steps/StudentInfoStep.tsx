@@ -117,11 +117,11 @@ export function StudentInfoStep({
 
           <div className="px-5 pt-4 sm:px-8 sm:pt-5 pb-4 sm:pb-5 text-center space-y-3">
             {introPillars.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2 text-sm font-medium text-primary">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-sm font-medium text-primary">
                 {introPillars.map((p, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center justify-center text-center leading-snug min-h-[2.5rem] sm:border-l sm:border-primary/20 sm:first:border-l-0 sm:px-1"
+                    className="inline-flex items-center justify-center text-center leading-snug min-h-[2.5rem] sm:border-l sm:border-primary/20 sm:[&:nth-child(3n+1)]:border-l-0 sm:px-1"
                     style={{ textWrap: "balance" }}
                   >
                     {t(p.zh, p.en, lang)}

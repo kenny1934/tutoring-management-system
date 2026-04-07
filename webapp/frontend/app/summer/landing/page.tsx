@@ -9,7 +9,6 @@ import type { SummerCourseFormConfig, SummerLocation } from "@/types";
 import { getActiveSummerPromo, formatDateShort } from "@/lib/summer-utils";
 
 const LANG = "zh" as const;
-const CN_NUM = ["壹", "貳", "參", "肆", "伍", "陸", "柒", "捌"];
 
 // =============================================================================
 // Reveal — fades children in when scrolled into view (one-shot)
@@ -56,12 +55,19 @@ function Reveal({
 // =============================================================================
 // Decorative bits
 // =============================================================================
-function Eyebrow({ en, zh }: { en: string; zh: string }) {
+function Eyebrow({ zh, en }: { zh: string; en?: string }) {
+  // Marketing copy is Chinese-only; the optional `en` is kept for the hero
+  // brand line where a Latin accent reads as deliberate. Body sections render
+  // Chinese only for consistency with the pamphlet voice.
   return (
     <div className="inline-flex items-center gap-3 text-[11px] tracking-[0.35em] uppercase">
       <span className="h-px w-8 bg-current opacity-60" />
-      <span>{en}</span>
-      <span className="opacity-50">·</span>
+      {en && (
+        <>
+          <span>{en}</span>
+          <span className="opacity-50">·</span>
+        </>
+      )}
       <span
         style={{
           fontFamily: "var(--font-serif-tc)",
@@ -158,6 +164,26 @@ const FAQS = [
   },
 ];
 
+// =============================================================================
+// 家長須知 — verbatim from marketing copy
+// =============================================================================
+const GENERAL_RULES = [
+  "學生需按照收據上之上課日期，於每星期之固定時間出席課堂。",
+  "家長應讓導師有系統地執行孩子的學習計劃，請勿隨便缺席或調堂。",
+  "學生務必準時上課，遲到恕不補時。",
+  "除因病缺席外，凡因個人理由缺席者，必須最少在上課前1天的辦公時間內申請，無故缺席者，課堂會被自動扣除，恕不補堂。病假必須出示病假紙，方可作補課安排。",
+  "任何課堂調動或補堂上限，請查閱相應課程條款。逾期未上之課堂，將視作自願放棄論。",
+  "本校有權因應實際情況，接納或拒絕任何請假及補堂申請。",
+  "因惡劣天氣或不可抗力因素而暫停之課堂，將以補堂形式完成。",
+  "本校接受現金或指定戶口轉帳，繳費後需發收條至本校確認。",
+  "所有已繳續費恕不退還。",
+];
+
+const SUMMER_RULES = [
+  "調堂每期（8堂/期）上限2堂。",
+  "課堂有效期為學費期內，所有補堂須於報名年度8月內完成，已安排之補堂不得再次更改。",
+];
+
 function FaqItem({
   q,
   a,
@@ -220,6 +246,7 @@ export default function SummerLandingPage() {
   const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   useEffect(() => {
     summerAPI
@@ -253,8 +280,8 @@ export default function SummerLandingPage() {
 
   const gradeNames = config.available_grades.map((g) => g.name);
   const gradeRange = gradeNames.length
-    ? `${gradeNames[0]} – ${gradeNames[gradeNames.length - 1]}`
-    : "升 F1 – F3";
+    ? `升${gradeNames[0]} 至 升${gradeNames[gradeNames.length - 1]}`
+    : "升中一 至 升中三";
 
   const dateRange = `${formatDateShort(
     config.course_start_date,
@@ -272,27 +299,12 @@ export default function SummerLandingPage() {
       {/* ===================================================================
           HERO — slogan as poster centerpiece
           =================================================================== */}
-      <section className="relative bg-[#A40C1D] text-white overflow-hidden">
-        {/* Vignette + grid texture for paper-poster feel */}
-        <div
-          className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-overlay"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 0%, white, transparent 50%), radial-gradient(circle at 80% 100%, white, transparent 50%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, white 0, white 1px, transparent 1px, transparent 24px), repeating-linear-gradient(90deg, white 0, white 1px, transparent 1px, transparent 24px)",
-          }}
-        />
+      <section className="relative bg-[#B60D20] text-white overflow-hidden">
 
         <div className="relative max-w-6xl mx-auto px-6 pt-12 pb-16 sm:pt-16 sm:pb-24 md:pt-20 md:pb-28">
           <Reveal>
             <div className="flex justify-center mb-10 sm:mb-14 text-[#F5C518]">
-              <Eyebrow en={`MATHCONCEPT · CLASS OF ${config.year}`} zh="現正招生" />
+              <Eyebrow zh={`${config.year} 暑期課程 · 現正招生`} />
             </div>
           </Reveal>
 
@@ -300,11 +312,15 @@ export default function SummerLandingPage() {
           <Reveal delay={150}>
             <div className="relative mx-auto max-w-4xl">
               <div className="absolute -top-3 inset-x-12 h-px bg-gradient-to-r from-transparent via-[#F5C518]/70 to-transparent" />
-              <div className="relative h-28 sm:h-36 md:h-44 lg:h-52 overflow-hidden">
+              {/* Aspect-ratio container scales with width, so the slogan
+                  fills naturally on every viewport. Uses the narrower
+                  4.45:1 source so mobile gets a meaningful height instead
+                  of a 9:1 letterbox. */}
+              <div className="relative w-full aspect-[4.45/1] overflow-hidden">
                 <Image
-                  src="/summer/summer-slogan-wide.jpg"
+                  src="/summer/summer-slogan.jpg"
                   alt="暑假12個鐘，來年數學好輕鬆"
-                  width={4995}
+                  width={2473}
                   height={555}
                   className="w-full h-full object-cover object-center"
                   priority
@@ -334,8 +350,8 @@ export default function SummerLandingPage() {
           <Reveal delay={550}>
             <div className="mt-12 sm:mt-14 flex flex-col items-center gap-4">
               <PrimaryCTA size="md" />
-              <p className="text-xs text-white/60 tracking-widest">
-                免費登記 · 無須付費
+              <p className="text-xs text-white/70 tracking-widest">
+                早鳥優惠｜6月15日前報名 · 三人同行優惠高達 $4,200
               </p>
             </div>
           </Reveal>
@@ -359,7 +375,7 @@ export default function SummerLandingPage() {
         <div className="relative max-w-5xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow en="OUR APPROACH" zh="教學理念" />
+              <Eyebrow zh="教學理念" />
             </div>
           </Reveal>
 
@@ -376,21 +392,21 @@ export default function SummerLandingPage() {
 
           {pillars.length > 0 && (
             <div className="mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
-              {pillars.slice(0, 4).map((p, i) => (
+              {pillars.map((p, i) => (
                 <Reveal key={i} delay={200 + i * 120}>
                   <div className="relative bg-white border border-[#1A1614]/8 p-7 sm:p-8 group hover:border-[#B60D20]/40 transition-colors duration-500">
                     <div className="flex items-start gap-5">
                       <div className="shrink-0">
                         <span
-                          className="block text-4xl sm:text-5xl text-[#F5C518] leading-none"
+                          className="block text-2xl sm:text-3xl text-[#F5C518] leading-none tabular-nums"
                           style={{
                             fontFamily: "var(--font-serif-tc)",
                             fontWeight: 700,
                           }}
                         >
-                          {CN_NUM[i]}
+                          0{i + 1}
                         </span>
-                        <div className="mt-2 h-px w-8 bg-[#B60D20]/30 group-hover:bg-[#B60D20] transition-colors" />
+                        <div className="mt-2 h-px w-6 bg-[#B60D20]/30 group-hover:bg-[#B60D20] transition-colors" />
                       </div>
                       <p
                         className="text-lg sm:text-xl text-[#1A1614] leading-snug pt-1"
@@ -443,7 +459,7 @@ export default function SummerLandingPage() {
         <div className="max-w-4xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow en="MATERIALS" zh="課堂教材實例" />
+              <Eyebrow zh="課堂教材實例" />
             </div>
           </Reveal>
 
@@ -506,7 +522,7 @@ export default function SummerLandingPage() {
         <div className="relative max-w-6xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#F5C518]">
-              <Eyebrow en="COURSE DETAILS" zh="課程資料" />
+              <Eyebrow zh="課程資料" />
             </div>
           </Reveal>
 
@@ -654,13 +670,73 @@ export default function SummerLandingPage() {
       </section>
 
       {/* ===================================================================
+          FULL PRICE LIST — embed the brand-designed pricing poster.
+          Recreating the eligibility matrix (current/new/returning students,
+          F1 vs F2–F3, registration fee waiver + coupon A/B) in JSX would
+          lose the brand layout and double the maintenance surface, so we
+          ship the poster as-is. The concise early-bird card above still
+          serves at-a-glance shoppers; this section is for the parents who
+          want every detail.
+          =================================================================== */}
+      <section className="relative bg-[#FBF7F0] py-20 sm:py-28">
+        <div className="max-w-4xl mx-auto px-6">
+          <Reveal>
+            <div className="text-center text-[#B60D20]">
+              <Eyebrow zh="完整價目" />
+            </div>
+          </Reveal>
+
+          <Reveal delay={150}>
+            <h2
+              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
+              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+            >
+              所有優惠一目了然
+            </h2>
+          </Reveal>
+
+          <Reveal delay={250}>
+            <div className="mt-12 relative mx-auto max-w-xl">
+              <div className="relative bg-white border border-[#F5C518]/40 p-3">
+                <div className="relative overflow-hidden">
+                  <Image
+                    src="/summer/poster-pricing.jpg"
+                    alt="完整價目表 · 三人同行優惠、單人報讀優惠及特別優惠"
+                    width={1080}
+                    height={1350}
+                    className="w-full h-auto block"
+                  />
+                  <CornerOrnament pos="tl" />
+                  <CornerOrnament pos="tr" />
+                  <CornerOrnament pos="bl" />
+                  <CornerOrnament pos="br" />
+                </div>
+              </div>
+              <p
+                className="mt-5 text-center text-sm text-[#1A1614]/55 italic"
+                style={{ fontFamily: "var(--font-serif-tc)" }}
+              >
+                適用日期：2026年4月8日至6月15日
+              </p>
+              <p
+                className="mt-3 text-center text-xs text-[#1A1614]/45 leading-relaxed px-4"
+                style={{ fontFamily: "var(--font-serif-tc)" }}
+              >
+                * 優惠受條款及細則約束，如有任何爭議，MathConcept 數學思維 擁有最終解釋權。
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ===================================================================
           BRANCHES
           =================================================================== */}
       <section className="relative bg-[#FBF7F0] py-20 sm:py-28">
         <div className="max-w-5xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow en="BRANCHES" zh="上課地點" />
+              <Eyebrow zh="上課地點" />
             </div>
           </Reveal>
 
@@ -678,13 +754,13 @@ export default function SummerLandingPage() {
               <Reveal key={loc.name} delay={200 + i * 100}>
                 <div className="group flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 hover:bg-white/50 transition-colors px-2 sm:px-4">
                   <span
-                    className="text-4xl sm:text-5xl text-[#F5C518] leading-none shrink-0 group-hover:text-[#B60D20] transition-colors duration-500"
+                    className="text-2xl sm:text-3xl text-[#F5C518] leading-none shrink-0 tabular-nums group-hover:text-[#B60D20] transition-colors duration-500 mt-1"
                     style={{
                       fontFamily: "var(--font-serif-tc)",
                       fontWeight: 700,
                     }}
                   >
-                    {CN_NUM[i]}
+                    0{i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
                     <h3
@@ -735,7 +811,7 @@ export default function SummerLandingPage() {
         <div className="max-w-3xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow en="QUESTIONS" zh="常見問題" />
+              <Eyebrow zh="常見問題" />
             </div>
           </Reveal>
 
@@ -766,6 +842,91 @@ export default function SummerLandingPage() {
       </section>
 
       {/* ===================================================================
+          家長須知 — single tap-to-expand card with all attendance / makeup
+          / payment / disclaimer rules. Closed by default so the section
+          stays out of the way for casual browsers.
+          =================================================================== */}
+      <section className="relative bg-[#FBF7F0] pb-20 sm:pb-28">
+        <div className="max-w-3xl mx-auto px-6">
+          <Reveal>
+            <div className="text-center text-[#B60D20]">
+              <Eyebrow zh="課堂須知" />
+            </div>
+          </Reveal>
+
+          <Reveal delay={150}>
+            <h2
+              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
+              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+            >
+              家長須知
+            </h2>
+          </Reveal>
+
+          <Reveal delay={250}>
+            <div className="mt-12 border border-[#1A1614]/15 bg-white">
+              <button
+                type="button"
+                onClick={() => setRulesOpen((v) => !v)}
+                className="w-full flex items-center gap-4 px-6 py-5 text-left group"
+                aria-expanded={rulesOpen}
+              >
+                <span
+                  className="flex-1 text-base sm:text-lg text-[#1A1614] leading-snug"
+                  style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
+                >
+                  展開查看完整課堂安排、請假及補堂條款
+                </span>
+                <span className="shrink-0 text-[#B60D20]">
+                  {rulesOpen ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </span>
+              </button>
+              <div
+                className={`grid transition-all duration-500 ease-out ${
+                  rulesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="px-6 sm:px-8 pb-8 pt-2 border-t border-[#1A1614]/10">
+                    <ol
+                      className="list-decimal list-outside ml-5 sm:ml-6 space-y-3 text-sm sm:text-[15px] text-[#1A1614]/80 leading-[1.9] marker:text-[#B60D20] marker:font-semibold"
+                      style={{ fontFamily: "var(--font-sans-tc)" }}
+                    >
+                      {GENERAL_RULES.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ol>
+
+                    <h4
+                      className="mt-8 mb-3 text-base text-[#B60D20]"
+                      style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+                    >
+                      「中學暑期課程」相關細則
+                    </h4>
+                    <ol
+                      className="list-decimal list-outside ml-5 sm:ml-6 space-y-3 text-sm sm:text-[15px] text-[#1A1614]/80 leading-[1.9] marker:text-[#B60D20] marker:font-semibold"
+                      style={{ fontFamily: "var(--font-sans-tc)" }}
+                    >
+                      {SUMMER_RULES.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ol>
+
+                    <p
+                      className="mt-8 pt-5 border-t border-[#1A1614]/10 text-xs text-[#1A1614]/55 italic leading-relaxed"
+                      style={{ fontFamily: "var(--font-serif-tc)" }}
+                    >
+                      本校可隨時修改本「家長須知」，而不作另行通知。如有任何爭議，數學思維教育中心將保留最終決定權。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ===================================================================
           FOOTER CTA
           =================================================================== */}
       <section className="relative bg-[#A40C1D] text-white py-24 sm:py-32 overflow-hidden">
@@ -781,7 +942,7 @@ export default function SummerLandingPage() {
         <div className="relative max-w-3xl mx-auto px-6 text-center">
           <Reveal>
             <div className="text-[#F5C518]">
-              <Eyebrow en="JOIN US" zh="夏日已至" />
+              <Eyebrow zh="📩 立即留言【暑假】" />
             </div>
           </Reveal>
 
@@ -790,17 +951,17 @@ export default function SummerLandingPage() {
               className="mt-10 text-3xl sm:text-4xl md:text-5xl leading-[1.5] text-white"
               style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
             >
-              與我們一起
+              暑假12個鐘
               <br />
-              <span className="text-[#F5C518]">迎接更輕鬆的數學新學年</span>
+              <span className="text-[#F5C518]">來年數學好輕鬆</span>
             </h2>
           </Reveal>
 
           <Reveal delay={300}>
             <div className="mt-14 flex flex-col items-center gap-4">
               <PrimaryCTA size="lg" />
-              <p className="text-xs text-white/60 tracking-widest">
-                免費登記 · 無須付費 · 名額有限
+              <p className="text-xs text-white/70 tracking-widest">
+                早鳥優惠｜6月15日前報名
               </p>
             </div>
           </Reveal>
