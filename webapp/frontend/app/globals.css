@@ -1,5 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;700&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
+
+/* Public-facing summer routes opt into this class to deter the casual
+ * "right-click → Save image as…" path. Combined with onContextMenu
+ * preventDefault on the route root. Determined users can still screenshot
+ * or use devtools — this is friction, not protection. */
+.no-image-save img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 @plugin "@tailwindcss/typography";
 
 @variant dark (&:is(.dark *));

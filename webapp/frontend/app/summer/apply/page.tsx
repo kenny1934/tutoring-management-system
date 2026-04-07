@@ -739,7 +739,13 @@ export default function SummerApplyPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+    <form
+      onSubmit={handleSubmit}
+      className="no-image-save space-y-6 max-w-2xl mx-auto"
+      onContextMenu={(e) => {
+        if (e.target instanceof HTMLImageElement) e.preventDefault();
+      }}
+    >
       {pendingDraft && typeof pendingDraft.savedAt === "number" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2 flex-wrap">
           <span>

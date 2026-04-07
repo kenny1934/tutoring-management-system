@@ -320,10 +320,16 @@ export default function SummerLandingPage() {
   )} – ${formatDateShort(config.course_end_date, LANG)}`;
 
   return (
-    // Escape SummerLayoutInner padding so we can do full-bleed bands
+    // Escape SummerLayoutInner padding so we can do full-bleed bands.
+    // no-image-save: blocks the casual right-click "Save image as…" path on
+    // every <img> in this subtree. CSS rule lives in app/globals.css; the
+    // onContextMenu handler is the JS belt-and-braces.
     <div
-      className="-mx-4 sm:-mx-8 -my-8 text-[#1A1614]"
+      className="no-image-save -mx-4 sm:-mx-8 -my-8 text-[#1A1614]"
       style={{ fontFamily: "var(--font-sans-tc), system-ui, sans-serif" }}
+      onContextMenu={(e) => {
+        if (e.target instanceof HTMLImageElement) e.preventDefault();
+      }}
     >
       {/* ===================================================================
           HERO — slogan as poster centerpiece
@@ -423,7 +429,7 @@ export default function SummerLandingPage() {
             <div className="mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
               {pillars.map((p, i) => (
                 <Reveal key={i} delay={200 + i * 120}>
-                  <div className="relative bg-white border border-[#1A1614]/8 p-7 sm:p-8 group hover:border-[#B60D20]/40 transition-colors duration-500">
+                  <div className="relative bg-white border border-[#1A1614]/8 p-7 sm:p-8">
                     <div className="flex items-start gap-5">
                       <div className="shrink-0">
                         <span
@@ -435,7 +441,7 @@ export default function SummerLandingPage() {
                         >
                           0{i + 1}
                         </span>
-                        <div className="mt-2 h-px w-6 bg-[#B60D20]/30 group-hover:bg-[#B60D20] transition-colors" />
+                        <div className="mt-2 h-px w-6 bg-[#B60D20]/30" />
                       </div>
                       <p
                         className="text-lg sm:text-xl text-[#1A1614] leading-snug pt-1"
@@ -475,49 +481,44 @@ export default function SummerLandingPage() {
       </section>
 
       {/* ===================================================================
-          SAMPLE WORKSHEET (placeholder)
+          SAMPLE WORKSHEETS — first page only, intentionally tease-only.
+          Full materials are not exposed; right-click save is blocked at
+          the route root via no-image-save class.
           =================================================================== */}
       <section className="relative bg-[#FBF7F0] pb-20 sm:pb-28">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-5xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
               <Eyebrow zh="課堂教材實例" />
             </div>
           </Reveal>
 
-          <Reveal delay={150}>
-            <div className="mt-12 relative mx-auto max-w-2xl">
-              <div className="relative bg-white border border-[#F5C518]/40 p-3">
-                <div className="relative aspect-[4/3] bg-gradient-to-br from-[#FBF7F0] via-white to-[#FBF7F0] flex items-center justify-center overflow-hidden">
-                  <div
-                    className="absolute inset-0 opacity-[0.06]"
-                    style={{
-                      backgroundImage:
-                        "repeating-linear-gradient(45deg, #1A1614 0, #1A1614 1px, transparent 1px, transparent 14px)",
-                    }}
-                  />
-                  <div className="relative text-center space-y-2">
-                    <p
-                      className="text-2xl sm:text-3xl text-[#1A1614]/30"
-                      style={{
-                        fontFamily: "var(--font-serif-tc)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      教 材 樣 本
-                    </p>
-                    <p className="text-xs tracking-[0.3em] text-[#1A1614]/40 uppercase">
-                      Sample Material · Coming Soon
-                    </p>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+            {[
+              "/summer/samples/sample-f1-rationals.jpg",
+              "/summer/samples/sample-f2-pythagoras.jpg",
+              "/summer/samples/sample-f3-quadratics.jpg",
+            ].map((src, i) => (
+              <Reveal key={src} delay={150 + i * 120}>
+                <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm">
+                  <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
+                    <Image
+                      src={src}
+                      alt=""
+                      fill
+                      sizes="(min-width: 640px) 33vw, 100vw"
+                      className="object-cover select-none pointer-events-none"
+                      draggable={false}
+                    />
                   </div>
                   <CornerOrnament pos="tl" />
                   <CornerOrnament pos="tr" />
                   <CornerOrnament pos="bl" />
                   <CornerOrnament pos="br" />
                 </div>
-              </div>
-            </div>
-          </Reveal>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
