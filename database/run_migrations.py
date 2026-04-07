@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "098_summer_buddy_sibling_declaration.sql",
+    "099_summer_application_edits.sql",
 ]
 
 def main():

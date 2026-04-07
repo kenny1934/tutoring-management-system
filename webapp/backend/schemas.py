@@ -2131,6 +2131,52 @@ class SummerApplicationStatusResponse(BaseModel):
     buddy_group_member_count: Optional[int] = None
     buddy_siblings: List[SummerSiblingInfo] = Field(default_factory=list)
     primary_branch_options: List[Dict[str, str]] = Field(default_factory=list)
+    # Editable fields exposed so the status page can render and edit them
+    # without a second admin-style fetch.
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    wechat_id: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    unavailability_notes: Optional[str] = None
+    sessions_per_week: int = 1
+
+
+class SummerApplicationEditRequest(BaseModel):
+    """Partial update of an in-Submitted-state application.
+
+    Used by both the public status-page edit flow (auth via ref code + phone)
+    and the admin edit flow. All fields optional; the server enforces the
+    editable whitelist and ignores anything outside it.
+    """
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    unavailability_notes: Optional[str] = Field(None, max_length=2000)
+    sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
+
+
+class SummerApplicationEditEntry(BaseModel):
+    """One audit-trail row for the admin edit history view."""
+    id: int
+    edited_at: datetime
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    edited_via: str  # 'applicant' | 'admin'
+    edited_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SummerBuddyChangeRequest(BaseModel):
@@ -2274,6 +2320,19 @@ class SummerApplicationUpdate(BaseModel):
     lang_stream: Optional[str] = Field(None, max_length=10)
     buddy_code: Optional[str] = Field(None, max_length=20, description="Set to code to join, empty string to leave, 'NEW' to create")
     buddy_referrer_name: Optional[str] = Field(None, max_length=255)
+    # Detail fields admin can edit (mirrors SummerApplicationEditRequest +
+    # identity fields locked for self-service)
+    student_name: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    unavailability_notes: Optional[str] = Field(None, max_length=2000)
+    sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
 
 
 class SummerApplicationStats(BaseModel):

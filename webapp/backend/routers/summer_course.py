@@ -18,6 +18,7 @@ from models import (
     SummerBuddyGroup,
     SummerBuddyMember,
     SummerApplication,
+    SummerApplicationEdit,
     SummerCourseSlot,
     SummerSession,
     SummerLesson,
@@ -27,6 +28,8 @@ from models import (
 from schemas import (
     SummerCourseFormConfig,
     SummerApplicationCreate,
+    SummerApplicationEditRequest,
+    SummerApplicationEditEntry,
     SummerApplicationSubmitResponse,
     SummerApplicationStatusResponse,
     SummerBuddyChangeRequest,
@@ -85,6 +88,145 @@ logger = logging.getLogger(__name__)
 
 # Public cap on buddy group size. Admin PATCH bypasses this to allow manual overflow pairing.
 PUBLIC_BUDDY_GROUP_CAP = 3
+
+
+def _build_status_response(
+    db: Session,
+    app: SummerApplication,
+) -> "SummerApplicationStatusResponse":
+    """Compose the public status payload (used by status check + edit endpoints)."""
+    buddy_code = None
+    buddy_member_count = None
+    siblings: list[SummerSiblingInfo] = []
+    if app.buddy_group_id:
+        group = (
+            db.query(SummerBuddyGroup)
+            .filter(SummerBuddyGroup.id == app.buddy_group_id)
+            .first()
+        )
+        if group:
+            buddy_code = group.buddy_code
+            buddy_member_count = _get_buddy_member_count(db, group.id)
+            siblings = _get_buddy_siblings(db, group.id, caller_application_id=app.id)
+    return SummerApplicationStatusResponse(
+        reference_code=app.reference_code,
+        student_name=app.student_name,
+        application_status=app.application_status,
+        submitted_at=app.submitted_at,
+        buddy_code=buddy_code,
+        buddy_group_member_count=buddy_member_count,
+        buddy_siblings=siblings,
+        primary_branch_options=PRIMARY_BRANCH_OPTIONS,
+        grade=app.grade,
+        school=app.school,
+        lang_stream=app.lang_stream,
+        wechat_id=app.wechat_id,
+        preferred_location=app.preferred_location,
+        preference_1_day=app.preference_1_day,
+        preference_1_time=app.preference_1_time,
+        preference_2_day=app.preference_2_day,
+        preference_2_time=app.preference_2_time,
+        unavailability_notes=app.unavailability_notes,
+        sessions_per_week=app.sessions_per_week or 1,
+    )
+
+
+def _normalize_phone(phone: str | None) -> str:
+    """Strip everything except digits + leading '+' for duplicate-check parity.
+
+    Stored value is the normalized form so two formats of the same number
+    collapse to one. Display-friendliness is sacrificed for an unambiguous
+    duplicate key.
+    """
+    if not phone:
+        return ""
+    s = phone.strip()
+    plus = "+" if s.startswith("+") else ""
+    digits = "".join(ch for ch in s if ch.isdigit())
+    return plus + digits
+
+
+# Fields the applicant may self-edit while the application is still Submitted.
+_APPLICANT_EDITABLE_FIELDS: tuple[str, ...] = (
+    "grade",
+    "school",
+    "lang_stream",
+    "wechat_id",
+    "preferred_location",
+    "preference_1_day",
+    "preference_1_time",
+    "preference_2_day",
+    "preference_2_time",
+    "unavailability_notes",
+    "sessions_per_week",
+)
+
+# Admin can additionally edit identity fields (still audited).
+_ADMIN_EDITABLE_FIELDS: tuple[str, ...] = _APPLICANT_EDITABLE_FIELDS + (
+    "student_name",
+)
+
+
+def _normalize_edit_value(field: str, value):
+    """Coerce incoming edit values to the same shape we'd store from a fresh submit."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        v = value.strip()
+        return v or None
+    return value
+
+
+def _apply_application_edits(
+    db: Session,
+    app: SummerApplication,
+    changes: dict,
+    *,
+    edited_via: str,
+    edited_by: str | None,
+    allowed_fields: tuple[str, ...],
+) -> int:
+    """Apply a partial edit, write one audit row per changed field. Returns count."""
+    written = 0
+    now = hk_now()
+    for field, raw in changes.items():
+        if field not in allowed_fields:
+            continue  # whitelist enforcement — silently drop anything unknown
+        new_val = _normalize_edit_value(field, raw)
+        old_val = getattr(app, field, None)
+        if old_val == new_val:
+            continue
+        setattr(app, field, new_val)
+        db.add(SummerApplicationEdit(
+            application_id=app.id,
+            edited_at=now,
+            field_name=field,
+            old_value=None if old_val is None else str(old_val),
+            new_value=None if new_val is None else str(new_val),
+            edited_via=edited_via,
+            edited_by=edited_by,
+        ))
+        written += 1
+    return written
+
+
+def _write_status_audit(
+    db: Session,
+    app: SummerApplication,
+    old_status: str,
+    new_status: str,
+    edited_by: str | None,
+) -> None:
+    """Audit row for an admin status transition."""
+    db.add(SummerApplicationEdit(
+        application_id=app.id,
+        edited_at=hk_now(),
+        field_name="application_status",
+        old_value=old_status,
+        new_value=new_status,
+        edited_via="admin",
+        edited_by=edited_by,
+    ))
 
 
 def _assert_buddy_group_not_full(db: Session, group_id: int) -> None:
@@ -197,15 +339,21 @@ def submit_application(
     if now < config.application_open_date or now > config.application_close_date:
         raise HTTPException(status_code=400, detail="Application period is not open")
 
-    # Check for duplicate submission (same phone + config)
+    # Duplicate check: same (normalized phone, student name) within this config.
+    # Same parent submitting multiple kids is allowed; same kid submitted twice
+    # is rejected. Phone is normalized to digits-only so format variations
+    # (spaces, hyphens, parens) collapse to one key.
+    normalized_phone = _normalize_phone(data.contact_phone)
+    student_name_clean = data.student_name.strip()
     existing_app = db.query(SummerApplication.id).filter(
         SummerApplication.config_id == config.id,
-        SummerApplication.contact_phone == data.contact_phone.strip(),
+        SummerApplication.contact_phone == normalized_phone,
+        SummerApplication.student_name == student_name_clean,
     ).first()
     if existing_app:
         raise HTTPException(
             status_code=400,
-            detail="This phone number has already submitted an application. If you need to make changes, please contact us.",
+            detail="An application for this student has already been submitted from this phone number. Please use the status page to edit it.",
         )
 
     # Handle buddy code: join existing group or leave as None
@@ -223,14 +371,14 @@ def submit_application(
     app = SummerApplication(
         config_id=config.id,
         reference_code="TEMP",  # placeholder, updated below
-        student_name=data.student_name.strip(),
+        student_name=student_name_clean,
         school=data.school.strip() if data.school else None,
         grade=data.grade.strip(),
         lang_stream=data.lang_stream,
         is_existing_student=data.is_existing_student,
         current_centers=data.current_centers,
         wechat_id=data.wechat_id.strip() if data.wechat_id else None,
-        contact_phone=data.contact_phone.strip(),
+        contact_phone=normalized_phone,
         preferred_location=data.preferred_location,
         preference_1_day=data.preference_1_day,
         preference_1_time=data.preference_1_time,
@@ -285,29 +433,12 @@ def check_application_status(
         joinedload(SummerApplication.buddy_group)
     ).filter(
         SummerApplication.reference_code == reference_code.strip().upper(),
-        SummerApplication.contact_phone == phone.strip(),
+        SummerApplication.contact_phone == _normalize_phone(phone),
     ).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    buddy_code = None
-    buddy_member_count = None
-    siblings: list[SummerSiblingInfo] = []
-    if app.buddy_group:
-        buddy_code = app.buddy_group.buddy_code
-        buddy_member_count = _get_buddy_member_count(db, app.buddy_group.id)
-        siblings = _get_buddy_siblings(db, app.buddy_group.id, caller_application_id=app.id)
-
-    return SummerApplicationStatusResponse(
-        reference_code=app.reference_code,
-        student_name=app.student_name,
-        application_status=app.application_status,
-        submitted_at=app.submitted_at,
-        buddy_code=buddy_code,
-        buddy_group_member_count=buddy_member_count,
-        buddy_siblings=siblings,
-        primary_branch_options=PRIMARY_BRANCH_OPTIONS,
-    )
+    return _build_status_response(db, app)
 
 
 def _get_buddy_member_count(db: Session, group_id: int) -> int:
@@ -436,7 +567,7 @@ def change_buddy_group(
 
     app = db.query(SummerApplication).filter(
         SummerApplication.reference_code == reference_code.strip().upper(),
-        SummerApplication.contact_phone == phone.strip(),
+        SummerApplication.contact_phone == _normalize_phone(phone),
     ).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -535,7 +666,7 @@ def _authenticate_application(
 ) -> SummerApplication:
     app = db.query(SummerApplication).filter(
         SummerApplication.reference_code == reference_code.strip().upper(),
-        SummerApplication.contact_phone == phone.strip(),
+        SummerApplication.contact_phone == _normalize_phone(phone),
     ).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -600,6 +731,48 @@ def remove_sibling(
         )
     db.delete(member)
     db.commit()
+
+
+# ---- Self-service application edit ----
+
+@router.patch(
+    "/summer/public/application/{reference_code}",
+    response_model=SummerApplicationStatusResponse,
+)
+def edit_application(
+    request: Request,
+    reference_code: str,
+    data: SummerApplicationEditRequest,
+    phone: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """Applicant self-edits their submission while it is still in Submitted state.
+
+    Identity, contact phone, and buddy/sibling fields are NOT in the editable
+    set — those go through dedicated endpoints or admin only. Once admin moves
+    the application out of Submitted, this returns 409 and the status page
+    hides edit affordances.
+    """
+    check_ip_rate_limit(request, "summer_apply")
+    app = _authenticate_application(db, reference_code, phone)
+
+    if app.application_status != SummerApplicationStatus.SUBMITTED.value:
+        raise HTTPException(
+            status_code=409,
+            detail="This application is being reviewed and can no longer be edited from the status page. Please contact us to make changes.",
+        )
+
+    _apply_application_edits(
+        db,
+        app,
+        data.model_dump(exclude_unset=True),
+        edited_via="applicant",
+        edited_by=None,
+        allowed_fields=_APPLICANT_EDITABLE_FIELDS,
+    )
+    db.commit()
+    db.refresh(app)
+    return _build_status_response(db, app)
 
 
 # ---- Admin sibling endpoints ----
@@ -939,6 +1112,25 @@ def get_application(
     return _build_application_responses(db, [app])[0]
 
 
+@router.get(
+    "/summer/applications/{app_id}/edits",
+    response_model=list[SummerApplicationEditEntry],
+)
+def list_application_edits(
+    app_id: int,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Audit trail for one application, newest first."""
+    rows = (
+        db.query(SummerApplicationEdit)
+        .filter(SummerApplicationEdit.application_id == app_id)
+        .order_by(SummerApplicationEdit.edited_at.desc(), SummerApplicationEdit.id.desc())
+        .all()
+    )
+    return rows
+
+
 @router.patch("/summer/applications/{app_id}", response_model=SummerApplicationResponse)
 def update_application(
     app_id: int,
@@ -952,6 +1144,7 @@ def update_application(
         raise HTTPException(status_code=404, detail="Application not found")
 
     updates = data.model_dump(exclude_unset=True)
+    admin_label = admin.tutor_name or admin.user_email or "admin"
 
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
@@ -978,11 +1171,32 @@ def update_application(
         # Remove buddy_referrer_name from generic updates since we handled it
         updates.pop("buddy_referrer_name", None)
 
-    # Track reviewer when status changes
+    # Track reviewer + write audit row when status changes
     if "application_status" in updates:
-        updates["reviewed_by"] = admin.tutor_name or "admin"
-        updates["reviewed_at"] = hk_now()
+        new_status = updates.pop("application_status")
+        if hasattr(new_status, "value"):
+            new_status = new_status.value
+        if app.application_status != new_status:
+            _write_status_audit(db, app, app.application_status, new_status, admin_label)
+        app.application_status = new_status
+        app.reviewed_by = admin_label
+        app.reviewed_at = hk_now()
 
+    # Detail-field edits go through the audit helper
+    detail_changes = {k: updates.pop(k) for k in list(updates.keys()) if k in _ADMIN_EDITABLE_FIELDS}
+    if detail_changes:
+        _apply_application_edits(
+            db,
+            app,
+            detail_changes,
+            edited_via="admin",
+            edited_by=admin_label,
+            allowed_fields=_ADMIN_EDITABLE_FIELDS,
+        )
+
+    # Anything left (admin_notes, existing_student_id, lang_stream when not in
+    # detail set) is written directly without audit — these are admin-only
+    # bookkeeping fields.
     for field, value in updates.items():
         setattr(app, field, value)
 

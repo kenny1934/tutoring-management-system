@@ -136,6 +136,8 @@ import type {
   SummerApplicationCreate,
   SummerApplicationSubmitResponse,
   SummerApplicationStatusResponse,
+  SummerApplicationEditRequest,
+  SummerApplicationEditEntry,
   SummerSiblingInfo,
   SiblingVerificationStatus,
   SummerCourseConfig,
@@ -2223,6 +2225,16 @@ export const summerAPI = {
       `/summer/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
     ),
 
+  editApplication: (
+    referenceCode: string,
+    phone: string,
+    data: SummerApplicationEditRequest
+  ) =>
+    fetchAPI<SummerApplicationStatusResponse>(
+      `/summer/public/application/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
+
   createBuddyGroup: () =>
     fetchAPI<{ buddy_code: string }>("/summer/public/buddy-group", { method: "POST" }),
 
@@ -2325,6 +2337,9 @@ export const summerAPI = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  getApplicationEdits: (id: number) =>
+    fetchAPI<SummerApplicationEditEntry[]>(`/summer/applications/${id}/edits`),
 
   getApplicationStats: (configId?: number) => {
     const qs = configId ? `?config_id=${configId}` : "";

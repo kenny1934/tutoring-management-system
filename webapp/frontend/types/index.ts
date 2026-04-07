@@ -2105,6 +2105,42 @@ export interface SummerApplicationStatusResponse {
   buddy_siblings?: SummerSiblingInfo[];
   primary_branch_options?: SummerPrimaryBranchOption[];
   submitted_at?: string | null;
+  // Editable fields exposed to the status page
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  sessions_per_week?: number;
+}
+
+export interface SummerApplicationEditEntry {
+  id: number;
+  edited_at: string;
+  field_name: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  edited_via: "applicant" | "admin";
+  edited_by?: string | null;
+}
+
+export interface SummerApplicationEditRequest {
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  unavailability_notes?: string | null;
+  sessions_per_week?: number;
 }
 
 export interface SummerCourseConfig {
@@ -2185,6 +2221,18 @@ export interface SummerApplicationUpdate {
   lang_stream?: string;
   buddy_code?: string;
   buddy_referrer_name?: string;
+  // Detail-field admin edits (audited)
+  student_name?: string;
+  grade?: string;
+  school?: string;
+  wechat_id?: string;
+  preferred_location?: string;
+  preference_1_day?: string;
+  preference_1_time?: string;
+  preference_2_day?: string;
+  preference_2_time?: string;
+  unavailability_notes?: string;
+  sessions_per_week?: number;
 }
 
 export interface SummerApplicationStats {

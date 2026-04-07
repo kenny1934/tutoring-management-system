@@ -16,9 +16,16 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink,
-  Clock, Grid3X3,
+  Clock, Grid3X3, Pencil, History,
 } from "lucide-react";
-import type { SummerApplication, SummerApplicationUpdate, SummerLocation, SiblingVerificationStatus } from "@/types";
+import type {
+  SummerApplication,
+  SummerApplicationUpdate,
+  SummerApplicationEditEntry,
+  SummerLocation,
+  SiblingVerificationStatus,
+} from "@/types";
+import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -162,6 +169,38 @@ export function SummerApplicationDetailModal({
   } | null>(null);
   const [buddySectionCollapsed, setBuddySectionCollapsed] = useState(false);
 
+  // Detail edit mode (schedule + background fields)
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [dStudentName, setDStudentName] = useState("");
+  const [dGrade, setDGrade] = useState("");
+  const [dSchool, setDSchool] = useState("");
+  const [dWechat, setDWechat] = useState("");
+  const [dLocation, setDLocation] = useState("");
+  const [dSessionsPerWeek, setDSessionsPerWeek] = useState(1);
+  const [dPref1Day, setDPref1Day] = useState("");
+  const [dPref1Time, setDPref1Time] = useState("");
+  const [dPref2Day, setDPref2Day] = useState("");
+  const [dPref2Time, setDPref2Time] = useState("");
+  const [dUnavail, setDUnavail] = useState("");
+
+  // Status transition confirmation (Submitted → anything else locks applicant edits)
+  const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
+
+  // Audit trail drawer
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Form config (lazy: only fetched when edit mode opens)
+  const { data: formConfig } = useSWR(
+    editingDetails ? "summer-form-config" : null,
+    () => summerAPI.getFormConfig()
+  );
+
+  // Audit history (lazy: only fetched when drawer opens)
+  const { data: editHistory } = useSWR(
+    historyOpen && app ? ["summer-edits", app.id] : null,
+    () => summerAPI.getApplicationEdits(app!.id)
+  );
+
   useEffect(() => {
     if (buddyEditMode !== "search" || !debouncedBuddySearch.trim() || !app) {
       setBuddySearchResults((prev) => (prev.length === 0 ? prev : []));
@@ -235,6 +274,20 @@ export function SummerApplicationDetailModal({
       setSiblingOverrides({});
       setSiblingPendingReject(null);
       setBuddySectionCollapsed(false);
+      setEditingDetails(false);
+      setPendingStatusConfirm(null);
+      setHistoryOpen(false);
+      setDStudentName(app.student_name || "");
+      setDGrade(app.grade || "");
+      setDSchool(app.school || "");
+      setDWechat(app.wechat_id || "");
+      setDLocation(app.preferred_location || "");
+      setDSessionsPerWeek(app.sessions_per_week ?? 1);
+      setDPref1Day(app.preference_1_day || "");
+      setDPref1Time(app.preference_1_time || "");
+      setDPref2Day(app.preference_2_day || "");
+      setDPref2Time(app.preference_2_time || "");
+      setDUnavail(app.unavailability_notes || "");
     }
   }, [app, isOpen]);
 
@@ -364,24 +417,51 @@ export function SummerApplicationDetailModal({
 
   if (!app) return null;
 
+  const detailChanged =
+    dStudentName !== (app.student_name || "") ||
+    dGrade !== (app.grade || "") ||
+    dSchool !== (app.school || "") ||
+    dWechat !== (app.wechat_id || "") ||
+    dLocation !== (app.preferred_location || "") ||
+    dSessionsPerWeek !== (app.sessions_per_week ?? 1) ||
+    dPref1Day !== (app.preference_1_day || "") ||
+    dPref1Time !== (app.preference_1_time || "") ||
+    dPref2Day !== (app.preference_2_day || "") ||
+    dPref2Time !== (app.preference_2_time || "") ||
+    dUnavail !== (app.unavailability_notes || "");
+
   const hasChanges =
     status !== app.application_status ||
     notes !== (app.admin_notes || "") ||
     langStream !== (app.lang_stream || "") ||
-    studentId !== (app.existing_student_id?.toString() || "");
+    studentId !== (app.existing_student_id?.toString() || "") ||
+    detailChanged;
 
-  const handleSave = async () => {
-    if (!hasChanges || saving || readOnly) return;
+  const buildUpdate = (): SummerApplicationUpdate => {
+    const update: SummerApplicationUpdate = {};
+    if (status !== app.application_status) update.application_status = status;
+    if (notes !== (app.admin_notes || "")) update.admin_notes = notes;
+    if (langStream !== (app.lang_stream || "")) update.lang_stream = langStream;
+    const newStudentId = studentId ? parseInt(studentId, 10) : null;
+    if (newStudentId !== (app.existing_student_id ?? null)) update.existing_student_id = newStudentId;
+    if (dStudentName !== (app.student_name || "")) update.student_name = dStudentName;
+    if (dGrade !== (app.grade || "")) update.grade = dGrade;
+    if (dSchool !== (app.school || "")) update.school = dSchool;
+    if (dWechat !== (app.wechat_id || "")) update.wechat_id = dWechat;
+    if (dLocation !== (app.preferred_location || "")) update.preferred_location = dLocation;
+    if (dSessionsPerWeek !== (app.sessions_per_week ?? 1)) update.sessions_per_week = dSessionsPerWeek;
+    if (dPref1Day !== (app.preference_1_day || "")) update.preference_1_day = dPref1Day;
+    if (dPref1Time !== (app.preference_1_time || "")) update.preference_1_time = dPref1Time;
+    if (dPref2Day !== (app.preference_2_day || "")) update.preference_2_day = dPref2Day;
+    if (dPref2Time !== (app.preference_2_time || "")) update.preference_2_time = dPref2Time;
+    if (dUnavail !== (app.unavailability_notes || "")) update.unavailability_notes = dUnavail;
+    return update;
+  };
+
+  const doSave = async () => {
     setSaving(true);
     try {
-      const update: SummerApplicationUpdate = {};
-      if (status !== app.application_status) update.application_status = status;
-      if (notes !== (app.admin_notes || "")) update.admin_notes = notes;
-      if (langStream !== (app.lang_stream || "")) update.lang_stream = langStream;
-      const newStudentId = studentId ? parseInt(studentId, 10) : null;
-      if (newStudentId !== (app.existing_student_id ?? null)) update.existing_student_id = newStudentId;
-
-      await summerAPI.updateApplication(app.id, update);
+      await summerAPI.updateApplication(app.id, buildUpdate());
       showToast("Application updated", "success");
       onUpdated();
       onClose();
@@ -390,6 +470,21 @@ export function SummerApplicationDetailModal({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!hasChanges || saving || readOnly) return;
+    // Gate the Submitted → anything else transition: admins need to acknowledge
+    // that this locks the applicant out of self-service edits on the status page.
+    if (
+      app.application_status === "Submitted" &&
+      status !== "Submitted" &&
+      status !== app.application_status
+    ) {
+      setPendingStatusConfirm(status);
+      return;
+    }
+    await doSave();
   };
 
   const handleLinkStudent = (id: number) => {
@@ -794,6 +889,113 @@ export function SummerApplicationDetailModal({
 
         {/* === RIGHT COLUMN: Info sections (icon-block layout) === */}
         <div className={cn("space-y-4", !readOnly && "md:order-1")}>
+          {!readOnly && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <History className="h-3 w-3" />
+                  {historyOpen ? "Hide history" : "History"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingDetails((v) => !v)}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                >
+                  <Pencil className="h-3 w-3" />
+                  {editingDetails ? "Done editing" : "Edit details"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {historyOpen && (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-2 max-h-60 overflow-y-auto">
+              {!editHistory ? (
+                <div className="text-[11px] text-muted-foreground">Loading...</div>
+              ) : editHistory.length === 0 ? (
+                <div className="text-[11px] text-muted-foreground">No edits yet.</div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {editHistory.map((e: SummerApplicationEditEntry) => (
+                    <li key={e.id} className="text-[11px] leading-snug">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-muted-foreground">
+                          {parseHKTimestamp(e.edited_at).toLocaleString()}
+                        </span>
+                        <span className={cn(
+                          "px-1 rounded text-[9px] font-medium uppercase",
+                          e.edited_via === "admin"
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                        )}>
+                          {e.edited_via}
+                        </span>
+                        {e.edited_by && <span className="text-muted-foreground">{e.edited_by}</span>}
+                      </div>
+                      <div className="text-foreground">
+                        <span className="font-medium">{e.field_name}</span>:{" "}
+                        <span className="text-muted-foreground line-through">{e.old_value || "—"}</span>
+                        {" → "}
+                        <span>{e.new_value || "—"}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {editingDetails && !readOnly ? (
+            <div className="space-y-3 rounded-lg border border-dashed border-primary/40 p-3 bg-primary/5">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-[10px] text-muted-foreground mb-0.5">Student name</label>
+                  <input type="text" value={dStudentName} onChange={(e) => setDStudentName(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-0.5">Grade</label>
+                  <input type="text" value={dGrade} onChange={(e) => setDGrade(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-0.5">School</label>
+                  <input type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} className={inputClass} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] text-muted-foreground mb-0.5">WeChat ID</label>
+                  <input type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+
+              {formConfig ? (
+                <ClassPreferencesStep
+                  config={formConfig}
+                  lang="en"
+                  selectedLocation={dLocation}
+                  setSelectedLocation={setDLocation}
+                  sessionsPerWeek={dSessionsPerWeek}
+                  setSessionsPerWeek={setDSessionsPerWeek}
+                  pref1Day={dPref1Day}
+                  setPref1Day={setDPref1Day}
+                  pref1Time={dPref1Time}
+                  setPref1Time={setDPref1Time}
+                  pref2Day={dPref2Day}
+                  setPref2Day={setDPref2Day}
+                  pref2Time={dPref2Time}
+                  setPref2Time={setDPref2Time}
+                  unavailability={dUnavail}
+                  setUnavailability={setDUnavail}
+                />
+              ) : (
+                <div className="text-xs text-muted-foreground">Loading form config...</div>
+              )}
+            </div>
+          ) : (
+          <>
           {/* Student Info */}
           <div className="flex items-start gap-3">
             <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg shrink-0">
@@ -887,6 +1089,8 @@ export function SummerApplicationDetailModal({
                 )}
               </div>
             </div>
+          )}
+          </>
           )}
 
           {/* Placement Info */}
@@ -1398,6 +1602,24 @@ export function SummerApplicationDetailModal({
         }
         variant={buddyPendingAction?.type === "remove" ? "danger" : "warning"}
         loading={buddyEditLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingStatusConfirm !== null}
+        onCancel={() => setPendingStatusConfirm(null)}
+        onConfirm={async () => {
+          setPendingStatusConfirm(null);
+          await doSave();
+        }}
+        title={`Move to ${pendingStatusConfirm ?? ""}?`}
+        message="Moving this application out of Submitted will lock the applicant out of self-service edits on the status page."
+        consequences={[
+          "The applicant will need to contact you for any further changes to time slots, school, or other details.",
+          "You can still edit all fields as an admin from this modal.",
+        ]}
+        confirmText={`Move to ${pendingStatusConfirm ?? ""}`}
+        variant="warning"
+        loading={saving}
       />
 
       <ConfirmDialog

@@ -2,7 +2,7 @@
 SQLAlchemy models for the tutoring management system database.
 These models map to the existing tables from database/init.sql
 """
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index, JSON, Computed
+from sqlalchemy import Column, Integer, BigInteger, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index, JSON, Computed
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -1174,6 +1174,29 @@ class SummerBuddyMember(Base):
 
     __table_args__ = (
         Index("idx_buddy_member_group_status", "buddy_group_id", "verification_status"),
+    )
+
+
+class SummerApplicationEdit(Base):
+    """Audit trail row for a single field change on a summer application.
+
+    Written by both applicant self-service edits (via the status page) and
+    admin edits (via the application detail modal). One row per changed
+    field per save.
+    """
+    __tablename__ = "summer_application_edits"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
+    application_id = Column(Integer, ForeignKey("summer_applications.id", ondelete="CASCADE"), nullable=False)
+    edited_at = Column(DateTime, server_default=func.now(), nullable=False)
+    field_name = Column(String(64), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    edited_via = Column(String(16), nullable=False)  # 'applicant' | 'admin'
+    edited_by = Column(String(255), nullable=True)  # admin email; NULL for applicant edits
+
+    __table_args__ = (
+        Index("idx_summer_edit_app_time", "application_id", "edited_at"),
     )
 
 

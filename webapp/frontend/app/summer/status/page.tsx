@@ -4,12 +4,17 @@ import { useState, useCallback } from "react";
 import { summerAPI } from "@/lib/api";
 import type {
   SummerApplicationStatusResponse,
+  SummerApplicationEditRequest,
+  SummerCourseFormConfig,
+  SummerLocation,
   SummerSiblingInfo,
 } from "@/types";
-import { type Lang, t, inputClass } from "@/lib/summer-utils";
+import { type Lang, t, inputClass, dayLabel } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
-import { Users, Plus, X } from "lucide-react";
+import { Users, Plus, X, Pencil, Lock } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
+
+type EditSection = "background" | "preferences" | null;
 
 const STATUS_STEPS = [
   "Submitted",
@@ -57,6 +62,113 @@ export default function SummerStatusPage() {
   const [buddyMaxMembers, setBuddyMaxMembers] = useState(3);
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState<string | null>(null);
+
+  // Self-edit state
+  const [formConfig, setFormConfig] = useState<SummerCourseFormConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [editingSection, setEditingSection] = useState<EditSection>(null);
+  const [editForm, setEditForm] = useState<SummerApplicationEditRequest>({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const isSubmitted = result?.application_status === "Submitted";
+
+  const ensureConfig = useCallback(async () => {
+    if (formConfig || configLoading) return;
+    setConfigLoading(true);
+    try {
+      const cfg = await summerAPI.getFormConfig();
+      setFormConfig(cfg);
+    } catch {
+      // Edit form will fall back to plain text inputs if config fails to load
+    } finally {
+      setConfigLoading(false);
+    }
+  }, [formConfig, configLoading]);
+
+  const openEdit = async (section: Exclude<EditSection, null>) => {
+    if (!result) return;
+    setEditError(null);
+    setEditingSection(section);
+    setEditForm({
+      grade: result.grade ?? "",
+      school: result.school ?? "",
+      lang_stream: result.lang_stream ?? "",
+      wechat_id: result.wechat_id ?? "",
+      preferred_location: result.preferred_location ?? "",
+      preference_1_day: result.preference_1_day ?? "",
+      preference_1_time: result.preference_1_time ?? "",
+      preference_2_day: result.preference_2_day ?? "",
+      preference_2_time: result.preference_2_time ?? "",
+      unavailability_notes: result.unavailability_notes ?? "",
+      sessions_per_week: result.sessions_per_week ?? 1,
+    });
+    ensureConfig();
+  };
+
+  const closeEdit = () => {
+    setEditingSection(null);
+    setEditForm({});
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!result) return;
+    setEditSaving(true);
+    setEditError(null);
+    // Only send the fields belonging to the section being edited so an
+    // unrelated bug in one form can't accidentally clobber another section.
+    const payload: SummerApplicationEditRequest =
+      editingSection === "background"
+        ? {
+            grade: editForm.grade,
+            school: editForm.school,
+            lang_stream: editForm.lang_stream,
+            wechat_id: editForm.wechat_id,
+          }
+        : {
+            preferred_location: editForm.preferred_location,
+            preference_1_day: editForm.preference_1_day,
+            preference_1_time: editForm.preference_1_time,
+            preference_2_day: editForm.preference_2_day,
+            preference_2_time: editForm.preference_2_time,
+            unavailability_notes: editForm.unavailability_notes,
+            sessions_per_week: editForm.sessions_per_week,
+          };
+    try {
+      const updated = await summerAPI.editApplication(
+        referenceCode.trim(),
+        phone.trim(),
+        payload,
+      );
+      setResult(updated);
+      closeEdit();
+    } catch (e: unknown) {
+      setEditError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const labelForOption = (
+    options: { name: string; name_en: string; value?: string }[] | null | undefined,
+    value: string | null | undefined,
+  ): string => {
+    if (!value) return "—";
+    const opt = options?.find((o) => (o.value ?? o.name) === value);
+    if (!opt) return value;
+    return lang === "zh" ? opt.name : opt.name_en;
+  };
+
+  const selectedLocation: SummerLocation | undefined = formConfig?.locations.find(
+    (l) => l.name === editForm.preferred_location,
+  );
+  const slotDays = selectedLocation?.open_days ?? [];
+  const slotsForDay = (day: string): string[] => {
+    if (!selectedLocation || !day) return [];
+    const ts = selectedLocation.time_slots as Record<string, string[]> | undefined;
+    return ts?.[day] ?? [];
+  };
 
   const [siblingFormOpen, setSiblingFormOpen] = useState(false);
   const [sibName, setSibName] = useState("");
@@ -176,6 +288,7 @@ export default function SummerStatusPage() {
         phone.trim()
       );
       setResult(data);
+      ensureConfig();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Lookup failed");
     } finally {
@@ -329,6 +442,308 @@ export default function SummerStatusPage() {
               )}
             </div>
           )}
+
+          {/* Lock banner when admin has moved the application out of Submitted */}
+          {!isSubmitted && !SIDE_EXIT_STATUSES.has(result.application_status) && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                {t(
+                  "報名表正在審核中，無法在此頁面自助修改。如需更新資料，請與我們聯絡。",
+                  "Your application is being reviewed and can no longer be edited here. Please contact us to make changes.",
+                  lang,
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* --- Background section --- */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">
+                {t("學生資料", "Student Background", lang)}
+              </span>
+              {isSubmitted && editingSection !== "background" && (
+                <button
+                  type="button"
+                  onClick={() => openEdit("background")}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+                >
+                  <Pencil className="h-3 w-3" />
+                  {t("修改", "Edit", lang)}
+                </button>
+              )}
+            </div>
+            {editingSection === "background" ? (
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("年級", "Grade", lang)}
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.grade ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("學校", "School", lang)}
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.school ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, school: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("授課語言", "Language Stream", lang)}
+                  </label>
+                  {formConfig?.lang_stream_options && formConfig.lang_stream_options.length > 0 ? (
+                    <select
+                      value={editForm.lang_stream ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, lang_stream: e.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="">--</option>
+                      {formConfig.lang_stream_options.map((opt) => (
+                        <option key={opt.value ?? opt.name} value={opt.value ?? opt.name}>
+                          {lang === "zh" ? opt.name : opt.name_en}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editForm.lang_stream ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, lang_stream: e.target.value })}
+                      className={inputClass}
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    WeChat ID
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.wechat_id ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, wechat_id: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                {editError && <div className="text-xs text-red-600">{editError}</div>}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={closeEdit} className="text-xs px-3 py-1 text-muted-foreground hover:text-foreground">
+                    {t("取消", "Cancel", lang)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={editSaving}
+                    className="text-xs font-medium px-3 py-1 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                  >
+                    {editSaving ? t("儲存中...", "Saving...", lang) : t("儲存", "Save", lang)}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <dl className="grid grid-cols-2 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">{t("年級", "Grade", lang)}</dt>
+                <dd className="text-foreground">{labelForOption(formConfig?.available_grades, result.grade)}</dd>
+                <dt className="text-muted-foreground">{t("學校", "School", lang)}</dt>
+                <dd className="text-foreground">{result.school || "—"}</dd>
+                <dt className="text-muted-foreground">{t("授課語言", "Language Stream", lang)}</dt>
+                <dd className="text-foreground">{labelForOption(formConfig?.lang_stream_options, result.lang_stream)}</dd>
+                <dt className="text-muted-foreground">WeChat</dt>
+                <dd className="text-foreground">{result.wechat_id || "—"}</dd>
+              </dl>
+            )}
+          </div>
+
+          {/* --- Class Preferences section --- */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">
+                {t("上課偏好", "Class Preferences", lang)}
+              </span>
+              {isSubmitted && editingSection !== "preferences" && (
+                <button
+                  type="button"
+                  onClick={() => openEdit("preferences")}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+                >
+                  <Pencil className="h-3 w-3" />
+                  {t("修改", "Edit", lang)}
+                </button>
+              )}
+            </div>
+            {editingSection === "preferences" ? (
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("分校", "Location", lang)}
+                  </label>
+                  {formConfig ? (
+                    <select
+                      value={editForm.preferred_location ?? ""}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        preferred_location: e.target.value,
+                        preference_1_day: "",
+                        preference_1_time: "",
+                        preference_2_day: "",
+                        preference_2_time: "",
+                      })}
+                      className={inputClass}
+                    >
+                      <option value="">--</option>
+                      {formConfig.locations.map((l) => (
+                        <option key={l.name} value={l.name}>{lang === "zh" ? l.name : l.name_en}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editForm.preferred_location ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, preferred_location: e.target.value })}
+                      className={inputClass}
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("每週堂數", "Sessions per week", lang)}
+                  </label>
+                  <select
+                    value={editForm.sessions_per_week ?? 1}
+                    onChange={(e) => setEditForm({ ...editForm, sessions_per_week: Number(e.target.value) })}
+                    className={inputClass}
+                  >
+                    <option value={1}>{t("每週一堂", "Once a week", lang)}</option>
+                    <option value={2}>{t("每週兩堂", "Twice a week", lang)}</option>
+                  </select>
+                </div>
+                {([1, 2] as const).map((n) => {
+                  const dayKey = (n === 1 ? "preference_1_day" : "preference_2_day") as
+                    | "preference_1_day"
+                    | "preference_2_day";
+                  const timeKey = (n === 1 ? "preference_1_time" : "preference_2_time") as
+                    | "preference_1_time"
+                    | "preference_2_time";
+                  const dayVal = editForm[dayKey] ?? "";
+                  const timeVal = editForm[timeKey] ?? "";
+                  return (
+                    <div key={n} className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] text-muted-foreground mb-1">
+                          {t(`第${n === 1 ? "一" : "二"}志願 - 日`, `Pref ${n} Day`, lang)}
+                        </label>
+                        {selectedLocation ? (
+                          <select
+                            value={dayVal}
+                            onChange={(e) => setEditForm({ ...editForm, [dayKey]: e.target.value, [timeKey]: "" })}
+                            className={inputClass}
+                          >
+                            <option value="">--</option>
+                            {slotDays.map((d) => <option key={d} value={d}>{dayLabel(d, lang)}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={dayVal}
+                            onChange={(e) => setEditForm({ ...editForm, [dayKey]: e.target.value })}
+                            className={inputClass}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-muted-foreground mb-1">
+                          {t(`第${n === 1 ? "一" : "二"}志願 - 時段`, `Pref ${n} Time`, lang)}
+                        </label>
+                        {selectedLocation && dayVal ? (
+                          <select
+                            value={timeVal}
+                            onChange={(e) => setEditForm({ ...editForm, [timeKey]: e.target.value })}
+                            className={inputClass}
+                          >
+                            <option value="">--</option>
+                            {slotsForDay(dayVal).map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={timeVal}
+                            onChange={(e) => setEditForm({ ...editForm, [timeKey]: e.target.value })}
+                            className={inputClass}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div>
+                  <label className="block text-[11px] text-muted-foreground mb-1">
+                    {t("不便上課時間 / 備註", "Unavailable times / notes", lang)}
+                  </label>
+                  <textarea
+                    value={editForm.unavailability_notes ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, unavailability_notes: e.target.value })}
+                    className={inputClass}
+                    rows={2}
+                  />
+                </div>
+                {editError && <div className="text-xs text-red-600">{editError}</div>}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={closeEdit} className="text-xs px-3 py-1 text-muted-foreground hover:text-foreground">
+                    {t("取消", "Cancel", lang)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={editSaving}
+                    className="text-xs font-medium px-3 py-1 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                  >
+                    {editSaving ? t("儲存中...", "Saving...", lang) : t("儲存", "Save", lang)}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <dl className="grid grid-cols-2 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">{t("分校", "Location", lang)}</dt>
+                <dd className="text-foreground">
+                  {(() => {
+                    const loc = formConfig?.locations.find((l) => l.name === result.preferred_location);
+                    if (!loc) return result.preferred_location || "—";
+                    return lang === "zh" ? loc.name : loc.name_en;
+                  })()}
+                </dd>
+                <dt className="text-muted-foreground">{t("每週堂數", "Sessions per week", lang)}</dt>
+                <dd className="text-foreground">
+                  {(result.sessions_per_week ?? 1) === 2
+                    ? t("每週兩堂", "Twice a week", lang)
+                    : t("每週一堂", "Once a week", lang)}
+                </dd>
+                <dt className="text-muted-foreground">{t("第一志願", "1st preference", lang)}</dt>
+                <dd className="text-foreground">
+                  {result.preference_1_day ? dayLabel(result.preference_1_day, lang) : "—"} {result.preference_1_time || ""}
+                </dd>
+                <dt className="text-muted-foreground">{t("第二志願", "2nd preference", lang)}</dt>
+                <dd className="text-foreground">
+                  {result.preference_2_day ? dayLabel(result.preference_2_day, lang) : "—"} {result.preference_2_time || ""}
+                </dd>
+                {result.unavailability_notes && (
+                  <>
+                    <dt className="text-muted-foreground col-span-2 mt-1">{t("備註", "Notes", lang)}</dt>
+                    <dd className="text-foreground col-span-2">{result.unavailability_notes}</dd>
+                  </>
+                )}
+              </dl>
+            )}
+          </div>
 
           {/* Buddy Group Section */}
           <div className="border-t border-border pt-4 space-y-3">
