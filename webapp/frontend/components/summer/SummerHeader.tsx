@@ -44,15 +44,23 @@ export function SummerHeader() {
   if (isPublicPage && !isBuddyPage) {
     return (
       <header
-        className="relative z-50 shadow-md border-b border-[#8a0a18] bg-[#A40C1D]"
+        className="no-image-save relative z-50 shadow-md border-b border-[#8a0a18] bg-[#A40C1D]"
+        onContextMenu={(e) => {
+          if (e.target instanceof HTMLImageElement) e.preventDefault();
+        }}
       >
-        <div className="mx-auto px-4 sm:px-8 py-2 md:h-14 md:py-0 flex flex-col md:flex-row items-center md:justify-between gap-1.5 md:gap-3">
+        <Link
+          href="/"
+          aria-label="返回主頁"
+          className="block mx-auto px-4 sm:px-8 py-2 md:h-14 md:py-0 flex flex-col md:flex-row items-center md:justify-between gap-1.5 md:gap-3 hover:brightness-110 transition-[filter]"
+        >
           <Image
             src="/summer/summer-banner-brand.jpg"
             alt="MathConcept Secondary Academy 中學教室"
             width={2329}
             height={507}
             className="h-9 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
+            draggable={false}
             priority
           />
           <Image
@@ -61,9 +69,10 @@ export function SummerHeader() {
             width={6326}
             height={796}
             className="h-6 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
+            draggable={false}
             priority
           />
-        </div>
+        </Link>
         {/* Gold accent line — picks up the yellow from the pamphlet slogan
             and softens the hard bottom edge of the red bar. */}
         <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5C518]/80 to-transparent" />
