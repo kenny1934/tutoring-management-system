@@ -21,6 +21,7 @@ import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLesso
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
 export default function SummerArrangementPage() {
@@ -47,8 +48,8 @@ export default function SummerArrangementPage() {
     type: "session" | "slot"; id: number; name: string; cascade: boolean; consequences?: string[];
   } | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
-    pref1?: { day: string; time: string };
-    pref2?: { day: string; time: string };
+    primary: { day: string; time: string }[];
+    backup: { day: string; time: string }[];
   } | null>(null);
 
   // Fetch configs
@@ -279,16 +280,10 @@ export default function SummerArrangementPage() {
   }, [pendingDelete, mutateSlots, mutateUnassigned, mutateCalendar, mutateStudentLessons, showToast]);
 
 
-  // Drag preference highlighting
+  // Drag preference highlighting — classifyPrefs owns the tier split.
   const handleDragStart = useCallback((app: SummerApplication) => {
-    setDragPrefs({
-      pref1: app.preference_1_day && app.preference_1_time
-        ? { day: app.preference_1_day, time: app.preference_1_time }
-        : undefined,
-      pref2: app.preference_2_day && app.preference_2_time
-        ? { day: app.preference_2_day, time: app.preference_2_time }
-        : undefined,
-    });
+    const { primary, backup } = classifyPrefs(app);
+    setDragPrefs({ primary, backup });
   }, []);
 
   const handleDragEnd = useCallback(() => {

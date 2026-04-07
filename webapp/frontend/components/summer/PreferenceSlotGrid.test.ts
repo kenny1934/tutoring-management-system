@@ -1,47 +1,70 @@
 import { describe, it, expect } from "vitest";
-import { nextPrefs, type PreferenceSlot } from "./PreferenceSlotGrid";
+import { nextPicks, type PreferenceSlot } from "./PreferenceSlotGrid";
 
 const A: PreferenceSlot = { day: "Monday", time: "10:00 - 11:30" };
 const B: PreferenceSlot = { day: "Tuesday", time: "11:45 - 13:15" };
 const C: PreferenceSlot = { day: "Wednesday", time: "14:00 - 15:30" };
+const D: PreferenceSlot = { day: "Thursday", time: "10:00 - 11:30" };
+const ASameDayLater: PreferenceSlot = { day: "Monday", time: "15:00 - 16:30" };
 
-describe("nextPrefs", () => {
-  it("fills pref1 when nothing is selected", () => {
-    expect(nextPrefs(null, null, A)).toEqual([A, null]);
+// 1x mode: maxPicks=2, primaryCount=1 (main + optional backup)
+describe("nextPicks (single mode)", () => {
+  it("appends to an empty list", () => {
+    expect(nextPicks([], A, 2, 1)).toEqual({ picks: [A], rejected: false });
   });
 
-  it("fills pref2 when only pref1 is set", () => {
-    expect(nextPrefs(A, null, B)).toEqual([A, B]);
+  it("appends a backup when main is set", () => {
+    expect(nextPicks([A], B, 2, 1)).toEqual({ picks: [A, B], rejected: false });
   });
 
-  it("replaces pref2 when a third slot is tapped", () => {
-    expect(nextPrefs(A, B, C)).toEqual([A, C]);
+  it("rejects a third tap (full)", () => {
+    expect(nextPicks([A, B], C, 2, 1)).toEqual({ picks: [A, B], rejected: true });
   });
 
-  it("clears pref2 when the pref2 cell is tapped again", () => {
-    expect(nextPrefs(A, B, B)).toEqual([A, null]);
+  it("toggles off when the same slot is tapped again, shifting later picks up", () => {
+    expect(nextPicks([A, B], A, 2, 1)).toEqual({ picks: [B], rejected: false });
   });
 
-  it("promotes pref2 into pref1 when pref1 is tapped again", () => {
-    // This preserves the invariant that a set pref2 never exists without a
-    // set pref1 — tapping the 1st choice doesn't orphan the 2nd choice.
-    expect(nextPrefs(A, B, A)).toEqual([B, null]);
+  it("allows same-day across primary/backup tiers", () => {
+    expect(nextPicks([A], ASameDayLater, 2, 1)).toEqual({
+      picks: [A, ASameDayLater],
+      rejected: false,
+    });
+  });
+});
+
+// 2x mode: maxPicks=4, primaryCount=2 (primary pair + optional backup pair)
+describe("nextPicks (pair mode)", () => {
+  it("blocks same-day collision within the primary pair", () => {
+    expect(nextPicks([A], ASameDayLater, 4, 2)).toEqual({
+      picks: [A],
+      rejected: true,
+    });
   });
 
-  it("clears pref1 when pref1 is tapped again and pref2 is empty", () => {
-    expect(nextPrefs(A, null, A)).toEqual([null, null]);
+  it("blocks same-day collision within the backup pair", () => {
+    // Primary is full (A, B). Backup slot 1 is D (Thursday). Tapping another
+    // Thursday slot would land in backup slot 2 (idx=3) and collide with D.
+    const DSameDayLater: PreferenceSlot = { day: "Thursday", time: "16:00 - 17:30" };
+    expect(nextPicks([A, B, D], DSameDayLater, 4, 2)).toEqual({
+      picks: [A, B, D],
+      rejected: true,
+    });
   });
 
-  it("treats slots with same day but different time as distinct", () => {
-    const SameDayLater: PreferenceSlot = { day: A.day, time: "15:00 - 16:30" };
-    expect(nextPrefs(A, null, SameDayLater)).toEqual([A, SameDayLater]);
+  it("allows a backup slot on the same day as a primary slot", () => {
+    // Primary is full (A, B). Next pick goes into backup. ASameDayLater shares
+    // a day with primary slot A (idx=0), but they're in different tiers.
+    expect(nextPicks([A, B], ASameDayLater, 4, 2)).toEqual({
+      picks: [A, B, ASameDayLater],
+      rejected: false,
+    });
   });
 
-  it("treats slots with same time but different day as distinct", () => {
-    const SameTimeDifferentDay: PreferenceSlot = { day: "Friday", time: A.time };
-    expect(nextPrefs(A, null, SameTimeDifferentDay)).toEqual([
-      A,
-      SameTimeDifferentDay,
-    ]);
+  it("rejects a fifth tap (full)", () => {
+    expect(nextPicks([A, B, C, D], { day: "Friday", time: "10:00" }, 4, 2)).toEqual({
+      picks: [A, B, C, D],
+      rejected: true,
+    });
   });
 });

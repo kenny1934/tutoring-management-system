@@ -26,8 +26,8 @@ interface SummerSessionCalendarProps {
   onRemoveSession?: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   dragPrefs?: {
-    pref1?: { day: string; time: string };
-    pref2?: { day: string; time: string };
+    primary: { day: string; time: string }[];
+    backup: { day: string; time: string }[];
   } | null;
 }
 
@@ -170,13 +170,17 @@ export function SummerSessionCalendar({
     }
   };
 
-  // Drag preference highlighting
+  // Drag preference highlighting. Returns "pref1" for primary tier (gold
+  // ring), "pref2" for backup tier (orange ring) — single source of truth
+  // for the tier split lives in classifyPrefs.
   const isPrefCell = (dateStr: string, timeSlot: string): "pref1" | "pref2" | null => {
     if (!dragPrefs) return null;
     const d = new Date(dateStr + "T00:00:00");
     const dayName = DAY_NAME_FROM_NUM[d.getDay()];
-    if (dragPrefs.pref1?.day === dayName && dragPrefs.pref1?.time === timeSlot) return "pref1";
-    if (dragPrefs.pref2?.day === dayName && dragPrefs.pref2?.time === timeSlot) return "pref2";
+    const matches = (s: { day: string; time: string }) =>
+      s.day === dayName && s.time === timeSlot;
+    if (dragPrefs.primary.some(matches)) return "pref1";
+    if (dragPrefs.backup.some(matches)) return "pref2";
     return null;
   };
 

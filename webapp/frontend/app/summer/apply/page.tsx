@@ -51,6 +51,10 @@ export default function SummerApplyPage() {
     pref1Time, setPref1Time,
     pref2Day, setPref2Day,
     pref2Time, setPref2Time,
+    pref3Day, setPref3Day,
+    pref3Time, setPref3Time,
+    pref4Day, setPref4Day,
+    pref4Time, setPref4Time,
     unavailability, setUnavailability,
     wechatId, setWechatId,
     contactPhone, setContactPhone,
@@ -291,22 +295,50 @@ export default function SummerApplyPage() {
       case 3:
         if (!selectedLocation)
           errors.push(t("請選擇分校", "Please select a branch", lang));
-        if (!pref1Day)
+        if (!pref1Day || !pref1Time)
           errors.push(
-            t("請選擇第一理想的上課日子", "Please select your 1st preferred day", lang)
+            t("請選擇上課時段", "Please select a class time", lang)
           );
-        if (!pref1Time)
-          errors.push(
-            t("請選擇第一理想的上課時間", "Please select your 1st preferred time", lang)
-          );
-        if (!pref2Day)
-          errors.push(
-            t("請選擇第二理想的上課日子", "Please select your 2nd preferred day", lang)
-          );
-        if (!pref2Time)
-          errors.push(
-            t("請選擇第二理想的上課時間", "Please select your 2nd preferred time", lang)
-          );
+        if (sessionsPerWeek === 2) {
+          // Twice/week: pref1 + pref2 = primary pair (both required, different
+          // days). pref3 + pref4 = optional backup pair; if either is set both
+          // must be set, also different days.
+          if (!pref2Day || !pref2Time)
+            errors.push(
+              t(
+                "每星期兩堂：請選擇兩個主要上課時段",
+                "Two lessons per week: please pick two primary time slots",
+                lang
+              )
+            );
+          if (pref1Day && pref2Day && pref1Day === pref2Day)
+            errors.push(
+              t(
+                "每星期兩堂的兩個時段需於不同日子",
+                "The two primary slots must be on different days",
+                lang
+              )
+            );
+          const backupHasOne = !!(pref3Day && pref3Time);
+          const backupHasTwo = !!(pref4Day && pref4Time);
+          if (backupHasOne !== backupHasTwo)
+            errors.push(
+              t(
+                "後備時段需同時選擇兩個時段",
+                "Please pick both backup slots, or leave both empty",
+                lang
+              )
+            );
+          if (pref3Day && pref4Day && pref3Day === pref4Day)
+            errors.push(
+              t(
+                "後備時段需於不同日子",
+                "The two backup slots must be on different days",
+                lang
+              )
+            );
+        }
+        // sessionsPerWeek === 1: pref2 is now an optional backup, no check.
         break;
       case 4:
         if (!wechatId.trim())
@@ -407,6 +439,10 @@ export default function SummerApplyPage() {
       preference_1_time: pref1Time || null,
       preference_2_day: pref2Day || null,
       preference_2_time: pref2Time || null,
+      preference_3_day: pref3Day || null,
+      preference_3_time: pref3Time || null,
+      preference_4_day: pref4Day || null,
+      preference_4_time: pref4Time || null,
       unavailability_notes: unavailability || null,
       buddy_code:
         buddyMode === "code" && buddyCodeValid ? buddyCode.trim() : null,
@@ -626,6 +662,14 @@ export default function SummerApplyPage() {
             setPref2Day={setPref2Day}
             pref2Time={pref2Time}
             setPref2Time={setPref2Time}
+            pref3Day={pref3Day}
+            setPref3Day={setPref3Day}
+            pref3Time={pref3Time}
+            setPref3Time={setPref3Time}
+            pref4Day={pref4Day}
+            setPref4Day={setPref4Day}
+            pref4Time={pref4Time}
+            setPref4Time={setPref4Time}
             unavailability={unavailability}
             setUnavailability={setUnavailability}
           />
@@ -675,6 +719,10 @@ export default function SummerApplyPage() {
             pref1Time={pref1Time}
             pref2Day={pref2Day}
             pref2Time={pref2Time}
+            pref3Day={pref3Day}
+            pref3Time={pref3Time}
+            pref4Day={pref4Day}
+            pref4Time={pref4Time}
             unavailability={unavailability}
             wechatId={wechatId}
             contactPhone={contactPhone}

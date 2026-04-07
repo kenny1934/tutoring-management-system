@@ -2068,6 +2068,10 @@ export interface SummerApplicationCreate {
   preference_1_time?: string | null;
   preference_2_day?: string | null;
   preference_2_time?: string | null;
+  preference_3_day?: string | null;
+  preference_3_time?: string | null;
+  preference_4_day?: string | null;
+  preference_4_time?: string | null;
   unavailability_notes?: string | null;
   buddy_code?: string | null;
   buddy_names?: string | null;
@@ -2127,6 +2131,10 @@ export interface SummerApplicationStatusResponse {
   preference_1_time?: string | null;
   preference_2_day?: string | null;
   preference_2_time?: string | null;
+  preference_3_day?: string | null;
+  preference_3_time?: string | null;
+  preference_4_day?: string | null;
+  preference_4_time?: string | null;
   unavailability_notes?: string | null;
   sessions_per_week?: number;
 }
@@ -2151,6 +2159,10 @@ export interface SummerApplicationEditRequest {
   preference_1_time?: string | null;
   preference_2_day?: string | null;
   preference_2_time?: string | null;
+  preference_3_day?: string | null;
+  preference_3_time?: string | null;
+  preference_4_day?: string | null;
+  preference_4_time?: string | null;
   unavailability_notes?: string | null;
   sessions_per_week?: number;
 }
@@ -2197,6 +2209,10 @@ export interface SummerApplication {
   preference_1_time?: string | null;
   preference_2_day?: string | null;
   preference_2_time?: string | null;
+  preference_3_day?: string | null;
+  preference_3_time?: string | null;
+  preference_4_day?: string | null;
+  preference_4_time?: string | null;
   unavailability_notes?: string | null;
   buddy_group_id?: number | null;
   buddy_code?: string | null;
@@ -2244,6 +2260,10 @@ export interface SummerApplicationUpdate {
   preference_1_time?: string;
   preference_2_day?: string;
   preference_2_time?: string;
+  preference_3_day?: string;
+  preference_3_time?: string;
+  preference_4_day?: string;
+  preference_4_time?: string;
   unavailability_notes?: string;
   sessions_per_week?: number;
 }
@@ -2455,6 +2475,10 @@ export interface SummerSuggestionItem {
   preference_1_time?: string | null;
   preference_2_day?: string | null;
   preference_2_time?: string | null;
+  preference_3_day?: string | null;
+  preference_3_time?: string | null;
+  preference_4_day?: string | null;
+  preference_4_time?: string | null;
   placed_count?: number;
 }
 

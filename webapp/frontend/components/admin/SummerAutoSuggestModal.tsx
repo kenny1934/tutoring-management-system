@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, DAY_ABBREV, formatCompactDate } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import { toDateString, getMonthCalendarDates } from "@/lib/calendar-utils";
 import type { SummerSuggestionItem, SummerSuggestResponse } from "@/types";
 
@@ -796,23 +797,27 @@ export function SummerAutoSuggestModal({
                                   </span>
                                 )}
                               </div>
-                              {/* Preference summary */}
-                              {(p.preference_1_day || p.preference_2_day) && (
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                  Pref:{" "}
-                                  {p.preference_1_day && (
-                                    <span>
-                                      {DAY_ABBREV[p.preference_1_day] || p.preference_1_day} {p.preference_1_time}
-                                    </span>
-                                  )}
-                                  {p.preference_1_day && p.preference_2_day && " · "}
-                                  {p.preference_2_day && (
-                                    <span>
-                                      {DAY_ABBREV[p.preference_2_day] || p.preference_2_day} {p.preference_2_time}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              {(() => {
+                                const { isPair, primary, backup } = classifyPrefs(p);
+                                if (primary.length === 0 && backup.length === 0) return null;
+                                const fmt = (s: { day: string; time: string }) =>
+                                  `${DAY_ABBREV[s.day] || s.day} ${s.time}`.trim();
+                                return (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5 space-y-0.5">
+                                    {primary.length > 0 && (
+                                      <div>
+                                        {isPair ? "Primary: " : "Pref: "}
+                                        {primary.map(fmt).join(" + ")}
+                                      </div>
+                                    )}
+                                    {backup.length > 0 && (
+                                      <div>
+                                        Backup: {backup.map(fmt).join(" + ")}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
 
                               {/* Options: show all as radio-selectable rows */}
                               {group.hasOptions ? (

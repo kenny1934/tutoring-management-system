@@ -181,6 +181,10 @@ export function SummerApplicationDetailModal({
   const [dPref1Time, setDPref1Time] = useState("");
   const [dPref2Day, setDPref2Day] = useState("");
   const [dPref2Time, setDPref2Time] = useState("");
+  const [dPref3Day, setDPref3Day] = useState("");
+  const [dPref3Time, setDPref3Time] = useState("");
+  const [dPref4Day, setDPref4Day] = useState("");
+  const [dPref4Time, setDPref4Time] = useState("");
   const [dUnavail, setDUnavail] = useState("");
 
   const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
@@ -281,6 +285,10 @@ export function SummerApplicationDetailModal({
       setDPref1Time(app.preference_1_time || "");
       setDPref2Day(app.preference_2_day || "");
       setDPref2Time(app.preference_2_time || "");
+      setDPref3Day(app.preference_3_day || "");
+      setDPref3Time(app.preference_3_time || "");
+      setDPref4Day(app.preference_4_day || "");
+      setDPref4Time(app.preference_4_time || "");
       setDUnavail(app.unavailability_notes || "");
     }
   }, [app, isOpen]);
@@ -422,6 +430,10 @@ export function SummerApplicationDetailModal({
     dPref1Time !== (app.preference_1_time || "") ||
     dPref2Day !== (app.preference_2_day || "") ||
     dPref2Time !== (app.preference_2_time || "") ||
+    dPref3Day !== (app.preference_3_day || "") ||
+    dPref3Time !== (app.preference_3_time || "") ||
+    dPref4Day !== (app.preference_4_day || "") ||
+    dPref4Time !== (app.preference_4_time || "") ||
     dUnavail !== (app.unavailability_notes || "");
 
   const hasChanges =
@@ -448,6 +460,10 @@ export function SummerApplicationDetailModal({
     if (dPref1Time !== (app.preference_1_time || "")) update.preference_1_time = dPref1Time;
     if (dPref2Day !== (app.preference_2_day || "")) update.preference_2_day = dPref2Day;
     if (dPref2Time !== (app.preference_2_time || "")) update.preference_2_time = dPref2Time;
+    if (dPref3Day !== (app.preference_3_day || "")) update.preference_3_day = dPref3Day;
+    if (dPref3Time !== (app.preference_3_time || "")) update.preference_3_time = dPref3Time;
+    if (dPref4Day !== (app.preference_4_day || "")) update.preference_4_day = dPref4Day;
+    if (dPref4Time !== (app.preference_4_time || "")) update.preference_4_time = dPref4Time;
     if (dUnavail !== (app.unavailability_notes || "")) update.unavailability_notes = dUnavail;
     return update;
   };
@@ -984,6 +1000,14 @@ export function SummerApplicationDetailModal({
                   setPref2Day={setDPref2Day}
                   pref2Time={dPref2Time}
                   setPref2Time={setDPref2Time}
+                  pref3Day={dPref3Day}
+                  setPref3Day={setDPref3Day}
+                  pref3Time={dPref3Time}
+                  setPref3Time={setDPref3Time}
+                  pref4Day={dPref4Day}
+                  setPref4Day={setDPref4Day}
+                  pref4Time={dPref4Time}
+                  setPref4Time={setDPref4Time}
                   unavailability={dUnavail}
                   setUnavailability={setDUnavail}
                 />

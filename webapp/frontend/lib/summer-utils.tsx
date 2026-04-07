@@ -51,8 +51,8 @@ export const dayLabel = (day: string, lang: Lang) =>
 /** Bilingual label for sessions-per-week frequency. */
 export const frequencyLabel = (n: number, lang: Lang) =>
   n === 1
-    ? t("每星期一次（標準）", "Once per week (standard)", lang)
-    : t("每星期兩次", "Twice per week", lang);
+    ? t("每星期一堂（標準）", "One lesson per week (standard)", lang)
+    : t("每星期兩堂", "Two lessons per week", lang);
 
 /** Pick the bilingual label of an option list entry, falling back to the raw value. */
 export function labelForOption(

@@ -120,9 +120,29 @@ def _build_status_response(
         preference_1_time=app.preference_1_time,
         preference_2_day=app.preference_2_day,
         preference_2_time=app.preference_2_time,
+        preference_3_day=app.preference_3_day,
+        preference_3_time=app.preference_3_time,
+        preference_4_day=app.preference_4_day,
+        preference_4_time=app.preference_4_time,
         unavailability_notes=app.unavailability_notes,
         sessions_per_week=app.sessions_per_week or 1,
     )
+
+
+def _classify_prefs(app: SummerApplication) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Split an application's 4 preference slots into (primary, backup) tiers.
+
+    Mirrors ``webapp/frontend/lib/summer-preferences.ts``. Every consumer goes
+    through this helper so the rule lives in exactly two places.
+    """
+    is_pair = (app.sessions_per_week or 1) >= 2
+    def s(d, t):
+        return (d, t) if d and t else None
+    s1, s2 = s(app.preference_1_day, app.preference_1_time), s(app.preference_2_day, app.preference_2_time)
+    s3, s4 = s(app.preference_3_day, app.preference_3_time), s(app.preference_4_day, app.preference_4_time)
+    if is_pair:
+        return [x for x in (s1, s2) if x], [x for x in (s3, s4) if x]
+    return ([s1] if s1 else []), ([s2] if s2 else [])
 
 
 def _normalize_phone(phone: str | None) -> str:
@@ -151,6 +171,10 @@ _APPLICANT_EDITABLE_FIELDS: tuple[str, ...] = (
     "preference_1_time",
     "preference_2_day",
     "preference_2_time",
+    "preference_3_day",
+    "preference_3_time",
+    "preference_4_day",
+    "preference_4_time",
     "unavailability_notes",
     "sessions_per_week",
 )
@@ -388,6 +412,10 @@ def submit_application(
         preference_1_time=data.preference_1_time,
         preference_2_day=data.preference_2_day,
         preference_2_time=data.preference_2_time,
+        preference_3_day=data.preference_3_day,
+        preference_3_time=data.preference_3_time,
+        preference_4_day=data.preference_4_day,
+        preference_4_time=data.preference_4_time,
         unavailability_notes=data.unavailability_notes,
         buddy_group_id=buddy_group_id,
         buddy_names=data.buddy_names,
@@ -1799,15 +1827,11 @@ def get_demand(
     cells: dict[tuple[str, str], dict] = {}
 
     for app in apps:
-        # First preference
-        if app.preference_1_day and app.preference_1_time:
-            key = (app.preference_1_day, app.preference_1_time)
+        primary_slots, backup_slots = _classify_prefs(app)
+        for key in primary_slots:
             cell = cells.setdefault(key, {"first": {}, "second": {}})
             cell["first"][app.grade] = cell["first"].get(app.grade, 0) + 1
-
-        # Second preference
-        if app.preference_2_day and app.preference_2_time:
-            key = (app.preference_2_day, app.preference_2_time)
+        for key in backup_slots:
             cell = cells.setdefault(key, {"first": {}, "second": {}})
             cell["second"][app.grade] = cell["second"].get(app.grade, 0) + 1
 
@@ -2055,9 +2079,11 @@ def _find_best_lesson_set(
 
             cand_score = 0.0
 
-            # Preference match
-            is_first = (slot.slot_day == app.preference_1_day and slot.time_slot == app.preference_1_time)
-            is_second = (slot.slot_day == app.preference_2_day and slot.time_slot == app.preference_2_time)
+            primary_pairs, backup_pairs = _classify_prefs(app)
+            is_first = any(slot.slot_day == d and slot.time_slot == t for d, t in primary_pairs)
+            is_second = (not is_first) and any(
+                slot.slot_day == d and slot.time_slot == t for d, t in backup_pairs
+            )
             if is_first:
                 cand_score += 1.0
             elif is_second:
@@ -2177,6 +2203,7 @@ def _try_single_slot(
             continue
 
         score = 0.0
+        # 1x solver only — 2x routes through the multi-slot solver above.
         is_first = (sample_slot.slot_day == app.preference_1_day and sample_slot.time_slot == app.preference_1_time)
         is_second = (sample_slot.slot_day == app.preference_2_day and sample_slot.time_slot == app.preference_2_time)
 
@@ -2455,6 +2482,10 @@ def auto_suggest(
                 preference_1_time=app.preference_1_time,
                 preference_2_day=app.preference_2_day,
                 preference_2_time=app.preference_2_time,
+                preference_3_day=app.preference_3_day,
+                preference_3_time=app.preference_3_time,
+                preference_4_day=app.preference_4_day,
+                preference_4_time=app.preference_4_time,
                 placed_count=app_placed_counts.get(app.id, 0),
             )
 

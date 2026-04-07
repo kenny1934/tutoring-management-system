@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DAY_ABBREV, SUMMER_GRADE_BG, SUMMER_GRADE_BORDER } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerApplication } from "@/types";
 
 interface SummerUnassignedPanelProps {
@@ -229,14 +230,28 @@ export function SummerUnassignedPanel({
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
-                  <span title="1st preference">
-                    ① {formatPref(app.preference_1_day, app.preference_1_time)}
-                  </span>
-                  <span title="2nd preference">
-                    ② {formatPref(app.preference_2_day, app.preference_2_time)}
-                  </span>
-                </div>
+                {(() => {
+                  const { isPair, primary, backup } = classifyPrefs(app);
+                  const fmt = (s: { day: string; time: string }) => formatPref(s.day, s.time);
+                  if (isPair) {
+                    return (
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                        {primary.length > 0 && (
+                          <div title="Primary pair">P: {primary.map(fmt).join(" + ")}</div>
+                        )}
+                        {backup.length > 0 && (
+                          <div title="Backup pair">B: {backup.map(fmt).join(" + ")}</div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
+                      {primary[0] && <span title="Main">① {fmt(primary[0])}</span>}
+                      {backup[0] && <span title="Backup">② {fmt(backup[0])}</span>}
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-1 mt-0.5">
                   {app.buddy_code && (
                     <span className="text-[9px] text-primary/70">

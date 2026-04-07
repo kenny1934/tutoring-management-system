@@ -16,6 +16,7 @@ import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicati
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
 import type { SummerApplication } from "@/types";
 
@@ -389,12 +390,8 @@ export default function SummerApplicationsPage() {
     if (groupBy !== "time_slot" || !applications) return null;
     const counts = new Map<string, number>();
     for (const app of applications) {
-      if (app.preference_1_day && app.preference_1_time) {
-        const key = `${app.preference_1_day} ${app.preference_1_time}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-      if (app.preference_2_day && app.preference_2_time) {
-        const key = `${app.preference_2_day} ${app.preference_2_time}`;
+      for (const s of allPrefSlots(app)) {
+        const key = `${s.day} ${s.time}`;
         counts.set(key, (counts.get(key) || 0) + 1);
       }
     }

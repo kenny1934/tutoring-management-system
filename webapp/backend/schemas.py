@@ -2106,6 +2106,10 @@ class SummerApplicationCreate(BaseModel):
     preference_1_time: Optional[str] = Field(None, max_length=50)
     preference_2_day: Optional[str] = Field(None, max_length=20)
     preference_2_time: Optional[str] = Field(None, max_length=50)
+    preference_3_day: Optional[str] = Field(None, max_length=20)
+    preference_3_time: Optional[str] = Field(None, max_length=50)
+    preference_4_day: Optional[str] = Field(None, max_length=20)
+    preference_4_time: Optional[str] = Field(None, max_length=50)
     unavailability_notes: Optional[str] = Field(None, max_length=2000)
     buddy_code: Optional[str] = Field(None, max_length=20, description="Existing buddy group code to join")
     buddy_names: Optional[str] = Field(None, max_length=500)
@@ -2143,6 +2147,10 @@ class SummerApplicationStatusResponse(BaseModel):
     preference_1_time: Optional[str] = None
     preference_2_day: Optional[str] = None
     preference_2_time: Optional[str] = None
+    preference_3_day: Optional[str] = None
+    preference_3_time: Optional[str] = None
+    preference_4_day: Optional[str] = None
+    preference_4_time: Optional[str] = None
     unavailability_notes: Optional[str] = None
     sessions_per_week: int = 1
 
@@ -2163,6 +2171,10 @@ class SummerApplicationEditRequest(BaseModel):
     preference_1_time: Optional[str] = Field(None, max_length=50)
     preference_2_day: Optional[str] = Field(None, max_length=20)
     preference_2_time: Optional[str] = Field(None, max_length=50)
+    preference_3_day: Optional[str] = Field(None, max_length=20)
+    preference_3_time: Optional[str] = Field(None, max_length=50)
+    preference_4_day: Optional[str] = Field(None, max_length=20)
+    preference_4_time: Optional[str] = Field(None, max_length=50)
     unavailability_notes: Optional[str] = Field(None, max_length=2000)
     sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
 
@@ -2295,6 +2307,10 @@ class SummerApplicationResponse(BaseModel):
     preference_1_time: Optional[str] = None
     preference_2_day: Optional[str] = None
     preference_2_time: Optional[str] = None
+    preference_3_day: Optional[str] = None
+    preference_3_time: Optional[str] = None
+    preference_4_day: Optional[str] = None
+    preference_4_time: Optional[str] = None
     unavailability_notes: Optional[str] = None
     buddy_group_id: Optional[int] = None
     buddy_code: Optional[str] = None
@@ -2336,6 +2352,10 @@ class SummerApplicationUpdate(BaseModel):
     preference_1_time: Optional[str] = Field(None, max_length=50)
     preference_2_day: Optional[str] = Field(None, max_length=20)
     preference_2_time: Optional[str] = Field(None, max_length=50)
+    preference_3_day: Optional[str] = Field(None, max_length=20)
+    preference_3_time: Optional[str] = Field(None, max_length=50)
+    preference_4_day: Optional[str] = Field(None, max_length=20)
+    preference_4_time: Optional[str] = Field(None, max_length=50)
     unavailability_notes: Optional[str] = Field(None, max_length=2000)
     sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
 
@@ -2582,6 +2602,10 @@ class SummerSuggestionItem(BaseModel):
     preference_1_time: Optional[str] = None
     preference_2_day: Optional[str] = None
     preference_2_time: Optional[str] = None
+    preference_3_day: Optional[str] = None
+    preference_3_time: Optional[str] = None
+    preference_4_day: Optional[str] = None
+    preference_4_time: Optional[str] = None
     placed_count: int = 0
 
 

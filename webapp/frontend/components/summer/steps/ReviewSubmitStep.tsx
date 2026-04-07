@@ -1,5 +1,6 @@
 import type { SummerCourseFormConfig } from "@/types";
 import { type Lang, t, dayLabel, frequencyLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
+import { classifyPrefs, type PrefSlot } from "@/lib/summer-preferences";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;
@@ -26,6 +27,10 @@ interface ReviewSubmitStepProps {
   pref1Time: string;
   pref2Day: string;
   pref2Time: string;
+  pref3Day: string;
+  pref3Time: string;
+  pref4Day: string;
+  pref4Time: string;
   unavailability: string;
   wechatId: string;
   contactPhone: string;
@@ -51,6 +56,10 @@ export function ReviewSubmitStep({
   pref1Time,
   pref2Day,
   pref2Time,
+  pref3Day,
+  pref3Time,
+  pref4Day,
+  pref4Time,
   unavailability,
   wechatId,
   contactPhone,
@@ -142,25 +151,34 @@ export function ReviewSubmitStep({
             value={locationLabel}
           />
           <SummaryRow
-            label={t("每星期上課次數", "Sessions per week", lang)}
+            label={t("每星期上課次數", "Lessons per week", lang)}
             value={frequencyLabel(sessionsPerWeek, lang)}
           />
-          <SummaryRow
-            label={t("第一志願", "1st Preference", lang)}
-            value={
-              pref1Day && pref1Time
-                ? `${dayLabel(pref1Day, lang)} ${pref1Time}`
-                : ""
-            }
-          />
-          <SummaryRow
-            label={t("第二志願", "2nd Preference", lang)}
-            value={
-              pref2Day && pref2Time
-                ? `${dayLabel(pref2Day, lang)} ${pref2Time}`
-                : ""
-            }
-          />
+          {(() => {
+            const { isPair, primary, backup } = classifyPrefs({
+              sessions_per_week: sessionsPerWeek,
+              preference_1_day: pref1Day, preference_1_time: pref1Time,
+              preference_2_day: pref2Day, preference_2_time: pref2Time,
+              preference_3_day: pref3Day, preference_3_time: pref3Time,
+              preference_4_day: pref4Day, preference_4_time: pref4Time,
+            });
+            const fmt = (s: PrefSlot | undefined) =>
+              s ? `${dayLabel(s.day, lang)} ${s.time}` : "";
+            const rows = isPair
+              ? [
+                  { zh: "主要時段 1", en: "Primary slot 1", s: primary[0] },
+                  { zh: "主要時段 2", en: "Primary slot 2", s: primary[1] },
+                  { zh: "後備時段 1", en: "Backup slot 1", s: backup[0] },
+                  { zh: "後備時段 2", en: "Backup slot 2", s: backup[1] },
+                ]
+              : [
+                  { zh: "主要時段", en: "Main slot", s: primary[0] },
+                  { zh: "後備時段", en: "Backup slot", s: backup[0] },
+                ];
+            return rows.map((r) => (
+              <SummaryRow key={r.en} label={t(r.zh, r.en, lang)} value={fmt(r.s)} />
+            ));
+          })()}
           <SummaryRow
             label={t("無法上課日期", "Unavailable Dates", lang)}
             value={unavailability}

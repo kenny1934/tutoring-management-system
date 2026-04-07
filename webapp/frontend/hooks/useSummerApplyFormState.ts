@@ -25,6 +25,10 @@ export interface SummerApplyFormFields {
   pref1Time: string;
   pref2Day: string;
   pref2Time: string;
+  pref3Day: string;
+  pref3Time: string;
+  pref4Day: string;
+  pref4Time: string;
   unavailability: string;
   wechatId: string;
   contactPhone: string;
@@ -47,6 +51,10 @@ export interface SummerApplyFormSetters {
   setPref1Time: (v: string) => void;
   setPref2Day: (v: string) => void;
   setPref2Time: (v: string) => void;
+  setPref3Day: (v: string) => void;
+  setPref3Time: (v: string) => void;
+  setPref4Day: (v: string) => void;
+  setPref4Time: (v: string) => void;
   setUnavailability: (v: string) => void;
   setWechatId: (v: string) => void;
   setContactPhone: (v: string) => void;
@@ -69,6 +77,10 @@ export const INITIAL_SUMMER_APPLY_FORM: SummerApplyFormFields = {
   pref1Time: "",
   pref2Day: "",
   pref2Time: "",
+  pref3Day: "",
+  pref3Time: "",
+  pref4Day: "",
+  pref4Time: "",
   unavailability: "",
   wechatId: "",
   contactPhone: "",
@@ -135,6 +147,10 @@ export function useSummerApplyFormState(
     setPref1Time: (v) => setState((s) => ({ ...s, pref1Time: v })),
     setPref2Day: (v) => setState((s) => ({ ...s, pref2Day: v })),
     setPref2Time: (v) => setState((s) => ({ ...s, pref2Time: v })),
+    setPref3Day: (v) => setState((s) => ({ ...s, pref3Day: v })),
+    setPref3Time: (v) => setState((s) => ({ ...s, pref3Time: v })),
+    setPref4Day: (v) => setState((s) => ({ ...s, pref4Day: v })),
+    setPref4Time: (v) => setState((s) => ({ ...s, pref4Time: v })),
     setUnavailability: (v) => setState((s) => ({ ...s, unavailability: v })),
     setWechatId: (v) => setState((s) => ({ ...s, wechatId: v })),
     setContactPhone: (v) => setState((s) => ({ ...s, contactPhone: v })),
@@ -178,6 +194,10 @@ export const FROZEN_SETTERS: SummerApplyFormSetters = {
   setPref1Time: () => {},
   setPref2Day: () => {},
   setPref2Time: () => {},
+  setPref3Day: () => {},
+  setPref3Time: () => {},
+  setPref4Day: () => {},
+  setPref4Time: () => {},
   setUnavailability: () => {},
   setWechatId: () => {},
   setContactPhone: () => {},

@@ -1243,6 +1243,11 @@ class SummerApplication(Base):
     preference_1_time = Column(String(50))
     preference_2_day = Column(String(20))
     preference_2_time = Column(String(50))
+    # Backup pair, only used when sessions_per_week == 2 (optional).
+    preference_3_day = Column(String(20))
+    preference_3_time = Column(String(50))
+    preference_4_day = Column(String(20))
+    preference_4_time = Column(String(50))
     unavailability_notes = Column(Text)
     # Buddy group
     buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=True)

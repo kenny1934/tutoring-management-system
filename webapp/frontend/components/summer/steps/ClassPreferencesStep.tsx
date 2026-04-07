@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useEffect } from "react";
 import { MapPin, Calendar, Check } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
@@ -58,6 +59,14 @@ interface ClassPreferencesStepProps {
   setPref2Day: (v: string) => void;
   pref2Time: string;
   setPref2Time: (v: string) => void;
+  pref3Day: string;
+  setPref3Day: (v: string) => void;
+  pref3Time: string;
+  setPref3Time: (v: string) => void;
+  pref4Day: string;
+  setPref4Day: (v: string) => void;
+  pref4Time: string;
+  setPref4Time: (v: string) => void;
   unavailability: string;
   setUnavailability: (v: string) => void;
 }
@@ -77,6 +86,14 @@ export function ClassPreferencesStep({
   setPref2Day,
   pref2Time,
   setPref2Time,
+  pref3Day,
+  setPref3Day,
+  pref3Time,
+  setPref3Time,
+  pref4Day,
+  setPref4Day,
+  pref4Time,
+  setPref4Time,
   unavailability,
   setUnavailability,
 }: ClassPreferencesStepProps) {
@@ -91,20 +108,32 @@ export function ClassPreferencesStep({
       selectedLocationData?.time_slots?.[day] || config.time_slots;
   }
 
-  const pref1: PreferenceSlot | null =
-    pref1Day && pref1Time ? { day: pref1Day, time: pref1Time } : null;
-  const pref2: PreferenceSlot | null =
-    pref2Day && pref2Time ? { day: pref2Day, time: pref2Time } : null;
+  const isPair = sessionsPerWeek === 2;
 
-  const handlePrefChange = (
-    next1: PreferenceSlot | null,
-    next2: PreferenceSlot | null
-  ) => {
-    setPref1Day(next1?.day ?? "");
-    setPref1Time(next1?.time ?? "");
-    setPref2Day(next2?.day ?? "");
-    setPref2Time(next2?.time ?? "");
+  // Compose the four pair fields into one ordered picks list (compacted).
+  const picks: PreferenceSlot[] = [];
+  if (pref1Day && pref1Time) picks.push({ day: pref1Day, time: pref1Time });
+  if (pref2Day && pref2Time) picks.push({ day: pref2Day, time: pref2Time });
+  if (pref3Day && pref3Time) picks.push({ day: pref3Day, time: pref3Time });
+  if (pref4Day && pref4Time) picks.push({ day: pref4Day, time: pref4Time });
+
+  const writeBack = (next: PreferenceSlot[]) => {
+    const at = (i: number) => next[i];
+    setPref1Day(at(0)?.day ?? ""); setPref1Time(at(0)?.time ?? "");
+    setPref2Day(at(1)?.day ?? ""); setPref2Time(at(1)?.time ?? "");
+    setPref3Day(at(2)?.day ?? ""); setPref3Time(at(2)?.time ?? "");
+    setPref4Day(at(3)?.day ?? ""); setPref4Time(at(3)?.time ?? "");
   };
+
+  // Switching from 2x → 1x must drop the now-orphaned pref3/pref4 so they
+  // don't survive into the submitted payload.
+  useEffect(() => {
+    if (!isPair && (pref3Day || pref4Day)) {
+      setPref3Day(""); setPref3Time("");
+      setPref4Day(""); setPref4Time("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPair]);
 
   return (
     <div className="space-y-6">
@@ -214,15 +243,15 @@ export function ClassPreferencesStep({
             <h2 className="text-base font-semibold text-foreground leading-snug">
               {t(
                 "每星期上課次數",
-                "Sessions per week",
+                "Lessons per week",
                 lang
               )}
               <RequiredMark />
             </h2>
             <p className="text-xs text-muted-foreground">
               {t(
-                "每星期一次為標準安排（8周完成8堂），每星期兩次可於4周內完成課程。",
-                "Once per week is the standard arrangement (8 lessons over 8 weeks). Twice per week completes the course in 4 weeks.",
+                "每星期一堂為標準安排（8周完成8堂），每星期兩堂可於4周內完成課程。",
+                "One lesson per week is the standard arrangement (8 lessons over 8 weeks). Two lessons per week completes the course in 4 weeks.",
                 lang
               )}
             </p>
@@ -257,19 +286,17 @@ export function ClassPreferencesStep({
         <div className="overflow-hidden">
           <div className={sectionClass}>
             <h2 className="text-base font-semibold text-foreground leading-snug">
-              {t(
-                "請選擇上課時段",
-                "Select your class times",
-                lang
-              )}
+              {isPair
+                ? t("請選擇上課時段（每星期兩堂）", "Select your class times (two lessons per week)", lang)
+                : t("請選擇上課時段", "Select your class times", lang)}
               <RequiredMark />
             </h2>
             <PreferenceSlotGrid
               openDays={openDays}
               slotsByDay={slotsByDay}
-              pref1={pref1}
-              pref2={pref2}
-              onChange={handlePrefChange}
+              picks={picks}
+              onChange={writeBack}
+              mode={isPair ? "pair" : "single"}
               lang={lang}
             />
           </div>

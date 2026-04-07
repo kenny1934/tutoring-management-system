@@ -7,8 +7,8 @@ import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
 interface DragPrefs {
-  pref1?: { day: string; time: string };
-  pref2?: { day: string; time: string };
+  primary: { day: string; time: string }[];
+  backup: { day: string; time: string }[];
 }
 
 interface SummerArrangementGridProps {
@@ -122,9 +122,9 @@ export function SummerArrangementGrid({
             {/* Cells for each day */}
             {days.map((day) => {
               const key = `${day}|${ts}`;
+              const matches = (s: { day: string; time: string }) => s.day === day && s.time === ts;
               const isPrefMatch =
-                (dragPrefs?.pref1?.day === day && dragPrefs?.pref1?.time === ts) ||
-                (dragPrefs?.pref2?.day === day && dragPrefs?.pref2?.time === ts);
+                dragPrefs?.primary.some(matches) || dragPrefs?.backup.some(matches);
               return (
                 <SummerSlotCell
                   key={key}

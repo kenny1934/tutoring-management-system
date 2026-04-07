@@ -116,6 +116,14 @@ function PreviewStepBody({
           setPref2Day={FROZEN_SETTERS.setPref2Day}
           pref2Time={form.pref2Time}
           setPref2Time={FROZEN_SETTERS.setPref2Time}
+          pref3Day={form.pref3Day}
+          setPref3Day={FROZEN_SETTERS.setPref3Day}
+          pref3Time={form.pref3Time}
+          setPref3Time={FROZEN_SETTERS.setPref3Time}
+          pref4Day={form.pref4Day}
+          setPref4Day={FROZEN_SETTERS.setPref4Day}
+          pref4Time={form.pref4Time}
+          setPref4Time={FROZEN_SETTERS.setPref4Time}
           unavailability={form.unavailability}
           setUnavailability={FROZEN_SETTERS.setUnavailability}
         />
@@ -165,6 +173,10 @@ function PreviewStepBody({
           pref1Time={form.pref1Time}
           pref2Day={form.pref2Day}
           pref2Time={form.pref2Time}
+          pref3Day={form.pref3Day}
+          pref3Time={form.pref3Time}
+          pref4Day={form.pref4Day}
+          pref4Time={form.pref4Time}
           unavailability={form.unavailability}
           wechatId={form.wechatId}
           contactPhone={form.contactPhone}

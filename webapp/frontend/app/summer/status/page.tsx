@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { Fragment, useState, useCallback } from "react";
 import { summerAPI } from "@/lib/api";
 import type {
   SummerApplicationStatusResponse,
@@ -10,6 +10,7 @@ import type {
   SummerSiblingInfo,
 } from "@/types";
 import { type Lang, t, inputClass, dayLabel, labelForOption, frequencyLabel } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { Users, Plus, X, Pencil, Lock } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -101,6 +102,10 @@ export default function SummerStatusPage() {
       preference_1_time: result.preference_1_time ?? "",
       preference_2_day: result.preference_2_day ?? "",
       preference_2_time: result.preference_2_time ?? "",
+      preference_3_day: result.preference_3_day ?? "",
+      preference_3_time: result.preference_3_time ?? "",
+      preference_4_day: result.preference_4_day ?? "",
+      preference_4_time: result.preference_4_time ?? "",
       unavailability_notes: result.unavailability_notes ?? "",
       sessions_per_week: result.sessions_per_week ?? 1,
     });
@@ -133,6 +138,10 @@ export default function SummerStatusPage() {
             preference_1_time: editForm.preference_1_time,
             preference_2_day: editForm.preference_2_day,
             preference_2_time: editForm.preference_2_time,
+            preference_3_day: editForm.preference_3_day,
+            preference_3_time: editForm.preference_3_time,
+            preference_4_day: editForm.preference_4_day,
+            preference_4_time: editForm.preference_4_time,
             unavailability_notes: editForm.unavailability_notes,
             sessions_per_week: editForm.sessions_per_week,
           };
@@ -592,6 +601,10 @@ export default function SummerStatusPage() {
                         preference_1_time: "",
                         preference_2_day: "",
                         preference_2_time: "",
+                        preference_3_day: "",
+                        preference_3_time: "",
+                        preference_4_day: "",
+                        preference_4_time: "",
                       })}
                       className={inputClass}
                     >
@@ -622,20 +635,30 @@ export default function SummerStatusPage() {
                     <option value={2}>{frequencyLabel(2, lang)}</option>
                   </select>
                 </div>
-                {([1, 2] as const).map((n) => {
-                  const dayKey = (n === 1 ? "preference_1_day" : "preference_2_day") as
-                    | "preference_1_day"
-                    | "preference_2_day";
-                  const timeKey = (n === 1 ? "preference_1_time" : "preference_2_time") as
-                    | "preference_1_time"
-                    | "preference_2_time";
+                {(() => {
+                  const isPair = (editForm.sessions_per_week ?? 1) === 2;
+                  const rows = isPair
+                    ? [
+                        { n: 1 as const, zh: "主要時段 1", en: "Primary 1" },
+                        { n: 2 as const, zh: "主要時段 2", en: "Primary 2" },
+                        { n: 3 as const, zh: "後備時段 1", en: "Backup 1" },
+                        { n: 4 as const, zh: "後備時段 2", en: "Backup 2" },
+                      ]
+                    : [
+                        { n: 1 as const, zh: "主要時段", en: "Main" },
+                        { n: 2 as const, zh: "後備時段", en: "Backup" },
+                      ];
+                  return rows;
+                })().map(({ n, zh: labelZh, en: labelEn }) => {
+                  const dayKey = `preference_${n}_day` as const;
+                  const timeKey = `preference_${n}_time` as const;
                   const dayVal = editForm[dayKey] ?? "";
                   const timeVal = editForm[timeKey] ?? "";
                   return (
                     <div key={n} className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[11px] text-muted-foreground mb-1">
-                          {t(`第${n === 1 ? "一" : "二"}志願 - 日`, `Pref ${n} Day`, lang)}
+                          {t(`${labelZh} - 日`, `${labelEn} - Day`, lang)}
                         </label>
                         {selectedLocation ? (
                           <select
@@ -657,7 +680,7 @@ export default function SummerStatusPage() {
                       </div>
                       <div>
                         <label className="block text-[11px] text-muted-foreground mb-1">
-                          {t(`第${n === 1 ? "一" : "二"}志願 - 時段`, `Pref ${n} Time`, lang)}
+                          {t(`${labelZh} - 時段`, `${labelEn} - Time`, lang)}
                         </label>
                         {selectedLocation && dayVal ? (
                           <select
@@ -712,14 +735,28 @@ export default function SummerStatusPage() {
                 <dd className="text-foreground">{labelForOption(formConfig?.locations, result.preferred_location, lang)}</dd>
                 <dt className="text-muted-foreground">{t("每週堂數", "Sessions per week", lang)}</dt>
                 <dd className="text-foreground">{frequencyLabel(result.sessions_per_week ?? 1, lang)}</dd>
-                <dt className="text-muted-foreground">{t("第一志願", "1st preference", lang)}</dt>
-                <dd className="text-foreground">
-                  {result.preference_1_day ? dayLabel(result.preference_1_day, lang) : "—"} {result.preference_1_time || ""}
-                </dd>
-                <dt className="text-muted-foreground">{t("第二志願", "2nd preference", lang)}</dt>
-                <dd className="text-foreground">
-                  {result.preference_2_day ? dayLabel(result.preference_2_day, lang) : "—"} {result.preference_2_time || ""}
-                </dd>
+                {(() => {
+                  const { isPair, primary, backup } = classifyPrefs(result);
+                  const rows = isPair
+                    ? [
+                        { zh: "主要時段 1", en: "Primary 1", s: primary[0] },
+                        { zh: "主要時段 2", en: "Primary 2", s: primary[1] },
+                        { zh: "後備時段 1", en: "Backup 1", s: backup[0] },
+                        { zh: "後備時段 2", en: "Backup 2", s: backup[1] },
+                      ]
+                    : [
+                        { zh: "主要時段", en: "Main", s: primary[0] },
+                        { zh: "後備時段", en: "Backup", s: backup[0] },
+                      ];
+                  return rows.map((r) => (
+                    <Fragment key={r.en}>
+                      <dt className="text-muted-foreground">{t(r.zh, r.en, lang)}</dt>
+                      <dd className="text-foreground">
+                        {r.s ? `${dayLabel(r.s.day, lang)} ${r.s.time}` : "—"}
+                      </dd>
+                    </Fragment>
+                  ));
+                })()}
                 {result.unavailability_notes && (
                   <>
                     <dt className="text-muted-foreground col-span-2 mt-1">{t("備註", "Notes", lang)}</dt>
