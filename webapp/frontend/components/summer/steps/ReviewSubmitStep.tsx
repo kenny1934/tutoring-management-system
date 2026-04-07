@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import { type Lang, t, dayLabel, frequencyLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
 import { classifyPrefs, type PrefSlot } from "@/lib/summer-preferences";
@@ -213,13 +214,16 @@ export function ReviewSubmitStep({
 
       {/* Disclaimer + confirmation */}
       <div className={sectionClass}>
-        <p className="text-sm text-foreground leading-relaxed">
-          {t(
-            config.text_content?.disclaimer_zh || "此表單僅用於收集學生的理想上課時間，正式開班時間將根據多數學生的選擇而定，如我們未能配合您所選擇之時段，敬希見諒！（暑期班之上課時間將於5月21日或之前確定。）",
-            config.text_content?.disclaimer_en || "This form collects your preferred class times only \u2014 final schedules will be arranged based on overall demand and may differ from your selection. We appreciate your understanding. (The summer course schedule will be confirmed by 21 May.)",
-            lang
-          )}
-        </p>
+        <div className="flex items-start gap-2.5 rounded-lg bg-primary/5 border border-primary/15 px-3.5 py-2.5">
+          <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary/70" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {t(
+              config.text_content?.disclaimer_zh || "我們會在5月21日或之前聯絡您確認上課時間，實際時段會根據整體報名情況安排及調整。",
+              config.text_content?.disclaimer_en || "We will contact you on or before 21 May to confirm class times. Actual schedules will be arranged and adjusted based on overall demand.",
+              lang
+            )}
+          </p>
+        </div>
         <label
           className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 ${
             confirmed
