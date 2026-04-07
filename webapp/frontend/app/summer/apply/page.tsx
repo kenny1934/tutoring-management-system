@@ -71,6 +71,12 @@ export default function SummerApplyPage() {
     () => new Set([1])
   );
 
+  // Draft persistence: stash form state to localStorage so a reload / accidental
+  // close doesn't lose half-filled data. Restored only after explicit Resume to
+  // avoid surprising users on shared devices.
+  const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
+  const draftHydrated = useRef(false);
+
   // Load config
   useEffect(() => {
     summerAPI
@@ -79,6 +85,121 @@ export default function SummerApplyPage() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const draftKey = config ? `summer-apply-draft-${config.year}` : null;
+
+  // Read any saved draft once per year-scoped key. The parsed payload is held
+  // in state so resume can rehydrate without re-parsing localStorage.
+  useEffect(() => {
+    if (!draftKey || draftHydrated.current) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.savedAt === "number") {
+        setPendingDraft(parsed);
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
+    }
+  }, [draftKey]);
+
+  const resumeDraft = () => {
+    const d = pendingDraft;
+    if (d) {
+      if (typeof d.studentName === "string") setStudentName(d.studentName);
+      if (typeof d.school === "string") setSchool(d.school);
+      if (typeof d.grade === "string") setGrade(d.grade);
+      if (typeof d.langStream === "string") setLangStream(d.langStream);
+      if (typeof d.isExistingStudent === "string") setIsExistingStudent(d.isExistingStudent);
+      if (Array.isArray(d.currentCenters)) setCurrentCenters(d.currentCenters);
+      if (typeof d.selectedLocation === "string") setSelectedLocation(d.selectedLocation);
+      if (typeof d.sessionsPerWeek === "number") setSessionsPerWeek(d.sessionsPerWeek);
+      if (typeof d.pref1Day === "string") setPref1Day(d.pref1Day);
+      if (typeof d.pref1Time === "string") setPref1Time(d.pref1Time);
+      if (typeof d.pref2Day === "string") setPref2Day(d.pref2Day);
+      if (typeof d.pref2Time === "string") setPref2Time(d.pref2Time);
+      if (typeof d.unavailability === "string") setUnavailability(d.unavailability);
+      if (typeof d.wechatId === "string") setWechatId(d.wechatId);
+      if (typeof d.contactPhone === "string") setContactPhone(d.contactPhone);
+      if (d.buddyMode === "code" || d.buddyMode === "none") setBuddyMode(d.buddyMode);
+      if (typeof d.buddyCode === "string") setBuddyCode(d.buddyCode);
+      if (typeof d.buddyReferrerName === "string") setBuddyReferrerName(d.buddyReferrerName);
+      if (d.declaredSibling && typeof d.declaredSibling === "object") setDeclaredSibling(d.declaredSibling as SummerSiblingDeclaration);
+      if (typeof d.currentStep === "number" && d.currentStep >= 1 && d.currentStep <= TOTAL_STEPS) {
+        setCurrentStep(d.currentStep);
+        setVisitedSteps(new Set(Array.from({ length: d.currentStep }, (_, i) => i + 1)));
+      }
+    }
+    draftHydrated.current = true;
+    setPendingDraft(null);
+  };
+
+  const discardDraft = () => {
+    if (draftKey) localStorage.removeItem(draftKey);
+    draftHydrated.current = true;
+    setPendingDraft(null);
+  };
+
+  const formIsDirty =
+    !!studentName || !!school || !!grade || !!langStream || !!isExistingStudent ||
+    currentCenters.length > 0 || !!selectedLocation || sessionsPerWeek !== 1 ||
+    !!pref1Day || !!pref1Time || !!pref2Day || !!pref2Time || !!unavailability ||
+    !!wechatId || !!contactPhone || !!buddyCode || !!buddyReferrerName ||
+    declaredSibling !== null;
+
+  // Native browser confirmation on refresh/close. The localStorage draft is a
+  // safety net, but most users won't notice the resume banner if they just hit
+  // reload — this catches the slip before it happens.
+  useEffect(() => {
+    if (!formIsDirty || submitted) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [formIsDirty, submitted]);
+
+  useEffect(() => {
+    if (!draftKey || pendingDraft || submitted) return;
+    // Skip until the user has actually touched the form — otherwise the very
+    // first render with empty fields would overwrite the saved draft before
+    // the user could resume it.
+    if (!draftHydrated.current) {
+      if (!formIsDirty) return;
+      draftHydrated.current = true;
+    }
+    const handle = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            savedAt: Date.now(),
+            currentStep,
+            studentName, school, grade, langStream,
+            isExistingStudent, currentCenters,
+            selectedLocation, sessionsPerWeek,
+            pref1Day, pref1Time, pref2Day, pref2Time, unavailability,
+            wechatId, contactPhone,
+            buddyMode, buddyCode, buddyReferrerName, declaredSibling,
+          }),
+        );
+      } catch {
+        // Quota exceeded or storage disabled — fail silently, draft is best-effort.
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [
+    draftKey, pendingDraft, submitted, formIsDirty,
+    currentStep,
+    studentName, school, grade, langStream,
+    isExistingStudent, currentCenters,
+    selectedLocation, sessionsPerWeek,
+    pref1Day, pref1Time, pref2Day, pref2Time, unavailability,
+    wechatId, contactPhone,
+    buddyMode, buddyCode, buddyReferrerName, declaredSibling,
+  ]);
 
   // Validate buddy code
   const validateBuddyCode = useCallback(async (code: string) => {
@@ -317,6 +438,7 @@ export default function SummerApplyPage() {
         reference_code: result.reference_code,
         buddy_code: result.buddy_code,
       });
+      if (draftKey) localStorage.removeItem(draftKey);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       // Only show known user-facing messages; hide raw server errors
@@ -583,6 +705,34 @@ export default function SummerApplyPage() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+      {pendingDraft && typeof pendingDraft.savedAt === "number" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2 flex-wrap">
+          <span>
+            {t(
+              `偵測到上次未完成的報名草稿（${new Date(pendingDraft.savedAt).toLocaleString()}）。要繼續填寫嗎？`,
+              `Found an unfinished draft from ${new Date(pendingDraft.savedAt).toLocaleString()}. Resume?`,
+              lang,
+            )}
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resumeDraft}
+              className="px-2 py-0.5 rounded bg-amber-600 text-white font-medium hover:bg-amber-700"
+            >
+              {t("繼續填寫", "Resume", lang)}
+            </button>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="px-2 py-0.5 rounded text-amber-900 hover:bg-amber-100"
+            >
+              {t("放棄", "Discard", lang)}
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Progress bar with language toggle */}
       <FormProgressBar
         currentStep={currentStep}
