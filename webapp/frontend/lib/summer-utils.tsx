@@ -244,6 +244,11 @@ export interface ActiveSummerPromo {
   groupSavings: number | null;
   soloFee: number | null;
   soloSavings: number | null;
+  /** True when the active group EB is a follow-up "加推" extension (i.e. an
+   *  earlier group EB exists with an earlier deadline, regardless of whether
+   *  that earlier one is still active). Lets the UI show a "加推" pill so
+   *  parents understand they're seeing a smaller second-round offer. */
+  isExtension: boolean;
 }
 
 /**
@@ -262,22 +267,45 @@ export function getActiveSummerPromo(
   const isGroup = (d: { conditions?: { min_group_size?: number } }) =>
     (d.conditions?.min_group_size ?? 0) >= MIN_GROUP_SIZE;
 
-  const ebGroup = discounts.find(
-    (d) => isGroup(d) && !!d.conditions?.before_date
-  );
-  const ebSolo = discounts.find(
-    (d) => !isGroup(d) && !!d.conditions?.before_date
-  );
+  // Pick the earliest still-active early-bird in each tier (group / solo).
+  // "Earliest active" rolls forward automatically as deadlines pass — once
+  // the June EB expires, the July EB takes over without a redeploy.
+  const earliestActive = (
+    pred: (d: SummerPricingConfig["discounts"][number]) => boolean,
+  ) =>
+    discounts
+      .filter((d) => pred(d) && !!d.conditions?.before_date)
+      .map((d) => ({
+        d,
+        deadline: new Date(d.conditions!.before_date! + "T00:00:00"),
+      }))
+      .filter(({ deadline }) => deadline > now)
+      .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())[0];
+
+  const ebGroupActive = earliestActive(isGroup);
+  const ebSoloActive = earliestActive((d) => !isGroup(d));
   const regularGroup = discounts.find(
     (d) => isGroup(d) && !d.conditions?.before_date
   );
 
-  const ebDateStr = ebGroup?.conditions?.before_date;
-  // Use the T00:00:00 parse used elsewhere to avoid UTC-vs-local drift.
-  const ebDeadline = ebDateStr ? new Date(ebDateStr + "T00:00:00") : null;
-  const ebActive = ebDeadline ? ebDeadline > now : false;
-  const activeGroup = ebActive ? ebGroup : regularGroup;
-  const activeSolo = ebActive ? ebSolo : null;
+  const ebDeadline = ebGroupActive?.deadline ?? null;
+  const ebDateStr = ebGroupActive?.d.conditions?.before_date;
+  const ebActive = !!ebGroupActive;
+  const activeGroup = ebGroupActive?.d ?? regularGroup;
+  const activeSolo = ebSoloActive?.d ?? null;
+
+  // "Extension" = there exists at least one group EB with an earlier deadline
+  // than the active one. Captures the 6月→7月加推 case where the second EB
+  // is a smaller follow-up offer the parent should mentally distinguish.
+  const isExtension =
+    !!ebGroupActive &&
+    discounts.some(
+      (d) =>
+        isGroup(d) &&
+        !!d.conditions?.before_date &&
+        new Date(d.conditions.before_date + "T00:00:00").getTime() <
+          ebGroupActive.deadline.getTime(),
+    );
 
   return {
     ebActive,
@@ -290,6 +318,7 @@ export function getActiveSummerPromo(
     groupSavings: activeGroup?.amount ?? null,
     soloFee: activeSolo ? pricing.base_fee - activeSolo.amount : null,
     soloSavings: activeSolo?.amount ?? null,
+    isExtension,
   };
 }
 

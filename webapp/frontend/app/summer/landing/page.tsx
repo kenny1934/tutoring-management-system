@@ -24,8 +24,13 @@ function Reveal({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  // Users with prefers-reduced-motion start visible — no fade, no slide.
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const [visible, setVisible] = useState(reducedMotion);
   useEffect(() => {
+    if (reducedMotion) return;
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -39,7 +44,7 @@ function Reveal({
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [reducedMotion]);
   return (
     <div
       ref={ref}
@@ -203,6 +208,15 @@ const SUMMER_RULES = [
   "調堂每期（8堂/期）上限2堂。",
   "課堂有效期為學費期內，所有補堂須於報名年度8月內完成，已安排之補堂不得再次更改。",
 ];
+
+// First-page JPGs of representative MathConcept worksheets, one per grade.
+// Full materials are intentionally not exposed; see no-image-save protection
+// at the route root and the public/summer/samples/ folder for source.
+const SAMPLE_WORKSHEETS = [
+  "/summer/samples/sample-f1-rationals.jpg",
+  "/summer/samples/sample-f2-pythagoras.jpg",
+  "/summer/samples/sample-f3-quadratics.jpg",
+] as const;
 
 function FaqItem({
   q,
@@ -385,9 +399,11 @@ export default function SummerLandingPage() {
           <Reveal delay={550}>
             <div className="mt-12 sm:mt-14 flex flex-col items-center gap-4">
               <PrimaryCTA size="md" />
-              <p className="text-xs text-white/70 tracking-widest">
-                早鳥優惠｜6月15日前報名 · 三人同行優惠高達 $4,200
-              </p>
+              {promo.ebActive && promo.ebDateFormatted && (
+                <p className="text-xs text-white/70 tracking-widest">
+                  早鳥優惠｜{promo.ebDateFormatted}前報名 · 三人同行優惠高達 $4,200
+                </p>
+              )}
             </div>
           </Reveal>
         </div>
@@ -494,17 +510,13 @@ export default function SummerLandingPage() {
           </Reveal>
 
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              "/summer/samples/sample-f1-rationals.jpg",
-              "/summer/samples/sample-f2-pythagoras.jpg",
-              "/summer/samples/sample-f3-quadratics.jpg",
-            ].map((src, i) => (
+            {SAMPLE_WORKSHEETS.map((src, i) => (
               <Reveal key={src} delay={150 + i * 120}>
                 <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm">
                   <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
                     <Image
                       src={src}
-                      alt=""
+                      alt="課堂教材樣本"
                       fill
                       sizes="(min-width: 640px) 33vw, 100vw"
                       className="object-cover select-none pointer-events-none"
@@ -583,7 +595,9 @@ export default function SummerLandingPage() {
                   className="inline-flex items-center gap-3 px-5 py-3 bg-[#F5C518] text-[#8a0a18]"
                   style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
                 >
-                  <span className="text-xs tracking-[0.3em] uppercase">早鳥倒數</span>
+                  <span className="text-xs tracking-[0.3em] uppercase">
+                    {promo.isExtension ? "早鳥加推倒數" : "早鳥倒數"}
+                  </span>
                   <span className="text-2xl tabular-nums leading-none">
                     {promo.daysUntilEb}
                   </span>
@@ -620,7 +634,7 @@ export default function SummerLandingPage() {
                 <div className="relative overflow-hidden">
                   <Image
                     src="/summer/poster-pricing.jpg"
-                    alt="完整價目表 · 三人同行優惠、單人報讀優惠及特別優惠"
+                    alt="完整收費及優惠表"
                     width={1600}
                     height={2000}
                     sizes="(min-width: 640px) 576px, 100vw"
@@ -653,7 +667,7 @@ export default function SummerLandingPage() {
       {/* ===================================================================
           BRANCHES
           =================================================================== */}
-      <section className="relative bg-[#FBF7F0] py-20 sm:py-28">
+      <section className="relative bg-[#F2EAD8] py-20 sm:py-28">
         <div className="max-w-5xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
@@ -669,9 +683,9 @@ export default function SummerLandingPage() {
               const openSet = new Set(loc.open_days || []);
               return (
               <Reveal key={loc.name} delay={200 + i * 100}>
-                <div className="group flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 hover:bg-white/50 transition-colors px-2 sm:px-4">
+                <div className="flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 px-2 sm:px-4">
                   <span
-                    className="text-2xl sm:text-3xl text-[#F5C518] leading-none shrink-0 tabular-nums group-hover:text-[#B60D20] transition-colors duration-500 mt-1"
+                    className="text-2xl sm:text-3xl text-[#F5C518] leading-none shrink-0 tabular-nums mt-1"
                     style={{
                       fontFamily: "var(--font-serif-tc)",
                       fontWeight: 700,
@@ -793,7 +807,7 @@ export default function SummerLandingPage() {
           / payment / disclaimer rules. Closed by default so the section
           stays out of the way for casual browsers.
           =================================================================== */}
-      <section className="relative bg-[#FBF7F0] pb-20 sm:pb-28">
+      <section className="relative bg-[#F2EAD8] pb-20 sm:pb-28 pt-4">
         <div className="max-w-3xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
@@ -813,7 +827,7 @@ export default function SummerLandingPage() {
                   className="flex-1 text-base sm:text-lg text-[#1A1614] leading-snug"
                   style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
                 >
-                  展開查看完整課堂安排、請假及補堂條款
+                  查看課堂安排及條款
                 </span>
                 <span className="shrink-0 text-[#B60D20]">
                   {rulesOpen ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
@@ -880,7 +894,7 @@ export default function SummerLandingPage() {
         <div className="relative max-w-3xl mx-auto px-6 text-center">
           <Reveal delay={150}>
             <h2
-              className="mt-10 text-3xl sm:text-4xl md:text-5xl leading-[1.5] text-white"
+              className="text-3xl sm:text-4xl md:text-5xl leading-[1.5] text-white"
               style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
             >
               暑假12個鐘
@@ -892,9 +906,11 @@ export default function SummerLandingPage() {
           <Reveal delay={300}>
             <div className="mt-14 flex flex-col items-center gap-4">
               <PrimaryCTA size="lg" />
-              <p className="text-xs text-white/70 tracking-widest">
-                早鳥優惠｜6月15日前報名
-              </p>
+              {promo.ebActive && promo.ebDateFormatted && (
+                <p className="text-xs text-white/70 tracking-widest">
+                  早鳥優惠｜{promo.ebDateFormatted}前報名
+                </p>
+              )}
             </div>
           </Reveal>
 

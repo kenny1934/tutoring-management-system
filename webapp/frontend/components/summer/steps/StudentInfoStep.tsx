@@ -69,6 +69,7 @@ export function StudentInfoStep({
     groupSavings,
     soloFee,
     soloSavings,
+    isExtension,
   } = getActiveSummerPromo(pricing, lang);
 
   const intro = config.course_intro;
@@ -220,6 +221,11 @@ export function StudentInfoStep({
               <span className="text-sm font-semibold text-amber-900 shrink-0">
                 {t(`${config.year} 暑期優惠`, `${config.year} Special Offer`, lang)}
               </span>
+              {isExtension && (
+                <span className="inline-flex items-center rounded-full bg-amber-200 text-amber-900 px-2 py-0.5 text-[10px] font-bold tracking-wider">
+                  {t("加推", "EXTENDED", lang)}
+                </span>
+              )}
               {ebActive && daysUntilEb !== null && (
                 <span className="inline-flex items-center rounded-full bg-amber-600 text-white px-2 py-0.5 text-[11px] font-semibold">
                   {t(
