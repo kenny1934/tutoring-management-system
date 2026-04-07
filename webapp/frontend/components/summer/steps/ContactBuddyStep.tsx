@@ -10,7 +10,6 @@ import {
   labelClass,
   radioGroupClass,
   radioLabelClass,
-  RadioCheck,
   RequiredMark,
   IconLabel,
   getActiveSummerPromo,
@@ -170,7 +169,6 @@ export function ContactBuddyStep({
                 onChange={() => setBuddyMode("none")}
                 className="sr-only"
               />
-              {buddyMode === "none" && <RadioCheck />}
               {t("不需要", "Skip", lang)}
             </label>
             <label className={radioLabelClass(buddyMode === "code")}>
@@ -181,7 +179,6 @@ export function ContactBuddyStep({
                 onChange={() => setBuddyMode("code")}
                 className="sr-only"
               />
-              {buddyMode === "code" && <RadioCheck />}
               {t("輸入或建立同行碼", "Enter or Create Buddy Code", lang)}
             </label>
           </div>

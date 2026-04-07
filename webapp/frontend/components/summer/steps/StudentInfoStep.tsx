@@ -20,7 +20,6 @@ import {
   labelClass,
   radioGroupClass,
   radioLabelClass,
-  RadioCheck,
   RequiredMark,
   IconLabel,
   getActiveSummerPromo,
@@ -362,7 +361,6 @@ export function StudentInfoStep({
                     onChange={() => setGrade(value)}
                     className="sr-only"
                   />
-                  {grade === value && <RadioCheck />}
                   {label}
                 </label>
               );

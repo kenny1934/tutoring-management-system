@@ -11,7 +11,6 @@ import {
   labelClass,
   radioGroupClass,
   radioLabelClass,
-  RadioCheck,
   RequiredMark,
   IconLabel,
 } from "@/lib/summer-utils";
@@ -201,7 +200,6 @@ export function ClassPreferencesStep({
                     onChange={() => setSessionsPerWeek(n)}
                     className="sr-only"
                   />
-                  {sessionsPerWeek === n && <RadioCheck />}
                   {frequencyLabel(n, lang)}
                 </label>
               ))}

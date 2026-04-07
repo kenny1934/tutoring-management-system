@@ -5,7 +5,6 @@ import {
   t,
   sectionClass,
   radioLabelClass,
-  RadioCheck,
   RequiredMark,
   shortCenterName,
 } from "@/lib/summer-utils";
@@ -100,7 +99,6 @@ export function StudentBackgroundStep({
             onChange={() => selectCenter(c.name, isSecondary)}
             className="sr-only"
           />
-          {selected && <RadioCheck />}
           {displayName}
         </label>
       );
@@ -168,7 +166,6 @@ export function StudentBackgroundStep({
               onChange={selectNotStudent}
               className="sr-only"
             />
-            {notStudentSelected && <RadioCheck />}
             {t(
               noneLabel?.name || "非MathConcept學生",
               noneLabel?.name_en || "Not a current MathConcept student",
