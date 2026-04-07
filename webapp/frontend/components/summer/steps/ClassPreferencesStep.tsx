@@ -305,15 +305,22 @@ export function ClassPreferencesStep({
 
       {/* Unavailability */}
       <div className={sectionClass}>
-        <label className={`${labelClass} leading-relaxed`}>
+        <label className={labelClass}>
           <IconLabel icon={Calendar}>
             {t(
-              config.text_content?.unavailability_prompt_zh || "為能令課堂安排更完整，如學生於暑假已有外出計劃或其他事宜不能出席課堂，請填上日子(如：7月14至21日)，讓導師們為您提早安排補堂。",
-              config.text_content?.unavailability_prompt_en || "If your child will be unavailable on certain dates during summer (e.g. July 14\u201321), please let us know so we can arrange make-up classes in advance.",
+              "暑假期間有不能上課的日子嗎？",
+              "Any dates the student can't attend?",
               lang
             )}
           </IconLabel>
         </label>
+        <p className="text-xs text-muted-foreground -mt-1 mb-2 leading-relaxed">
+          {t(
+            "提早告訴我們，方便為您安排補堂，令課程更完整。",
+            "Let us know in advance so we can arrange make-up classes and keep the schedule complete.",
+            lang
+          )}
+        </p>
         <textarea
           value={unavailability}
           onChange={(e) => setUnavailability(e.target.value)}

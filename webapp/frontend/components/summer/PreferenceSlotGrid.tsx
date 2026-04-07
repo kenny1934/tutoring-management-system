@@ -114,7 +114,7 @@ export function PreferenceSlotGrid({
           return (
             <div key={day} className="space-y-2">
               <div className="text-sm font-semibold text-foreground">{dayLabel(day, lang)}</div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                 {slots.map((time) => {
                   const idx = pickIdx.get(`${day}|${time}`) ?? -1;
                   const isPrimary = idx >= 0 && idx < primaryCount;
@@ -125,7 +125,7 @@ export function PreferenceSlotGrid({
                       type="button"
                       onClick={() => handleTap({ day, time })}
                       aria-pressed={idx >= 0}
-                      className={`relative cursor-pointer inline-flex items-center justify-center px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 ${
+                      className={`relative cursor-pointer inline-flex items-center justify-center px-2 py-2 rounded-xl border-2 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                         isPrimary
                           ? "bg-primary text-primary-foreground border-primary shadow-sm"
                           : isBackup
