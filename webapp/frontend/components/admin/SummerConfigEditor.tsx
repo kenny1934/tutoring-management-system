@@ -6,6 +6,8 @@ import { useToast } from "@/contexts/ToastContext";
 import type {
   SummerCourseConfig,
   SummerCourseFormConfig,
+  SummerCourseIntro,
+  SummerCourseIntroText,
   SummerLocation,
   SummerBilingualOption,
 } from "@/types";
@@ -346,6 +348,21 @@ export function SummerConfigEditor({
   );
   const [langStreamOptions, setLangStreamOptions] = useState<WithId<SummerBilingualOption>[]>([]);
   const [textContent, setTextContent] = useState<Record<string, string>>({});
+  const [courseIntro, setCourseIntro] = useState<SummerCourseIntro | null>(null);
+
+  // Drop the intro to null when every field is empty, so save payload / dirty
+  // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
+  const normalizedCourseIntro = useMemo<SummerCourseIntro | null>(() => {
+    if (!courseIntro) return null;
+    const hasText = (t?: SummerCourseIntroText | null) =>
+      !!(t && (t.zh.trim() || t.en.trim()));
+    const any =
+      hasText(courseIntro.headline) ||
+      hasText(courseIntro.philosophy) ||
+      !!courseIntro.pillars?.some(hasText);
+    return any ? courseIntro : null;
+  }, [courseIntro]);
+  const hasCourseIntro = normalizedCourseIntro !== null;
 
   // Dirty state tracking
   const [initialSnapshot, setInitialSnapshot] = useState("");
@@ -380,13 +397,14 @@ export function SummerConfigEditor({
       center_options: centerOptions.length > 0 ? centerOptions : null,
       lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
+      course_intro: normalizedCourseIntro,
       banner_image_url: bannerImageUrl || null,
     }),
     [
       year, title, appOpenDate, appCloseDate,
       courseStartDate, courseEndDate, totalLessons, baseFee,
       registrationFee, discounts, locations, grades,
-      existingStudentOptions, centerOptions, langStreamOptions, textContent, bannerImageUrl,
+      existingStudentOptions, centerOptions, langStreamOptions, textContent, normalizedCourseIntro, bannerImageUrl,
     ]
   );
 
@@ -433,6 +451,7 @@ export function SummerConfigEditor({
                 setExistingStudentOptions(stampIds(parsed.existing_student_options || [], "o"));
                 setCenterOptions(stampIds(parsed.center_options || [], "c"));
                 setTextContent(parsed.text_content || {});
+                setCourseIntro(parsed.course_intro || null);
               },
             });
           } else {
@@ -495,6 +514,7 @@ export function SummerConfigEditor({
         setCenterOptions(stampIds(config.center_options || [], "c"));
         setLangStreamOptions(stampIds(config.lang_stream_options || [], "ls"));
         setTextContent(config.text_content || {});
+        setCourseIntro(config.course_intro || null);
       } catch {
         showToast("Failed to load config", "error");
         onCancel();
@@ -656,6 +676,7 @@ export function SummerConfigEditor({
       center_options: centerOptions.length > 0 ? centerOptions : null,
       lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
+      course_intro: normalizedCourseIntro,
     };
 
     try {
@@ -1647,6 +1668,159 @@ export function SummerConfigEditor({
             <Plus className="h-3 w-3" /> Add Location
           </button>
         )}
+      </Section>
+
+      {/* Section: About this course (pitch block on Step 1) */}
+      <Section
+        title="About this course"
+        subtitle="Pitch block above the welcome card on Step 1"
+        status={{ filled: hasCourseIntro }}
+        onOpen={() => setPreviewStep(1)}
+      >
+        <p className="text-xs text-muted-foreground mb-3">
+          Surfaces the course pitch (hero line, pillars, philosophy) on Step 1. Leave empty to hide the block entirely.
+        </p>
+        <div className="space-y-5">
+          <div>
+            <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Hero line</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Headline (ZH)</Label>
+                <AutoTextarea
+                  value={courseIntro?.headline?.zh || ""}
+                  onChange={(e) =>
+                    setCourseIntro({
+                      ...courseIntro,
+                      headline: { zh: e.target.value, en: courseIntro?.headline?.en || "" },
+                    })
+                  }
+                  placeholder="暑假12個鐘，來年數學好輕鬆"
+                  className={`${inputClass} min-h-[40px]`}
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <Label>Headline (EN)</Label>
+                <AutoTextarea
+                  value={courseIntro?.headline?.en || ""}
+                  onChange={(e) =>
+                    setCourseIntro({
+                      ...courseIntro,
+                      headline: { zh: courseIntro?.headline?.zh || "", en: e.target.value },
+                    })
+                  }
+                  placeholder="12 Hours This Summer, An Easier Year Ahead"
+                  className={`${inputClass} min-h-[40px]`}
+                  disabled={isReadOnly}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider">Pillars</div>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCourseIntro({
+                      ...courseIntro,
+                      pillars: [...(courseIntro?.pillars || []), { zh: "", en: "" }],
+                    })
+                  }
+                  className="text-xs text-primary hover:text-primary-hover flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Add pillar
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(courseIntro?.pillars || []).map((pillar, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={pillar.zh}
+                      onChange={(e) => {
+                        const next = [...(courseIntro?.pillars || [])];
+                        next[idx] = { ...next[idx], zh: e.target.value };
+                        setCourseIntro({ ...courseIntro, pillars: next });
+                      }}
+                      placeholder="熟悉來年重點"
+                      className={inputClass}
+                      disabled={isReadOnly}
+                    />
+                    <input
+                      type="text"
+                      value={pillar.en}
+                      onChange={(e) => {
+                        const next = [...(courseIntro?.pillars || [])];
+                        next[idx] = { ...next[idx], en: e.target.value };
+                        setCourseIntro({ ...courseIntro, pillars: next });
+                      }}
+                      placeholder="Preview next year's key topics"
+                      className={inputClass}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = (courseIntro?.pillars || []).filter((_, j) => j !== idx);
+                        setCourseIntro({ ...courseIntro, pillars: next });
+                      }}
+                      className="p-2 text-muted-foreground hover:text-red-600"
+                      aria-label="Remove pillar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {(courseIntro?.pillars || []).length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No pillars added yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Philosophy paragraph</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Philosophy (ZH)</Label>
+                <AutoTextarea
+                  value={courseIntro?.philosophy?.zh || ""}
+                  onChange={(e) =>
+                    setCourseIntro({
+                      ...courseIntro,
+                      philosophy: { zh: e.target.value, en: courseIntro?.philosophy?.en || "" },
+                    })
+                  }
+                  placeholder="中學數學課題抽象，題型多元，理解比死記更重要，思維比計算更關鍵⋯"
+                  className={`${inputClass} min-h-[80px]`}
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <Label>Philosophy (EN)</Label>
+                <AutoTextarea
+                  value={courseIntro?.philosophy?.en || ""}
+                  onChange={(e) =>
+                    setCourseIntro({
+                      ...courseIntro,
+                      philosophy: { zh: courseIntro?.philosophy?.zh || "", en: e.target.value },
+                    })
+                  }
+                  placeholder="Secondary math is abstract and varied..."
+                  className={`${inputClass} min-h-[80px]`}
+                  disabled={isReadOnly}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </Section>
 
       {/* Section 7: Text Content */}

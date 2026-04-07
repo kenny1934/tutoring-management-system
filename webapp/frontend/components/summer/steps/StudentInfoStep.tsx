@@ -9,6 +9,7 @@ import {
   PenLine,
   Users,
   User,
+  Check,
 } from "lucide-react";
 import type { SummerCourseFormConfig } from "@/types";
 import {
@@ -62,6 +63,12 @@ export function StudentInfoStep({
     soloSavings,
   } = getActiveSummerPromo(pricing, lang);
 
+  const intro = config.course_intro;
+  const introHeadline = intro?.headline;
+  const introPillars = intro?.pillars?.filter((p) => p?.zh || p?.en) ?? [];
+  const introPhilosophy = intro?.philosophy;
+  const hasIntro = !!(introHeadline || introPillars.length > 0 || introPhilosophy);
+
   return (
     <div className="space-y-6">
       {/* Banner */}
@@ -90,6 +97,32 @@ export function StudentInfoStep({
           )}
         </h1>
       </div>
+
+      {/* About this course — product pitch, shown above the logistics welcome card */}
+      {hasIntro && (
+        <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 space-y-4">
+          {introHeadline && (
+            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-snug">
+              {t(introHeadline.zh, introHeadline.en, lang)}
+            </h2>
+          )}
+          {introPillars.length > 0 && (
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+              {introPillars.map((p, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                  <Check className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+                  <span>{t(p.zh, p.en, lang)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {introPhilosophy && (
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+              {t(introPhilosophy.zh, introPhilosophy.en, lang)}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Welcome */}
       <div className="bg-primary/5 rounded-2xl border border-primary/20 p-6 sm:p-8">

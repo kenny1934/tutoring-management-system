@@ -1119,6 +1119,7 @@ class SummerCourseConfig(Base):
     center_options = Column(JSON, default=list)
     text_content = Column(JSON, default=dict)
     lang_stream_options = Column(JSON, default=list)
+    course_intro = Column(JSON, nullable=True)
     banner_image_url = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())

@@ -2038,8 +2038,20 @@ export interface SummerCourseFormConfig {
   center_options?: SummerBilingualOption[] | null;
   lang_stream_options?: SummerBilingualOption[] | null;
   text_content?: Record<string, string> | null;
+  course_intro?: SummerCourseIntro | null;
   banner_image_url?: string | null;
   primary_branch_options?: SummerPrimaryBranchOption[];
+}
+
+export interface SummerCourseIntroText {
+  zh: string;
+  en: string;
+}
+
+export interface SummerCourseIntro {
+  headline?: SummerCourseIntroText | null;
+  pillars?: SummerCourseIntroText[] | null;
+  philosophy?: SummerCourseIntroText | null;
 }
 
 export interface SummerApplicationCreate {
@@ -2161,6 +2173,7 @@ export interface SummerCourseConfig {
   center_options?: SummerBilingualOption[] | null;
   lang_stream_options?: SummerBilingualOption[] | null;
   text_content?: Record<string, string> | null;
+  course_intro?: SummerCourseIntro | null;
   banner_image_url?: string | null;
   is_active: boolean;
   created_at?: string | null;

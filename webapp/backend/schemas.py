@@ -2054,6 +2054,7 @@ class SummerCourseFormConfig(BaseModel):
     center_options: Optional[List[Dict[str, Any]]] = None
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     primary_branch_options: List[Dict[str, str]] = Field(default_factory=list)
 
@@ -2221,6 +2222,7 @@ class SummerCourseConfigCreate(BaseModel):
     center_options: Optional[List[Dict[str, Any]]] = None
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: bool = False
 
@@ -2242,6 +2244,7 @@ class SummerCourseConfigUpdate(BaseModel):
     center_options: Optional[List[Dict[str, Any]]] = None
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -2265,6 +2268,7 @@ class SummerCourseConfigResponse(BaseModel):
     center_options: Optional[List[Dict[str, Any]]] = None
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: bool
     created_at: Optional[datetime] = None

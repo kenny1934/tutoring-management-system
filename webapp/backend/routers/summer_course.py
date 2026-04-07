@@ -315,6 +315,7 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
         center_options=config.center_options,
         lang_stream_options=config.lang_stream_options,
         text_content=config.text_content,
+        course_intro=config.course_intro,
         banner_image_url=config.banner_image_url,
         primary_branch_options=PRIMARY_BRANCH_OPTIONS,
     )
@@ -970,6 +971,7 @@ def clone_config(
         existing_student_options=source.existing_student_options,
         center_options=source.center_options,
         text_content=source.text_content,
+        course_intro=source.course_intro,
         banner_image_url=source.banner_image_url,
         is_active=False,
     )
