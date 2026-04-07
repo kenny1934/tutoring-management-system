@@ -8,8 +8,12 @@ import { StudentBackgroundStep } from "@/components/summer/steps/StudentBackgrou
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { ContactBuddyStep } from "@/components/summer/steps/ContactBuddyStep";
 import { ReviewSubmitStep } from "@/components/summer/steps/ReviewSubmitStep";
+import {
+  useSummerApplyFormState,
+  FROZEN_SETTERS,
+} from "@/hooks/useSummerApplyFormState";
 
-const noop = (..._args: unknown[]) => {};
+const noop = () => {};
 
 const pillClass = (active: boolean) =>
   `px-2 py-0.5 text-[10px] rounded-md transition-colors font-medium ${
@@ -51,6 +55,130 @@ function ControlBar({
   );
 }
 
+/** Renders a single step bound to a fresh form-state hook. Parent remounts
+ *  this via `key` whenever the contextual selectors change so the hook's
+ *  initial-seed path is the single source of truth for preview content —
+ *  no imperative re-seeding via useEffect + hydrate. */
+function PreviewStepBody({
+  config,
+  lang,
+  previewStep,
+  initial,
+}: {
+  config: SummerCourseFormConfig;
+  lang: Lang;
+  previewStep: number;
+  initial: Parameters<typeof useSummerApplyFormState>[0];
+}) {
+  const form = useSummerApplyFormState(initial);
+  switch (previewStep) {
+    case 1:
+      return (
+        <StudentInfoStep
+          config={config}
+          lang={lang}
+          studentName={form.studentName}
+          setStudentName={FROZEN_SETTERS.setStudentName}
+          school={form.school}
+          setSchool={FROZEN_SETTERS.setSchool}
+          grade={form.grade}
+          setGrade={FROZEN_SETTERS.setGrade}
+          langStream={form.langStream}
+          setLangStream={FROZEN_SETTERS.setLangStream}
+        />
+      );
+    case 2:
+      return (
+        <StudentBackgroundStep
+          config={config}
+          lang={lang}
+          isExistingStudent={form.isExistingStudent}
+          setIsExistingStudent={FROZEN_SETTERS.setIsExistingStudent}
+          currentCenters={form.currentCenters}
+          setCurrentCenters={FROZEN_SETTERS.setCurrentCenters}
+        />
+      );
+    case 3:
+      return (
+        <ClassPreferencesStep
+          config={config}
+          lang={lang}
+          selectedLocation={form.selectedLocation}
+          setSelectedLocation={FROZEN_SETTERS.setSelectedLocation}
+          sessionsPerWeek={form.sessionsPerWeek}
+          setSessionsPerWeek={FROZEN_SETTERS.setSessionsPerWeek}
+          pref1Day={form.pref1Day}
+          setPref1Day={FROZEN_SETTERS.setPref1Day}
+          pref1Time={form.pref1Time}
+          setPref1Time={FROZEN_SETTERS.setPref1Time}
+          pref2Day={form.pref2Day}
+          setPref2Day={FROZEN_SETTERS.setPref2Day}
+          pref2Time={form.pref2Time}
+          setPref2Time={FROZEN_SETTERS.setPref2Time}
+          unavailability={form.unavailability}
+          setUnavailability={FROZEN_SETTERS.setUnavailability}
+        />
+      );
+    case 4:
+      return (
+        <ContactBuddyStep
+          config={config}
+          lang={lang}
+          wechatId={form.wechatId}
+          setWechatId={FROZEN_SETTERS.setWechatId}
+          contactPhone={form.contactPhone}
+          setContactPhone={FROZEN_SETTERS.setContactPhone}
+          buddyMode={form.buddyMode}
+          setBuddyMode={FROZEN_SETTERS.setBuddyMode}
+          buddyCode={form.buddyCode}
+          setBuddyCode={FROZEN_SETTERS.setBuddyCode}
+          buddyCodeValid={null}
+          setBuddyCodeValid={noop}
+          buddyMemberCount={null}
+          validateBuddyCode={noop}
+          handleCreateBuddyGroup={noop}
+          onResetBuddyCode={noop}
+          buddyReferrerName={form.buddyReferrerName}
+          setBuddyReferrerName={FROZEN_SETTERS.setBuddyReferrerName}
+          buddyCodeIsOwn={false}
+          buddyGroupFull={false}
+          buddyMaxMembers={3}
+          declaredSibling={form.declaredSibling}
+          setDeclaredSibling={FROZEN_SETTERS.setDeclaredSibling}
+        />
+      );
+    case 5:
+      return (
+        <ReviewSubmitStep
+          config={config}
+          lang={lang}
+          studentName={form.studentName}
+          school={form.school}
+          grade={form.grade}
+          langStream={form.langStream}
+          isExistingStudent={form.isExistingStudent}
+          currentCenters={form.currentCenters}
+          selectedLocation={form.selectedLocation}
+          sessionsPerWeek={form.sessionsPerWeek}
+          pref1Day={form.pref1Day}
+          pref1Time={form.pref1Time}
+          pref2Day={form.pref2Day}
+          pref2Time={form.pref2Time}
+          unavailability={form.unavailability}
+          wechatId={form.wechatId}
+          contactPhone={form.contactPhone}
+          buddyMode={form.buddyMode}
+          buddyCode={form.buddyCode}
+          buddyReferrerName={form.buddyReferrerName}
+          confirmed={false}
+          setConfirmed={noop}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
 interface SummerConfigPreviewProps {
   config: SummerCourseFormConfig;
   previewStep: number;
@@ -85,6 +213,11 @@ export const SummerConfigPreview = memo(function SummerConfigPreview({
     );
   }, [config.locations, config.existing_student_options]);
 
+  const selectedLoc = config.locations.find((l) => l.name === previewLocation);
+  const firstDay = selectedLoc?.open_days[0] || "";
+  const secondDay = selectedLoc?.open_days[1] || firstDay;
+  const sampleSlots = selectedLoc?.time_slots?.[firstDay] || config.time_slots;
+
   // Which controls to show per step
   const showLocationControl = previewStep === 3 || previewStep === 5;
   const showStudentTypeControl = previewStep === 2 || previewStep === 5;
@@ -104,107 +237,6 @@ export const SummerConfigPreview = memo(function SummerConfigPreview({
   const selectedLocationEn =
     config.locations.find((l) => l.name === previewLocation)?.name_en || "";
 
-  const renderStep = () => {
-    switch (previewStep) {
-      case 1:
-        return (
-          <StudentInfoStep
-            config={config}
-            lang={lang}
-            studentName=""
-            setStudentName={noop}
-            school=""
-            setSchool={noop}
-            grade=""
-            setGrade={noop}
-          />
-        );
-      case 2:
-        return (
-          <StudentBackgroundStep
-            config={config}
-            lang={lang}
-            isExistingStudent={previewStudentType}
-            setIsExistingStudent={noop}
-            currentCenters={[]}
-            setCurrentCenters={noop}
-          />
-        );
-      case 3:
-        return (
-          <ClassPreferencesStep
-            config={config}
-            lang={lang}
-            selectedLocation={previewLocation}
-            setSelectedLocation={noop}
-            pref1Day=""
-            setPref1Day={noop}
-            pref1Time=""
-            setPref1Time={noop}
-            pref2Day=""
-            setPref2Day={noop}
-            pref2Time=""
-            setPref2Time={noop}
-            unavailability=""
-            setUnavailability={noop}
-          />
-        );
-      case 4:
-        return (
-          <ContactBuddyStep
-            config={config}
-            lang={lang}
-            wechatId=""
-            setWechatId={noop}
-            contactPhone=""
-            setContactPhone={noop}
-            buddyMode="none"
-            setBuddyMode={noop}
-            buddyCode=""
-            setBuddyCode={noop}
-            buddyNames=""
-            setBuddyNames={noop}
-            buddyCodeValid={null}
-            setBuddyCodeValid={noop}
-            buddyMemberCount={null}
-            validateBuddyCode={noop}
-            handleCreateBuddyGroup={noop}
-          />
-        );
-      case 5: {
-        const loc = config.locations.find((l) => l.name === previewLocation);
-        const firstDay = loc?.open_days[0] || "";
-        const secondDay = loc?.open_days[1] || firstDay;
-        const slots = loc?.time_slots?.[firstDay] || config.time_slots;
-        return (
-          <ReviewSubmitStep
-            config={config}
-            lang={lang}
-            studentName="Bobby MC"
-            school="Sample School"
-            grade={config.available_grades[0]?.value || config.available_grades[0]?.name_en || ""}
-            isExistingStudent={previewStudentType}
-            currentCenters={[]}
-            selectedLocation={previewLocation}
-            pref1Day={firstDay}
-            pref1Time={slots[0] || ""}
-            pref2Day={secondDay}
-            pref2Time={slots[1] || slots[0] || ""}
-            unavailability=""
-            wechatId="sample_wechat"
-            contactPhone="12345678"
-            buddyMode="none"
-            buddyCode=""
-            buddyNames=""
-            confirmed={false}
-            setConfirmed={noop}
-          />
-        );
-      }
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="summer-light text-foreground bg-background flex flex-col h-full">
@@ -271,7 +303,26 @@ export const SummerConfigPreview = memo(function SummerConfigPreview({
       {/* Preview content — non-interactive, scrollable */}
       <div className="flex-1 overflow-y-auto bg-white rounded-b-lg">
         <div className="pointer-events-none select-none p-4 sm:p-6">
-          {renderStep()}
+          <PreviewStepBody
+            key={`${previewStep}-${previewLocation}-${previewStudentType}`}
+            config={config}
+            lang={lang}
+            previewStep={previewStep}
+            initial={{
+              studentName: "Bobby MC",
+              school: "Sample School",
+              grade: config.available_grades[0]?.value || config.available_grades[0]?.name_en || "",
+              langStream: config.lang_stream_options?.[0]?.value || config.lang_stream_options?.[0]?.name_en || "",
+              isExistingStudent: previewStudentType,
+              selectedLocation: previewLocation,
+              pref1Day: firstDay,
+              pref1Time: sampleSlots[0] || "",
+              pref2Day: secondDay,
+              pref2Time: sampleSlots[1] || sampleSlots[0] || "",
+              wechatId: "sample_wechat",
+              contactPhone: "12345678",
+            }}
+          />
         </div>
       </div>
     </div>

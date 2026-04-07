@@ -5,8 +5,8 @@ import { summerAPI } from "@/lib/api";
 import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
-  SummerSiblingDeclaration,
 } from "@/types";
+import { useSummerApplyFormState } from "@/hooks/useSummerApplyFormState";
 import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 import { type Lang, t } from "@/lib/summer-utils";
@@ -35,34 +35,38 @@ export default function SummerApplyPage() {
   } | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Form state
-  const [studentName, setStudentName] = useState("");
-  const [school, setSchool] = useState("");
-  const [grade, setGrade] = useState("");
-  const [langStream, setLangStream] = useState("");
-  const [isExistingStudent, setIsExistingStudent] = useState("");
-  const [currentCenters, setCurrentCenters] = useState<string[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState("");
-  const [sessionsPerWeek, setSessionsPerWeek] = useState(1);
-  const [pref1Day, setPref1Day] = useState("");
-  const [pref1Time, setPref1Time] = useState("");
-  const [pref2Day, setPref2Day] = useState("");
-  const [pref2Time, setPref2Time] = useState("");
-  const [unavailability, setUnavailability] = useState("");
-  const [wechatId, setWechatId] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [buddyMode, setBuddyMode] = useState<"none" | "code">("none");
-  const [buddyCode, setBuddyCode] = useState("");
-  const [buddyReferrerName, setBuddyReferrerName] = useState("");
+  // Form data state lives in a shared hook so the admin config preview stays
+  // structurally in sync — adding a field forces both consumers to handle it.
+  const form = useSummerApplyFormState();
+  const {
+    studentName, setStudentName,
+    school, setSchool,
+    grade, setGrade,
+    langStream, setLangStream,
+    isExistingStudent, setIsExistingStudent,
+    currentCenters, setCurrentCenters,
+    selectedLocation, setSelectedLocation,
+    sessionsPerWeek, setSessionsPerWeek,
+    pref1Day, setPref1Day,
+    pref1Time, setPref1Time,
+    pref2Day, setPref2Day,
+    pref2Time, setPref2Time,
+    unavailability, setUnavailability,
+    wechatId, setWechatId,
+    contactPhone, setContactPhone,
+    buddyMode, setBuddyMode,
+    buddyCode, setBuddyCode,
+    buddyReferrerName, setBuddyReferrerName,
+    declaredSibling, setDeclaredSibling,
+  } = form;
+
+  // UI / interactive state that isn't persisted to draft stays local.
+  const [confirmed, setConfirmed] = useState(false);
   const [buddyCodeValid, setBuddyCodeValid] = useState<boolean | null>(null);
   const [buddyCodeIsOwn, setBuddyCodeIsOwn] = useState(false);
   const [buddyGroupFull, setBuddyGroupFull] = useState(false);
   const [buddyMaxMembers, setBuddyMaxMembers] = useState(3);
-  const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(
-    null
-  );
-  const [declaredSibling, setDeclaredSibling] = useState<SummerSiblingDeclaration | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [buddyMemberCount, setBuddyMemberCount] = useState<number | null>(null);
   const [refCopied, setRefCopied] = useState(false);
   const refCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (refCopyTimer.current) clearTimeout(refCopyTimer.current); }, []);
@@ -107,25 +111,7 @@ export default function SummerApplyPage() {
   const resumeDraft = () => {
     const d = pendingDraft;
     if (d) {
-      if (typeof d.studentName === "string") setStudentName(d.studentName);
-      if (typeof d.school === "string") setSchool(d.school);
-      if (typeof d.grade === "string") setGrade(d.grade);
-      if (typeof d.langStream === "string") setLangStream(d.langStream);
-      if (typeof d.isExistingStudent === "string") setIsExistingStudent(d.isExistingStudent);
-      if (Array.isArray(d.currentCenters)) setCurrentCenters(d.currentCenters);
-      if (typeof d.selectedLocation === "string") setSelectedLocation(d.selectedLocation);
-      if (typeof d.sessionsPerWeek === "number") setSessionsPerWeek(d.sessionsPerWeek);
-      if (typeof d.pref1Day === "string") setPref1Day(d.pref1Day);
-      if (typeof d.pref1Time === "string") setPref1Time(d.pref1Time);
-      if (typeof d.pref2Day === "string") setPref2Day(d.pref2Day);
-      if (typeof d.pref2Time === "string") setPref2Time(d.pref2Time);
-      if (typeof d.unavailability === "string") setUnavailability(d.unavailability);
-      if (typeof d.wechatId === "string") setWechatId(d.wechatId);
-      if (typeof d.contactPhone === "string") setContactPhone(d.contactPhone);
-      if (d.buddyMode === "code" || d.buddyMode === "none") setBuddyMode(d.buddyMode);
-      if (typeof d.buddyCode === "string") setBuddyCode(d.buddyCode);
-      if (typeof d.buddyReferrerName === "string") setBuddyReferrerName(d.buddyReferrerName);
-      if (d.declaredSibling && typeof d.declaredSibling === "object") setDeclaredSibling(d.declaredSibling as SummerSiblingDeclaration);
+      form.hydrate(d);
       if (typeof d.currentStep === "number" && d.currentStep >= 1 && d.currentStep <= TOTAL_STEPS) {
         setCurrentStep(d.currentStep);
         setVisitedSteps(new Set(Array.from({ length: d.currentStep }, (_, i) => i + 1)));
@@ -174,16 +160,7 @@ export default function SummerApplyPage() {
       try {
         localStorage.setItem(
           draftKey,
-          JSON.stringify({
-            savedAt: Date.now(),
-            currentStep,
-            studentName, school, grade, langStream,
-            isExistingStudent, currentCenters,
-            selectedLocation, sessionsPerWeek,
-            pref1Day, pref1Time, pref2Day, pref2Time, unavailability,
-            wechatId, contactPhone,
-            buddyMode, buddyCode, buddyReferrerName, declaredSibling,
-          }),
+          JSON.stringify({ savedAt: Date.now(), currentStep, ...form.snapshot() }),
         );
       } catch {
         // Quota exceeded or storage disabled — fail silently, draft is best-effort.
