@@ -3,7 +3,9 @@ import type { NextRequest } from "next/server";
 
 /**
  * Subdomain routing for public-facing summer pages.
- * - summer.* → /summer/apply (application form)
+ * - summer.* → /summer/landing (marketing front door)
+ *   ├─ /apply → /summer/apply (application form)
+ *   └─ /status → /summer/status (status check)
  * - prospect.* → /summer/prospect (P6 prospect registration)
  * - buddy.* → /summer/buddy (buddy tracker for primary branches)
  */
@@ -18,16 +20,24 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/logo") ||
     /\.(png|ico|jpg|svg|webp)$/i.test(pathname);
 
-  // Summer subdomain → clean URLs (/apply, /status) backed by /summer/* files.
-  // Old /summer/apply and /summer/status links (e.g. printed pamphlet QR codes)
-  // get redirected to the clean form so the address bar matches the marketing.
+  // Summer subdomain → marketing landing at the root, clean URLs for the
+  // form (/apply) and status check (/status) backed by /summer/* files.
+  // Legacy /summer/apply links (printed pamphlet QR codes) bounce to the
+  // landing page so parents see the marketing pitch first.
   if (hostname.startsWith("summer.")) {
     if (allowInternals) return NextResponse.next();
     const url = request.nextUrl.clone();
 
-    // Legacy path redirects — clean up the address bar for old links.
-    if (pathname === "/summer" || pathname === "/summer/" || pathname === "/summer/apply") {
-      url.pathname = "/apply";
+    // Legacy path redirects. The QR codes on the printed pamphlets encode
+    // /summer/apply, but we now want parents to land on the marketing page
+    // first — they can tap the CTA to reach the form.
+    if (
+      pathname === "/summer" ||
+      pathname === "/summer/" ||
+      pathname === "/summer/apply" ||
+      pathname === "/summer/landing"
+    ) {
+      url.pathname = "/";
       return NextResponse.redirect(url, 308);
     }
     if (pathname === "/summer/status") {
@@ -35,10 +45,11 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(url, 308);
     }
 
-    // Root → apply (clean URL).
+    // Root → landing page (rewrite, not redirect, so the address bar stays
+    // bare on the canonical URL).
     if (pathname === "/") {
-      url.pathname = "/apply";
-      return NextResponse.redirect(url, 308);
+      url.pathname = "/summer/landing";
+      return NextResponse.rewrite(url);
     }
 
     // Clean URLs → rewrite to the actual /summer/* files. Browser keeps the
@@ -55,8 +66,8 @@ export function middleware(request: NextRequest) {
     // Anything else under /summer/* (e.g. nested assets) passes through.
     if (pathname.startsWith("/summer/")) return NextResponse.next();
 
-    // Unknown path on summer.* → bounce to apply.
-    url.pathname = "/apply";
+    // Unknown path on summer.* → bounce to landing.
+    url.pathname = "/";
     return NextResponse.redirect(url, 308);
   }
 

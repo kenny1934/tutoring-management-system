@@ -27,6 +27,8 @@ export function SummerHeader() {
   const isPublicPage =
     pathname.startsWith("/summer/apply") ||
     pathname.startsWith("/summer/status") ||
+    pathname.startsWith("/summer/landing") ||
+    pathname === "/" ||
     pathname === "/apply" || pathname.startsWith("/apply/") ||
     pathname === "/status" || pathname.startsWith("/status/");
   const isInternalPage = isProspectSubdomain || isBuddyPage || !isPublicPage;
