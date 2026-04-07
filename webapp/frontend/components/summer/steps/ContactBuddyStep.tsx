@@ -83,14 +83,16 @@ export function ContactBuddyStep({
         <div>
           <label className={labelClass}>
             <IconLabel icon={WeChatIcon}>
-              {t(
-                config?.text_content?.wechat_prompt_zh || "我們會在微信給您發放上課的信息，請提供微信號。",
-                config?.text_content?.wechat_prompt_en || "We will send you the class information via WeChat. Please provide your WeChat ID.",
-                lang
-              )}
+              {t("微信號", "WeChat ID", lang)}
             </IconLabel>
-            <RequiredMark />
           </label>
+          <p className="text-xs text-muted-foreground -mt-1 mb-2 leading-relaxed">
+            {t(
+              "我們會用微信發送上課資訊。",
+              "We'll send class information via WeChat.",
+              lang
+            )}
+          </p>
           <input
             type="text"
             value={wechatId}
@@ -101,13 +103,8 @@ export function ContactBuddyStep({
         <div>
           <label className={labelClass}>
             <IconLabel icon={Phone}>
-              {t(
-                config?.text_content?.phone_prompt_zh || "請留下聯絡電話，以便我們和您聯絡！",
-                config?.text_content?.phone_prompt_en || "Please provide a contact phone number.",
-                lang
-              )}
+              {t("聯絡電話", "Contact phone", lang)}
             </IconLabel>
-            <RequiredMark />
           </label>
           <input
             type="tel"
@@ -153,7 +150,7 @@ export function ContactBuddyStep({
           <div>
             {t(
               "此同行碼只適用於 MathConcept 中學教室暑期課程。MathConcept 數學思維 / KidsConcept 使用獨立系統，編號並不通用。如有弟妹正報讀數學思維或 KidsConcept，請於下方登記，他們仍可計入同行優惠人數。",
-              "This buddy code is only for MathConcept Secondary Academy summer course. MathConcept Education / KidsConcept use a separate code system. If you have a younger sibling applying to a Primary or KidsConcept branch, declare them below — they still count toward the 3-person group.",
+              "This buddy code is only for MathConcept Secondary Academy summer course. MathConcept Education / KidsConcept use a separate code system. If you have a younger sibling applying to a Primary or KidsConcept branch, declare them below; they still count toward the 3-person group.",
               lang
             )}
           </div>
@@ -199,7 +196,7 @@ export function ContactBuddyStep({
                       memberCount={buddyMemberCount}
                       includesSelf
                       subtitle={t(
-                        "請將此碼分享給你的朋友，讓他們報名時輸入",
+                        "請將此碼分享給您的朋友，讓他們報名時輸入",
                         "Share this code with your friends to enter when they apply",
                         lang
                       )}
@@ -290,7 +287,7 @@ export function ContactBuddyStep({
                   <div className="pt-2">
                     <label className={labelClass}>
                       {t(
-                        "誰將此同行碼分享給你？",
+                        "誰將此同行碼分享給您？",
                         "Who shared this code with you?",
                         lang
                       )}

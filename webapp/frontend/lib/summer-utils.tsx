@@ -170,9 +170,11 @@ export function shortCenterName(fullName: string): string {
 }
 
 /** Red asterisk for required fields. */
-export const RequiredMark = () => (
-  <span className="text-red-500 ml-0.5">*</span>
-);
+/** Visual required-field marker. Intentionally renders nothing — the form
+ *  uses the inverse convention (everything required by default, optional
+ *  fields marked explicitly with `（可選）`). Kept as an exported no-op so
+ *  callers don't have to be touched if we ever flip the convention back. */
+export const RequiredMark = () => null;
 
 /** Grade badge colors for arrangement grid components. */
 export const SUMMER_GRADE_BG: Record<string, string> = {

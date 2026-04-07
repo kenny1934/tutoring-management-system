@@ -141,8 +141,8 @@ export function ClassPreferencesStep({
       <div className={sectionClass}>
         <h2 className="text-base font-semibold text-foreground leading-snug">
           {t(
-            `MathConcept「中學教室」分別設有${config.locations.length}間分校，請家長選擇理想分校：`,
-            `MathConcept Secondary Academy has ${config.locations.length} branches. Please select your preferred one:`,
+            "您希望在哪間分校上課？",
+            "Which branch would you like to attend?",
             lang
           )}
           <RequiredMark />
@@ -242,7 +242,7 @@ export function ClassPreferencesStep({
           <div className={sectionClass}>
             <h2 className="text-base font-semibold text-foreground leading-snug">
               {t(
-                "每星期上課次數",
+                "每星期堂數",
                 "Lessons per week",
                 lang
               )}

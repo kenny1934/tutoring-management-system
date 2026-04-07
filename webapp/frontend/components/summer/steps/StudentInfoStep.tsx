@@ -329,8 +329,8 @@ export function StudentInfoStep({
                 <Ticket className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
                   {t(
-                    "9月常規課程禮券 — MathConcept現讀生及全新生報讀即可獲贈",
-                    "September Regular Course Coupon — available to all MathConcept current and new students upon enrolment",
+                    "9月常規課程禮券：MathConcept現讀生及全新生報讀即可獲贈",
+                    "September Regular Course Coupon: available to all MathConcept current and new students upon enrolment",
                     lang
                   )}
                 </span>
@@ -352,7 +352,7 @@ export function StudentInfoStep({
         <p className="text-xs text-muted-foreground leading-relaxed">
           {t(
             config.text_content?.intro_zh || "此表格僅為收集上課時間意向，並非正式報名。導師會於稍後聯絡家長確認留位。",
-            config.text_content?.intro_en || "This form only collects your preferred class time — it is not a formal registration. Our team will contact you to confirm enrolment.",
+            config.text_content?.intro_en || "This form only collects your preferred class time. It is not a formal registration. Our team will contact you to confirm enrolment.",
             lang
           )}
         </p>
@@ -363,7 +363,7 @@ export function StudentInfoStep({
         <div>
           <label className={labelClass}>
             <IconLabel icon={PenLine}>
-              {t("學生英文姓名：", "English name of the student:", lang)}
+              {t("學生英文姓名", "Student English name", lang)}
             </IconLabel>
             <RequiredMark />
           </label>
@@ -379,7 +379,7 @@ export function StudentInfoStep({
         <div>
           <label className={labelClass}>
             <IconLabel icon={PenLine}>
-              {t("學生就讀學校：", "Current school:", lang)}
+              {t("就讀學校", "Current school", lang)}
             </IconLabel>
             <RequiredMark />
           </label>
@@ -433,8 +433,8 @@ export function StudentInfoStep({
           <label className={labelClass}>
             <IconLabel icon={PenLine}>
               {t(
-                `${config.year}年9月份的就讀年級：`,
-                `Grade in September ${config.year}:`,
+                `${config.year}年9月份的就讀年級`,
+                `Grade in September ${config.year}`,
                 lang
               )}
             </IconLabel>

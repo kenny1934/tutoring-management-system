@@ -96,7 +96,7 @@ export function BuddyCodeCard({
         const needed = Math.max(0, discountThreshold - memberCount);
         const countLabel = includesSelf
           ? t(
-              `共 ${memberCount} 人（包括你）`,
+              `共 ${memberCount} 人（包括您）`,
               `${memberCount} member${memberCount === 1 ? "" : "s"} (including you)`,
               lang
             )
