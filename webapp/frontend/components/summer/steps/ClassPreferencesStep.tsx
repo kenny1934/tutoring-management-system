@@ -24,6 +24,25 @@ const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
   "Flora Garden Center": "/summer/flora-center.jpg",
 };
 
+// Calendar-style header order for the open-days strip on each branch card.
+const WEEK_DAY_ORDER = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+const DAY_SHORT_ZH: Record<string, string> = {
+  Sunday: "日", Monday: "一", Tuesday: "二", Wednesday: "三",
+  Thursday: "四", Friday: "五", Saturday: "六",
+};
+const DAY_SHORT_EN: Record<string, string> = {
+  Sunday: "S", Monday: "M", Tuesday: "T", Wednesday: "W",
+  Thursday: "T", Friday: "F", Saturday: "S",
+};
+
 interface ClassPreferencesStepProps {
   config: SummerCourseFormConfig;
   lang: Lang;
@@ -104,12 +123,7 @@ export function ClassPreferencesStep({
             const name = lang === "zh" ? loc.name : loc.name_en;
             const addr =
               lang === "zh" ? loc.address : loc.address_en || loc.address;
-            const daysLabel =
-              lang === "zh"
-                ? loc.open_days_label ||
-                  loc.open_days.map((d) => dayLabel(d, lang)).join(", ")
-                : loc.open_days_label_en ||
-                  loc.open_days.map((d) => dayLabel(d, lang)).join(", ");
+            const openSet = new Set(loc.open_days);
             const selected = selectedLocation === loc.name;
             const branchImage = loc.image_url || BRANCH_IMAGES_FALLBACK[loc.name_en];
             return (
@@ -150,10 +164,36 @@ export function ClassPreferencesStep({
                     )}
                   </div>
                 )}
-                <div className="p-4 space-y-1">
+                <div className="p-4 space-y-2">
                   <div className="font-semibold text-sm flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    {name} ({daysLabel})
+                    {name}
+                  </div>
+                  {/* Open-days strip — replaces the old prose label. All 7
+                      days always shown so closed days read as "X day off"
+                      at a glance, mirroring a calendar header. */}
+                  <div className="flex items-center gap-1">
+                    {WEEK_DAY_ORDER.map((day) => {
+                      const isOpen = openSet.has(day);
+                      const label = lang === "zh" ? DAY_SHORT_ZH[day] : DAY_SHORT_EN[day];
+                      return (
+                        <span
+                          key={day}
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-semibold tabular-nums ${
+                            isOpen
+                              ? "bg-primary/15 text-primary"
+                              : "text-muted-foreground/35 line-through decoration-muted-foreground/30"
+                          }`}
+                          aria-label={`${dayLabel(day, lang)} ${
+                            isOpen
+                              ? lang === "zh" ? "開放" : "open"
+                              : lang === "zh" ? "休息" : "closed"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
                   </div>
                   <div className="text-xs text-muted-foreground">{addr}</div>
                 </div>

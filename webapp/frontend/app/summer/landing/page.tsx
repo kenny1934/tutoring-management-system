@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Plus, Minus } from "lucide-react";
+import { ArrowRight, Plus, Minus, Phone, Copy, Check } from "lucide-react";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseFormConfig, SummerLocation } from "@/types";
 import { getActiveSummerPromo, formatDateShort } from "@/lib/summer-utils";
@@ -179,6 +180,16 @@ const GENERAL_RULES = [
   "所有已繳續費恕不退還。",
 ];
 
+// Per-branch contact info — matched by Chinese name substring (admin can
+// rename name_en freely without breaking the lookup). Not in the config
+// schema yet; if more branches arrive, promote to a config field.
+type BranchContact = { phone: string; wechat: string };
+function getBranchContact(loc: SummerLocation): BranchContact | null {
+  if (loc.name.includes("華士古")) return { phone: "2835 3333", wechat: "MathConcept9" };
+  if (loc.name.includes("二龍喉")) return { phone: "6890 5098", wechat: "MathConcept10" };
+  return null;
+}
+
 const SUMMER_RULES = [
   "調堂每期（8堂/期）上限2堂。",
   "課堂有效期為學費期內，所有補堂須於報名年度8月內完成，已安排之補堂不得再次更改。",
@@ -247,6 +258,17 @@ export default function SummerLandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
+
+  const copyWechat = (id: string) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard.writeText(id).then(() => {
+      setCopiedWechat(id);
+      window.setTimeout(() => {
+        setCopiedWechat((curr) => (curr === id ? null : curr));
+      }, 1800);
+    });
+  };
 
   useEffect(() => {
     summerAPI
@@ -287,8 +309,6 @@ export default function SummerLandingPage() {
     config.course_start_date,
     LANG
   )} – ${formatDateShort(config.course_end_date, LANG)}`;
-
-  const totalHours = (config.total_lessons * 1.5).toFixed(0);
 
   return (
     // Escape SummerLayoutInner padding so we can do full-bleed bands
@@ -336,7 +356,7 @@ export default function SummerLandingPage() {
                 className="text-xl sm:text-2xl text-white/95 leading-relaxed"
                 style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 500 }}
               >
-                為 {gradeRange} 學生而設 · {config.total_lessons} 堂 · 共 {totalHours} 小時
+                為 {gradeRange} 學生而設
               </p>
               <p
                 className="text-sm sm:text-base text-[#F5C518] tracking-[0.2em]"
@@ -566,102 +586,24 @@ export default function SummerLandingPage() {
             </div>
           </Reveal>
 
-          {promo.groupFee !== null && (
+          {/* Early-bird urgency hook only — the full price breakdown lives
+              in the brand-designed poster section below, so a JSX promo card
+              here would just duplicate it. Keep the countdown so the time
+              pressure is visible at-a-glance. */}
+          {promo.ebActive && promo.daysUntilEb !== null && (
             <Reveal delay={350}>
-              <div className="mt-16 sm:mt-20 max-w-3xl mx-auto">
-                <div className="relative bg-[#FBF7F0] text-[#1A1614] p-8 sm:p-12">
-                  <CornerOrnament pos="tl" color="#B60D20" />
-                  <CornerOrnament pos="tr" color="#B60D20" />
-                  <CornerOrnament pos="bl" color="#B60D20" />
-                  <CornerOrnament pos="br" color="#B60D20" />
-
-                  <div className="text-center">
-                    <div
-                      className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#B60D20] text-[#F5C518] text-xs tracking-[0.3em] uppercase"
-                      style={{ fontFamily: "var(--font-serif-tc)" }}
-                    >
-                      早 鳥 優 惠 · Early Bird
-                    </div>
-                    {promo.ebActive && promo.daysUntilEb !== null && (
-                      <p
-                        className="mt-5 text-sm text-[#B60D20]"
-                        style={{ fontFamily: "var(--font-serif-tc)" }}
-                      >
-                        倒數{" "}
-                        <span className="text-2xl font-bold tabular-nums">
-                          {promo.daysUntilEb}
-                        </span>{" "}
-                        日 · 截止 {promo.ebDateFormatted}
-                      </p>
-                    )}
-
-                    <div className="mt-8">
-                      <p
-                        className="text-xs tracking-[0.4em] text-[#1A1614]/60 uppercase mb-3"
-                        style={{ fontFamily: "var(--font-serif-tc)" }}
-                      >
-                        三 人 同 行
-                      </p>
-                      <div className="flex items-baseline justify-center gap-3">
-                        <span
-                          className="text-6xl sm:text-7xl text-[#B60D20] tabular-nums leading-none"
-                          style={{
-                            fontFamily: "var(--font-serif-tc)",
-                            fontWeight: 800,
-                          }}
-                        >
-                          ${promo.groupFee?.toLocaleString()}
-                        </span>
-                        <div className="text-left">
-                          <div className="text-xs text-[#1A1614]/60 line-through tabular-nums">
-                            ${config.pricing_config.base_fee.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-[#B60D20] font-semibold mt-0.5">
-                            每人 / per person
-                          </div>
-                        </div>
-                      </div>
-                      {promo.groupSavings !== null && (
-                        <div className="mt-4 inline-block px-3 py-1 bg-[#F5C518] text-[#8a0a18] text-xs font-bold tracking-wider">
-                          省 ${promo.groupSavings} · SAVE ${promo.groupSavings}
-                        </div>
-                      )}
-                    </div>
-
-                    {promo.soloFee !== null && (
-                      <>
-                        <div className="my-7 flex items-center justify-center gap-3">
-                          <div className="h-px w-12 bg-[#1A1614]/15" />
-                          <span className="text-[10px] tracking-[0.3em] text-[#1A1614]/40">
-                            OR
-                          </span>
-                          <div className="h-px w-12 bg-[#1A1614]/15" />
-                        </div>
-                        <p
-                          className="text-xs tracking-[0.4em] text-[#1A1614]/60 uppercase mb-2"
-                          style={{ fontFamily: "var(--font-serif-tc)" }}
-                        >
-                          單 人 報 讀
-                        </p>
-                        <div className="flex items-baseline justify-center gap-2">
-                          <span
-                            className="text-3xl text-[#1A1614] tabular-nums"
-                            style={{
-                              fontFamily: "var(--font-serif-tc)",
-                              fontWeight: 700,
-                            }}
-                          >
-                            ${promo.soloFee.toLocaleString()}
-                          </span>
-                          {promo.soloSavings !== null && (
-                            <span className="text-xs text-[#B60D20] font-semibold">
-                              （省 ${promo.soloSavings}）
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
+              <div className="mt-14 sm:mt-16 flex justify-center">
+                <div
+                  className="inline-flex items-center gap-3 px-5 py-3 bg-[#F5C518] text-[#8a0a18]"
+                  style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+                >
+                  <span className="text-xs tracking-[0.3em] uppercase">早鳥倒數</span>
+                  <span className="text-2xl tabular-nums leading-none">
+                    {promo.daysUntilEb}
+                  </span>
+                  <span className="text-xs tracking-wider">
+                    日 · 截止 {promo.ebDateFormatted}
+                  </span>
                 </div>
               </div>
             </Reveal>
@@ -682,17 +624,8 @@ export default function SummerLandingPage() {
         <div className="max-w-4xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow zh="完整價目" />
+              <Eyebrow zh="收費及優惠" />
             </div>
-          </Reveal>
-
-          <Reveal delay={150}>
-            <h2
-              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
-              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
-            >
-              所有優惠一目了然
-            </h2>
           </Reveal>
 
           <Reveal delay={250}>
@@ -702,8 +635,10 @@ export default function SummerLandingPage() {
                   <Image
                     src="/summer/poster-pricing.jpg"
                     alt="完整價目表 · 三人同行優惠、單人報讀優惠及特別優惠"
-                    width={1080}
-                    height={1350}
+                    width={1600}
+                    height={2000}
+                    sizes="(min-width: 640px) 576px, 100vw"
+                    quality={90}
                     className="w-full h-auto block"
                   />
                   <CornerOrnament pos="tl" />
@@ -740,17 +675,12 @@ export default function SummerLandingPage() {
             </div>
           </Reveal>
 
-          <Reveal delay={150}>
-            <h2
-              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
-              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
-            >
-              就近選擇您的分校
-            </h2>
-          </Reveal>
-
-          <div className="mt-16 space-y-1">
-            {config.locations.map((loc: SummerLocation, i) => (
+          <div className="mt-12 space-y-1">
+            {config.locations.map((loc: SummerLocation, i) => {
+              // Phone numbers are not in the config schema yet, so map by
+              // location key. If we add more branches, move this to config.
+              const contact = getBranchContact(loc);
+              return (
               <Reveal key={loc.name} delay={200 + i * 100}>
                 <div className="group flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 hover:bg-white/50 transition-colors px-2 sm:px-4">
                   <span
@@ -783,6 +713,34 @@ export default function SummerLandingPage() {
                     >
                       {loc.address}
                     </p>
+                    {contact && (
+                      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                        <a
+                          href={`tel:${contact.phone.replace(/\s+/g, "")}`}
+                          className="inline-flex items-center gap-2 text-sm text-[#B60D20] hover:text-[#8a0a18] transition-colors"
+                          style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          <span className="tabular-nums tracking-wider">{contact.phone}</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => copyWechat(contact.wechat)}
+                          className="group/wc inline-flex items-center gap-2 text-sm text-[#B60D20] hover:text-[#8a0a18] transition-colors"
+                          style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
+                          aria-label={`複製微信號 ${contact.wechat}`}
+                          title={copiedWechat === contact.wechat ? "已複製" : "點擊複製"}
+                        >
+                          <WeChatIcon className="h-3.5 w-3.5" />
+                          <span className="tracking-wider">{contact.wechat}</span>
+                          {copiedWechat === contact.wechat ? (
+                            <Check className="h-3 w-3 text-[#B60D20]" />
+                          ) : (
+                            <Copy className="h-3 w-3 text-[#B60D20]/30 group-hover/wc:text-[#B60D20]/70 transition-colors" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {loc.open_days && loc.open_days.length > 0 && (
                     <div className="hidden sm:block text-right shrink-0">
@@ -799,7 +757,8 @@ export default function SummerLandingPage() {
                   )}
                 </div>
               </Reveal>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

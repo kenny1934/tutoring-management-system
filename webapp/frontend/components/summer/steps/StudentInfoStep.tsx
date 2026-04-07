@@ -156,7 +156,7 @@ export function StudentInfoStep({
               </div>
               <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
                 {t(
-                  config.text_content?.target_grades_zh || "升F1–F3",
+                  config.text_content?.target_grades_zh || "升中一至升中三",
                   config.text_content?.target_grades_en || "Pre-F1 to Pre-F3",
                   lang
                 )}
