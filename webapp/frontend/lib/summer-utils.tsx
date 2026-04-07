@@ -91,6 +91,15 @@ export function formatDate(dateStr: string, lang: Lang): string {
   });
 }
 
+/** Compact date for tight UI strips — drops the year and uses short months. */
+export function formatDateShort(dateStr: string, lang: Lang): string {
+  const d = new Date(dateStr + "T00:00:00");
+  if (lang === "zh") {
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 /** Common form input class (themed to match main app palette). */
 export const inputClass =
   "w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-base placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-colors duration-200";

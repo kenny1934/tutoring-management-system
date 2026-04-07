@@ -188,6 +188,69 @@ function Label({
 const inputClass =
   "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
+// Bilingual text field — paired ZH/EN inputs. Use multiline for textareas.
+function BilingualTextField({
+  label,
+  zhValue,
+  enValue,
+  onChangeZh,
+  onChangeEn,
+  placeholderZh,
+  placeholderEn,
+  disabled,
+  multiline,
+  minHeight = "40px",
+}: {
+  label: string;
+  zhValue: string;
+  enValue: string;
+  onChangeZh: (v: string) => void;
+  onChangeEn: (v: string) => void;
+  placeholderZh?: string;
+  placeholderEn?: string;
+  disabled?: boolean;
+  multiline?: boolean;
+  minHeight?: string;
+}) {
+  const textareaStyle = { minHeight };
+  const renderInput = (
+    value: string,
+    onChange: (v: string) => void,
+    placeholder?: string,
+  ) =>
+    multiline ? (
+      <AutoTextarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={inputClass}
+        style={textareaStyle}
+        disabled={disabled}
+      />
+    ) : (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={inputClass}
+        disabled={disabled}
+      />
+    );
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <Label>{label} (ZH)</Label>
+        {renderInput(zhValue, onChangeZh, placeholderZh)}
+      </div>
+      <div>
+        <Label>{label} (EN)</Label>
+        {renderInput(enValue, onChangeEn, placeholderEn)}
+      </div>
+    </div>
+  );
+}
+
 // Inline validation helper text
 function ValidationHint({ message }: { message: string | null }) {
   if (!message) return null;
@@ -363,6 +426,44 @@ export function SummerConfigEditor({
     return any ? courseIntro : null;
   }, [courseIntro]);
   const hasCourseIntro = normalizedCourseIntro !== null;
+
+  const updateIntroHeadline = useCallback((field: "zh" | "en", value: string) => {
+    setCourseIntro((prev) => ({
+      ...prev,
+      headline: {
+        zh: field === "zh" ? value : prev?.headline?.zh || "",
+        en: field === "en" ? value : prev?.headline?.en || "",
+      },
+    }));
+  }, []);
+  const updateIntroPhilosophy = useCallback((field: "zh" | "en", value: string) => {
+    setCourseIntro((prev) => ({
+      ...prev,
+      philosophy: {
+        zh: field === "zh" ? value : prev?.philosophy?.zh || "",
+        en: field === "en" ? value : prev?.philosophy?.en || "",
+      },
+    }));
+  }, []);
+  const updateIntroPillar = useCallback((idx: number, field: "zh" | "en", value: string) => {
+    setCourseIntro((prev) => {
+      const next = [...(prev?.pillars || [])];
+      next[idx] = { ...next[idx], [field]: value };
+      return { ...prev, pillars: next };
+    });
+  }, []);
+  const addIntroPillar = useCallback(() => {
+    setCourseIntro((prev) => ({
+      ...prev,
+      pillars: [...(prev?.pillars || []), { zh: "", en: "" }],
+    }));
+  }, []);
+  const removeIntroPillar = useCallback((idx: number) => {
+    setCourseIntro((prev) => ({
+      ...prev,
+      pillars: (prev?.pillars || []).filter((_, j) => j !== idx),
+    }));
+  }, []);
 
   // Dirty state tracking
   const [initialSnapshot, setInitialSnapshot] = useState("");
@@ -1673,48 +1774,27 @@ export function SummerConfigEditor({
       {/* Section: About this course (pitch block on Step 1) */}
       <Section
         title="About this course"
-        subtitle="Pitch block above the welcome card on Step 1"
+        subtitle="Pitch block below the welcome card on Step 1"
         status={{ filled: hasCourseIntro }}
         onOpen={() => setPreviewStep(1)}
       >
         <p className="text-xs text-muted-foreground mb-3">
-          Surfaces the course pitch (hero line, pillars, philosophy) on Step 1. Leave empty to hide the block entirely.
+          Surfaces the course pitch (hero line, pillars, philosophy) on Step 1. Leave every field empty to hide the block entirely.
         </p>
         <div className="space-y-5">
           <div>
             <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Hero line</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Headline (ZH)</Label>
-                <AutoTextarea
-                  value={courseIntro?.headline?.zh || ""}
-                  onChange={(e) =>
-                    setCourseIntro({
-                      ...courseIntro,
-                      headline: { zh: e.target.value, en: courseIntro?.headline?.en || "" },
-                    })
-                  }
-                  placeholder="暑假12個鐘，來年數學好輕鬆"
-                  className={`${inputClass} min-h-[40px]`}
-                  disabled={isReadOnly}
-                />
-              </div>
-              <div>
-                <Label>Headline (EN)</Label>
-                <AutoTextarea
-                  value={courseIntro?.headline?.en || ""}
-                  onChange={(e) =>
-                    setCourseIntro({
-                      ...courseIntro,
-                      headline: { zh: courseIntro?.headline?.zh || "", en: e.target.value },
-                    })
-                  }
-                  placeholder="12 Hours This Summer, An Easier Year Ahead"
-                  className={`${inputClass} min-h-[40px]`}
-                  disabled={isReadOnly}
-                />
-              </div>
-            </div>
+            <BilingualTextField
+              label="Headline"
+              zhValue={courseIntro?.headline?.zh || ""}
+              enValue={courseIntro?.headline?.en || ""}
+              onChangeZh={(v) => updateIntroHeadline("zh", v)}
+              onChangeEn={(v) => updateIntroHeadline("en", v)}
+              placeholderZh="暑假12個鐘，來年數學好輕鬆"
+              placeholderEn="12 Hours This Summer, An Easier Year Ahead"
+              disabled={isReadOnly}
+              multiline
+            />
           </div>
 
           <div>
@@ -1723,12 +1803,7 @@ export function SummerConfigEditor({
               {!isReadOnly && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setCourseIntro({
-                      ...courseIntro,
-                      pillars: [...(courseIntro?.pillars || []), { zh: "", en: "" }],
-                    })
-                  }
+                  onClick={addIntroPillar}
                   className="text-xs text-primary hover:text-primary-hover flex items-center gap-1"
                 >
                   <Plus className="h-3 w-3" /> Add pillar
@@ -1736,49 +1811,41 @@ export function SummerConfigEditor({
               )}
             </div>
             <div className="space-y-2">
-              {(courseIntro?.pillars || []).map((pillar, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={pillar.zh}
-                      onChange={(e) => {
-                        const next = [...(courseIntro?.pillars || [])];
-                        next[idx] = { ...next[idx], zh: e.target.value };
-                        setCourseIntro({ ...courseIntro, pillars: next });
-                      }}
-                      placeholder="熟悉來年重點"
-                      className={inputClass}
-                      disabled={isReadOnly}
-                    />
-                    <input
-                      type="text"
-                      value={pillar.en}
-                      onChange={(e) => {
-                        const next = [...(courseIntro?.pillars || [])];
-                        next[idx] = { ...next[idx], en: e.target.value };
-                        setCourseIntro({ ...courseIntro, pillars: next });
-                      }}
-                      placeholder="Preview next year's key topics"
-                      className={inputClass}
-                      disabled={isReadOnly}
-                    />
+              {(courseIntro?.pillars || []).map((pillar, idx) => {
+                const onlyOneSide = !!(pillar.zh.trim()) !== !!(pillar.en.trim());
+                return (
+                  <div key={idx} className="flex gap-2 items-start">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={pillar.zh}
+                        onChange={(e) => updateIntroPillar(idx, "zh", e.target.value)}
+                        placeholder="熟悉來年重點"
+                        className={`${inputClass} ${onlyOneSide && !pillar.zh.trim() ? "border-amber-300" : ""}`}
+                        disabled={isReadOnly}
+                      />
+                      <input
+                        type="text"
+                        value={pillar.en}
+                        onChange={(e) => updateIntroPillar(idx, "en", e.target.value)}
+                        placeholder="Preview next year's key topics"
+                        className={`${inputClass} ${onlyOneSide && !pillar.en.trim() ? "border-amber-300" : ""}`}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    {!isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => removeIntroPillar(idx)}
+                        className="p-2 text-muted-foreground hover:text-red-600"
+                        aria-label="Remove pillar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  {!isReadOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = (courseIntro?.pillars || []).filter((_, j) => j !== idx);
-                        setCourseIntro({ ...courseIntro, pillars: next });
-                      }}
-                      className="p-2 text-muted-foreground hover:text-red-600"
-                      aria-label="Remove pillar"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
               {(courseIntro?.pillars || []).length === 0 && (
                 <p className="text-xs text-muted-foreground italic">No pillars added yet.</p>
               )}
@@ -1787,38 +1854,18 @@ export function SummerConfigEditor({
 
           <div>
             <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-2">Philosophy paragraph</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Philosophy (ZH)</Label>
-                <AutoTextarea
-                  value={courseIntro?.philosophy?.zh || ""}
-                  onChange={(e) =>
-                    setCourseIntro({
-                      ...courseIntro,
-                      philosophy: { zh: e.target.value, en: courseIntro?.philosophy?.en || "" },
-                    })
-                  }
-                  placeholder="中學數學課題抽象，題型多元，理解比死記更重要，思維比計算更關鍵⋯"
-                  className={`${inputClass} min-h-[80px]`}
-                  disabled={isReadOnly}
-                />
-              </div>
-              <div>
-                <Label>Philosophy (EN)</Label>
-                <AutoTextarea
-                  value={courseIntro?.philosophy?.en || ""}
-                  onChange={(e) =>
-                    setCourseIntro({
-                      ...courseIntro,
-                      philosophy: { zh: courseIntro?.philosophy?.zh || "", en: e.target.value },
-                    })
-                  }
-                  placeholder="Secondary math is abstract and varied..."
-                  className={`${inputClass} min-h-[80px]`}
-                  disabled={isReadOnly}
-                />
-              </div>
-            </div>
+            <BilingualTextField
+              label="Philosophy"
+              zhValue={courseIntro?.philosophy?.zh || ""}
+              enValue={courseIntro?.philosophy?.en || ""}
+              onChangeZh={(v) => updateIntroPhilosophy("zh", v)}
+              onChangeEn={(v) => updateIntroPhilosophy("en", v)}
+              placeholderZh="中學數學課題抽象，題型多元，理解比死記更重要，思維比計算更關鍵⋯"
+              placeholderEn="Secondary math is abstract and varied..."
+              disabled={isReadOnly}
+              multiline
+              minHeight="80px"
+            />
           </div>
         </div>
       </Section>

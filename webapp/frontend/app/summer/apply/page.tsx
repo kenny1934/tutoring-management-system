@@ -90,6 +90,16 @@ export default function SummerApplyPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Title used to live as a prominent <h1> inside Step 1. We demoted that
+  // zone and now surface it as the browser tab title instead, so the form
+  // layout stays calm while the brand/year is still visible in the tab bar.
+  useEffect(() => {
+    if (!config) return;
+    const zhTitle = config.text_content?.title_zh || config.title;
+    const enTitle = config.text_content?.title_en || config.title;
+    document.title = `${lang === "zh" ? zhTitle : enTitle} | MathConcept`;
+  }, [config, lang]);
+
   const draftKey = config ? `summer-apply-draft-${config.year}` : null;
 
   // Read any saved draft once per year-scoped key. The parsed payload is held
