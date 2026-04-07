@@ -125,7 +125,7 @@ function PrimaryCTA({ size = "md" }: { size?: "md" | "lg" }) {
       className={`group relative inline-flex items-center gap-3 ${padding} bg-[#F5C518] text-[#8a0a18] font-bold tracking-wider hover:bg-[#FFD23F] transition-all duration-300 shadow-[0_8px_30px_rgba(245,197,24,0.35)] hover:shadow-[0_12px_40px_rgba(245,197,24,0.55)] hover:-translate-y-0.5`}
       style={{ fontFamily: "var(--font-serif-tc)" }}
     >
-      <span className="relative z-10">立 即 報 名</span>
+      <span className="relative z-10">立 即 留 位</span>
       <ArrowRight className="h-5 w-5 relative z-10 transition-transform group-hover:translate-x-1" />
       <span className="absolute top-0 left-0 w-3 h-3 border-t border-l border-[#8a0a18]/40" />
       <span className="absolute top-0 right-0 w-3 h-3 border-t border-r border-[#8a0a18]/40" />
@@ -157,11 +157,11 @@ const FAQS = [
   },
   {
     q: "如需更改上課時間，該怎麼辦？",
-    a: "請聯絡您所選的分校，我們會盡力協助調整。建議於遞交意向表時，預留一個後備時段選擇，方便我們安排。",
+    a: "請聯絡您所選的分校，我們會盡力協助調整。建議填寫意向表時，填上未能上課的日子，以及第二志願時段，以便安排最合適的班別。",
   },
   {
     q: "是否提供試堂服務？",
-    a: "暑期中學班並不設個別試堂，但歡迎家長隨時聯絡分校查詢課程內容、教學風格及師資詳情，我們會詳細為您解答。",
+    a: "暑期中學班不設試堂，但歡迎家長隨時聯絡分校查詢課程安排，我們會詳細為您解答。",
   },
 ];
 
@@ -189,6 +189,15 @@ function getBranchContact(loc: SummerLocation): BranchContact | null {
   if (loc.name.includes("二龍喉")) return { phone: "6890 5098", wechat: "MathConcept10" };
   return null;
 }
+
+// Calendar-style header for the open-days strip on each branch card.
+const WEEK_DAY_ORDER = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+] as const;
+const DAY_SHORT_ZH: Record<string, string> = {
+  Sunday: "日", Monday: "一", Tuesday: "二", Wednesday: "三",
+  Thursday: "四", Friday: "五", Saturday: "六",
+};
 
 const SUMMER_RULES = [
   "調堂每期（8堂/期）上限2堂。",
@@ -256,7 +265,7 @@ function FaqItem({
 export default function SummerLandingPage() {
   const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
 
@@ -438,7 +447,6 @@ export default function SummerLandingPage() {
                         {p.zh}
                       </p>
                     </div>
-                    <span className="absolute top-3 right-3 w-2 h-2 border-t border-r border-[#B60D20]/30" />
                   </div>
                 </Reveal>
               ))}
@@ -448,12 +456,6 @@ export default function SummerLandingPage() {
           {philosophy && (
             <Reveal delay={700}>
               <div className="mt-20 sm:mt-24 max-w-3xl mx-auto text-center relative">
-                <span
-                  className="absolute -top-8 left-1/2 -translate-x-1/2 text-7xl text-[#B60D20]/15 leading-none select-none"
-                  style={{ fontFamily: "var(--font-serif-tc)" }}
-                >
-                  「
-                </span>
                 <p
                   className="relative text-lg sm:text-xl text-[#1A1614]/85 leading-[2]"
                   style={{
@@ -514,12 +516,6 @@ export default function SummerLandingPage() {
                   <CornerOrnament pos="br" />
                 </div>
               </div>
-              <p
-                className="mt-5 text-center text-sm text-[#1A1614]/55 italic"
-                style={{ fontFamily: "var(--font-serif-tc)" }}
-              >
-                由 MathConcept 教研團隊精心編製
-              </p>
             </div>
           </Reveal>
         </div>
@@ -549,25 +545,14 @@ export default function SummerLandingPage() {
           <Reveal delay={150}>
             <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-y-12 md:gap-y-0 md:divide-x md:divide-white/15">
               {[
-                { en: "Grades", zh: "對象", value: gradeRange },
-                { en: "Dates", zh: "日期", value: dateRange },
-                {
-                  en: "Lessons",
-                  zh: "課堂",
-                  value: `${config.total_lessons} 堂 · 90 分鐘`,
-                },
-                {
-                  en: "Original",
-                  zh: "原價",
-                  value: `$${config.pricing_config.base_fee.toLocaleString()}`,
-                },
+                { zh: "對象", value: gradeRange },
+                { zh: "日期", value: dateRange },
+                { zh: "課堂", value: `${config.total_lessons} 堂 · 90 分鐘` },
+                { zh: "原價", value: `$${config.pricing_config.base_fee.toLocaleString()}` },
               ].map((f, i) => (
                 <div key={i} className="text-center md:px-4">
-                  <div className="text-[10px] tracking-[0.4em] text-[#F5C518] uppercase mb-2">
-                    {f.en}
-                  </div>
                   <div
-                    className="text-xs tracking-[0.3em] text-white/60 mb-3"
+                    className="text-xs tracking-[0.4em] text-[#F5C518] mb-3"
                     style={{ fontFamily: "var(--font-serif-tc)" }}
                   >
                     {f.zh}
@@ -680,6 +665,7 @@ export default function SummerLandingPage() {
               // Phone numbers are not in the config schema yet, so map by
               // location key. If we add more branches, move this to config.
               const contact = getBranchContact(loc);
+              const openSet = new Set(loc.open_days || []);
               return (
               <Reveal key={loc.name} delay={200 + i * 100}>
                 <div className="group flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 hover:bg-white/50 transition-colors px-2 sm:px-4">
@@ -706,6 +692,29 @@ export default function SummerLandingPage() {
                       <p className="text-[11px] tracking-[0.3em] text-[#B60D20]/70 uppercase mt-1">
                         {loc.name_en}
                       </p>
+                    )}
+                    {/* 7-day open strip — closed days ghosted with strikethrough,
+                        same pattern as the apply form's branch cards. */}
+                    {loc.open_days && loc.open_days.length > 0 && (
+                      <div className="mt-3 flex items-center gap-1">
+                        {WEEK_DAY_ORDER.map((day) => {
+                          const isOpen = openSet.has(day);
+                          return (
+                            <span
+                              key={day}
+                              className={`inline-flex items-center justify-center w-6 h-6 text-[11px] tabular-nums ${
+                                isOpen
+                                  ? "bg-[#B60D20]/10 text-[#B60D20] font-semibold"
+                                  : "text-[#1A1614]/30 line-through decoration-[#1A1614]/25"
+                              }`}
+                              style={{ fontFamily: "var(--font-serif-tc)" }}
+                              aria-label={`星期${DAY_SHORT_ZH[day]} ${isOpen ? "開放" : "休息"}`}
+                            >
+                              {DAY_SHORT_ZH[day]}
+                            </span>
+                          );
+                        })}
+                      </div>
                     )}
                     <p
                       className="mt-3 text-sm sm:text-base text-[#1A1614]/70 leading-relaxed"
@@ -742,19 +751,6 @@ export default function SummerLandingPage() {
                       </div>
                     )}
                   </div>
-                  {loc.open_days && loc.open_days.length > 0 && (
-                    <div className="hidden sm:block text-right shrink-0">
-                      <p className="text-[10px] tracking-[0.3em] text-[#1A1614]/40 uppercase mb-1">
-                        Open
-                      </p>
-                      <p
-                        className="text-sm text-[#1A1614]/70"
-                        style={{ fontFamily: "var(--font-serif-tc)" }}
-                      >
-                        {loc.open_days.join(" · ")}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </Reveal>
               );
@@ -772,15 +768,6 @@ export default function SummerLandingPage() {
             <div className="text-center text-[#B60D20]">
               <Eyebrow zh="常見問題" />
             </div>
-          </Reveal>
-
-          <Reveal delay={150}>
-            <h2
-              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
-              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
-            >
-              家長最關心的事
-            </h2>
           </Reveal>
 
           <Reveal delay={250}>
@@ -811,15 +798,6 @@ export default function SummerLandingPage() {
             <div className="text-center text-[#B60D20]">
               <Eyebrow zh="課堂須知" />
             </div>
-          </Reveal>
-
-          <Reveal delay={150}>
-            <h2
-              className="mt-8 text-center text-3xl sm:text-4xl text-[#1A1614]"
-              style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
-            >
-              家長須知
-            </h2>
           </Reveal>
 
           <Reveal delay={250}>
@@ -899,12 +877,6 @@ export default function SummerLandingPage() {
         />
 
         <div className="relative max-w-3xl mx-auto px-6 text-center">
-          <Reveal>
-            <div className="text-[#F5C518]">
-              <Eyebrow zh="📩 立即留言【暑假】" />
-            </div>
-          </Reveal>
-
           <Reveal delay={150}>
             <h2
               className="mt-10 text-3xl sm:text-4xl md:text-5xl leading-[1.5] text-white"
