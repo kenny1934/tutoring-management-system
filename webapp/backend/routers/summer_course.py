@@ -223,10 +223,15 @@ def _write_status_audit(
     ))
 
 
-def _assert_buddy_group_not_full(db: Session, group_id: int) -> None:
-    """Raise 400 if a buddy group has reached PUBLIC_BUDDY_GROUP_CAP. Locks the row."""
+def _assert_buddy_group_has_room(db: Session, group_id: int, *, headroom: int = 1) -> None:
+    """Raise 400 if adding `headroom` members would exceed PUBLIC_BUDDY_GROUP_CAP.
+
+    Acquires a row lock on the buddy group so concurrent declarations serialize.
+    The lock is held until the calling request commits, so callers must do the
+    insert + commit in the same transaction as this check.
+    """
     db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).with_for_update().first()
-    if _get_buddy_member_count(db, group_id) >= PUBLIC_BUDDY_GROUP_CAP:
+    if _get_buddy_member_count(db, group_id) + headroom > PUBLIC_BUDDY_GROUP_CAP:
         raise HTTPException(
             status_code=400,
             detail=f"Group is full (max {PUBLIC_BUDDY_GROUP_CAP} members). Please create a new group or contact us for help.",
@@ -350,14 +355,18 @@ def submit_application(
             detail="An application for this student has already been submitted from this phone number. Please use the status page to edit it.",
         )
 
-    # Handle buddy code: join existing group or leave as None
+    # Handle buddy code: join existing group or leave as None.
+    # If a sibling is also being declared, we need room for both — pre-flight
+    # the cap with both new members so we never end up in a state where the
+    # app is committed but the sibling step fails.
     buddy_group_id = None
     buddy_code_out = None
+    needs_sibling_slot = bool(data.declared_sibling)
     if data.buddy_code:
         group = _lookup_buddy_group(db, data.buddy_code, config)
         if not group:
             raise HTTPException(status_code=400, detail="Invalid buddy code")
-        _assert_buddy_group_not_full(db, group.id)
+        _assert_buddy_group_has_room(db, group.id, headroom=2 if needs_sibling_slot else 1)
         buddy_group_id = group.id
         buddy_code_out = group.buddy_code
 
@@ -401,9 +410,12 @@ def submit_application(
         raise HTTPException(status_code=500, detail="Could not generate unique reference code")
 
     # Self-declared sibling (optional). Requires a buddy group; silently
-    # ignored otherwise so stale UI state can't block the submission.
+    # ignored otherwise so stale UI state can't block the submission. The
+    # cap was already pre-flighted above with headroom=2 when a sibling was
+    # declared, so this is the second-line defense against concurrent races
+    # — it re-acquires the row lock and re-counts.
     if data.declared_sibling and app.buddy_group_id:
-        _assert_buddy_group_not_full(db, app.buddy_group_id)
+        _assert_buddy_group_has_room(db, app.buddy_group_id, headroom=1)
         db.add(_create_sibling_member(app, data.declared_sibling, config.year))
         db.commit()
 
@@ -517,7 +529,7 @@ def _get_buddy_siblings_bulk(
 def _validate_primary_branch(branch: str) -> str:
     code = (branch or "").strip().upper()
     if code not in PRIMARY_BRANCH_CODES:
-        raise HTTPException(status_code=400, detail="Invalid primary branch")
+        raise HTTPException(status_code=400, detail=f"Invalid primary branch: {code or '(empty)'}")
     return code
 
 
@@ -580,7 +592,7 @@ def change_buddy_group(
             raise HTTPException(status_code=400, detail="Invalid buddy code")
         # Don't count the applicant if they are already in this same group (no-op join)
         if app.buddy_group_id != group.id:
-            _assert_buddy_group_not_full(db, group.id)
+            _assert_buddy_group_has_room(db, group.id)
         app.buddy_group_id = group.id
         app.buddy_referrer_name = data.buddy_referrer_name
         app.buddy_names = None
@@ -643,8 +655,13 @@ def get_buddy_group(
         raise HTTPException(status_code=404, detail="Buddy group not found")
 
     count = _get_buddy_member_count(db, group.id)
-    # Sibling names are PII; only the authenticated status endpoint returns
-    # them. Anyone with the code can hit this lookup.
+    # Anyone holding the code can hit this endpoint. Exposing the exact member
+    # count is intentional: the apply form needs it to render "X members joined"
+    # and to show whether the buddy discount threshold has been reached. This
+    # is a deliberate trade-off — the codes are 6 random chars (~887M space)
+    # and the endpoint is rate-limited, so the enumeration risk is theoretical.
+    # Sibling NAMES are still hidden (only the authenticated status endpoint
+    # returns them).
     return SummerBuddyGroupPublicResponse(
         buddy_code=group.buddy_code,
         member_count=count,
@@ -686,7 +703,7 @@ def declare_sibling(
             status_code=400,
             detail="Join or create a buddy group before declaring a sibling.",
         )
-    _assert_buddy_group_not_full(db, app.buddy_group_id)
+    _assert_buddy_group_has_room(db, app.buddy_group_id)
     member = _create_sibling_member(app, data, app.config.year if app.config else hk_now().year)
     db.add(member)
     db.commit()
@@ -718,6 +735,11 @@ def remove_sibling(
             status_code=400,
             detail="Confirmed siblings cannot be removed by the parent. Please contact us.",
         )
+    # Authorization invariant: even though every member of the buddy group
+    # could in principle hit this endpoint with their own ref code + phone,
+    # only the applicant who originally declared the sibling may remove them.
+    # Do not loosen this — the declaring applicant is the source of truth for
+    # the relationship and should be the one to retract it.
     if member.declared_by_application_id != app.id:
         raise HTTPException(
             status_code=403,

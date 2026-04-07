@@ -2193,7 +2193,8 @@ class SummerBuddyChangeResponse(BaseModel):
 
 
 class SummerBuddyGroupPublicResponse(BaseModel):
-    """Public buddy-group lookup response (no PII)."""
+    """Public buddy-group lookup response (no PII; member count is exposed
+    intentionally — see the get_buddy_group route for the trade-off rationale)."""
     buddy_code: str
     member_count: int
     is_full: bool
