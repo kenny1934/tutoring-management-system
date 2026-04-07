@@ -47,10 +47,10 @@ RATE_LIMITS = {
     # Public endpoints - IP-based, prevent scraping
     "report_share_view": {"limit": 30, "window": 60},   # 30 views/min per IP
     # Summer course public endpoints
-    "summer_apply": {"limit": 3, "window": 600},        # 3 submissions/10min
+    "summer_apply": {"limit": 10, "window": 600},       # 10 submissions/10min — raised from 3 to tolerate shared school/office wifi
     "summer_edit": {"limit": 30, "window": 600},        # 30 self-edits/10min (typo fixes etc.)
     "summer_config": {"limit": 30, "window": 60},       # 30 config reads/min
-    "summer_status": {"limit": 10, "window": 60},       # 10 status checks/min
+    "summer_status": {"limit": 30, "window": 60},       # 30 status checks/min — raised from 10 for shared-IP audiences
     "summer_buddy": {"limit": 10, "window": 60},        # 10 buddy ops/min
 
     # Buddy tracker endpoints (verify_pin keys are per-branch via f"buddy_verify_pin:{branch}")

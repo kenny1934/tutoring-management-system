@@ -86,7 +86,7 @@ jobs:
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-backend/tutoring-backend:latest \
             --region asia-east2 \
             --project csm-database-project \
-            --max-instances=1 \
+            --max-instances=3 \
             --timeout=900 \
             --memory=512Mi \
             --cpu=1 \
@@ -123,7 +123,7 @@ jobs:
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest \
             --region asia-east2 \
             --project csm-database-project \
-            --max-instances=1 \
+            --max-instances=3 \
             --timeout=60 \
             --memory=256Mi \
             --cpu=1 \
