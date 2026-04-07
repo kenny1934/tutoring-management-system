@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Smartphone, Phone, BadgePercent, Plus, X, Info } from "lucide-react";
+import { Phone, BadgePercent, Plus, X, Info } from "lucide-react";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import type { SummerCourseFormConfig, SummerSiblingDeclaration } from "@/types";
 import {
   type Lang,
@@ -82,7 +83,7 @@ export function ContactBuddyStep({
       <div className={sectionClass}>
         <div>
           <label className={labelClass}>
-            <IconLabel icon={Smartphone}>
+            <IconLabel icon={WeChatIcon}>
               {t(
                 config?.text_content?.wechat_prompt_zh || "我們會在微信給您發放上課的信息，請提供微信號。",
                 config?.text_content?.wechat_prompt_en || "We will send you the class information via WeChat. Please provide your WeChat ID.",

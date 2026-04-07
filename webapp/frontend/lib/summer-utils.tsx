@@ -120,12 +120,14 @@ export const RadioCheck = () => (
   </span>
 );
 
-/** Icon + label pattern for form field labels. */
+/** Icon + label pattern for form field labels.
+ *  Accepts any component that takes a `className` prop, so custom SVG icons
+ *  (e.g. brand glyphs) work alongside lucide-react icons. */
 export function IconLabel({
   icon: Icon,
   children,
 }: {
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }) {
   return (

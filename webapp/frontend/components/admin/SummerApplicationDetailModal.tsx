@@ -26,6 +26,7 @@ import type {
   SiblingVerificationStatus,
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -38,7 +39,7 @@ const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Paid":                ["Enrolled"],
 };
 
-function FieldValue({ label, value, mono, copyable }: { label: string; value?: string | null; mono?: boolean; copyable?: boolean }) {
+function FieldValue({ label, value, mono, copyable }: { label: React.ReactNode; value?: string | null; mono?: boolean; copyable?: boolean }) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   if (!value) return null;
@@ -959,7 +960,10 @@ export function SummerApplicationDetailModal({
                   <input type="text" value={dSchool} onChange={(e) => setDSchool(e.target.value)} className={inputClass} />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-[10px] text-muted-foreground mb-0.5">WeChat ID</label>
+                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
+                    <WeChatIcon className="h-3 w-3 text-green-600" />
+                    WeChat ID
+                  </label>
                   <input type="text" value={dWechat} onChange={(e) => setDWechat(e.target.value)} className={inputClass} />
                 </div>
               </div>
@@ -1033,7 +1037,11 @@ export function SummerApplicationDetailModal({
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Contact</div>
-                <FieldValue label="WeChat" value={app.wechat_id} copyable />
+                <FieldValue
+                  label={<span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span>}
+                  value={app.wechat_id}
+                  copyable
+                />
                 <FieldValue label="Phone" value={app.contact_phone} copyable />
               </div>
             </div>

@@ -12,6 +12,7 @@ import type {
 import { type Lang, t, inputClass, dayLabel, labelForOption, frequencyLabel } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { Users, Plus, X, Pencil, Lock } from "lucide-react";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 
 type EditSection = "background" | "preferences" | null;
@@ -515,7 +516,8 @@ export default function SummerStatusPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-[11px] text-muted-foreground mb-1">
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                    <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
                     WeChat ID
                   </label>
                   <input
@@ -548,7 +550,10 @@ export default function SummerStatusPage() {
                 <dd className="text-foreground">{result.school || "—"}</dd>
                 <dt className="text-muted-foreground">{t("授課語言", "Language Stream", lang)}</dt>
                 <dd className="text-foreground">{labelForOption(formConfig?.lang_stream_options, result.lang_stream, lang)}</dd>
-                <dt className="text-muted-foreground">WeChat</dt>
+                <dt className="text-muted-foreground inline-flex items-center gap-1">
+                  <WeChatIcon className="h-3 w-3 text-green-600" />
+                  WeChat
+                </dt>
                 <dd className="text-foreground">{result.wechat_id || "—"}</dd>
               </dl>
             )}
