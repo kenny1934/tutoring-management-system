@@ -129,7 +129,13 @@ export function ReviewSubmitStep({
           )}
           <SummaryRow
             label={t("現有學生", "Existing Student", lang)}
-            value={isExistingStudent}
+            value={(() => {
+              const opt = config.existing_student_options?.find(
+                (o) => (o.value || o.name_en) === isExistingStudent
+              );
+              if (!opt) return isExistingStudent;
+              return lang === "zh" ? opt.name : opt.name_en;
+            })()}
           />
           {currentCenters.length > 0 && (
             <SummaryRow
