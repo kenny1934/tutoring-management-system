@@ -20,7 +20,13 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const isPublicSubdomain = typeof window !== 'undefined' &&
     (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.'));
 
-  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer")) {
+  // /apply and /status are clean URLs served on summer.* via middleware rewrite —
+  // include them so SSR skips the admin shell before hydration sees the hostname.
+  const isCleanPublicPath =
+    pathname === "/apply" || pathname?.startsWith("/apply/") ||
+    pathname === "/status" || pathname?.startsWith("/status/");
+
+  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer") || isCleanPublicPath) {
     return <>{children}</>;
   }
 

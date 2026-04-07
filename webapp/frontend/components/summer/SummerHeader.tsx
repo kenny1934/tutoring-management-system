@@ -21,7 +21,14 @@ export function SummerHeader() {
 
   const isBuddyPage = pathname.startsWith("/summer/buddy") ||
     (typeof window !== 'undefined' && window.location.hostname.startsWith('buddy.'));
-  const isPublicPage = pathname.startsWith("/summer/apply") || pathname.startsWith("/summer/status");
+  // Public apply/status pages are now served at clean URLs (/apply, /status)
+  // on the summer.* subdomain via middleware rewrite. usePathname() returns the
+  // visible URL, not the rewrite target, so we must match both shapes.
+  const isPublicPage =
+    pathname.startsWith("/summer/apply") ||
+    pathname.startsWith("/summer/status") ||
+    pathname === "/apply" || pathname.startsWith("/apply/") ||
+    pathname === "/status" || pathname.startsWith("/status/");
   const isInternalPage = isProspectSubdomain || isBuddyPage || !isPublicPage;
 
   // On the public apply / status pages the original marketing banner is split
