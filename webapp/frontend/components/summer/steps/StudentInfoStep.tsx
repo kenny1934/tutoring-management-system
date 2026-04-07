@@ -40,6 +40,10 @@ interface StudentInfoStepProps {
   setGrade: (v: string) => void;
   langStream: string;
   setLangStream: (v: string) => void;
+  /** When true, render the promo in its expanded state so the admin config
+   *  preview can show the full content (the preview wrapper disables
+   *  pointer events, so the normal tap-to-expand affordance is dead). */
+  previewMode?: boolean;
 }
 
 export function StudentInfoStep({
@@ -53,6 +57,7 @@ export function StudentInfoStep({
   setGrade,
   langStream,
   setLangStream,
+  previewMode = false,
 }: StudentInfoStepProps) {
   const hasLangStream = !!(config.lang_stream_options && config.lang_stream_options.length > 0);
   const pricing = config.pricing_config;
@@ -72,7 +77,8 @@ export function StudentInfoStep({
   const introPhilosophy = intro?.philosophy;
   const hasIntro = !!(introHeadline || introPillars.length > 0 || introPhilosophy);
 
-  const [promoExpanded, setPromoExpanded] = useState(false);
+  const [promoExpandedState, setPromoExpanded] = useState(false);
+  const promoExpanded = previewMode || promoExpandedState;
 
   // Biggest dollar savings hook for the collapsed promo summary line.
   const topSavings = groupSavings ?? soloSavings ?? null;

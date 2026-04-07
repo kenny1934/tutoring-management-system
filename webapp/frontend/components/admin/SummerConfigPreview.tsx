@@ -85,6 +85,7 @@ function PreviewStepBody({
           setGrade={FROZEN_SETTERS.setGrade}
           langStream={form.langStream}
           setLangStream={FROZEN_SETTERS.setLangStream}
+          previewMode
         />
       );
     case 2:
