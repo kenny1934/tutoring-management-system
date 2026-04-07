@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -24,6 +25,30 @@ const SWR_CONFIG = {
   keepPreviousData: true, // Show stale data while revalidating
 };
 
+/** Hides admin-only floating widgets (command palette, zen, exercise clipboard)
+ *  on the public-facing summer/prospect/buddy subdomains and on the clean
+ *  public URLs (/apply, /status, /summer/*) — these widgets opened on the
+ *  deployed apply form via Ctrl+K, leaking admin functionality to parents. */
+function AdminOnly({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => {
+    const host = window.location.hostname;
+    const onPublicSubdomain =
+      host.startsWith("summer.") ||
+      host.startsWith("prospect.") ||
+      host.startsWith("buddy.");
+    const onPublicPath =
+      pathname === "/apply" || pathname?.startsWith("/apply/") ||
+      pathname === "/status" || pathname?.startsWith("/status/") ||
+      pathname?.startsWith("/summer/") ||
+      (onPublicSubdomain && pathname === "/");
+    setAllowed(!onPublicSubdomain && !onPublicPath);
+  }, [pathname]);
+  if (!allowed) return null;
+  return <>{children}</>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SWRConfig value={SWR_CONFIG}>
@@ -38,10 +63,12 @@ export function Providers({ children }: { children: ReactNode }) {
                       <PageErrorBoundary>
                         {children}
                       </PageErrorBoundary>
-                      <CommandPalette />
-                      <ZenActivator />
+                      <AdminOnly>
+                        <CommandPalette />
+                        <ZenActivator />
+                        <ExerciseClipboardWidget />
+                      </AdminOnly>
                       <OfflineBanner />
-                      <ExerciseClipboardWidget />
                     </ToastProvider>
                   </CommandPaletteProvider>
                 </ZenProvider>
