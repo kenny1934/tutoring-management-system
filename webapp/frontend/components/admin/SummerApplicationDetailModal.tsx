@@ -12,6 +12,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
@@ -518,6 +519,7 @@ export function SummerApplicationDetailModal({
   };
 
   const { pref1, pref2 } = formatPreferences(app);
+  const classifiedPrefs = classifyPrefs(app);
   const submittedDate = app.submitted_at ? parseHKTimestamp(app.submitted_at).toLocaleString() : "—";
   const reviewedDate = app.reviewed_at ? parseHKTimestamp(app.reviewed_at).toLocaleString() : null;
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
@@ -1085,7 +1087,7 @@ export function SummerApplicationDetailModal({
           )}
 
           {/* Schedule Preferences */}
-          {(pref1 || pref2 || app.unavailability_notes || (app.sessions_per_week ?? 1) > 1) && (
+          {(classifiedPrefs.primary.length > 0 || classifiedPrefs.backup.length > 0 || app.unavailability_notes || (app.sessions_per_week ?? 1) > 1) && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg shrink-0">
                 <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -1097,17 +1099,40 @@ export function SummerApplicationDetailModal({
                     {app.sessions_per_week}× per week
                   </div>
                 )}
-                {pref1 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
-                    <span className="text-sm font-medium text-foreground">{pref1}</span>
-                  </div>
-                )}
-                {pref2 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground w-6 shrink-0">2nd</span>
-                    <span className="text-sm font-medium text-foreground">{pref2}</span>
-                  </div>
+                {classifiedPrefs.isPair ? (
+                  <>
+                    {classifiedPrefs.primary.length > 0 && (
+                      <div className="mt-1">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Primary pair</div>
+                        {classifiedPrefs.primary.map((s, i) => (
+                          <div key={`p-${i}`} className="text-sm font-medium text-foreground">{s.day} {s.time}</div>
+                        ))}
+                      </div>
+                    )}
+                    {classifiedPrefs.backup.length > 0 && (
+                      <div className="mt-1">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Backup pair</div>
+                        {classifiedPrefs.backup.map((s, i) => (
+                          <div key={`b-${i}`} className="text-sm font-medium text-foreground">{s.day} {s.time}</div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {pref1 && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
+                        <span className="text-sm font-medium text-foreground">{pref1}</span>
+                      </div>
+                    )}
+                    {pref2 && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground w-6 shrink-0">2nd</span>
+                        <span className="text-sm font-medium text-foreground">{pref2}</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {app.unavailability_notes && (
                   <div className="text-xs text-red-500 dark:text-red-400 mt-1">Unavailable: {app.unavailability_notes}</div>
