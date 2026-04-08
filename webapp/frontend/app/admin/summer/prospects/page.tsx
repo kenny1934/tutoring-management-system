@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -522,7 +522,7 @@ export default function AdminProspectsPage() {
 
   // Fetch available years from summer configs
   const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
-  const availableYears = configs?.map((c) => c.year).sort((a, b) => b - a) ?? [];
+  const availableYears = useMemo(() => configs?.map((c) => c.year).sort((a, b) => b - a) ?? [], [configs]);
 
   // Default to active config's year
   useEffect(() => {
@@ -557,14 +557,14 @@ export default function AdminProspectsPage() {
     { revalidateOnFocus: false }
   );
 
-  // Sync modal with refreshed list data after save (prospects-only dep to avoid update loop)
+  // Sync modal with refreshed list data after save. Ref is updated in an effect
+  // (not during render) so the prospects-only dep below stays valid.
   const selectedProspectRef = useRef(selectedProspect);
-  selectedProspectRef.current = selectedProspect;
+  useEffect(() => { selectedProspectRef.current = selectedProspect; }, [selectedProspect]);
   useEffect(() => {
     if (!selectedProspectRef.current || !prospects) return;
     const updated = prospects.find((p) => p.id === selectedProspectRef.current!.id);
     if (updated) setSelectedProspect(updated);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prospects]);
 
   // Counts per secondary branch from the server-filtered set (before client choice filter)
@@ -635,10 +635,12 @@ export default function AdminProspectsPage() {
     { revalidateOnFocus: false }
   );
 
+  // Stable: matches any current admin-prospects list key + the stats key for any year.
+  // Stable identity matters because handleInlineUpdate flows into the memoized ProspectRow.
   const refresh = useCallback(() => {
-    if (swrKey) globalMutate(swrKey);
-    globalMutate(`admin-prospect-stats-${year}`);
-  }, [swrKey, year]);
+    globalMutate((key) => Array.isArray(key) && key[0] === "admin-prospects");
+    globalMutate((key) => typeof key === "string" && key.startsWith("admin-prospect-stats-"));
+  }, []);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -747,6 +749,52 @@ export default function AdminProspectsPage() {
     setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" }));
   }, []);
 
+  // Active filter chip descriptors (for the chip strip above the table)
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    if (filters.search) chips.push({
+      key: "search",
+      label: `"${filters.search}"`,
+      onRemove: () => { setSearchInput(""); setFilters((f) => ({ ...f, search: "" })); },
+    });
+    if (filters.branch) chips.push({
+      key: "branch",
+      label: `Branch: ${filters.branch}`,
+      onRemove: () => setFilters((f) => ({ ...f, branch: "" })),
+    });
+    for (const c of choice) chips.push({
+      key: `choice-${c}`,
+      label: `Wants: ${c}`,
+      onRemove: () => setChoice((prev) => prev.filter((x) => x !== c)),
+    });
+    if (filters.wants_summer) chips.push({
+      key: "wants_summer",
+      label: `Summer: ${filters.wants_summer}`,
+      onRemove: () => setFilters((f) => ({ ...f, wants_summer: "" })),
+    });
+    if (filters.wants_regular) chips.push({
+      key: "wants_regular",
+      label: `Regular: ${filters.wants_regular}`,
+      onRemove: () => setFilters((f) => ({ ...f, wants_regular: "" })),
+    });
+    if (filters.outreach_status) chips.push({
+      key: "outreach_status",
+      label: `Outreach: ${filters.outreach_status}`,
+      onRemove: () => setFilters((f) => ({ ...f, outreach_status: "" })),
+    });
+    if (filters.status) chips.push({
+      key: "status",
+      label: `Status: ${filters.status}`,
+      onRemove: () => setFilters((f) => ({ ...f, status: "" })),
+    });
+    if (filters.linked) chips.push({
+      key: "linked",
+      label: filters.linked === "linked" ? "Linked" : "Unlinked",
+      onRemove: () => setFilters((f) => ({ ...f, linked: "" })),
+    });
+    return chips;
+  }, [filters, choice]);
+
   // Body scroll lock while mobile filter drawer is open
   useEffect(() => {
     if (!showFilterDrawer) return;
@@ -780,15 +828,19 @@ export default function AdminProspectsPage() {
                 <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-auto">
-                <select
-                  value={year ?? ""}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
+                <label className="inline-flex items-center gap-1.5 text-sm">
+                  <span className="hidden sm:inline text-xs text-muted-foreground">Year</span>
+                  <select
+                    value={year ?? ""}
+                    onChange={(e) => setYear(Number(e.target.value))}
+                    aria-label="Year"
+                    className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+                  >
+                    {availableYears.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   onClick={handleAutoMatch}
                   disabled={autoMatching}
@@ -986,6 +1038,33 @@ export default function AdminProspectsPage() {
             </div>
           </div>
 
+          {/* Active filter chips */}
+          {activeChips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {activeChips.map((chip) => (
+                <span
+                  key={chip.key}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary"
+                >
+                  {chip.label}
+                  <button
+                    onClick={chip.onRemove}
+                    aria-label={`Remove filter ${chip.label}`}
+                    className="hover:bg-primary/20 rounded-full p-0.5"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={clearAllFilters}
+                className="text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors ml-1"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
           {/* Error banner */}
           {pageError && (
             <div className="flex items-center gap-2 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-400">
@@ -1074,119 +1153,24 @@ export default function AdminProspectsPage() {
                       {colVisible("pref") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Preferred time / tutor notes">Pref</th>}
                       {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>}
                       {colVisible("remark") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>}
-                      {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>}
+                      {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" />Notes</span></th>}
                       <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Linked</th>
-                      <SortTh label="" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Updated" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {displayedProspects.map((p) => (
-                      <tr
+                      <ProspectRow
                         key={p.id}
-                        className={`cursor-pointer transition-colors ${selectedIds.has(p.id) ? "bg-primary/[0.05]" : "hover:bg-primary/[0.03]"}`}
-                        onClick={() => setSelectedProspect(p)}
-                      >
-                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(p.id)}
-                            onChange={() => toggleSelect(p.id)}
-                            className="rounded"
-                          />
-                        </td>
-                        {colVisible("id") && <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>}
-                        <td className="px-2 py-2 font-medium text-foreground max-w-[180px]">
-                          <CopyableCell text={p.student_name} />
-                        </td>
-                        {colVisible("school") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[160px]"><CopyableCell text={p.school || ""} /></td>}
-                        {colVisible("grade") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>}
-                        {colVisible("tutor") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>}
-                        {colVisible("phone") && (
-                          <td className="px-2 py-2 text-xs text-muted-foreground">
-                            <CopyableCell
-                              text={p.phone_1 || ""}
-                              title={[
-                                p.phone_1 && `${p.phone_1_relation ? p.phone_1_relation + ": " : ""}${p.phone_1}`,
-                                p.phone_2 && `${p.phone_2_relation ? p.phone_2_relation + ": " : ""}${p.phone_2}`,
-                              ].filter(Boolean).join("\n") || undefined}
-                            />
-                          </td>
-                        )}
-                        <td className="px-2 py-2">
-                          <div className="space-y-0.5">
-                            <BranchBadges branches={p.preferred_branches || []} />
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-muted-foreground shrink-0">Summer</span>
-                              <IntentionBadge value={p.wants_summer} />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-muted-foreground shrink-0">Regular</span>
-                              <IntentionBadge value={p.wants_regular} />
-                            </div>
-                          </div>
-                        </td>
-                        {colVisible("pref") && (
-                          <td className="px-2 py-2 text-xs text-muted-foreground max-w-[140px]">
-                            <CopyableCell text={[p.preferred_time_note, p.preferred_tutor_note].filter(Boolean).join(" / ") || ""} />
-                          </td>
-                        )}
-                        {colVisible("wechat") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>}
-                        {colVisible("remark") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>}
-                        {colVisible("notes") && (
-                          <td className="px-2 py-2 text-center">
-                            {p.contact_notes ? (
-                              <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
-                            ) : (
-                              <span className="text-xs text-muted-foreground/30">-</span>
-                            )}
-                          </td>
-                        )}
-                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                          <InlineSelect
-                            value={p.outreach_status}
-                            options={OUTREACH_OPTIONS}
-                            onChange={(v) => handleInlineUpdate(p.id, { outreach_status: v as ProspectOutreachStatus })}
-                            renderTrigger={(v) => <OutreachBadge status={v as ProspectOutreachStatus} />}
-                          />
-                        </td>
-                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                          <InlineSelect
-                            value={p.status}
-                            options={STATUS_OPTIONS}
-                            onChange={(v) => handleInlineUpdate(p.id, { status: v as ProspectStatus })}
-                            renderTrigger={(v) => <ProspectStatusBadge status={v as ProspectStatus} />}
-                          />
-                        </td>
-                        <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                          {p.summer_application_id ? (
-                            <a
-                              href={`/admin/summer/applications?search=${encodeURIComponent(p.matched_application_ref || "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={p.matched_application_ref || "Linked"}
-                              className="inline-flex"
-                            >
-                              <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground/30">-</span>
-                          )}
-                        </td>
-                        <td
-                          className="px-2 py-2 text-[10px] text-muted-foreground"
-                          title={[
-                            p.submitted_at && `Submitted: ${parseHKTimestamp(p.submitted_at).toLocaleString()}`,
-                            wasEdited(p.submitted_at, p.updated_at) && `Edited: ${parseHKTimestamp(p.updated_at!).toLocaleString()}`,
-                          ].filter(Boolean).join("\n") || undefined}
-                        >
-                          {p.submitted_at ? formatTimeAgo(p.submitted_at) : "-"}
-                          {wasEdited(p.submitted_at, p.updated_at) && (
-                            <Pencil className="h-3 w-3 inline ml-0.5 text-muted-foreground/70" />
-                          )}
-                        </td>
-                      </tr>
+                        p={p}
+                        selected={selectedIds.has(p.id)}
+                        colVisible={colVisible}
+                        onToggleSelect={toggleSelect}
+                        onOpen={setSelectedProspect}
+                        onInlineUpdate={handleInlineUpdate}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -1277,17 +1261,13 @@ export default function AdminProspectsPage() {
               <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
             </div>
             <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+              <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>
               <button
                 onClick={clearAllFilters}
-                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                disabled={activeFilterCount === 0}
+                className="text-sm font-medium px-4 py-2 rounded-lg border border-border text-foreground hover:border-primary/50 disabled:opacity-50 transition-colors"
               >
                 Clear all
-              </button>
-              <button
-                onClick={() => setShowFilterDrawer(false)}
-                className="text-sm font-medium px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90"
-              >
-                Done
               </button>
             </div>
           </div>
@@ -1541,12 +1521,23 @@ function InlineSelect<T extends string>({
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  // Measure trigger position when opening; menu is portal-rendered to escape
-  // the table's overflow:auto clip.
+  // Measure trigger position whenever the open menu needs to follow the trigger
+  // (open / scroll / resize). Menu is portal-rendered to escape the table's
+  // overflow:auto clip.
   useEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + 4, left: rect.left });
+    if (!open) return;
+    const measure = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -1670,6 +1661,128 @@ function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
     </span>
   );
 }
+
+const ProspectRow = memo(function ProspectRow({
+  p,
+  selected,
+  colVisible,
+  onToggleSelect,
+  onOpen,
+  onInlineUpdate,
+}: {
+  p: PrimaryProspect;
+  selected: boolean;
+  colVisible: (k: ColKey) => boolean;
+  onToggleSelect: (id: number) => void;
+  onOpen: (p: PrimaryProspect) => void;
+  onInlineUpdate: (id: number, patch: { outreach_status?: ProspectOutreachStatus; status?: ProspectStatus }) => void;
+}) {
+  return (
+    <tr
+      className={`cursor-pointer transition-colors ${selected ? "bg-primary/10" : "hover:bg-primary/[0.04]"}`}
+      onClick={() => onOpen(p)}
+    >
+      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(p.id)}
+          className="rounded"
+        />
+      </td>
+      {colVisible("id") && <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>}
+      <td className="px-2 py-2 font-medium text-foreground max-w-[180px]">
+        <CopyableCell text={p.student_name} />
+      </td>
+      {colVisible("school") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[160px]"><CopyableCell text={p.school || ""} /></td>}
+      {colVisible("grade") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>}
+      {colVisible("tutor") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>}
+      {colVisible("phone") && (
+        <td className="px-2 py-2 text-xs text-muted-foreground">
+          <CopyableCell
+            text={p.phone_1 || ""}
+            title={[
+              p.phone_1 && `${p.phone_1_relation ? p.phone_1_relation + ": " : ""}${p.phone_1}`,
+              p.phone_2 && `${p.phone_2_relation ? p.phone_2_relation + ": " : ""}${p.phone_2}`,
+            ].filter(Boolean).join("\n") || undefined}
+          />
+        </td>
+      )}
+      <td className="px-2 py-2">
+        <div className="space-y-0.5">
+          <BranchBadges branches={p.preferred_branches || []} />
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground shrink-0">Summer</span>
+            <IntentionBadge value={p.wants_summer} />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground shrink-0">Regular</span>
+            <IntentionBadge value={p.wants_regular} />
+          </div>
+        </div>
+      </td>
+      {colVisible("pref") && (
+        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[140px]">
+          <CopyableCell text={[p.preferred_time_note, p.preferred_tutor_note].filter(Boolean).join(" / ") || ""} />
+        </td>
+      )}
+      {colVisible("wechat") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>}
+      {colVisible("remark") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>}
+      {colVisible("notes") && (
+        <td className="px-2 py-2 text-center">
+          {p.contact_notes ? (
+            <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
+          ) : (
+            <span className="text-xs text-muted-foreground/30">-</span>
+          )}
+        </td>
+      )}
+      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+        <InlineSelect
+          value={p.outreach_status}
+          options={OUTREACH_OPTIONS}
+          onChange={(v) => onInlineUpdate(p.id, { outreach_status: v as ProspectOutreachStatus })}
+          renderTrigger={(v) => <OutreachBadge status={v as ProspectOutreachStatus} />}
+        />
+      </td>
+      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+        <InlineSelect
+          value={p.status}
+          options={STATUS_OPTIONS}
+          onChange={(v) => onInlineUpdate(p.id, { status: v as ProspectStatus })}
+          renderTrigger={(v) => <ProspectStatusBadge status={v as ProspectStatus} />}
+        />
+      </td>
+      <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+        {p.summer_application_id ? (
+          <a
+            href={`/admin/summer/applications?search=${encodeURIComponent(p.matched_application_ref || "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={p.matched_application_ref || "Linked"}
+            className="inline-flex"
+          >
+            <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground/30">-</span>
+        )}
+      </td>
+      <td
+        className="px-2 py-2 text-[10px] text-muted-foreground"
+        title={[
+          p.submitted_at && `Submitted: ${parseHKTimestamp(p.submitted_at).toLocaleString()}`,
+          wasEdited(p.submitted_at, p.updated_at) && `Edited: ${parseHKTimestamp(p.updated_at!).toLocaleString()}`,
+        ].filter(Boolean).join(" · ") || undefined}
+      >
+        {p.submitted_at ? formatTimeAgo(p.submitted_at) : "-"}
+        {wasEdited(p.submitted_at, p.updated_at) && (
+          <Pencil className="h-3 w-3 inline ml-0.5 text-muted-foreground/70" />
+        )}
+      </td>
+    </tr>
+  );
+});
 
 function SortTh({
   label,
