@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -11,6 +11,8 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   AlertTriangle,
   X,
   Clock,
@@ -39,11 +41,29 @@ export function ProspectDetailModal({
   prospect,
   onClose,
   onSave,
+  onNavigate,
+  position,
 }: {
   prospect: PrimaryProspect;
   onClose: () => void;
   onSave: () => void;
+  onNavigate?: (direction: -1 | 1) => void;
+  position?: { current: number; total: number };
 }) {
+  // Keyboard navigation: ← / → to flip prospects, Escape to close.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Don't hijack arrow keys while typing in an input/textarea/select.
+      const target = e.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (e.key === "ArrowLeft" && onNavigate) { e.preventDefault(); onNavigate(-1); }
+      else if (e.key === "ArrowRight" && onNavigate) { e.preventDefault(); onNavigate(1); }
+      else if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onNavigate, onClose]);
+
   const [outreachStatus, setOutreachStatus] = useState(prospect.outreach_status);
   const [status, setStatus] = useState(prospect.status);
   const [contactNotes, setContactNotes] = useState(prospect.contact_notes || "");
@@ -117,9 +137,36 @@ export function ProspectDetailModal({
                 {prospect.primary_student_id || "No ID"} &middot; {prospect.grade}
               </p>
             </div>
-            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 transition-colors">
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              {onNavigate && position && (
+                <>
+                  <button
+                    onClick={() => onNavigate(-1)}
+                    disabled={position.current === 0}
+                    aria-label="Previous prospect"
+                    title="Previous (←)"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <span className="text-xs text-muted-foreground tabular-nums px-1">
+                    {position.current + 1} / {position.total}
+                  </span>
+                  <button
+                    onClick={() => onNavigate(1)}
+                    disabled={position.current === position.total - 1}
+                    aria-label="Next prospect"
+                    title="Next (→)"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 

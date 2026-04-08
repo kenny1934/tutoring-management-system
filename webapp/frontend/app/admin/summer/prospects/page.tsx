@@ -185,13 +185,14 @@ export default function AdminProspectsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
-  const [confirmingAutoMatch, setConfirmingAutoMatch] = useState(false);
-  const autoMatchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [confirmCountdown, setConfirmCountdown] = useState(0);
+  const autoMatchTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const confirmingAutoMatch = confirmCountdown > 0;
   const [pageError, setPageError] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<{ matched: number; total_unlinked: number; skipped_ambiguous: number } | null>(null);
   const matchResultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => () => { clearTimeout(matchResultTimer.current); clearTimeout(autoMatchTimerRef.current); }, []);
+  useEffect(() => () => { clearTimeout(matchResultTimer.current); clearInterval(autoMatchTimerRef.current); }, []);
 
   // Fetch available years from summer configs
   const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
@@ -387,14 +388,23 @@ export default function AdminProspectsPage() {
 
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
-    if (!confirmingAutoMatch) {
-      setConfirmingAutoMatch(true);
-      clearTimeout(autoMatchTimerRef.current);
-      autoMatchTimerRef.current = setTimeout(() => setConfirmingAutoMatch(false), 3000);
+    if (confirmCountdown === 0) {
+      // First click — enter confirm mode with a visible countdown.
+      setConfirmCountdown(3);
+      clearInterval(autoMatchTimerRef.current);
+      autoMatchTimerRef.current = setInterval(() => {
+        setConfirmCountdown((c) => {
+          if (c <= 1) {
+            clearInterval(autoMatchTimerRef.current);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
       return;
     }
-    clearTimeout(autoMatchTimerRef.current);
-    setConfirmingAutoMatch(false);
+    clearInterval(autoMatchTimerRef.current);
+    setConfirmCountdown(0);
     setAutoMatching(true);
     setMatchResult(null);
     setPageError(null);
@@ -409,7 +419,7 @@ export default function AdminProspectsPage() {
     } finally {
       setAutoMatching(false);
     }
-  }, [year, refresh, confirmingAutoMatch]);
+  }, [year, refresh, confirmCountdown]);
 
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
 
@@ -487,7 +497,7 @@ export default function AdminProspectsPage() {
             availableYears={availableYears}
             onYearChange={setYear}
             autoMatching={autoMatching}
-            confirmingAutoMatch={confirmingAutoMatch}
+            confirmCountdown={confirmCountdown}
             onAutoMatch={handleAutoMatch}
             tab={tab}
             onTabChange={setTab}
@@ -772,6 +782,7 @@ export default function AdminProspectsPage() {
                         onToggleSelect={toggleSelect}
                         onOpen={setSelectedProspect}
                         onInlineUpdate={handleInlineUpdate}
+                        onRefresh={refresh}
                       />
                     ))}
                   </tbody>
@@ -812,13 +823,22 @@ export default function AdminProspectsPage() {
       </PageTransition>
 
       {/* Detail Modal */}
-      {selectedProspect && (
-        <ProspectDetailModal
-          prospect={selectedProspect}
-          onClose={() => setSelectedProspect(null)}
-          onSave={refresh}
-        />
-      )}
+      {selectedProspect && displayedProspects && (() => {
+        const idx = displayedProspects.findIndex((p) => p.id === selectedProspect.id);
+        return (
+          <ProspectDetailModal
+            key={selectedProspect.id}
+            prospect={selectedProspect}
+            onClose={() => setSelectedProspect(null)}
+            onSave={refresh}
+            position={idx >= 0 ? { current: idx, total: displayedProspects.length } : undefined}
+            onNavigate={idx >= 0 ? (dir) => {
+              const next = displayedProspects[idx + dir];
+              if (next) setSelectedProspect(next);
+            } : undefined}
+          />
+        );
+      })()}
 
       {showFilterDrawer && (
         <MobileFilterDrawer
@@ -890,6 +910,138 @@ function FilterSelects({
         <option value="unlinked">Unlinked</option>
       </select>
     </div>
+  );
+}
+
+function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinked: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [matches, setMatches] = useState<Awaited<ReturnType<typeof prospectsAPI.findMatches>>["matches"] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [linking, setLinking] = useState<number | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const fetchMatches = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await prospectsAPI.findMatches(prospectId);
+      setMatches(result.matches);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to find matches");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpen = () => {
+    if (!open && matches === null) fetchMatches();
+    setOpen((v) => !v);
+  };
+
+  const handleLink = async (applicationId: number) => {
+    setLinking(applicationId);
+    setError(null);
+    try {
+      await prospectsAPI.adminUpdate(prospectId, { summer_application_id: applicationId, status: "Applied" });
+      setOpen(false);
+      onLinked();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Link failed");
+    } finally {
+      setLinking(null);
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleOpen}
+        title="Find and link a summer application"
+        className="text-[10px] font-medium text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
+      >
+        + Link
+      </button>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 w-72 bg-card border border-border rounded-lg shadow-lg p-2"
+          style={{ top: pos.top, left: pos.left }}
+        >
+          {loading ? (
+            <div className="p-3 text-xs text-muted-foreground text-center">Searching matches…</div>
+          ) : error ? (
+            <div className="p-2 text-xs text-red-600">{error}</div>
+          ) : matches && matches.length > 0 ? (
+            <>
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-1">
+                Potential matches
+              </div>
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {matches.map((m) => (
+                  <div key={m.application_id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-primary/5 rounded">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-foreground truncate">{m.student_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {m.reference_code} · {m.contact_phone} · {m.match_type}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleLink(m.application_id)}
+                      disabled={linking !== null}
+                      className="shrink-0 inline-flex items-center gap-1 text-[11px] bg-primary text-white px-2 py-0.5 rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      <Link2 className="h-2.5 w-2.5" />
+                      Link
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="p-3 text-xs text-muted-foreground text-center">No matching applications</div>
+          )}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -1049,6 +1201,7 @@ const ProspectRow = memo(function ProspectRow({
   onToggleSelect,
   onOpen,
   onInlineUpdate,
+  onRefresh,
 }: {
   p: PrimaryProspect;
   selected: boolean;
@@ -1056,6 +1209,7 @@ const ProspectRow = memo(function ProspectRow({
   onToggleSelect: (id: number) => void;
   onOpen: (p: PrimaryProspect) => void;
   onInlineUpdate: (id: number, patch: { outreach_status?: ProspectOutreachStatus; status?: ProspectStatus }) => void;
+  onRefresh: () => void;
 }) {
   return (
     <tr
@@ -1145,7 +1299,7 @@ const ProspectRow = memo(function ProspectRow({
             <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground/30">-</span>
+          <QuickLinkButton prospectId={p.id} onLinked={onRefresh} />
         )}
       </td>
       <td
@@ -1209,7 +1363,7 @@ function HeaderBar({
   availableYears,
   onYearChange,
   autoMatching,
-  confirmingAutoMatch,
+  confirmCountdown,
   onAutoMatch,
   tab,
   onTabChange,
@@ -1218,11 +1372,12 @@ function HeaderBar({
   availableYears: number[];
   onYearChange: (y: number) => void;
   autoMatching: boolean;
-  confirmingAutoMatch: boolean;
+  confirmCountdown: number;
   onAutoMatch: () => void;
   tab: "list" | "dashboard";
   onTabChange: (t: "list" | "dashboard") => void;
 }) {
+  const confirming = confirmCountdown > 0;
   return (
     <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1257,7 +1412,7 @@ function HeaderBar({
             disabled={autoMatching}
             title="Scan unlinked prospects and link each one to a summer application that matches by phone number. Skips ambiguous matches."
             className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-              confirmingAutoMatch
+              confirming
                 ? "bg-amber-500 text-white hover:bg-amber-600"
                 : "bg-primary/10 text-primary hover:bg-primary/20"
             }`}
@@ -1266,10 +1421,13 @@ function HeaderBar({
             <span className="hidden sm:inline">
               {autoMatching
                 ? "Matching..."
-                : confirmingAutoMatch
-                  ? "Link unlinked prospects? Click to confirm"
+                : confirming
+                  ? `Link unlinked prospects? Click again (${confirmCountdown})`
                   : "Auto-Match"}
             </span>
+            {confirming && (
+              <span className="sm:hidden text-xs font-bold tabular-nums">{confirmCountdown}</span>
+            )}
           </button>
           <div className="flex bg-muted rounded-full p-0.5">
             <button
