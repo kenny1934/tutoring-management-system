@@ -27,6 +27,8 @@ import {
   ArrowUpDown,
   Columns3,
   SlidersHorizontal,
+  List as ListIcon,
+  LayoutGrid,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -763,17 +765,17 @@ export default function AdminProspectsPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="hidden sm:flex w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                 <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div className="hidden sm:block flex-1 min-w-0">
-                <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
                   P6 Prospects
                   <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </h1>
-                <p className="text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
+                <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-auto">
                 <select
@@ -801,23 +803,27 @@ export default function AdminProspectsPage() {
                 <div className="flex bg-muted rounded-full p-0.5">
                   <button
                     onClick={() => setTab("list")}
-                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                    aria-label="List view"
+                    className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
                       tab === "list"
                         ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    List
+                    <ListIcon className="h-3.5 w-3.5 sm:hidden" />
+                    <span className="hidden sm:inline">List</span>
                   </button>
                   <button
                     onClick={() => setTab("dashboard")}
-                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                    aria-label="Dashboard view"
+                    className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
                       tab === "dashboard"
                         ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    Dashboard
+                    <LayoutGrid className="h-3.5 w-3.5 sm:hidden" />
+                    <span className="hidden sm:inline">Dashboard</span>
                   </button>
                 </div>
               </div>
@@ -828,7 +834,8 @@ export default function AdminProspectsPage() {
           <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
       {tab === "list" ? (
         <div className="space-y-5 flex-1 min-h-0 flex flex-col">
-          <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
+          <div className="relative -mx-4 sm:mx-0">
+            <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible px-4 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
             <button
               onClick={() => setFilters((f) => ({ ...f, branch: "" }))}
               className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
@@ -861,6 +868,9 @@ export default function AdminProspectsPage() {
                 </button>
               );
             })}
+            </div>
+            {/* Right-edge fade signals more pills off-screen on mobile */}
+            <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#faf8f5] dark:from-[#1a1a1a] to-transparent" />
           </div>
 
           {/* Branch Choice — desktop only; mobile copy lives in the filter drawer */}
