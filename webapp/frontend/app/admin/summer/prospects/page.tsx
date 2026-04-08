@@ -26,7 +26,6 @@ import {
   ArrowDown,
   ArrowUpDown,
   Columns3,
-  Zap,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -395,42 +394,6 @@ function InfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 
 // ---- Main Page ----
 
-// Quick-filter presets — apply a bundle of filters in one click
-type PresetName = "needs-outreach" | "no-response" | "ready-to-link" | "wechat-issues";
-
-type FilterState = {
-  branch: string;
-  status: string;
-  outreach_status: string;
-  wants_summer: string;
-  wants_regular: string;
-  linked: string;
-  search: string;
-};
-
-const PRESET_DEFS: Record<PresetName, { label: string; apply: (f: FilterState) => FilterState; match: (f: FilterState) => boolean }> = {
-  "needs-outreach": {
-    label: "Needs outreach",
-    apply: (f) => ({ ...f, outreach_status: "Not Started", wants_summer: "" }),
-    match: (f) => f.outreach_status === "Not Started",
-  },
-  "no-response": {
-    label: "No response",
-    apply: (f) => ({ ...f, outreach_status: "No Response" }),
-    match: (f) => f.outreach_status === "No Response",
-  },
-  "ready-to-link": {
-    label: "Ready to link",
-    apply: (f) => ({ ...f, linked: "unlinked", status: "Interested" }),
-    match: (f) => f.linked === "unlinked" && f.status === "Interested",
-  },
-  "wechat-issues": {
-    label: "WeChat issues",
-    apply: (f) => ({ ...f, outreach_status: "WeChat - Not Found" }),
-    match: (f) => f.outreach_status === "WeChat - Not Found" || f.outreach_status === "WeChat - Cannot Add",
-  },
-};
-
 // Hideable columns — keys map to <th>/<td> visibility predicates
 type ColKey = "id" | "school" | "grade" | "tutor" | "phone" | "wechat" | "remark" | "notes";
 const HIDEABLE_COLS: { key: ColKey; label: string }[] = [
@@ -647,22 +610,6 @@ export default function AdminProspectsPage() {
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
   }, [tab, year, filters, choice, sortBy, sortOrder, router]);
 
-  const activePreset = (Object.keys(PRESET_DEFS) as PresetName[]).find((n) =>
-    PRESET_DEFS[n].match(filters)
-  );
-
-  const applyPreset = useCallback((name: PresetName) => {
-    setFilters((f) => {
-      // If clicking active preset, clear it
-      if (PRESET_DEFS[name].match(f)) {
-        return { ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "" };
-      }
-      // Reset other filters before applying so presets don't compound
-      const cleared = { ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "" };
-      return PRESET_DEFS[name].apply(cleared);
-    });
-  }, []);
-
   const handleSort = useCallback((key: SortKey) => {
     setSortBy((prev) => {
       if (prev === key) {
@@ -789,9 +736,9 @@ export default function AdminProspectsPage() {
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
 
   return (
-    <DeskSurface>
-      <PageTransition className="p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
+    <DeskSurface fullHeight>
+      <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
             <div className="flex items-center gap-3 flex-wrap">
@@ -857,9 +804,9 @@ export default function AdminProspectsPage() {
           </div>
 
           {/* Content */}
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
       {tab === "list" ? (
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 flex flex-col">
           {/* Branch Pills */}
           <div className="flex flex-wrap gap-1.5">
             <button
@@ -891,27 +838,6 @@ export default function AdminProspectsPage() {
                   {branchTotal != null && (
                     <span className="ml-1 opacity-60">{branchTotal}</span>
                   )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Quick-filter presets */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Zap className="h-3 w-3 text-muted-foreground" />
-            {(Object.keys(PRESET_DEFS) as PresetName[]).map((name) => {
-              const isActive = activePreset === name;
-              return (
-                <button
-                  key={name}
-                  onClick={() => applyPreset(name)}
-                  className={`px-2.5 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 ${
-                    isActive
-                      ? "bg-amber-500 text-white shadow-sm"
-                      : "border border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-600"
-                  }`}
-                >
-                  {PRESET_DEFS[name].label}
                 </button>
               );
             })}
@@ -1087,8 +1013,8 @@ export default function AdminProspectsPage() {
             </div>
 
             {/* Desktop table */}
-            <div className="hidden sm:block border-2 border-border rounded-xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
+            <div className="hidden sm:flex flex-1 min-h-0 flex-col border-2 border-border rounded-xl overflow-hidden shadow-sm">
+              <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-sm min-w-[900px]">
                   <thead className="bg-primary/5 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                     <tr>
@@ -1132,10 +1058,10 @@ export default function AdminProspectsPage() {
                           />
                         </td>
                         {colVisible("id") && <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>}
-                        <td className="px-2 py-2 font-medium text-foreground">
+                        <td className="px-2 py-2 font-medium text-foreground max-w-[180px]">
                           <CopyableCell text={p.student_name} />
                         </td>
-                        {colVisible("school") && <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>}
+                        {colVisible("school") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[160px]"><CopyableCell text={p.school || ""} /></td>}
                         {colVisible("grade") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>}
                         {colVisible("tutor") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>}
                         {colVisible("phone") && (
