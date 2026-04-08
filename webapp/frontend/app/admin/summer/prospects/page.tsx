@@ -41,16 +41,20 @@ import {
   OutreachBadge,
   BranchBadges,
   CopyableCell,
+  ProspectStatusBadge,
   INTENTION_LABELS,
   OUTREACH_BADGE_COLORS,
+  STATUS_BADGE_COLORS,
   BRANCH_COLORS,
+  OUTREACH_OPTIONS,
+  STATUS_OPTIONS,
+  INTENTION_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
   ProspectOutreachStatus,
   ProspectStatus,
-  ProspectIntention,
 } from "@/types";
 import {
   PROSPECT_BRANCHES,
@@ -58,39 +62,8 @@ import {
   OUTREACH_STATUS_HINTS,
 } from "@/types";
 
-const OUTREACH_OPTIONS: ProspectOutreachStatus[] = [
-  "Not Started",
-  "WeChat - Not Found",
-  "WeChat - Cannot Add",
-  "WeChat - Added",
-  "Called",
-  "No Response",
-];
-
-const STATUS_OPTIONS: ProspectStatus[] = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Applied",
-  "Enrolled",
-  "Declined",
-];
-
-const INTENTION_OPTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
-
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
-
-// ---- Color maps (admin-specific) ----
-
-const STATUS_BADGE_COLORS: Record<string, string> = {
-  New: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  Contacted: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  Interested: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  Applied: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  Enrolled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  Declined: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 // ---- Detail Modal ----
 
@@ -411,19 +384,7 @@ const HIDEABLE_COLS: { key: ColKey; label: string }[] = [
   { key: "notes", label: "Notes" },
 ];
 
-type SortKey =
-  | "primary_student_id"
-  | "student_name"
-  | "school"
-  | "grade"
-  | "tutor_name"
-  | "outreach_status"
-  | "status"
-  | "submitted_at";
-
-type SortOrder = "asc" | "desc";
-
-const SORT_KEYS: SortKey[] = [
+const SORT_KEYS = [
   "primary_student_id",
   "student_name",
   "school",
@@ -432,13 +393,30 @@ const SORT_KEYS: SortKey[] = [
   "outreach_status",
   "status",
   "submitted_at",
-];
+] as const;
+type SortKey = typeof SORT_KEYS[number];
+type SortOrder = "asc" | "desc";
 
 function isSortKey(s: string | null): s is SortKey {
-  return !!s && (SORT_KEYS as string[]).includes(s);
+  return !!s && (SORT_KEYS as readonly string[]).includes(s);
 }
 
-function compareValues(a: unknown, b: unknown): number {
+// Typed accessor for sort — keeps the comparator strict and documents what
+// each sort key actually compares.
+function getSortValue(p: PrimaryProspect, key: SortKey): string | number | null {
+  switch (key) {
+    case "primary_student_id": return p.primary_student_id;
+    case "student_name": return p.student_name;
+    case "school": return p.school;
+    case "grade": return p.grade;
+    case "tutor_name": return p.tutor_name;
+    case "outreach_status": return p.outreach_status;
+    case "status": return p.status;
+    case "submitted_at": return p.submitted_at;
+  }
+}
+
+function compareValues(a: string | number | null | undefined, b: string | number | null | undefined): number {
   // Nulls/empties always sort last
   const aEmpty = a === null || a === undefined || a === "";
   const bEmpty = b === null || b === undefined || b === "";
@@ -588,10 +566,7 @@ export default function AdminProspectsPage() {
       ? prospects
       : prospects.filter((p) => p.preferred_branches?.some((b) => choiceSet.has(b)));
     const sorted = [...filtered].sort((a, b) => {
-      const cmp = compareValues(
-        (a as unknown as Record<string, unknown>)[sortBy],
-        (b as unknown as Record<string, unknown>)[sortBy]
-      );
+      const cmp = compareValues(getSortValue(a, sortBy), getSortValue(b, sortBy));
       return sortOrder === "asc" ? cmp : -cmp;
     });
     return sorted;
@@ -1651,14 +1626,6 @@ function ProspectCard({
         </div>
       </div>
     </div>
-  );
-}
-
-function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
-  return (
-    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_BADGE_COLORS[status] || "bg-gray-100"}`}>
-      {status}
-    </span>
   );
 }
 
