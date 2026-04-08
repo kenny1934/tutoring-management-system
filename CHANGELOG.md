@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.49](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.49) (2026-04-08)
+
+### Fixes
+
+* **Summer apply — confirmation step skipped** — clicking Next on step 4 could occasionally jump straight to the success page, bypassing the step 5 review and confirmation checkbox; the navigation buttons now fully unmount between steps so the submit action can never fire by accident
+* **Dashboard leave quicklink — impersonation scope** — when an admin impersonates a tutor, the leave quicklink now reflects the impersonated tutor's balance instead of the admin's own
+
 ## [2.0.48](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.48) (2026-04-07)
 
 ### New Features
