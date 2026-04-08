@@ -41,6 +41,7 @@ import {
   CopyableCell,
   INTENTION_LABELS,
   OUTREACH_BADGE_COLORS,
+  BRANCH_COLORS,
 } from "@/components/summer/prospect-badges";
 import type {
   PrimaryProspect,
@@ -51,6 +52,7 @@ import type {
 } from "@/types";
 import {
   PROSPECT_BRANCHES,
+  SECONDARY_BRANCHES,
   OUTREACH_STATUS_HINTS,
 } from "@/types";
 
@@ -596,6 +598,19 @@ export default function AdminProspectsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prospects]);
 
+  // Counts per secondary branch from the server-filtered set (before client choice filter)
+  // so each pill shows "how many would match if I picked just this".
+  const choiceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!prospects) return counts;
+    for (const p of prospects) {
+      for (const b of p.preferred_branches || []) {
+        counts[b] = (counts[b] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [prospects]);
+
   // Client-side Branch Choice filter + sort layered on top of server-filtered rows
   const displayedProspects = useMemo(() => {
     if (!prospects) return undefined;
@@ -902,11 +917,13 @@ export default function AdminProspectsPage() {
             })}
           </div>
 
-          {/* Branch Choice (what student WANTS) — multi-select, client-side */}
+          {/* Branch Choice (which secondary center the student wants) — multi-select, client-side */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Wants</span>
-            {PROSPECT_BRANCHES.map((b) => {
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Branch Choice</span>
+            {SECONDARY_BRANCHES.map((b) => {
               const active = choice.includes(b);
+              const count = choiceCounts[b] ?? 0;
+              const badge = BRANCH_COLORS[b]?.badge || "bg-primary text-white";
               return (
                 <button
                   key={b}
@@ -915,11 +932,12 @@ export default function AdminProspectsPage() {
                   }
                   className={`px-2 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 ${
                     active
-                      ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} ring-1 ring-current/20`
+                      ? `${badge} ring-2 ring-current shadow-sm`
                       : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
                   }`}
                 >
                   {b}
+                  <span className="ml-1 opacity-70">{count}</span>
                 </button>
               );
             })}
