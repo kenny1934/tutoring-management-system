@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { formatPreferences, displayLocation } from "@/lib/summer-utils";
+import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerApplication } from "@/types";
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
@@ -79,6 +80,14 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
 }: SummerApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
   const { combined: prefs } = formatPreferences(app);
+  const classified = classifyPrefs(app);
+  const fmtSlot = (s: { day: string; time: string }) => `${s.day} ${s.time}`;
+  const prefDisplay = classified.isPair
+    ? classified.primary.map(fmtSlot).join(" + ")
+    : prefs;
+  const backupTooltip = classified.isPair && classified.backup.length > 0
+    ? classified.backup.map(fmtSlot).join(" + ")
+    : null;
 
   const handleCopyRef = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,7 +151,16 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold ring-1 ring-amber-300/60"
               title="Sibling declared at Primary / KidsConcept — pending verification"
             >
-              Sibling pending
+              Sibling pending{(app.pending_sibling_count ?? 0) > 1 ? ` ×${app.pending_sibling_count}` : ""}
+            </span>
+          )}
+          {app.unavailability_notes && (
+            <span
+              className="inline-flex items-center gap-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              title={`Unavailable: ${app.unavailability_notes}`}
+            >
+              <XCircle className="h-2.5 w-2.5" />
+              Unavailable
             </span>
           )}
           {app.grade && <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{app.grade}</span>}
@@ -171,14 +189,28 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
 
         {/* Row 3: preferences + time + buddy */}
         <div className="flex items-center gap-2 pl-6 text-xs text-muted-foreground">
-          {prefs && <span className="truncate">{prefs}</span>}
+          {prefDisplay && <span className="truncate">{prefDisplay}</span>}
+          {backupTooltip && (
+            <span
+              className="shrink-0 text-[10px] text-muted-foreground/70 italic"
+              title={`Backup pair: ${backupTooltip}`}
+            >
+              +alt
+            </span>
+          )}
           <span className="ml-auto shrink-0 flex items-center gap-2">
             {app.buddy_group_id && (
               <span className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400">
                 <Users className="h-3 w-3" /> Buddy
               </span>
             )}
-            {app.submitted_at && <span>{formatTimeAgo(app.submitted_at)}</span>}
+            {app.application_status !== "Submitted" && app.reviewed_at ? (
+              <span title={app.submitted_at ? `Submitted ${formatTimeAgo(app.submitted_at)}` : undefined}>
+                Reviewed {formatTimeAgo(app.reviewed_at)}
+              </span>
+            ) : app.submitted_at ? (
+              <span>{formatTimeAgo(app.submitted_at)}</span>
+            ) : null}
           </span>
         </div>
       </div>
