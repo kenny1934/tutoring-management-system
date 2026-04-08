@@ -128,12 +128,12 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             />
           </div>
           <span className="font-medium text-sm text-foreground truncate">{app.student_name}</span>
-          {/* Ref code with copy on hover */}
-          <span className="group/ref inline-flex items-center gap-1 shrink-0">
+          {/* Ref code with copy on row hover */}
+          <span className="inline-flex items-center gap-1 shrink-0">
             <span className="text-xs font-mono text-muted-foreground">{app.reference_code}</span>
             <button
               onClick={handleCopyRef}
-              className="p-0.5 text-muted-foreground hover:text-foreground opacity-0 group-hover/ref:opacity-100 transition-opacity"
+              className="p-0.5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               title="Copy reference code"
             >
               {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
@@ -169,7 +169,9 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded truncate max-w-[200px]">{displayLocation(app.preferred_location)}</span>
           )}
           {app.is_existing_student && app.is_existing_student !== "None" && (
-            <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">Existing</span>
+            <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">
+              Existing: <span className="font-mono">{app.is_existing_student}</span>
+            </span>
           )}
           {(app.sessions_per_week ?? 1) > 1 && (
             <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
@@ -177,7 +179,10 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             </span>
           )}
           {app.sessions && app.sessions.length > 0 && (
-            <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded text-[10px] font-medium">
+            <span
+              className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              title={app.sessions.map((s) => `${s.slot_day} ${s.time_slot}`).join(" · ")}
+            >
               Placed
               {app.sessions.length > 1 ? ` ×${app.sessions.length}` : ""}
             </span>
@@ -199,11 +204,17 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             </span>
           )}
           <span className="ml-auto shrink-0 flex items-center gap-2">
-            {app.buddy_group_id && (
-              <span className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400">
-                <Users className="h-3 w-3" /> Buddy
-              </span>
-            )}
+            {app.buddy_group_id && (() => {
+              const groupSize = (app.buddy_siblings?.length ?? 0) + 1;
+              return (
+                <span
+                  className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400"
+                  title={app.buddy_names || `Buddy group of ${groupSize}`}
+                >
+                  <Users className="h-3 w-3" /> Buddy{groupSize > 1 ? ` ×${groupSize}` : ""}
+                </span>
+              );
+            })()}
             {app.application_status !== "Submitted" && app.reviewed_at ? (
               <span title={app.submitted_at ? `Submitted ${formatTimeAgo(app.submitted_at)}` : undefined}>
                 Reviewed {formatTimeAgo(app.reviewed_at)}
