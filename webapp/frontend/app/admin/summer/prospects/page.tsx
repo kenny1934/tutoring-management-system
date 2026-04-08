@@ -701,6 +701,45 @@ export default function AdminProspectsPage() {
     }
   }, [selectedIds, refresh]);
 
+  const handleBulkStatus = useCallback(async (status: ProspectStatus) => {
+    if (selectedIds.size === 0) return;
+    setPageError(null);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) => prospectsAPI.adminUpdate(id, { status }))
+      );
+      setSelectedIds(new Set());
+      refresh();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Bulk status update failed");
+    }
+  }, [selectedIds, refresh]);
+
+  // Quick inline edit — outreach or status on a single row
+  const handleInlineUpdate = useCallback(
+    async (id: number, patch: { outreach_status?: ProspectOutreachStatus; status?: ProspectStatus }) => {
+      setPageError(null);
+      try {
+        await prospectsAPI.adminUpdate(id, patch);
+        refresh();
+      } catch (err) {
+        setPageError(err instanceof Error ? err.message : "Update failed");
+      }
+    },
+    [refresh]
+  );
+
+  // Clear selection when filters change so we don't act on hidden rows
+  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.linked}|${filters.search}|${choice.join(",")}`;
+  useEffect(() => {
+    setSelectedIds(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterFingerprint]);
+
+  // Skeleton row count tracks last successful fetch to avoid layout jump
+  const lastCountRef = useRef(5);
+  if (prospects && prospects.length > 0) lastCountRef.current = Math.min(prospects.length, 12);
+
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
     if (!confirmingAutoMatch) {
@@ -993,7 +1032,7 @@ export default function AdminProspectsPage() {
           {/* Table */}
           {isLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
+              {Array.from({ length: lastCountRef.current }).map((_, i) => (
                 <div key={i} className="h-12 bg-muted/50 rounded-lg animate-pulse" />
               ))}
             </div>
@@ -1105,11 +1144,33 @@ export default function AdminProspectsPage() {
                             )}
                           </td>
                         )}
-                        <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
-                        <td className="px-2 py-2"><ProspectStatusBadge status={p.status} /></td>
-                        <td className="px-2 py-2 text-center">
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                          <InlineSelect
+                            value={p.outreach_status}
+                            options={OUTREACH_OPTIONS}
+                            onChange={(v) => handleInlineUpdate(p.id, { outreach_status: v as ProspectOutreachStatus })}
+                            renderTrigger={(v) => <OutreachBadge status={v as ProspectOutreachStatus} />}
+                          />
+                        </td>
+                        <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                          <InlineSelect
+                            value={p.status}
+                            options={STATUS_OPTIONS}
+                            onChange={(v) => handleInlineUpdate(p.id, { status: v as ProspectStatus })}
+                            renderTrigger={(v) => <ProspectStatusBadge status={v as ProspectStatus} />}
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                           {p.summer_application_id ? (
-                            <Link2 className="h-3.5 w-3.5 text-green-600" title={p.matched_application_ref || "Linked"} />
+                            <a
+                              href={`/admin/summer/applications?search=${encodeURIComponent(p.matched_application_ref || "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={p.matched_application_ref || "Linked"}
+                              className="inline-flex"
+                            >
+                              <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
+                            </a>
                           ) : (
                             <span className="text-xs text-muted-foreground/30">-</span>
                           )}
@@ -1123,7 +1184,7 @@ export default function AdminProspectsPage() {
                         >
                           {p.submitted_at ? formatTimeAgo(p.submitted_at) : "-"}
                           {wasEdited(p.submitted_at, p.updated_at) && (
-                            <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground/50" />
+                            <Pencil className="h-3 w-3 inline ml-0.5 text-muted-foreground/70" />
                           )}
                         </td>
                       </tr>
@@ -1142,7 +1203,24 @@ export default function AdminProspectsPage() {
           )}
         </div>
       ) : (
-        <DashboardView stats={stats || []} year={year} />
+        <DashboardView
+          stats={stats || []}
+          year={year}
+          onJumpToList={(patch) => {
+            setFilters((f) => ({
+              branch: "",
+              status: "",
+              outreach_status: "",
+              wants_summer: "",
+              wants_regular: "",
+              linked: "",
+              search: f.search,
+              ...patch,
+            }));
+            setChoice([]);
+            setTab("list");
+          }}
+        />
       )}
           </div>
         </div>
@@ -1159,29 +1237,43 @@ export default function AdminProspectsPage() {
 
       {/* Floating bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up">
-          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
-            <span className="text-xs text-muted-foreground">|</span>
-            <span className="text-xs text-muted-foreground">Set outreach:</span>
-            {OUTREACH_OPTIONS.map((o) => {
-              const label = o.startsWith("WeChat - ") ? o.replace("WeChat - ", "") : o;
-              const showWeChatIcon = o.startsWith("WeChat");
-              return (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
+          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <span className="text-xs text-muted-foreground">|</span>
+              <span className="text-xs text-muted-foreground shrink-0">Outreach:</span>
+              {OUTREACH_OPTIONS.map((o) => {
+                const label = o.startsWith("WeChat - ") ? o.replace("WeChat - ", "") : o;
+                const showWeChatIcon = o.startsWith("WeChat");
+                return (
+                  <button
+                    key={o}
+                    onClick={() => handleBulkOutreach(o)}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[o] || "bg-gray-100"}`}
+                    title={OUTREACH_STATUS_HINTS[o]}
+                  >
+                    {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
+                    {label}
+                  </button>
+                );
+              })}
+              <button onClick={() => setSelectedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+              <span className="text-xs text-muted-foreground shrink-0">Status:</span>
+              {STATUS_OPTIONS.map((s) => (
                 <button
-                  key={o}
-                  onClick={() => handleBulkOutreach(o)}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[o] || "bg-gray-100"}`}
-                  title={OUTREACH_STATUS_HINTS[o]}
+                  key={s}
+                  onClick={() => handleBulkStatus(s)}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity ${STATUS_BADGE_COLORS[s] || "bg-gray-100"}`}
                 >
-                  {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
-                  {label}
+                  {s}
                 </button>
-              );
-            })}
-            <button onClick={() => setSelectedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
-              <X className="h-4 w-4" />
-            </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1191,7 +1283,24 @@ export default function AdminProspectsPage() {
 
 // ---- Dashboard ----
 
-function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: number }) {
+type FilterPatch = Partial<{
+  branch: string;
+  status: string;
+  outreach_status: string;
+  wants_summer: string;
+  wants_regular: string;
+  linked: string;
+}>;
+
+function DashboardView({
+  stats,
+  year,
+  onJumpToList,
+}: {
+  stats: PrimaryProspectStats[];
+  year: number;
+  onJumpToList: (patch: FilterPatch) => void;
+}) {
   if (stats.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground">
@@ -1222,14 +1331,28 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm pb-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
         <div><span className="text-2xl font-bold text-foreground">{totals.total}</span> <span className="text-muted-foreground">prospects</span></div>
         <span className="text-border hidden sm:inline">|</span>
-        <div><span className="font-semibold text-green-600">{totals.wants_summer_yes}</span> <span className="text-muted-foreground">summer yes</span> <span className="text-yellow-600 text-xs">+{totals.wants_summer_considering}</span></div>
-        <div><span className="font-semibold text-blue-600">{totals.wants_regular_yes}</span> <span className="text-muted-foreground">regular yes</span> <span className="text-yellow-600 text-xs">+{totals.wants_regular_considering}</span></div>
+        <button onClick={() => onJumpToList({ wants_summer: "Yes" })} className="hover:underline">
+          <span className="font-semibold text-green-600">{totals.wants_summer_yes}</span> <span className="text-muted-foreground">summer yes</span>{" "}
+          <span className="text-yellow-600 text-xs">+{totals.wants_summer_considering}</span>
+        </button>
+        <button onClick={() => onJumpToList({ wants_regular: "Yes" })} className="hover:underline">
+          <span className="font-semibold text-blue-600">{totals.wants_regular_yes}</span> <span className="text-muted-foreground">regular yes</span>{" "}
+          <span className="text-yellow-600 text-xs">+{totals.wants_regular_considering}</span>
+        </button>
         <span className="text-border hidden sm:inline">|</span>
-        <div className="inline-flex items-center gap-1"><span className="font-semibold text-green-600">{totals.wechat_added}</span> <WeChatIcon className="h-3 w-3 text-green-600" /> <span className="text-muted-foreground">added</span></div>
-        <div className="inline-flex items-center gap-1"><span className="text-red-600">{totals.wechat_issues}</span> <WeChatIcon className="h-3 w-3 text-red-500" /> <span className="text-muted-foreground">issues</span></div>
+        <button onClick={() => onJumpToList({ outreach_status: "WeChat - Added" })} className="inline-flex items-center gap-1 hover:underline">
+          <span className="font-semibold text-green-600">{totals.wechat_added}</span> <WeChatIcon className="h-3 w-3 text-green-600" /> <span className="text-muted-foreground">added</span>
+        </button>
+        <button onClick={() => onJumpToList({ outreach_status: "WeChat - Not Found" })} className="inline-flex items-center gap-1 hover:underline">
+          <span className="text-red-600">{totals.wechat_issues}</span> <WeChatIcon className="h-3 w-3 text-red-500" /> <span className="text-muted-foreground">issues</span>
+        </button>
         <span className="text-border hidden sm:inline">|</span>
-        <div><span className="font-semibold text-purple-600">{totals.matched}</span> <span className="text-muted-foreground">matched</span></div>
-        <div><span className="text-muted-foreground">{totals.not_started} not started</span></div>
+        <button onClick={() => onJumpToList({ linked: "linked" })} className="hover:underline">
+          <span className="font-semibold text-purple-600">{totals.matched}</span> <span className="text-muted-foreground">matched</span>
+        </button>
+        <button onClick={() => onJumpToList({ outreach_status: "Not Started" })} className="hover:underline">
+          <span className="text-muted-foreground">{totals.not_started} not started</span>
+        </button>
       </div>
 
       {/* Per-Branch Table */}
@@ -1256,7 +1379,7 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
           </thead>
           <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
             {stats.map((s, i) => (
-              <tr key={s.branch} className={i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}>
+              <tr key={s.branch} className={`cursor-pointer hover:bg-primary/5 ${i % 2 === 1 ? "bg-[#f5efe7]/30 dark:bg-[#222]" : ""}`} onClick={() => onJumpToList({ branch: s.branch })}>
                 <td className="px-3 py-2 font-semibold text-foreground">
                   <span className="inline-flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${BRANCH_INFO[s.branch]?.dot || "bg-gray-400"}`} />
@@ -1296,6 +1419,51 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
 }
 
 // ---- Admin-specific Components ----
+
+function InlineSelect<T extends string>({
+  value,
+  options,
+  onChange,
+  renderTrigger,
+}: {
+  value: T;
+  options: readonly T[];
+  onChange: (v: T) => void;
+  renderTrigger: (v: T) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex hover:opacity-80 transition-opacity"
+      >
+        {renderTrigger(value)}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 mt-1 min-w-[140px] bg-card border border-border rounded-lg shadow-lg p-1 z-20">
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  if (opt !== value) onChange(opt);
+                }}
+                className={`block w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 ${opt === value ? "font-semibold text-primary" : "text-foreground"}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ProspectCard({
   prospect: p,
