@@ -482,84 +482,16 @@ export default function AdminProspectsPage() {
     <DeskSurface fullHeight>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden flex-1 min-h-0 flex flex-col">
-          {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
-                  P6 Prospects
-                  <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </h1>
-                <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0 ml-auto">
-                <label className="inline-flex items-center gap-1.5 text-sm">
-                  <span className="hidden sm:inline text-xs text-muted-foreground">Year</span>
-                  <select
-                    value={year ?? ""}
-                    onChange={(e) => setYear(Number(e.target.value))}
-                    aria-label="Year"
-                    className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
-                  >
-                    {availableYears.map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  onClick={handleAutoMatch}
-                  disabled={autoMatching}
-                  title="Scan unlinked prospects and link each one to a summer application that matches by phone number. Skips ambiguous matches."
-                  className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-                    confirmingAutoMatch
-                      ? "bg-amber-500 text-white hover:bg-amber-600"
-                      : "bg-primary/10 text-primary hover:bg-primary/20"
-                  }`}
-                >
-                  {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">
-                    {autoMatching
-                      ? "Matching..."
-                      : confirmingAutoMatch
-                        ? "Link unlinked prospects? Click to confirm"
-                        : "Auto-Match"}
-                  </span>
-                </button>
-                {/* Pill toggle */}
-                <div className="flex bg-muted rounded-full p-0.5">
-                  <button
-                    onClick={() => setTab("list")}
-                    aria-label="List view"
-                    className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
-                      tab === "list"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <ListIcon className="h-3.5 w-3.5 sm:hidden" />
-                    <span className="hidden sm:inline">List</span>
-                  </button>
-                  <button
-                    onClick={() => setTab("dashboard")}
-                    aria-label="Dashboard view"
-                    className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
-                      tab === "dashboard"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5 sm:hidden" />
-                    <span className="hidden sm:inline">Dashboard</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <HeaderBar
+            year={year}
+            availableYears={availableYears}
+            onYearChange={setYear}
+            autoMatching={autoMatching}
+            confirmingAutoMatch={confirmingAutoMatch}
+            onAutoMatch={handleAutoMatch}
+            tab={tab}
+            onTabChange={setTab}
+          />
 
           {/* Content */}
           <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
@@ -889,102 +821,25 @@ export default function AdminProspectsPage() {
       )}
 
       {showFilterDrawer && (
-        <div className="sm:hidden fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilterDrawer(false)} />
-          <div className="relative mt-auto bg-card rounded-t-2xl shadow-2xl border-t border-border max-h-[85vh] flex flex-col animate-slide-up">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4" />
-                Filters
-              </h3>
-              <button onClick={() => setShowFilterDrawer(false)} className="p-1 rounded-lg text-muted-foreground hover:bg-primary/10">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-              <div>
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Branch Choice</div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {SECONDARY_BRANCHES.map((b) => {
-                    const active = choice.includes(b);
-                    const count = choiceCounts[b] ?? 0;
-                    const badge = BRANCH_COLORS[b]?.badge || "bg-primary text-white";
-                    return (
-                      <button
-                        key={b}
-                        onClick={() =>
-                          setChoice((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
-                        }
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
-                          active
-                            ? `${badge} ring-2 ring-current shadow-sm`
-                            : "border border-border text-muted-foreground"
-                        }`}
-                      >
-                        {b}
-                        <span className="ml-1 opacity-70">{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
-              <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>
-              <button
-                onClick={clearAllFilters}
-                disabled={activeFilterCount === 0}
-                className="text-sm font-medium px-4 py-2 rounded-lg border border-border text-foreground hover:border-primary/50 disabled:opacity-50 transition-colors"
-              >
-                Clear all
-              </button>
-            </div>
-          </div>
-        </div>
+        <MobileFilterDrawer
+          filters={filters}
+          setFilters={setFilters}
+          choice={choice}
+          setChoice={setChoice}
+          choiceCounts={choiceCounts}
+          activeFilterCount={activeFilterCount}
+          onClearAll={clearAllFilters}
+          onClose={() => setShowFilterDrawer(false)}
+        />
       )}
 
-      {/* Floating bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
-          <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 space-y-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm font-medium">{selectedIds.size} selected</span>
-              <span className="text-xs text-muted-foreground">|</span>
-              <span className="text-xs text-muted-foreground shrink-0">Outreach:</span>
-              {OUTREACH_OPTIONS.map((o) => {
-                const label = o.startsWith("WeChat - ") ? o.replace("WeChat - ", "") : o;
-                const showWeChatIcon = o.startsWith("WeChat");
-                return (
-                  <button
-                    key={o}
-                    onClick={() => handleBulkOutreach(o)}
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[o] || "bg-gray-100"}`}
-                    title={OUTREACH_STATUS_HINTS[o]}
-                  >
-                    {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
-                    {label}
-                  </button>
-                );
-              })}
-              <button onClick={() => setSelectedIds(new Set())} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
-              <span className="text-xs text-muted-foreground shrink-0">Status:</span>
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleBulkStatus(s)}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity ${STATUS_BADGE_COLORS[s] || "bg-gray-100"}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <BulkActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+          onBulkOutreach={handleBulkOutreach}
+          onBulkStatus={handleBulkStatus}
+        />
       )}
     </DeskSurface>
   );
@@ -1346,6 +1201,235 @@ function SortTh({
         )}
       </button>
     </th>
+  );
+}
+
+function HeaderBar({
+  year,
+  availableYears,
+  onYearChange,
+  autoMatching,
+  confirmingAutoMatch,
+  onAutoMatch,
+  tab,
+  onTabChange,
+}: {
+  year: number | null;
+  availableYears: number[];
+  onYearChange: (y: number) => void;
+  autoMatching: boolean;
+  confirmingAutoMatch: boolean;
+  onAutoMatch: () => void;
+  tab: "list" | "dashboard";
+  onTabChange: (t: "list" | "dashboard") => void;
+}) {
+  return (
+    <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+          <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base sm:text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
+            P6 Prospects
+            <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </h1>
+          <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <label className="inline-flex items-center gap-1.5 text-sm">
+            <span className="hidden sm:inline text-xs text-muted-foreground">Year</span>
+            <select
+              value={year ?? ""}
+              onChange={(e) => onYearChange(Number(e.target.value))}
+              aria-label="Year"
+              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            onClick={onAutoMatch}
+            disabled={autoMatching}
+            title="Scan unlinked prospects and link each one to a summer application that matches by phone number. Skips ambiguous matches."
+            className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+              confirmingAutoMatch
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
+            }`}
+          >
+            {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">
+              {autoMatching
+                ? "Matching..."
+                : confirmingAutoMatch
+                  ? "Link unlinked prospects? Click to confirm"
+                  : "Auto-Match"}
+            </span>
+          </button>
+          <div className="flex bg-muted rounded-full p-0.5">
+            <button
+              onClick={() => onTabChange("list")}
+              aria-label="List view"
+              className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
+                tab === "list"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ListIcon className="h-3.5 w-3.5 sm:hidden" />
+              <span className="hidden sm:inline">List</span>
+            </button>
+            <button
+              onClick={() => onTabChange("dashboard")}
+              aria-label="Dashboard view"
+              className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1 ${
+                tab === "dashboard"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5 sm:hidden" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileFilterDrawer({
+  filters,
+  setFilters,
+  choice,
+  setChoice,
+  choiceCounts,
+  activeFilterCount,
+  onClearAll,
+  onClose,
+}: {
+  filters: FiltersShape;
+  setFilters: React.Dispatch<React.SetStateAction<FiltersShape>>;
+  choice: string[];
+  setChoice: React.Dispatch<React.SetStateAction<string[]>>;
+  choiceCounts: Record<string, number>;
+  activeFilterCount: number;
+  onClearAll: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="sm:hidden fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative mt-auto bg-card rounded-t-2xl shadow-2xl border-t border-border max-h-[85vh] flex flex-col animate-slide-up">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground hover:bg-primary/10">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div>
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Branch Choice</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {SECONDARY_BRANCHES.map((b) => {
+                const active = choice.includes(b);
+                const count = choiceCounts[b] ?? 0;
+                const badge = BRANCH_COLORS[b]?.badge || "bg-primary text-white";
+                return (
+                  <button
+                    key={b}
+                    onClick={() =>
+                      setChoice((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
+                    }
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                      active
+                        ? `${badge} ring-2 ring-current shadow-sm`
+                        : "border border-border text-muted-foreground"
+                    }`}
+                  >
+                    {b}
+                    <span className="ml-1 opacity-70">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+          <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>
+          <button
+            onClick={onClearAll}
+            disabled={activeFilterCount === 0}
+            className="text-sm font-medium px-4 py-2 rounded-lg border border-border text-foreground hover:border-primary/50 disabled:opacity-50 transition-colors"
+          >
+            Clear all
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkActionBar({
+  count,
+  onClear,
+  onBulkOutreach,
+  onBulkStatus,
+}: {
+  count: number;
+  onClear: () => void;
+  onBulkOutreach: (status: ProspectOutreachStatus) => void;
+  onBulkStatus: (status: ProspectStatus) => void;
+}) {
+  return (
+    <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
+      <div className="bg-card border border-border rounded-xl shadow-lg px-4 py-3 space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm font-medium">{count} selected</span>
+          <span className="text-xs text-muted-foreground">|</span>
+          <span className="text-xs text-muted-foreground shrink-0">Outreach:</span>
+          {OUTREACH_OPTIONS.map((o) => {
+            const label = o.startsWith("WeChat - ") ? o.replace("WeChat - ", "") : o;
+            const showWeChatIcon = o.startsWith("WeChat");
+            return (
+              <button
+                key={o}
+                onClick={() => onBulkOutreach(o)}
+                className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1 ${OUTREACH_BADGE_COLORS[o] || "bg-gray-100"}`}
+                title={OUTREACH_STATUS_HINTS[o]}
+              >
+                {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
+                {label}
+              </button>
+            );
+          })}
+          <button onClick={onClear} className="p-1 text-muted-foreground hover:text-foreground ml-auto">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+          <span className="text-xs text-muted-foreground shrink-0">Status:</span>
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => onBulkStatus(s)}
+              className={`text-xs px-2 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity ${STATUS_BADGE_COLORS[s] || "bg-gray-100"}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
