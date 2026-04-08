@@ -219,6 +219,16 @@ export default function SummerApplicationsPage() {
     }
   };
 
+  // Inline single-row status change from the card
+  const handleStatusChange = useCallback(async (id: number, status: string) => {
+    try {
+      await summerAPI.updateApplication(id, { application_status: status });
+      handleRefresh();
+    } catch {
+      showToast("Status update failed", "error");
+    }
+  }, [handleRefresh, showToast]);
+
   // Filters active?
   const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly;
   const activeFilterCount = [gradeFilter, locationFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
@@ -796,6 +806,7 @@ export default function SummerApplicationsPage() {
                               isChecked={checkedIds.has(app.id)}
                               onToggleCheck={toggleCheck}
                               showCheckbox={showCheckboxes}
+                              onStatusChange={handleStatusChange}
                             />
                           );
                         })}
@@ -815,6 +826,7 @@ export default function SummerApplicationsPage() {
                       isChecked={checkedIds.has(app.id)}
                       onToggleCheck={toggleCheck}
                       showCheckbox={showCheckboxes}
+                      onStatusChange={handleStatusChange}
                     />
                   ))}
                 </div>

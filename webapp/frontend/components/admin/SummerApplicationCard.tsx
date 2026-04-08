@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
-  Users, StickyNote, Copy, Check, Phone,
+  Users, User, StickyNote, Copy, Check, Phone, CalendarClock, AlertCircle,
+  AlertTriangle, ChevronDown,
   FileInput, Eye, Send, CheckCircle, CreditCard, BadgeCheck,
   GraduationCap, Clock, LogOut, XCircle,
   type LucideIcon,
@@ -14,19 +16,20 @@ import { formatPreferences, displayLocation } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type { SummerApplication } from "@/types";
 
-const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
-  "Submitted":           { dot: "bg-gray-400",    bg: "bg-gray-100 dark:bg-gray-800",         text: "text-gray-700 dark:text-gray-300" },
-  "Under Review":        { dot: "bg-blue-500",    bg: "bg-blue-50 dark:bg-blue-900/20",       text: "text-blue-700 dark:text-blue-300" },
-  "Placement Offered":   { dot: "bg-indigo-500",  bg: "bg-indigo-50 dark:bg-indigo-900/20",   text: "text-indigo-700 dark:text-indigo-300" },
-  "Placement Confirmed": { dot: "bg-purple-500",  bg: "bg-purple-50 dark:bg-purple-900/20",   text: "text-purple-700 dark:text-purple-300" },
-  "Fee Sent":            { dot: "bg-amber-500",   bg: "bg-amber-50 dark:bg-amber-900/20",     text: "text-amber-700 dark:text-amber-300" },
-  "Paid":                { dot: "bg-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-300" },
-  "Enrolled":            { dot: "bg-green-500",   bg: "bg-green-50 dark:bg-green-900/20",     text: "text-green-700 dark:text-green-300" },
-  "Waitlisted":          { dot: "bg-orange-500",  bg: "bg-orange-50 dark:bg-orange-900/20",   text: "text-orange-700 dark:text-orange-300" },
-  "Withdrawn":           { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800/50",     text: "text-slate-600 dark:text-slate-400" },
-  "Rejected":            { dot: "bg-red-500",     bg: "bg-red-50 dark:bg-red-900/20",         text: "text-red-700 dark:text-red-300" },
+const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
+  "Submitted":           { dot: "bg-gray-400",    bg: "bg-gray-100 dark:bg-gray-800",         text: "text-gray-700 dark:text-gray-300",       borderL: "border-l-gray-400" },
+  "Under Review":        { dot: "bg-blue-500",    bg: "bg-blue-50 dark:bg-blue-900/20",       text: "text-blue-700 dark:text-blue-300",       borderL: "border-l-blue-500" },
+  "Placement Offered":   { dot: "bg-indigo-500",  bg: "bg-indigo-50 dark:bg-indigo-900/20",   text: "text-indigo-700 dark:text-indigo-300",   borderL: "border-l-indigo-500" },
+  "Placement Confirmed": { dot: "bg-purple-500",  bg: "bg-purple-50 dark:bg-purple-900/20",   text: "text-purple-700 dark:text-purple-300",   borderL: "border-l-purple-500" },
+  "Fee Sent":            { dot: "bg-amber-500",   bg: "bg-amber-50 dark:bg-amber-900/20",     text: "text-amber-700 dark:text-amber-300",     borderL: "border-l-amber-500" },
+  "Paid":                { dot: "bg-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-300", borderL: "border-l-emerald-500" },
+  "Enrolled":            { dot: "bg-green-500",   bg: "bg-green-50 dark:bg-green-900/20",     text: "text-green-700 dark:text-green-300",     borderL: "border-l-green-500" },
+  "Waitlisted":          { dot: "bg-orange-500",  bg: "bg-orange-50 dark:bg-orange-900/20",   text: "text-orange-700 dark:text-orange-300",   borderL: "border-l-orange-500" },
+  "Withdrawn":           { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800/50",     text: "text-slate-600 dark:text-slate-400",     borderL: "border-l-slate-400" },
+  "Rejected":            { dot: "bg-red-500",     bg: "bg-red-50 dark:bg-red-900/20",         text: "text-red-700 dark:text-red-300",         borderL: "border-l-red-500" },
 };
 
 const ALL_STATUSES = [
@@ -47,9 +50,19 @@ const STATUS_ICONS: Record<string, LucideIcon> = {
   "Rejected":            XCircle,
 };
 
+// Buddy group unlocks the discount at 3 members (matches summer/apply form copy:
+// "Groups of 3 or more get a group discount"). Max members is also 3.
+const BUDDY_UNLOCK_THRESHOLD = 3;
+
+// Branch tint — subtle bg per applying centre, so admins instantly see who's responsible.
+const BRANCH_TINT: Record<string, string> = {
+  MSA: "bg-blue-50/40 dark:bg-blue-950/20",
+  MSB: "bg-purple-50/40 dark:bg-purple-950/20",
+};
+
 export { STATUS_COLORS, ALL_STATUSES, STATUS_ICONS };
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadgeContent({ status }: { status: string }) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS["Submitted"];
   const Icon = STATUS_ICONS[status];
   return (
@@ -60,7 +73,71 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export { StatusBadge };
+export function StatusBadge({ status }: { status: string }) {
+  return <StatusBadgeContent status={status} />;
+}
+
+function InlineStatusSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title="Click to change status"
+        className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
+      >
+        <StatusBadgeContent status={value} />
+        <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+      </button>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[180px] bg-card border border-border rounded-lg shadow-lg p-1"
+          style={{ top: pos.top, right: pos.right }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {ALL_STATUSES.map((opt) => {
+            const colors = STATUS_COLORS[opt];
+            const Icon = STATUS_ICONS[opt];
+            const isSelected = opt === value;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  if (opt !== value) onChange(opt);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 w-full text-left text-xs px-2 py-1 rounded transition-all",
+                  colors.bg, colors.text,
+                  isSelected ? "ring-1 ring-current font-semibold" : "hover:ring-1 hover:ring-current/60",
+                  "mb-0.5 last:mb-0"
+                )}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {opt}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 interface SummerApplicationCardProps {
   application: SummerApplication;
@@ -70,6 +147,7 @@ interface SummerApplicationCardProps {
   isChecked: boolean;
   onToggleCheck: (id: number) => void;
   showCheckbox: boolean;
+  onStatusChange?: (id: number, status: string) => void;
 }
 
 export const SummerApplicationCard = React.memo(function SummerApplicationCard({
@@ -80,6 +158,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   isChecked,
   onToggleCheck,
   showCheckbox,
+  onStatusChange,
 }: SummerApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
   const { combined: prefs } = formatPreferences(app);
@@ -88,9 +167,6 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   const prefDisplay = classified.isPair
     ? classified.primary.map(fmtSlot).join(" + ")
     : prefs;
-  const backupTooltip = classified.isPair && classified.backup.length > 0
-    ? classified.backup.map(fmtSlot).join(" + ")
-    : null;
 
   const handleCopyRef = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,30 +178,36 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
 
   const isExisting = !!app.is_existing_student && app.is_existing_student !== "None";
   const isPlaced = !!app.sessions && app.sessions.length > 0;
-  const placedDisplay = isPlaced
-    ? app.sessions!.map((s) => `${s.slot_day} ${s.time_slot}`).join(" + ")
-    : null;
   const sessionsPerWeek = app.sessions_per_week ?? 1;
   const buddyGroupSize = app.buddy_group_id ? (app.buddy_siblings?.length ?? 0) + 1 : 0;
-  const barColor = STATUS_COLORS[app.application_status]?.dot || "bg-gray-300";
+  const buddyUnlocked = buddyGroupSize >= BUDDY_UNLOCK_THRESHOLD;
+  const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
+  const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
+  const statusBorderL = STATUS_COLORS[app.application_status]?.borderL || "border-l-gray-300";
+
+  const editedAfterReview =
+    !!app.reviewed_at && !!app.updated_at &&
+    app.application_status !== "Submitted" &&
+    new Date(app.updated_at).getTime() > new Date(app.reviewed_at).getTime();
+
+  const langChip = app.form_language === "zh" ? "中" : app.form_language === "en" ? "EN" : null;
 
   return (
     <div
       data-app-index={index}
       onClick={() => onSelect(app)}
       className={cn(
-        "group relative rounded-lg border transition-all cursor-pointer scroll-my-24 overflow-hidden",
-        isExisting ? "bg-primary/[0.025] dark:bg-primary/[0.04]" : "bg-white dark:bg-gray-900",
+        "group rounded-lg border border-l-[3px] transition-all cursor-pointer scroll-my-24",
+        statusBorderL,
+        branchTint,
+        "hover:bg-muted/40",
         isFocused && "ring-2 ring-primary/50",
         isChecked
-          ? "border-primary ring-1 ring-primary/30"
+          ? "border-primary !border-l-primary ring-1 ring-primary/30 bg-primary/[0.05]"
           : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm"
       )}
     >
-      {/* Status bar — leftmost cue for triage */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", barColor)} aria-hidden />
-
-      <div className="pl-3 pr-3 py-2.5 space-y-1.5">
+      <div className="px-3 py-2.5 space-y-1.5">
         {/* Row 1: identity */}
         <div className="flex items-center gap-2">
           <div
@@ -152,7 +234,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               }}
               trailing={
                 <>
-                  {isExisting && (
+                  {isExisting ? (
                     <span
                       className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded"
                       title={`Existing student: ${app.is_existing_student}`}
@@ -160,64 +242,127 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
                       <BadgeCheck className="h-3 w-3" />
                       <span className="font-mono">{app.is_existing_student}</span>
                     </span>
+                  ) : (
+                    <span
+                      className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
+                      title="New student — no prior enrolment"
+                    >
+                      New
+                    </span>
                   )}
                   {buddyGroupSize > 0 && (
                     <span
-                      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-purple-600 dark:text-purple-400"
-                      title={app.buddy_names || `Buddy group of ${buddyGroupSize}`}
+                      className={cn(
+                        "shrink-0 inline-flex items-center gap-0.5 px-1 py-0.5 rounded",
+                        buddyUnlocked
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : "bg-amber-100 dark:bg-amber-900/30"
+                      )}
+                      title={
+                        (app.buddy_names || `Buddy group of ${buddyGroupSize}`) +
+                        (buddyUnlocked
+                          ? " — discount unlocked"
+                          : ` — needs ${BUDDY_UNLOCK_THRESHOLD - buddyGroupSize} more for discount`)
+                      }
                     >
-                      <Users className="h-3 w-3" /> ×{buddyGroupSize}
+                      {Array.from({ length: BUDDY_UNLOCK_THRESHOLD }).map((_, i) => {
+                        const filled = i < buddyGroupSize;
+                        return (
+                          <User
+                            key={i}
+                            className={cn(
+                              "h-3 w-3",
+                              filled
+                                ? (buddyUnlocked
+                                    ? "text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400"
+                                    : "text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400")
+                                : "text-muted-foreground/40"
+                            )}
+                          />
+                        );
+                      })}
                     </span>
                   )}
                 </>
               }
             />
           </div>
-          {app.preferred_location && (() => {
-            const code = displayLocation(app.preferred_location);
-            const color = BRANCH_COLORS[code]?.badge || "bg-gray-100 text-gray-700";
-            return (
-              <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold", color)}>
-                {code}
-              </span>
-            );
-          })()}
+          {branchCode && (
+            <span className={cn(
+              "shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold",
+              BRANCH_COLORS[branchCode]?.badge || "bg-gray-100 text-gray-700"
+            )}>
+              {branchCode}
+            </span>
+          )}
           <div className="ml-auto shrink-0">
-            <StatusBadge status={app.application_status} />
+            {onStatusChange ? (
+              <InlineStatusSelect
+                value={app.application_status}
+                onChange={(next) => onStatusChange(app.id, next)}
+              />
+            ) : (
+              <StatusBadgeContent status={app.application_status} />
+            )}
           </div>
         </div>
 
         {/* Row 2: placement — the action-relevant line */}
-        <div className="flex items-baseline gap-2 text-xs">
+        <div className="flex items-center gap-1.5 text-xs flex-wrap">
           {isPlaced ? (
             <>
-              <span className="shrink-0 inline-flex items-center gap-1 text-green-700 dark:text-green-400 font-medium">
-                <GraduationCap className="h-3 w-3" />
-                Placed
-              </span>
-              <span className="text-foreground font-medium truncate">{placedDisplay}</span>
-            </>
-          ) : prefDisplay ? (
-            <>
-              <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">
-                {sessionsPerWeek > 1 ? `${sessionsPerWeek}× pref` : "Pref"}
-              </span>
-              <span className="text-foreground truncate">{prefDisplay}</span>
-              {backupTooltip && (
+              <GraduationCap className="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
+              {app.sessions!.map((s, i) => (
                 <span
-                  className="shrink-0 text-[10px] text-muted-foreground/70 italic"
-                  title={`Backup: ${backupTooltip}`}
+                  key={i}
+                  className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-medium"
                 >
-                  +alt
+                  {s.slot_day} {s.time_slot}
                 </span>
+              ))}
+            </>
+          ) : classified.primary.length > 0 || prefDisplay ? (
+            <>
+              <CalendarClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {sessionsPerWeek > 1 && (
+                <span className="shrink-0 text-[10px] font-bold px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                  2×
+                </span>
+              )}
+              {classified.primary.length > 0 ? (
+                classified.primary.map((s, i) => (
+                  <span
+                    key={`p${i}`}
+                    className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-foreground"
+                  >
+                    {s.day} {s.time}
+                  </span>
+                ))
+              ) : (
+                <span className="text-foreground truncate">{prefDisplay}</span>
+              )}
+              {classified.backup.length > 0 && (
+                <>
+                  <span className="shrink-0 text-[10px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
+                  {classified.backup.map((s, i) => (
+                    <span
+                      key={`b${i}`}
+                      className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground"
+                    >
+                      {s.day} {s.time}
+                    </span>
+                  ))}
+                </>
               )}
             </>
           ) : (
-            <span className="text-muted-foreground/60 italic">No preferences submitted</span>
+            <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+              <AlertCircle className="h-3 w-3" /> No preferences submitted
+            </span>
           )}
         </div>
 
-        {/* Row 3: meta footer — location, flags, ref, time */}
+        {/* Row 3: meta footer — phone, wechat, flags, ref, time */}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {app.contact_phone && (
             <span className="shrink-0 hidden sm:inline-flex items-center gap-1">
@@ -236,7 +381,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               className="shrink-0 text-amber-700 dark:text-amber-400"
               title="Sibling declared at Primary / KidsConcept — pending verification"
             >
-              · Sibling pending{(app.pending_sibling_count ?? 0) > 1 ? ` ×${app.pending_sibling_count}` : ""}
+              Sibling pending{(app.pending_sibling_count ?? 0) > 1 ? ` ×${app.pending_sibling_count}` : ""}
             </span>
           )}
           {app.unavailability_notes && (
@@ -244,13 +389,32 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400"
               title={`Unavailable: ${app.unavailability_notes}`}
             >
-              · <XCircle className="h-2.5 w-2.5" /> Unavailable
+              <XCircle className="h-2.5 w-2.5" /> Unavailable
+            </span>
+          )}
+          {editedAfterReview && (
+            <span
+              className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 font-medium"
+              title={`Edited ${formatTimeAgo(app.updated_at!)} — after review on ${formatTimeAgo(app.reviewed_at!)}`}
+            >
+              <AlertTriangle className="h-3 w-3" /> Edited after review
             </span>
           )}
           {app.admin_notes && (
-            <StickyNote className="h-3 w-3 text-amber-500 shrink-0" title={app.admin_notes} />
+            <span
+              className="shrink-0 inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 truncate max-w-[220px]"
+              title={app.admin_notes}
+            >
+              <StickyNote className="h-3 w-3 shrink-0" />
+              <span className="truncate">{app.admin_notes}</span>
+            </span>
           )}
           <span className="ml-auto shrink-0 inline-flex items-center gap-2">
+            {langChip && (
+              <span className="text-[10px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground" title={`Form filled in ${app.form_language === "zh" ? "Chinese" : "English"}`}>
+                {langChip}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1 font-mono">
               {app.reference_code}
               <button

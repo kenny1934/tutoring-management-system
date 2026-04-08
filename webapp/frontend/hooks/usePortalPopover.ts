@@ -13,17 +13,26 @@ import { useEffect, useRef, useState } from "react";
  *   menu follows the trigger.
  * - Closes on outside click and Escape.
  */
-export function usePortalPopover(open: boolean, onClose: () => void) {
+export function usePortalPopover(
+  open: boolean,
+  onClose: () => void,
+  options?: { align?: "left" | "right" }
+) {
+  const align = options?.align ?? "left";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; right?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const measure = () => {
       if (!triggerRef.current) return;
       const rect = triggerRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
+      setPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        ...(align === "right" && { right: window.innerWidth - rect.right }),
+      });
     };
     measure();
     window.addEventListener("scroll", measure, true);
