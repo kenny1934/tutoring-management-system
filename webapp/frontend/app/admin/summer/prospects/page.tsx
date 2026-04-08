@@ -26,6 +26,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   Columns3,
+  SlidersHorizontal,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -489,6 +490,7 @@ export default function AdminProspectsPage() {
     return new Set();
   });
   const [showColMenu, setShowColMenu] = useState(false);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem("prospect_hidden_cols", JSON.stringify([...hiddenCols]));
@@ -735,6 +737,25 @@ export default function AdminProspectsPage() {
 
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
 
+  const clearAllFilters = useCallback(() => {
+    setSearchInput("");
+    setChoice([]);
+    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" }));
+  }, []);
+
+  // Body scroll lock while mobile filter drawer is open
+  useEffect(() => {
+    if (!showFilterDrawer) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowFilterDrawer(false); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showFilterDrawer]);
+
   return (
     <DeskSurface fullHeight>
       <PageTransition className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
@@ -742,10 +763,10 @@ export default function AdminProspectsPage() {
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <div className="hidden sm:flex w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 items-center justify-center">
                 <GraduationCap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="hidden sm:block flex-1 min-w-0">
                 <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
                   P6 Prospects
                   <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
@@ -754,7 +775,7 @@ export default function AdminProspectsPage() {
                 </h1>
                 <p className="text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 ml-auto">
                 <select
                   value={year ?? ""}
                   onChange={(e) => setYear(Number(e.target.value))}
@@ -774,7 +795,7 @@ export default function AdminProspectsPage() {
                   }`}
                 >
                   {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  {autoMatching ? "Matching..." : confirmingAutoMatch ? "Click again to confirm" : "Auto-Match"}
+                  <span className="hidden sm:inline">{autoMatching ? "Matching..." : confirmingAutoMatch ? "Click again to confirm" : "Auto-Match"}</span>
                 </button>
                 {/* Pill toggle */}
                 <div className="flex bg-muted rounded-full p-0.5">
@@ -807,11 +828,10 @@ export default function AdminProspectsPage() {
           <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
       {tab === "list" ? (
         <div className="space-y-5 flex-1 min-h-0 flex flex-col">
-          {/* Branch Pills */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
             <button
               onClick={() => setFilters((f) => ({ ...f, branch: "" }))}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+              className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                 !filters.branch
                   ? "bg-primary text-white shadow-sm"
                   : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -828,7 +848,7 @@ export default function AdminProspectsPage() {
                 <button
                   key={b}
                   onClick={() => setFilters((f) => ({ ...f, branch: f.branch === b ? "" : b }))}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                  className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                     filters.branch === b
                       ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} shadow-sm ring-1 ring-current/20`
                       : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -843,8 +863,8 @@ export default function AdminProspectsPage() {
             })}
           </div>
 
-          {/* Branch Choice (which secondary center the student wants) — multi-select, client-side */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* Branch Choice — desktop only; mobile copy lives in the filter drawer */}
+          <div className="hidden sm:flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Branch Choice</span>
             {SECONDARY_BRANCHES.map((b) => {
               const active = choice.includes(b);
@@ -877,41 +897,42 @@ export default function AdminProspectsPage() {
             )}
           </div>
 
-          {/* Search + Filters */}
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex sm:hidden gap-2 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search..."
+                className={`${inputSmall} pl-8 w-full`}
+              />
+            </div>
+            <button
+              onClick={() => setShowFilterDrawer(true)}
+              className="shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-foreground hover:border-primary/50 transition-colors"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-white">{activeFilterCount}</span>
+              )}
+            </button>
+          </div>
+
+          <div className="hidden sm:flex flex-wrap gap-2 items-center">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
-                className={`${inputSmall} pl-8 w-40 sm:w-52`}
+                className={`${inputSmall} pl-8 w-52`}
               />
             </div>
-            <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
-              <option value="">Summer: All</option>
-              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-            </select>
-            <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
-              <option value="">Regular: All</option>
-              {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-            </select>
-            <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
-              <option value="">Outreach: All</option>
-              {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
-            </select>
-            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputSmall}>
-              <option value="">Status: All</option>
-              {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-            </select>
-            <select value={filters.linked} onChange={(e) => setFilters((f) => ({ ...f, linked: e.target.value }))} className={inputSmall}>
-              <option value="">App: All</option>
-              <option value="linked">Linked</option>
-              <option value="unlinked">Unlinked</option>
-            </select>
+            <FilterSelects filters={filters} setFilters={setFilters} className="contents" />
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setSearchInput(""); setChoice([]); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" })); }}
+                onClick={clearAllFilters}
                 className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
               >
                 Clear all
@@ -994,7 +1015,7 @@ export default function AdminProspectsPage() {
           ) : (
             <>
             {/* Mobile card list */}
-            <div className="sm:hidden space-y-2">
+            <div className="sm:hidden flex-1 min-h-0 overflow-y-auto space-y-2">
               {displayedProspects.map((p) => (
                 <ProspectCard
                   key={p.id}
@@ -1184,6 +1205,66 @@ export default function AdminProspectsPage() {
         />
       )}
 
+      {showFilterDrawer && (
+        <div className="sm:hidden fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilterDrawer(false)} />
+          <div className="relative mt-auto bg-card rounded-t-2xl shadow-2xl border-t border-border max-h-[85vh] flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+              </h3>
+              <button onClick={() => setShowFilterDrawer(false)} className="p-1 rounded-lg text-muted-foreground hover:bg-primary/10">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              <div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Branch Choice</div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {SECONDARY_BRANCHES.map((b) => {
+                    const active = choice.includes(b);
+                    const count = choiceCounts[b] ?? 0;
+                    const badge = BRANCH_COLORS[b]?.badge || "bg-primary text-white";
+                    return (
+                      <button
+                        key={b}
+                        onClick={() =>
+                          setChoice((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
+                        }
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                          active
+                            ? `${badge} ring-2 ring-current shadow-sm`
+                            : "border border-border text-muted-foreground"
+                        }`}
+                      >
+                        {b}
+                        <span className="ml-1 opacity-70">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+              <button
+                onClick={clearAllFilters}
+                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={() => setShowFilterDrawer(false)}
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating bulk action bar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 animate-slide-up max-w-[95vw] sm:max-w-[680px]">
@@ -1368,6 +1449,52 @@ function DashboardView({
 }
 
 // ---- Admin-specific Components ----
+
+type FiltersShape = {
+  branch: string;
+  status: string;
+  outreach_status: string;
+  wants_summer: string;
+  wants_regular: string;
+  linked: string;
+  search: string;
+};
+
+function FilterSelects({
+  filters,
+  setFilters,
+  className = "",
+}: {
+  filters: FiltersShape;
+  setFilters: React.Dispatch<React.SetStateAction<FiltersShape>>;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
+        <option value="">Summer: All</option>
+        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+      </select>
+      <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
+        <option value="">Regular: All</option>
+        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+      </select>
+      <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
+        <option value="">Outreach: All</option>
+        {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
+      </select>
+      <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputSmall}>
+        <option value="">Status: All</option>
+        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+      </select>
+      <select value={filters.linked} onChange={(e) => setFilters((f) => ({ ...f, linked: e.target.value }))} className={inputSmall}>
+        <option value="">Linked: All</option>
+        <option value="linked">Linked</option>
+        <option value="unlinked">Unlinked</option>
+      </select>
+    </div>
+  );
+}
 
 function InlineSelect<T extends string>({
   value,
