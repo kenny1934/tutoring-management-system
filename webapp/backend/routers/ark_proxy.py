@@ -11,7 +11,9 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from database import get_db
 from models import Tutor
 from auth.dependencies import get_current_user, require_admin
 
@@ -78,36 +80,72 @@ async def _ark_request(method: str, path: str, user_email: str, **kwargs):
     return resp.json()
 
 
+def _resolve_acting_email(
+    current_user: Tutor,
+    as_tutor_id: Optional[int],
+    db: Session,
+) -> str:
+    """Resolve the email to use as ARK X-Acting-Email.
+
+    If `as_tutor_id` is provided, the caller must be a Super Admin and the
+    target tutor must exist with a user_email. Used to let Super Admins view
+    another tutor's read-only ARK data while impersonating them in the UI.
+    """
+    if as_tutor_id is None:
+        return current_user.user_email
+
+    if current_user.role != "Super Admin":
+        raise HTTPException(403, detail="Only Super Admin can view another user's ARK data")
+
+    tutor = db.query(Tutor).filter(Tutor.id == as_tutor_id).first()
+    if tutor is None:
+        raise HTTPException(404, detail="Tutor not found")
+    if not tutor.user_email:
+        raise HTTPException(400, detail="Tutor has no email on file")
+    return tutor.user_email
+
+
 # ─── Self-service endpoints (any authenticated user) ───
 
 @router.get("/ark/leave/types")
-async def ark_leave_types(current_user: Tutor = Depends(get_current_user)):
+async def ark_leave_types(
+    as_tutor_id: Optional[int] = Query(None),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Leave type options for the request form."""
-    return await _ark_request("GET", "/me/leave-types", current_user.user_email)
+    acting_email = _resolve_acting_email(current_user, as_tutor_id, db)
+    return await _ark_request("GET", "/me/leave-types", acting_email)
 
 
 @router.get("/ark/leave/balances")
 async def ark_leave_balances(
     year: Optional[int] = Query(None),
+    as_tutor_id: Optional[int] = Query(None),
     current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Current user's leave balances."""
+    """Current user's leave balances (or another tutor's, for Super Admin)."""
+    acting_email = _resolve_acting_email(current_user, as_tutor_id, db)
     params = {}
     if year:
         params["year"] = year
-    return await _ark_request("GET", "/me/leave-balances", current_user.user_email, params=params)
+    return await _ark_request("GET", "/me/leave-balances", acting_email, params=params)
 
 
 @router.get("/ark/leave/my-requests")
 async def ark_my_requests(
     status: Optional[str] = Query(None),
+    as_tutor_id: Optional[int] = Query(None),
     current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Current user's own leave requests."""
+    """Current user's own leave requests (or another tutor's, for Super Admin)."""
+    acting_email = _resolve_acting_email(current_user, as_tutor_id, db)
     params = {}
     if status:
         params["status"] = status
-    return await _ark_request("GET", "/me/leave-requests", current_user.user_email, params=params)
+    return await _ark_request("GET", "/me/leave-requests", acting_email, params=params)
 
 
 class CreateLeaveRequest(BaseModel):
@@ -148,13 +186,16 @@ async def ark_cancel_request(
 @router.get("/ark/overtime/my")
 async def ark_my_overtime(
     year: Optional[int] = Query(None),
+    as_tutor_id: Optional[int] = Query(None),
     current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Current user's overtime records."""
+    """Current user's overtime records (or another tutor's, for Super Admin)."""
+    acting_email = _resolve_acting_email(current_user, as_tutor_id, db)
     params = {}
     if year:
         params["year"] = year
-    return await _ark_request("GET", "/me/overtime", current_user.user_email, params=params)
+    return await _ark_request("GET", "/me/overtime", acting_email, params=params)
 
 
 class CreateOvertimeRequest(BaseModel):

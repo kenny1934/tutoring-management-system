@@ -2116,13 +2116,28 @@ export const authAPI = {
   getHandoffToken: () => fetchAPI<{ token: string }>('/auth/handoff-token'),
 };
 
+function arkLeaveQuery(parts: Record<string, string | number | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(parts)) {
+    if (v !== undefined && v !== null && v !== "") sp.append(k, String(v));
+  }
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
 export const arkLeaveAPI = {
-  getTypes: () =>
-    fetchAPI<import("@/types").ArkLeaveType[]>("/ark/leave/types"),
-  getBalances: (year?: number) =>
-    fetchAPI<import("@/types").ArkLeaveBalance[]>(`/ark/leave/balances${year ? `?year=${year}` : ""}`),
-  getMyRequests: (status?: string) =>
-    fetchAPI<import("@/types").ArkLeaveRequest[]>(`/ark/leave/my-requests${status ? `?status=${status}` : ""}`),
+  getTypes: (asTutorId?: number) =>
+    fetchAPI<import("@/types").ArkLeaveType[]>(
+      `/ark/leave/types${arkLeaveQuery({ as_tutor_id: asTutorId })}`
+    ),
+  getBalances: (year?: number, asTutorId?: number) =>
+    fetchAPI<import("@/types").ArkLeaveBalance[]>(
+      `/ark/leave/balances${arkLeaveQuery({ year, as_tutor_id: asTutorId })}`
+    ),
+  getMyRequests: (status?: string, asTutorId?: number) =>
+    fetchAPI<import("@/types").ArkLeaveRequest[]>(
+      `/ark/leave/my-requests${arkLeaveQuery({ status, as_tutor_id: asTutorId })}`
+    ),
   createRequest: (data: import("@/types").ArkCreateLeaveRequest) =>
     fetchAPI<import("@/types").ArkLeaveRequest>("/ark/leave/my-requests", {
       method: "POST",
@@ -2132,8 +2147,10 @@ export const arkLeaveAPI = {
     fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
   getCalendar: (year: number, month: number) =>
     fetchAPI<import("@/types").ArkCalendarEntry[]>(`/ark/leave/calendar?year=${year}&month=${month}`),
-  getMyOvertime: (year?: number) =>
-    fetchAPI<import("@/types").ArkOvertimeRecord[]>(`/ark/overtime/my${year ? `?year=${year}` : ""}`),
+  getMyOvertime: (year?: number, asTutorId?: number) =>
+    fetchAPI<import("@/types").ArkOvertimeRecord[]>(
+      `/ark/overtime/my${arkLeaveQuery({ year, as_tutor_id: asTutorId })}`
+    ),
   createOvertime: (data: import("@/types").ArkCreateOvertime) =>
     fetchAPI<import("@/types").ArkOvertimeRecord>("/ark/overtime/my", {
       method: "POST",

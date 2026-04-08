@@ -32,6 +32,7 @@ import {
   Plus,
   Clock,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 import { FloatingPortal } from "@floating-ui/react";
 import { useDropdown } from "@/lib/ui-hooks";
@@ -739,11 +740,18 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const [showForm, setShowForm] = useState<false | "leave" | "overtime">(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"upcoming" | "history">("upcoming");
-  const { isAdmin } = useAuth();
+  const { isAdmin, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
   const { viewMode } = useRole();
   const { showToast } = useToast();
 
   const isAdminView = isAdmin && viewMode !== "my-view";
+
+  // Super Admin impersonating a specific tutor: scope ARK reads to that tutor (read-only).
+  const asTutorId = (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id)
+    ? impersonatedTutor.id
+    : undefined;
+  const isViewingOther = asTutorId != null;
+  const scopeKey = asTutorId ?? "self";
 
   // Default tab: admin sees pending review, staff sees balances
   const [activeTab, setActiveTab] = useState<"balances" | "requests" | "pending" | "calendar">(
@@ -757,14 +765,14 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
   // SWR hooks — data fetched on open, badge counts polled in background
   const { data: balances, isLoading: loadingBalances, error: balancesError } = useSWR(
-    isOpen ? "ark-leave-balances" : null,
-    () => arkLeaveAPI.getBalances(),
+    isOpen ? ["ark-leave-balances", scopeKey] : null,
+    () => arkLeaveAPI.getBalances(undefined, asTutorId),
     { revalidateOnFocus: false }
   );
 
   const { data: myRequests, isLoading: loadingRequests } = useSWR(
-    isOpen ? "ark-leave-my-requests" : null,
-    () => arkLeaveAPI.getMyRequests(),
+    isOpen ? ["ark-leave-my-requests", scopeKey] : null,
+    () => arkLeaveAPI.getMyRequests(undefined, asTutorId),
     { revalidateOnFocus: false }
   );
 
@@ -782,8 +790,8 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   );
 
   const { data: myRequestsForBadge } = useSWR(
-    !isAdminView ? "ark-leave-my-pending-count" : null,
-    () => arkLeaveAPI.getMyRequests("pending"),
+    !isAdminView ? ["ark-leave-my-pending-count", scopeKey] : null,
+    () => arkLeaveAPI.getMyRequests("pending", asTutorId),
     { refreshInterval: 60000, revalidateOnFocus: false }
   );
 
@@ -812,8 +820,8 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     try {
       await arkLeaveAPI.cancelRequest(requestId);
       showToast("Leave request cancelled", "info");
-      mutate("ark-leave-my-requests");
-      mutate("ark-leave-my-pending-count");
+      mutate(["ark-leave-my-requests", "self"]);
+      mutate(["ark-leave-my-pending-count", "self"]);
     } catch {
       showToast("Failed to cancel leave request", "error");
     } finally {
@@ -828,9 +836,9 @@ export function LeaveQuickLink({ className }: { className?: string }) {
       await arkLeaveAPI.createRequest(data);
       showToast("Leave request submitted", "success");
       setShowForm(false);
-      mutate("ark-leave-my-requests");
-      mutate("ark-leave-my-pending-count");
-      mutate("ark-leave-balances");
+      mutate(["ark-leave-my-requests", "self"]);
+      mutate(["ark-leave-my-pending-count", "self"]);
+      mutate(["ark-leave-balances", "self"]);
     } catch {
       showToast("Failed to submit leave request", "error");
     } finally {
@@ -1000,8 +1008,19 @@ export function LeaveQuickLink({ className }: { className?: string }) {
               </>
             ) : (
             <>
+            {isViewingOther && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 rounded-t-lg">
+                <Eye className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">
+                  Viewing <span className="font-semibold">{impersonatedTutor?.name}</span>'s leave (read-only)
+                </span>
+              </div>
+            )}
             {/* Tabs */}
-            <div className="flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-t-lg">
+            <div className={cn(
+              "flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/60 dark:bg-[#3d3628]/40",
+              !isViewingOther && "rounded-t-lg"
+            )}>
               {tabs.map((tab, i) => (
                 <button
                   key={tab.id}
@@ -1095,7 +1114,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                         showStaffName={false}
                         isAdmin={false}
                         onReview={handleReview}
-                        onCancel={handleCancel}
+                        onCancel={isViewingOther ? undefined : handleCancel}
                         isActing={reviewingId}
                       />
                     ))}
@@ -1134,17 +1153,22 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
             {/* Footer */}
             <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <button
-                onClick={() => setShowForm("leave")}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-md transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Request
-              </button>
+              {!isViewingOther && (
+                <button
+                  onClick={() => setShowForm("leave")}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-md transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Request
+                </button>
+              )}
               <a
                 href="#"
                 onClick={handleOpenArk}
-                className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-md transition-colors"
+                className={cn(
+                  "flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-md transition-colors",
+                  isViewingOther && "flex-1"
+                )}
               >
                 <ArkIcon className="h-3.5 w-3.5" /> ARK <ExternalLink className="h-3 w-3" />
               </a>
