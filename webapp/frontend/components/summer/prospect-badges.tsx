@@ -3,8 +3,30 @@
 import { useState, useRef, useEffect } from "react";
 import { Check, Copy } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
-import type { ProspectIntention, ProspectOutreachStatus } from "@/types";
+import type { ProspectIntention, ProspectOutreachStatus, ProspectStatus } from "@/types";
 import { OUTREACH_STATUS_HINTS } from "@/types";
+
+// ---- Shared option lists (used by filter selects, bulk action bar, inline editors) ----
+
+export const OUTREACH_OPTIONS: ProspectOutreachStatus[] = [
+  "Not Started",
+  "WeChat - Not Found",
+  "WeChat - Cannot Add",
+  "WeChat - Added",
+  "Called",
+  "No Response",
+];
+
+export const STATUS_OPTIONS: ProspectStatus[] = [
+  "New",
+  "Contacted",
+  "Interested",
+  "Applied",
+  "Enrolled",
+  "Declined",
+];
+
+export const INTENTION_OPTIONS: ProspectIntention[] = ["Yes", "No", "Considering"];
 
 // ---- Color maps ----
 
@@ -40,6 +62,15 @@ export const OUTREACH_BADGE_COLORS: Record<string, string> = {
   "No Response": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
+export const STATUS_BADGE_COLORS: Record<string, string> = {
+  New: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  Contacted: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  Interested: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  Applied: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  Enrolled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  Declined: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
 // ---- Components ----
 
 export function IntentionBadge({ value }: { value: string | null }) {
@@ -61,6 +92,14 @@ export function OutreachBadge({ status }: { status: ProspectOutreachStatus }) {
     >
       {showWeChatIcon && <WeChatIcon className="h-3 w-3" />}
       {label}
+    </span>
+  );
+}
+
+export function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
+  return (
+    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_BADGE_COLORS[status] || "bg-gray-100"}`}>
+      {status}
     </span>
   );
 }
