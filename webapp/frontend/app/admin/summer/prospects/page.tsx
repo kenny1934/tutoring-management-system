@@ -24,6 +24,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Columns3,
+  Zap,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -390,6 +392,55 @@ function InfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 
 // ---- Main Page ----
 
+// Quick-filter presets — apply a bundle of filters in one click
+type PresetName = "needs-outreach" | "no-response" | "ready-to-link" | "wechat-issues";
+
+type FilterState = {
+  branch: string;
+  status: string;
+  outreach_status: string;
+  wants_summer: string;
+  wants_regular: string;
+  linked: string;
+  search: string;
+};
+
+const PRESET_DEFS: Record<PresetName, { label: string; apply: (f: FilterState) => FilterState; match: (f: FilterState) => boolean }> = {
+  "needs-outreach": {
+    label: "Needs outreach",
+    apply: (f) => ({ ...f, outreach_status: "Not Started", wants_summer: "" }),
+    match: (f) => f.outreach_status === "Not Started",
+  },
+  "no-response": {
+    label: "No response",
+    apply: (f) => ({ ...f, outreach_status: "No Response" }),
+    match: (f) => f.outreach_status === "No Response",
+  },
+  "ready-to-link": {
+    label: "Ready to link",
+    apply: (f) => ({ ...f, linked: "unlinked", status: "Interested" }),
+    match: (f) => f.linked === "unlinked" && f.status === "Interested",
+  },
+  "wechat-issues": {
+    label: "WeChat issues",
+    apply: (f) => ({ ...f, outreach_status: "WeChat - Not Found" }),
+    match: (f) => f.outreach_status === "WeChat - Not Found" || f.outreach_status === "WeChat - Cannot Add",
+  },
+};
+
+// Hideable columns — keys map to <th>/<td> visibility predicates
+type ColKey = "id" | "school" | "grade" | "tutor" | "phone" | "wechat" | "remark" | "notes";
+const HIDEABLE_COLS: { key: ColKey; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "school", label: "School" },
+  { key: "grade", label: "Grade" },
+  { key: "tutor", label: "Tutor" },
+  { key: "phone", label: "Phone" },
+  { key: "wechat", label: "WeChat" },
+  { key: "remark", label: "Remark" },
+  { key: "notes", label: "Notes" },
+];
+
 type SortKey =
   | "primary_student_id"
   | "student_name"
@@ -461,6 +512,31 @@ export default function AdminProspectsPage() {
     searchParams.get("order") === "asc" ? "asc" : "desc"
   );
   const [searchInput, setSearchInput] = useState(() => searchParams.get("q") ?? "");
+
+  // Column visibility — persisted to localStorage
+  const [hiddenCols, setHiddenCols] = useState<Set<ColKey>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("prospect_hidden_cols");
+      if (saved) return new Set(JSON.parse(saved) as ColKey[]);
+    } catch { /* ignore */ }
+    return new Set();
+  });
+  const [showColMenu, setShowColMenu] = useState(false);
+  useEffect(() => {
+    try {
+      localStorage.setItem("prospect_hidden_cols", JSON.stringify([...hiddenCols]));
+    } catch { /* ignore */ }
+  }, [hiddenCols]);
+  const colVisible = useCallback((k: ColKey) => !hiddenCols.has(k), [hiddenCols]);
+  const toggleCol = useCallback((k: ColKey) => {
+    setHiddenCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }, []);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
@@ -554,6 +630,22 @@ export default function AdminProspectsPage() {
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
   }, [tab, year, filters, choice, sortBy, sortOrder, router]);
+
+  const activePreset = (Object.keys(PRESET_DEFS) as PresetName[]).find((n) =>
+    PRESET_DEFS[n].match(filters)
+  );
+
+  const applyPreset = useCallback((name: PresetName) => {
+    setFilters((f) => {
+      // If clicking active preset, clear it
+      if (PRESET_DEFS[name].match(f)) {
+        return { ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "" };
+      }
+      // Reset other filters before applying so presets don't compound
+      const cleared = { ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "" };
+      return PRESET_DEFS[name].apply(cleared);
+    });
+  }, []);
 
   const handleSort = useCallback((key: SortKey) => {
     setSortBy((prev) => {
@@ -745,6 +837,27 @@ export default function AdminProspectsPage() {
             })}
           </div>
 
+          {/* Quick-filter presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Zap className="h-3 w-3 text-muted-foreground" />
+            {(Object.keys(PRESET_DEFS) as PresetName[]).map((name) => {
+              const isActive = activePreset === name;
+              return (
+                <button
+                  key={name}
+                  onClick={() => applyPreset(name)}
+                  className={`px-2.5 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 ${
+                    isActive
+                      ? "bg-amber-500 text-white shadow-sm"
+                      : "border border-border text-muted-foreground hover:border-amber-500/50 hover:text-amber-600"
+                  }`}
+                >
+                  {PRESET_DEFS[name].label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Branch Choice (what student WANTS) — multi-select, client-side */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Wants</span>
@@ -816,6 +929,35 @@ export default function AdminProspectsPage() {
                 Clear all
               </button>
             )}
+            <div className="relative ml-auto">
+              <button
+                onClick={() => setShowColMenu((v) => !v)}
+                className="hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                <Columns3 className="h-3 w-3" />
+                Columns
+                {hiddenCols.size > 0 && <span className="text-[10px] opacity-60">({hiddenCols.size} hidden)</span>}
+              </button>
+              {showColMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
+                  <div className="absolute right-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-lg p-2 z-20">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-1">Show columns</div>
+                    {HIDEABLE_COLS.map((c) => (
+                      <label key={c.key} className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-primary/5 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!hiddenCols.has(c.key)}
+                          onChange={() => toggleCol(c.key)}
+                          className="rounded"
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Error banner */}
@@ -862,10 +1004,31 @@ export default function AdminProspectsPage() {
               <p className="text-xs mt-1">Try adjusting your filters</p>
             </div>
           ) : (
-            <div className="border-2 border-border rounded-xl overflow-hidden shadow-sm">
+            <>
+            {/* Mobile card list */}
+            <div className="sm:hidden space-y-2">
+              {displayedProspects.map((p) => (
+                <ProspectCard
+                  key={p.id}
+                  prospect={p}
+                  selected={selectedIds.has(p.id)}
+                  onToggleSelect={() => toggleSelect(p.id)}
+                  onOpen={() => setSelectedProspect(p)}
+                />
+              ))}
+              <div className="px-1 pt-2 text-xs text-muted-foreground font-medium">
+                {displayedProspects.length} prospect{displayedProspects.length !== 1 ? "s" : ""}
+                {prospects && displayedProspects.length !== prospects.length && (
+                  <span className="opacity-60"> (of {prospects.length})</span>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block border-2 border-border rounded-xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
-                  <thead className="bg-primary/5 border-b border-border">
+                  <thead className="bg-primary/5 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                     <tr>
                       <th className="px-2 py-2 w-8">
                         <input
@@ -875,19 +1038,19 @@ export default function AdminProspectsPage() {
                           className="rounded"
                         />
                       </th>
-                      <SortTh label="ID" sortKey="primary_student_id" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      {colVisible("id") && <SortTh label="ID" sortKey="primary_student_id" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
                       <SortTh label="Name" sortKey="student_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <SortTh label="School" sortKey="school" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <SortTh label="Grade" sortKey="grade" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <SortTh label="Tutor" sortKey="tutor_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
+                      {colVisible("school") && <SortTh label="School" sortKey="school" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
+                      {colVisible("grade") && <SortTh label="Grade" sortKey="grade" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
+                      {colVisible("tutor") && <SortTh label="Tutor" sortKey="tutor_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
+                      {colVisible("phone") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>}
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>
+                      {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>}
+                      {colVisible("remark") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>}
+                      {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>}
                       <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">App</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Linked</th>
                       <SortTh label="" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                     </tr>
                   </thead>
@@ -906,16 +1069,18 @@ export default function AdminProspectsPage() {
                             className="rounded"
                           />
                         </td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>
+                        {colVisible("id") && <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>}
                         <td className="px-2 py-2 font-medium text-foreground">
                           <CopyableCell text={p.student_name} />
                         </td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground">
-                          <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
-                        </td>
+                        {colVisible("school") && <td className="px-2 py-2 text-xs text-muted-foreground"><CopyableCell text={p.school || ""} /></td>}
+                        {colVisible("grade") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.grade || "-"}</td>}
+                        {colVisible("tutor") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>}
+                        {colVisible("phone") && (
+                          <td className="px-2 py-2 text-xs text-muted-foreground">
+                            <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
+                          </td>
+                        )}
                         <td className="px-2 py-2">
                           <div className="space-y-0.5">
                             <BranchBadges branches={p.preferred_branches || []} />
@@ -929,15 +1094,17 @@ export default function AdminProspectsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>
-                        <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>
-                        <td className="px-2 py-2 text-center">
-                          {p.contact_notes ? (
-                            <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
-                          ) : (
-                            <span className="text-xs text-muted-foreground/30">-</span>
-                          )}
-                        </td>
+                        {colVisible("wechat") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>}
+                        {colVisible("remark") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>}
+                        {colVisible("notes") && (
+                          <td className="px-2 py-2 text-center">
+                            {p.contact_notes ? (
+                              <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
+                            ) : (
+                              <span className="text-xs text-muted-foreground/30">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-2 py-2"><OutreachBadge status={p.outreach_status} /></td>
                         <td className="px-2 py-2"><ProspectStatusBadge status={p.status} /></td>
                         <td className="px-2 py-2 text-center">
@@ -971,6 +1138,7 @@ export default function AdminProspectsPage() {
                 )}
               </div>
             </div>
+            </>
           )}
         </div>
       ) : (
@@ -1128,6 +1296,63 @@ function DashboardView({ stats, year }: { stats: PrimaryProspectStats[]; year: n
 }
 
 // ---- Admin-specific Components ----
+
+function ProspectCard({
+  prospect: p,
+  selected,
+  onToggleSelect,
+  onOpen,
+}: {
+  prospect: PrimaryProspect;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <div
+      onClick={onOpen}
+      className={`border-2 rounded-xl p-3 cursor-pointer transition-colors ${
+        selected ? "border-primary bg-primary/[0.05]" : "border-border bg-card hover:border-primary/40"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="rounded mt-1"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="font-semibold text-foreground truncate">{p.student_name}</div>
+            <div className="text-[10px] text-muted-foreground shrink-0">
+              {p.grade || "—"} · <span className={`px-1 py-0.5 rounded ${BRANCH_INFO[p.source_branch]?.badge || ""}`}>{p.source_branch}</span>
+            </div>
+          </div>
+          {p.school && <div className="text-xs text-muted-foreground truncate">{p.school}</div>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <BranchBadges branches={p.preferred_branches || []} />
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-muted-foreground">Summer</span>
+            <IntentionBadge value={p.wants_summer} />
+            <span className="text-muted-foreground">Reg</span>
+            <IntentionBadge value={p.wants_regular} />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <OutreachBadge status={p.outreach_status} />
+            <ProspectStatusBadge status={p.status} />
+            {p.summer_application_id && <Link2 className="h-3.5 w-3.5 text-green-600" />}
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {p.submitted_at ? formatTimeAgo(p.submitted_at) : ""}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
   return (
