@@ -834,8 +834,8 @@ export default function AdminProspectsPage() {
           <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
       {tab === "list" ? (
         <div className="space-y-5 flex-1 min-h-0 flex flex-col">
-          <div className="relative -mx-4 sm:mx-0">
-            <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible px-4 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
+          <div className="-mx-4 sm:mx-0">
+            <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible px-4 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:[mask-image:none]">
             <button
               onClick={() => setFilters((f) => ({ ...f, branch: "" }))}
               className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
@@ -869,8 +869,6 @@ export default function AdminProspectsPage() {
               );
             })}
             </div>
-            {/* Right-edge fade signals more pills off-screen on mobile */}
-            <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#faf8f5] dark:from-[#1a1a1a] to-transparent" />
           </div>
 
           {/* Branch Choice — desktop only; mobile copy lives in the filter drawer */}
@@ -1396,8 +1394,8 @@ function DashboardView({
       </div>
 
       {/* Per-Branch Table */}
-      <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden">
-        <table className="w-full text-xs">
+      <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
+        <table className="w-full text-xs min-w-[640px]">
           <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
             <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
               <th rowSpan={2} className="px-3 py-1.5 text-left font-medium text-foreground align-bottom">Branch</th>
