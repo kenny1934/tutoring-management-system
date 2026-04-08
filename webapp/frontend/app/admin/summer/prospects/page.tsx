@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -20,6 +21,9 @@ import {
   X,
   Clock,
   Pencil,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -386,19 +390,77 @@ function InfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 
 // ---- Main Page ----
 
+type SortKey =
+  | "primary_student_id"
+  | "student_name"
+  | "school"
+  | "grade"
+  | "tutor_name"
+  | "outreach_status"
+  | "status"
+  | "submitted_at";
+
+type SortOrder = "asc" | "desc";
+
+const SORT_KEYS: SortKey[] = [
+  "primary_student_id",
+  "student_name",
+  "school",
+  "grade",
+  "tutor_name",
+  "outreach_status",
+  "status",
+  "submitted_at",
+];
+
+function isSortKey(s: string | null): s is SortKey {
+  return !!s && (SORT_KEYS as string[]).includes(s);
+}
+
+function compareValues(a: unknown, b: unknown): number {
+  // Nulls/empties always sort last
+  const aEmpty = a === null || a === undefined || a === "";
+  const bEmpty = b === null || b === undefined || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
 export default function AdminProspectsPage() {
-  const [year, setYear] = useState<number | null>(null);
-  const [tab, setTab] = useState<"list" | "dashboard">("list");
-  const [filters, setFilters] = useState({
-    branch: "",
-    status: "",
-    outreach_status: "",
-    wants_summer: "",
-    wants_regular: "",
-    linked: "",
-    search: "",
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL-backed state
+  const [year, setYear] = useState<number | null>(() => {
+    const y = searchParams.get("year");
+    return y ? Number(y) : null;
   });
-  const [searchInput, setSearchInput] = useState("");
+  const [tab, setTab] = useState<"list" | "dashboard">(() =>
+    searchParams.get("tab") === "dashboard" ? "dashboard" : "list"
+  );
+  const [filters, setFilters] = useState(() => ({
+    branch: searchParams.get("branch") ?? "",
+    status: searchParams.get("status") ?? "",
+    outreach_status: searchParams.get("outreach") ?? "",
+    wants_summer: searchParams.get("wantsSummer") ?? "",
+    wants_regular: searchParams.get("wantsRegular") ?? "",
+    linked: searchParams.get("linked") ?? "",
+    search: searchParams.get("q") ?? "",
+  }));
+  const [choice, setChoice] = useState<string[]>(() => {
+    const c = searchParams.get("choice");
+    return c ? c.split(",").filter(Boolean) : [];
+  });
+  const [sortBy, setSortBy] = useState<SortKey>(() => {
+    const s = searchParams.get("sort");
+    return isSortKey(s) ? s : "submitted_at";
+  });
+  const [sortOrder, setSortOrder] = useState<SortOrder>(() =>
+    searchParams.get("order") === "asc" ? "asc" : "desc"
+  );
+  const [searchInput, setSearchInput] = useState(() => searchParams.get("q") ?? "");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
@@ -457,6 +519,54 @@ export default function AdminProspectsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prospects]);
 
+  // Client-side Branch Choice filter + sort layered on top of server-filtered rows
+  const displayedProspects = useMemo(() => {
+    if (!prospects) return undefined;
+    const choiceSet = new Set(choice);
+    const filtered = choiceSet.size === 0
+      ? prospects
+      : prospects.filter((p) => p.preferred_branches?.some((b) => choiceSet.has(b)));
+    const sorted = [...filtered].sort((a, b) => {
+      const cmp = compareValues(
+        (a as unknown as Record<string, unknown>)[sortBy],
+        (b as unknown as Record<string, unknown>)[sortBy]
+      );
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [prospects, choice, sortBy, sortOrder]);
+
+  // Sync state → URL (replace, not push — filter clicks shouldn't clog history)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (tab !== "list") params.set("tab", tab);
+    if (year != null) params.set("year", String(year));
+    if (filters.branch) params.set("branch", filters.branch);
+    if (choice.length > 0) params.set("choice", choice.join(","));
+    if (filters.status) params.set("status", filters.status);
+    if (filters.outreach_status) params.set("outreach", filters.outreach_status);
+    if (filters.wants_summer) params.set("wantsSummer", filters.wants_summer);
+    if (filters.wants_regular) params.set("wantsRegular", filters.wants_regular);
+    if (filters.linked) params.set("linked", filters.linked);
+    if (filters.search) params.set("q", filters.search);
+    if (sortBy !== "submitted_at") params.set("sort", sortBy);
+    if (sortOrder !== "desc") params.set("order", sortOrder);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  }, [tab, year, filters, choice, sortBy, sortOrder, router]);
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSortBy((prev) => {
+      if (prev === key) {
+        setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      // New column: default desc for time, asc for text
+      setSortOrder(key === "submitted_at" ? "desc" : "asc");
+      return key;
+    });
+  }, []);
+
   const statsKey = year ? `admin-prospect-stats-${year}` : null;
   const { data: stats } = useSWR(
     statsKey,
@@ -479,13 +589,13 @@ export default function AdminProspectsPage() {
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (!prospects) return;
+    if (!displayedProspects) return;
     setSelectedIds((prev) =>
-      prev.size === prospects.length
+      prev.size === displayedProspects.length
         ? new Set()
-        : new Set(prospects.map((p) => p.id))
+        : new Set(displayedProspects.map((p) => p.id))
     );
-  }, [prospects]);
+  }, [displayedProspects]);
 
   const handleBulkOutreach = useCallback(async (outreachStatus: ProspectOutreachStatus) => {
     if (selectedIds.size === 0) return;
@@ -525,7 +635,7 @@ export default function AdminProspectsPage() {
     }
   }, [year, refresh, confirmingAutoMatch]);
 
-  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
 
   return (
     <DeskSurface>
@@ -635,6 +745,37 @@ export default function AdminProspectsPage() {
             })}
           </div>
 
+          {/* Branch Choice (what student WANTS) — multi-select, client-side */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">Wants</span>
+            {PROSPECT_BRANCHES.map((b) => {
+              const active = choice.includes(b);
+              return (
+                <button
+                  key={b}
+                  onClick={() =>
+                    setChoice((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
+                  }
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 ${
+                    active
+                      ? `${BRANCH_INFO[b]?.badge || "bg-primary text-white"} ring-1 ring-current/20`
+                      : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  {b}
+                </button>
+              );
+            })}
+            {choice.length > 0 && (
+              <button
+                onClick={() => setChoice([])}
+                className="text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors ml-1"
+              >
+                clear
+              </button>
+            )}
+          </div>
+
           {/* Search + Filters */}
           <div className="flex flex-wrap gap-2 items-center">
             <div className="relative">
@@ -669,7 +810,7 @@ export default function AdminProspectsPage() {
             </select>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setSearchInput(""); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" })); }}
+                onClick={() => { setSearchInput(""); setChoice([]); setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" })); }}
                 className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
               >
                 Clear all
@@ -714,7 +855,7 @@ export default function AdminProspectsPage() {
                 <div key={i} className="h-12 bg-muted/50 rounded-lg animate-pulse" />
               ))}
             </div>
-          ) : !prospects || prospects.length === 0 ? (
+          ) : !displayedProspects || displayedProspects.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">No prospects found</p>
@@ -729,29 +870,29 @@ export default function AdminProspectsPage() {
                       <th className="px-2 py-2 w-8">
                         <input
                           type="checkbox"
-                          checked={selectedIds.size === prospects.length && prospects.length > 0}
+                          checked={selectedIds.size === displayedProspects.length && displayedProspects.length > 0}
                           onChange={toggleSelectAll}
                           className="rounded"
                         />
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">ID</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Name</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">School</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Grade</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Tutor</th>
+                      <SortTh label="ID" sortKey="primary_student_id" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Name" sortKey="student_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="School" sortKey="school" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Grade" sortKey="grade" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Tutor" sortKey="tutor_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Outreach</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Status</th>
+                      <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">App</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><Clock className="h-3 w-3" /></th>
+                      <SortTh label="" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {prospects.map((p) => (
+                    {displayedProspects.map((p) => (
                       <tr
                         key={p.id}
                         className={`cursor-pointer transition-colors ${selectedIds.has(p.id) ? "bg-primary/[0.05]" : "hover:bg-primary/[0.03]"}`}
@@ -824,7 +965,10 @@ export default function AdminProspectsPage() {
                 </table>
               </div>
               <div className="px-3 py-2 border-t border-border bg-primary/5 text-xs text-muted-foreground font-medium">
-                {prospects.length} prospect{prospects.length !== 1 ? "s" : ""}
+                {displayedProspects.length} prospect{displayedProspects.length !== 1 ? "s" : ""}
+                {prospects && displayedProspects.length !== prospects.length && (
+                  <span className="opacity-60"> (of {prospects.length})</span>
+                )}
               </div>
             </div>
           )}
@@ -990,6 +1134,46 @@ function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_BADGE_COLORS[status] || "bg-gray-100"}`}>
       {status}
     </span>
+  );
+}
+
+function SortTh({
+  label,
+  icon,
+  sortKey,
+  sortBy,
+  sortOrder,
+  onSort,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  sortKey: SortKey;
+  sortBy: SortKey;
+  sortOrder: SortOrder;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortBy === sortKey;
+  return (
+    <th className="px-2 py-2 text-left text-xs font-medium text-foreground">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 transition-colors ${active ? "text-primary" : "hover:text-primary"}`}
+        aria-label={`Sort by ${label || sortKey}`}
+      >
+        {icon}
+        {label}
+        {active ? (
+          sortOrder === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </button>
+    </th>
   );
 }
 
