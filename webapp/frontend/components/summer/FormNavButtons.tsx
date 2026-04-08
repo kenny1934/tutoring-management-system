@@ -46,6 +46,7 @@ export function FormNavButtons({
         )}
         {!isLastStep ? (
           <button
+            key="nav-next"
             type="button"
             onClick={onNext}
             className="flex-1 py-3 rounded-xl font-semibold text-primary-foreground bg-primary hover:bg-primary-hover transition-colors"
@@ -54,6 +55,7 @@ export function FormNavButtons({
           </button>
         ) : (
           <button
+            key="nav-submit"
             type="submit"
             disabled={submitting || !confirmed}
             className="flex-1 py-3 rounded-xl font-semibold text-primary-foreground bg-primary hover:bg-primary-hover disabled:bg-muted disabled:cursor-not-allowed transition-colors"
