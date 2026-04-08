@@ -103,11 +103,11 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
       </div>
       {expanded && (
         <div className="mt-2 ml-1 text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
-          <div className="flex justify-between"><span>Entitlement</span><span>{entitlement}</span></div>
-          {carryOver > 0 && <div className="flex justify-between"><span>Carry-over</span><span>+{carryOver}</span></div>}
-          {adjusted !== 0 && <div className="flex justify-between"><span>Adjustments</span><span>{adjusted > 0 ? "+" : ""}{adjusted}</span></div>}
+          <div className="flex justify-between"><span>Entitlement</span><span>{Number(entitlement.toFixed(2))}</span></div>
+          {carryOver > 0 && <div className="flex justify-between"><span>Carry-over</span><span>+{Number(carryOver.toFixed(2))}</span></div>}
+          {adjusted !== 0 && <div className="flex justify-between"><span>Adjustments</span><span>{adjusted > 0 ? "+" : ""}{Number(adjusted.toFixed(2))}</span></div>}
           <div className="flex justify-between font-medium text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700 pt-0.5 mt-0.5">
-            <span>Used</span><span>-{used}</span>
+            <span>Used</span><span>-{Number(used.toFixed(2))}</span>
           </div>
         </div>
       )}
