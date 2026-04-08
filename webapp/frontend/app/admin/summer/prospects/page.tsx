@@ -47,6 +47,7 @@ import {
 } from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { ProspectDashboard } from "@/components/summer/prospect-dashboard";
+import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
@@ -822,23 +823,15 @@ export default function AdminProspectsPage() {
         </div>
       </PageTransition>
 
-      {/* Detail Modal */}
-      {selectedProspect && displayedProspects && (() => {
-        const idx = displayedProspects.findIndex((p) => p.id === selectedProspect.id);
-        return (
-          <ProspectDetailModal
-            key={selectedProspect.id}
-            prospect={selectedProspect}
-            onClose={() => setSelectedProspect(null)}
-            onSave={refresh}
-            position={idx >= 0 ? { current: idx, total: displayedProspects.length } : undefined}
-            onNavigate={idx >= 0 ? (dir) => {
-              const next = displayedProspects[idx + dir];
-              if (next) setSelectedProspect(next);
-            } : undefined}
-          />
-        );
-      })()}
+      {selectedProspect && displayedProspects && (
+        <ProspectDetailModal
+          prospect={selectedProspect}
+          onClose={() => setSelectedProspect(null)}
+          onSave={refresh}
+          siblings={displayedProspects}
+          onNavigate={(next) => setSelectedProspect(next)}
+        />
+      )}
 
       {showFilterDrawer && (
         <MobileFilterDrawer
@@ -915,74 +908,28 @@ function FilterSelects({
 
 function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinked: () => void }) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [matches, setMatches] = useState<Awaited<ReturnType<typeof prospectsAPI.findMatches>>["matches"] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState<number | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const close = useCallback(() => setOpen(false), []);
+  const { triggerRef, menuRef, pos } = usePortalPopover(open, close);
 
-  useEffect(() => {
-    if (!open) return;
-    const measure = () => {
-      if (!triggerRef.current) return;
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
-    };
-    measure();
-    window.addEventListener("scroll", measure, true);
-    window.addEventListener("resize", measure);
-    return () => {
-      window.removeEventListener("scroll", measure, true);
-      window.removeEventListener("resize", measure);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClickOutside = (e: MouseEvent) => {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        triggerRef.current && !triggerRef.current.contains(e.target as Node)
-      ) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const fetchMatches = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await prospectsAPI.findMatches(prospectId);
-      setMatches(result.matches);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to find matches");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpen = () => {
-    if (!open && matches === null) fetchMatches();
-    setOpen((v) => !v);
-  };
+  // Lazy + cached + deduped via SWR. Fetches only when the popover opens.
+  const { data, error, isLoading } = useSWR(
+    open ? ["prospect-matches", prospectId] : null,
+    () => prospectsAPI.findMatches(prospectId),
+    { revalidateOnFocus: false }
+  );
+  const matches = data?.matches;
 
   const handleLink = async (applicationId: number) => {
     setLinking(applicationId);
-    setError(null);
+    setLinkError(null);
     try {
       await prospectsAPI.adminUpdate(prospectId, { summer_application_id: applicationId, status: "Applied" });
       setOpen(false);
       onLinked();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Link failed");
+      setLinkError(err instanceof Error ? err.message : "Link failed");
     } finally {
       setLinking(null);
     }
@@ -993,7 +940,7 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
       <button
         ref={triggerRef}
         type="button"
-        onClick={handleOpen}
+        onClick={() => setOpen((v) => !v)}
         title="Find and link a summer application"
         className="text-[10px] font-medium text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
       >
@@ -1005,10 +952,12 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
           className="fixed z-50 w-72 bg-card border border-border rounded-lg shadow-lg p-2"
           style={{ top: pos.top, left: pos.left }}
         >
-          {loading ? (
+          {isLoading ? (
             <div className="p-3 text-xs text-muted-foreground text-center">Searching matches…</div>
           ) : error ? (
-            <div className="p-2 text-xs text-red-600">{error}</div>
+            <div className="p-2 text-xs text-red-600">{error instanceof Error ? error.message : "Failed to find matches"}</div>
+          ) : linkError ? (
+            <div className="p-2 text-xs text-red-600">{linkError}</div>
           ) : matches && matches.length > 0 ? (
             <>
               <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-1">
@@ -1057,47 +1006,8 @@ function InlineSelect<T extends string>({
   renderTrigger: (v: T) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  // Measure trigger position whenever the open menu needs to follow the trigger
-  // (open / scroll / resize). Menu is portal-rendered to escape the table's
-  // overflow:auto clip.
-  useEffect(() => {
-    if (!open) return;
-    const measure = () => {
-      if (!triggerRef.current) return;
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
-    };
-    measure();
-    window.addEventListener("scroll", measure, true);
-    window.addEventListener("resize", measure);
-    return () => {
-      window.removeEventListener("scroll", measure, true);
-      window.removeEventListener("resize", measure);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        triggerRef.current && !triggerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  const { triggerRef, menuRef, pos } = usePortalPopover(open, close);
 
   return (
     <>

@@ -17,6 +17,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
+import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { prospectsAPI } from "@/lib/api";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
@@ -41,28 +42,29 @@ export function ProspectDetailModal({
   prospect,
   onClose,
   onSave,
+  siblings,
   onNavigate,
-  position,
 }: {
   prospect: PrimaryProspect;
   onClose: () => void;
   onSave: () => void;
-  onNavigate?: (direction: -1 | 1) => void;
-  position?: { current: number; total: number };
+  siblings?: PrimaryProspect[];
+  onNavigate?: (next: PrimaryProspect) => void;
 }) {
+  const idx = siblings ? siblings.findIndex((p) => p.id === prospect.id) : -1;
+  const canNavigate = siblings && onNavigate && idx >= 0;
+  const goPrev = canNavigate && idx > 0 ? () => onNavigate!(siblings![idx - 1]) : null;
+  const goNext = canNavigate && idx < siblings!.length - 1 ? () => onNavigate!(siblings![idx + 1]) : null;
+
   // Keyboard navigation: ← / → to flip prospects, Escape to close.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Don't hijack arrow keys while typing in an input/textarea/select.
-      const target = e.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
-      if (e.key === "ArrowLeft" && onNavigate) { e.preventDefault(); onNavigate(-1); }
-      else if (e.key === "ArrowRight" && onNavigate) { e.preventDefault(); onNavigate(1); }
-      else if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onNavigate, onClose]);
+  // Arrow keys are ignored while focus is in an input/textarea/select.
+  useStableKeyboardHandler((e) => {
+    const target = e.target as HTMLElement | null;
+    if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+    if (e.key === "ArrowLeft" && goPrev) { e.preventDefault(); goPrev(); }
+    else if (e.key === "ArrowRight" && goNext) { e.preventDefault(); goNext(); }
+    else if (e.key === "Escape") onClose();
+  });
 
   const [outreachStatus, setOutreachStatus] = useState(prospect.outreach_status);
   const [status, setStatus] = useState(prospect.status);
@@ -72,6 +74,16 @@ export function ProspectDetailModal({
   const [showHistory, setShowHistory] = useState(false);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const unlinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Reset local form state when navigating to a different prospect (no remount).
+  useEffect(() => {
+    setOutreachStatus(prospect.outreach_status);
+    setStatus(prospect.status);
+    setContactNotes(prospect.contact_notes || "");
+    setSaveError(null);
+    setShowHistory(false);
+    setConfirmingUnlink(false);
+  }, [prospect.id]);
 
   const hasChanges = outreachStatus !== prospect.outreach_status
     || status !== prospect.status
@@ -119,7 +131,6 @@ export function ProspectDetailModal({
     <div
       className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-label={`Prospect details: ${prospect.student_name}`}
@@ -138,11 +149,11 @@ export function ProspectDetailModal({
               </p>
             </div>
             <div className="flex items-center gap-1">
-              {onNavigate && position && (
+              {canNavigate && (
                 <>
                   <button
-                    onClick={() => onNavigate(-1)}
-                    disabled={position.current === 0}
+                    onClick={goPrev ?? undefined}
+                    disabled={!goPrev}
                     aria-label="Previous prospect"
                     title="Previous (←)"
                     className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -150,11 +161,11 @@ export function ProspectDetailModal({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <span className="text-xs text-muted-foreground tabular-nums px-1">
-                    {position.current + 1} / {position.total}
+                    {idx + 1} / {siblings!.length}
                   </span>
                   <button
-                    onClick={() => onNavigate(1)}
-                    disabled={position.current === position.total - 1}
+                    onClick={goNext ?? undefined}
+                    disabled={!goNext}
                     aria-label="Next prospect"
                     title="Next (→)"
                     className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
