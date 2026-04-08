@@ -398,7 +398,7 @@ function InfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
 // ---- Main Page ----
 
 // Hideable columns — keys map to <th>/<td> visibility predicates
-type ColKey = "id" | "school" | "grade" | "tutor" | "phone" | "wechat" | "remark" | "notes";
+type ColKey = "id" | "school" | "grade" | "tutor" | "phone" | "wechat" | "pref" | "remark" | "notes";
 const HIDEABLE_COLS: { key: ColKey; label: string }[] = [
   { key: "id", label: "ID" },
   { key: "school", label: "School" },
@@ -406,6 +406,7 @@ const HIDEABLE_COLS: { key: ColKey; label: string }[] = [
   { key: "tutor", label: "Tutor" },
   { key: "phone", label: "Phone" },
   { key: "wechat", label: "WeChat" },
+  { key: "pref", label: "Time/Tutor Pref" },
   { key: "remark", label: "Remark" },
   { key: "notes", label: "Notes" },
 ];
@@ -489,7 +490,8 @@ export default function AdminProspectsPage() {
       const saved = localStorage.getItem("prospect_hidden_cols");
       if (saved) return new Set(JSON.parse(saved) as ColKey[]);
     } catch { /* ignore */ }
-    return new Set();
+    // Default-hide low-frequency columns to keep table compact on first load
+    return new Set<ColKey>(["pref"]);
   });
   const [showColMenu, setShowColMenu] = useState(false);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
@@ -1069,6 +1071,7 @@ export default function AdminProspectsPage() {
                       {colVisible("tutor") && <SortTh label="Tutor" sortKey="tutor_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
                       {colVisible("phone") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Phone</th>}
                       <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Branch Choice</th>
+                      {colVisible("pref") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Preferred time / tutor notes">Pref</th>}
                       {colVisible("wechat") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground"><span className="inline-flex items-center gap-1"><WeChatIcon className="h-3 w-3 text-green-600" />WeChat</span></th>}
                       {colVisible("remark") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Remark</th>}
                       {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><MessageSquare className="h-3 w-3" /></th>}
@@ -1102,7 +1105,13 @@ export default function AdminProspectsPage() {
                         {colVisible("tutor") && <td className="px-2 py-2 text-xs text-muted-foreground">{p.tutor_name || "-"}</td>}
                         {colVisible("phone") && (
                           <td className="px-2 py-2 text-xs text-muted-foreground">
-                            <CopyableCell text={p.phone_1 || ""} title={p.phone_1_relation ? `${p.phone_1_relation}'s phone` : undefined} />
+                            <CopyableCell
+                              text={p.phone_1 || ""}
+                              title={[
+                                p.phone_1 && `${p.phone_1_relation ? p.phone_1_relation + ": " : ""}${p.phone_1}`,
+                                p.phone_2 && `${p.phone_2_relation ? p.phone_2_relation + ": " : ""}${p.phone_2}`,
+                              ].filter(Boolean).join("\n") || undefined}
+                            />
                           </td>
                         )}
                         <td className="px-2 py-2">
@@ -1118,6 +1127,11 @@ export default function AdminProspectsPage() {
                             </div>
                           </div>
                         </td>
+                        {colVisible("pref") && (
+                          <td className="px-2 py-2 text-xs text-muted-foreground max-w-[140px]">
+                            <CopyableCell text={[p.preferred_time_note, p.preferred_tutor_note].filter(Boolean).join(" / ") || ""} />
+                          </td>
+                        )}
                         {colVisible("wechat") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[100px]"><CopyableCell text={p.wechat_id || ""} /></td>}
                         {colVisible("remark") && <td className="px-2 py-2 text-xs text-muted-foreground max-w-[120px]"><CopyableCell text={p.tutor_remark || ""} /></td>}
                         {colVisible("notes") && (
@@ -1560,9 +1574,11 @@ function InlineSelect<T extends string>({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex hover:opacity-80 transition-opacity"
+        title="Click to change"
+        className="group/edit inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
       >
         {renderTrigger(value)}
+        <ChevronDown className="h-3 w-3 text-muted-foreground/50 group-hover/edit:text-muted-foreground transition-colors" />
       </button>
       {open && pos && typeof document !== "undefined" && createPortal(
         <div
