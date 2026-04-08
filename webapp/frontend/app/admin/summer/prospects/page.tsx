@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import type { LucideIcon } from "lucide-react";
@@ -738,7 +739,11 @@ export default function AdminProspectsPage() {
 
   // Skeleton row count tracks last successful fetch to avoid layout jump
   const lastCountRef = useRef(5);
-  if (prospects && prospects.length > 0) lastCountRef.current = Math.min(prospects.length, 12);
+  useEffect(() => {
+    if (prospects && prospects.length > 0) {
+      lastCountRef.current = Math.min(prospects.length, 12);
+    }
+  }, [prospects]);
 
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
@@ -1432,36 +1437,70 @@ function InlineSelect<T extends string>({
   renderTrigger: (v: T) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Measure trigger position when opening; menu is portal-rendered to escape
+  // the table's overflow:auto clip.
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
   return (
-    <div className="relative inline-block">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex hover:opacity-80 transition-opacity"
       >
         {renderTrigger(value)}
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 mt-1 min-w-[140px] bg-card border border-border rounded-lg shadow-lg p-1 z-20">
-            {options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  if (opt !== value) onChange(opt);
-                }}
-                className={`block w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 ${opt === value ? "font-semibold text-primary" : "text-foreground"}`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        </>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[140px] bg-card border border-border rounded-lg shadow-lg p-1"
+          style={{ top: pos.top, left: pos.left }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                if (opt !== value) onChange(opt);
+              }}
+              className={`block w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 ${opt === value ? "font-semibold text-primary" : "text-foreground"}`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
