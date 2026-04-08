@@ -96,9 +96,9 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
         </div>
         <div className="text-right flex-shrink-0">
           <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {remaining}
+            {Number(remaining.toFixed(2))}
           </span>
-          <span className="text-xs text-gray-400">/{total}</span>
+          <span className="text-xs text-gray-400">/{Number(total.toFixed(2))}</span>
         </div>
       </div>
       {expanded && (
