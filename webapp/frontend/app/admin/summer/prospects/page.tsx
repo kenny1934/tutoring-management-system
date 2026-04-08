@@ -790,6 +790,7 @@ export default function AdminProspectsPage() {
                 <button
                   onClick={handleAutoMatch}
                   disabled={autoMatching}
+                  title="Scan unlinked prospects and link each one to a summer application that matches by phone number. Skips ambiguous matches."
                   className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
                     confirmingAutoMatch
                       ? "bg-amber-500 text-white hover:bg-amber-600"
@@ -797,7 +798,13 @@ export default function AdminProspectsPage() {
                   }`}
                 >
                   {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">{autoMatching ? "Matching..." : confirmingAutoMatch ? "Click again to confirm" : "Auto-Match"}</span>
+                  <span className="hidden sm:inline">
+                    {autoMatching
+                      ? "Matching..."
+                      : confirmingAutoMatch
+                        ? "Link unlinked prospects? Click to confirm"
+                        : "Auto-Match"}
+                  </span>
                 </button>
                 {/* Pill toggle */}
                 <div className="flex bg-muted rounded-full p-0.5">
