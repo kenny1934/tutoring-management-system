@@ -305,24 +305,6 @@ def admin_list_prospects(
     return [_prospect_to_response(p) for p in prospects]
 
 
-@router.get("/admin/{prospect_id}")
-def admin_get_prospect(
-    prospect_id: int,
-    db: Session = Depends(get_db),
-    _admin: None = Depends(require_admin_view),
-):
-    """Fetch a single prospect by id for admin preview from other pages."""
-    p = (
-        db.query(PrimaryProspect)
-        .options(joinedload(PrimaryProspect.summer_application))
-        .filter(PrimaryProspect.id == prospect_id)
-        .first()
-    )
-    if not p:
-        raise HTTPException(status_code=404, detail="Prospect not found")
-    return _prospect_to_response(p)
-
-
 @router.patch("/{prospect_id}/admin")
 def admin_update_prospect(
     prospect_id: int,
@@ -429,6 +411,27 @@ def admin_prospect_stats(
         )
         for r in rows
     ]
+
+
+# Registered after /admin/stats (and any other literal /admin/<word> routes)
+# because FastAPI matches routes in definition order. If this wildcard were
+# defined first, /admin/stats would try to parse "stats" as prospect_id → 422.
+@router.get("/admin/{prospect_id}")
+def admin_get_prospect(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_view),
+):
+    """Fetch a single prospect by id for admin preview from other pages."""
+    p = (
+        db.query(PrimaryProspect)
+        .options(joinedload(PrimaryProspect.summer_application))
+        .filter(PrimaryProspect.id == prospect_id)
+        .first()
+    )
+    if not p:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    return _prospect_to_response(p)
 
 
 @router.get("/admin/match/{prospect_id}")
