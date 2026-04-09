@@ -82,7 +82,7 @@ function StudentSuggestionRow({
       onClick={onClick}
       className="group/row w-full flex items-center gap-2 px-2.5 py-2 text-left text-sm cursor-pointer transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-inset"
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 space-y-1">
         <StudentInfoBadges
           student={{
             student_id: student.id,
@@ -95,15 +95,15 @@ function StudentSuggestionRow({
           }}
           showLocationPrefix
         />
+        {reason && (
+          <span
+            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            title="Why this student was suggested"
+          >
+            {reason}
+          </span>
+        )}
       </div>
-      {reason && (
-        <span
-          className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
-          title="Why this student was suggested"
-        >
-          {reason}
-        </span>
-      )}
       <span
         className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
         aria-hidden
