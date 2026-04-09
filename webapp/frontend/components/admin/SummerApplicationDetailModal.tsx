@@ -1103,17 +1103,8 @@ export function SummerApplicationDetailModal({
                     {app.school}
                   </span>
                 )}
-                {isExisting && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    Existing
-                  </span>
-                )}
+                <PrimaryBranchChip app={app} />
               </div>
-              {app.current_centers && app.current_centers.length > 0 && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Centers: {app.current_centers.join(", ")}
-                </div>
-              )}
             </div>
           </div>
 
