@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { ClipboardList, Search, X, Loader2, ListFilter, ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink } from "lucide-react";
+import {
+  ClipboardList, Search, X, Loader2, ListFilter,
+  ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
+  RefreshCw, CheckSquare, Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
+import { List, type RowComponentProps, useListRef } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
@@ -18,6 +24,7 @@ import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
+import { formatTimeAgo } from "@/lib/formatters";
 import type { SummerApplication } from "@/types";
 
 const CODE_TO_LOCATION = Object.fromEntries(
@@ -30,11 +37,11 @@ const PIPELINE_STATUSES = [
 ];
 const EXIT_STATUSES = ["Waitlisted", "Withdrawn", "Rejected"];
 
-type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot";
+type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot" | "by_buddy";
 
 const VIEW_PRESET_CONFIG: Record<ViewPreset, {
   label: string;
-  groupBy: null | "status" | "location" | "grade" | "time_slot";
+  groupBy: null | "status" | "location" | "grade" | "time_slot" | "buddy";
   sortField: "submitted" | "name" | "status" | "grade" | "location" | "time_slot";
   defaultDirection: "asc" | "desc";
 }> = {
@@ -43,7 +50,10 @@ const VIEW_PRESET_CONFIG: Record<ViewPreset, {
   by_location:  { label: "View: By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
   by_grade:     { label: "View: By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
   by_time_slot: { label: "View: By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
+  by_buddy:     { label: "View: Buddy Groups", groupBy: "buddy",    sortField: "submitted",  defaultDirection: "desc" },
 };
+
+const ALL_PRESETS: ViewPreset[] = ["latest", "pipeline", "by_location", "by_grade", "by_time_slot", "by_buddy"];
 
 const STATUS_GROUP_COLORS: Record<string, "red" | "orange" | "purple" | "gray"> = {
   Rejected: "red",
@@ -78,9 +88,12 @@ function renderStatusButtons(
       <button
         key={s}
         onClick={() => setFilter(isActive ? null : s)}
+        title={isActive ? `Click to clear ${s} filter` : `Click to filter by ${s}`}
         className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-all",
-          isActive ? cn(colors.bg, colors.text, "ring-1 ring-current") : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
+          isActive
+            ? cn(colors.bg, colors.text, "ring-1 ring-current")
+            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:ring-1 hover:ring-current/30"
         )}
       >
         <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
@@ -88,6 +101,50 @@ function renderStatusButtons(
       </button>
     );
   });
+}
+
+// Virtualized row for the flat view. Fixed height accommodates the common case
+// (identity + placement + meta rows); rare edge cases with many backup slots
+// wrap-hide, which is acceptable given the perf win at scale.
+const VIRTUAL_ROW_HEIGHT = 112;
+const VIRTUALIZE_THRESHOLD = 50;
+
+interface VirtualAppRowProps {
+  applications: SummerApplication[];
+  selectedIndex: number | null;
+  checkedIds: Set<number>;
+  showCheckboxes: boolean;
+  onSelect: (app: SummerApplication) => void;
+  onToggleCheck: (id: number) => void;
+  onStatusChange: (id: number, status: string) => void;
+}
+
+function VirtualAppRow({
+  index,
+  style,
+  applications,
+  selectedIndex,
+  checkedIds,
+  showCheckboxes,
+  onSelect,
+  onToggleCheck,
+  onStatusChange,
+}: RowComponentProps<VirtualAppRowProps>) {
+  const app = applications[index];
+  return (
+    <div style={{ ...style, paddingBottom: 8 }}>
+      <SummerApplicationCard
+        application={app}
+        index={index}
+        isFocused={selectedIndex === index}
+        onSelect={onSelect}
+        isChecked={checkedIds.has(app.id)}
+        onToggleCheck={onToggleCheck}
+        showCheckbox={showCheckboxes}
+        onStatusChange={onStatusChange}
+      />
+    </div>
+  );
 }
 
 export default function SummerApplicationsPage() {
@@ -98,20 +155,36 @@ export default function SummerApplicationsPage() {
   const canViewAdminPages = isAdmin || isSuperAdmin;
   const readOnly = !isAdmin && !isSuperAdmin;
 
+  // URL state (read once on mount for initial values)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlInit = useRef({
+    status: searchParams.get("status"),
+    grade: searchParams.get("grade"),
+    location: searchParams.get("location"),
+    q: searchParams.get("q") || "",
+    pending: searchParams.get("pending") === "1",
+    view: (searchParams.get("view") as ViewPreset | null),
+    dir: (searchParams.get("dir") as "asc" | "desc" | null),
+  }).current;
+
   // Config selector
   const [configId, setConfigId] = useState<number | null>(null);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
-  const [locationFilter, setLocationFilter] = useState<string | null>(null);
-  const [pendingSiblingOnly, setPendingSiblingOnly] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(urlInit.status);
+  const [gradeFilter, setGradeFilter] = useState<string | null>(urlInit.grade);
+  const [locationFilter, setLocationFilter] = useState<string | null>(urlInit.location);
+  const [pendingSiblingOnly, setPendingSiblingOnly] = useState(urlInit.pending);
+  const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
   // View preset (replaces separate sort + group controls)
-  const [viewPreset, setViewPreset] = useState<ViewPreset>("latest");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const initialPreset: ViewPreset = urlInit.view && ALL_PRESETS.includes(urlInit.view) ? urlInit.view : "latest";
+  const [viewPreset, setViewPreset] = useState<ViewPreset>(initialPreset);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
+    urlInit.dir ?? VIEW_PRESET_CONFIG[initialPreset].defaultDirection
+  );
   const presetConfig = VIEW_PRESET_CONFIG[viewPreset];
   const sortField = presetConfig.sortField;
   const groupBy = presetConfig.groupBy;
@@ -120,6 +193,7 @@ export default function SummerApplicationsPage() {
   const [selectedAppIndex, setSelectedAppIndex] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [batchMode, setBatchMode] = useState(false);
   const [batchStatus, setBatchStatus] = useState("Under Review");
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
@@ -127,10 +201,20 @@ export default function SummerApplicationsPage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
 
+  // Data freshness
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+
   // Keyboard nav
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const listRef = useListRef(null);
+  const [listHeight, setListHeight] = useState(600);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const filterPopoverRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -149,10 +233,26 @@ export default function SummerApplicationsPage() {
     }
   }, [configs, configId]);
 
-  // Fetch stats
+  // Apply filters everywhere — so the stats chips reflect what the list shows.
+  // Note: statusFilter is applied client-side for the chip strip so it still
+  // shows per-status counts; grade/location/search/pending go to both.
+  const statsFilterParams = useMemo(
+    () => ({
+      config_id: configId ?? undefined,
+      grade: gradeFilter || undefined,
+      location: locationFilter || undefined,
+      search: debouncedSearch || undefined,
+    }),
+    [configId, gradeFilter, locationFilter, debouncedSearch]
+  );
+
+  // Fetch stats — keyed off everything that affects the numbers.
+  const statsKey = configId
+    ? ["summer-app-stats", configId, gradeFilter, locationFilter, debouncedSearch]
+    : null;
   const { data: stats } = useSWR(
-    configId ? ["summer-app-stats", configId] : null,
-    () => summerAPI.getApplicationStats(configId!)
+    statsKey,
+    () => summerAPI.getApplicationStats(statsFilterParams)
   );
 
   // Fetch applications
@@ -171,21 +271,23 @@ export default function SummerApplicationsPage() {
       location: locationFilter || undefined,
       search: debouncedSearch || undefined,
     }),
-    { refreshInterval: 60000 }
+    {
+      refreshInterval: 60000,
+      onSuccess: () => setLastUpdated(Date.now()),
+    }
   );
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
-    if (swrKey) {
-      mutate(swrKey);
-      if (configId) mutate(["summer-app-stats", configId]);
-    }
-  }, [swrKey, configId]);
+    if (swrKey) mutate(swrKey);
+    if (statsKey) mutate(statsKey);
+  }, [swrKey, statsKey]);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Batch selection
-  const showCheckboxes = checkedIds.size > 0;
+  // Batch selection — batch mode is either explicitly toggled or implicit when
+  // the user has checked at least one row via the hover checkbox.
+  const showCheckboxes = batchMode || checkedIds.size > 0;
   const toggleCheck = useCallback((id: number) => {
     setCheckedIds((prev) => {
       const next = new Set(prev);
@@ -239,6 +341,20 @@ export default function SummerApplicationsPage() {
     setSearchQuery("");
     setPendingSiblingOnly(false);
   }, []);
+
+  // Sync state → URL (replace, not push)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (gradeFilter) params.set("grade", gradeFilter);
+    if (locationFilter) params.set("location", locationFilter);
+    if (debouncedSearch) params.set("q", debouncedSearch);
+    if (pendingSiblingOnly) params.set("pending", "1");
+    if (viewPreset !== "latest") params.set("view", viewPreset);
+    if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection) params.set("dir", sortDirection);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, viewPreset, sortDirection, router]);
 
   // Close filter popover on click outside / escape
   useEffect(() => {
@@ -340,6 +456,10 @@ export default function SummerApplicationsPage() {
         key = [app.preference_1_day, app.preference_1_time].filter(Boolean).join(" ") || "No preference";
       } else if (groupBy === "location") {
         key = app.preferred_location || "Unknown";
+      } else if (groupBy === "buddy") {
+        // Hide solo applicants from this view entirely
+        if (!app.buddy_group_id) continue;
+        key = `Group ${app.buddy_code || app.buddy_group_id}`;
       } else {
         key = app.grade || "Unknown";
       }
@@ -352,6 +472,14 @@ export default function SummerApplicationsPage() {
       for (const [key, apps] of groups) {
         if (apps.length === 0) groups.delete(key);
       }
+    }
+
+    // Sort buddy groups by size desc so largest (fully-unlocked) groups surface first
+    if (groupBy === "buddy") {
+      const sorted = new Map<string, SummerApplication[]>(
+        [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
+      );
+      return sorted;
     }
 
     return groups;
@@ -500,12 +628,17 @@ export default function SummerApplicationsPage() {
     setSelectedIndex(null);
   }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, collapsedGroups]);
 
-  // Scroll focused card into view
+  // Scroll focused card into view. In virtualized mode the row may not be in
+  // the DOM, so fall back to the list's imperative scrollToRow.
   useEffect(() => {
     if (selectedIndex === null) return;
     const element = document.querySelector(`[data-app-index="${selectedIndex}"]`);
     const container = scrollContainerRef.current;
-    if (!element || !container) return;
+    if (!element) {
+      listRef.current?.scrollToRow({ index: selectedIndex, behavior: "smooth", align: "auto" });
+      return;
+    }
+    if (!container) return;
     const containerRect = container.getBoundingClientRect();
     const cardRect = element.getBoundingClientRect();
     if (cardRect.bottom > containerRect.bottom - 20) {
@@ -513,7 +646,18 @@ export default function SummerApplicationsPage() {
     } else if (cardRect.top < containerRect.top + 20) {
       element.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, listRef]);
+
+  // Measure list container height so react-window can size its viewport.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const update = () => setListHeight(Math.max(200, el.clientHeight));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (!canViewAdminPages) {
     return (
@@ -549,6 +693,25 @@ export default function SummerApplicationsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {lastUpdated && (
+                    <span
+                      className="hidden sm:inline text-[11px] text-muted-foreground tabular-nums"
+                      title={new Date(lastUpdated).toLocaleString()}
+                      // nowTick is read to keep this label ticking every 30s
+                      data-tick={nowTick}
+                    >
+                      Updated {formatTimeAgo(new Date(lastUpdated).toISOString())}
+                    </span>
+                  )}
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isValidating}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    title="Refresh"
+                    aria-label="Refresh applications"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
+                  </button>
                   {configs && configs.length > 1 && (
                     <select
                       value={configId ?? ""}
@@ -701,7 +864,27 @@ export default function SummerApplicationsPage() {
                       ? <ArrowUpNarrowWide className="h-3.5 w-3.5" />
                       : <ArrowDownNarrowWide className="h-3.5 w-3.5" />}
                   </button>
-                  {/* Select-all (only during batch selection) */}
+                  {/* Persistent batch-mode toggle */}
+                  <button
+                    onClick={() => {
+                      if (batchMode || checkedIds.size > 0) {
+                        setBatchMode(false);
+                        setCheckedIds(new Set());
+                      } else {
+                        setBatchMode(true);
+                      }
+                    }}
+                    title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                    aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                    className={cn(
+                      "p-1.5 rounded-lg transition-colors",
+                      showCheckboxes
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                  >
+                    <CheckSquare className="h-3.5 w-3.5" />
+                  </button>
                   {showCheckboxes && (
                     <input
                       ref={selectAllRef}
@@ -709,12 +892,37 @@ export default function SummerApplicationsPage() {
                       checked={allVisibleChecked}
                       onChange={toggleSelectAll}
                       className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                      title={allVisibleChecked ? "Deselect all" : "Select all"}
+                      title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
                     />
                   )}
                 </div>
               </div>
             </div>
+
+            {/* Count + scope strip */}
+            {applications && (
+              <div className="px-4 sm:px-6 pt-2 pb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>
+                  Showing <span className="font-semibold text-foreground tabular-nums">{navigableItems.length}</span>
+                  {stats && (
+                    <> of <span className="tabular-nums">{stats.total}</span></>
+                  )}
+                  {hasFilters && stats && navigableItems.length !== stats.total && (
+                    <button
+                      onClick={clearFilters}
+                      className="ml-2 text-primary hover:text-primary/80 underline-offset-2 hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </span>
+                {groupBy === "buddy" && (
+                  <span className="ml-auto inline-flex items-center gap-1 text-muted-foreground/80">
+                    <Users className="h-3 w-3" /> Solo applicants hidden in this view
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Application list */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
@@ -766,11 +974,17 @@ export default function SummerApplicationsPage() {
                         id={groupKey}
                         label={groupBy === "location" ? displayLocation(groupKey) : groupKey}
                         count={groupApps.length}
-                        colorTheme={groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray") : "gray"}
+                        colorTheme={
+                          groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray")
+                          : groupBy === "buddy" ? (groupApps.length >= 3 ? "purple" : "orange")
+                          : "gray"
+                        }
                         annotation={
-                          demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
+                          groupBy === "time_slot" && demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
                             ? `${demandMap.get(groupKey)} total prefs`
-                            : undefined
+                            : groupBy === "buddy"
+                              ? (groupApps.length >= 3 ? "Discount unlocked" : `Needs ${3 - groupApps.length} more`)
+                              : undefined
                         }
                         isCollapsed={isCollapsed}
                         onToggle={() => setCollapsedGroups((prev) => {
@@ -814,6 +1028,24 @@ export default function SummerApplicationsPage() {
                     );
                   })}
                 </div>
+              ) : sortedApplications.length > VIRTUALIZE_THRESHOLD ? (
+                <List<VirtualAppRowProps>
+                  listRef={listRef}
+                  rowCount={sortedApplications.length}
+                  rowHeight={VIRTUAL_ROW_HEIGHT}
+                  rowComponent={VirtualAppRow}
+                  rowProps={{
+                    applications: sortedApplications,
+                    selectedIndex,
+                    checkedIds,
+                    showCheckboxes,
+                    onSelect: openDetail,
+                    onToggleCheck: toggleCheck,
+                    onStatusChange: handleStatusChange,
+                  }}
+                  defaultHeight={listHeight}
+                  style={{ height: listHeight }}
+                />
               ) : (
                 <div className="space-y-2">
                   {sortedApplications.map((app, i) => (

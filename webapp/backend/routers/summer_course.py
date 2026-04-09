@@ -1100,13 +1100,35 @@ def list_applications(
 @router.get("/summer/applications/stats", response_model=SummerApplicationStats)
 def get_application_stats(
     config_id: Optional[int] = None,
+    application_status: Optional[str] = None,
+    grade: Optional[str] = None,
+    location: Optional[str] = None,
+    search: Optional[str] = None,
+    buddy_group_id: Optional[int] = None,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Get aggregate stats for summer applications."""
+    """Get aggregate stats for summer applications, honoring the same filters
+    as /summer/applications so the list UI and its chip counts stay consistent.
+    """
     filters = []
     if config_id:
         filters.append(SummerApplication.config_id == config_id)
+    if application_status:
+        filters.append(SummerApplication.application_status == application_status)
+    if grade:
+        filters.append(SummerApplication.grade == grade)
+    if location:
+        filters.append(SummerApplication.preferred_location == location)
+    if buddy_group_id:
+        filters.append(SummerApplication.buddy_group_id == buddy_group_id)
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            (SummerApplication.student_name.ilike(pattern))
+            | (SummerApplication.reference_code.ilike(pattern))
+            | (SummerApplication.contact_phone.ilike(pattern))
+        )
 
     total = db.query(func.count(SummerApplication.id)).filter(*filters).scalar() or 0
 

@@ -2358,9 +2358,22 @@ export const summerAPI = {
   getApplicationEdits: (id: number) =>
     fetchAPI<SummerApplicationEditEntry[]>(`/summer/applications/${id}/edits`),
 
-  getApplicationStats: (configId?: number) => {
-    const qs = configId ? `?config_id=${configId}` : "";
-    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs}`);
+  getApplicationStats: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    buddy_group_id?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs ? `?${qs}` : ""}`);
   },
 
   // ---- Arrangement endpoints ----
