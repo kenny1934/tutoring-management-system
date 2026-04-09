@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import useSWR from "swr";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -66,6 +68,9 @@ export function ProspectDetailModal({
     else if (e.key === "Escape") onClose();
   });
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const [outreachStatus, setOutreachStatus] = useState(prospect.outreach_status);
   const [status, setStatus] = useState(prospect.status);
   const [contactNotes, setContactNotes] = useState(prospect.contact_notes || "");
@@ -127,18 +132,29 @@ export function ProspectDetailModal({
     }
   };
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Prospect details: ${prospect.student_name}`}
-    >
-      <div
-        className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+  if (!mounted) return null;
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        key="prospect-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Prospect details: ${prospect.student_name}`}
       >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="bg-gradient-to-r from-primary/10 to-transparent p-6 pb-4 rounded-t-2xl">
           <div className="flex items-start justify-between">
             <div>
@@ -370,8 +386,10 @@ export function ProspectDetailModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </AnimatePresence>,
+    document.body
   );
 }
 

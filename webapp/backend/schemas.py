@@ -2289,6 +2289,27 @@ class SummerCourseConfigResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LinkedSecondaryStudentInfo(BaseModel):
+    """Minimal Secondary student info for the admin list card's linked badge."""
+    id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    home_location: Optional[str] = None
+
+
+class LinkedPrimaryProspectInfo(BaseModel):
+    """Minimal P6 prospect info for the admin list card's linked badge.
+
+    Exposed when a PrimaryProspect row has been auto-matched (or manually
+    linked) to this SummerApplication via PrimaryProspect.summer_application_id.
+    The `id` is used to build a ?focus= URL back to the prospects page.
+    """
+    id: int
+    student_name: str
+    primary_student_id: Optional[str] = None
+    source_branch: str
+
+
 class SummerApplicationResponse(BaseModel):
     """Full application response for admin."""
     id: int
@@ -2330,6 +2351,9 @@ class SummerApplicationResponse(BaseModel):
     pending_sibling_count: int = 0
     buddy_siblings: List[SummerSiblingInfo] = []
     buddy_group_member_count: int = 0
+    linked_student: Optional[LinkedSecondaryStudentInfo] = None
+    linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
+    claimed_branch_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

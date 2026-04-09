@@ -2234,6 +2234,23 @@ export interface SummerApplication {
   pending_sibling_count?: number;
   buddy_siblings?: SummerSiblingInfo[];
   buddy_group_member_count?: number;
+  linked_student?: LinkedSecondaryStudentInfo | null;
+  linked_prospect?: LinkedPrimaryProspectInfo | null;
+  claimed_branch_code?: string | null;
+}
+
+export interface LinkedSecondaryStudentInfo {
+  id: number;
+  student_name: string;
+  school_student_id?: string | null;
+  home_location?: string | null;
+}
+
+export interface LinkedPrimaryProspectInfo {
+  id: number;
+  student_name: string;
+  primary_student_id?: string | null;
+  source_branch: string;
 }
 
 export interface SummerApplicationSessionInfo {

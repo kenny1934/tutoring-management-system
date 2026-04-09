@@ -2567,6 +2567,9 @@ export const prospectsAPI = {
     return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
   },
 
+  adminGet: (id: number) =>
+    fetchAPI<PrimaryProspect>(`/prospects/admin/${id}`),
+
   adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
     fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
       method: "PATCH",

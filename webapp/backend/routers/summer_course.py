@@ -24,6 +24,8 @@ from models import (
     SummerLesson,
     SummerTutorDuty,
     Tutor,
+    Student,
+    PrimaryProspect,
 )
 from schemas import (
     SummerCourseFormConfig,
@@ -68,6 +70,8 @@ from schemas import (
     SummerTutorDutyBulkSet,
     SummerTutorDutyResponse,
     SummerApplicationSessionInfo,
+    LinkedSecondaryStudentInfo,
+    LinkedPrimaryProspectInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.rate_limiter import check_ip_rate_limit
@@ -1009,6 +1013,110 @@ def clone_config(
     return clone
 
 
+# Maps the `name` values stored in SummerCourseConfig.center_options (the
+# Chinese display string that ends up in SummerApplication.current_centers[0])
+# to the internal branch code. "二龍喉分校" is ambiguous between MOT (Primary)
+# and MSB (Secondary Academy) — disambiguate via is_existing_student. Kept
+# here rather than on the config JSON because the code isn't stored there.
+# Update alongside any seed_summer_*.py changes.
+_PRIMARY_CENTER_NAME_TO_CODE: dict[str, str] = {
+    "高士德分校": "MAC",
+    "水坑尾分校": "MCP",
+    "東方明珠分校": "MNT",
+    "林茂塘分校": "MLT",
+    "二龍喉分校": "MOT",
+    "氹仔美景I分校": "MTA",
+    "氹仔美景II分校": "MTR",
+}
+
+_SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
+    "華士古分校": "MSA",
+    "二龍喉分校": "MSB",
+    # Full-name fallback in case an older config stored the unshortened form.
+    "MathConcept中學教室 (華士古分校)": "MSA",
+    "MathConcept中學教室 (二龍喉分校)": "MSB",
+}
+
+
+def _resolve_claimed_branch_code(
+    center_name: Optional[str], is_existing: Optional[str]
+) -> Optional[str]:
+    """Map a stored center name to a branch code, using the existing-student
+    category to disambiguate centers that exist on both Primary and Secondary
+    sides (currently only 二龍喉分校)."""
+    if not center_name:
+        return None
+    if is_existing == "MathConcept Secondary Academy":
+        return _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
+    if is_existing == "MathConcept Education":
+        return _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
+    # No category hint — try primary, then fall through to secondary.
+    return (
+        _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
+        or _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
+    )
+
+
+def _get_linked_students_bulk(
+    db: Session, student_ids: list[int]
+) -> dict[int, LinkedSecondaryStudentInfo]:
+    """Return {student_id: LinkedSecondaryStudentInfo} for admin list cards."""
+    if not student_ids:
+        return {}
+    rows = (
+        db.query(
+            Student.id,
+            Student.student_name,
+            Student.school_student_id,
+            Student.home_location,
+        )
+        .filter(Student.id.in_(student_ids))
+        .all()
+    )
+    return {
+        r.id: LinkedSecondaryStudentInfo(
+            id=r.id,
+            student_name=r.student_name,
+            school_student_id=r.school_student_id,
+            home_location=r.home_location,
+        )
+        for r in rows
+    }
+
+
+def _get_linked_prospects_bulk(
+    db: Session, app_ids: list[int]
+) -> dict[int, LinkedPrimaryProspectInfo]:
+    """Return {summer_application_id: LinkedPrimaryProspectInfo}.
+
+    One-way link: PrimaryProspect has a summer_application_id FK populated by
+    the prospects-page Auto Match feature. Only unambiguous 1:1 matches are
+    stored there, so at most one prospect per application.
+    """
+    if not app_ids:
+        return {}
+    rows = (
+        db.query(
+            PrimaryProspect.id,
+            PrimaryProspect.student_name,
+            PrimaryProspect.primary_student_id,
+            PrimaryProspect.source_branch,
+            PrimaryProspect.summer_application_id,
+        )
+        .filter(PrimaryProspect.summer_application_id.in_(app_ids))
+        .all()
+    )
+    return {
+        r.summer_application_id: LinkedPrimaryProspectInfo(
+            id=r.id,
+            student_name=r.student_name,
+            primary_student_id=r.primary_student_id,
+            source_branch=r.source_branch,
+        )
+        for r in rows
+    }
+
+
 def _get_buddy_group_sizes(
     db: Session, group_ids: list[int]
 ) -> dict[int, int]:
@@ -1035,12 +1143,14 @@ def _build_application_response(
     app: SummerApplication,
     siblings_by_group: Optional[dict[int, list[SummerSiblingInfo]]] = None,
     group_sizes: Optional[dict[int, int]] = None,
+    linked_students: Optional[dict[int, LinkedSecondaryStudentInfo]] = None,
+    linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
-    Pass `siblings_by_group` from `_get_buddy_siblings_bulk` and
-    `group_sizes` from `_get_buddy_group_sizes` to avoid N+1 in list
-    endpoints. Single-app endpoints can omit both.
+    Pass the bulk dicts from `_get_buddy_siblings_bulk`, `_get_buddy_group_sizes`,
+    `_get_linked_students_bulk`, and `_get_linked_prospects_bulk` to avoid N+1
+    in list endpoints. Single-app endpoints can omit all of them.
     """
     sessions = []
     for s in (app.sessions or []):
@@ -1075,18 +1185,39 @@ def _build_application_response(
     )
     data["buddy_group_member_count"] = secondary_count + len(siblings)
 
+    if app.existing_student_id and linked_students:
+        data["linked_student"] = linked_students.get(app.existing_student_id)
+    if linked_prospects:
+        data["linked_prospect"] = linked_prospects.get(app.id)
+
+    claimed_center = (app.current_centers or [None])[0]
+    if claimed_center:
+        data["claimed_branch_code"] = _resolve_claimed_branch_code(
+            claimed_center, app.is_existing_student
+        )
+
     return SummerApplicationResponse.model_validate(data)
 
 
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
-    """Build response list with batched sibling + group-size lookups."""
+    """Build response list with batched sibling + group-size + linked-entity lookups."""
     group_ids = [a.buddy_group_id for a in apps if a.buddy_group_id]
     siblings_by_group = _get_buddy_siblings_bulk(db, group_ids)
     group_sizes = _get_buddy_group_sizes(db, group_ids)
+    student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
+    linked_students = _get_linked_students_bulk(db, student_ids)
+    linked_prospects = _get_linked_prospects_bulk(db, [a.id for a in apps])
     return [
-        _build_application_response(a, siblings_by_group, group_sizes) for a in apps
+        _build_application_response(
+            a,
+            siblings_by_group,
+            group_sizes,
+            linked_students,
+            linked_prospects,
+        )
+        for a in apps
     ]
 
 

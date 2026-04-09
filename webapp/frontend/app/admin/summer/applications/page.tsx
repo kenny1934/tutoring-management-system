@@ -19,6 +19,8 @@ import { List, type RowComponentProps, useListRef } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
+import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
+import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
@@ -117,6 +119,7 @@ interface VirtualAppRowProps {
   onSelect: (app: SummerApplication) => void;
   onToggleCheck: (id: number) => void;
   onStatusChange: (id: number, status: string) => void;
+  onProspectClick: (prospectId: number) => void;
 }
 
 function VirtualAppRow({
@@ -129,6 +132,7 @@ function VirtualAppRow({
   onSelect,
   onToggleCheck,
   onStatusChange,
+  onProspectClick,
 }: RowComponentProps<VirtualAppRowProps>) {
   const app = applications[index];
   return (
@@ -142,6 +146,7 @@ function VirtualAppRow({
         onToggleCheck={onToggleCheck}
         showCheckbox={showCheckboxes}
         onStatusChange={onStatusChange}
+        onProspectClick={onProspectClick}
       />
     </div>
   );
@@ -320,6 +325,16 @@ export default function SummerApplicationsPage() {
       setBatchUpdating(false);
     }
   };
+
+  // Prospect preview — opened inline from the card's linked-prospect chip
+  const [previewProspectId, setPreviewProspectId] = useState<number | null>(null);
+  const { data: previewProspect } = useSWR(
+    previewProspectId ? ["prospect-preview", previewProspectId] : null,
+    () => prospectsAPI.adminGet(previewProspectId!)
+  );
+  const handleProspectClick = useCallback((prospectId: number) => {
+    setPreviewProspectId(prospectId);
+  }, []);
 
   // Inline single-row status change from the card
   const handleStatusChange = useCallback(async (id: number, status: string) => {
@@ -1021,6 +1036,7 @@ export default function SummerApplicationsPage() {
                               onToggleCheck={toggleCheck}
                               showCheckbox={showCheckboxes}
                               onStatusChange={handleStatusChange}
+                              onProspectClick={handleProspectClick}
                             />
                           );
                         })}
@@ -1042,6 +1058,7 @@ export default function SummerApplicationsPage() {
                     onSelect: openDetail,
                     onToggleCheck: toggleCheck,
                     onStatusChange: handleStatusChange,
+                    onProspectClick: handleProspectClick,
                   }}
                   defaultHeight={listHeight}
                   style={{ height: listHeight }}
@@ -1059,6 +1076,7 @@ export default function SummerApplicationsPage() {
                       onToggleCheck={toggleCheck}
                       showCheckbox={showCheckboxes}
                       onStatusChange={handleStatusChange}
+                      onProspectClick={handleProspectClick}
                     />
                   ))}
                 </div>
@@ -1157,6 +1175,17 @@ export default function SummerApplicationsPage() {
             allApplications={applications}
             onSelectApplication={openDetail}
           />
+
+          {previewProspectId && previewProspect && (
+            <ProspectDetailModal
+              prospect={previewProspect}
+              onClose={() => setPreviewProspectId(null)}
+              onSave={() => {
+                mutate(["prospect-preview", previewProspect.id]);
+                handleRefresh();
+              }}
+            />
+          )}
 
           {/* Keyboard shortcut hint button */}
           {!showShortcutHints && (

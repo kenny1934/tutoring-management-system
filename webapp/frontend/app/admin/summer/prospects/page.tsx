@@ -156,6 +156,9 @@ export default function AdminProspectsPage() {
     searchParams.get("order") === "asc" ? "asc" : "desc"
   );
   const [searchInput, setSearchInput] = useState(() => searchParams.get("q") ?? "");
+  // Capture the initial `focus` param once — the URL-sync effect below strips
+  // it from the address bar on the next render, so we can't re-read it later.
+  const initialFocusId = useRef(searchParams.get("focus")).current;
 
   // Column visibility — persisted to localStorage
   const [hiddenCols, setHiddenCols] = useState<Set<ColKey>>(() => {
@@ -268,6 +271,28 @@ export default function AdminProspectsPage() {
     });
     return sorted;
   }, [prospects, choice, sortBy, sortOrder]);
+
+  // Focus highlight: arrive via /admin/summer/prospects?focus=<id> (e.g. from the
+  // summer applications card's linked-prospect chip). Open the detail modal,
+  // scroll the row into view, and flash a ring for ~2.5s. No-op if the prospect
+  // isn't in the current filtered view. Runs once per page load.
+  const focusAppliedRef = useRef(false);
+  useEffect(() => {
+    if (focusAppliedRef.current || !initialFocusId || !displayedProspects) return;
+    const id = Number(initialFocusId);
+    if (!Number.isFinite(id)) return;
+    const target = displayedProspects.find((p) => p.id === id);
+    if (!target) return;
+    focusAppliedRef.current = true;
+    setSelectedProspect(target);
+    const el = document.querySelector<HTMLElement>(`[data-prospect-id="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const flashClasses = ["ring-2", "ring-primary", "ring-offset-2", "ring-offset-background"];
+    el.classList.add(...flashClasses);
+    const t = setTimeout(() => el.classList.remove(...flashClasses), 2500);
+    return () => clearTimeout(t);
+  }, [initialFocusId, displayedProspects]);
 
   // Sync state → URL (replace, not push — filter clicks shouldn't clog history)
   useEffect(() => {
@@ -1060,6 +1085,7 @@ function ProspectCard({
 }) {
   return (
     <div
+      data-prospect-id={p.id}
       onClick={onOpen}
       className={`border-2 rounded-xl p-3 cursor-pointer transition-colors ${
         selected ? "border-primary bg-primary/[0.05]" : "border-border bg-card hover:border-primary/40"
@@ -1123,6 +1149,7 @@ const ProspectRow = memo(function ProspectRow({
 }) {
   return (
     <tr
+      data-prospect-id={p.id}
       className={`cursor-pointer transition-colors ${selected ? "bg-primary/10" : "hover:bg-primary/[0.04]"}`}
       onClick={() => onOpen(p)}
     >
