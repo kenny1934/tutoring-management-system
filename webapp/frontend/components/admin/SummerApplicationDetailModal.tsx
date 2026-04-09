@@ -5,6 +5,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
+import { PrimaryBranchChip } from "./PrimaryBranchChip";
 import { summerAPI, studentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
@@ -12,12 +13,13 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO } from "@/lib/summer-utils";
+import type { DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
-  User, Phone, MapPin, FileText, Users, ExternalLink,
-  Clock, Grid3X3, Pencil, History,
+  User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight,
+  Clock, Grid3X3, Pencil, History, DollarSign,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -77,20 +79,38 @@ function StudentSuggestionRow({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      className="group/row w-full flex items-center gap-2 px-2.5 py-2 text-left text-sm cursor-pointer transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-inset"
     >
-      <StudentInfoBadges
-        student={{
-          student_name: student.student_name,
-          school_student_id: student.school_student_id || undefined,
-          grade: student.grade || undefined,
-          lang_stream: student.lang_stream || undefined,
-          school: student.school || undefined,
-          home_location: student.home_location || undefined,
-        }}
-      />
-      {reason && <span className="ml-auto text-[10px] text-primary/70 shrink-0">{reason}</span>}
+      <div className="min-w-0 flex-1 space-y-1">
+        <StudentInfoBadges
+          student={{
+            student_id: student.id,
+            student_name: student.student_name,
+            school_student_id: student.school_student_id || undefined,
+            grade: student.grade || undefined,
+            lang_stream: student.lang_stream || undefined,
+            school: student.school || undefined,
+            home_location: student.home_location || undefined,
+          }}
+          showLocationPrefix
+        />
+        {reason && (
+          <span
+            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            title="Why this student was suggested"
+          >
+            {reason}
+          </span>
+        )}
+      </div>
+      <span
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
+        aria-hidden
+      >
+        Link <ArrowRight className="h-3 w-3" />
+      </span>
     </button>
   );
 }
@@ -110,6 +130,8 @@ interface SummerApplicationDetailModalProps {
   locations?: SummerLocation[];
   allApplications?: SummerApplication[];
   onSelectApplication?: (app: SummerApplication) => void;
+  discount?: DiscountResult | null;
+  baseFee?: number;
 }
 
 export function SummerApplicationDetailModal({
@@ -127,6 +149,8 @@ export function SummerApplicationDetailModal({
   locations,
   allApplications,
   onSelectApplication,
+  discount,
+  baseFee,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -139,8 +163,20 @@ export function SummerApplicationDetailModal({
   const [searchFocused, setSearchFocused] = useState(false);
   const [showManualId, setShowManualId] = useState(false);
   const autoFilledLangRef = useRef<number | null>(null);
+  const prevAppIdRef = useRef<number | null>(null);
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
+  // Sync studentId synchronously on app change to avoid a one-frame flash of
+  // the previous student's data (e.g. amber home-location warning) when
+  // navigating prev/next.
+  if (app && prevAppIdRef.current !== app.id) {
+    prevAppIdRef.current = app.id;
+    const nextStudentId = app.existing_student_id?.toString() || "";
+    if (studentId !== nextStudentId) setStudentId(nextStudentId);
+    const nextLangStream = app.lang_stream || "";
+    if (langStream !== nextLangStream) setLangStream(nextLangStream);
+    autoFilledLangRef.current = null;
+  }
   const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
 
   // Buddy edit state
@@ -189,6 +225,9 @@ export function SummerApplicationDetailModal({
   const [dUnavail, setDUnavail] = useState("");
 
   const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
+  // Holds a navigation/close action to run after the user confirms discarding
+  // unsaved changes. `null` means no discard prompt is showing.
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: formConfig } = useSWR(
@@ -498,6 +537,15 @@ export function SummerApplicationDetailModal({
     await doSave();
   };
 
+  // Wraps any action that would navigate away from or close the modal so that
+  // unsaved edits prompt a discard confirmation first. `useState` stores
+  // functions wrapped in an extra closure because React treats a bare function
+  // value as a lazy initializer / updater.
+  const guardNav = (action: () => void) => {
+    if (!hasChanges || readOnly) { action(); return; }
+    setPendingDiscard(() => action);
+  };
+
   const handleLinkStudent = (id: number) => {
     setStudentId(id.toString());
     setStudentSearch("");
@@ -537,11 +585,12 @@ export function SummerApplicationDetailModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => guardNav(onClose)}
       title={
         <div className="flex items-center gap-3">
           <span>{app.student_name}</span>
           <StatusBadge status={app.application_status} />
+          <PrimaryBranchChip app={app} />
         </div>
       }
       size="xl"
@@ -551,7 +600,7 @@ export function SummerApplicationDetailModal({
           {(onPrev || onNext) && (
             <div className="flex items-center gap-1">
               <button
-                onClick={onPrev}
+                onClick={() => onPrev && guardNav(onPrev)}
                 disabled={!hasPrev}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Previous (←)"
@@ -564,7 +613,7 @@ export function SummerApplicationDetailModal({
                 </span>
               )}
               <button
-                onClick={onNext}
+                onClick={() => onNext && guardNav(onNext)}
                 disabled={!hasNext}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Next (→)"
@@ -578,7 +627,7 @@ export function SummerApplicationDetailModal({
           {!readOnly && (
             <div className="flex items-center gap-2 ml-auto">
               <button
-                onClick={onClose}
+                onClick={() => guardNav(onClose)}
                 className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
                 Cancel
@@ -663,62 +712,78 @@ export function SummerApplicationDetailModal({
               </div>
             )}
 
-            {/* Lang stream pills (bare C / E) + linked student hint */}
+            {/* Lang stream: collapse to read-only badge when linked student matches */}
+            {(() => {
+              const studentLang =
+                linkedStudent?.lang_stream && linkedStudent.id === app.existing_student_id
+                  ? linkedStudent.lang_stream
+                  : null;
+              return (
             <div>
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Language Stream</span>
-              <div className="flex items-center gap-1 mt-1">
-                {["C", "E"].map((ls) => (
-                  <button
-                    key={ls}
-                    onClick={() => setLangStream(ls)}
-                    className={cn(
-                      "px-3 py-1 rounded-full text-xs font-medium transition-all",
-                      langStream === ls
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                    )}
-                  >
-                    {ls}
-                  </button>
-                ))}
-                {langStream && (
-                  <button
-                    onClick={() => setLangStream("")}
-                    className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                    title="Clear"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-                {/* Linked student lang stream hint */}
-                {linkedStudent?.lang_stream && langStream && linkedStudent.lang_stream === langStream && (
-                  <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-0.5 ml-1">
-                    <Check className="h-3 w-3" /> matches student
+              {studentLang && langStream === studentLang ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {langStream}
                   </span>
-                )}
-                {linkedStudent?.lang_stream && langStream && linkedStudent.lang_stream !== langStream && (
-                  <button
-                    onClick={() => setLangStream(linkedStudent.lang_stream!)}
-                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
-                  >
-                    Student is {linkedStudent.lang_stream}
-                  </button>
-                )}
-                {linkedStudent?.lang_stream && !langStream && (
-                  <button
-                    onClick={() => setLangStream(linkedStudent.lang_stream!)}
-                    className="text-[10px] text-primary hover:underline ml-1"
-                  >
-                    Use student&apos;s: {linkedStudent.lang_stream}
-                  </button>
-                )}
-              </div>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Check className="h-3 w-3" /> from student record
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 mt-1">
+                  {["C", "E"].map((ls) => (
+                    <button
+                      key={ls}
+                      onClick={() => setLangStream(ls)}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                        langStream === ls
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                      )}
+                    >
+                      {ls}
+                    </button>
+                  ))}
+                  {langStream && (
+                    <button
+                      onClick={() => setLangStream("")}
+                      className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      title="Clear"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  {studentLang && langStream && studentLang !== langStream && (
+                    <button
+                      onClick={() => setLangStream(studentLang)}
+                      className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
+                    >
+                      Student is {studentLang}
+                    </button>
+                  )}
+                  {studentLang && !langStream && (
+                    <button
+                      onClick={() => setLangStream(studentLang)}
+                      className="text-[10px] text-primary hover:underline ml-1"
+                    >
+                      Use student&apos;s: {studentLang}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+              );
+            })()}
           </div>
 
           {/* === 2. STUDENT LINK === */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Link to Student</span>
+            <div className="flex items-center gap-1.5">
+              <Link2 className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Link to Student</span>
+            </div>
 
             {studentId && linkedStudent ? (
               /* Linked state: show real student data via StudentInfoBadges */
@@ -737,6 +802,7 @@ export function SummerApplicationDetailModal({
                         home_location: linkedStudent.home_location || undefined,
                       }}
                       showLink
+                      showLocationPrefix
                     />
                   </div>
                   <div className="ml-6 mt-0.5">
@@ -771,7 +837,6 @@ export function SummerApplicationDetailModal({
             ) : (
               /* Unlinked: show suggestions and/or search */
               <div className="space-y-2">
-                {/* Applicant context */}
                 {isExisting && (
                   <div className="text-xs text-muted-foreground">
                     Applicant says: {app.is_existing_student}
@@ -781,11 +846,16 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
 
-                {/* Auto-suggestions */}
                 {autoSuggestions.length > 0 && (
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Suggested matches:</span>
-                    <div className="mt-0.5 border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                    <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                      <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                        Suggested matches
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                    </div>
+                    <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
                       {autoSuggestions.map(({ student, reason }) => (
                         <StudentSuggestionRow
                           key={student.id}
@@ -798,23 +868,28 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
 
-                {/* Manual search */}
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                    onFocus={() => setSearchFocused(true)}
-                    onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                    className={cn(inputClass, "pl-8")}
-                    placeholder="Search by name, ID, or phone..."
-                  />
+                <div>
+                  {autoSuggestions.length > 0 && (
+                    <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                      Or search manually
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                      className={cn(inputClass, "pl-8")}
+                      placeholder="Search by name, ID, or phone..."
+                    />
+                  </div>
                 </div>
 
-                {/* Search results (hidden on blur) */}
                 {searchFocused && searchResults && searchResults.length > 0 && (
-                  <div className="border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
                     {searchResults.map((s) => (
                       <StudentSuggestionRow
                         key={s.id}
@@ -825,10 +900,11 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
                 {searchFocused && searchResults && searchResults.length === 0 && debouncedStudentSearch.length >= 2 && (
-                  <div className="text-xs text-muted-foreground text-center py-1">No students found</div>
+                  <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                    No students found matching &ldquo;{debouncedStudentSearch}&rdquo;
+                  </div>
                 )}
 
-                {/* Manual ID fallback (search by school_student_id on Enter) */}
                 {showManualId ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -861,22 +937,25 @@ export function SummerApplicationDetailModal({
                       </button>
                     </div>
                     {manualIdResults && manualIdResults.length > 0 && (
-                      <div className="border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
                         {manualIdResults.map((s) => (
                           <StudentSuggestionRow key={s.id} student={s} onClick={() => handleLinkStudent(s.id)} />
                         ))}
                       </div>
                     )}
                     {manualIdResults && manualIdResults.length === 0 && (
-                      <div className="text-xs text-muted-foreground">No student found with that ID</div>
+                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                        No student found with ID &ldquo;{manualIdConfirmed}&rdquo;
+                      </div>
                     )}
                   </div>
                 ) : (
                   <button
                     onClick={() => setShowManualId(true)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   >
-                    or enter student ID manually
+                    <Search className="h-3 w-3" />
+                    Can&apos;t find? Enter student ID manually
                   </button>
                 )}
               </div>
@@ -1041,17 +1120,8 @@ export function SummerApplicationDetailModal({
                     {app.school}
                   </span>
                 )}
-                {isExisting && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    Existing
-                  </span>
-                )}
+                <PrimaryBranchChip app={app} />
               </div>
-              {app.current_centers && app.current_centers.length > 0 && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Centers: {app.current_centers.join(", ")}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1580,6 +1650,41 @@ export function SummerApplicationDetailModal({
             </div>
           )}
 
+          {/* Fee summary — best discount + near-miss hint */}
+          {discount && typeof baseFee === "number" && baseFee > 0 && (
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg shrink-0">
+                <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Fee</div>
+                <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-lg font-semibold text-foreground">${discount.finalFee.toLocaleString()}</span>
+                  {discount.best && (
+                    <span className="text-xs text-muted-foreground">
+                      = ${baseFee.toLocaleString()} − ${discount.amount}
+                    </span>
+                  )}
+                </div>
+                {discount.best ? (
+                  <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                    <span className="font-mono font-semibold">{discount.best.code}</span>
+                    <span className="text-muted-foreground"> · {discount.best.name_en}</span>
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-muted-foreground">No discount applied · pays full price</div>
+                )}
+                {discount.nearMiss && (
+                  <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    {discount.nearMiss.neededMembers} more buddy member{discount.nearMiss.neededMembers === 1 ? "" : "s"} to unlock{" "}
+                    <span className="font-mono font-semibold">{discount.nearMiss.discount.code}</span>
+                    <span> (−${discount.nearMiss.extraSavings} more)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Application Meta */}
           <div className="flex items-start gap-3">
             <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg shrink-0">
@@ -1670,6 +1775,20 @@ export function SummerApplicationDetailModal({
         confirmText={`Move to ${pendingStatusConfirm ?? ""}`}
         variant="warning"
         loading={saving}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDiscard !== null}
+        onCancel={() => setPendingDiscard(null)}
+        onConfirm={() => {
+          const action = pendingDiscard;
+          setPendingDiscard(null);
+          action?.();
+        }}
+        title="Discard unsaved changes?"
+        message="You have unsaved edits to this application. Leaving now will lose them."
+        confirmText="Discard"
+        variant="danger"
       />
 
       <ConfirmDialog

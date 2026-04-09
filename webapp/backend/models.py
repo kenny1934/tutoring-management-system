@@ -1251,6 +1251,10 @@ class SummerApplication(Base):
     unavailability_notes = Column(Text)
     # Buddy group
     buddy_group_id = Column(Integer, ForeignKey("summer_buddy_groups.id"), nullable=True)
+    # Set whenever buddy_group_id transitions to a new non-null value; cleared
+    # on leave. Nth-smallest value across a group's current members is the
+    # moment the group reached N members, used for group-discount eligibility.
+    buddy_joined_at = Column(DateTime, nullable=True)
     buddy_names = Column(Text)
     buddy_referrer_name = Column(String(255))
     # Existing student link

@@ -1189,6 +1189,8 @@ export interface DuplicateStudent {
   school_student_id: string | null;
   school: string | null;
   grade: string | null;
+  home_location: string | null;
+  lang_stream: string | null;
   match_reason: string;
 }
 
@@ -2215,6 +2217,7 @@ export interface SummerApplication {
   preference_4_time?: string | null;
   unavailability_notes?: string | null;
   buddy_group_id?: number | null;
+  buddy_joined_at?: string | null;
   buddy_code?: string | null;
   buddy_names?: string | null;
   buddy_referrer_name?: string | null;
@@ -2231,6 +2234,24 @@ export interface SummerApplication {
   sessions?: SummerApplicationSessionInfo[];
   pending_sibling_count?: number;
   buddy_siblings?: SummerSiblingInfo[];
+  buddy_group_member_count?: number;
+  linked_student?: LinkedSecondaryStudentInfo | null;
+  linked_prospect?: LinkedPrimaryProspectInfo | null;
+  claimed_branch_code?: string | null;
+}
+
+export interface LinkedSecondaryStudentInfo {
+  id: number;
+  student_name: string;
+  school_student_id?: string | null;
+  home_location?: string | null;
+}
+
+export interface LinkedPrimaryProspectInfo {
+  id: number;
+  student_name: string;
+  primary_student_id?: string | null;
+  source_branch: string;
 }
 
 export interface SummerApplicationSessionInfo {
@@ -2637,6 +2658,86 @@ export interface PrimaryProspectMatchResult {
     application_status: string;
     match_type: string;
   }>;
+}
+
+export interface AutoMatchProspectSummary {
+  id: number;
+  student_name: string;
+  phone_1: string | null;
+  phone_2: string | null;
+  source_branch: string;
+  grade: string | null;
+}
+
+export interface AutoMatchAppSummary {
+  id: number;
+  student_name: string;
+  reference_code: string | null;
+  contact_phone: string | null;
+  preferred_location: string | null;
+  grade: string | null;
+}
+
+export type AutoMatchSkipReason =
+  | "multiple_prospects_share_phone"
+  | "multiple_apps_share_phone";
+
+export interface AutoMatchEntry {
+  prospect: AutoMatchProspectSummary;
+  application: AutoMatchAppSummary;
+}
+
+export interface AutoMatchSkipEntry {
+  prospect: AutoMatchProspectSummary;
+  reason: AutoMatchSkipReason;
+  conflicting_prospects: AutoMatchProspectSummary[];
+  conflicting_apps: AutoMatchAppSummary[];
+}
+
+export interface AutoMatchResult {
+  total_unlinked: number;
+  matches: AutoMatchEntry[];
+  skipped: AutoMatchSkipEntry[];
+}
+
+// ---- Secondary student link suggestions ----
+
+export interface StudentSuggestionCandidate {
+  id: number;
+  student_name: string;
+  school_student_id?: string | null;
+  school?: string | null;
+  grade?: string | null;
+  home_location?: string | null;
+  lang_stream?: string | null;
+  match_reason: string;
+}
+
+export interface StudentLinkAppSummary {
+  id: number;
+  student_name: string;
+  reference_code: string | null;
+  contact_phone: string | null;
+  preferred_location: string | null;
+  grade: string | null;
+  claimed_branch_code: string | null;
+}
+
+export interface StudentLinkMatch {
+  application: StudentLinkAppSummary;
+  student: StudentSuggestionCandidate;
+}
+
+export interface StudentLinkSkipEntry {
+  application: StudentLinkAppSummary;
+  reason: "ambiguous_candidates";
+  candidates: StudentSuggestionCandidate[];
+}
+
+export interface StudentLinkSuggestResult {
+  total_unlinked: number;
+  matches: StudentLinkMatch[];
+  skipped: StudentLinkSkipEntry[];
 }
 
 // Student Progress Analytics Types

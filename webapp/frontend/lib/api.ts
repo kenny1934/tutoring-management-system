@@ -2358,9 +2358,27 @@ export const summerAPI = {
   getApplicationEdits: (id: number) =>
     fetchAPI<SummerApplicationEditEntry[]>(`/summer/applications/${id}/edits`),
 
-  getApplicationStats: (configId?: number) => {
-    const qs = configId ? `?config_id=${configId}` : "";
-    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs}`);
+  suggestStudentLinks: (configId: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").StudentLinkSuggestResult>(
+      `/summer/admin/suggest-student-links?config_id=${configId}&dry_run=${options.dryRun ? "true" : "false"}`,
+    ),
+
+  getApplicationStats: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    buddy_group_id?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<SummerApplicationStats>(`/summer/applications/stats${qs ? `?${qs}` : ""}`);
   },
 
   // ---- Arrangement endpoints ----
@@ -2541,6 +2559,7 @@ export const prospectsAPI = {
     wants_summer?: string;
     wants_regular?: string;
     linked?: string;
+    has_wechat?: string;
     search?: string;
   }) => {
     const qs = new URLSearchParams({ year: String(params.year) });
@@ -2550,9 +2569,13 @@ export const prospectsAPI = {
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
     if (params.linked) qs.set("linked", params.linked);
+    if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
   },
+
+  adminGet: (id: number) =>
+    fetchAPI<PrimaryProspect>(`/prospects/admin/${id}`),
 
   adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
     fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
@@ -2566,16 +2589,35 @@ export const prospectsAPI = {
       body: JSON.stringify({ ids, outreach_status }),
     }),
 
-  stats: (year: number) =>
-    fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?year=${year}`),
+  stats: (params: {
+    year: number;
+    status?: string;
+    outreach_status?: string;
+    wants_summer?: string;
+    wants_regular?: string;
+    linked?: string;
+    has_wechat?: string;
+    search?: string;
+  }) => {
+    const qs = new URLSearchParams({ year: String(params.year) });
+    if (params.status) qs.set("status", params.status);
+    if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
+    if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
+    if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
+    if (params.linked) qs.set("linked", params.linked);
+    if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
+    if (params.search) qs.set("search", params.search);
+    return fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?${qs}`);
+  },
 
   findMatches: (id: number) =>
     fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/match/${id}`),
 
-  autoMatch: (year: number) =>
-    fetchAPI<{ matched: number; total_unlinked: number; skipped_ambiguous: number }>(`/prospects/admin/auto-match?year=${year}`, {
-      method: "POST",
-    }),
+  autoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").AutoMatchResult>(
+      `/prospects/admin/auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
+      { method: "POST" },
+    ),
 };
 
 export const buddyTrackerAPI = {

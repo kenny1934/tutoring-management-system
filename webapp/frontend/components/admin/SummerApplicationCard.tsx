@@ -17,6 +17,7 @@ import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { usePortalPopover } from "@/hooks/usePortalPopover";
+import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import type { SummerApplication } from "@/types";
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
@@ -148,6 +149,7 @@ interface SummerApplicationCardProps {
   onToggleCheck: (id: number) => void;
   showCheckbox: boolean;
   onStatusChange?: (id: number, status: string) => void;
+  onProspectClick?: (prospectId: number) => void;
 }
 
 export const SummerApplicationCard = React.memo(function SummerApplicationCard({
@@ -159,6 +161,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   onToggleCheck,
   showCheckbox,
   onStatusChange,
+  onProspectClick,
 }: SummerApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
   const { combined: prefs } = formatPreferences(app);
@@ -176,10 +179,9 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
     setTimeout(() => setRefCopied(false), 2000);
   };
 
-  const isExisting = !!app.is_existing_student && app.is_existing_student !== "None";
   const isPlaced = !!app.sessions && app.sessions.length > 0;
   const sessionsPerWeek = app.sessions_per_week ?? 1;
-  const buddyGroupSize = app.buddy_group_id ? (app.buddy_siblings?.length ?? 0) + 1 : 0;
+  const buddyGroupSize = app.buddy_group_id ? (app.buddy_group_member_count ?? 1) : 0;
   const buddyUnlocked = buddyGroupSize >= BUDDY_UNLOCK_THRESHOLD;
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
   const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
@@ -234,22 +236,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               }}
               trailing={
                 <>
-                  {isExisting ? (
-                    <span
-                      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded"
-                      title={`Existing student: ${app.is_existing_student}`}
-                    >
-                      <BadgeCheck className="h-3 w-3" />
-                      <span className="font-mono">{app.is_existing_student}</span>
-                    </span>
-                  ) : (
-                    <span
-                      className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
-                      title="New student — no prior enrolment"
-                    >
-                      New
-                    </span>
-                  )}
+                  <PrimaryBranchChip app={app} onProspectClick={onProspectClick} />
                   {buddyGroupSize > 0 && (
                     <span
                       className={cn(
@@ -386,10 +373,11 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           )}
           {app.unavailability_notes && (
             <span
-              className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400"
+              className="hidden sm:inline-flex min-w-0 items-center gap-1 text-red-600 dark:text-red-400 truncate max-w-[160px] md:max-w-[220px] lg:max-w-[320px]"
               title={`Unavailable: ${app.unavailability_notes}`}
             >
-              <XCircle className="h-2.5 w-2.5" /> Unavailable
+              <XCircle className="h-3 w-3 shrink-0" />
+              <span className="truncate">{app.unavailability_notes}</span>
             </span>
           )}
           {editedAfterReview && (

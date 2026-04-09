@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import useSWR from "swr";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -28,6 +30,7 @@ import {
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
 } from "@/components/summer/prospect-badges";
+import { StatusBadge as ApplicationStatusBadge } from "@/components/admin/SummerApplicationCard";
 import type {
   PrimaryProspect,
   ProspectOutreachStatus,
@@ -65,6 +68,9 @@ export function ProspectDetailModal({
     else if (e.key === "ArrowRight" && goNext) { e.preventDefault(); goNext(); }
     else if (e.key === "Escape") onClose();
   });
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const [outreachStatus, setOutreachStatus] = useState(prospect.outreach_status);
   const [status, setStatus] = useState(prospect.status);
@@ -127,18 +133,29 @@ export function ProspectDetailModal({
     }
   };
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Prospect details: ${prospect.student_name}`}
-    >
-      <div
-        className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+  if (!mounted) return null;
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        key="prospect-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Prospect details: ${prospect.student_name}`}
       >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="bg-gradient-to-r from-primary/10 to-transparent p-6 pb-4 rounded-t-2xl">
           <div className="flex items-start justify-between">
             <div>
@@ -174,7 +191,7 @@ export function ProspectDetailModal({
                   </button>
                 </>
               )}
-              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 transition-colors">
+              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-foreground/10 hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -284,7 +301,9 @@ export function ProspectDetailModal({
                 <div className="flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium">{prospect.matched_application_ref}</span>
-                  <ProspectStatusBadge status={prospect.matched_application_status as ProspectStatus || "New"} />
+                  {prospect.matched_application_status && (
+                    <ApplicationStatusBadge status={prospect.matched_application_status} />
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <a
@@ -370,8 +389,10 @@ export function ProspectDetailModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </AnimatePresence>,
+    document.body
   );
 }
 

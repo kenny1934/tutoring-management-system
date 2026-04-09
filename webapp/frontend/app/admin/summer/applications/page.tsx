@@ -1,28 +1,53 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { ClipboardList, Search, X, Loader2, ListFilter, ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink } from "lucide-react";
+import {
+  ClipboardList, Search, X, Loader2, ChevronDown, Check,
+  ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
+  RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
+import { List, type RowComponentProps, useListRef } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
+import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
+import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
+import { computeDiscountsForAll } from "@/lib/summer-discounts";
+import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
+import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
+import { formatTimeAgo } from "@/lib/formatters";
 import type { SummerApplication } from "@/types";
 
 const CODE_TO_LOCATION = Object.fromEntries(
   Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k])
 );
+
+// Resolve the branch an application belongs to, in priority order:
+// confirmed link first (secondary student, then primary prospect), then the
+// applicant's own claim. Returns null for "new" applicants with no signal.
+function getAppBranchCode(a: SummerApplication): string | null {
+  return (
+    a.linked_student?.home_location ||
+    a.linked_prospect?.source_branch ||
+    a.claimed_branch_code ||
+    null
+  );
+}
 
 const PIPELINE_STATUSES = [
   "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
@@ -38,12 +63,14 @@ const VIEW_PRESET_CONFIG: Record<ViewPreset, {
   sortField: "submitted" | "name" | "status" | "grade" | "location" | "time_slot";
   defaultDirection: "asc" | "desc";
 }> = {
-  latest:       { label: "View: Latest",       groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
-  pipeline:     { label: "View: Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
-  by_location:  { label: "View: By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
-  by_grade:     { label: "View: By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
-  by_time_slot: { label: "View: By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
+  latest:       { label: "Submitted",    groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
+  pipeline:     { label: "Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
+  by_location:  { label: "By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
+  by_grade:     { label: "By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
+  by_time_slot: { label: "By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
 };
+
+const ALL_PRESETS: ViewPreset[] = ["latest", "pipeline", "by_location", "by_grade", "by_time_slot"];
 
 const STATUS_GROUP_COLORS: Record<string, "red" | "orange" | "purple" | "gray"> = {
   Rejected: "red",
@@ -63,31 +90,157 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-function renderStatusButtons(
-  statuses: string[],
-  byStatus: Record<string, number>,
-  activeFilter: string | null,
-  setFilter: (v: string | null) => void,
-) {
-  return statuses.map((s) => {
-    const count = byStatus[s] || 0;
-    if (count === 0) return null;
-    const colors = STATUS_COLORS[s];
-    const isActive = activeFilter === s;
-    return (
-      <button
-        key={s}
-        onClick={() => setFilter(isActive ? null : s)}
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-all",
-          isActive ? cn(colors.bg, colors.text, "ring-1 ring-current") : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-        )}
-      >
-        <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
-        {s} <span className="font-normal">{count}</span>
-      </button>
-    );
-  });
+// Inline dropdown with click-outside + escape handling. The menu is portalled
+// to document.body so it escapes any overflow-hidden ancestors (the paper
+// card), and its position is computed from the trigger's bounding rect and
+// clamped to the viewport so it never overflows on narrow screens.
+type DropdownTriggerProps = {
+  onClick: () => void;
+  "aria-haspopup": "menu";
+  "aria-expanded": boolean;
+};
+function DropdownMenu({
+  trigger,
+  children,
+  align = "left",
+  menuClassName,
+}: {
+  trigger: (ctx: { open: boolean; triggerProps: DropdownTriggerProps }) => React.ReactNode;
+  children: (close: () => void) => React.ReactNode;
+  align?: "left" | "right";
+  menuClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // `left` is always the final clamped x-coordinate. We use left-only
+  // positioning (no `right`) so the menu can never escape the viewport
+  // regardless of whether align is "left" or "right".
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !wrapperRef.current) return;
+    const compute = () => {
+      const rect = wrapperRef.current!.getBoundingClientRect();
+      // Fall back to 220 on the first pass before the menu is in the DOM;
+      // the rAF pass below corrects once the real width is measured.
+      const menuWidth = menuRef.current?.offsetWidth ?? 220;
+      const preferred = align === "right" ? rect.right - menuWidth : rect.left;
+      const maxLeft = window.innerWidth - menuWidth - 8;
+      const left = Math.max(8, Math.min(preferred, maxLeft));
+      setPos({ top: rect.bottom + 6, left });
+    };
+    compute();
+    const raf = requestAnimationFrame(compute);
+    window.addEventListener("scroll", compute, true);
+    window.addEventListener("resize", compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", compute, true);
+      window.removeEventListener("resize", compute);
+    };
+  }, [open, align]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (wrapperRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
+  const triggerProps: DropdownTriggerProps = {
+    onClick: () => setOpen((o) => !o),
+    "aria-haspopup": "menu",
+    "aria-expanded": open,
+  };
+
+  return (
+    <>
+      <span ref={wrapperRef} className="inline-flex">
+        {trigger({ open, triggerProps })}
+      </span>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{
+            position: "fixed",
+            top: `${pos.top}px`,
+            left: `${pos.left}px`,
+            maxWidth: "calc(100vw - 1rem)",
+          }}
+          className={cn(
+            "z-[60] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]",
+            menuClassName,
+          )}
+        >
+          {children(() => setOpen(false))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+const menuItemClass = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
+
+// Virtualized row for the flat view. Fixed height accommodates the common case
+// (identity + placement + meta rows); rare edge cases with many backup slots
+// wrap-hide, which is acceptable given the perf win at scale.
+const VIRTUAL_ROW_HEIGHT = 112;
+const VIRTUALIZE_THRESHOLD = 50;
+
+interface VirtualAppRowProps {
+  applications: SummerApplication[];
+  selectedIndex: number | null;
+  checkedIds: Set<number>;
+  showCheckboxes: boolean;
+  onSelect: (app: SummerApplication) => void;
+  onToggleCheck: (id: number) => void;
+  onStatusChange: (id: number, status: string) => void;
+  onProspectClick: (prospectId: number) => void;
+}
+
+function VirtualAppRow({
+  index,
+  style,
+  applications,
+  selectedIndex,
+  checkedIds,
+  showCheckboxes,
+  onSelect,
+  onToggleCheck,
+  onStatusChange,
+  onProspectClick,
+}: RowComponentProps<VirtualAppRowProps>) {
+  const app = applications[index];
+  return (
+    <div style={{ ...style, paddingBottom: 8 }}>
+      <SummerApplicationCard
+        application={app}
+        index={index}
+        isFocused={selectedIndex === index}
+        onSelect={onSelect}
+        isChecked={checkedIds.has(app.id)}
+        onToggleCheck={onToggleCheck}
+        showCheckbox={showCheckboxes}
+        onStatusChange={onStatusChange}
+        onProspectClick={onProspectClick}
+      />
+    </div>
+  );
 }
 
 export default function SummerApplicationsPage() {
@@ -98,42 +251,79 @@ export default function SummerApplicationsPage() {
   const canViewAdminPages = isAdmin || isSuperAdmin;
   const readOnly = !isAdmin && !isSuperAdmin;
 
+  // URL state (read once on mount for initial values)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlInit = useRef({
+    status: searchParams.get("status"),
+    grade: searchParams.get("grade"),
+    location: searchParams.get("location"),
+    q: searchParams.get("q") || "",
+    pending: searchParams.get("pending") === "1",
+    claim: searchParams.get("claim") === "1",
+    branch: searchParams.get("branch"),
+    view: (searchParams.get("view") as ViewPreset | null),
+    dir: (searchParams.get("dir") as "asc" | "desc" | null),
+    legacyBuddyView: searchParams.get("view") === "by_buddy",
+    mode: (searchParams.get("mode") as "list" | "board" | null),
+  }).current;
+
   // Config selector
   const [configId, setConfigId] = useState<number | null>(null);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
-  const [locationFilter, setLocationFilter] = useState<string | null>(null);
-  const [pendingSiblingOnly, setPendingSiblingOnly] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(urlInit.status);
+  const [gradeFilter, setGradeFilter] = useState<string | null>(urlInit.grade);
+  const [locationFilter, setLocationFilter] = useState<string | null>(urlInit.location);
+  const [pendingSiblingOnly, setPendingSiblingOnly] = useState(urlInit.pending);
+  const [pendingClaimOnly, setPendingClaimOnly] = useState(urlInit.claim);
+  // Branch scope: null = all, "new" = no link/claim, or a branch code (MAC…).
+  const [branchFilter, setBranchFilter] = useState<string | null>(urlInit.branch);
+  const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
   // View preset (replaces separate sort + group controls)
-  const [viewPreset, setViewPreset] = useState<ViewPreset>("latest");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const initialPreset: ViewPreset = urlInit.view && ALL_PRESETS.includes(urlInit.view) ? urlInit.view : "latest";
+  const [viewPreset, setViewPreset] = useState<ViewPreset>(initialPreset);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
+    urlInit.dir ?? VIEW_PRESET_CONFIG[initialPreset].defaultDirection
+  );
   const presetConfig = VIEW_PRESET_CONFIG[viewPreset];
   const sortField = presetConfig.sortField;
   const groupBy = presetConfig.groupBy;
+
+  // Board vs list view mode. Legacy `?view=by_buddy` migrates to mode=board.
+  const [viewMode, setViewMode] = useState<"list" | "board">(
+    urlInit.mode === "board" || urlInit.legacyBuddyView ? "board" : "list",
+  );
 
   // UI state
   const [selectedAppIndex, setSelectedAppIndex] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [batchMode, setBatchMode] = useState(false);
   const [batchStatus, setBatchStatus] = useState("Under Review");
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [linkSuggestionsOpen, setLinkSuggestionsOpen] = useState(false);
+
+  // Data freshness
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   // Keyboard nav
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const listRef = useListRef(null);
+  const [listHeight, setListHeight] = useState(600);
   const selectAllRef = useRef<HTMLInputElement>(null);
-  const filterPopoverRef = useRef<HTMLDivElement>(null);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -149,10 +339,26 @@ export default function SummerApplicationsPage() {
     }
   }, [configs, configId]);
 
-  // Fetch stats
+  // Apply filters everywhere — so the stats chips reflect what the list shows.
+  // Note: statusFilter is applied client-side for the chip strip so it still
+  // shows per-status counts; grade/location/search/pending go to both.
+  const statsFilterParams = useMemo(
+    () => ({
+      config_id: configId ?? undefined,
+      grade: gradeFilter || undefined,
+      location: locationFilter || undefined,
+      search: debouncedSearch || undefined,
+    }),
+    [configId, gradeFilter, locationFilter, debouncedSearch]
+  );
+
+  // Fetch stats — keyed off everything that affects the numbers.
+  const statsKey = configId
+    ? ["summer-app-stats", configId, gradeFilter, locationFilter, debouncedSearch]
+    : null;
   const { data: stats } = useSWR(
-    configId ? ["summer-app-stats", configId] : null,
-    () => summerAPI.getApplicationStats(configId!)
+    statsKey,
+    () => summerAPI.getApplicationStats(statsFilterParams)
   );
 
   // Fetch applications
@@ -171,21 +377,23 @@ export default function SummerApplicationsPage() {
       location: locationFilter || undefined,
       search: debouncedSearch || undefined,
     }),
-    { refreshInterval: 60000 }
+    {
+      refreshInterval: 60000,
+      onSuccess: () => setLastUpdated(Date.now()),
+    }
   );
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
-    if (swrKey) {
-      mutate(swrKey);
-      if (configId) mutate(["summer-app-stats", configId]);
-    }
-  }, [swrKey, configId]);
+    if (swrKey) mutate(swrKey);
+    if (statsKey) mutate(statsKey);
+  }, [swrKey, statsKey]);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Batch selection
-  const showCheckboxes = checkedIds.size > 0;
+  // Batch selection — batch mode is either explicitly toggled or implicit when
+  // the user has checked at least one row via the hover checkbox.
+  const showCheckboxes = batchMode || checkedIds.size > 0;
   const toggleCheck = useCallback((id: number) => {
     setCheckedIds((prev) => {
       const next = new Set(prev);
@@ -219,6 +427,16 @@ export default function SummerApplicationsPage() {
     }
   };
 
+  // Prospect preview — opened inline from the card's linked-prospect chip
+  const [previewProspectId, setPreviewProspectId] = useState<number | null>(null);
+  const { data: previewProspect } = useSWR(
+    previewProspectId ? ["prospect-preview", previewProspectId] : null,
+    () => prospectsAPI.adminGet(previewProspectId!)
+  );
+  const handleProspectClick = useCallback((prospectId: number) => {
+    setPreviewProspectId(prospectId);
+  }, []);
+
   // Inline single-row status change from the card
   const handleStatusChange = useCallback(async (id: number, status: string) => {
     try {
@@ -230,64 +448,109 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly;
-  const activeFilterCount = [gradeFilter, locationFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || pendingClaimOnly || branchFilter;
+  // Count of filters that live in the "More" menu.
+  // Location lives in the header scope, status has its own dropdown, search is visible.
+  const moreFilterCount = [
+    gradeFilter,
+    branchFilter,
+    pendingSiblingOnly ? "pending-sibling" : null,
+    pendingClaimOnly ? "pending-claim" : null,
+  ].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setGradeFilter(null);
     setLocationFilter(null);
     setSearchQuery("");
     setPendingSiblingOnly(false);
+    setPendingClaimOnly(false);
+    setBranchFilter(null);
   }, []);
 
-  // Close filter popover on click outside / escape
+  // Sync state → URL (replace, not push)
   useEffect(() => {
-    if (!filterOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node) &&
-        filterButtonRef.current && !filterButtonRef.current.contains(e.target as Node)
-      ) {
-        setFilterOpen(false);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setFilterOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [filterOpen]);
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (gradeFilter) params.set("grade", gradeFilter);
+    if (locationFilter) params.set("location", locationFilter);
+    if (debouncedSearch) params.set("q", debouncedSearch);
+    if (pendingSiblingOnly) params.set("pending", "1");
+    if (pendingClaimOnly) params.set("claim", "1");
+    if (branchFilter) params.set("branch", branchFilter);
+    if (viewMode === "board") params.set("mode", "board");
+    if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
+    if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, viewPreset, sortDirection, viewMode, router]);
 
-  // Grade/location options from stats
+  // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
+  // Only codes that actually appear in the current applications, so the
+  // dropdown never shows empty branches.
+  const branchOptions = useMemo(() => {
+    if (!applications) return [];
+    const seen = new Set<string>();
+    for (const a of applications) {
+      const code = getAppBranchCode(a);
+      if (code) seen.add(code);
+    }
+    return [...seen].sort();
+  }, [applications]);
+  // Location options come from the active config — not from stats — so that
+  // picking one location does not remove the others from the dropdown.
+  const activeConfig = configs?.find((c) => c.id === configId);
+  // Discount eligibility per application. Computed once per data load off
+  // the full applications list — the group-reach calculation needs all
+  // members, not just the filtered view, so we can't use sortedApplications.
+  const discountByAppId = useMemo(
+    () => computeDiscountsForAll(applications ?? [], activeConfig?.pricing_config),
+    [applications, activeConfig],
+  );
   const locationOptions = useMemo(
-    () => Object.keys(stats?.by_location || {}).sort((a, b) => displayLocation(a).localeCompare(displayLocation(b))),
-    [stats]
+    () => (activeConfig?.locations ?? [])
+      .map((l) => l.name)
+      .sort((a, b) => displayLocation(a).localeCompare(displayLocation(b))),
+    [activeConfig]
   );
 
-  // Initialize location filter from user's app-wide location setting (one-time)
-  const locationInitialized = useRef(false);
+  // Default the location filter to the user's app-wide setting. Tracks changes
+  // to that setting until the user explicitly picks a location on this page
+  // (or arrived with a ?location= URL param), at which point we stop syncing.
+  const locationUserOverride = useRef(!!urlInit.location);
   useEffect(() => {
-    if (locationInitialized.current || !stats) return;
-    locationInitialized.current = true;
-    if (selectedLocation && selectedLocation !== "All Locations") {
-      const chineseName = CODE_TO_LOCATION[selectedLocation];
-      if (chineseName && stats.by_location?.[chineseName] !== undefined) {
-        setLocationFilter(chineseName);
-      }
+    if (locationUserOverride.current || locationOptions.length === 0) return;
+    if (!selectedLocation || selectedLocation === "All Locations") {
+      if (locationFilter !== null) setLocationFilter(null);
+      return;
     }
-  }, [stats, selectedLocation]);
+    const chineseName = CODE_TO_LOCATION[selectedLocation];
+    if (chineseName && locationOptions.includes(chineseName) && locationFilter !== chineseName) {
+      setLocationFilter(chineseName);
+    }
+  }, [locationOptions, selectedLocation, locationFilter]);
 
   // Client-side sorting
   const sortedApplications = useMemo(() => {
     if (!applications) return [];
-    const filtered = pendingSiblingOnly
-      ? applications.filter((a) => (a.pending_sibling_count ?? 0) > 0)
-      : applications;
+    let filtered = applications;
+    if (pendingSiblingOnly) {
+      filtered = filtered.filter((a) => (a.pending_sibling_count ?? 0) > 0);
+    }
+    if (pendingClaimOnly) {
+      // Matches the amber "Claims: XXX" chip in PrimaryBranchChip: applicant
+      // claims to be an existing student at a specific branch but nothing has
+      // been linked yet (neither a Secondary student nor a Primary prospect).
+      filtered = filtered.filter((a) =>
+        !!a.claimed_branch_code && !a.linked_student && !a.linked_prospect,
+      );
+    }
+    if (branchFilter) {
+      filtered = filtered.filter((a) => {
+        const code = getAppBranchCode(a);
+        return branchFilter === "new" ? code === null : code === branchFilter;
+      });
+    }
     const sorted = [...filtered];
     const dir = sortDirection === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
@@ -311,7 +574,20 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection, pendingSiblingOnly]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly, pendingClaimOnly, branchFilter]);
+
+  // Member-level filter for the board view. Status/location/grade/search are
+  // already applied server-side (they drive the SWR key), so this only needs
+  // to enforce the two client-side filters.
+  const buddyBoardPredicate = useCallback((a: SummerApplication) => {
+    if (pendingSiblingOnly && (a.pending_sibling_count ?? 0) === 0) return false;
+    if (pendingClaimOnly && (!a.claimed_branch_code || !!a.linked_student || !!a.linked_prospect)) return false;
+    if (branchFilter) {
+      const code = getAppBranchCode(a);
+      if (branchFilter === "new" ? code !== null : code !== branchFilter) return false;
+    }
+    return true;
+  }, [pendingSiblingOnly, pendingClaimOnly, branchFilter]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -498,14 +774,19 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, collapsedGroups]);
 
-  // Scroll focused card into view
+  // Scroll focused card into view. In virtualized mode the row may not be in
+  // the DOM, so fall back to the list's imperative scrollToRow.
   useEffect(() => {
     if (selectedIndex === null) return;
     const element = document.querySelector(`[data-app-index="${selectedIndex}"]`);
     const container = scrollContainerRef.current;
-    if (!element || !container) return;
+    if (!element) {
+      listRef.current?.scrollToRow({ index: selectedIndex, behavior: "smooth", align: "auto" });
+      return;
+    }
+    if (!container) return;
     const containerRect = container.getBoundingClientRect();
     const cardRect = element.getBoundingClientRect();
     if (cardRect.bottom > containerRect.bottom - 20) {
@@ -513,7 +794,18 @@ export default function SummerApplicationsPage() {
     } else if (cardRect.top < containerRect.top + 20) {
       element.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, listRef]);
+
+  // Measure list container height so react-window can size its viewport.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const update = () => setListHeight(Math.max(200, el.clientHeight));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (!canViewAdminPages) {
     return (
@@ -532,65 +824,123 @@ export default function SummerApplicationsPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
                   <ClipboardList className="h-5 w-5 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
-                    Summer Applications
-                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="text-muted-foreground hover:text-primary transition-colors">
+                  <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
+                    <span className="truncate">Summer Applications</span>
+                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
                   </h1>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="hidden sm:block text-xs text-muted-foreground">
                     Review and process summer course applications
-                    {readOnly && <span className="ml-1 text-amber-600">(Read-only)</span>}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {configs && configs.length > 1 && (
-                    <select
-                      value={configId ?? ""}
-                      onChange={(e) => {
-                        setConfigId(parseInt(e.target.value));
-                        setCheckedIds(new Set());
-                      }}
-                      className={selectClass}
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                  {lastUpdated && (
+                    <span
+                      className="hidden md:inline text-[11px] text-muted-foreground tabular-nums"
+                      title={new Date(lastUpdated).toLocaleString()}
+                      // nowTick is read to keep this label ticking every 30s
+                      data-tick={nowTick}
                     >
-                      {configs.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.year}{c.is_active ? " (Active)" : ""}
-                        </option>
+                      Updated {formatTimeAgo(new Date(lastUpdated).toISOString())}
+                    </span>
+                  )}
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isValidating}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    title="Refresh"
+                    aria-label="Refresh applications"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
+                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => setLinkSuggestionsOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+                      title="Preview which unlinked applications can be matched to prospects or existing students"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline">Link suggestions</span>
+                    </button>
+                  )}
+                  {locationOptions.length > 0 && (
+                    <select
+                      value={locationFilter || ""}
+                      onChange={(e) => {
+                        locationUserOverride.current = true;
+                        setLocationFilter(e.target.value || null);
+                      }}
+                      className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground"
+                      title="Filter by location"
+                    >
+                      <option value="">All</option>
+                      {locationOptions.map((l) => (
+                        <option key={l} value={l}>{displayLocation(l)}</option>
                       ))}
                     </select>
                   )}
+                  {configs && configs.length > 1 && (() => {
+                    const currentConfig = configs.find((c) => c.id === configId);
+                    return (
+                      <DropdownMenu
+                        align="right"
+                        trigger={({ triggerProps }) => (
+                          <button
+                            type="button"
+                            {...triggerProps}
+                            className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            title={currentConfig?.is_active ? "Active season" : "Past season"}
+                          >
+                            <span>{currentConfig?.year}</span>
+                            {currentConfig?.is_active && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            )}
+                            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                          </button>
+                        )}
+                      >
+                        {(close) => configs.map((c) => {
+                          const active = c.id === configId;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={active}
+                              onClick={() => {
+                                setConfigId(c.id);
+                                setCheckedIds(new Set());
+                                close();
+                              }}
+                              className={cn(menuItemClass, active && "bg-primary/5")}
+                            >
+                              <span className="flex-1 text-foreground">{c.year}</span>
+                              {c.is_active && (
+                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                                  Active
+                                </span>
+                              )}
+                              {active && <Check className="h-3 w-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </DropdownMenu>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
 
-            {/* Stats strip */}
-            {stats && stats.total > 0 && (
-              <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-2 min-w-max">
-                  <span className="text-sm font-semibold text-foreground mr-1">{stats.total}</span>
-                  {/* Pipeline statuses */}
-                  {renderStatusButtons(PIPELINE_STATUSES, stats.by_status, statusFilter, setStatusFilter)}
-                  {/* Divider */}
-                  {EXIT_STATUSES.some((s) => (stats.by_status[s] || 0) > 0) && (
-                    <span className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
-                  )}
-                  {/* Exit statuses */}
-                  {renderStatusButtons(EXIT_STATUSES, stats.by_status, statusFilter, setStatusFilter)}
-                </div>
-              </div>
-            )}
-
-            {/* Filter bar + view controls */}
             <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-              <div className="flex flex-col sm:flex-row gap-2">
-                {/* Search + Filter */}
-                <div className="relative flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     ref={searchRef}
@@ -598,54 +948,203 @@ export default function SummerApplicationsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder='Search name, phone, ref code... (press "/")'
-                    className="w-full pl-9 pr-16 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                    className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-8 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear search"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  {/* Filter button (inside search bar) */}
-                  <button
-                    ref={filterButtonRef}
-                    onClick={() => setFilterOpen(!filterOpen)}
-                    className={cn(
-                      "absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 p-1 rounded transition-colors",
-                      activeFilterCount > 0
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    title="Filter by grade/location"
-                  >
-                    <ListFilter className="h-3.5 w-3.5" />
-                    {activeFilterCount > 0 && (
-                      <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </button>
-                  {/* Filter popover */}
-                  {filterOpen && (
-                    <div
-                      ref={filterPopoverRef}
-                      className="absolute top-full mt-1.5 right-0 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 min-w-[200px] space-y-3"
-                    >
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
-                        <select
-                          value={locationFilter || ""}
-                          onChange={(e) => setLocationFilter(e.target.value || null)}
-                          className={cn(selectClass, "w-full")}
+                </div>
+
+                <DropdownMenu
+                  menuClassName="min-w-[220px]"
+                  trigger={({ open, triggerProps }) => {
+                    const colors = statusFilter ? STATUS_COLORS[statusFilter] : null;
+                    return (
+                      <button
+                        type="button"
+                        {...triggerProps}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
+                          statusFilter
+                            ? cn(colors?.bg, colors?.text, "border-current/30")
+                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                          open && "ring-1 ring-primary/30",
+                        )}
+                        title="Filter by status"
+                      >
+                        {colors && <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
+                        <span className="font-medium">{statusFilter || "All statuses"}</span>
+                        {statusFilter && stats && (
+                          <span className="font-normal opacity-70">{stats.by_status[statusFilter] || 0}</span>
+                        )}
+                        <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                      </button>
+                    );
+                  }}
+                >
+                  {(close) => {
+                    const renderRow = (s: string | null) => {
+                      const isAll = s === null;
+                      const count = isAll ? stats?.total ?? 0 : stats?.by_status[s!] ?? 0;
+                      if (!isAll && count === 0) return null;
+                      const colors = isAll ? null : STATUS_COLORS[s!];
+                      const active = statusFilter === s;
+                      return (
+                        <button
+                          key={s ?? "__all"}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => { setStatusFilter(s); close(); }}
+                          className={cn(menuItemClass, active && "bg-primary/5")}
                         >
-                          <option value="">All locations</option>
-                          {locationOptions.map((l) => (
-                            <option key={l} value={l}>{displayLocation(l)}</option>
-                          ))}
-                        </select>
+                          {colors ? (
+                            <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
+                          ) : (
+                            <span className="w-1.5 h-1.5" />
+                          )}
+                          <span className="flex-1 text-foreground">{s ?? "All statuses"}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+                          {active && <Check className="h-3 w-3 text-primary" />}
+                        </button>
+                      );
+                    };
+                    return (
+                      <>
+                        {renderRow(null)}
+                        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                        {PIPELINE_STATUSES.map(renderRow)}
+                        {EXIT_STATUSES.some((s) => (stats?.by_status[s] || 0) > 0) && (
+                          <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                        )}
+                        {EXIT_STATUSES.map(renderRow)}
+                      </>
+                    );
+                  }}
+                </DropdownMenu>
+
+                {applications && stats && (
+                  hasFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      title="Clear all filters"
+                    >
+                      <span>
+                        <span className="font-semibold text-foreground tabular-nums">{navigableItems.length}</span>
+                        <span className="mx-1">of</span>
+                        <span className="tabular-nums">{stats.total}</span>
+                      </span>
+                      <X className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground tabular-nums">{stats.total}</span>
+                      <span className="ml-1">total</span>
+                    </span>
+                  )
+                )}
+
+                <div className="flex-1" />
+
+                {viewMode === "list" && (
+                <DropdownMenu
+                  align="right"
+                  menuClassName="min-w-[220px]"
+                  trigger={({ open, triggerProps }) => (
+                    <button
+                      type="button"
+                      {...triggerProps}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border font-medium transition-colors",
+                        "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground hover:bg-amber-100/70 dark:hover:bg-amber-900/30",
+                        open && "ring-1 ring-amber-400/40",
+                      )}
+                      title="Grouping and sort"
+                    >
+                      <span>{VIEW_PRESET_CONFIG[viewPreset].label}</span>
+                      {sortDirection === "asc"
+                        ? <ArrowUpNarrowWide className="h-3.5 w-3.5 opacity-70" />
+                        : <ArrowDownNarrowWide className="h-3.5 w-3.5 opacity-70" />}
+                      <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Group by
                       </div>
+                      {ALL_PRESETS.map((p) => {
+                        const active = viewPreset === p;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={active}
+                            onClick={() => { handlePresetChange(p); close(); }}
+                            className={cn(menuItemClass, active && "bg-primary/5")}
+                          >
+                            <span className="flex-1 text-foreground">
+                              {VIEW_PRESET_CONFIG[p].label}
+                            </span>
+                            {active && <Check className="h-3 w-3 text-primary" />}
+                          </button>
+                        );
+                      })}
+                      <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => setSortDirection((d) => d === "asc" ? "desc" : "asc")}
+                        className={menuItemClass}
+                      >
+                        {sortDirection === "asc"
+                          ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />
+                          : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <span className="flex-1 text-foreground">{getDirectionLabel(viewPreset, sortDirection)}</span>
+                      </button>
+                    </>
+                  )}
+                </DropdownMenu>
+                )}
+
+                <DropdownMenu
+                  align="right"
+                  menuClassName="min-w-[220px] p-3 space-y-3"
+                  trigger={({ open, triggerProps }) => (
+                    <button
+                      type="button"
+                      {...triggerProps}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
+                        moreFilterCount > 0
+                          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                        open && "ring-1 ring-primary/30",
+                      )}
+                      title="More filters"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      <span className="font-medium">More</span>
+                      {moreFilterCount > 0 && (
+                        <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                          {moreFilterCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                >
+                  {() => (
+                    <>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Grade</label>
                         <select
@@ -659,6 +1158,20 @@ export default function SummerApplicationsPage() {
                           ))}
                         </select>
                       </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch origin</label>
+                        <select
+                          value={branchFilter || ""}
+                          onChange={(e) => setBranchFilter(e.target.value || null)}
+                          className={cn(selectClass, "w-full")}
+                        >
+                          <option value="">All branches</option>
+                          <option value="new">New (no branch)</option>
+                          {branchOptions.map((code) => (
+                            <option key={code} value={code}>{code}</option>
+                          ))}
+                        </select>
+                      </div>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -668,51 +1181,90 @@ export default function SummerApplicationsPage() {
                         />
                         <span className="text-xs text-foreground">Pending sibling verification</span>
                       </label>
-                      {activeFilterCount > 0 && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pendingClaimOnly}
+                          onChange={(e) => setPendingClaimOnly(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="text-xs text-foreground">Pending branch claim (unlinked)</span>
+                      </label>
+                      {moreFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setLocationFilter(null); setPendingSiblingOnly(false); }}
+                          onClick={() => { setGradeFilter(null); setBranchFilter(null); setPendingSiblingOnly(false); setPendingClaimOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
-                          Clear filters
+                          Clear these filters
                         </button>
                       )}
-                    </div>
+                    </>
                   )}
-                </div>
-                {/* View + Sort controls */}
-                <div className="flex items-center gap-2">
-                  {/* View dropdown */}
-                  <select
-                    value={viewPreset}
-                    onChange={(e) => handlePresetChange(e.target.value as ViewPreset)}
-                    className="px-2.5 py-1.5 text-sm rounded-lg font-medium border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground"
-                  >
-                    {(Object.entries(VIEW_PRESET_CONFIG) as [ViewPreset, typeof VIEW_PRESET_CONFIG[ViewPreset]][]).map(([key, cfg]) => (
-                      <option key={key} value={key} className="bg-white dark:bg-gray-800">{cfg.label}</option>
-                    ))}
-                  </select>
-                  {/* Sort direction */}
+                </DropdownMenu>
+
+                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <button
-                    onClick={() => setSortDirection((d) => d === "asc" ? "desc" : "asc")}
-                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    title={getDirectionLabel(viewPreset, sortDirection)}
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    title="List view"
+                    aria-label="List view"
+                    aria-pressed={viewMode === "list"}
+                    className={cn(
+                      "px-2 py-1.5 transition-colors",
+                      viewMode === "list"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
                   >
-                    {sortDirection === "asc"
-                      ? <ArrowUpNarrowWide className="h-3.5 w-3.5" />
-                      : <ArrowDownNarrowWide className="h-3.5 w-3.5" />}
+                    <LayoutList className="h-3.5 w-3.5" />
                   </button>
-                  {/* Select-all (only during batch selection) */}
-                  {showCheckboxes && (
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      checked={allVisibleChecked}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                      title={allVisibleChecked ? "Deselect all" : "Select all"}
-                    />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("board")}
+                    title="Buddy board"
+                    aria-label="Buddy board"
+                    aria-pressed={viewMode === "board"}
+                    className={cn(
+                      "px-2 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700",
+                      viewMode === "board"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </button>
                 </div>
+
+                <button
+                  onClick={() => {
+                    if (batchMode || checkedIds.size > 0) {
+                      setBatchMode(false);
+                      setCheckedIds(new Set());
+                    } else {
+                      setBatchMode(true);
+                    }
+                  }}
+                  title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    showCheckboxes
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+                  )}
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                </button>
+                {showCheckboxes && (
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allVisibleChecked}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                    title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
+                  />
+                )}
               </div>
             </div>
 
@@ -739,6 +1291,13 @@ export default function SummerApplicationsPage() {
                     </div>
                   ))}
                 </div>
+              ) : viewMode === "board" ? (
+                <SummerBuddyBoard
+                  applications={applications}
+                  config={activeConfig}
+                  memberPredicate={buddyBoardPredicate}
+                  onSelectApp={openDetail}
+                />
               ) : sortedApplications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <ClipboardList className="h-10 w-10 text-muted-foreground/30 mb-3" />
@@ -766,9 +1325,12 @@ export default function SummerApplicationsPage() {
                         id={groupKey}
                         label={groupBy === "location" ? displayLocation(groupKey) : groupKey}
                         count={groupApps.length}
-                        colorTheme={groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray") : "gray"}
+                        colorTheme={
+                          groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray")
+                          : "gray"
+                        }
                         annotation={
-                          demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
+                          groupBy === "time_slot" && demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
                             ? `${demandMap.get(groupKey)} total prefs`
                             : undefined
                         }
@@ -807,6 +1369,7 @@ export default function SummerApplicationsPage() {
                               onToggleCheck={toggleCheck}
                               showCheckbox={showCheckboxes}
                               onStatusChange={handleStatusChange}
+                              onProspectClick={handleProspectClick}
                             />
                           );
                         })}
@@ -814,6 +1377,25 @@ export default function SummerApplicationsPage() {
                     );
                   })}
                 </div>
+              ) : sortedApplications.length > VIRTUALIZE_THRESHOLD ? (
+                <List<VirtualAppRowProps>
+                  listRef={listRef}
+                  rowCount={sortedApplications.length}
+                  rowHeight={VIRTUAL_ROW_HEIGHT}
+                  rowComponent={VirtualAppRow}
+                  rowProps={{
+                    applications: sortedApplications,
+                    selectedIndex,
+                    checkedIds,
+                    showCheckboxes,
+                    onSelect: openDetail,
+                    onToggleCheck: toggleCheck,
+                    onStatusChange: handleStatusChange,
+                    onProspectClick: handleProspectClick,
+                  }}
+                  defaultHeight={listHeight}
+                  style={{ height: listHeight }}
+                />
               ) : (
                 <div className="space-y-2">
                   {sortedApplications.map((app, i) => (
@@ -827,6 +1409,7 @@ export default function SummerApplicationsPage() {
                       onToggleCheck={toggleCheck}
                       showCheckbox={showCheckboxes}
                       onStatusChange={handleStatusChange}
+                      onProspectClick={handleProspectClick}
                     />
                   ))}
                 </div>
@@ -924,7 +1507,20 @@ export default function SummerApplicationsPage() {
             locations={configs?.find(c => c.id === configId)?.locations}
             allApplications={applications}
             onSelectApplication={openDetail}
+            discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
+            baseFee={activeConfig?.pricing_config?.base_fee}
           />
+
+          {previewProspectId && previewProspect && (
+            <ProspectDetailModal
+              prospect={previewProspect}
+              onClose={() => setPreviewProspectId(null)}
+              onSave={() => {
+                mutate(["prospect-preview", previewProspect.id]);
+                handleRefresh();
+              }}
+            />
+          )}
 
           {/* Keyboard shortcut hint button */}
           {!showShortcutHints && (
@@ -972,6 +1568,13 @@ export default function SummerApplicationsPage() {
             )}
           </AnimatePresence>
       </PageTransition>
+      <ApplicationLinkSuggestionsModal
+        isOpen={linkSuggestionsOpen}
+        onClose={() => setLinkSuggestionsOpen(false)}
+        year={activeConfig?.year ?? null}
+        configId={configId}
+        onDone={handleRefresh}
+      />
     </DeskSurface>
   );
 }

@@ -24,6 +24,8 @@ from models import (
     SummerLesson,
     SummerTutorDuty,
     Tutor,
+    Student,
+    PrimaryProspect,
 )
 from schemas import (
     SummerCourseFormConfig,
@@ -68,8 +70,11 @@ from schemas import (
     SummerTutorDutyBulkSet,
     SummerTutorDutyResponse,
     SummerApplicationSessionInfo,
+    LinkedSecondaryStudentInfo,
+    LinkedPrimaryProspectInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
+from routers.students import find_duplicate_students
 from utils.rate_limiter import check_ip_rate_limit
 from constants import (
     hk_now,
@@ -395,6 +400,7 @@ def submit_application(
         buddy_group_id = group.id
         buddy_code_out = group.buddy_code
 
+    now_ts = hk_now()
     # Create application (reference_code generated after insert)
     app = SummerApplication(
         config_id=config.id,
@@ -418,11 +424,12 @@ def submit_application(
         preference_4_time=data.preference_4_time,
         unavailability_notes=data.unavailability_notes,
         buddy_group_id=buddy_group_id,
+        buddy_joined_at=now_ts if buddy_group_id else None,
         buddy_names=data.buddy_names,
         buddy_referrer_name=data.buddy_referrer_name,
         form_language=data.form_language or "zh",
         sessions_per_week=data.sessions_per_week,
-        submitted_at=hk_now(),
+        submitted_at=now_ts,
     )
     # Generate unique random reference code with retry on collision
     db.add(app)
@@ -609,6 +616,7 @@ def change_buddy_group(
 
     if data.action == "leave":
         app.buddy_group_id = None
+        app.buddy_joined_at = None
         app.buddy_referrer_name = None
         db.commit()
         return SummerBuddyChangeResponse(buddy_code=None, member_count=0)
@@ -622,6 +630,7 @@ def change_buddy_group(
         # Don't count the applicant if they are already in this same group (no-op join)
         if app.buddy_group_id != group.id:
             _assert_buddy_group_has_room(db, group.id)
+            app.buddy_joined_at = now
         app.buddy_group_id = group.id
         app.buddy_referrer_name = data.buddy_referrer_name
         app.buddy_names = None
@@ -634,6 +643,7 @@ def change_buddy_group(
     elif data.action == "create":
         group = _create_buddy_group(db, config.id)
         app.buddy_group_id = group.id
+        app.buddy_joined_at = now
         app.buddy_referrer_name = None
         app.buddy_names = None
         db.commit()
@@ -1009,15 +1019,144 @@ def clone_config(
     return clone
 
 
+# Maps the `name` values stored in SummerCourseConfig.center_options (the
+# Chinese display string that ends up in SummerApplication.current_centers[0])
+# to the internal branch code. "二龍喉分校" is ambiguous between MOT (Primary)
+# and MSB (Secondary Academy) — disambiguate via is_existing_student. Kept
+# here rather than on the config JSON because the code isn't stored there.
+# Update alongside any seed_summer_*.py changes.
+_PRIMARY_CENTER_NAME_TO_CODE: dict[str, str] = {
+    "高士德分校": "MAC",
+    "水坑尾分校": "MCP",
+    "東方明珠分校": "MNT",
+    "林茂塘分校": "MLT",
+    "二龍喉分校": "MOT",
+    "氹仔美景I分校": "MTA",
+    "氹仔美景II分校": "MTR",
+}
+
+_SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
+    "華士古分校": "MSA",
+    "二龍喉分校": "MSB",
+    # Full-name fallback in case an older config stored the unshortened form.
+    "MathConcept中學教室 (華士古分校)": "MSA",
+    "MathConcept中學教室 (二龍喉分校)": "MSB",
+}
+
+
+def _resolve_claimed_branch_code(
+    center_name: Optional[str], is_existing: Optional[str]
+) -> Optional[str]:
+    """Map a stored center name to a branch code, using the existing-student
+    category to disambiguate centers that exist on both Primary and Secondary
+    sides (currently only 二龍喉分校)."""
+    if not center_name:
+        return None
+    if is_existing == "MathConcept Secondary Academy":
+        return _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
+    if is_existing == "MathConcept Education":
+        return _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
+    # No category hint — try primary, then fall through to secondary.
+    return (
+        _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
+        or _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
+    )
+
+
+def _get_linked_students_bulk(
+    db: Session, student_ids: list[int]
+) -> dict[int, LinkedSecondaryStudentInfo]:
+    """Return {student_id: LinkedSecondaryStudentInfo} for admin list cards."""
+    if not student_ids:
+        return {}
+    rows = (
+        db.query(
+            Student.id,
+            Student.student_name,
+            Student.school_student_id,
+            Student.home_location,
+        )
+        .filter(Student.id.in_(student_ids))
+        .all()
+    )
+    return {
+        r.id: LinkedSecondaryStudentInfo(
+            id=r.id,
+            student_name=r.student_name,
+            school_student_id=r.school_student_id,
+            home_location=r.home_location,
+        )
+        for r in rows
+    }
+
+
+def _get_linked_prospects_bulk(
+    db: Session, app_ids: list[int]
+) -> dict[int, LinkedPrimaryProspectInfo]:
+    """Return {summer_application_id: LinkedPrimaryProspectInfo}.
+
+    One-way link: PrimaryProspect has a summer_application_id FK populated by
+    the prospects-page Auto Match feature. Only unambiguous 1:1 matches are
+    stored there, so at most one prospect per application.
+    """
+    if not app_ids:
+        return {}
+    rows = (
+        db.query(
+            PrimaryProspect.id,
+            PrimaryProspect.student_name,
+            PrimaryProspect.primary_student_id,
+            PrimaryProspect.source_branch,
+            PrimaryProspect.summer_application_id,
+        )
+        .filter(PrimaryProspect.summer_application_id.in_(app_ids))
+        .all()
+    )
+    return {
+        r.summer_application_id: LinkedPrimaryProspectInfo(
+            id=r.id,
+            student_name=r.student_name,
+            primary_student_id=r.primary_student_id,
+            source_branch=r.source_branch,
+        )
+        for r in rows
+    }
+
+
+def _get_buddy_group_sizes(
+    db: Session, group_ids: list[int]
+) -> dict[int, int]:
+    """Return {buddy_group_id: applicant_count} for the given groups.
+
+    Counts actual SummerApplication rows sharing each group — not declared
+    siblings. Used for the buddy people-meter in the admin list card.
+    """
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            SummerApplication.buddy_group_id,
+            func.count(SummerApplication.id),
+        )
+        .filter(SummerApplication.buddy_group_id.in_(group_ids))
+        .group_by(SummerApplication.buddy_group_id)
+        .all()
+    )
+    return {gid: count for gid, count in rows}
+
+
 def _build_application_response(
     app: SummerApplication,
     siblings_by_group: Optional[dict[int, list[SummerSiblingInfo]]] = None,
+    group_sizes: Optional[dict[int, int]] = None,
+    linked_students: Optional[dict[int, LinkedSecondaryStudentInfo]] = None,
+    linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
-    Pass `siblings_by_group` from `_get_buddy_siblings_bulk` to avoid N+1
-    in list endpoints. Single-app endpoints can pass `{group_id: siblings}`
-    or omit it entirely (empty siblings will be returned).
+    Pass the bulk dicts from `_get_buddy_siblings_bulk`, `_get_buddy_group_sizes`,
+    `_get_linked_students_bulk`, and `_get_linked_prospects_bulk` to avoid N+1
+    in list endpoints. Single-app endpoints can omit all of them.
     """
     sessions = []
     for s in (app.sessions or []):
@@ -1043,6 +1182,25 @@ def _build_application_response(
     data["pending_sibling_count"] = sum(
         1 for s in siblings if s.verification_status == PENDING
     )
+    # Optimistic group size for the discount meter: actual Secondary applicants
+    # in the same buddy_group_id PLUS any non-rejected Primary-branch siblings
+    # that have been declared. Pending declarations are counted optimistically —
+    # if they're later rejected the meter drops.
+    secondary_count = (
+        (group_sizes or {}).get(app.buddy_group_id, 0) if app.buddy_group_id else 0
+    )
+    data["buddy_group_member_count"] = secondary_count + len(siblings)
+
+    if app.existing_student_id and linked_students:
+        data["linked_student"] = linked_students.get(app.existing_student_id)
+    if linked_prospects:
+        data["linked_prospect"] = linked_prospects.get(app.id)
+
+    claimed_center = (app.current_centers or [None])[0]
+    if claimed_center:
+        data["claimed_branch_code"] = _resolve_claimed_branch_code(
+            claimed_center, app.is_existing_student
+        )
 
     return SummerApplicationResponse.model_validate(data)
 
@@ -1050,10 +1208,112 @@ def _build_application_response(
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
-    """Build response list with a single batched sibling lookup."""
+    """Build response list with batched sibling + group-size + linked-entity lookups."""
     group_ids = [a.buddy_group_id for a in apps if a.buddy_group_id]
     siblings_by_group = _get_buddy_siblings_bulk(db, group_ids)
-    return [_build_application_response(a, siblings_by_group) for a in apps]
+    group_sizes = _get_buddy_group_sizes(db, group_ids)
+    student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
+    linked_students = _get_linked_students_bulk(db, student_ids)
+    linked_prospects = _get_linked_prospects_bulk(db, [a.id for a in apps])
+    return [
+        _build_application_response(
+            a,
+            siblings_by_group,
+            group_sizes,
+            linked_students,
+            linked_prospects,
+        )
+        for a in apps
+    ]
+
+
+_SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
+
+# Strict auto-link threshold: only a candidate whose reason combines both name
+# and phone is high-confidence enough to link without human review.
+_AUTO_LINK_REASON = "Same name and phone at this location"
+
+
+@router.get("/summer/admin/suggest-student-links")
+def admin_suggest_student_links(
+    config_id: int = Query(...),
+    dry_run: bool = Query(False, description="When true, preview without auto-linking high-confidence matches."),
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Scan unlinked secondary-claiming apps and suggest matching Student rows.
+
+    Scope: apps in this config whose `claimed_branch_code` is a Secondary
+    Academy branch (MSA/MSB) and that are not yet linked to a Student.
+
+    Behaviour: for each app we run the same name+location / phone+location
+    dupe-check used by the detail modal. High-confidence candidates (combined
+    name+phone match at the same location) become `matches`; everything else
+    is surfaced in `skipped` so the admin can pick manually. When dry_run is
+    false, high-confidence 1:1 matches are linked automatically.
+    """
+    # claimed_branch_code is a derived response field, not a DB column — we
+    # resolve it per-row here. Narrow the SQL filter to secondary claimants
+    # (is_existing_student == "MathConcept Secondary Academy") and unlinked
+    # apps; Python then drops rows whose center doesn't resolve to MSA/MSB.
+    candidate_apps = (
+        db.query(SummerApplication)
+        .filter(
+            SummerApplication.config_id == config_id,
+            SummerApplication.is_existing_student == "MathConcept Secondary Academy",
+            SummerApplication.existing_student_id.is_(None),
+        )
+        .all()
+    )
+    apps: list[tuple[SummerApplication, str]] = []
+    for app in candidate_apps:
+        center_name = (app.current_centers or [None])[0]
+        code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
+        if code in _SECONDARY_BRANCH_CODES:
+            apps.append((app, code))
+
+    def a_summary(a: SummerApplication, code: str) -> dict:
+        return {
+            "id": a.id,
+            "student_name": a.student_name,
+            "reference_code": a.reference_code,
+            "contact_phone": a.contact_phone,
+            "preferred_location": a.preferred_location,
+            "grade": a.grade,
+            "claimed_branch_code": code,
+        }
+
+    matches: list[dict] = []
+    skipped: list[dict] = []
+
+    for app, code in apps:
+        candidates = find_duplicate_students(
+            db, app.student_name, code, app.contact_phone
+        )
+        strong = [c for c in candidates if c["match_reason"] == _AUTO_LINK_REASON]
+        if len(strong) == 1 and len(candidates) == 1:
+            # Exactly one high-confidence 1:1 — safe to auto-link.
+            chosen = strong[0]
+            matches.append({"application": a_summary(app, code), "student": chosen})
+            if not dry_run:
+                app.existing_student_id = chosen["id"]
+        elif candidates:
+            skipped.append({
+                "application": a_summary(app, code),
+                "reason": "ambiguous_candidates",
+                "candidates": candidates,
+            })
+        # Apps with no candidates at all are neither matched nor skipped; the
+        # total_unlinked count below tells the admin how many remain.
+
+    if not dry_run:
+        db.commit()
+
+    return {
+        "total_unlinked": len(apps),
+        "matches": matches,
+        "skipped": skipped,
+    }
 
 
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])
@@ -1100,13 +1360,35 @@ def list_applications(
 @router.get("/summer/applications/stats", response_model=SummerApplicationStats)
 def get_application_stats(
     config_id: Optional[int] = None,
+    application_status: Optional[str] = None,
+    grade: Optional[str] = None,
+    location: Optional[str] = None,
+    search: Optional[str] = None,
+    buddy_group_id: Optional[int] = None,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Get aggregate stats for summer applications."""
+    """Get aggregate stats for summer applications, honoring the same filters
+    as /summer/applications so the list UI and its chip counts stay consistent.
+    """
     filters = []
     if config_id:
         filters.append(SummerApplication.config_id == config_id)
+    if application_status:
+        filters.append(SummerApplication.application_status == application_status)
+    if grade:
+        filters.append(SummerApplication.grade == grade)
+    if location:
+        filters.append(SummerApplication.preferred_location == location)
+    if buddy_group_id:
+        filters.append(SummerApplication.buddy_group_id == buddy_group_id)
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            (SummerApplication.student_name.ilike(pattern))
+            | (SummerApplication.reference_code.ilike(pattern))
+            | (SummerApplication.contact_phone.ilike(pattern))
+        )
 
     total = db.query(func.count(SummerApplication.id)).filter(*filters).scalar() or 0
 
@@ -1195,13 +1477,16 @@ def update_application(
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
     if buddy_code_value is not None:
+        prev_group_id = app.buddy_group_id
         if buddy_code_value == "":
             # Leave group
             app.buddy_group_id = None
+            app.buddy_joined_at = None
             app.buddy_referrer_name = None
         elif buddy_code_value == "NEW":
             group = _create_buddy_group(db, app.config_id)
             app.buddy_group_id = group.id
+            app.buddy_joined_at = hk_now()
             app.buddy_referrer_name = None
         else:
             # Join existing group by code
@@ -1210,6 +1495,8 @@ def update_application(
             ).first()
             if not group:
                 raise HTTPException(status_code=400, detail="Invalid buddy code")
+            if prev_group_id != group.id:
+                app.buddy_joined_at = hk_now()
             app.buddy_group_id = group.id
             # Set referrer name if provided alongside the join
             if "buddy_referrer_name" in updates:

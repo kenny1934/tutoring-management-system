@@ -261,22 +261,20 @@ def delete_prospect(
 
 # ---- Admin endpoints (auth required) ----
 
-@router.get("/admin")
-def admin_list_prospects(
-    year: int = Query(...),
-    branch: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    outreach_status: Optional[str] = Query(None),
-    wants_summer: Optional[str] = Query(None),
-    wants_regular: Optional[str] = Query(None),
-    linked: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: None = Depends(require_admin_view),
+def _apply_admin_filters(
+    q,
+    *,
+    branch: Optional[str] = None,
+    status: Optional[str] = None,
+    outreach_status: Optional[str] = None,
+    wants_summer: Optional[str] = None,
+    wants_regular: Optional[str] = None,
+    linked: Optional[str] = None,
+    has_wechat: Optional[str] = None,
+    search: Optional[str] = None,
 ):
-    """Admin list with filters."""
-    q = db.query(PrimaryProspect).filter(PrimaryProspect.year == year)
-
+    """Shared admin-list filter predicates. Used by /admin and /admin/stats
+    so they agree on what "matching the current filters" means."""
     if branch:
         q = q.filter(PrimaryProspect.source_branch == branch)
     if status:
@@ -291,6 +289,10 @@ def admin_list_prospects(
         q = q.filter(PrimaryProspect.summer_application_id.isnot(None))
     elif linked == "unlinked":
         q = q.filter(PrimaryProspect.summer_application_id.is_(None))
+    if has_wechat == "yes":
+        q = q.filter(PrimaryProspect.wechat_id.isnot(None), PrimaryProspect.wechat_id != "")
+    elif has_wechat == "no":
+        q = q.filter(or_(PrimaryProspect.wechat_id.is_(None), PrimaryProspect.wechat_id == ""))
     if search:
         term = f"%{search}%"
         q = q.filter(or_(
@@ -300,7 +302,35 @@ def admin_list_prospects(
             PrimaryProspect.school.ilike(term),
             PrimaryProspect.primary_student_id.ilike(term),
         ))
+    return q
 
+
+@router.get("/admin")
+def admin_list_prospects(
+    year: int = Query(...),
+    branch: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    outreach_status: Optional[str] = Query(None),
+    wants_summer: Optional[str] = Query(None),
+    wants_regular: Optional[str] = Query(None),
+    linked: Optional[str] = Query(None),
+    has_wechat: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_view),
+):
+    """Admin list with filters."""
+    q = _apply_admin_filters(
+        db.query(PrimaryProspect).filter(PrimaryProspect.year == year),
+        branch=branch,
+        status=status,
+        outreach_status=outreach_status,
+        wants_summer=wants_summer,
+        wants_regular=wants_regular,
+        linked=linked,
+        has_wechat=has_wechat,
+        search=search,
+    )
     prospects = q.options(joinedload(PrimaryProspect.summer_application)).order_by(PrimaryProspect.source_branch, PrimaryProspect.id).all()
     return [_prospect_to_response(p) for p in prospects]
 
@@ -368,28 +398,46 @@ def admin_bulk_outreach(
 @router.get("/admin/stats")
 def admin_prospect_stats(
     year: int = Query(...),
+    status: Optional[str] = Query(None),
+    outreach_status: Optional[str] = Query(None),
+    wants_summer: Optional[str] = Query(None),
+    wants_regular: Optional[str] = Query(None),
+    linked: Optional[str] = Query(None),
+    has_wechat: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_view),
 ):
-    """Funnel stats per branch."""
+    """Per-branch funnel stats. Filters match /admin (except `branch`, which
+    is the axis the pills themselves represent — including it would zero
+    every other pill)."""
+    subq = _apply_admin_filters(
+        db.query(PrimaryProspect).filter(PrimaryProspect.year == year),
+        status=status,
+        outreach_status=outreach_status,
+        wants_summer=wants_summer,
+        wants_regular=wants_regular,
+        linked=linked,
+        has_wechat=has_wechat,
+        search=search,
+    ).subquery()
     rows = (
         db.query(
-            PrimaryProspect.source_branch,
+            subq.c.source_branch,
             func.count().label("total"),
-            func.sum(case((PrimaryProspect.wants_summer == 'Yes', 1), else_=0)).label("wants_summer_yes"),
-            func.sum(case((PrimaryProspect.wants_summer == 'Considering', 1), else_=0)).label("wants_summer_considering"),
-            func.sum(case((PrimaryProspect.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
-            func.sum(case((PrimaryProspect.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
-            func.sum(case((PrimaryProspect.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
-            func.sum(case((PrimaryProspect.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Cannot Add', 1), else_=0)).label("outreach_wechat_cannot_add"),
-            func.sum(case((PrimaryProspect.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
-            func.sum(case((PrimaryProspect.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
+            func.sum(case((subq.c.wants_summer == 'Yes', 1), else_=0)).label("wants_summer_yes"),
+            func.sum(case((subq.c.wants_summer == 'Considering', 1), else_=0)).label("wants_summer_considering"),
+            func.sum(case((subq.c.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
+            func.sum(case((subq.c.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
+            func.sum(case((subq.c.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
+            func.sum(case((subq.c.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Cannot Add', 1), else_=0)).label("outreach_wechat_cannot_add"),
+            func.sum(case((subq.c.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
+            func.sum(case((subq.c.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
         )
-        .filter(PrimaryProspect.year == year)
-        .group_by(PrimaryProspect.source_branch)
+        .group_by(subq.c.source_branch)
         .all()
     )
 
@@ -411,6 +459,27 @@ def admin_prospect_stats(
         )
         for r in rows
     ]
+
+
+# Registered after /admin/stats (and any other literal /admin/<word> routes)
+# because FastAPI matches routes in definition order. If this wildcard were
+# defined first, /admin/stats would try to parse "stats" as prospect_id → 422.
+@router.get("/admin/{prospect_id}")
+def admin_get_prospect(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_view),
+):
+    """Fetch a single prospect by id for admin preview from other pages."""
+    p = (
+        db.query(PrimaryProspect)
+        .options(joinedload(PrimaryProspect.summer_application))
+        .filter(PrimaryProspect.id == prospect_id)
+        .first()
+    )
+    if not p:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    return _prospect_to_response(p)
 
 
 @router.get("/admin/match/{prospect_id}")
@@ -462,10 +531,16 @@ def admin_find_matches(
 @router.post("/admin/auto-match")
 def admin_auto_match(
     year: int = Query(...),
+    dry_run: bool = Query(False, description="When true, compute matches and skips without writing."),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_write),
 ):
-    """Batch auto-match all unlinked prospects against summer applications by phone."""
+    """Batch auto-match unlinked prospects against summer applications by phone.
+
+    Returns a preview of both would-be matches and skipped ambiguities so the
+    caller can show the user exactly what will happen (dry_run) or what did
+    happen. Only unambiguous 1:1 phone matches are linked.
+    """
     unlinked = (
         db.query(PrimaryProspect)
         .filter(
@@ -475,10 +550,10 @@ def admin_auto_match(
         .all()
     )
 
+    empty = {"total_unlinked": len(unlinked), "matches": [], "skipped": []}
     if not unlinked:
-        return {"matched": 0, "total_unlinked": 0}
+        return empty
 
-    # Collect all phones from unlinked prospects
     phone_to_prospects: dict[str, list[PrimaryProspect]] = {}
     for p in unlinked:
         for phone in [p.phone_1, p.phone_2]:
@@ -486,9 +561,8 @@ def admin_auto_match(
                 phone_to_prospects.setdefault(phone, []).append(p)
 
     if not phone_to_prospects:
-        return {"matched": 0, "total_unlinked": len(unlinked)}
+        return empty
 
-    # Find all applications with matching phones, filtered to same year
     apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
@@ -499,27 +573,81 @@ def admin_auto_match(
         .all()
     )
 
-    # Group applications by phone to detect ambiguity
-    apps_by_phone: dict[str, list] = {}
+    apps_by_phone: dict[str, list[SummerApplication]] = {}
     for app in apps:
         apps_by_phone.setdefault(app.contact_phone, []).append(app)
 
-    matched_count = 0
-    skipped_ambiguous = 0
-    for phone, phone_apps in apps_by_phone.items():
-        prospects = phone_to_prospects.get(phone, [])
-        # Skip ambiguous: multiple prospects or multiple apps for same phone
-        if len(prospects) > 1 or len(phone_apps) > 1:
-            skipped_ambiguous += len(prospects)
-            continue
-        prospect = prospects[0]
-        app = phone_apps[0]
-        if prospect.summer_application_id is None:
-            prospect.summer_application_id = app.id
-            if prospect.status == 'New':
-                prospect.status = 'Applied'
-            prospect.updated_at = hk_now()
-            matched_count += 1
+    def p_summary(p: PrimaryProspect) -> dict:
+        return {
+            "id": p.id,
+            "student_name": p.student_name,
+            "phone_1": p.phone_1,
+            "phone_2": p.phone_2,
+            "source_branch": p.source_branch,
+            "grade": p.grade,
+        }
 
-    db.commit()
-    return {"matched": matched_count, "total_unlinked": len(unlinked), "skipped_ambiguous": skipped_ambiguous}
+    def a_summary(a: SummerApplication) -> dict:
+        return {
+            "id": a.id,
+            "student_name": a.student_name,
+            "reference_code": a.reference_code,
+            "contact_phone": a.contact_phone,
+            "preferred_location": a.preferred_location,
+            "grade": a.grade,
+        }
+
+    matches: list[dict] = []
+    skipped: list[dict] = []
+    handled_prospect_ids: set[int] = set()
+
+    # Pass 1: unambiguous 1:1 matches. A prospect with two phones is matched
+    # if either phone yields a clean 1:1 pair, which prevents a noise-phone
+    # from demoting it into the ambiguous bucket below.
+    for phone, phone_apps in apps_by_phone.items():
+        if len(phone_apps) != 1:
+            continue
+        prospects_at_phone = phone_to_prospects.get(phone, [])
+        if len(prospects_at_phone) != 1:
+            continue
+        prospect = prospects_at_phone[0]
+        if prospect.id in handled_prospect_ids:
+            continue
+        handled_prospect_ids.add(prospect.id)
+        app = phone_apps[0]
+        matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
+        if not dry_run:
+            prospect.summer_application_id = app.id
+            if prospect.status == "New":
+                prospect.status = "Applied"
+            prospect.updated_at = hk_now()
+
+    # Pass 2: remaining prospects that touched an ambiguous phone.
+    for phone, phone_apps in apps_by_phone.items():
+        prospects_at_phone = phone_to_prospects.get(phone, [])
+        ambiguous_prospects = [p for p in prospects_at_phone if p.id not in handled_prospect_ids]
+        if not ambiguous_prospects:
+            continue
+        if len(phone_apps) > 1:
+            for p in ambiguous_prospects:
+                handled_prospect_ids.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p),
+                    "reason": "multiple_apps_share_phone",
+                    "conflicting_apps": [a_summary(a) for a in phone_apps],
+                    "conflicting_prospects": [],
+                })
+        else:
+            single_app = phone_apps[0]
+            for p in ambiguous_prospects:
+                handled_prospect_ids.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p),
+                    "reason": "multiple_prospects_share_phone",
+                    "conflicting_apps": [a_summary(single_app)],
+                    "conflicting_prospects": [p_summary(q) for q in prospects_at_phone if q.id != p.id],
+                })
+
+    if not dry_run:
+        db.commit()
+    return {"total_unlinked": len(unlinked), "matches": matches, "skipped": skipped}

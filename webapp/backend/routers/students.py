@@ -65,35 +65,30 @@ async def get_next_student_id(
     return {"next_id": _get_next_student_id(db, location)}
 
 
-@router.get("/students/check-duplicates")
-async def check_duplicates(
-    student_name: str = Query(..., description="Student name to check"),
-    location: str = Query(..., description="Home location"),
-    phone: Optional[str] = Query(None, description="Phone number to check"),
-    db: Session = Depends(get_db)
-):
-    """Check for potential duplicate students at the same location."""
-    duplicates = []
-    seen_ids = set()
+def find_duplicate_students(
+    db: Session,
+    student_name: str,
+    location: str,
+    phone: Optional[str],
+) -> list[dict]:
+    """Find potential duplicate students at a location by name and/or phone.
 
-    # Check exact name match at same location (case-insensitive)
+    Returns one row per candidate with a merged match_reason — if both name
+    and phone match, the reason surfaces both so callers can judge confidence.
+    Rows are sorted with the highest-confidence (name+phone) first.
+    """
+    # id -> (Student, set of signals)
+    candidates: dict[int, tuple[Student, set[str]]] = {}
+
+    # Signal 1: exact name match at same location (case-insensitive)
     name_matches = db.query(Student).filter(
         Student.student_name.ilike(student_name),
         Student.home_location == location
     ).limit(3).all()
-
     for s in name_matches:
-        seen_ids.add(s.id)
-        duplicates.append({
-            "id": s.id,
-            "student_name": s.student_name,
-            "school_student_id": s.school_student_id,
-            "school": s.school,
-            "grade": s.grade,
-            "match_reason": "Same name at this location"
-        })
+        candidates.setdefault(s.id, (s, set()))[1].add("name")
 
-    # Check phone match (if provided and has at least 8 digits)
+    # Signal 2: phone match at same location (if provided and has at least 8 digits)
     if phone and len(phone) >= 8:
         phone_matches = db.query(Student).filter(
             or_(
@@ -102,20 +97,43 @@ async def check_duplicates(
             ),
             Student.home_location == location
         ).limit(3).all()
-
         for s in phone_matches:
-            if s.id not in seen_ids:
-                seen_ids.add(s.id)
-                duplicates.append({
-                    "id": s.id,
-                    "student_name": s.student_name,
-                    "school_student_id": s.school_student_id,
-                    "school": s.school,
-                    "grade": s.grade,
-                    "match_reason": "Same phone number"
-                })
+            candidates.setdefault(s.id, (s, set()))[1].add("phone")
 
-    return {"duplicates": duplicates}
+    def format_reason(signals: set[str]) -> str:
+        if "name" in signals and "phone" in signals:
+            return "Same name and phone at this location"
+        if "name" in signals:
+            return "Same name at this location"
+        return "Same phone number at this location"
+
+    duplicates = [
+        {
+            "id": s.id,
+            "student_name": s.student_name,
+            "school_student_id": s.school_student_id,
+            "school": s.school,
+            "grade": s.grade,
+            "home_location": s.home_location,
+            "lang_stream": s.lang_stream,
+            "match_reason": format_reason(signals),
+        }
+        for s, signals in candidates.values()
+    ]
+    # Name+phone matches are highest confidence — surface them first.
+    duplicates.sort(key=lambda d: 0 if "and" in d["match_reason"] else 1)
+    return duplicates
+
+
+@router.get("/students/check-duplicates")
+async def check_duplicates(
+    student_name: str = Query(..., description="Student name to check"),
+    location: str = Query(..., description="Home location"),
+    phone: Optional[str] = Query(None, description="Phone number to check"),
+    db: Session = Depends(get_db)
+):
+    """Check for potential duplicate students at the same location."""
+    return {"duplicates": find_duplicate_students(db, student_name, location, phone)}
 
 
 @router.get("/students", response_model=List[StudentResponse])
