@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.0.50](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.50) (2026-04-10)
+
+### New Features
+
+* **Summer applications — unified toolbar** — stats, filters, and count strips collapsed into a single row with Status, Arrange, and More menus; location now lives as a scope in the page header with the same All/branch semantics as other admin pages
+* **Buddy board view** — alternate view for the applications page that groups members by buddy code and buckets groups by how close they are to the next discount tier (config-driven), so the "one more buddy to unlock Early Bird Group of 3" cohort surfaces at a glance
+* **Branch origin filter** — new More-menu filter that scopes the list to a specific branch (MAC, MSA, …) or shows only "New" applicants with no linked student or claim
+* **Link suggestions modal** — single admin modal that surfaces both auto-match candidates (Primary prospects) and duplicate-student candidates (Secondary branches) in one place, with per-row "Link this" inline actions and strict auto-link thresholds
+* **Fee breakdown in the detail modal** — shows the applicable discount code, amount, and final fee for each applicant, plus a "one more buddy to unlock {tier}" nudge when the group is near the next tier. Group-size discounts now honour the moment the group actually reached N members, including admin reassignments and post-submission joins
+* **Prospects auto-match preview** — clicking Auto-Match now opens a dry-run preview showing exactly which prospects would link and which would be skipped (with reason and conflicting rows); ambiguous cases can be resolved inline
+* **Prospects WeChat filter** — filter the admin prospects list by whether the imported contact data already has a WeChat handle, so "who can I message right now" is one click
+* **Filter-aware branch pills** — the top branch pills on the prospects page now re-count themselves against the active filters, so selecting "Has WeChat" (or any other filter) shows the per-branch counts for that slice
+
+### Improvements
+
+* **Applications list — redesigned card** — clearer hierarchy, inline status editing, buddy meter that counts actual group members plus declared siblings, originating-center chip, unavailability notes truncation, reference-code copy on hover, placed-slots tooltip, pending-sibling signal, reviewed-at timestamp
+* **Applications list — virtualized rendering** — large lists no longer jank while scrolling
+* **URL-synced filters** — toolbar state (filters, sort, view, preset) round-trips through the URL so links and page reloads restore the exact view
+* **Unsaved-changes guard** — the detail modal now prompts before discarding edits when cancelling, closing, hitting Escape, or navigating prev/next
+* **More dropdown on narrow screens** — portal-based positioning clamps the menu to the viewport so it no longer overflows on small screens
+* **Duplicate-check hints in student search** — combined name/phone match reasons into a single row so the strongest signal is always visible
+
+### Fixes
+
+* **Prospects branch-count pills missing totals** — the admin stats endpoint was being shadowed by the single-prospect fetch route and silently returning 422, so pill counts went blank. Route order fixed
+* **Applications — stale linked-student flash** — the detail modal no longer flashes the previous applicant's linked-student warning when navigating prev/next
+* **Prospects — modal close button** — close now gives visual feedback and the linked-application status badge reflects the correct state
+
 ## [2.0.49](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.49) (2026-04-08)
 
 ### Fixes
