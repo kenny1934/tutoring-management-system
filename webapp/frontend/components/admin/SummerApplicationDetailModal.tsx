@@ -5,6 +5,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
+import { PrimaryBranchChip } from "./PrimaryBranchChip";
 import { summerAPI, studentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
@@ -157,8 +158,20 @@ export function SummerApplicationDetailModal({
   const [searchFocused, setSearchFocused] = useState(false);
   const [showManualId, setShowManualId] = useState(false);
   const autoFilledLangRef = useRef<number | null>(null);
+  const prevAppIdRef = useRef<number | null>(null);
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
+  // Sync studentId synchronously on app change to avoid a one-frame flash of
+  // the previous student's data (e.g. amber home-location warning) when
+  // navigating prev/next.
+  if (app && prevAppIdRef.current !== app.id) {
+    prevAppIdRef.current = app.id;
+    const nextStudentId = app.existing_student_id?.toString() || "";
+    if (studentId !== nextStudentId) setStudentId(nextStudentId);
+    const nextLangStream = app.lang_stream || "";
+    if (langStream !== nextLangStream) setLangStream(nextLangStream);
+    autoFilledLangRef.current = null;
+  }
   const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
 
   // Buddy edit state
@@ -560,6 +573,7 @@ export function SummerApplicationDetailModal({
         <div className="flex items-center gap-3">
           <span>{app.student_name}</span>
           <StatusBadge status={app.application_status} />
+          <PrimaryBranchChip app={app} />
         </div>
       }
       size="xl"
@@ -681,57 +695,70 @@ export function SummerApplicationDetailModal({
               </div>
             )}
 
-            {/* Lang stream pills (bare C / E) + linked student hint */}
+            {/* Lang stream: collapse to read-only badge when linked student matches */}
+            {(() => {
+              const studentLang =
+                linkedStudent?.lang_stream && linkedStudent.id === app.existing_student_id
+                  ? linkedStudent.lang_stream
+                  : null;
+              return (
             <div>
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Language Stream</span>
-              <div className="flex items-center gap-1 mt-1">
-                {["C", "E"].map((ls) => (
-                  <button
-                    key={ls}
-                    onClick={() => setLangStream(ls)}
-                    className={cn(
-                      "px-3 py-1 rounded-full text-xs font-medium transition-all",
-                      langStream === ls
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                    )}
-                  >
-                    {ls}
-                  </button>
-                ))}
-                {langStream && (
-                  <button
-                    onClick={() => setLangStream("")}
-                    className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                    title="Clear"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-                {/* Linked student lang stream hint */}
-                {linkedStudent?.lang_stream && langStream && linkedStudent.lang_stream === langStream && (
-                  <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-0.5 ml-1">
-                    <Check className="h-3 w-3" /> matches student
+              {studentLang && langStream === studentLang ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {langStream}
                   </span>
-                )}
-                {linkedStudent?.lang_stream && langStream && linkedStudent.lang_stream !== langStream && (
-                  <button
-                    onClick={() => setLangStream(linkedStudent.lang_stream!)}
-                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
-                  >
-                    Student is {linkedStudent.lang_stream}
-                  </button>
-                )}
-                {linkedStudent?.lang_stream && !langStream && (
-                  <button
-                    onClick={() => setLangStream(linkedStudent.lang_stream!)}
-                    className="text-[10px] text-primary hover:underline ml-1"
-                  >
-                    Use student&apos;s: {linkedStudent.lang_stream}
-                  </button>
-                )}
-              </div>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Check className="h-3 w-3" /> from student record
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 mt-1">
+                  {["C", "E"].map((ls) => (
+                    <button
+                      key={ls}
+                      onClick={() => setLangStream(ls)}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                        langStream === ls
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                      )}
+                    >
+                      {ls}
+                    </button>
+                  ))}
+                  {langStream && (
+                    <button
+                      onClick={() => setLangStream("")}
+                      className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      title="Clear"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  {studentLang && langStream && studentLang !== langStream && (
+                    <button
+                      onClick={() => setLangStream(studentLang)}
+                      className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
+                    >
+                      Student is {studentLang}
+                    </button>
+                  )}
+                  {studentLang && !langStream && (
+                    <button
+                      onClick={() => setLangStream(studentLang)}
+                      className="text-[10px] text-primary hover:underline ml-1"
+                    >
+                      Use student&apos;s: {studentLang}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+              );
+            })()}
           </div>
 
           {/* === 2. STUDENT LINK === */}
