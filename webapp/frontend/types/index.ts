@@ -2659,6 +2659,46 @@ export interface PrimaryProspectMatchResult {
   }>;
 }
 
+export interface AutoMatchProspectSummary {
+  id: number;
+  student_name: string;
+  phone_1: string | null;
+  phone_2: string | null;
+  source_branch: string;
+  grade: string | null;
+}
+
+export interface AutoMatchAppSummary {
+  id: number;
+  student_name: string;
+  reference_code: string | null;
+  contact_phone: string | null;
+  preferred_location: string | null;
+  grade: string | null;
+}
+
+export type AutoMatchSkipReason =
+  | "multiple_prospects_share_phone"
+  | "multiple_apps_share_phone";
+
+export interface AutoMatchEntry {
+  prospect: AutoMatchProspectSummary;
+  application: AutoMatchAppSummary;
+}
+
+export interface AutoMatchSkipEntry {
+  prospect: AutoMatchProspectSummary;
+  reason: AutoMatchSkipReason;
+  conflicting_prospects: AutoMatchProspectSummary[];
+  conflicting_apps: AutoMatchAppSummary[];
+}
+
+export interface AutoMatchResult {
+  total_unlinked: number;
+  matches: AutoMatchEntry[];
+  skipped: AutoMatchSkipEntry[];
+}
+
 // Student Progress Analytics Types
 // ============================================
 

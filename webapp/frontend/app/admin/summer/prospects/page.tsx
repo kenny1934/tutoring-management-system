@@ -11,7 +11,6 @@ import {
   MessageSquare,
   ChevronDown,
   GraduationCap,
-  CheckCircle2,
   AlertTriangle,
   ExternalLink,
   X,
@@ -46,6 +45,7 @@ import {
   INTENTION_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
+import { AutoMatchPreviewModal } from "@/components/admin/AutoMatchPreviewModal";
 import { ProspectDashboard } from "@/components/summer/prospect-dashboard";
 import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type {
@@ -189,14 +189,8 @@ export default function AdminProspectsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectedProspect, setSelectedProspect] = useState<PrimaryProspect | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
-  const [confirmCountdown, setConfirmCountdown] = useState(0);
-  const autoMatchTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
-  const confirmingAutoMatch = confirmCountdown > 0;
+  const [autoMatchPreview, setAutoMatchPreview] = useState<import("@/types").AutoMatchResult | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [matchResult, setMatchResult] = useState<{ matched: number; total_unlinked: number; skipped_ambiguous: number } | null>(null);
-  const matchResultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => () => { clearTimeout(matchResultTimer.current); clearInterval(autoMatchTimerRef.current); }, []);
 
   // Fetch available years from summer configs
   const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
@@ -414,38 +408,17 @@ export default function AdminProspectsPage() {
 
   const handleAutoMatch = useCallback(async () => {
     if (!year) return;
-    if (confirmCountdown === 0) {
-      // First click — enter confirm mode with a visible countdown.
-      setConfirmCountdown(3);
-      clearInterval(autoMatchTimerRef.current);
-      autoMatchTimerRef.current = setInterval(() => {
-        setConfirmCountdown((c) => {
-          if (c <= 1) {
-            clearInterval(autoMatchTimerRef.current);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
-      return;
-    }
-    clearInterval(autoMatchTimerRef.current);
-    setConfirmCountdown(0);
     setAutoMatching(true);
-    setMatchResult(null);
     setPageError(null);
     try {
-      const result = await prospectsAPI.autoMatch(year);
-      setMatchResult(result);
-      refresh();
-      clearTimeout(matchResultTimer.current);
-      matchResultTimer.current = setTimeout(() => setMatchResult(null), 10000);
+      const preview = await prospectsAPI.autoMatch(year, { dryRun: true });
+      setAutoMatchPreview(preview);
     } catch (err) {
-      setPageError(err instanceof Error ? err.message : "Auto-match failed");
+      setPageError(err instanceof Error ? err.message : "Auto-match preview failed");
     } finally {
       setAutoMatching(false);
     }
-  }, [year, refresh, confirmCountdown]);
+  }, [year]);
 
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
 
@@ -523,7 +496,6 @@ export default function AdminProspectsPage() {
             availableYears={availableYears}
             onYearChange={setYear}
             autoMatching={autoMatching}
-            confirmCountdown={confirmCountdown}
             onAutoMatch={handleAutoMatch}
             tab={tab}
             onTabChange={setTab}
@@ -714,25 +686,6 @@ export default function AdminProspectsPage() {
             </div>
           )}
 
-          {/* Auto-match result banner */}
-          {matchResult && (
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-              <span className="flex-1">
-                <span className="font-medium text-green-700 dark:text-green-400">{matchResult.matched}</span> matched out of {matchResult.total_unlinked} unlinked
-                {matchResult.skipped_ambiguous > 0 && (
-                  <span className="ml-2 text-yellow-600 dark:text-yellow-400 inline-flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {matchResult.skipped_ambiguous} skipped (ambiguous phone)
-                  </span>
-                )}
-              </span>
-              <button onClick={() => setMatchResult(null)} className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            </div>
-          )}
-
           {/* Table */}
           {isLoading ? (
             <div className="space-y-2">
@@ -879,6 +832,14 @@ export default function AdminProspectsPage() {
           onBulkStatus={handleBulkStatus}
         />
       )}
+
+      <AutoMatchPreviewModal
+        isOpen={autoMatchPreview !== null}
+        onClose={() => setAutoMatchPreview(null)}
+        preview={autoMatchPreview}
+        year={year ?? 0}
+        onDone={refresh}
+      />
     </DeskSurface>
   );
 }
@@ -1300,7 +1261,6 @@ function HeaderBar({
   availableYears,
   onYearChange,
   autoMatching,
-  confirmCountdown,
   onAutoMatch,
   tab,
   onTabChange,
@@ -1309,12 +1269,10 @@ function HeaderBar({
   availableYears: number[];
   onYearChange: (y: number) => void;
   autoMatching: boolean;
-  confirmCountdown: number;
   onAutoMatch: () => void;
   tab: "list" | "dashboard";
   onTabChange: (t: "list" | "dashboard") => void;
 }) {
-  const confirming = confirmCountdown > 0;
   return (
     <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1347,24 +1305,13 @@ function HeaderBar({
           <button
             onClick={onAutoMatch}
             disabled={autoMatching}
-            title="Scan unlinked prospects and link each one to a summer application that matches by phone number. Skips ambiguous matches."
-            className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-              confirming
-                ? "bg-amber-500 text-white hover:bg-amber-600"
-                : "bg-primary/10 text-primary hover:bg-primary/20"
-            }`}
+            title="Preview which unlinked prospects would be linked to summer applications by phone number."
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-primary/10 text-primary hover:bg-primary/20"
           >
             {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">
-              {autoMatching
-                ? "Matching..."
-                : confirming
-                  ? `Link unlinked prospects? Click again (${confirmCountdown})`
-                  : "Auto-Match"}
+              {autoMatching ? "Loading..." : "Auto-Match"}
             </span>
-            {confirming && (
-              <span className="sm:hidden text-xs font-bold tabular-nums">{confirmCountdown}</span>
-            )}
           </button>
           <div className="flex bg-muted rounded-full p-0.5">
             <button

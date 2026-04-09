@@ -480,10 +480,16 @@ def admin_find_matches(
 @router.post("/admin/auto-match")
 def admin_auto_match(
     year: int = Query(...),
+    dry_run: bool = Query(False, description="When true, compute matches and skips without writing."),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_write),
 ):
-    """Batch auto-match all unlinked prospects against summer applications by phone."""
+    """Batch auto-match unlinked prospects against summer applications by phone.
+
+    Returns a preview of both would-be matches and skipped ambiguities so the
+    caller can show the user exactly what will happen (dry_run) or what did
+    happen. Only unambiguous 1:1 phone matches are linked.
+    """
     unlinked = (
         db.query(PrimaryProspect)
         .filter(
@@ -493,10 +499,10 @@ def admin_auto_match(
         .all()
     )
 
+    empty = {"total_unlinked": len(unlinked), "matches": [], "skipped": []}
     if not unlinked:
-        return {"matched": 0, "total_unlinked": 0}
+        return empty
 
-    # Collect all phones from unlinked prospects
     phone_to_prospects: dict[str, list[PrimaryProspect]] = {}
     for p in unlinked:
         for phone in [p.phone_1, p.phone_2]:
@@ -504,9 +510,8 @@ def admin_auto_match(
                 phone_to_prospects.setdefault(phone, []).append(p)
 
     if not phone_to_prospects:
-        return {"matched": 0, "total_unlinked": len(unlinked)}
+        return empty
 
-    # Find all applications with matching phones, filtered to same year
     apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
@@ -517,27 +522,81 @@ def admin_auto_match(
         .all()
     )
 
-    # Group applications by phone to detect ambiguity
-    apps_by_phone: dict[str, list] = {}
+    apps_by_phone: dict[str, list[SummerApplication]] = {}
     for app in apps:
         apps_by_phone.setdefault(app.contact_phone, []).append(app)
 
-    matched_count = 0
-    skipped_ambiguous = 0
-    for phone, phone_apps in apps_by_phone.items():
-        prospects = phone_to_prospects.get(phone, [])
-        # Skip ambiguous: multiple prospects or multiple apps for same phone
-        if len(prospects) > 1 or len(phone_apps) > 1:
-            skipped_ambiguous += len(prospects)
-            continue
-        prospect = prospects[0]
-        app = phone_apps[0]
-        if prospect.summer_application_id is None:
-            prospect.summer_application_id = app.id
-            if prospect.status == 'New':
-                prospect.status = 'Applied'
-            prospect.updated_at = hk_now()
-            matched_count += 1
+    def p_summary(p: PrimaryProspect) -> dict:
+        return {
+            "id": p.id,
+            "student_name": p.student_name,
+            "phone_1": p.phone_1,
+            "phone_2": p.phone_2,
+            "source_branch": p.source_branch,
+            "grade": p.grade,
+        }
 
-    db.commit()
-    return {"matched": matched_count, "total_unlinked": len(unlinked), "skipped_ambiguous": skipped_ambiguous}
+    def a_summary(a: SummerApplication) -> dict:
+        return {
+            "id": a.id,
+            "student_name": a.student_name,
+            "reference_code": a.reference_code,
+            "contact_phone": a.contact_phone,
+            "preferred_location": a.preferred_location,
+            "grade": a.grade,
+        }
+
+    matches: list[dict] = []
+    skipped: list[dict] = []
+    handled_prospect_ids: set[int] = set()
+
+    # Pass 1: unambiguous 1:1 matches. A prospect with two phones is matched
+    # if either phone yields a clean 1:1 pair, which prevents a noise-phone
+    # from demoting it into the ambiguous bucket below.
+    for phone, phone_apps in apps_by_phone.items():
+        if len(phone_apps) != 1:
+            continue
+        prospects_at_phone = phone_to_prospects.get(phone, [])
+        if len(prospects_at_phone) != 1:
+            continue
+        prospect = prospects_at_phone[0]
+        if prospect.id in handled_prospect_ids:
+            continue
+        handled_prospect_ids.add(prospect.id)
+        app = phone_apps[0]
+        matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
+        if not dry_run:
+            prospect.summer_application_id = app.id
+            if prospect.status == "New":
+                prospect.status = "Applied"
+            prospect.updated_at = hk_now()
+
+    # Pass 2: remaining prospects that touched an ambiguous phone.
+    for phone, phone_apps in apps_by_phone.items():
+        prospects_at_phone = phone_to_prospects.get(phone, [])
+        ambiguous_prospects = [p for p in prospects_at_phone if p.id not in handled_prospect_ids]
+        if not ambiguous_prospects:
+            continue
+        if len(phone_apps) > 1:
+            for p in ambiguous_prospects:
+                handled_prospect_ids.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p),
+                    "reason": "multiple_apps_share_phone",
+                    "conflicting_apps": [a_summary(a) for a in phone_apps],
+                    "conflicting_prospects": [],
+                })
+        else:
+            single_app = phone_apps[0]
+            for p in ambiguous_prospects:
+                handled_prospect_ids.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p),
+                    "reason": "multiple_prospects_share_phone",
+                    "conflicting_apps": [a_summary(single_app)],
+                    "conflicting_prospects": [p_summary(q) for q in prospects_at_phone if q.id != p.id],
+                })
+
+    if not dry_run:
+        db.commit()
+    return {"total_unlinked": len(unlinked), "matches": matches, "skipped": skipped}

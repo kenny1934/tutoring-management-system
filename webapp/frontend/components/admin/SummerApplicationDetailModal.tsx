@@ -220,6 +220,9 @@ export function SummerApplicationDetailModal({
   const [dUnavail, setDUnavail] = useState("");
 
   const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
+  // Holds a navigation/close action to run after the user confirms discarding
+  // unsaved changes. `null` means no discard prompt is showing.
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: formConfig } = useSWR(
@@ -529,6 +532,15 @@ export function SummerApplicationDetailModal({
     await doSave();
   };
 
+  // Wraps any action that would navigate away from or close the modal so that
+  // unsaved edits prompt a discard confirmation first. `useState` stores
+  // functions wrapped in an extra closure because React treats a bare function
+  // value as a lazy initializer / updater.
+  const guardNav = (action: () => void) => {
+    if (!hasChanges || readOnly) { action(); return; }
+    setPendingDiscard(() => action);
+  };
+
   const handleLinkStudent = (id: number) => {
     setStudentId(id.toString());
     setStudentSearch("");
@@ -568,7 +580,7 @@ export function SummerApplicationDetailModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => guardNav(onClose)}
       title={
         <div className="flex items-center gap-3">
           <span>{app.student_name}</span>
@@ -583,7 +595,7 @@ export function SummerApplicationDetailModal({
           {(onPrev || onNext) && (
             <div className="flex items-center gap-1">
               <button
-                onClick={onPrev}
+                onClick={() => onPrev && guardNav(onPrev)}
                 disabled={!hasPrev}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Previous (←)"
@@ -596,7 +608,7 @@ export function SummerApplicationDetailModal({
                 </span>
               )}
               <button
-                onClick={onNext}
+                onClick={() => onNext && guardNav(onNext)}
                 disabled={!hasNext}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Next (→)"
@@ -610,7 +622,7 @@ export function SummerApplicationDetailModal({
           {!readOnly && (
             <div className="flex items-center gap-2 ml-auto">
               <button
-                onClick={onClose}
+                onClick={() => guardNav(onClose)}
                 className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
                 Cancel
@@ -1723,6 +1735,20 @@ export function SummerApplicationDetailModal({
         confirmText={`Move to ${pendingStatusConfirm ?? ""}`}
         variant="warning"
         loading={saving}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDiscard !== null}
+        onCancel={() => setPendingDiscard(null)}
+        onConfirm={() => {
+          const action = pendingDiscard;
+          setPendingDiscard(null);
+          action?.();
+        }}
+        title="Discard unsaved changes?"
+        message="You have unsaved edits to this application. Leaving now will lose them."
+        confirmText="Discard"
+        variant="danger"
       />
 
       <ConfirmDialog

@@ -2588,10 +2588,11 @@ export const prospectsAPI = {
   findMatches: (id: number) =>
     fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/match/${id}`),
 
-  autoMatch: (year: number) =>
-    fetchAPI<{ matched: number; total_unlinked: number; skipped_ambiguous: number }>(`/prospects/admin/auto-match?year=${year}`, {
-      method: "POST",
-    }),
+  autoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").AutoMatchResult>(
+      `/prospects/admin/auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
+      { method: "POST" },
+    ),
 };
 
 export const buddyTrackerAPI = {
