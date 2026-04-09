@@ -12,7 +12,7 @@ import { useToast } from "@/contexts/ToastContext";
 import {
   ClipboardList, Search, X, Loader2, ChevronDown, Check,
   ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
-  RefreshCw, CheckSquare, Users, SlidersHorizontal, Sparkles,
+  RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
@@ -21,6 +21,7 @@ import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
+import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -35,29 +36,40 @@ const CODE_TO_LOCATION = Object.fromEntries(
   Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k])
 );
 
+// Resolve the branch an application belongs to, in priority order:
+// confirmed link first (secondary student, then primary prospect), then the
+// applicant's own claim. Returns null for "new" applicants with no signal.
+function getAppBranchCode(a: SummerApplication): string | null {
+  return (
+    a.linked_student?.home_location ||
+    a.linked_prospect?.source_branch ||
+    a.claimed_branch_code ||
+    null
+  );
+}
+
 const PIPELINE_STATUSES = [
   "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
   "Fee Sent", "Paid", "Enrolled",
 ];
 const EXIT_STATUSES = ["Waitlisted", "Withdrawn", "Rejected"];
 
-type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot" | "by_buddy";
+type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot";
 
 const VIEW_PRESET_CONFIG: Record<ViewPreset, {
   label: string;
-  groupBy: null | "status" | "location" | "grade" | "time_slot" | "buddy";
+  groupBy: null | "status" | "location" | "grade" | "time_slot";
   sortField: "submitted" | "name" | "status" | "grade" | "location" | "time_slot";
   defaultDirection: "asc" | "desc";
 }> = {
-  latest:       { label: "Latest",       groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
+  latest:       { label: "Submitted",    groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
   pipeline:     { label: "Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
   by_location:  { label: "By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
   by_grade:     { label: "By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
   by_time_slot: { label: "By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
-  by_buddy:     { label: "Buddy Groups", groupBy: "buddy",    sortField: "submitted",  defaultDirection: "desc" },
 };
 
-const ALL_PRESETS: ViewPreset[] = ["latest", "pipeline", "by_location", "by_grade", "by_time_slot", "by_buddy"];
+const ALL_PRESETS: ViewPreset[] = ["latest", "pipeline", "by_location", "by_grade", "by_time_slot"];
 
 const STATUS_GROUP_COLORS: Record<string, "red" | "orange" | "purple" | "gray"> = {
   Rejected: "red",
@@ -248,8 +260,11 @@ export default function SummerApplicationsPage() {
     q: searchParams.get("q") || "",
     pending: searchParams.get("pending") === "1",
     claim: searchParams.get("claim") === "1",
+    branch: searchParams.get("branch"),
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
+    legacyBuddyView: searchParams.get("view") === "by_buddy",
+    mode: (searchParams.get("mode") as "list" | "board" | null),
   }).current;
 
   // Config selector
@@ -261,6 +276,8 @@ export default function SummerApplicationsPage() {
   const [locationFilter, setLocationFilter] = useState<string | null>(urlInit.location);
   const [pendingSiblingOnly, setPendingSiblingOnly] = useState(urlInit.pending);
   const [pendingClaimOnly, setPendingClaimOnly] = useState(urlInit.claim);
+  // Branch scope: null = all, "new" = no link/claim, or a branch code (MAC…).
+  const [branchFilter, setBranchFilter] = useState<string | null>(urlInit.branch);
   const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -273,6 +290,11 @@ export default function SummerApplicationsPage() {
   const presetConfig = VIEW_PRESET_CONFIG[viewPreset];
   const sortField = presetConfig.sortField;
   const groupBy = presetConfig.groupBy;
+
+  // Board vs list view mode. Legacy `?view=by_buddy` migrates to mode=board.
+  const [viewMode, setViewMode] = useState<"list" | "board">(
+    urlInit.mode === "board" || urlInit.legacyBuddyView ? "board" : "list",
+  );
 
   // UI state
   const [selectedAppIndex, setSelectedAppIndex] = useState<number | null>(null);
@@ -425,11 +447,12 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || pendingClaimOnly;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || pendingClaimOnly || branchFilter;
   // Count of filters that live in the "More" menu.
   // Location lives in the header scope, status has its own dropdown, search is visible.
   const moreFilterCount = [
     gradeFilter,
+    branchFilter,
     pendingSiblingOnly ? "pending-sibling" : null,
     pendingClaimOnly ? "pending-claim" : null,
   ].filter(Boolean).length;
@@ -440,6 +463,7 @@ export default function SummerApplicationsPage() {
     setSearchQuery("");
     setPendingSiblingOnly(false);
     setPendingClaimOnly(false);
+    setBranchFilter(null);
   }, []);
 
   // Sync state → URL (replace, not push)
@@ -451,14 +475,27 @@ export default function SummerApplicationsPage() {
     if (debouncedSearch) params.set("q", debouncedSearch);
     if (pendingSiblingOnly) params.set("pending", "1");
     if (pendingClaimOnly) params.set("claim", "1");
-    if (viewPreset !== "latest") params.set("view", viewPreset);
-    if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection) params.set("dir", sortDirection);
+    if (branchFilter) params.set("branch", branchFilter);
+    if (viewMode === "board") params.set("mode", "board");
+    if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
+    if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, viewPreset, sortDirection, router]);
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, viewPreset, sortDirection, viewMode, router]);
 
   // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
+  // Only codes that actually appear in the current applications, so the
+  // dropdown never shows empty branches.
+  const branchOptions = useMemo(() => {
+    if (!applications) return [];
+    const seen = new Set<string>();
+    for (const a of applications) {
+      const code = getAppBranchCode(a);
+      if (code) seen.add(code);
+    }
+    return [...seen].sort();
+  }, [applications]);
   // Location options come from the active config — not from stats — so that
   // picking one location does not remove the others from the dropdown.
   const activeConfig = configs?.find((c) => c.id === configId);
@@ -500,6 +537,12 @@ export default function SummerApplicationsPage() {
         !!a.claimed_branch_code && !a.linked_student && !a.linked_prospect,
       );
     }
+    if (branchFilter) {
+      filtered = filtered.filter((a) => {
+        const code = getAppBranchCode(a);
+        return branchFilter === "new" ? code === null : code === branchFilter;
+      });
+    }
     const sorted = [...filtered];
     const dir = sortDirection === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
@@ -523,7 +566,20 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection, pendingSiblingOnly, pendingClaimOnly]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly, pendingClaimOnly, branchFilter]);
+
+  // Member-level filter for the board view. Status/location/grade/search are
+  // already applied server-side (they drive the SWR key), so this only needs
+  // to enforce the two client-side filters.
+  const buddyBoardPredicate = useCallback((a: SummerApplication) => {
+    if (pendingSiblingOnly && (a.pending_sibling_count ?? 0) === 0) return false;
+    if (pendingClaimOnly && (!a.claimed_branch_code || !!a.linked_student || !!a.linked_prospect)) return false;
+    if (branchFilter) {
+      const code = getAppBranchCode(a);
+      if (branchFilter === "new" ? code !== null : code !== branchFilter) return false;
+    }
+    return true;
+  }, [pendingSiblingOnly, pendingClaimOnly, branchFilter]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -552,10 +608,6 @@ export default function SummerApplicationsPage() {
         key = [app.preference_1_day, app.preference_1_time].filter(Boolean).join(" ") || "No preference";
       } else if (groupBy === "location") {
         key = app.preferred_location || "Unknown";
-      } else if (groupBy === "buddy") {
-        // Hide solo applicants from this view entirely
-        if (!app.buddy_group_id) continue;
-        key = `Group ${app.buddy_code || app.buddy_group_id}`;
       } else {
         key = app.grade || "Unknown";
       }
@@ -568,14 +620,6 @@ export default function SummerApplicationsPage() {
       for (const [key, apps] of groups) {
         if (apps.length === 0) groups.delete(key);
       }
-    }
-
-    // Sort buddy groups by size desc so largest (fully-unlocked) groups surface first
-    if (groupBy === "buddy") {
-      const sorted = new Map<string, SummerApplication[]>(
-        [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
-      );
-      return sorted;
     }
 
     return groups;
@@ -722,7 +766,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
   // the DOM, so fall back to the list's imperative scrollToRow.
@@ -1002,6 +1046,7 @@ export default function SummerApplicationsPage() {
 
                 <div className="flex-1" />
 
+                {viewMode === "list" && (
                 <DropdownMenu
                   align="right"
                   menuClassName="min-w-[220px]"
@@ -1062,6 +1107,7 @@ export default function SummerApplicationsPage() {
                     </>
                   )}
                 </DropdownMenu>
+                )}
 
                 <DropdownMenu
                   align="right"
@@ -1104,6 +1150,20 @@ export default function SummerApplicationsPage() {
                           ))}
                         </select>
                       </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch origin</label>
+                        <select
+                          value={branchFilter || ""}
+                          onChange={(e) => setBranchFilter(e.target.value || null)}
+                          className={cn(selectClass, "w-full")}
+                        >
+                          <option value="">All branches</option>
+                          <option value="new">New (no branch)</option>
+                          {branchOptions.map((code) => (
+                            <option key={code} value={code}>{code}</option>
+                          ))}
+                        </select>
+                      </div>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1124,7 +1184,7 @@ export default function SummerApplicationsPage() {
                       </label>
                       {moreFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setPendingSiblingOnly(false); setPendingClaimOnly(false); }}
+                          onClick={() => { setGradeFilter(null); setBranchFilter(null); setPendingSiblingOnly(false); setPendingClaimOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
                           Clear these filters
@@ -1133,6 +1193,39 @@ export default function SummerApplicationsPage() {
                     </>
                   )}
                 </DropdownMenu>
+
+                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    title="List view"
+                    aria-label="List view"
+                    aria-pressed={viewMode === "list"}
+                    className={cn(
+                      "px-2 py-1.5 transition-colors",
+                      viewMode === "list"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("board")}
+                    title="Buddy board"
+                    aria-label="Buddy board"
+                    aria-pressed={viewMode === "board"}
+                    className={cn(
+                      "px-2 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700",
+                      viewMode === "board"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </button>
+                </div>
 
                 <button
                   onClick={() => {
@@ -1165,11 +1258,6 @@ export default function SummerApplicationsPage() {
                   />
                 )}
               </div>
-              {groupBy === "buddy" && (
-                <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground/80">
-                  <Users className="h-3 w-3" /> Solo applicants hidden in this view
-                </div>
-              )}
             </div>
 
             {/* Application list */}
@@ -1195,6 +1283,13 @@ export default function SummerApplicationsPage() {
                     </div>
                   ))}
                 </div>
+              ) : viewMode === "board" ? (
+                <SummerBuddyBoard
+                  applications={applications}
+                  config={activeConfig}
+                  memberPredicate={buddyBoardPredicate}
+                  onSelectApp={openDetail}
+                />
               ) : sortedApplications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <ClipboardList className="h-10 w-10 text-muted-foreground/30 mb-3" />
@@ -1224,15 +1319,12 @@ export default function SummerApplicationsPage() {
                         count={groupApps.length}
                         colorTheme={
                           groupBy === "status" ? (STATUS_GROUP_COLORS[groupKey] || "gray")
-                          : groupBy === "buddy" ? (groupApps.length >= 3 ? "purple" : "orange")
                           : "gray"
                         }
                         annotation={
                           groupBy === "time_slot" && demandMap?.has(groupKey) && demandMap.get(groupKey) !== groupApps.length
                             ? `${demandMap.get(groupKey)} total prefs`
-                            : groupBy === "buddy"
-                              ? (groupApps.length >= 3 ? "Discount unlocked" : `Needs ${3 - groupApps.length} more`)
-                              : undefined
+                            : undefined
                         }
                         isCollapsed={isCollapsed}
                         onToggle={() => setCollapsedGroups((prev) => {
