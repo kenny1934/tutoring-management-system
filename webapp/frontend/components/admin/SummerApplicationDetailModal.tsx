@@ -16,7 +16,7 @@ import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
-  User, Phone, MapPin, FileText, Users, ExternalLink,
+  User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight,
   Clock, Grid3X3, Pencil, History,
 } from "lucide-react";
 import type {
@@ -77,20 +77,38 @@ function StudentSuggestionRow({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      className="group/row w-full flex items-center gap-2 px-2.5 py-2 text-left text-sm cursor-pointer transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-inset"
     >
-      <StudentInfoBadges
-        student={{
-          student_name: student.student_name,
-          school_student_id: student.school_student_id || undefined,
-          grade: student.grade || undefined,
-          lang_stream: student.lang_stream || undefined,
-          school: student.school || undefined,
-          home_location: student.home_location || undefined,
-        }}
-      />
-      {reason && <span className="ml-auto text-[10px] text-primary/70 shrink-0">{reason}</span>}
+      <div className="min-w-0 flex-1">
+        <StudentInfoBadges
+          student={{
+            student_id: student.id,
+            student_name: student.student_name,
+            school_student_id: student.school_student_id || undefined,
+            grade: student.grade || undefined,
+            lang_stream: student.lang_stream || undefined,
+            school: student.school || undefined,
+            home_location: student.home_location || undefined,
+          }}
+          showLocationPrefix
+        />
+      </div>
+      {reason && (
+        <span
+          className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+          title="Why this student was suggested"
+        >
+          {reason}
+        </span>
+      )}
+      <span
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
+        aria-hidden
+      >
+        Link <ArrowRight className="h-3 w-3" />
+      </span>
     </button>
   );
 }
@@ -718,7 +736,10 @@ export function SummerApplicationDetailModal({
 
           {/* === 2. STUDENT LINK === */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Link to Student</span>
+            <div className="flex items-center gap-1.5">
+              <Link2 className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Link to Student</span>
+            </div>
 
             {studentId && linkedStudent ? (
               /* Linked state: show real student data via StudentInfoBadges */
@@ -737,6 +758,7 @@ export function SummerApplicationDetailModal({
                         home_location: linkedStudent.home_location || undefined,
                       }}
                       showLink
+                      showLocationPrefix
                     />
                   </div>
                   <div className="ml-6 mt-0.5">
@@ -771,7 +793,6 @@ export function SummerApplicationDetailModal({
             ) : (
               /* Unlinked: show suggestions and/or search */
               <div className="space-y-2">
-                {/* Applicant context */}
                 {isExisting && (
                   <div className="text-xs text-muted-foreground">
                     Applicant says: {app.is_existing_student}
@@ -781,11 +802,16 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
 
-                {/* Auto-suggestions */}
                 {autoSuggestions.length > 0 && (
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Suggested matches:</span>
-                    <div className="mt-0.5 border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                    <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                      <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                        Suggested matches
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                    </div>
+                    <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
                       {autoSuggestions.map(({ student, reason }) => (
                         <StudentSuggestionRow
                           key={student.id}
@@ -798,23 +824,28 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
 
-                {/* Manual search */}
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                    onFocus={() => setSearchFocused(true)}
-                    onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                    className={cn(inputClass, "pl-8")}
-                    placeholder="Search by name, ID, or phone..."
-                  />
+                <div>
+                  {autoSuggestions.length > 0 && (
+                    <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                      Or search manually
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                      className={cn(inputClass, "pl-8")}
+                      placeholder="Search by name, ID, or phone..."
+                    />
+                  </div>
                 </div>
 
-                {/* Search results (hidden on blur) */}
                 {searchFocused && searchResults && searchResults.length > 0 && (
-                  <div className="border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
                     {searchResults.map((s) => (
                       <StudentSuggestionRow
                         key={s.id}
@@ -825,10 +856,11 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
                 {searchFocused && searchResults && searchResults.length === 0 && debouncedStudentSearch.length >= 2 && (
-                  <div className="text-xs text-muted-foreground text-center py-1">No students found</div>
+                  <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                    No students found matching &ldquo;{debouncedStudentSearch}&rdquo;
+                  </div>
                 )}
 
-                {/* Manual ID fallback (search by school_student_id on Enter) */}
                 {showManualId ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -861,22 +893,25 @@ export function SummerApplicationDetailModal({
                       </button>
                     </div>
                     {manualIdResults && manualIdResults.length > 0 && (
-                      <div className="border border-gray-100 dark:border-gray-800 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
                         {manualIdResults.map((s) => (
                           <StudentSuggestionRow key={s.id} student={s} onClick={() => handleLinkStudent(s.id)} />
                         ))}
                       </div>
                     )}
                     {manualIdResults && manualIdResults.length === 0 && (
-                      <div className="text-xs text-muted-foreground">No student found with that ID</div>
+                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                        No student found with ID &ldquo;{manualIdConfirmed}&rdquo;
+                      </div>
                     )}
                   </div>
                 ) : (
                   <button
                     onClick={() => setShowManualId(true)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   >
-                    or enter student ID manually
+                    <Search className="h-3 w-3" />
+                    Can&apos;t find? Enter student ID manually
                   </button>
                 )}
               </div>

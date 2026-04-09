@@ -1189,6 +1189,8 @@ export interface DuplicateStudent {
   school_student_id: string | null;
   school: string | null;
   grade: string | null;
+  home_location: string | null;
+  lang_stream: string | null;
   match_reason: string;
 }
 

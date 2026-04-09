@@ -90,6 +90,8 @@ async def check_duplicates(
             "school_student_id": s.school_student_id,
             "school": s.school,
             "grade": s.grade,
+            "home_location": s.home_location,
+            "lang_stream": s.lang_stream,
             "match_reason": "Same name at this location"
         })
 
@@ -112,6 +114,8 @@ async def check_duplicates(
                     "school_student_id": s.school_student_id,
                     "school": s.school,
                     "grade": s.grade,
+                    "home_location": s.home_location,
+                    "lang_stream": s.lang_stream,
                     "match_reason": "Same phone number"
                 })
 
