@@ -2231,6 +2231,7 @@ export interface SummerApplication {
   sessions?: SummerApplicationSessionInfo[];
   pending_sibling_count?: number;
   buddy_siblings?: SummerSiblingInfo[];
+  buddy_group_member_count?: number;
 }
 
 export interface SummerApplicationSessionInfo {

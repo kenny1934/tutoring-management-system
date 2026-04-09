@@ -1009,15 +1009,38 @@ def clone_config(
     return clone
 
 
+def _get_buddy_group_sizes(
+    db: Session, group_ids: list[int]
+) -> dict[int, int]:
+    """Return {buddy_group_id: applicant_count} for the given groups.
+
+    Counts actual SummerApplication rows sharing each group — not declared
+    siblings. Used for the buddy people-meter in the admin list card.
+    """
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            SummerApplication.buddy_group_id,
+            func.count(SummerApplication.id),
+        )
+        .filter(SummerApplication.buddy_group_id.in_(group_ids))
+        .group_by(SummerApplication.buddy_group_id)
+        .all()
+    )
+    return {gid: count for gid, count in rows}
+
+
 def _build_application_response(
     app: SummerApplication,
     siblings_by_group: Optional[dict[int, list[SummerSiblingInfo]]] = None,
+    group_sizes: Optional[dict[int, int]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
-    Pass `siblings_by_group` from `_get_buddy_siblings_bulk` to avoid N+1
-    in list endpoints. Single-app endpoints can pass `{group_id: siblings}`
-    or omit it entirely (empty siblings will be returned).
+    Pass `siblings_by_group` from `_get_buddy_siblings_bulk` and
+    `group_sizes` from `_get_buddy_group_sizes` to avoid N+1 in list
+    endpoints. Single-app endpoints can omit both.
     """
     sessions = []
     for s in (app.sessions or []):
@@ -1043,6 +1066,14 @@ def _build_application_response(
     data["pending_sibling_count"] = sum(
         1 for s in siblings if s.verification_status == PENDING
     )
+    # Optimistic group size for the discount meter: actual Secondary applicants
+    # in the same buddy_group_id PLUS any non-rejected Primary-branch siblings
+    # that have been declared. Pending declarations are counted optimistically —
+    # if they're later rejected the meter drops.
+    secondary_count = (
+        (group_sizes or {}).get(app.buddy_group_id, 0) if app.buddy_group_id else 0
+    )
+    data["buddy_group_member_count"] = secondary_count + len(siblings)
 
     return SummerApplicationResponse.model_validate(data)
 
@@ -1050,10 +1081,13 @@ def _build_application_response(
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
-    """Build response list with a single batched sibling lookup."""
+    """Build response list with batched sibling + group-size lookups."""
     group_ids = [a.buddy_group_id for a in apps if a.buddy_group_id]
     siblings_by_group = _get_buddy_siblings_bulk(db, group_ids)
-    return [_build_application_response(a, siblings_by_group) for a in apps]
+    group_sizes = _get_buddy_group_sizes(db, group_ids)
+    return [
+        _build_application_response(a, siblings_by_group, group_sizes) for a in apps
+    ]
 
 
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])

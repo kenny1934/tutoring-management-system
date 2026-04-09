@@ -179,7 +179,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   const isExisting = !!app.is_existing_student && app.is_existing_student !== "None";
   const isPlaced = !!app.sessions && app.sessions.length > 0;
   const sessionsPerWeek = app.sessions_per_week ?? 1;
-  const buddyGroupSize = app.buddy_group_id ? (app.buddy_siblings?.length ?? 0) + 1 : 0;
+  const buddyGroupSize = app.buddy_group_id ? (app.buddy_group_member_count ?? 1) : 0;
   const buddyUnlocked = buddyGroupSize >= BUDDY_UNLOCK_THRESHOLD;
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
   const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";

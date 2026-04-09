@@ -2329,6 +2329,7 @@ class SummerApplicationResponse(BaseModel):
     sessions: List["SummerApplicationSessionInfo"] = []
     pending_sibling_count: int = 0
     buddy_siblings: List[SummerSiblingInfo] = []
+    buddy_group_member_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
