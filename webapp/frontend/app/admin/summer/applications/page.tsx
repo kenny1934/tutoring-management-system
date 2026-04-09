@@ -9,9 +9,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import {
-  ClipboardList, Search, X, Loader2, ListFilter,
+  ClipboardList, Search, X, Loader2, ChevronDown, Check,
   ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
-  RefreshCw, CheckSquare, Users,
+  RefreshCw, CheckSquare, Users, SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
@@ -47,12 +47,12 @@ const VIEW_PRESET_CONFIG: Record<ViewPreset, {
   sortField: "submitted" | "name" | "status" | "grade" | "location" | "time_slot";
   defaultDirection: "asc" | "desc";
 }> = {
-  latest:       { label: "View: Latest",       groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
-  pipeline:     { label: "View: Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
-  by_location:  { label: "View: By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
-  by_grade:     { label: "View: By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
-  by_time_slot: { label: "View: By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
-  by_buddy:     { label: "View: Buddy Groups", groupBy: "buddy",    sortField: "submitted",  defaultDirection: "desc" },
+  latest:       { label: "Latest",       groupBy: null,       sortField: "submitted",  defaultDirection: "desc" },
+  pipeline:     { label: "Pipeline",     groupBy: "status",   sortField: "status",     defaultDirection: "asc" },
+  by_location:  { label: "By Location",  groupBy: "location", sortField: "name",       defaultDirection: "asc" },
+  by_grade:     { label: "By Grade",     groupBy: "grade",    sortField: "name",       defaultDirection: "asc" },
+  by_time_slot: { label: "By Time Slot", groupBy: "time_slot", sortField: "time_slot", defaultDirection: "asc" },
+  by_buddy:     { label: "Buddy Groups", groupBy: "buddy",    sortField: "submitted",  defaultDirection: "desc" },
 };
 
 const ALL_PRESETS: ViewPreset[] = ["latest", "pipeline", "by_location", "by_grade", "by_time_slot", "by_buddy"];
@@ -75,35 +75,67 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-function renderStatusButtons(
-  statuses: string[],
-  byStatus: Record<string, number>,
-  activeFilter: string | null,
-  setFilter: (v: string | null) => void,
-) {
-  return statuses.map((s) => {
-    const count = byStatus[s] || 0;
-    if (count === 0) return null;
-    const colors = STATUS_COLORS[s];
-    const isActive = activeFilter === s;
-    return (
-      <button
-        key={s}
-        onClick={() => setFilter(isActive ? null : s)}
-        title={isActive ? `Click to clear ${s} filter` : `Click to filter by ${s}`}
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
-          isActive
-            ? cn(colors.bg, colors.text, "ring-1 ring-current")
-            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:ring-1 hover:ring-current/30"
-        )}
-      >
-        <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
-        {s} <span className="font-normal">{count}</span>
-      </button>
-    );
-  });
+// Inline dropdown with click-outside + escape handling. Trigger is a render
+// prop so callers own the button styling; `triggerProps` must be spread onto
+// the trigger button to wire ARIA + the toggle handler.
+type DropdownTriggerProps = {
+  onClick: () => void;
+  "aria-haspopup": "menu";
+  "aria-expanded": boolean;
+};
+function DropdownMenu({
+  trigger,
+  children,
+  align = "left",
+  menuClassName,
+}: {
+  trigger: (ctx: { open: boolean; triggerProps: DropdownTriggerProps }) => React.ReactNode;
+  children: (close: () => void) => React.ReactNode;
+  align?: "left" | "right";
+  menuClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+  const triggerProps: DropdownTriggerProps = {
+    onClick: () => setOpen((o) => !o),
+    "aria-haspopup": "menu",
+    "aria-expanded": open,
+  };
+  return (
+    <div ref={ref} className="relative">
+      {trigger({ open, triggerProps })}
+      {open && (
+        <div
+          role="menu"
+          className={cn(
+            "absolute top-full mt-1.5 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]",
+            align === "right" ? "right-0" : "left-0",
+            menuClassName,
+          )}
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
 }
+
+const menuItemClass = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
 
 // Virtualized row for the flat view. Fixed height accommodates the common case
 // (identity + placement + meta rows); rare edge cases with many backup slots
@@ -204,7 +236,6 @@ export default function SummerApplicationsPage() {
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [filterOpen, setFilterOpen] = useState(false);
 
   // Data freshness
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -221,8 +252,6 @@ export default function SummerApplicationsPage() {
   const listRef = useListRef(null);
   const [listHeight, setListHeight] = useState(600);
   const selectAllRef = useRef<HTMLInputElement>(null);
-  const filterPopoverRef = useRef<HTMLDivElement>(null);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -348,7 +377,9 @@ export default function SummerApplicationsPage() {
 
   // Filters active?
   const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly;
-  const activeFilterCount = [gradeFilter, locationFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
+  // Count of filters that live in the "More" menu (grade + pending sibling).
+  // Location lives in the header scope, status has its own dropdown, search is visible.
+  const moreFilterCount = [gradeFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setGradeFilter(null);
@@ -371,47 +402,33 @@ export default function SummerApplicationsPage() {
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
   }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, viewPreset, sortDirection, router]);
 
-  // Close filter popover on click outside / escape
-  useEffect(() => {
-    if (!filterOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node) &&
-        filterButtonRef.current && !filterButtonRef.current.contains(e.target as Node)
-      ) {
-        setFilterOpen(false);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setFilterOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [filterOpen]);
-
-  // Grade/location options from stats
+  // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
+  // Location options come from the active config — not from stats — so that
+  // picking one location does not remove the others from the dropdown.
+  const activeConfig = configs?.find((c) => c.id === configId);
   const locationOptions = useMemo(
-    () => Object.keys(stats?.by_location || {}).sort((a, b) => displayLocation(a).localeCompare(displayLocation(b))),
-    [stats]
+    () => (activeConfig?.locations ?? [])
+      .map((l) => l.name)
+      .sort((a, b) => displayLocation(a).localeCompare(displayLocation(b))),
+    [activeConfig]
   );
 
-  // Initialize location filter from user's app-wide location setting (one-time)
-  const locationInitialized = useRef(false);
+  // Default the location filter to the user's app-wide setting. Tracks changes
+  // to that setting until the user explicitly picks a location on this page
+  // (or arrived with a ?location= URL param), at which point we stop syncing.
+  const locationUserOverride = useRef(!!urlInit.location);
   useEffect(() => {
-    if (locationInitialized.current || !stats) return;
-    locationInitialized.current = true;
-    if (selectedLocation && selectedLocation !== "All Locations") {
-      const chineseName = CODE_TO_LOCATION[selectedLocation];
-      if (chineseName && stats.by_location?.[chineseName] !== undefined) {
-        setLocationFilter(chineseName);
-      }
+    if (locationUserOverride.current || locationOptions.length === 0) return;
+    if (!selectedLocation || selectedLocation === "All Locations") {
+      if (locationFilter !== null) setLocationFilter(null);
+      return;
     }
-  }, [stats, selectedLocation]);
+    const chineseName = CODE_TO_LOCATION[selectedLocation];
+    if (chineseName && locationOptions.includes(chineseName) && locationFilter !== chineseName) {
+      setLocationFilter(chineseName);
+    }
+  }, [locationOptions, selectedLocation, locationFilter]);
 
   // Client-side sorting
   const sortedApplications = useMemo(() => {
@@ -691,26 +708,26 @@ export default function SummerApplicationsPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className="w-9 h-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
                   <ClipboardList className="h-5 w-5 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-lg font-semibold text-foreground inline-flex items-center gap-1.5">
-                    Summer Applications
-                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="text-muted-foreground hover:text-primary transition-colors">
+                  <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5 min-w-0">
+                    <span className="truncate">Summer Applications</span>
+                    <a href="/summer/apply" target="_blank" rel="noopener noreferrer" title="Open application form" className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
                   </h1>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="hidden sm:block text-xs text-muted-foreground">
                     Review and process summer course applications
-                    {readOnly && <span className="ml-1 text-amber-600">(Read-only)</span>}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   {lastUpdated && (
                     <span
-                      className="hidden sm:inline text-[11px] text-muted-foreground tabular-nums"
+                      className="hidden md:inline text-[11px] text-muted-foreground tabular-nums"
                       title={new Date(lastUpdated).toLocaleString()}
                       // nowTick is read to keep this label ticking every 30s
                       data-tick={nowTick}
@@ -727,48 +744,77 @@ export default function SummerApplicationsPage() {
                   >
                     <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
                   </button>
-                  {configs && configs.length > 1 && (
+                  {locationOptions.length > 0 && (
                     <select
-                      value={configId ?? ""}
+                      value={locationFilter || ""}
                       onChange={(e) => {
-                        setConfigId(parseInt(e.target.value));
-                        setCheckedIds(new Set());
+                        locationUserOverride.current = true;
+                        setLocationFilter(e.target.value || null);
                       }}
-                      className={selectClass}
+                      className="px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground"
+                      title="Filter by location"
                     >
-                      {configs.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.year}{c.is_active ? " (Active)" : ""}
-                        </option>
+                      <option value="">All</option>
+                      {locationOptions.map((l) => (
+                        <option key={l} value={l}>{displayLocation(l)}</option>
                       ))}
                     </select>
                   )}
+                  {configs && configs.length > 1 && (() => {
+                    const currentConfig = configs.find((c) => c.id === configId);
+                    return (
+                      <DropdownMenu
+                        align="right"
+                        trigger={({ triggerProps }) => (
+                          <button
+                            type="button"
+                            {...triggerProps}
+                            className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            title={currentConfig?.is_active ? "Active season" : "Past season"}
+                          >
+                            <span>{currentConfig?.year}</span>
+                            {currentConfig?.is_active && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            )}
+                            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                          </button>
+                        )}
+                      >
+                        {(close) => configs.map((c) => {
+                          const active = c.id === configId;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={active}
+                              onClick={() => {
+                                setConfigId(c.id);
+                                setCheckedIds(new Set());
+                                close();
+                              }}
+                              className={cn(menuItemClass, active && "bg-primary/5")}
+                            >
+                              <span className="flex-1 text-foreground">{c.year}</span>
+                              {c.is_active && (
+                                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                                  Active
+                                </span>
+                              )}
+                              {active && <Check className="h-3 w-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </DropdownMenu>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
 
-            {/* Stats strip */}
-            {stats && stats.total > 0 && (
-              <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-2 min-w-max">
-                  <span className="text-sm font-semibold text-foreground mr-1">{stats.total}</span>
-                  {/* Pipeline statuses */}
-                  {renderStatusButtons(PIPELINE_STATUSES, stats.by_status, statusFilter, setStatusFilter)}
-                  {/* Divider */}
-                  {EXIT_STATUSES.some((s) => (stats.by_status[s] || 0) > 0) && (
-                    <span className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
-                  )}
-                  {/* Exit statuses */}
-                  {renderStatusButtons(EXIT_STATUSES, stats.by_status, statusFilter, setStatusFilter)}
-                </div>
-              </div>
-            )}
-
-            {/* Filter bar + view controls */}
             <div className="px-4 sm:px-6 py-2.5 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-              <div className="flex flex-col sm:flex-row gap-2">
-                {/* Search + Filter */}
-                <div className="relative flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     ref={searchRef}
@@ -776,54 +822,201 @@ export default function SummerApplicationsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder='Search name, phone, ref code... (press "/")'
-                    className="w-full pl-9 pr-16 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
+                    className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-8 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear search"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  {/* Filter button (inside search bar) */}
-                  <button
-                    ref={filterButtonRef}
-                    onClick={() => setFilterOpen(!filterOpen)}
-                    className={cn(
-                      "absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 p-1 rounded transition-colors",
-                      activeFilterCount > 0
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    title="Filter by grade/location"
-                  >
-                    <ListFilter className="h-3.5 w-3.5" />
-                    {activeFilterCount > 0 && (
-                      <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </button>
-                  {/* Filter popover */}
-                  {filterOpen && (
-                    <div
-                      ref={filterPopoverRef}
-                      className="absolute top-full mt-1.5 right-0 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 min-w-[200px] space-y-3"
-                    >
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
-                        <select
-                          value={locationFilter || ""}
-                          onChange={(e) => setLocationFilter(e.target.value || null)}
-                          className={cn(selectClass, "w-full")}
+                </div>
+
+                <DropdownMenu
+                  menuClassName="min-w-[220px]"
+                  trigger={({ open, triggerProps }) => {
+                    const colors = statusFilter ? STATUS_COLORS[statusFilter] : null;
+                    return (
+                      <button
+                        type="button"
+                        {...triggerProps}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
+                          statusFilter
+                            ? cn(colors?.bg, colors?.text, "border-current/30")
+                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                          open && "ring-1 ring-primary/30",
+                        )}
+                        title="Filter by status"
+                      >
+                        {colors && <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
+                        <span className="font-medium">{statusFilter || "All statuses"}</span>
+                        {statusFilter && stats && (
+                          <span className="font-normal opacity-70">{stats.by_status[statusFilter] || 0}</span>
+                        )}
+                        <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                      </button>
+                    );
+                  }}
+                >
+                  {(close) => {
+                    const renderRow = (s: string | null) => {
+                      const isAll = s === null;
+                      const count = isAll ? stats?.total ?? 0 : stats?.by_status[s!] ?? 0;
+                      if (!isAll && count === 0) return null;
+                      const colors = isAll ? null : STATUS_COLORS[s!];
+                      const active = statusFilter === s;
+                      return (
+                        <button
+                          key={s ?? "__all"}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => { setStatusFilter(s); close(); }}
+                          className={cn(menuItemClass, active && "bg-primary/5")}
                         >
-                          <option value="">All locations</option>
-                          {locationOptions.map((l) => (
-                            <option key={l} value={l}>{displayLocation(l)}</option>
-                          ))}
-                        </select>
+                          {colors ? (
+                            <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
+                          ) : (
+                            <span className="w-1.5 h-1.5" />
+                          )}
+                          <span className="flex-1 text-foreground">{s ?? "All statuses"}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+                          {active && <Check className="h-3 w-3 text-primary" />}
+                        </button>
+                      );
+                    };
+                    return (
+                      <>
+                        {renderRow(null)}
+                        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                        {PIPELINE_STATUSES.map(renderRow)}
+                        {EXIT_STATUSES.some((s) => (stats?.by_status[s] || 0) > 0) && (
+                          <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                        )}
+                        {EXIT_STATUSES.map(renderRow)}
+                      </>
+                    );
+                  }}
+                </DropdownMenu>
+
+                {applications && stats && (
+                  hasFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      title="Clear all filters"
+                    >
+                      <span>
+                        <span className="font-semibold text-foreground tabular-nums">{navigableItems.length}</span>
+                        <span className="mx-1">of</span>
+                        <span className="tabular-nums">{stats.total}</span>
+                      </span>
+                      <X className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground tabular-nums">{stats.total}</span>
+                      <span className="ml-1">total</span>
+                    </span>
+                  )
+                )}
+
+                <div className="flex-1" />
+
+                <DropdownMenu
+                  align="right"
+                  menuClassName="min-w-[220px]"
+                  trigger={({ open, triggerProps }) => (
+                    <button
+                      type="button"
+                      {...triggerProps}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border font-medium transition-colors",
+                        "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground hover:bg-amber-100/70 dark:hover:bg-amber-900/30",
+                        open && "ring-1 ring-amber-400/40",
+                      )}
+                      title="Grouping and sort"
+                    >
+                      <span>{VIEW_PRESET_CONFIG[viewPreset].label}</span>
+                      {sortDirection === "asc"
+                        ? <ArrowUpNarrowWide className="h-3.5 w-3.5 opacity-70" />
+                        : <ArrowDownNarrowWide className="h-3.5 w-3.5 opacity-70" />}
+                      <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Group by
                       </div>
+                      {ALL_PRESETS.map((p) => {
+                        const active = viewPreset === p;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={active}
+                            onClick={() => { handlePresetChange(p); close(); }}
+                            className={cn(menuItemClass, active && "bg-primary/5")}
+                          >
+                            <span className="flex-1 text-foreground">
+                              {VIEW_PRESET_CONFIG[p].label}
+                            </span>
+                            {active && <Check className="h-3 w-3 text-primary" />}
+                          </button>
+                        );
+                      })}
+                      <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => setSortDirection((d) => d === "asc" ? "desc" : "asc")}
+                        className={menuItemClass}
+                      >
+                        {sortDirection === "asc"
+                          ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />
+                          : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <span className="flex-1 text-foreground">{getDirectionLabel(viewPreset, sortDirection)}</span>
+                      </button>
+                    </>
+                  )}
+                </DropdownMenu>
+
+                <DropdownMenu
+                  align="right"
+                  menuClassName="min-w-[220px] p-3 space-y-3"
+                  trigger={({ open, triggerProps }) => (
+                    <button
+                      type="button"
+                      {...triggerProps}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors",
+                        moreFilterCount > 0
+                          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                        open && "ring-1 ring-primary/30",
+                      )}
+                      title="More filters"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      <span className="font-medium">More</span>
+                      {moreFilterCount > 0 && (
+                        <span className="bg-amber-500 text-white text-[10px] rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                          {moreFilterCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                >
+                  {() => (
+                    <>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Grade</label>
                         <select
@@ -846,98 +1039,55 @@ export default function SummerApplicationsPage() {
                         />
                         <span className="text-xs text-foreground">Pending sibling verification</span>
                       </label>
-                      {activeFilterCount > 0 && (
+                      {moreFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setLocationFilter(null); setPendingSiblingOnly(false); }}
+                          onClick={() => { setGradeFilter(null); setPendingSiblingOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
-                          Clear filters
+                          Clear these filters
                         </button>
                       )}
-                    </div>
+                    </>
                   )}
-                </div>
-                {/* View + Sort controls */}
-                <div className="flex items-center gap-2">
-                  {/* View dropdown */}
-                  <select
-                    value={viewPreset}
-                    onChange={(e) => handlePresetChange(e.target.value as ViewPreset)}
-                    className="px-2.5 py-1.5 text-sm rounded-lg font-medium border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-foreground"
-                  >
-                    {(Object.entries(VIEW_PRESET_CONFIG) as [ViewPreset, typeof VIEW_PRESET_CONFIG[ViewPreset]][]).map(([key, cfg]) => (
-                      <option key={key} value={key} className="bg-white dark:bg-gray-800">{cfg.label}</option>
-                    ))}
-                  </select>
-                  {/* Sort direction */}
-                  <button
-                    onClick={() => setSortDirection((d) => d === "asc" ? "desc" : "asc")}
-                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    title={getDirectionLabel(viewPreset, sortDirection)}
-                  >
-                    {sortDirection === "asc"
-                      ? <ArrowUpNarrowWide className="h-3.5 w-3.5" />
-                      : <ArrowDownNarrowWide className="h-3.5 w-3.5" />}
-                  </button>
-                  {/* Persistent batch-mode toggle */}
-                  <button
-                    onClick={() => {
-                      if (batchMode || checkedIds.size > 0) {
-                        setBatchMode(false);
-                        setCheckedIds(new Set());
-                      } else {
-                        setBatchMode(true);
-                      }
-                    }}
-                    title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                    aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
-                    className={cn(
-                      "p-1.5 rounded-lg transition-colors",
-                      showCheckboxes
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
-                  >
-                    <CheckSquare className="h-3.5 w-3.5" />
-                  </button>
-                  {showCheckboxes && (
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      checked={allVisibleChecked}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                      title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
+                </DropdownMenu>
 
-            {/* Count + scope strip */}
-            {applications && (
-              <div className="px-4 sm:px-6 pt-2 pb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>
-                  Showing <span className="font-semibold text-foreground tabular-nums">{navigableItems.length}</span>
-                  {stats && (
-                    <> of <span className="tabular-nums">{stats.total}</span></>
+                <button
+                  onClick={() => {
+                    if (batchMode || checkedIds.size > 0) {
+                      setBatchMode(false);
+                      setCheckedIds(new Set());
+                    } else {
+                      setBatchMode(true);
+                    }
+                  }}
+                  title={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  aria-label={showCheckboxes ? "Exit batch mode" : "Enter batch mode"}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    showCheckboxes
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
-                  {hasFilters && stats && navigableItems.length !== stats.total && (
-                    <button
-                      onClick={clearFilters}
-                      className="ml-2 text-primary hover:text-primary/80 underline-offset-2 hover:underline"
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </span>
-                {groupBy === "buddy" && (
-                  <span className="ml-auto inline-flex items-center gap-1 text-muted-foreground/80">
-                    <Users className="h-3 w-3" /> Solo applicants hidden in this view
-                  </span>
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                </button>
+                {showCheckboxes && (
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allVisibleChecked}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                    title={allVisibleChecked ? "Deselect all visible" : "Select all visible"}
+                  />
                 )}
               </div>
-            )}
+              {groupBy === "buddy" && (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground/80">
+                  <Users className="h-3 w-3" /> Solo applicants hidden in this view
+                </div>
+              )}
+            </div>
 
             {/* Application list */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-3">
