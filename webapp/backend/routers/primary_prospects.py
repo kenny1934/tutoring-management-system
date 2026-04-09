@@ -261,22 +261,20 @@ def delete_prospect(
 
 # ---- Admin endpoints (auth required) ----
 
-@router.get("/admin")
-def admin_list_prospects(
-    year: int = Query(...),
-    branch: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    outreach_status: Optional[str] = Query(None),
-    wants_summer: Optional[str] = Query(None),
-    wants_regular: Optional[str] = Query(None),
-    linked: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: None = Depends(require_admin_view),
+def _apply_admin_filters(
+    q,
+    *,
+    branch: Optional[str] = None,
+    status: Optional[str] = None,
+    outreach_status: Optional[str] = None,
+    wants_summer: Optional[str] = None,
+    wants_regular: Optional[str] = None,
+    linked: Optional[str] = None,
+    has_wechat: Optional[str] = None,
+    search: Optional[str] = None,
 ):
-    """Admin list with filters."""
-    q = db.query(PrimaryProspect).filter(PrimaryProspect.year == year)
-
+    """Shared admin-list filter predicates. Used by /admin and /admin/stats
+    so they agree on what "matching the current filters" means."""
     if branch:
         q = q.filter(PrimaryProspect.source_branch == branch)
     if status:
@@ -291,6 +289,10 @@ def admin_list_prospects(
         q = q.filter(PrimaryProspect.summer_application_id.isnot(None))
     elif linked == "unlinked":
         q = q.filter(PrimaryProspect.summer_application_id.is_(None))
+    if has_wechat == "yes":
+        q = q.filter(PrimaryProspect.wechat_id.isnot(None), PrimaryProspect.wechat_id != "")
+    elif has_wechat == "no":
+        q = q.filter(or_(PrimaryProspect.wechat_id.is_(None), PrimaryProspect.wechat_id == ""))
     if search:
         term = f"%{search}%"
         q = q.filter(or_(
@@ -300,7 +302,35 @@ def admin_list_prospects(
             PrimaryProspect.school.ilike(term),
             PrimaryProspect.primary_student_id.ilike(term),
         ))
+    return q
 
+
+@router.get("/admin")
+def admin_list_prospects(
+    year: int = Query(...),
+    branch: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    outreach_status: Optional[str] = Query(None),
+    wants_summer: Optional[str] = Query(None),
+    wants_regular: Optional[str] = Query(None),
+    linked: Optional[str] = Query(None),
+    has_wechat: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_view),
+):
+    """Admin list with filters."""
+    q = _apply_admin_filters(
+        db.query(PrimaryProspect).filter(PrimaryProspect.year == year),
+        branch=branch,
+        status=status,
+        outreach_status=outreach_status,
+        wants_summer=wants_summer,
+        wants_regular=wants_regular,
+        linked=linked,
+        has_wechat=has_wechat,
+        search=search,
+    )
     prospects = q.options(joinedload(PrimaryProspect.summer_application)).order_by(PrimaryProspect.source_branch, PrimaryProspect.id).all()
     return [_prospect_to_response(p) for p in prospects]
 
@@ -368,28 +398,46 @@ def admin_bulk_outreach(
 @router.get("/admin/stats")
 def admin_prospect_stats(
     year: int = Query(...),
+    status: Optional[str] = Query(None),
+    outreach_status: Optional[str] = Query(None),
+    wants_summer: Optional[str] = Query(None),
+    wants_regular: Optional[str] = Query(None),
+    linked: Optional[str] = Query(None),
+    has_wechat: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_view),
 ):
-    """Funnel stats per branch."""
+    """Per-branch funnel stats. Filters match /admin (except `branch`, which
+    is the axis the pills themselves represent — including it would zero
+    every other pill)."""
+    subq = _apply_admin_filters(
+        db.query(PrimaryProspect).filter(PrimaryProspect.year == year),
+        status=status,
+        outreach_status=outreach_status,
+        wants_summer=wants_summer,
+        wants_regular=wants_regular,
+        linked=linked,
+        has_wechat=has_wechat,
+        search=search,
+    ).subquery()
     rows = (
         db.query(
-            PrimaryProspect.source_branch,
+            subq.c.source_branch,
             func.count().label("total"),
-            func.sum(case((PrimaryProspect.wants_summer == 'Yes', 1), else_=0)).label("wants_summer_yes"),
-            func.sum(case((PrimaryProspect.wants_summer == 'Considering', 1), else_=0)).label("wants_summer_considering"),
-            func.sum(case((PrimaryProspect.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
-            func.sum(case((PrimaryProspect.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
-            func.sum(case((PrimaryProspect.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
-            func.sum(case((PrimaryProspect.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
-            func.sum(case((PrimaryProspect.outreach_status == 'WeChat - Cannot Add', 1), else_=0)).label("outreach_wechat_cannot_add"),
-            func.sum(case((PrimaryProspect.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
-            func.sum(case((PrimaryProspect.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
+            func.sum(case((subq.c.wants_summer == 'Yes', 1), else_=0)).label("wants_summer_yes"),
+            func.sum(case((subq.c.wants_summer == 'Considering', 1), else_=0)).label("wants_summer_considering"),
+            func.sum(case((subq.c.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
+            func.sum(case((subq.c.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
+            func.sum(case((subq.c.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
+            func.sum(case((subq.c.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
+            func.sum(case((subq.c.outreach_status == 'WeChat - Cannot Add', 1), else_=0)).label("outreach_wechat_cannot_add"),
+            func.sum(case((subq.c.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
+            func.sum(case((subq.c.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
         )
-        .filter(PrimaryProspect.year == year)
-        .group_by(PrimaryProspect.source_branch)
+        .group_by(subq.c.source_branch)
         .all()
     )
 

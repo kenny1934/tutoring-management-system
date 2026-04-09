@@ -142,6 +142,7 @@ export default function AdminProspectsPage() {
     wants_summer: searchParams.get("wantsSummer") ?? "",
     wants_regular: searchParams.get("wantsRegular") ?? "",
     linked: searchParams.get("linked") ?? "",
+    has_wechat: searchParams.get("wechat") ?? "",
     search: searchParams.get("q") ?? "",
   }));
   const [choice, setChoice] = useState<string[]>(() => {
@@ -212,7 +213,7 @@ export default function AdminProspectsPage() {
   }, [searchInput]);
 
   const swrKey = tab === "list" && year
-    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search]
+    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
     swrKey,
@@ -224,6 +225,7 @@ export default function AdminProspectsPage() {
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
       linked: filters.linked || undefined,
+      has_wechat: filters.has_wechat || undefined,
       search: filters.search || undefined,
     }),
     { revalidateOnFocus: false }
@@ -300,6 +302,7 @@ export default function AdminProspectsPage() {
     if (filters.wants_summer) params.set("wantsSummer", filters.wants_summer);
     if (filters.wants_regular) params.set("wantsRegular", filters.wants_regular);
     if (filters.linked) params.set("linked", filters.linked);
+    if (filters.has_wechat) params.set("wechat", filters.has_wechat);
     if (filters.search) params.set("q", filters.search);
     if (sortBy !== "submitted_at") params.set("sort", sortBy);
     if (sortOrder !== "desc") params.set("order", sortOrder);
@@ -319,10 +322,23 @@ export default function AdminProspectsPage() {
     });
   }, []);
 
-  const statsKey = year ? `admin-prospect-stats-${year}` : null;
+  // Stats key includes all filters except `branch` — the pills themselves
+  // are the branch axis, so including it would zero every other pill.
+  const statsKey = year
+    ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
+    : null;
   const { data: stats } = useSWR(
     statsKey,
-    () => prospectsAPI.stats(year!),
+    () => prospectsAPI.stats({
+      year: year!,
+      status: filters.status || undefined,
+      outreach_status: filters.outreach_status || undefined,
+      wants_summer: filters.wants_summer || undefined,
+      wants_regular: filters.wants_regular || undefined,
+      linked: filters.linked || undefined,
+      has_wechat: filters.has_wechat || undefined,
+      search: filters.search || undefined,
+    }),
     { revalidateOnFocus: false }
   );
 
@@ -330,7 +346,7 @@ export default function AdminProspectsPage() {
   // Stable identity matters because handleInlineUpdate flows into the memoized ProspectRow.
   const refresh = useCallback(() => {
     globalMutate((key) => Array.isArray(key) && key[0] === "admin-prospects");
-    globalMutate((key) => typeof key === "string" && key.startsWith("admin-prospect-stats-"));
+    globalMutate((key) => Array.isArray(key) && key[0] === "admin-prospect-stats");
   }, []);
 
   const toggleSelect = useCallback((id: number) => {
@@ -392,7 +408,7 @@ export default function AdminProspectsPage() {
   );
 
   // Clear selection when filters change so we don't act on hidden rows
-  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.linked}|${filters.search}|${choice.join(",")}`;
+  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.linked}|${filters.has_wechat}|${filters.search}|${choice.join(",")}`;
   useEffect(() => {
     setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -420,12 +436,12 @@ export default function AdminProspectsPage() {
     }
   }, [year]);
 
-  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.search].filter(Boolean).length + choice.length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
 
   const clearAllFilters = useCallback(() => {
     setSearchInput("");
     setChoice([]);
-    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", search: "" }));
+    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", has_wechat: "", search: "" }));
   }, []);
 
   // Active filter chip descriptors (for the chip strip above the table)
@@ -470,6 +486,11 @@ export default function AdminProspectsPage() {
       key: "linked",
       label: filters.linked === "linked" ? "Linked" : "Unlinked",
       onRemove: () => setFilters((f) => ({ ...f, linked: "" })),
+    });
+    if (filters.has_wechat) chips.push({
+      key: "has_wechat",
+      label: filters.has_wechat === "yes" ? "Has WeChat" : "No WeChat",
+      onRemove: () => setFilters((f) => ({ ...f, has_wechat: "" })),
     });
     return chips;
   }, [filters, choice]);
@@ -789,6 +810,7 @@ export default function AdminProspectsPage() {
               wants_summer: "",
               wants_regular: "",
               linked: "",
+              has_wechat: "",
               search: f.search,
               ...patch,
             }));
@@ -853,6 +875,7 @@ type FiltersShape = {
   wants_summer: string;
   wants_regular: string;
   linked: string;
+  has_wechat: string;
   search: string;
 };
 
@@ -874,6 +897,11 @@ function FilterSelects({
       <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
         <option value="">Regular: All</option>
         {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+      </select>
+      <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={inputSmall}>
+        <option value="">WeChat: All</option>
+        <option value="yes">Has WeChat</option>
+        <option value="no">No WeChat</option>
       </select>
       <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
         <option value="">Outreach: All</option>
