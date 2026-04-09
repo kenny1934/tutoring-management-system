@@ -30,6 +30,7 @@ import {
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
 } from "@/components/summer/prospect-badges";
+import { StatusBadge as ApplicationStatusBadge } from "@/components/admin/SummerApplicationCard";
 import type {
   PrimaryProspect,
   ProspectOutreachStatus,
@@ -190,7 +191,7 @@ export function ProspectDetailModal({
                   </button>
                 </>
               )}
-              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-background/50 transition-colors">
+              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted-foreground hover:bg-foreground/10 hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -300,7 +301,9 @@ export function ProspectDetailModal({
                 <div className="flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium">{prospect.matched_application_ref}</span>
-                  <ProspectStatusBadge status={prospect.matched_application_status as ProspectStatus || "New"} />
+                  {prospect.matched_application_status && (
+                    <ApplicationStatusBadge status={prospect.matched_application_status} />
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <a
