@@ -373,10 +373,11 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           )}
           {app.unavailability_notes && (
             <span
-              className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400"
+              className="hidden sm:inline-flex min-w-0 items-center gap-1 text-red-600 dark:text-red-400 truncate max-w-[160px] md:max-w-[220px] lg:max-w-[320px]"
               title={`Unavailable: ${app.unavailability_notes}`}
             >
-              <XCircle className="h-2.5 w-2.5" /> Unavailable
+              <XCircle className="h-3 w-3 shrink-0" />
+              <span className="truncate">{app.unavailability_notes}</span>
             </span>
           )}
           {editedAfterReview && (
