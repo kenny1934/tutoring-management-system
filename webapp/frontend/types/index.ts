@@ -2217,6 +2217,7 @@ export interface SummerApplication {
   preference_4_time?: string | null;
   unavailability_notes?: string | null;
   buddy_group_id?: number | null;
+  buddy_joined_at?: string | null;
   buddy_code?: string | null;
   buddy_names?: string | null;
   buddy_referrer_name?: string | null;

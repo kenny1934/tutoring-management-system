@@ -18,6 +18,8 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { usePortalPopover } from "@/hooks/usePortalPopover";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
+import { DiscountChip } from "@/components/admin/DiscountChip";
+import type { DiscountResult } from "@/lib/summer-discounts";
 import type { SummerApplication } from "@/types";
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
@@ -150,6 +152,7 @@ interface SummerApplicationCardProps {
   showCheckbox: boolean;
   onStatusChange?: (id: number, status: string) => void;
   onProspectClick?: (prospectId: number) => void;
+  discount?: DiscountResult | null;
 }
 
 export const SummerApplicationCard = React.memo(function SummerApplicationCard({
@@ -162,6 +165,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   showCheckbox,
   onStatusChange,
   onProspectClick,
+  discount,
 }: SummerApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
   const { combined: prefs } = formatPreferences(app);
@@ -237,6 +241,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               trailing={
                 <>
                   <PrimaryBranchChip app={app} onProspectClick={onProspectClick} />
+                  {discount && <DiscountChip result={discount} />}
                   {buddyGroupSize > 0 && (
                     <span
                       className={cn(

@@ -22,6 +22,7 @@ import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
 import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
+import { computeDiscountsForAll } from "@/lib/summer-discounts";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -499,6 +500,13 @@ export default function SummerApplicationsPage() {
   // Location options come from the active config — not from stats — so that
   // picking one location does not remove the others from the dropdown.
   const activeConfig = configs?.find((c) => c.id === configId);
+  // Discount eligibility per application. Computed once per data load off
+  // the full applications list — the group-reach calculation needs all
+  // members, not just the filtered view, so we can't use sortedApplications.
+  const discountByAppId = useMemo(
+    () => computeDiscountsForAll(applications ?? [], activeConfig?.pricing_config),
+    [applications, activeConfig],
+  );
   const locationOptions = useMemo(
     () => (activeConfig?.locations ?? [])
       .map((l) => l.name)
@@ -1499,6 +1507,8 @@ export default function SummerApplicationsPage() {
             locations={configs?.find(c => c.id === configId)?.locations}
             allApplications={applications}
             onSelectApplication={openDetail}
+            discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
+            baseFee={activeConfig?.pricing_config?.base_fee}
           />
 
           {previewProspectId && previewProspect && (

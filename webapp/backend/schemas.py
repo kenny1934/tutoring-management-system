@@ -2334,6 +2334,7 @@ class SummerApplicationResponse(BaseModel):
     preference_4_time: Optional[str] = None
     unavailability_notes: Optional[str] = None
     buddy_group_id: Optional[int] = None
+    buddy_joined_at: Optional[datetime] = None
     buddy_code: Optional[str] = None
     buddy_names: Optional[str] = None
     buddy_referrer_name: Optional[str] = None

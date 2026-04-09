@@ -400,6 +400,7 @@ def submit_application(
         buddy_group_id = group.id
         buddy_code_out = group.buddy_code
 
+    now_ts = hk_now()
     # Create application (reference_code generated after insert)
     app = SummerApplication(
         config_id=config.id,
@@ -423,11 +424,12 @@ def submit_application(
         preference_4_time=data.preference_4_time,
         unavailability_notes=data.unavailability_notes,
         buddy_group_id=buddy_group_id,
+        buddy_joined_at=now_ts if buddy_group_id else None,
         buddy_names=data.buddy_names,
         buddy_referrer_name=data.buddy_referrer_name,
         form_language=data.form_language or "zh",
         sessions_per_week=data.sessions_per_week,
-        submitted_at=hk_now(),
+        submitted_at=now_ts,
     )
     # Generate unique random reference code with retry on collision
     db.add(app)
@@ -614,6 +616,7 @@ def change_buddy_group(
 
     if data.action == "leave":
         app.buddy_group_id = None
+        app.buddy_joined_at = None
         app.buddy_referrer_name = None
         db.commit()
         return SummerBuddyChangeResponse(buddy_code=None, member_count=0)
@@ -627,6 +630,7 @@ def change_buddy_group(
         # Don't count the applicant if they are already in this same group (no-op join)
         if app.buddy_group_id != group.id:
             _assert_buddy_group_has_room(db, group.id)
+            app.buddy_joined_at = now
         app.buddy_group_id = group.id
         app.buddy_referrer_name = data.buddy_referrer_name
         app.buddy_names = None
@@ -639,6 +643,7 @@ def change_buddy_group(
     elif data.action == "create":
         group = _create_buddy_group(db, config.id)
         app.buddy_group_id = group.id
+        app.buddy_joined_at = now
         app.buddy_referrer_name = None
         app.buddy_names = None
         db.commit()
@@ -1472,13 +1477,16 @@ def update_application(
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
     if buddy_code_value is not None:
+        prev_group_id = app.buddy_group_id
         if buddy_code_value == "":
             # Leave group
             app.buddy_group_id = None
+            app.buddy_joined_at = None
             app.buddy_referrer_name = None
         elif buddy_code_value == "NEW":
             group = _create_buddy_group(db, app.config_id)
             app.buddy_group_id = group.id
+            app.buddy_joined_at = hk_now()
             app.buddy_referrer_name = None
         else:
             # Join existing group by code
@@ -1487,6 +1495,8 @@ def update_application(
             ).first()
             if not group:
                 raise HTTPException(status_code=400, detail="Invalid buddy code")
+            if prev_group_id != group.id:
+                app.buddy_joined_at = hk_now()
             app.buddy_group_id = group.id
             # Set referrer name if provided alongside the join
             if "buddy_referrer_name" in updates:

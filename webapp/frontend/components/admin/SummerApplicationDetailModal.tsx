@@ -13,12 +13,13 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO } from "@/lib/summer-utils";
+import type { DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight,
-  Clock, Grid3X3, Pencil, History,
+  Clock, Grid3X3, Pencil, History, DollarSign,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -129,6 +130,8 @@ interface SummerApplicationDetailModalProps {
   locations?: SummerLocation[];
   allApplications?: SummerApplication[];
   onSelectApplication?: (app: SummerApplication) => void;
+  discount?: DiscountResult | null;
+  baseFee?: number;
 }
 
 export function SummerApplicationDetailModal({
@@ -146,6 +149,8 @@ export function SummerApplicationDetailModal({
   locations,
   allApplications,
   onSelectApplication,
+  discount,
+  baseFee,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -1640,6 +1645,41 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
                   </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Fee summary — best discount + near-miss hint */}
+          {discount && typeof baseFee === "number" && baseFee > 0 && (
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg shrink-0">
+                <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Fee</div>
+                <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-lg font-semibold text-foreground">${discount.finalFee.toLocaleString()}</span>
+                  {discount.best && (
+                    <span className="text-xs text-muted-foreground">
+                      = ${baseFee.toLocaleString()} − ${discount.amount}
+                    </span>
+                  )}
+                </div>
+                {discount.best ? (
+                  <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                    <span className="font-mono font-semibold">{discount.best.code}</span>
+                    <span className="text-muted-foreground"> · {discount.best.name_en}</span>
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-muted-foreground">No discount applied · pays full price</div>
+                )}
+                {discount.nearMiss && (
+                  <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    {discount.nearMiss.neededMembers} more buddy member{discount.nearMiss.neededMembers === 1 ? "" : "s"} to unlock{" "}
+                    <span className="font-mono font-semibold">{discount.nearMiss.discount.code}</span>
+                    <span> (−${discount.nearMiss.extraSavings} more)</span>
+                  </div>
                 )}
               </div>
             </div>
