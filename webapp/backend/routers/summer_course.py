@@ -74,6 +74,7 @@ from schemas import (
     LinkedPrimaryProspectInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
+from routers.students import find_duplicate_students
 from utils.rate_limiter import check_ip_rate_limit
 from constants import (
     hk_now,
@@ -1219,6 +1220,95 @@ def _build_application_responses(
         )
         for a in apps
     ]
+
+
+_SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
+
+# Strict auto-link threshold: only a candidate whose reason combines both name
+# and phone is high-confidence enough to link without human review.
+_AUTO_LINK_REASON = "Same name and phone at this location"
+
+
+@router.get("/summer/admin/suggest-student-links")
+def admin_suggest_student_links(
+    config_id: int = Query(...),
+    dry_run: bool = Query(False, description="When true, preview without auto-linking high-confidence matches."),
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Scan unlinked secondary-claiming apps and suggest matching Student rows.
+
+    Scope: apps in this config whose `claimed_branch_code` is a Secondary
+    Academy branch (MSA/MSB) and that are not yet linked to a Student.
+
+    Behaviour: for each app we run the same name+location / phone+location
+    dupe-check used by the detail modal. High-confidence candidates (combined
+    name+phone match at the same location) become `matches`; everything else
+    is surfaced in `skipped` so the admin can pick manually. When dry_run is
+    false, high-confidence 1:1 matches are linked automatically.
+    """
+    # claimed_branch_code is a derived response field, not a DB column — we
+    # resolve it per-row here. Narrow the SQL filter to secondary claimants
+    # (is_existing_student == "MathConcept Secondary Academy") and unlinked
+    # apps; Python then drops rows whose center doesn't resolve to MSA/MSB.
+    candidate_apps = (
+        db.query(SummerApplication)
+        .filter(
+            SummerApplication.config_id == config_id,
+            SummerApplication.is_existing_student == "MathConcept Secondary Academy",
+            SummerApplication.existing_student_id.is_(None),
+        )
+        .all()
+    )
+    apps: list[tuple[SummerApplication, str]] = []
+    for app in candidate_apps:
+        center_name = (app.current_centers or [None])[0]
+        code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
+        if code in _SECONDARY_BRANCH_CODES:
+            apps.append((app, code))
+
+    def a_summary(a: SummerApplication, code: str) -> dict:
+        return {
+            "id": a.id,
+            "student_name": a.student_name,
+            "reference_code": a.reference_code,
+            "contact_phone": a.contact_phone,
+            "preferred_location": a.preferred_location,
+            "grade": a.grade,
+            "claimed_branch_code": code,
+        }
+
+    matches: list[dict] = []
+    skipped: list[dict] = []
+
+    for app, code in apps:
+        candidates = find_duplicate_students(
+            db, app.student_name, code, app.contact_phone
+        )
+        strong = [c for c in candidates if c["match_reason"] == _AUTO_LINK_REASON]
+        if len(strong) == 1 and len(candidates) == 1:
+            # Exactly one high-confidence 1:1 — safe to auto-link.
+            chosen = strong[0]
+            matches.append({"application": a_summary(app, code), "student": chosen})
+            if not dry_run:
+                app.existing_student_id = chosen["id"]
+        elif candidates:
+            skipped.append({
+                "application": a_summary(app, code),
+                "reason": "ambiguous_candidates",
+                "candidates": candidates,
+            })
+        # Apps with no candidates at all are neither matched nor skipped; the
+        # total_unlinked count below tells the admin how many remain.
+
+    if not dry_run:
+        db.commit()
+
+    return {
+        "total_unlinked": len(apps),
+        "matches": matches,
+        "skipped": skipped,
+    }
 
 
 @router.get("/summer/applications", response_model=list[SummerApplicationResponse])

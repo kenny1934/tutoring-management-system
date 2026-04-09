@@ -65,17 +65,17 @@ async def get_next_student_id(
     return {"next_id": _get_next_student_id(db, location)}
 
 
-@router.get("/students/check-duplicates")
-async def check_duplicates(
-    student_name: str = Query(..., description="Student name to check"),
-    location: str = Query(..., description="Home location"),
-    phone: Optional[str] = Query(None, description="Phone number to check"),
-    db: Session = Depends(get_db)
-):
-    """Check for potential duplicate students at the same location.
+def find_duplicate_students(
+    db: Session,
+    student_name: str,
+    location: str,
+    phone: Optional[str],
+) -> list[dict]:
+    """Find potential duplicate students at a location by name and/or phone.
 
     Returns one row per candidate with a merged match_reason — if both name
     and phone match, the reason surfaces both so callers can judge confidence.
+    Rows are sorted with the highest-confidence (name+phone) first.
     """
     # id -> (Student, set of signals)
     candidates: dict[int, tuple[Student, set[str]]] = {}
@@ -122,7 +122,18 @@ async def check_duplicates(
     ]
     # Name+phone matches are highest confidence — surface them first.
     duplicates.sort(key=lambda d: 0 if "and" in d["match_reason"] else 1)
-    return {"duplicates": duplicates}
+    return duplicates
+
+
+@router.get("/students/check-duplicates")
+async def check_duplicates(
+    student_name: str = Query(..., description="Student name to check"),
+    location: str = Query(..., description="Home location"),
+    phone: Optional[str] = Query(None, description="Phone number to check"),
+    db: Session = Depends(get_db)
+):
+    """Check for potential duplicate students at the same location."""
+    return {"duplicates": find_duplicate_students(db, student_name, location, phone)}
 
 
 @router.get("/students", response_model=List[StudentResponse])

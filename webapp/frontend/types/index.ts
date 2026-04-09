@@ -2699,6 +2699,46 @@ export interface AutoMatchResult {
   skipped: AutoMatchSkipEntry[];
 }
 
+// ---- Secondary student link suggestions ----
+
+export interface StudentSuggestionCandidate {
+  id: number;
+  student_name: string;
+  school_student_id?: string | null;
+  school?: string | null;
+  grade?: string | null;
+  home_location?: string | null;
+  lang_stream?: string | null;
+  match_reason: string;
+}
+
+export interface StudentLinkAppSummary {
+  id: number;
+  student_name: string;
+  reference_code: string | null;
+  contact_phone: string | null;
+  preferred_location: string | null;
+  grade: string | null;
+  claimed_branch_code: string | null;
+}
+
+export interface StudentLinkMatch {
+  application: StudentLinkAppSummary;
+  student: StudentSuggestionCandidate;
+}
+
+export interface StudentLinkSkipEntry {
+  application: StudentLinkAppSummary;
+  reason: "ambiguous_candidates";
+  candidates: StudentSuggestionCandidate[];
+}
+
+export interface StudentLinkSuggestResult {
+  total_unlinked: number;
+  matches: StudentLinkMatch[];
+  skipped: StudentLinkSkipEntry[];
+}
+
 // Student Progress Analytics Types
 // ============================================
 

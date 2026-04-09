@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -11,7 +12,7 @@ import { useToast } from "@/contexts/ToastContext";
 import {
   ClipboardList, Search, X, Loader2, ChevronDown, Check,
   ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
-  RefreshCw, CheckSquare, Users, SlidersHorizontal,
+  RefreshCw, CheckSquare, Users, SlidersHorizontal, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
@@ -19,6 +20,7 @@ import { List, type RowComponentProps, useListRef } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
+import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -75,9 +77,10 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-// Inline dropdown with click-outside + escape handling. Trigger is a render
-// prop so callers own the button styling; `triggerProps` must be spread onto
-// the trigger button to wire ARIA + the toggle handler.
+// Inline dropdown with click-outside + escape handling. The menu is portalled
+// to document.body so it escapes any overflow-hidden ancestors (the paper
+// card), and its position is computed from the trigger's bounding rect and
+// clamped to the viewport so it never overflows on narrow screens.
 type DropdownTriggerProps = {
   onClick: () => void;
   "aria-haspopup": "menu";
@@ -95,11 +98,43 @@ function DropdownMenu({
   menuClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // `left` is always the final clamped x-coordinate. We use left-only
+  // positioning (no `right`) so the menu can never escape the viewport
+  // regardless of whether align is "left" or "right".
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !wrapperRef.current) return;
+    const compute = () => {
+      const rect = wrapperRef.current!.getBoundingClientRect();
+      // Fall back to 220 on the first pass before the menu is in the DOM;
+      // the rAF pass below corrects once the real width is measured.
+      const menuWidth = menuRef.current?.offsetWidth ?? 220;
+      const preferred = align === "right" ? rect.right - menuWidth : rect.left;
+      const maxLeft = window.innerWidth - menuWidth - 8;
+      const left = Math.max(8, Math.min(preferred, maxLeft));
+      setPos({ top: rect.bottom + 6, left });
+    };
+    compute();
+    const raf = requestAnimationFrame(compute);
+    window.addEventListener("scroll", compute, true);
+    window.addEventListener("resize", compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", compute, true);
+      window.removeEventListener("resize", compute);
+    };
+  }, [open, align]);
+
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapperRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -111,27 +146,38 @@ function DropdownMenu({
       document.removeEventListener("keydown", onEsc);
     };
   }, [open]);
+
   const triggerProps: DropdownTriggerProps = {
     onClick: () => setOpen((o) => !o),
     "aria-haspopup": "menu",
     "aria-expanded": open,
   };
+
   return (
-    <div ref={ref} className="relative">
-      {trigger({ open, triggerProps })}
-      {open && (
+    <>
+      <span ref={wrapperRef} className="inline-flex">
+        {trigger({ open, triggerProps })}
+      </span>
+      {open && pos && typeof document !== "undefined" && createPortal(
         <div
+          ref={menuRef}
           role="menu"
+          style={{
+            position: "fixed",
+            top: `${pos.top}px`,
+            left: `${pos.left}px`,
+            maxWidth: "calc(100vw - 1rem)",
+          }}
           className={cn(
-            "absolute top-full mt-1.5 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]",
-            align === "right" ? "right-0" : "left-0",
+            "z-[60] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]",
             menuClassName,
           )}
         >
           {children(() => setOpen(false))}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 
@@ -201,6 +247,7 @@ export default function SummerApplicationsPage() {
     location: searchParams.get("location"),
     q: searchParams.get("q") || "",
     pending: searchParams.get("pending") === "1",
+    claim: searchParams.get("claim") === "1",
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
   }).current;
@@ -213,6 +260,7 @@ export default function SummerApplicationsPage() {
   const [gradeFilter, setGradeFilter] = useState<string | null>(urlInit.grade);
   const [locationFilter, setLocationFilter] = useState<string | null>(urlInit.location);
   const [pendingSiblingOnly, setPendingSiblingOnly] = useState(urlInit.pending);
+  const [pendingClaimOnly, setPendingClaimOnly] = useState(urlInit.claim);
   const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -236,6 +284,7 @@ export default function SummerApplicationsPage() {
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [linkSuggestionsOpen, setLinkSuggestionsOpen] = useState(false);
 
   // Data freshness
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -376,16 +425,21 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly;
-  // Count of filters that live in the "More" menu (grade + pending sibling).
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || pendingClaimOnly;
+  // Count of filters that live in the "More" menu.
   // Location lives in the header scope, status has its own dropdown, search is visible.
-  const moreFilterCount = [gradeFilter, pendingSiblingOnly ? "pending" : null].filter(Boolean).length;
+  const moreFilterCount = [
+    gradeFilter,
+    pendingSiblingOnly ? "pending-sibling" : null,
+    pendingClaimOnly ? "pending-claim" : null,
+  ].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setGradeFilter(null);
     setLocationFilter(null);
     setSearchQuery("");
     setPendingSiblingOnly(false);
+    setPendingClaimOnly(false);
   }, []);
 
   // Sync state → URL (replace, not push)
@@ -396,11 +450,12 @@ export default function SummerApplicationsPage() {
     if (locationFilter) params.set("location", locationFilter);
     if (debouncedSearch) params.set("q", debouncedSearch);
     if (pendingSiblingOnly) params.set("pending", "1");
+    if (pendingClaimOnly) params.set("claim", "1");
     if (viewPreset !== "latest") params.set("view", viewPreset);
     if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection) params.set("dir", sortDirection);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, viewPreset, sortDirection, router]);
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, viewPreset, sortDirection, router]);
 
   // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
@@ -433,9 +488,18 @@ export default function SummerApplicationsPage() {
   // Client-side sorting
   const sortedApplications = useMemo(() => {
     if (!applications) return [];
-    const filtered = pendingSiblingOnly
-      ? applications.filter((a) => (a.pending_sibling_count ?? 0) > 0)
-      : applications;
+    let filtered = applications;
+    if (pendingSiblingOnly) {
+      filtered = filtered.filter((a) => (a.pending_sibling_count ?? 0) > 0);
+    }
+    if (pendingClaimOnly) {
+      // Matches the amber "Claims: XXX" chip in PrimaryBranchChip: applicant
+      // claims to be an existing student at a specific branch but nothing has
+      // been linked yet (neither a Secondary student nor a Primary prospect).
+      filtered = filtered.filter((a) =>
+        !!a.claimed_branch_code && !a.linked_student && !a.linked_prospect,
+      );
+    }
     const sorted = [...filtered];
     const dir = sortDirection === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
@@ -459,7 +523,7 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection, pendingSiblingOnly]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly, pendingClaimOnly]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -658,7 +722,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
   // the DOM, so fall back to the list's imperative scrollToRow.
@@ -744,6 +808,16 @@ export default function SummerApplicationsPage() {
                   >
                     <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
                   </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => setLinkSuggestionsOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+                      title="Preview which unlinked applications can be matched to prospects or existing students"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline">Link suggestions</span>
+                    </button>
+                  )}
                   {locationOptions.length > 0 && (
                     <select
                       value={locationFilter || ""}
@@ -1039,9 +1113,18 @@ export default function SummerApplicationsPage() {
                         />
                         <span className="text-xs text-foreground">Pending sibling verification</span>
                       </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pendingClaimOnly}
+                          onChange={(e) => setPendingClaimOnly(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="text-xs text-foreground">Pending branch claim (unlinked)</span>
+                      </label>
                       {moreFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setPendingSiblingOnly(false); }}
+                          onClick={() => { setGradeFilter(null); setPendingSiblingOnly(false); setPendingClaimOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
                           Clear these filters
@@ -1383,6 +1466,13 @@ export default function SummerApplicationsPage() {
             )}
           </AnimatePresence>
       </PageTransition>
+      <ApplicationLinkSuggestionsModal
+        isOpen={linkSuggestionsOpen}
+        onClose={() => setLinkSuggestionsOpen(false)}
+        year={activeConfig?.year ?? null}
+        configId={configId}
+        onDone={handleRefresh}
+      />
     </DeskSurface>
   );
 }

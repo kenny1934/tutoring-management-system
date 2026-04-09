@@ -2358,6 +2358,11 @@ export const summerAPI = {
   getApplicationEdits: (id: number) =>
     fetchAPI<SummerApplicationEditEntry[]>(`/summer/applications/${id}/edits`),
 
+  suggestStudentLinks: (configId: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").StudentLinkSuggestResult>(
+      `/summer/admin/suggest-student-links?config_id=${configId}&dry_run=${options.dryRun ? "true" : "false"}`,
+    ),
+
   getApplicationStats: (params?: {
     config_id?: number;
     application_status?: string;
