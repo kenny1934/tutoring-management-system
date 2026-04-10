@@ -157,6 +157,7 @@ export function SummerApplicationDetailModal({
   const [notes, setNotes] = useState("");
   const [langStream, setLangStream] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [branchOrigin, setBranchOrigin] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [studentSearch, setStudentSearch] = useState("");
@@ -175,6 +176,8 @@ export function SummerApplicationDetailModal({
     if (studentId !== nextStudentId) setStudentId(nextStudentId);
     const nextLangStream = app.lang_stream || "";
     if (langStream !== nextLangStream) setLangStream(nextLangStream);
+    const nextBranch = app.verified_branch_origin || "";
+    if (branchOrigin !== nextBranch) setBranchOrigin(nextBranch);
     autoFilledLangRef.current = null;
   }
   const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
@@ -481,6 +484,7 @@ export function SummerApplicationDetailModal({
     notes !== (app.admin_notes || "") ||
     langStream !== (app.lang_stream || "") ||
     studentId !== (app.existing_student_id?.toString() || "") ||
+    branchOrigin !== (app.verified_branch_origin || "") ||
     detailChanged;
 
   const buildUpdate = (): SummerApplicationUpdate => {
@@ -490,6 +494,8 @@ export function SummerApplicationDetailModal({
     if (langStream !== (app.lang_stream || "")) update.lang_stream = langStream;
     const newStudentId = studentId ? parseInt(studentId, 10) : null;
     if (newStudentId !== (app.existing_student_id ?? null)) update.existing_student_id = newStudentId;
+    const newBranch = branchOrigin || null;
+    if (newBranch !== (app.verified_branch_origin ?? null)) update.verified_branch_origin = newBranch;
     if (dStudentName !== (app.student_name || "")) update.student_name = dStudentName;
     if (dGrade !== (app.grade || "")) update.grade = dGrade;
     if (dSchool !== (app.school || "")) update.school = dSchool;
@@ -1121,6 +1127,40 @@ export function SummerApplicationDetailModal({
                   </span>
                 )}
                 <PrimaryBranchChip app={app} />
+              </div>
+            </div>
+          </div>
+
+          {/* Verified Branch Origin */}
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg shrink-0">
+              <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400">Branch Origin (verified)</div>
+              <div className="flex items-center gap-2 mt-1">
+                {readOnly ? (
+                  <span className="text-sm text-foreground">
+                    {app.verified_branch_origin || "Unverified"}
+                  </span>
+                ) : (
+                  <select
+                    value={branchOrigin}
+                    onChange={(e) => setBranchOrigin(e.target.value)}
+                    className={cn(inputClass, "w-40 !py-1.5")}
+                  >
+                    <option value="">Unverified</option>
+                    <option value="New">New (no prior branch)</option>
+                    {[...Object.keys(BRANCH_INFO), "MSA", "MSB"].map((code) => (
+                      <option key={code} value={code}>{code}</option>
+                    ))}
+                  </select>
+                )}
+                {app.is_existing_student && app.is_existing_student !== "None" && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Claims: {app.is_existing_student}
+                  </span>
+                )}
               </div>
             </div>
           </div>

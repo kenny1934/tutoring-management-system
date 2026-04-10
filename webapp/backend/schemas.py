@@ -2320,6 +2320,7 @@ class SummerApplicationResponse(BaseModel):
     grade: str
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None
+    verified_branch_origin: Optional[str] = None
     current_centers: Optional[List[str]] = None
     wechat_id: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -2364,6 +2365,7 @@ class SummerApplicationUpdate(BaseModel):
     application_status: Optional[SummerApplicationStatus] = None
     admin_notes: Optional[str] = None
     existing_student_id: Optional[int] = None
+    verified_branch_origin: Optional[str] = Field(None, max_length=20)
     lang_stream: Optional[str] = Field(None, max_length=10)
     buddy_code: Optional[str] = Field(None, max_length=20, description="Set to code to join, empty string to leave, 'NEW' to create")
     buddy_referrer_name: Optional[str] = Field(None, max_length=255)

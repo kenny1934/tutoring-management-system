@@ -2203,6 +2203,7 @@ export interface SummerApplication {
   grade: string;
   lang_stream?: string | null;
   is_existing_student?: string | null;
+  verified_branch_origin?: string | null;
   current_centers?: string[] | null;
   wechat_id?: string | null;
   contact_phone?: string | null;
@@ -2272,6 +2273,7 @@ export interface SummerApplicationUpdate {
   application_status?: string;
   admin_notes?: string;
   existing_student_id?: number | null;
+  verified_branch_origin?: string | null;
   lang_stream?: string;
   buddy_code?: string;
   buddy_referrer_name?: string;

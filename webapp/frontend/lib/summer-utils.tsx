@@ -220,6 +220,9 @@ export const DAY_ABBREV: Record<string, string> = {
   Sunday: "Sun",
 };
 
+/** Application statuses that count as "exited" (excluded from active counts). */
+export const EXIT_STATUSES = new Set(["Withdrawn", "Rejected"]);
+
 /** Get short weekday from ISO date string, e.g. "2025-07-07" → "Mon". */
 export function getDayFromDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");

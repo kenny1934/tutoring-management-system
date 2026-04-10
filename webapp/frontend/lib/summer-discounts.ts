@@ -18,8 +18,7 @@
 // gated to the wrong tier.
 
 import type { SummerApplication, SummerPricingConfig } from "@/types";
-
-const EXIT_STATUSES = new Set(["Withdrawn", "Rejected"]);
+import { EXIT_STATUSES } from "@/lib/summer-utils";
 
 export type DiscountEntry = NonNullable<SummerPricingConfig["discounts"]>[number];
 

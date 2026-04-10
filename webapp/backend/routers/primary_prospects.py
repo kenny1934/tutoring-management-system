@@ -361,6 +361,9 @@ def admin_update_prospect(
             app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
             if not app:
                 raise HTTPException(404, "Summer application not found")
+            # Auto-fill verified branch origin from prospect's branch
+            if not app.verified_branch_origin:
+                app.verified_branch_origin = prospect.source_branch
         else:
             update_data["summer_application_id"] = None
 
@@ -618,6 +621,8 @@ def admin_auto_match(
         matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
         if not dry_run:
             prospect.summer_application_id = app.id
+            if not app.verified_branch_origin:
+                app.verified_branch_origin = prospect.source_branch
             if prospect.status == "New":
                 prospect.status = "Applied"
             prospect.updated_at = hk_now()

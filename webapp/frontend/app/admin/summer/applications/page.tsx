@@ -12,13 +12,14 @@ import { useToast } from "@/contexts/ToastContext";
 import {
   ClipboardList, Search, X, Loader2, ChevronDown, Check,
   ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
-  RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid,
+  RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { List, type RowComponentProps, useListRef } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
+import { SummerApplicationStats } from "@/components/admin/SummerApplicationStats";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
 import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
@@ -268,7 +269,7 @@ export default function SummerApplicationsPage() {
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
     legacyBuddyView: searchParams.get("view") === "by_buddy",
-    mode: (searchParams.get("mode") as "list" | "board" | null),
+    mode: (searchParams.get("mode") as "list" | "board" | "stats" | null),
   }).current;
 
   // Config selector
@@ -296,8 +297,8 @@ export default function SummerApplicationsPage() {
   const groupBy = presetConfig.groupBy;
 
   // Board vs list view mode. Legacy `?view=by_buddy` migrates to mode=board.
-  const [viewMode, setViewMode] = useState<"list" | "board">(
-    urlInit.mode === "board" || urlInit.legacyBuddyView ? "board" : "list",
+  const [viewMode, setViewMode] = useState<"list" | "board" | "stats">(
+    urlInit.mode === "board" || urlInit.legacyBuddyView ? "board" : urlInit.mode === "stats" ? "stats" : "list",
   );
 
   // UI state
@@ -480,7 +481,7 @@ export default function SummerApplicationsPage() {
     if (pendingSiblingOnly) params.set("pending", "1");
     if (pendingClaimOnly) params.set("claim", "1");
     if (branchFilter) params.set("branch", branchFilter);
-    if (viewMode === "board") params.set("mode", "board");
+    if (viewMode !== "list") params.set("mode", viewMode);
     if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
     if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
     const qs = params.toString();
@@ -1236,6 +1237,21 @@ export default function SummerApplicationsPage() {
                   >
                     <LayoutGrid className="h-3.5 w-3.5" />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("stats")}
+                    title="Stats"
+                    aria-label="Stats view"
+                    aria-pressed={viewMode === "stats"}
+                    className={cn(
+                      "px-2 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700",
+                      viewMode === "stats"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
                 <button
@@ -1294,6 +1310,8 @@ export default function SummerApplicationsPage() {
                     </div>
                   ))}
                 </div>
+              ) : viewMode === "stats" ? (
+                <SummerApplicationStats applications={applications ?? []} />
               ) : viewMode === "board" ? (
                 <SummerBuddyBoard
                   applications={applications}

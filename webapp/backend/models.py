@@ -1233,6 +1233,7 @@ class SummerApplication(Base):
     grade = Column(String(50), nullable=False)
     lang_stream = Column(String(10))
     is_existing_student = Column(String(100))
+    verified_branch_origin = Column(String(20), nullable=True)
     current_centers = Column(JSON, default=None)
     # Contact
     wechat_id = Column(String(100))

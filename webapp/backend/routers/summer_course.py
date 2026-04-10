@@ -1561,11 +1561,22 @@ def update_application(
             allowed_fields=_ADMIN_EDITABLE_FIELDS,
         )
 
-    # Anything left (admin_notes, existing_student_id, lang_stream when not in
-    # detail set) is written directly without audit — these are admin-only
-    # bookkeeping fields.
+    # Anything left (admin_notes, existing_student_id, verified_branch_origin,
+    # lang_stream when not in detail set) is written directly without audit —
+    # these are admin-only bookkeeping fields.
     for field, value in updates.items():
         setattr(app, field, value)
+
+    # Auto-fill verified_branch_origin when linking to a Secondary student,
+    # unless the admin explicitly set it in the same request.
+    if "existing_student_id" in data.model_fields_set and "verified_branch_origin" not in data.model_fields_set:
+        if app.existing_student_id:
+            student = db.query(Student).filter(Student.id == app.existing_student_id).first()
+            if student and student.home_location:
+                app.verified_branch_origin = student.home_location
+        else:
+            # Unlinked — clear auto-set origin (admin can re-verify manually)
+            app.verified_branch_origin = None
 
     db.commit()
 
