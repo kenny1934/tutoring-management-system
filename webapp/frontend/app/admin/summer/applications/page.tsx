@@ -264,7 +264,7 @@ export default function SummerApplicationsPage() {
     location: searchParams.get("location"),
     q: searchParams.get("q") || "",
     pending: searchParams.get("pending") === "1",
-    claim: searchParams.get("claim") === "1",
+    claim: searchParams.get("claim") === "1" || searchParams.get("unverified") === "1",
     branch: searchParams.get("branch"),
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
@@ -280,7 +280,7 @@ export default function SummerApplicationsPage() {
   const [gradeFilter, setGradeFilter] = useState<string | null>(urlInit.grade);
   const [locationFilter, setLocationFilter] = useState<string | null>(urlInit.location);
   const [pendingSiblingOnly, setPendingSiblingOnly] = useState(urlInit.pending);
-  const [pendingClaimOnly, setPendingClaimOnly] = useState(urlInit.claim);
+  const [unverifiedBranchOnly, setUnverifiedBranchOnly] = useState(urlInit.claim);
   // Branch scope: null = all, "new" = no link/claim, or a branch code (MAC…).
   const [branchFilter, setBranchFilter] = useState<string | null>(urlInit.branch);
   const [searchQuery, setSearchQuery] = useState(urlInit.q);
@@ -452,14 +452,14 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || pendingClaimOnly || branchFilter;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || unverifiedBranchOnly || branchFilter;
   // Count of filters that live in the "More" menu.
   // Location lives in the header scope, status has its own dropdown, search is visible.
   const moreFilterCount = [
     gradeFilter,
     branchFilter,
     pendingSiblingOnly ? "pending-sibling" : null,
-    pendingClaimOnly ? "pending-claim" : null,
+    unverifiedBranchOnly ? "unverified-branch" : null,
   ].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
@@ -467,7 +467,7 @@ export default function SummerApplicationsPage() {
     setLocationFilter(null);
     setSearchQuery("");
     setPendingSiblingOnly(false);
-    setPendingClaimOnly(false);
+    setUnverifiedBranchOnly(false);
     setBranchFilter(null);
   }, []);
 
@@ -479,14 +479,14 @@ export default function SummerApplicationsPage() {
     if (locationFilter) params.set("location", locationFilter);
     if (debouncedSearch) params.set("q", debouncedSearch);
     if (pendingSiblingOnly) params.set("pending", "1");
-    if (pendingClaimOnly) params.set("claim", "1");
+    if (unverifiedBranchOnly) params.set("unverified", "1");
     if (branchFilter) params.set("branch", branchFilter);
     if (viewMode !== "list") params.set("mode", viewMode);
     if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
     if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, viewPreset, sortDirection, viewMode, router]);
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, viewPreset, sortDirection, viewMode, router]);
 
   // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
@@ -541,13 +541,8 @@ export default function SummerApplicationsPage() {
     if (pendingSiblingOnly) {
       filtered = filtered.filter((a) => (a.pending_sibling_count ?? 0) > 0);
     }
-    if (pendingClaimOnly) {
-      // Matches the amber "Claims: XXX" chip in PrimaryBranchChip: applicant
-      // claims to be an existing student at a specific branch but nothing has
-      // been linked yet (neither a Secondary student nor a Primary prospect).
-      filtered = filtered.filter((a) =>
-        !!a.claimed_branch_code && !a.linked_student && !a.linked_prospect,
-      );
+    if (unverifiedBranchOnly) {
+      filtered = filtered.filter((a) => !a.verified_branch_origin);
     }
     if (branchFilter) {
       filtered = filtered.filter((a) => {
@@ -578,20 +573,20 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection, pendingSiblingOnly, pendingClaimOnly, branchFilter]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly, unverifiedBranchOnly, branchFilter]);
 
   // Member-level filter for the board view. Status/location/grade/search are
   // already applied server-side (they drive the SWR key), so this only needs
   // to enforce the two client-side filters.
   const buddyBoardPredicate = useCallback((a: SummerApplication) => {
     if (pendingSiblingOnly && (a.pending_sibling_count ?? 0) === 0) return false;
-    if (pendingClaimOnly && (!a.claimed_branch_code || !!a.linked_student || !!a.linked_prospect)) return false;
+    if (unverifiedBranchOnly && !!a.verified_branch_origin) return false;
     if (branchFilter) {
       const code = getAppBranchCode(a);
       if (branchFilter === "new" ? code !== null : code !== branchFilter) return false;
     }
     return true;
-  }, [pendingSiblingOnly, pendingClaimOnly, branchFilter]);
+  }, [pendingSiblingOnly, unverifiedBranchOnly, branchFilter]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -778,7 +773,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, pendingClaimOnly, branchFilter, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
   // the DOM, so fall back to the list's imperative scrollToRow.
@@ -1188,15 +1183,15 @@ export default function SummerApplicationsPage() {
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={pendingClaimOnly}
-                          onChange={(e) => setPendingClaimOnly(e.target.checked)}
+                          checked={unverifiedBranchOnly}
+                          onChange={(e) => setUnverifiedBranchOnly(e.target.checked)}
                           className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
                         />
-                        <span className="text-xs text-foreground">Pending branch claim (unlinked)</span>
+                        <span className="text-xs text-foreground">Unverified branch origin</span>
                       </label>
                       {moreFilterCount > 0 && (
                         <button
-                          onClick={() => { setGradeFilter(null); setBranchFilter(null); setPendingSiblingOnly(false); setPendingClaimOnly(false); }}
+                          onClick={() => { setGradeFilter(null); setBranchFilter(null); setPendingSiblingOnly(false); setUnverifiedBranchOnly(false); }}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
                           Clear these filters

@@ -1127,39 +1127,30 @@ export function SummerApplicationDetailModal({
                   </span>
                 )}
                 <PrimaryBranchChip app={app} />
-              </div>
-            </div>
-          </div>
-
-          {/* Verified Branch Origin */}
-          <div className="flex items-start gap-3">
-            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg shrink-0">
-              <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs text-gray-500 dark:text-gray-400">Branch Origin (verified)</div>
-              <div className="flex items-center gap-2 mt-1">
                 {readOnly ? (
-                  <span className="text-sm text-foreground">
-                    {app.verified_branch_origin || "Unverified"}
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded shrink-0",
+                    app.verified_branch_origin
+                      ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-semibold"
+                      : "bg-gray-100 dark:bg-gray-800 text-muted-foreground italic"
+                  )}>
+                    {app.verified_branch_origin ? `✓ ${app.verified_branch_origin}` : "Unverified"}
                   </span>
                 ) : (
                   <select
                     value={branchOrigin}
                     onChange={(e) => setBranchOrigin(e.target.value)}
-                    className={cn(inputClass, "w-40 !py-1.5")}
+                    title={app.is_existing_student && app.is_existing_student !== "None"
+                      ? `Applicant claims: ${app.is_existing_student}`
+                      : "Verified branch origin"}
+                    className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
                   >
                     <option value="">Unverified</option>
-                    <option value="New">New (no prior branch)</option>
-                    {[...Object.keys(BRANCH_INFO), "MSA", "MSB"].map((code) => (
+                    <option value="New">New</option>
+                    {[...Object.keys(BRANCH_INFO).filter(c => c !== "KC"), "MSA", "MSB"].map((code) => (
                       <option key={code} value={code}>{code}</option>
                     ))}
                   </select>
-                )}
-                {app.is_existing_student && app.is_existing_student !== "None" && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Claims: {app.is_existing_student}
-                  </span>
                 )}
               </div>
             </div>
