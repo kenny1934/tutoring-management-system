@@ -330,6 +330,7 @@ class SessionExercise(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     remarks = Column(Text)
     url = Column(String(2048), nullable=True, comment='External URL (Google Slides, etc.)')
+    url_title = Column(String(500), nullable=True, comment='Fetched title of external URL')
     # Answer file fields (for manual answer selection)
     answer_pdf_name = Column(String(255), nullable=True, comment='Manually selected answer PDF path')
     answer_page_start = Column(Integer, nullable=True)

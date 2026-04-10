@@ -520,6 +520,7 @@ class SessionExerciseResponse(BaseModel):
     created_at: Optional[datetime] = None
     remarks: Optional[str] = Field(None, max_length=1000)
     url: Optional[str] = Field(None, max_length=2048)
+    url_title: Optional[str] = Field(None, max_length=500)
     # Answer file fields
     answer_pdf_name: Optional[str] = Field(None, max_length=500)
     answer_page_start: Optional[int] = Field(None, gt=0)
@@ -537,6 +538,7 @@ class ExerciseCreateRequest(BaseModel):
     page_end: Optional[int] = Field(None, gt=0)
     remarks: Optional[str] = Field(None, max_length=1000)
     url: Optional[str] = Field(None, max_length=2048)
+    url_title: Optional[str] = Field(None, max_length=500)
     # Answer file fields (for manual answer selection)
     answer_pdf_name: Optional[str] = Field(None, max_length=500)
     answer_page_start: Optional[int] = Field(None, gt=0)
@@ -2836,7 +2838,9 @@ class ExerciseDetail(BaseModel):
     """Single exercise entry for topic list"""
     session_date: date
     exercise_type: str
-    pdf_name: str
+    pdf_name: Optional[str] = None
+    url: Optional[str] = None
+    url_title: Optional[str] = None
     page_start: Optional[int] = None
     page_end: Optional[int] = None
 

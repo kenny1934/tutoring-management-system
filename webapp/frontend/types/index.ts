@@ -208,6 +208,7 @@ export interface SessionExercise {
   created_at?: string;
   remarks?: string;
   url?: string;
+  url_title?: string;
   // Answer file fields (for manual answer selection)
   answer_pdf_name?: string;
   answer_page_start?: number;
@@ -2777,7 +2778,9 @@ export interface RatingSummary {
 export interface ExerciseDetail {
   session_date: string;
   exercise_type: string;
-  pdf_name: string;
+  pdf_name?: string;
+  url?: string;
+  url_title?: string;
   page_start?: number;
   page_end?: number;
 }

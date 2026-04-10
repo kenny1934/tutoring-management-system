@@ -10,6 +10,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 interface RecapExerciseItemProps {
   pdfName: string;
   url?: string;
+  urlTitle?: string;
   pageStart?: number;
   pageEnd?: number;
   stamp?: PrintStampInfo;
@@ -20,7 +21,7 @@ interface RecapExerciseItemProps {
  * Shows filename, page info, and copy/open/print buttons.
  * Memoized to prevent re-renders when parent state changes.
  */
-export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url, pageStart, pageEnd, stamp }: RecapExerciseItemProps) {
+export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url, urlTitle, pageStart, pageEnd, stamp }: RecapExerciseItemProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -28,7 +29,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   const isUrlExercise = !!url && !pdfName;
-  const displayName = isUrlExercise ? getUrlDisplayName(url!) : getDisplayName(pdfName);
+  const displayName = isUrlExercise ? getUrlDisplayName(url!, urlTitle) : getDisplayName(pdfName);
 
   const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
     ? `(p${pageStart}-${pageEnd})`

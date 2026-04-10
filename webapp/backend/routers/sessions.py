@@ -365,6 +365,55 @@ async def get_aged_pending_makeups_count(
     return AgedPendingMakeupsCount(count=count, critical=critical)
 
 
+@router.get("/sessions/url-metadata")
+async def get_url_metadata(
+    url: str = Query(..., max_length=2048),
+    current_user: Tutor = Depends(get_current_user),
+):
+    """Fetch the page title from a Google Docs/Slides/Sheets URL using Drive API."""
+    import re
+    import os
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.hostname not in ("docs.google.com",):
+        raise HTTPException(status_code=400, detail="Only Google Docs/Slides/Sheets URLs are supported")
+
+    doc_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', parsed.path)
+    if not doc_id_match:
+        return {"title": ""}
+    doc_id = doc_id_match.group(1)
+
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+
+        drive_refresh_token = os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN")
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+
+        if not all([drive_refresh_token, client_id, client_secret]):
+            return {"title": ""}
+
+        credentials = Credentials(
+            token=None,
+            refresh_token=drive_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"]
+        )
+        credentials.refresh(Request())
+
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+        file_metadata = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
+        return {"title": file_metadata.get("name", "")}
+    except Exception as e:
+        logging.error(f"[url-metadata] Drive API error: {type(e).__name__}: {e}")
+        return {"title": ""}
+
+
 @router.get("/sessions/{session_id}", response_model=DetailedSessionResponse)
 async def get_session_detail(
     session_id: int,
@@ -1373,6 +1422,7 @@ async def save_session_exercises(
             page_end=ex.page_end,
             remarks=ex.remarks,
             url=ex.url,
+            url_title=ex.url_title,
             # Answer file fields
             answer_pdf_name=ex.answer_pdf_name,
             answer_page_start=ex.answer_page_start,

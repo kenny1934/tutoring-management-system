@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -2385,11 +2385,13 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
 // Open/Print action buttons for courseware exercise rows
 const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
   pdfName,
+  url,
   pageStart,
   pageEnd,
   stamp,
 }: {
-  pdfName: string;
+  pdfName?: string;
+  url?: string;
   pageStart?: number;
   pageEnd?: number;
   stamp?: PrintStampInfo;
@@ -2397,6 +2399,17 @@ const CoursewareExerciseActions = memo(function CoursewareExerciseActions({
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  if (url && !pdfName) {
+    return (
+      <div className="flex items-center gap-0.5 flex-shrink-0">
+        <button type="button" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
+          className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Open URL">
+          <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+        </button>
+      </div>
+    );
+  }
 
   if (!canBrowseFiles) return null;
 
@@ -2549,7 +2562,9 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
 interface CoursewareExercise {
   id?: number;
   exercise_type: string;
-  pdf_name: string;
+  pdf_name?: string;
+  url?: string;
+  url_title?: string;
   page_start?: number;
   page_end?: number;
   remarks?: string;
@@ -2627,7 +2642,7 @@ function CoursewareTab({
       if (!isCW && !showHW) return false;
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const displayName = getDisplayName(ex.pdf_name).toLowerCase();
+        const displayName = (ex.pdf_name ? getDisplayName(ex.pdf_name) : getUrlDisplayName(ex.url || '', ex.url_title)).toLowerCase();
         if (!displayName.includes(query) && !ex.remarks?.toLowerCase().includes(query)) {
           return false;
         }
@@ -2885,7 +2900,7 @@ function CoursewareTab({
                               className="flex items-center gap-2 py-1.5 px-2 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
-                                {getDisplayName(exercise.pdf_name)}
+                                {exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title)}
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2898,7 +2913,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               <div className="ml-auto flex-shrink-0">
-                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
                               </div>
                             </div>
                           ))}
@@ -2928,7 +2943,7 @@ function CoursewareTab({
                               className="flex items-center gap-2 py-1.5 px-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
-                                {getDisplayName(exercise.pdf_name)}
+                                {exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title)}
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2941,7 +2956,7 @@ function CoursewareTab({
                                 </span>
                               )}
                               <div className="ml-auto flex-shrink-0">
-                                <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                                <CoursewareExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
                               </div>
                             </div>
                           ))}

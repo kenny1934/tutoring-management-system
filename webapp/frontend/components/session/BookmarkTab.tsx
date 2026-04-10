@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { History, Star, Home, ChevronDown, ChevronRight, BookOpen, Copy, Check, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import type { Session, HomeworkCompletion } from "@/types";
+import { getUrlDisplayName } from "@/lib/exercise-utils";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -217,10 +218,10 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                         >
                           {/* Main row: PDF name with copy button */}
                           <div className="flex items-center gap-1.5 mb-1">
-                            <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={cw.pdf_name}>
-                              {cw.pdf_name}
+                            <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={cw.pdf_name || cw.url}>
+                              {cw.pdf_name || getUrlDisplayName(cw.url || '', cw.url_title)}
                             </p>
-                            <CopyButton text={cw.pdf_name} />
+                            <CopyButton text={cw.pdf_name || cw.url || ''} />
                           </div>
 
                           {/* Metadata row */}
@@ -302,10 +303,10 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                       {/* Main row: PDF name with copy button and status */}
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={hw.pdf_name}>
-                            {hw.pdf_name}
+                          <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={hw.pdf_name || hw.url}>
+                            {hw.pdf_name || getUrlDisplayName(hw.url || '', hw.url_title)}
                           </p>
-                          <CopyButton text={hw.pdf_name || ""} />
+                          <CopyButton text={hw.pdf_name || hw.url || ""} />
                         </div>
                         <Badge
                           variant={

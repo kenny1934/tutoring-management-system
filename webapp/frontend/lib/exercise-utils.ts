@@ -18,6 +18,7 @@ export interface ExerciseFormItemBase {
   exercise_type: "CW" | "HW";
   pdf_name: string;
   url: string;
+  url_title: string;
   page_mode: 'simple' | 'custom';
   page_start: string;
   page_end: string;
@@ -53,6 +54,7 @@ export function createExercise(
     exercise_type: exerciseType,
     pdf_name: pdfName,
     url: "",
+    url_title: "",
     page_mode: 'simple',
     page_start: "",
     page_end: "",
@@ -82,6 +84,7 @@ export function createExerciseFromSelection(
       exercise_type: exerciseType,
       pdf_name: path,
       url: "",
+      url_title: "",
       page_mode: 'custom',
       page_start: "",
       page_end: "",
@@ -100,6 +103,7 @@ export function createExerciseFromSelection(
     exercise_type: exerciseType,
     pdf_name: path,
     url: "",
+    url_title: "",
     page_mode: 'simple',
     page_start: pageSelection?.pageStart?.toString() || "",
     page_end: pageSelection?.pageEnd?.toString() || "",
@@ -348,6 +352,7 @@ const CLIPBOARD_EVENT = 'exercise-clipboard-changed';
 export interface ExerciseClipboardItem {
   pdf_name: string;
   url: string;
+  url_title: string;
   page_mode: 'simple' | 'custom';
   page_start: string;
   page_end: string;
@@ -387,6 +392,7 @@ export function copyExercisesToClipboard(
   const items: ExerciseClipboardItem[] = exercises.map(ex => ({
     pdf_name: ex.pdf_name,
     url: ex.url,
+    url_title: ex.url_title,
     page_mode: ex.page_mode,
     page_start: ex.page_start,
     page_end: ex.page_end,
@@ -454,6 +460,7 @@ export function createExercisesFromClipboard(
     exercise_type: exerciseType,
     pdf_name: item.pdf_name,
     url: item.url || "",
+    url_title: item.url_title || "",
     page_mode: item.page_mode,
     page_start: item.page_start,
     page_end: item.page_end,
@@ -567,7 +574,8 @@ export function isUrl(input: string): boolean {
  * Google Docs → "Google Docs"
  * Other → hostname
  */
-export function getUrlDisplayName(url: string): string {
+export function getUrlDisplayName(url: string, title?: string): string {
+  if (title) return title;
   if (!url) return '';
   try {
     const u = new URL(url);

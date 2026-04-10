@@ -13,6 +13,7 @@ import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, 
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
+import { getUrlDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
   Star,
@@ -54,11 +55,13 @@ const LessonMode = dynamic(() =>
 // Open/Print action buttons for exercise cards
 const SessionExerciseActions = memo(function SessionExerciseActions({
   pdfName,
+  url,
   pageStart,
   pageEnd,
   stamp,
 }: {
-  pdfName: string;
+  pdfName?: string;
+  url?: string;
   pageStart?: number;
   pageEnd?: number;
   stamp?: PrintStampInfo;
@@ -66,6 +69,18 @@ const SessionExerciseActions = memo(function SessionExerciseActions({
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
+  // URL exercise: just show open-in-new-tab button
+  if (url && !pdfName) {
+    return (
+      <div className="flex items-center gap-0.5 flex-shrink-0">
+        <button type="button" onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
+          className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded" title="Open URL" aria-label="Open URL">
+          <ExternalLink className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+        </button>
+      </div>
+    );
+  }
 
   if (!canBrowseFiles) return null;
 
@@ -656,17 +671,17 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name || getUrlDisplayName(exercise.url || '', exercise.url_title)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (
                                   <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                                ) : (
+                                ) : !exercise.url ? (
                                   <p className="text-sm text-muted-foreground">Entire PDF</p>
-                                )}
+                                ) : null}
                                 {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
                               </div>
-                              <SessionExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
+                              <SessionExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
                             </motion.div>
                           );
                         })}
@@ -702,17 +717,17 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name || getUrlDisplayName(exercise.url || '', exercise.url_title)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (
                                   <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                                ) : (
+                                ) : !exercise.url ? (
                                   <p className="text-sm text-muted-foreground">Entire PDF</p>
-                                )}
+                                ) : null}
                                 {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
                               </div>
-                              <SessionExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
+                              <SessionExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={printStamp} />
                             </motion.div>
                           );
                         })}

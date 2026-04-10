@@ -153,6 +153,8 @@ def get_student_progress(
         SessionLog.session_date,
         SessionExercise.exercise_type,
         SessionExercise.pdf_name,
+        SessionExercise.url,
+        SessionExercise.url_title,
         SessionExercise.page_start,
         SessionExercise.page_end,
     ).join(SessionLog, SessionExercise.session_id == SessionLog.id).filter(
@@ -173,7 +175,9 @@ def get_student_progress(
             ExerciseDetail(
                 session_date=r.session_date,
                 exercise_type=r.exercise_type or CW_TYPE,
-                pdf_name=r.pdf_name or "",
+                pdf_name=r.pdf_name,
+                url=r.url,
+                url_title=r.url_title,
                 page_start=r.page_start,
                 page_end=r.page_end,
             )

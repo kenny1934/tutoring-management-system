@@ -1144,7 +1144,7 @@ export function LessonMode({
                           className="w-full flex-1 border-0 rounded"
                           allowFullScreen
                           sandbox="allow-scripts allow-same-origin allow-popups"
-                          title={getUrlDisplayName(selectedExercise.url)}
+                          title={getUrlDisplayName(selectedExercise.url, selectedExercise.url_title)}
                         />
                       );
                     }

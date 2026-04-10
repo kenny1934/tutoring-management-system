@@ -10,7 +10,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { sessionsAPI } from "@/lib/api";
+import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
@@ -207,6 +207,7 @@ export function BulkExerciseModal({
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name || null,
       url: ex.url || null,
+      url_title: ex.url_title || null,
       page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
       remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
@@ -367,8 +368,13 @@ export function BulkExerciseModal({
     // Check if pasted text is a URL → switch to URL mode
     if (isUrl(pastedText)) {
       e.preventDefault();
-      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "" } : ex));
+      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "", url_title: "" } : ex));
       setIsDirty(true);
+      sessionsAPI.fetchUrlMetadata(pastedText).then(res => {
+        if (res.title) {
+          setExercises(prev => prev.map((ex, i) => i === index && ex.url === pastedText ? { ...ex, url_title: res.title } : ex));
+        }
+      }).catch(() => {});
       return;
     }
 
@@ -948,7 +954,7 @@ export function BulkExerciseModal({
                     {/* Resource input (PDF path or URL) */}
                     <div className="relative flex-1 min-w-0">
                       {exercise.url && (
-                        <Globe className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
+                        <Globe className="absolute left-2 top-[9px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
                       )}
                       <input
                         ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
@@ -973,6 +979,11 @@ export function BulkExerciseModal({
                           isDraggingOver === index && "border-amber-400"
                         )}
                       />
+                      {exercise.url && exercise.url_title && (
+                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate pl-7 mt-0.5" title={exercise.url_title}>
+                          {exercise.url_title}
+                        </div>
+                      )}
                     </div>
 
                     {/* File action buttons (hidden for URL exercises) */}

@@ -1,4 +1,4 @@
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
 import type { ExerciseDetail } from "@/types";
 
 interface ReportTopicsCoveredProps {
@@ -49,7 +49,7 @@ export function ReportTopicsCovered({ data }: ReportTopicsCoveredProps) {
               <div className="w-[72px] shrink-0 text-gray-500 pt-0.5">{formatted}</div>
               <div className="flex flex-wrap gap-1.5 min-w-0">
                 {exercises.map((ex, i) => {
-                  const name = getDisplayName(ex.pdf_name);
+                  const name = ex.pdf_name ? getDisplayName(ex.pdf_name) : getUrlDisplayName(ex.url || '', ex.url_title);
                   const pages = formatPageRange(ex.page_start, ex.page_end);
                   const isCW = ex.exercise_type === "CW" || ex.exercise_type === "Classwork";
 

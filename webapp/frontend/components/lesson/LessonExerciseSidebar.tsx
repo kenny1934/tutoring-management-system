@@ -49,7 +49,7 @@ function ExerciseItem({
   printProgress?: string | null;
 }) {
   const isUrlExercise = !!exercise.url && !exercise.pdf_name;
-  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '');
+  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title);
   const pageLabel = getPageLabel(exercise);
 
   return (

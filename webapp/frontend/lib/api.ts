@@ -801,6 +801,10 @@ export const sessionsAPI = {
     return fetchAPI<ExerciseHistoryResponse>(`/sessions/student/${studentId}/exercise-history${query ? `?${query}` : ""}`);
   },
 
+  fetchUrlMetadata: (url: string) => {
+    return fetchAPI<{ title: string }>(`/sessions/url-metadata?url=${encodeURIComponent(url)}`);
+  },
+
   // Undo/Redo
   undoStatus: (id: number) => {
     return fetchAPI<Session & { undone_from_status?: string }>(`/sessions/${id}/undo`, {

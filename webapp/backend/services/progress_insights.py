@@ -47,7 +47,7 @@ def _extract_topics(exercises: list[ExerciseDetail]) -> list[TopicCount]:
     """Count topic frequencies from exercise display names."""
     counter: Counter[str] = Counter()
     for ex in exercises:
-        name = _display_name(ex.pdf_name)
+        name = ex.url_title if (ex.url and not ex.pdf_name and ex.url_title) else _display_name(ex.pdf_name or "")
         if name:
             counter[name] += 1
 

@@ -201,7 +201,7 @@ export function LessonWideMode({
       if (!group) {
         group = {
           pdfName: entry.exercise.pdf_name,
-          displayName: entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || ''),
+          displayName: entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || '', entry.exercise.url_title),
           exerciseType: type,
           entries: [],
         };
@@ -255,7 +255,7 @@ export function LessonWideMode({
   const exerciseLabel = selectedEntry?.exercise?.pdf_name
     ? getDisplayName(selectedEntry.exercise.pdf_name)
     : selectedEntry?.exercise?.url
-      ? getUrlDisplayName(selectedEntry.exercise.url)
+      ? getUrlDisplayName(selectedEntry.exercise.url, selectedEntry.exercise.url_title)
       : undefined;
 
   // --- Browser tab title ---
@@ -1287,7 +1287,7 @@ export function LessonWideMode({
                           className="w-full flex-1 border-0 rounded"
                           allowFullScreen
                           sandbox="allow-scripts allow-same-origin allow-popups"
-                          title={getUrlDisplayName(selectedEntry.exercise.url!)}
+                          title={getUrlDisplayName(selectedEntry.exercise.url!, selectedEntry.exercise.url_title)}
                         />
                       );
                     }

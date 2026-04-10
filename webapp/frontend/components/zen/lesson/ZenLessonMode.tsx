@@ -188,7 +188,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
                       style={{ width: "100%", flex: 1, border: "none" }}
                       allowFullScreen
                       sandbox="allow-scripts allow-same-origin allow-popups"
-                      title={getUrlDisplayName(selectedExercise.url)}
+                      title={getUrlDisplayName(selectedExercise.url, selectedExercise.url_title)}
                     />
                   );
                 }
@@ -310,7 +310,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         </span>
         {selectedExercise && (
           <span style={{ color: "var(--zen-fg)" }}>
-            {selectedExercise.pdf_name ? getDisplayName(selectedExercise.pdf_name) : getUrlDisplayName(selectedExercise.url || '')}
+            {selectedExercise.pdf_name ? getDisplayName(selectedExercise.pdf_name) : getUrlDisplayName(selectedExercise.url || '', selectedExercise.url_title)}
           </span>
         )}
       </div>

@@ -288,6 +288,7 @@ export function ExerciseModal({
             exercise_type: exerciseType,
             pdf_name: ex.pdf_name || "",
             url: ex.url || "",
+            url_title: ex.url_title || "",
             page_mode: pageMode,
             page_start: ex.page_start?.toString() || "",
             page_end: ex.page_end?.toString() || "",
@@ -352,6 +353,7 @@ export function ExerciseModal({
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name || null,
       url: ex.url || null,
+      url_title: ex.url_title || null,
       // Only include simple range values if in simple mode
       page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
@@ -377,6 +379,7 @@ export function ExerciseModal({
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name ?? undefined,
       url: ex.url ?? undefined,
+      url_title: ex.url_title ?? undefined,
       page_start: ex.page_start ?? undefined,
       page_end: ex.page_end ?? undefined,
       remarks: ex.remarks ?? undefined,
@@ -709,11 +712,17 @@ export function ExerciseModal({
   ) => {
     const pastedText = e.clipboardData.getData('text').trim();
 
-    // Check if pasted text is a URL → switch to URL mode
+    // Check if pasted text is a URL → switch to URL mode and fetch title
     if (isUrl(pastedText)) {
       e.preventDefault();
-      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "" } : ex));
+      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "", url_title: "" } : ex));
       setIsDirty(true);
+      // Fetch title in background
+      sessionsAPI.fetchUrlMetadata(pastedText).then(res => {
+        if (res.title) {
+          setExercises(prev => prev.map((ex, i) => i === index && ex.url === pastedText ? { ...ex, url_title: res.title } : ex));
+        }
+      }).catch(() => {});
       return;
     }
 
@@ -1171,7 +1180,7 @@ export function ExerciseModal({
                       <div className="mt-1 space-y-0.5">
                         <span className="text-gray-500 text-[10px]">Classwork:</span>
                         {prevClasswork.map((ex, i) => (
-                          <RecapExerciseItem key={i} pdfName={ex.pdf_name || ''} url={ex.url} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
+                          <RecapExerciseItem key={i} pdfName={ex.pdf_name || ''} url={ex.url} urlTitle={ex.url_title} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
                         ))}
                       </div>
                     )}
@@ -1676,7 +1685,7 @@ export function ExerciseModal({
                     {/* Resource input (PDF path or URL) */}
                     <div className="relative flex-1 min-w-0">
                       {exercise.url && (
-                        <Globe className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
+                        <Globe className="absolute left-2 top-[9px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
                       )}
                       <input
                         ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
@@ -1701,6 +1710,11 @@ export function ExerciseModal({
                           isDraggingOver === index && "border-amber-400"
                         )}
                       />
+                      {exercise.url && exercise.url_title && (
+                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate pl-7 mt-0.5" title={exercise.url_title}>
+                          {exercise.url_title}
+                        </div>
+                      )}
                     </div>
 
                     {/* Duplicate warning icon */}

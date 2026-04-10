@@ -53,7 +53,7 @@ function StudentExerciseItem({
   isPrinting?: boolean;
   printProgress?: string | null;
 }) {
-  const displayName = entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || '');
+  const displayName = entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || '', entry.exercise.url_title);
   const pageLabel = getPageLabel(entry.exercise);
 
   return (
@@ -73,7 +73,7 @@ function StudentExerciseItem({
             "truncate font-medium",
             isSelected ? "text-[#6b4c30] dark:text-[#d4a574]" : "text-gray-700 dark:text-gray-300"
           )}>
-            {entry.exercise.pdf_name ? displayName : "(no file)"}
+            {(entry.exercise.pdf_name || entry.exercise.url) ? displayName : "(no file)"}
           </div>
           {pageLabel && (
             <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">{pageLabel}</span>

@@ -230,7 +230,9 @@ export function ExerciseHistoryPanel({
                               {cw.map((ex) => (
                                 <RecapExerciseItem
                                   key={ex.id}
-                                  pdfName={ex.pdf_name}
+                                  pdfName={ex.pdf_name || ''}
+                                  url={ex.url}
+                                  urlTitle={ex.url_title}
                                   pageStart={ex.page_start}
                                   pageEnd={ex.page_end}
                                   stamp={stamp}
@@ -249,7 +251,9 @@ export function ExerciseHistoryPanel({
                               {hw.map((ex) => (
                                 <RecapExerciseItem
                                   key={ex.id}
-                                  pdfName={ex.pdf_name}
+                                  pdfName={ex.pdf_name || ''}
+                                  url={ex.url}
+                                  urlTitle={ex.url_title}
                                   pageStart={ex.page_start}
                                   pageEnd={ex.page_end}
                                   stamp={stamp}

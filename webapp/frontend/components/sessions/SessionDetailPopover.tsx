@@ -40,13 +40,13 @@ import {
 import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getDisplayName, getUrlDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
-const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
+const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name?: string; url?: string; url_title?: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
   const { complexPages } = parseExerciseRemarks(exercise.remarks);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -56,7 +56,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(exercise.pdf_name);
+      await navigator.clipboard.writeText(exercise.url || exercise.pdf_name || '');
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 1500);
     } catch (err) {
@@ -103,7 +103,8 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
     }
   };
 
-  const displayName = getDisplayName(exercise.pdf_name);
+  const isUrlExercise = !!exercise.url && !exercise.pdf_name;
+  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title);
   const pageInfo = complexPages
     ? ` (p${complexPages})`
     : exercise.page_start
@@ -115,12 +116,12 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0 overflow-hidden flex-1">
       {(openState === 'loading' || printState === 'loading') && progressMessage ? (
-        <span className="truncate min-w-0 text-amber-600 dark:text-amber-400 italic" title={exercise.pdf_name}>
+        <span className="truncate min-w-0 text-amber-600 dark:text-amber-400 italic" title={exercise.pdf_name || exercise.url}>
           {progressMessage}
         </span>
       ) : (
         <>
-          <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
+          <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name || exercise.url}>
             {displayName}
           </span>
           {pageInfo && (
@@ -143,7 +144,15 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
           <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
         )}
       </button>
-      {canBrowseFiles && (
+      {isUrlExercise ? (
+        <button
+          onClick={() => window.open(exercise.url, '_blank')}
+          className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded flex-shrink-0"
+          title="Open URL"
+        >
+          <ExternalLink className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+        </button>
+      ) : canBrowseFiles && (
         <>
           <button
             onClick={handleOpen}
@@ -181,6 +190,8 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   // Custom comparison - only re-render if exercise data changes
   return (
     prevProps.exercise.pdf_name === nextProps.exercise.pdf_name &&
+    prevProps.exercise.url === nextProps.exercise.url &&
+    prevProps.exercise.url_title === nextProps.exercise.url_title &&
     prevProps.exercise.page_start === nextProps.exercise.page_start &&
     prevProps.exercise.page_end === nextProps.exercise.page_end &&
     prevProps.exercise.remarks === nextProps.exercise.remarks
@@ -189,7 +200,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
 
 // Exercises list component
 function ExercisesList({ exercises, session }: {
-  exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number; remarks?: string }>;
+  exercises: Array<{ exercise_type: string; pdf_name?: string; url?: string; url_title?: string; page_start?: number; page_end?: number; remarks?: string }>;
   session: Session;
 }) {
   const [cwPrintState, setCwPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -1153,10 +1164,10 @@ export function SessionDetailPopover({
                           )}>
                             {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
                           </span>
-                          {hw.pdf_name ? (
-                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name }} stamp={printStamp} />
+                          {(hw.pdf_name || hw.url) ? (
+                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name, url: hw.url, url_title: hw.url_title }} stamp={printStamp} />
                           ) : (
-                            <span className="text-gray-500 italic">No PDF</span>
+                            <span className="text-gray-500 italic">No file</span>
                           )}
                         </div>
                       ))}
