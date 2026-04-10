@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, parseExerciseRemarks, toEmbedUrl, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
@@ -1144,7 +1144,7 @@ export function LessonMode({
                           className="w-full flex-1 border-0 rounded"
                           allowFullScreen
                           sandbox="allow-scripts allow-same-origin allow-popups"
-                          title={getUrlDisplayName(selectedExercise.url, selectedExercise.url_title)}
+                          title={getExerciseDisplayName(selectedExercise)}
                         />
                       );
                     }

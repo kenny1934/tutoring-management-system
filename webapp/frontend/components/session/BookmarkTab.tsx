@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { History, Star, Home, ChevronDown, ChevronRight, BookOpen, Copy, Check, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import type { Session, HomeworkCompletion } from "@/types";
-import { getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -219,7 +219,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                           {/* Main row: PDF name with copy button */}
                           <div className="flex items-center gap-1.5 mb-1">
                             <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={cw.pdf_name || cw.url}>
-                              {cw.pdf_name || getUrlDisplayName(cw.url || '', cw.url_title)}
+                              {getExerciseDisplayName(cw)}
                             </p>
                             <CopyButton text={cw.pdf_name || cw.url || ''} />
                           </div>
@@ -304,7 +304,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={hw.pdf_name || hw.url}>
-                            {hw.pdf_name || getUrlDisplayName(hw.url || '', hw.url_title)}
+                            {getExerciseDisplayName(hw)}
                           </p>
                           <CopyButton text={hw.pdf_name || hw.url || ""} />
                         </div>

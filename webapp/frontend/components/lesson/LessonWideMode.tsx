@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, parseExerciseRemarks, toEmbedUrl, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
@@ -201,7 +201,7 @@ export function LessonWideMode({
       if (!group) {
         group = {
           pdfName: entry.exercise.pdf_name,
-          displayName: entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || '', entry.exercise.url_title),
+          displayName: getExerciseDisplayName(entry.exercise),
           exerciseType: type,
           entries: [],
         };
@@ -255,7 +255,7 @@ export function LessonWideMode({
   const exerciseLabel = selectedEntry?.exercise?.pdf_name
     ? getDisplayName(selectedEntry.exercise.pdf_name)
     : selectedEntry?.exercise?.url
-      ? getUrlDisplayName(selectedEntry.exercise.url, selectedEntry.exercise.url_title)
+      ? getExerciseDisplayName(selectedEntry.exercise)
       : undefined;
 
   // --- Browser tab title ---
@@ -1287,7 +1287,7 @@ export function LessonWideMode({
                           className="w-full flex-1 border-0 rounded"
                           allowFullScreen
                           sandbox="allow-scripts allow-same-origin allow-popups"
-                          title={getUrlDisplayName(selectedEntry.exercise.url!, selectedEntry.exercise.url_title)}
+                          title={getExerciseDisplayName(selectedEntry.exercise)}
                         />
                       );
                     }

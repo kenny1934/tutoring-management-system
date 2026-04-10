@@ -6,7 +6,7 @@ import {
   Users, FileStack, User, Printer, CheckSquare, Square, MinusSquare, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
@@ -53,7 +53,7 @@ function StudentExerciseItem({
   isPrinting?: boolean;
   printProgress?: string | null;
 }) {
-  const displayName = entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || '', entry.exercise.url_title);
+  const displayName = getExerciseDisplayName(entry.exercise);
   const pageLabel = getPageLabel(entry.exercise);
 
   return (

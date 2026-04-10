@@ -13,7 +13,7 @@ import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, 
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
-import { getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
   Star,
@@ -671,7 +671,7 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name || getUrlDisplayName(exercise.url || '', exercise.url_title)}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (
@@ -717,7 +717,7 @@ export default function SessionDetailPage() {
                               title={tooltip}
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name || getUrlDisplayName(exercise.url || '', exercise.url_title)}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{getExerciseDisplayName(exercise)}</p>
                                 {exercise.page_start && exercise.page_end ? (
                                   <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
                                 ) : exercise.page_start ? (

@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -2642,7 +2642,7 @@ function CoursewareTab({
       if (!isCW && !showHW) return false;
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const displayName = (ex.pdf_name ? getDisplayName(ex.pdf_name) : getUrlDisplayName(ex.url || '', ex.url_title)).toLowerCase();
+        const displayName = getExerciseDisplayName(ex).toLowerCase();
         if (!displayName.includes(query) && !ex.remarks?.toLowerCase().includes(query)) {
           return false;
         }
@@ -2900,7 +2900,7 @@ function CoursewareTab({
                               className="flex items-center gap-2 py-1.5 px-2 hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
-                                {exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title)}
+                                {getExerciseDisplayName(exercise)}
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2943,7 +2943,7 @@ function CoursewareTab({
                               className="flex items-center gap-2 py-1.5 px-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
-                                {exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title)}
+                                {getExerciseDisplayName(exercise)}
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">

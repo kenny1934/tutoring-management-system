@@ -4,7 +4,7 @@ import { useState, memo } from "react";
 import { Check, XCircle, Copy, Loader2, ExternalLink, Printer } from "lucide-react";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import type { PrintStampInfo } from "@/lib/file-system";
-import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface RecapExerciseItemProps {
@@ -29,7 +29,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   const isUrlExercise = !!url && !pdfName;
-  const displayName = isUrlExercise ? getUrlDisplayName(url!, urlTitle) : getDisplayName(pdfName);
+  const displayName = getExerciseDisplayName({ pdf_name: pdfName || undefined, url, url_title: urlTitle });
 
   const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
     ? `(p${pageStart}-${pageEnd})`

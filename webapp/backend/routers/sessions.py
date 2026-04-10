@@ -365,6 +365,37 @@ async def get_aged_pending_makeups_count(
     return AgedPendingMakeupsCount(count=count, critical=critical)
 
 
+def _get_drive_service():
+    """Get or create a cached Google Drive API service. Reuses credentials across requests."""
+    import os
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+
+    if not hasattr(_get_drive_service, '_service') or _get_drive_service._service is None:
+        drive_refresh_token = os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN")
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+        if not all([drive_refresh_token, client_id, client_secret]):
+            return None
+        _get_drive_service._credentials = Credentials(
+            token=None,
+            refresh_token=drive_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"]
+        )
+        _get_drive_service._credentials.refresh(Request())
+        _get_drive_service._service = build("drive", "v3", credentials=_get_drive_service._credentials)
+
+    # Refresh token if expired
+    if not _get_drive_service._credentials.valid:
+        _get_drive_service._credentials.refresh(Request())
+
+    return _get_drive_service._service
+
+
 @router.get("/sessions/url-metadata")
 async def get_url_metadata(
     url: str = Query(..., max_length=2048),
@@ -372,7 +403,6 @@ async def get_url_metadata(
 ):
     """Fetch the page title from a Google Docs/Slides/Sheets URL using Drive API."""
     import re
-    import os
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
@@ -385,28 +415,9 @@ async def get_url_metadata(
     doc_id = doc_id_match.group(1)
 
     try:
-        from google.oauth2.credentials import Credentials
-        from google.auth.transport.requests import Request
-        from googleapiclient.discovery import build
-
-        drive_refresh_token = os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN")
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-
-        if not all([drive_refresh_token, client_id, client_secret]):
+        service = _get_drive_service()
+        if not service:
             return {"title": ""}
-
-        credentials = Credentials(
-            token=None,
-            refresh_token=drive_refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
-            scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"]
-        )
-        credentials.refresh(Request())
-
-        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
         file_metadata = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
         return {"title": file_metadata.get("name", "")}
     except Exception as e:

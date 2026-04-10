@@ -6,7 +6,7 @@ import {
   Check, X, Printer, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
@@ -49,7 +49,7 @@ function ExerciseItem({
   printProgress?: string | null;
 }) {
   const isUrlExercise = !!exercise.url && !exercise.pdf_name;
-  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title);
+  const displayName = getExerciseDisplayName(exercise);
   const pageLabel = getPageLabel(exercise);
 
   return (

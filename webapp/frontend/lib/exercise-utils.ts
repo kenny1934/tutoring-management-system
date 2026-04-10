@@ -557,6 +557,12 @@ export function findDuplicatesFromIndex(
 // URL Utilities
 // ============================================================================
 
+/** Get display name for an exercise — prefers pdf_name, falls back to url_title or URL hostname */
+export function getExerciseDisplayName(exercise: { pdf_name?: string | null; url?: string; url_title?: string }): string {
+  if (exercise.pdf_name) return getDisplayName(exercise.pdf_name);
+  return getUrlDisplayName(exercise.url || '', exercise.url_title);
+}
+
 /** Check if an exercise has a source (PDF path or URL) */
 export function hasExerciseSource(ex: { pdf_name?: string; url?: string }): boolean {
   return !!(ex.pdf_name?.trim() || ex.url?.trim());

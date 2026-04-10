@@ -40,7 +40,7 @@ import {
 import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, getUrlDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
@@ -104,7 +104,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   };
 
   const isUrlExercise = !!exercise.url && !exercise.pdf_name;
-  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '', exercise.url_title);
+  const displayName = getExerciseDisplayName(exercise);
   const pageInfo = complexPages
     ? ` (p${complexPages})`
     : exercise.page_start
