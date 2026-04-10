@@ -28,7 +28,7 @@ import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { displayLocation, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { displayLocation, LOCATION_TO_CODE, MIN_GROUP_SIZE, isPlaced } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -266,6 +266,8 @@ export default function SummerApplicationsPage() {
     pending: searchParams.get("pending") === "1",
     claim: searchParams.get("claim") === "1" || searchParams.get("unverified") === "1",
     branch: searchParams.get("branch"),
+    placement: searchParams.get("placement") as "placed" | "unplaced" | null,
+    buddy: searchParams.get("buddy") as "solo" | "grouped" | "threshold" | "below" | null,
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
     legacyBuddyView: searchParams.get("view") === "by_buddy",
@@ -283,6 +285,8 @@ export default function SummerApplicationsPage() {
   const [unverifiedBranchOnly, setUnverifiedBranchOnly] = useState(urlInit.claim);
   // Branch scope: null = all, "new" = no link/claim, or a branch code (MAC…).
   const [branchFilter, setBranchFilter] = useState<string | null>(urlInit.branch);
+  const [placementFilter, setPlacementFilter] = useState<"placed" | "unplaced" | null>(urlInit.placement);
+  const [buddyFilter, setBuddyFilter] = useState<"solo" | "grouped" | "threshold" | "below" | null>(urlInit.buddy);
   const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -452,7 +456,7 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || unverifiedBranchOnly || branchFilter;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || unverifiedBranchOnly || branchFilter || placementFilter || buddyFilter;
   // Count of filters that live in the "More" menu.
   // Location lives in the header scope, status has its own dropdown, search is visible.
   const moreFilterCount = [
@@ -469,6 +473,8 @@ export default function SummerApplicationsPage() {
     setPendingSiblingOnly(false);
     setUnverifiedBranchOnly(false);
     setBranchFilter(null);
+    setPlacementFilter(null);
+    setBuddyFilter(null);
   }, []);
 
   // Sync state → URL (replace, not push)
@@ -481,12 +487,14 @@ export default function SummerApplicationsPage() {
     if (pendingSiblingOnly) params.set("pending", "1");
     if (unverifiedBranchOnly) params.set("unverified", "1");
     if (branchFilter) params.set("branch", branchFilter);
+    if (placementFilter) params.set("placement", placementFilter);
+    if (buddyFilter) params.set("buddy", buddyFilter);
     if (viewMode !== "list") params.set("mode", viewMode);
     if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
     if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, viewPreset, sortDirection, viewMode, router]);
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, viewPreset, sortDirection, viewMode, router]);
 
   // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
@@ -547,9 +555,25 @@ export default function SummerApplicationsPage() {
     if (branchFilter) {
       filtered = filtered.filter((a) => {
         if (branchFilter === "new") return getAppBranchCode(a) === null;
-        // Match against verified_branch_origin (set by admin / auto-link),
-        // falling back to the derived code for unverified apps.
         return (a.verified_branch_origin || getAppBranchCode(a)) === branchFilter;
+      });
+    }
+    if (placementFilter) {
+      filtered = filtered.filter((a) => {
+        return placementFilter === "placed" ? isPlaced(a) : !isPlaced(a);
+      });
+    }
+    if (buddyFilter) {
+      filtered = filtered.filter((a) => {
+        const hasGroup = !!a.buddy_group_id;
+        const size = a.buddy_group_member_count ?? 0;
+        switch (buddyFilter) {
+          case "solo": return !hasGroup;
+          case "grouped": return hasGroup;
+          case "threshold": return hasGroup && size >= MIN_GROUP_SIZE;
+          case "below": return hasGroup && size < MIN_GROUP_SIZE;
+          default: return true;
+        }
       });
     }
     const sorted = [...filtered];
@@ -575,7 +599,7 @@ export default function SummerApplicationsPage() {
       }
     });
     return sorted;
-  }, [applications, sortField, sortDirection, pendingSiblingOnly, unverifiedBranchOnly, branchFilter]);
+  }, [applications, sortField, sortDirection, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter]);
 
   // Member-level filter for the board view. Status/location/grade/search are
   // already applied server-side (they drive the SWR key), so this only needs
@@ -590,8 +614,19 @@ export default function SummerApplicationsPage() {
         if ((a.verified_branch_origin || getAppBranchCode(a)) !== branchFilter) return false;
       }
     }
+    if (placementFilter) {
+      if (placementFilter === "placed" ? !isPlaced(a) : isPlaced(a)) return false;
+    }
+    if (buddyFilter) {
+      const hasGroup = !!a.buddy_group_id;
+      const size = a.buddy_group_member_count ?? 0;
+      if (buddyFilter === "solo" && hasGroup) return false;
+      if (buddyFilter === "grouped" && !hasGroup) return false;
+      if (buddyFilter === "threshold" && !(hasGroup && size >= MIN_GROUP_SIZE)) return false;
+      if (buddyFilter === "below" && !(hasGroup && size < MIN_GROUP_SIZE)) return false;
+    }
     return true;
-  }, [pendingSiblingOnly, unverifiedBranchOnly, branchFilter]);
+  }, [pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter]);
 
   // Preset change handler
   const handlePresetChange = useCallback((preset: ViewPreset) => {
@@ -778,7 +813,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
   // the DOM, so fall back to the list's imperative scrollToRow.
@@ -1318,6 +1353,9 @@ export default function SummerApplicationsPage() {
                     onGradeFilter: (grade) => { setGradeFilter(grade); setViewMode("list"); },
                     onBranchFilter: (branch) => { setBranchFilter(branch); setViewMode("list"); },
                     onUnverifiedFilter: () => { setUnverifiedBranchOnly(true); setViewMode("list"); },
+                    onLocationFilter: (code) => { locationUserOverride.current = true; setLocationFilter(CODE_TO_LOCATION[code] || code); setViewMode("list"); },
+                    onPlacementFilter: (v) => { setPlacementFilter(v); setViewMode("list"); },
+                    onBuddyFilter: (v) => { setBuddyFilter(v); setViewMode("list"); },
                   }}
                 />
               ) : viewMode === "board" ? (

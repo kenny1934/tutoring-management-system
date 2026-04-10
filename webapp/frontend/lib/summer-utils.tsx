@@ -223,6 +223,11 @@ export const DAY_ABBREV: Record<string, string> = {
 /** Application statuses that count as "exited" (excluded from active counts). */
 export const EXIT_STATUSES = new Set(["Withdrawn", "Rejected"]);
 
+/** Whether an application has any session placements. */
+export function isPlaced(app: { placed_count?: number | null; sessions?: unknown[] | null }): boolean {
+  return (app.placed_count ?? 0) > 0 || (app.sessions != null && app.sessions.length > 0);
+}
+
 /** Get short weekday from ISO date string, e.g. "2025-07-07" → "Mon". */
 export function getDayFromDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");

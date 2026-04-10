@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { BRANCH_INFO, EXIT_STATUSES, SUMMER_GRADE_BG, displayLocation, MIN_GROUP_SIZE, formatCompactDate } from "@/lib/summer-utils";
+import { BRANCH_INFO, EXIT_STATUSES, SUMMER_GRADE_BG, displayLocation, MIN_GROUP_SIZE, formatCompactDate, isPlaced } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
 import { Users, User } from "lucide-react";
@@ -134,14 +134,18 @@ function DonutChart({ segments, onSegmentClick }: { segments: { label: string; c
   );
 }
 
-function StatCard({ icon: Icon, value, label, colorClass }: {
+function StatCard({ icon: Icon, value, label, colorClass, onClick }: {
   icon: typeof User;
   value: number;
   label: string;
   colorClass?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className={cn("flex items-center gap-2.5 p-3 rounded-lg", colorClass || "bg-gray-50 dark:bg-gray-800/50")}>
+    <div
+      className={cn("flex items-center gap-2.5 p-3 rounded-lg", colorClass || "bg-gray-50 dark:bg-gray-800/50", onClick && "cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow")}
+      onClick={onClick}
+    >
       <Icon className={cn("h-4 w-4 shrink-0", colorClass ? "" : "text-muted-foreground")} />
       <div>
         <div className={cn("text-lg font-semibold tabular-nums", colorClass ? "" : "text-foreground")}>{value}</div>
@@ -229,6 +233,9 @@ interface StatsFilterHandler {
   onGradeFilter?: (grade: string) => void;
   onBranchFilter?: (branch: string) => void;
   onUnverifiedFilter?: () => void;
+  onLocationFilter?: (code: string) => void;
+  onPlacementFilter?: (value: "placed" | "unplaced") => void;
+  onBuddyFilter?: (value: "solo" | "grouped" | "threshold" | "below") => void;
 }
 
 interface Props {
@@ -268,7 +275,7 @@ export function SummerApplicationStats({ applications, filters }: Props) {
   const placementData = useMemo(() => {
     let placed = 0;
     for (const app of activeApps) {
-      if ((app.placed_count ?? 0) > 0 || (app.sessions && app.sessions.length > 0)) placed++;
+      if (isPlaced(app)) placed++;
     }
     return { placed, unplaced: activeApps.length - placed, total: activeApps.length };
   }, [activeApps]);
@@ -320,15 +327,18 @@ export function SummerApplicationStats({ applications, filters }: Props) {
   // ── Buddy group stats ──
   const buddyData = useMemo(() => {
     let solo = 0;
-    const groups = new Map<number, number>();
+    let discountEligible = 0;
+    let needMore = 0;
+    const groupIds = new Set<number>();
     for (const app of activeApps) {
-      if (!app.buddy_group_id) { solo++; }
-      else { groups.set(app.buddy_group_id, app.buddy_group_member_count ?? 1); }
+      if (!app.buddy_group_id) { solo++; continue; }
+      groupIds.add(app.buddy_group_id);
+      const size = app.buddy_group_member_count ?? 1;
+      if (size >= MIN_GROUP_SIZE) discountEligible++;
+      else needMore++;
     }
     const grouped = activeApps.length - solo;
-    const groupCount = groups.size;
-    const atThreshold = Array.from(groups.values()).filter((s) => s >= MIN_GROUP_SIZE).length;
-    return { solo, grouped, groupCount, atThreshold, belowThreshold: groupCount - atThreshold };
+    return { solo, grouped, groupCount: groupIds.size, discountEligible, needMore };
   }, [activeApps]);
 
   // ── Submission timeline (daily, continuous) ──
@@ -407,8 +417,18 @@ export function SummerApplicationStats({ applications, filters }: Props) {
               <div className="h-full bg-green-500 dark:bg-green-400 rounded-full transition-all" style={{ width: `${placedPct}%` }} />
             </div>
             <div className="flex items-center gap-4 text-xs">
-              <span className="text-green-600 dark:text-green-400 font-medium">{placementData.placed} placed</span>
-              <span className="text-muted-foreground">{placementData.unplaced} unplaced</span>
+              <span
+                className={cn("text-green-600 dark:text-green-400 font-medium", filters?.onPlacementFilter && "cursor-pointer hover:underline")}
+                onClick={filters?.onPlacementFilter ? () => filters.onPlacementFilter!("placed") : undefined}
+              >
+                {placementData.placed} placed
+              </span>
+              <span
+                className={cn("text-muted-foreground", filters?.onPlacementFilter && "cursor-pointer hover:underline")}
+                onClick={filters?.onPlacementFilter ? () => filters.onPlacementFilter!("unplaced") : undefined}
+              >
+                {placementData.unplaced} unplaced
+              </span>
             </div>
           </div>
         </div>
@@ -460,6 +480,7 @@ export function SummerApplicationStats({ applications, filters }: Props) {
                 labelClass={cn("font-semibold", branchPillColor(code))}
                 barColor={branchBarColor(code)}
                 count={count} total={locationData.total} maxCount={locationData.max}
+                onClick={filters?.onLocationFilter ? () => filters.onLocationFilter!(code) : undefined}
               />
             ))}
           </div>
@@ -485,12 +506,16 @@ export function SummerApplicationStats({ applications, filters }: Props) {
       {/* Row 5: Buddy Groups */}
       <ChartCard title="Buddy Groups" className="lg:col-span-2">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={User} value={buddyData.solo} label="Solo" />
-          <StatCard icon={Users} value={buddyData.grouped} label={`Grouped (${buddyData.groupCount})`} />
-          <StatCard icon={Users} value={buddyData.atThreshold} label={`${MIN_GROUP_SIZE}+ (discount)`}
-            colorClass="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400" />
-          <StatCard icon={Users} value={buddyData.belowThreshold} label={`Below ${MIN_GROUP_SIZE}`}
-            colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400" />
+          <StatCard icon={User} value={buddyData.solo} label="Solo applicants"
+            onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("solo") : undefined} />
+          <StatCard icon={Users} value={buddyData.grouped} label={`In ${buddyData.groupCount} buddy groups`}
+            onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("grouped") : undefined} />
+          <StatCard icon={Users} value={buddyData.discountEligible} label="Discount eligible"
+            colorClass="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+            onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("threshold") : undefined} />
+          <StatCard icon={Users} value={buddyData.needMore} label="Need more buddies"
+            colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+            onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("below") : undefined} />
         </div>
       </ChartCard>
     </div>
