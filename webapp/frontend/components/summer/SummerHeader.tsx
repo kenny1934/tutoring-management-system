@@ -41,7 +41,7 @@ export function SummerHeader() {
   // marketing experience; on md+ they sit side-by-side. The bar uses a subtle
   // vertical gradient and a gold accent line at the bottom to soften the
   // flat-red harshness while staying true to the brand palette.
-  if (isPublicPage && !isBuddyPage) {
+  if (isPublicPage && !isBuddyPage && !isProspectSubdomain) {
     return (
       <header
         className="no-image-save relative z-50 shadow-md border-b border-[#8a0a18] bg-[#A40C1D]"
