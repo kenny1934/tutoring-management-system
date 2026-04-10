@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.51](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.51) (2026-04-10)
+
+### Improvements
+
+* **Placement details in the application card** — placed students now show a progress strip with date range, colored status dots (green = confirmed, amber = tentative), and a placed/total count alongside their preferences, instead of repeating the same day and time for every lesson
+* **Placement details in the detail modal** — each session row now shows the actual lesson date, day, start time, class grade, tutor name, and current slot capacity, matching the information density of the arrangements page
+* **Consistent section icons** — the card and detail modal now use the same icons for schedule preferences and placement sections
+
 ## [2.0.50](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.50) (2026-04-10)
 
 ### New Features
