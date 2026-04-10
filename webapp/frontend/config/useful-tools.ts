@@ -20,6 +20,12 @@ export const usefulTools: UsefulTool[] = [
     iconUrl: "https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_4_2x.png",
   },
   {
+    name: "Kahoot!",
+    description: "Create and play learning games and quizzes for interactive lessons",
+    url: "https://kahoot.com/",
+    iconUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Kahoot_Logo.svg/1280px-Kahoot_Logo.svg.png?_=20210430154023",
+  },
+  {
     name: "Kuta Software",
     description: "Free maths worksheets for English schools",
     url: "https://www.kutasoftware.com/",

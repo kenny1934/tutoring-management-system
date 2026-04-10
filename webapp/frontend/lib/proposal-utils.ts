@@ -90,6 +90,22 @@ export function proposalSlotsToSessions(proposals: MakeupProposal[]): ProposedSe
 }
 
 /**
+ * Filters proposed sessions by tutor and/or location in a single pass.
+ */
+export function filterProposedSessions(
+  sessions: ProposedSession[],
+  tutorId?: number | null,
+  location?: string | null
+): ProposedSession[] {
+  if (!tutorId && (!location || location === "All Locations")) return sessions;
+  return sessions.filter(p => {
+    if (tutorId && p.tutor_id !== tutorId) return false;
+    if (location && location !== "All Locations" && p.location !== location) return false;
+    return true;
+  });
+}
+
+/**
  * Creates a map from original session ID to its active proposal.
  * Used to show proposal indicators on sessions that have pending proposals.
  *

@@ -19,7 +19,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session, MakeupProposal } from "@/types";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { proposalSlotsToSessions } from "@/lib/proposal-utils";
+import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
@@ -75,14 +75,10 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined, !isGuest);
 
   // Convert proposals to proposed sessions
-  const proposedSessions = useMemo(() => {
-    const allProposed = proposalSlotsToSessions(proposals);
-    // Filter by location if location filter is active
-    if (selectedLocation && selectedLocation !== "All Locations") {
-      return allProposed.filter(p => p.location === selectedLocation);
-    }
-    return allProposed;
-  }, [proposals, selectedLocation]);
+  const proposedSessions = useMemo(
+    () => filterProposedSessions(proposalSlotsToSessions(proposals), tutorId, selectedLocation),
+    [proposals, tutorId, selectedLocation]
+  );
 
   // Proposal modal state
   const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);

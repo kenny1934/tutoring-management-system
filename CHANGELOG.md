@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.52](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.52) (2026-04-10)
+
+### Bug Fixes
+
+* **Ghost sessions respect tutor filter** — proposed make-up sessions on the Sessions page and Today's Sessions card now correctly hide when a tutor filter is active, instead of showing every pending proposal regardless of tutor
+
+### New Features
+
+* **Kahoot! in Tools quicklinks** — added a direct link to Kahoot in the dashboard Tools dropdown for quick access during lessons
+
 ## [2.0.51](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.51) (2026-04-10)
 
 ### Improvements

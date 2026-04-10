@@ -97,7 +97,7 @@ const ScheduleMakeupModal = dynamic(
   () => import("@/components/sessions/ScheduleMakeupModal").then(m => m.ScheduleMakeupModal),
   { ssr: false }
 );
-import { proposalSlotsToSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
+import { proposalSlotsToSessions, filterProposedSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
 
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
@@ -316,13 +316,14 @@ export default function SessionsPage() {
 
   // Convert proposal slots to session-like objects for display
   // Uses proposals fetched by slot date so ghost sessions appear on correct dates
-  const proposedSessions = useMemo(() => {
-    const allProposed = proposalSlotsToSessions(proposalsForSlots);
-    if (selectedLocation && selectedLocation !== "All Locations") {
-      return allProposed.filter(p => p.location === selectedLocation);
-    }
-    return allProposed;
-  }, [proposalsForSlots, selectedLocation]);
+  const proposedSessions = useMemo(
+    () => filterProposedSessions(
+      proposalSlotsToSessions(proposalsForSlots),
+      tutorFilter ? parseInt(tutorFilter) : null,
+      selectedLocation
+    ),
+    [proposalsForSlots, tutorFilter, selectedLocation]
+  );
 
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
