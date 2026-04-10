@@ -11,6 +11,7 @@ import type {
   SummerCourseConfig,
   SummerSiblingInfo,
 } from "@/types";
+import type { DiscountResult } from "@/lib/summer-discounts";
 
 type Tier = {
   key: string;
@@ -111,11 +112,13 @@ function groupMatchesFilter(g: BuddyGroup, predicate: (a: SummerApplication) => 
 export function SummerBuddyBoard({
   applications,
   config,
+  discountByAppId,
   memberPredicate,
   onSelectApp,
 }: {
   applications: SummerApplication[];
   config: SummerCourseConfig | null | undefined;
+  discountByAppId: Map<number, DiscountResult>;
   // Predicate applied at the member level — a group is shown if any member
   // passes. Use this to thread the toolbar's status/search/grade filters.
   memberPredicate: (a: SummerApplication) => boolean;
@@ -133,10 +136,10 @@ export function SummerBuddyBoard({
     [solo, memberPredicate],
   );
 
-  // Bucket groups. Settled groups land in byTier (highest tier they meet).
-  // Incomplete groups are further split by how many more members they need
-  // to reach the lowest tier — so "just one away" surfaces separately from
-  // "needs many more".
+  // Bucket groups. Settled groups land in byTier keyed by the actual best
+  // discount their members qualify for (date conditions and all). Incomplete
+  // groups are further split by how many more members they need to reach the
+  // lowest tier — so "just one away" surfaces separately from "needs many more".
   const { incompleteByNeed, byTier } = useMemo(() => {
     const incompleteByNeed = new Map<number, BuddyGroup[]>();
     const byTier = new Map<string, BuddyGroup[]>();
@@ -148,10 +151,14 @@ export function SummerBuddyBoard({
         incompleteByNeed.get(need)!.push(g);
         continue;
       }
-      let chosen = tiers[0];
-      for (const t of tiers) {
-        if (g.memberCount >= t.minSize) chosen = t;
-      }
+      // Use the actual computed discount for any active member to determine
+      // which tier this group belongs to (respects date conditions).
+      const firstMember = g.members[0];
+      const actualDiscount = firstMember ? discountByAppId.get(firstMember.id) : null;
+      const actualCode = actualDiscount?.best?.code;
+      // Match to a tier by discount code, fall back to size-based assignment.
+      let chosen = tiers.find((t) => t.key === actualCode)
+        ?? tiers.reduce<Tier | null>((best, t) => (g.memberCount >= t.minSize ? t : best), null);
       if (chosen) {
         if (!byTier.has(chosen.key)) byTier.set(chosen.key, []);
         byTier.get(chosen.key)!.push(g);
@@ -166,7 +173,7 @@ export function SummerBuddyBoard({
       list.sort((a, b) => (b.memberCount - a.memberCount) || sortByOldest(a, b));
     }
     return { incompleteByNeed, byTier };
-  }, [visibleGroups, tiers]);
+  }, [visibleGroups, tiers, discountByAppId]);
 
   // Sort needed-count buckets ascending — closest-to-unlock first.
   const incompleteBuckets = useMemo(

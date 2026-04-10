@@ -1298,6 +1298,7 @@ export default function SummerApplicationsPage() {
                 <SummerBuddyBoard
                   applications={applications}
                   config={activeConfig}
+                  discountByAppId={discountByAppId}
                   memberPredicate={buddyBoardPredicate}
                   onSelectApp={openDetail}
                 />
