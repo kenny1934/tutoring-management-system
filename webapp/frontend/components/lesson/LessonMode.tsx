@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
   Maximize2, Minimize2, PencilLine, ChevronDown,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -1134,18 +1134,32 @@ export function LessonMode({
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
               selectedExercise?.url && !selectedExercise?.pdf_name ? (
                 /* URL exercise: iframe embed or open-in-new-tab */
-                <div className="flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
                   {(() => {
                     const embedUrl = toEmbedUrl(selectedExercise.url);
                     if (embedUrl) {
                       return (
-                        <iframe
-                          src={embedUrl}
-                          className="w-full flex-1 border-0 rounded"
-                          allowFullScreen
-                          sandbox="allow-scripts allow-same-origin allow-popups"
-                          title={getExerciseDisplayName(selectedExercise)}
-                        />
+                        <>
+                          <iframe
+                            src={embedUrl}
+                            className="w-full border-0 rounded"
+                            style={{ flex: 1, minHeight: 0 }}
+                            allow="autoplay; fullscreen"
+                            allowFullScreen
+                            title={getExerciseDisplayName(selectedExercise)}
+                          />
+                          {isMobile && (
+                            <a
+                              href={selectedExercise.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-1.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Open in app for full controls
+                            </a>
+                          )}
+                        </>
                       );
                     }
                     return (

@@ -187,7 +187,6 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
                       src={embedUrl}
                       style={{ width: "100%", flex: 1, border: "none" }}
                       allowFullScreen
-                      sandbox="allow-scripts allow-same-origin allow-popups"
                       title={getExerciseDisplayName(selectedExercise)}
                     />
                   );

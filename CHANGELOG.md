@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.53](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.53) (2026-04-11)
+
+### New Features
+
+* **URL exercises** — tutors can now paste Google Slides, Docs, or Sheets URLs as classwork or homework alongside regular PDFs. The URL auto-detects on paste, shows an embedded iframe in lesson mode, and gracefully skips URL exercises during print/download operations
+* **Auto-fetch URL titles** — when a Google Docs/Slides/Sheets link is pasted, the presentation title is automatically fetched via the Drive API and displayed everywhere: exercise modals, lesson sidebars, session detail, student courseware tab, reports, and exercise history
+
 ## [2.0.52](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.52) (2026-04-10)
 
 ### Bug Fixes
