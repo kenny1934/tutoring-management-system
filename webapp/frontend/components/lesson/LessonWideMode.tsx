@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getDisplayName, parseExerciseRemarks, toEmbedUrl, getUrlDisplayName } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
@@ -362,6 +362,16 @@ export function LessonWideMode({
   // --- Load PDF when selection changes ---
   useEffect(() => {
     const exercise = selectedEntry?.exercise;
+
+    // URL-only exercises: skip PDF loading
+    if (exercise?.url && !exercise?.pdf_name) {
+      setPdfData(null);
+      setPageNumbers([]);
+      setPdfLoading(false);
+      setPdfError(null);
+      return;
+    }
+
     if (!exercise?.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
@@ -1263,6 +1273,40 @@ export function LessonWideMode({
           {/* PDF viewers */}
           <div className={cn("flex flex-1 min-h-0 min-w-0", !isMobile && showAnswerKey && answerPdfData && "gap-0")}>
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
+              selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
+                /* URL exercise: iframe embed or open-in-new-tab */
+                <div className="flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                  {(() => {
+                    const embedUrl = toEmbedUrl(selectedEntry.exercise.url!);
+                    if (embedUrl) {
+                      return (
+                        <iframe
+                          src={embedUrl}
+                          className="w-full flex-1 border-0 rounded"
+                          allowFullScreen
+                          sandbox="allow-scripts allow-same-origin allow-popups"
+                          title={getUrlDisplayName(selectedEntry.exercise.url!)}
+                        />
+                      );
+                    }
+                    return (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                          This resource cannot be embedded directly.
+                        </p>
+                        <a
+                          href={selectedEntry.exercise.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Open in new tab
+                        </a>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
               <ErrorBoundary
                 onReset={handleRetry}
                 fallback={
@@ -1309,6 +1353,7 @@ export function LessonWideMode({
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                 />
               </ErrorBoundary>
+              )
             )}
 
             {/* Answer key viewer */}

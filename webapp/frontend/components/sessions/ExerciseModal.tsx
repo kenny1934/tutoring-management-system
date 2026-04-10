@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical, AlertTriangle, Trash2, Globe } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -208,6 +208,7 @@ export function ExerciseModal({
         ex.page_start ? Number(ex.page_start) : undefined,
         ex.page_end ? Number(ex.page_end) : undefined,
         duplicateIndex,
+        ex.url,
       )
     );
   }, [exercises, duplicateIndex]);
@@ -285,7 +286,8 @@ export function ExerciseModal({
             id: ex.id,
             clientId: generateClientId(),
             exercise_type: exerciseType,
-            pdf_name: ex.pdf_name,
+            pdf_name: ex.pdf_name || "",
+            url: ex.url || "",
             page_mode: pageMode,
             page_start: ex.page_start?.toString() || "",
             page_end: ex.page_end?.toString() || "",
@@ -320,8 +322,8 @@ export function ExerciseModal({
 
 
   const handleSave = useCallback(async () => {
-    // Filter out empty exercises (no PDF name)
-    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    // Filter out empty exercises (no PDF name or URL)
+    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
     if (validExercises.length < exercises.length) {
       setExercises(validExercises);
     }
@@ -348,7 +350,8 @@ export function ExerciseModal({
     // Build API format - only use the active mode's values
     const apiExercises = currentExercises.map((ex) => ({
       exercise_type: ex.exercise_type,
-      pdf_name: ex.pdf_name,
+      pdf_name: ex.pdf_name || null,
+      url: ex.url || null,
       // Only include simple range values if in simple mode
       page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
@@ -372,7 +375,8 @@ export function ExerciseModal({
       id: currentExercises[idx]?.id || Date.now() + idx, // temp ID for new ones
       session_id: sessionId,
       exercise_type: ex.exercise_type,
-      pdf_name: ex.pdf_name,
+      pdf_name: ex.pdf_name ?? undefined,
+      url: ex.url ?? undefined,
       page_start: ex.page_start ?? undefined,
       page_end: ex.page_end ?? undefined,
       remarks: ex.remarks ?? undefined,
@@ -703,7 +707,15 @@ export function ExerciseModal({
     e: React.ClipboardEvent<HTMLInputElement>,
     index: number
   ) => {
-    const pastedText = e.clipboardData.getData('text');
+    const pastedText = e.clipboardData.getData('text').trim();
+
+    // Check if pasted text is a URL → switch to URL mode
+    if (isUrl(pastedText)) {
+      e.preventDefault();
+      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "" } : ex));
+      setIsDirty(true);
+      return;
+    }
 
     // Check if Windows path with drive letter (e.g., "Z:\path" or Z:\path)
     const driveMatch = pastedText.match(/^["']?([A-Za-z]):[\\\/]/);
@@ -940,7 +952,13 @@ export function ExerciseModal({
     } else {
       setPrintAllState('idle');
     }
-  }, [exercises, printAllState, buildStampInfo, session, exerciseType]);
+    // Open URL exercises in new tabs
+    const urlExercises = exercises.filter(ex => ex.url && ex.url.trim() && !ex.pdf_name?.trim());
+    if (urlExercises.length > 0) {
+      urlExercises.forEach(ex => window.open(ex.url, '_blank'));
+      showToast(`${exercisesWithPdfs.length} PDFs printed, ${urlExercises.length} link${urlExercises.length > 1 ? 's' : ''} opened in new tab${urlExercises.length > 1 ? 's' : ''}`, 'info');
+    }
+  }, [exercises, printAllState, buildStampInfo, session, exerciseType, showToast]);
 
   // Handle download all exercises in one combined file
   const handleDownloadAll = useCallback(async () => {
@@ -1153,7 +1171,7 @@ export function ExerciseModal({
                       <div className="mt-1 space-y-0.5">
                         <span className="text-gray-500 text-[10px]">Classwork:</span>
                         {prevClasswork.map((ex, i) => (
-                          <RecapExerciseItem key={i} pdfName={ex.pdf_name} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
+                          <RecapExerciseItem key={i} pdfName={ex.pdf_name || ''} url={ex.url} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
                         ))}
                       </div>
                     )}
@@ -1173,10 +1191,10 @@ export function ExerciseModal({
                         )}>
                           {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
                         </span>
-                        {hw.pdf_name ? (
-                          <RecapExerciseItem pdfName={hw.pdf_name} stamp={recapStamp} />
+                        {(hw.pdf_name || hw.url) ? (
+                          <RecapExerciseItem pdfName={hw.pdf_name || ''} url={hw.url} stamp={recapStamp} />
                         ) : (
-                          <span className="text-gray-500 italic">No PDF</span>
+                          <span className="text-gray-500 italic">No file</span>
                         )}
                       </div>
                     ))}
@@ -1393,8 +1411,8 @@ export function ExerciseModal({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
-          {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
-          {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
+          {/* Print All + Download All Buttons - show if there are exercises with PDFs or URLs */}
+          {canBrowseFiles && exercises.some(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim())) ? (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -1655,21 +1673,35 @@ export function ExerciseModal({
                       )}
                     </div>
 
-                    {/* PDF path input */}
-                    <input
-                      ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
-                      type="text"
-                      value={exercise.pdf_name}
-                      onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
-                      onPaste={(e) => handlePasteConvert(e, index)}
-                      onFocus={() => setFocusedRowIndex(index)}
-                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path (drag & drop supported)"}
-                      className={cn(
-                        inputClass,
-                        "text-xs py-1.5 flex-1 min-w-0 transition-all",
-                        isDraggingOver === index && "border-amber-400"
+                    {/* Resource input (PDF path or URL) */}
+                    <div className="relative flex-1 min-w-0">
+                      {exercise.url && (
+                        <Globe className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
                       )}
-                    />
+                      <input
+                        ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
+                        type="text"
+                        value={exercise.url || exercise.pdf_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (isUrl(val)) {
+                            setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: val, pdf_name: "" } : ex));
+                          } else {
+                            setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, pdf_name: val, url: "" } : ex));
+                          }
+                          setIsDirty(true);
+                        }}
+                        onPaste={(e) => handlePasteConvert(e, index)}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path or URL (drag & drop supported)"}
+                        className={cn(
+                          inputClass,
+                          "text-xs py-1.5 w-full transition-all",
+                          exercise.url && "pl-7",
+                          isDraggingOver === index && "border-amber-400"
+                        )}
+                      />
+                    </div>
 
                     {/* Duplicate warning icon */}
                     {duplicateMap[index]?.length > 0 && (
@@ -1683,16 +1715,27 @@ export function ExerciseModal({
                       </button>
                     )}
 
-                    {/* File action buttons */}
-                    <ExerciseActionButtons
-                      hasPdfName={!!exercise.pdf_name}
-                      canBrowseFiles={canBrowseFiles}
-                      fileActionState={fileActionState[exercise.clientId]}
-                      onPaperlessSearch={() => handlePaperlessSearch(index)}
-                      onBrowseFile={() => handleBrowseFile(index)}
-                      onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
-                      onPrintFile={() => handlePrintFile(exercise)}
-                    />
+                    {/* File action buttons (hidden for URL exercises) */}
+                    {exercise.url ? (
+                      <button
+                        type="button"
+                        onClick={() => window.open(exercise.url, '_blank')}
+                        className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex-shrink-0"
+                        title="Open URL in new tab"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                      </button>
+                    ) : (
+                      <ExerciseActionButtons
+                        hasPdfName={!!exercise.pdf_name}
+                        canBrowseFiles={canBrowseFiles}
+                        fileActionState={fileActionState[exercise.clientId]}
+                        onPaperlessSearch={() => handlePaperlessSearch(index)}
+                        onBrowseFile={() => handleBrowseFile(index)}
+                        onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
+                        onPrintFile={() => handlePrintFile(exercise)}
+                      />
+                    )}
 
                     {/* Delete button with confirmation */}
                     <ExerciseDeleteButton
@@ -1735,7 +1778,8 @@ export function ExerciseModal({
                     </div>
                   )}
 
-                  {/* Row 2: Page Range Mode Selection */}
+                  {/* Row 2: Page Range Mode Selection (hidden for URL-only exercises) */}
+                  {!exercise.url && (
                   <div className="flex gap-2 items-start">
                     {/* Spacer matching row 1 handle+checkbox column */}
                     <div className="w-5 md:w-10 shrink-0" />
@@ -1795,6 +1839,7 @@ export function ExerciseModal({
                       />
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
                 )}

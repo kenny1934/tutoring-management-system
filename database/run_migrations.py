@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "107_verified_branch_origin.sql",
+    "108_exercise_url_support.sql",
 ]
 
 def main():

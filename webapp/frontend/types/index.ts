@@ -201,12 +201,13 @@ export interface SessionExercise {
   id: number;
   session_id: number;
   exercise_type: string;
-  pdf_name: string;
+  pdf_name?: string;
   page_start?: number;
   page_end?: number;
   created_by: string;
   created_at?: string;
   remarks?: string;
+  url?: string;
   // Answer file fields (for manual answer selection)
   answer_pdf_name?: string;
   answer_page_start?: number;
@@ -241,6 +242,7 @@ export interface HomeworkCompletion {
   pdf_name?: string;
   page_start?: number;
   page_end?: number;
+  url?: string;
   homework_assigned_date?: string;
   assigned_by_tutor_id?: number;
   assigned_by_tutor?: string;

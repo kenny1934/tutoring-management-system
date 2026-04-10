@@ -323,12 +323,13 @@ class SessionExercise(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("session_log.id", ondelete="CASCADE"), nullable=False)
     exercise_type = Column(String(20), nullable=False, comment='Classwork or Homework')
-    pdf_name = Column(String(255), nullable=False)
+    pdf_name = Column(String(255), nullable=True)
     page_start = Column(Integer, nullable=True, comment='NULL = whole PDF')
     page_end = Column(Integer, nullable=True)
     created_by = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     remarks = Column(Text)
+    url = Column(String(2048), nullable=True, comment='External URL (Google Slides, etc.)')
     # Answer file fields (for manual answer selection)
     answer_pdf_name = Column(String(255), nullable=True, comment='Manually selected answer PDF path')
     answer_page_start = Column(Integer, nullable=True)
@@ -363,6 +364,7 @@ class HomeworkCompletion(Base):
     pdf_name = Column(String(255))
     page_start = Column(Integer)
     page_end = Column(Integer)
+    url = Column(String(2048), nullable=True)
 
     # Relationships
     session = relationship("SessionLog", foreign_keys=[current_session_id])
@@ -398,6 +400,7 @@ class HomeworkToCheck(Base):
 
     # Homework details from session_exercises
     pdf_name = Column(String(255))
+    url = Column(String(2048))
     pages = Column(String(50))
     assignment_remarks = Column(Text)
 

@@ -484,6 +484,7 @@ async def get_session_detail(
             pdf_name=hw.pdf_name,
             page_start=page_start,
             page_end=page_end,
+            url=hw.url,
             homework_assigned_date=hw.homework_assigned_date,
             assigned_by_tutor_id=hw.assigned_by_tutor_id,
             assigned_by_tutor=hw.assigned_by_tutor
@@ -1371,6 +1372,7 @@ async def save_session_exercises(
             page_start=ex.page_start,
             page_end=ex.page_end,
             remarks=ex.remarks,
+            url=ex.url,
             # Answer file fields
             answer_pdf_name=ex.answer_pdf_name,
             answer_page_start=ex.answer_page_start,
@@ -1440,6 +1442,7 @@ async def bulk_assign_exercises(
             page_start=request.page_start,
             page_end=request.page_end,
             remarks=request.remarks,
+            url=request.url,
             created_by=current_user.user_email,
             created_at=hk_now()
         )

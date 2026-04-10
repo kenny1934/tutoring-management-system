@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getDisplayName, parseExerciseRemarks, toEmbedUrl, getUrlDisplayName } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
@@ -268,6 +268,15 @@ export function LessonMode({
 
   // S5: Load PDF when exercise changes (with caching) — uses getExercisePageNumbers
   useEffect(() => {
+    // URL-only exercises: skip PDF loading entirely
+    if (selectedExercise?.url && !selectedExercise?.pdf_name) {
+      setPdfData(null);
+      setPageNumbers([]);
+      setPdfLoading(false);
+      setPdfError(null);
+      return;
+    }
+
     if (!selectedExercise || !selectedExercise.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
@@ -336,7 +345,7 @@ export function LessonMode({
     let cancelled = false;
     const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise.id);
     const adjacent = [allExercises[currentIdx - 1], allExercises[currentIdx + 1]].filter(
-      (ex): ex is SessionExercise => !!ex?.pdf_name && !pdfCacheRef.current.has(ex.pdf_name)
+      (ex): ex is SessionExercise => !!ex?.pdf_name && !ex?.url && !pdfCacheRef.current.has(ex.pdf_name)
     );
 
     (async () => {
@@ -1119,10 +1128,44 @@ export function LessonMode({
             </div>
           )}
 
-          {/* PDF viewers — side-by-side on desktop, tabbed on mobile */}
+          {/* PDF/URL viewers — side-by-side on desktop, tabbed on mobile */}
           <div className={cn("flex flex-1 min-h-0 min-w-0", !isMobile && showAnswerKey && answerPdfData && "gap-0")}>
-            {/* Main exercise PDF — hidden on mobile when answer tab is active */}
+            {/* Main exercise viewer — hidden on mobile when answer tab is active */}
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
+              selectedExercise?.url && !selectedExercise?.pdf_name ? (
+                /* URL exercise: iframe embed or open-in-new-tab */
+                <div className="flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                  {(() => {
+                    const embedUrl = toEmbedUrl(selectedExercise.url);
+                    if (embedUrl) {
+                      return (
+                        <iframe
+                          src={embedUrl}
+                          className="w-full flex-1 border-0 rounded"
+                          allowFullScreen
+                          sandbox="allow-scripts allow-same-origin allow-popups"
+                          title={getUrlDisplayName(selectedExercise.url)}
+                        />
+                      );
+                    }
+                    return (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                          This resource cannot be embedded directly.
+                        </p>
+                        <a
+                          href={selectedExercise.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Open in new tab
+                        </a>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
               <ErrorBoundary
                 onReset={handleRetry}
                 fallback={
@@ -1172,6 +1215,7 @@ export function LessonMode({
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                 />
               </ErrorBoundary>
+              )
             )}
 
             {/* Answer key viewer (read-only) */}

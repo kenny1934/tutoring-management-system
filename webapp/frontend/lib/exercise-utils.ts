@@ -17,6 +17,7 @@ export interface ExerciseFormItemBase {
   clientId: string;
   exercise_type: "CW" | "HW";
   pdf_name: string;
+  url: string;
   page_mode: 'simple' | 'custom';
   page_start: string;
   page_end: string;
@@ -51,6 +52,7 @@ export function createExercise(
     clientId: generateClientId(),
     exercise_type: exerciseType,
     pdf_name: pdfName,
+    url: "",
     page_mode: 'simple',
     page_start: "",
     page_end: "",
@@ -79,6 +81,7 @@ export function createExerciseFromSelection(
       clientId: generateClientId(),
       exercise_type: exerciseType,
       pdf_name: path,
+      url: "",
       page_mode: 'custom',
       page_start: "",
       page_end: "",
@@ -96,6 +99,7 @@ export function createExerciseFromSelection(
     clientId: generateClientId(),
     exercise_type: exerciseType,
     pdf_name: path,
+    url: "",
     page_mode: 'simple',
     page_start: pageSelection?.pageStart?.toString() || "",
     page_end: pageSelection?.pageEnd?.toString() || "",
@@ -254,7 +258,7 @@ export function combineExerciseRemarks(complexPages: string, remarks: string): s
  */
 export interface ExerciseValidationError {
   index: number;
-  field: 'page_start' | 'page_end' | 'complex_pages' | 'pdf_name';
+  field: 'page_start' | 'page_end' | 'complex_pages' | 'pdf_name' | 'url';
   message: string;
 }
 
@@ -272,10 +276,14 @@ export function validateExercisePageRange(
     page_end: string;
     complex_pages: string;
     pdf_name: string;
+    url?: string;
   },
   index: number
 ): ExerciseValidationError[] {
   const errors: ExerciseValidationError[] = [];
+
+  // URL-only exercises don't have page ranges to validate
+  if (exercise.url && !exercise.pdf_name) return errors;
 
   if (exercise.page_mode === 'simple') {
     const start = exercise.page_start.trim();
@@ -338,6 +346,7 @@ const CLIPBOARD_EVENT = 'exercise-clipboard-changed';
 
 export interface ExerciseClipboardItem {
   pdf_name: string;
+  url: string;
   page_mode: 'simple' | 'custom';
   page_start: string;
   page_end: string;
@@ -376,6 +385,7 @@ export function copyExercisesToClipboard(
 
   const items: ExerciseClipboardItem[] = exercises.map(ex => ({
     pdf_name: ex.pdf_name,
+    url: ex.url,
     page_mode: ex.page_mode,
     page_start: ex.page_start,
     page_end: ex.page_end,
@@ -442,6 +452,7 @@ export function createExercisesFromClipboard(
     clientId: generateClientId(),
     exercise_type: exerciseType,
     pdf_name: item.pdf_name,
+    url: item.url || "",
     page_mode: item.page_mode,
     page_start: item.page_start,
     page_end: item.page_end,
@@ -500,7 +511,7 @@ export function buildDuplicateIndex(history: ExerciseHistorySession[]): Duplicat
   const map = new Map<string, DuplicateMatch[]>();
   for (const session of history) {
     for (const ex of session.exercises) {
-      const key = normalizeFilename(ex.pdf_name);
+      const key = ex.pdf_name ? normalizeFilename(ex.pdf_name) : (ex.url || '').toLowerCase();
       if (!key) continue;
       const match: DuplicateMatch = {
         sessionId: session.session_id,
@@ -525,11 +536,80 @@ export function findDuplicatesFromIndex(
   pageStart?: number,
   pageEnd?: number,
   index: DuplicateIndex = new Map(),
+  url?: string,
 ): DuplicateMatch[] {
-  if (!pdfName) return [];
-  const key = normalizeFilename(pdfName);
+  const key = pdfName ? normalizeFilename(pdfName) : (url || '').toLowerCase();
   if (!key) return [];
   const candidates = index.get(key);
   if (!candidates) return [];
   return candidates.filter(m => pagesOverlap(pageStart, pageEnd, m.pageStart, m.pageEnd));
+}
+
+// ============================================================================
+// URL Utilities
+// ============================================================================
+
+/** Check if a string looks like a URL (http:// or https://) */
+export function isUrl(input: string): boolean {
+  const trimmed = input.trim();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+}
+
+/**
+ * Extract a display name from a URL.
+ * Google Slides → "Google Slides"
+ * Google Docs → "Google Docs"
+ * Other → hostname
+ */
+export function getUrlDisplayName(url: string): string {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'docs.google.com') {
+      if (url.includes('/presentation/')) return 'Google Slides';
+      if (url.includes('/document/')) return 'Google Docs';
+      if (url.includes('/spreadsheets/')) return 'Google Sheets';
+      return 'Google Docs';
+    }
+    return u.hostname.replace(/^www\./, '');
+  } catch {
+    return url.slice(0, 40);
+  }
+}
+
+/**
+ * Convert a Google Slides/Docs URL to an embeddable URL.
+ * Returns null if not a known embeddable format.
+ *
+ * Google Slides: .../presentation/d/{ID}/edit → .../presentation/d/{ID}/embed
+ * Google Docs: .../document/d/{ID}/edit → .../document/d/{ID}/preview
+ */
+export function toEmbedUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname !== 'docs.google.com') return null;
+
+    // Google Slides
+    const slidesMatch = u.pathname.match(/^\/presentation\/d\/([^/]+)/);
+    if (slidesMatch) {
+      return `https://docs.google.com/presentation/d/${slidesMatch[1]}/embed?start=false&loop=false`;
+    }
+
+    // Google Docs
+    const docsMatch = u.pathname.match(/^\/document\/d\/([^/]+)/);
+    if (docsMatch) {
+      return `https://docs.google.com/document/d/${docsMatch[1]}/preview`;
+    }
+
+    // Google Sheets
+    const sheetsMatch = u.pathname.match(/^\/spreadsheets\/d\/([^/]+)/);
+    if (sheetsMatch) {
+      return `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/preview`;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }

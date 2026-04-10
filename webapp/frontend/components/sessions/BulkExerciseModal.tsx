@@ -5,7 +5,7 @@ import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/l
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical, Clipboard } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical, Clipboard, Globe, ExternalLink } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convert
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -160,11 +160,11 @@ export function BulkExerciseModal({
   // Initiate save - shows confirmation first
   const initiateSave = useCallback(() => {
     // Filter out exercises with empty PDF names
-    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
     const emptyCount = exercises.length - validExercises.length;
 
     if (emptyCount > 0) {
-      showToast(`Removed ${emptyCount} exercise(s) without PDF paths`, 'info');
+      showToast(`Removed ${emptyCount} empty exercise(s)`, 'info');
       setExercises(validExercises);
     }
 
@@ -200,12 +200,13 @@ export function BulkExerciseModal({
     setSessionSaveStatus({}); // Reset status
 
     // Filter out empty PDF names (defensive, should already be filtered)
-    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
 
     // Build API format with remarks encoding
     const apiExercises = validExercises.map((ex) => ({
       exercise_type: ex.exercise_type,
-      pdf_name: ex.pdf_name,
+      pdf_name: ex.pdf_name || null,
+      url: ex.url || null,
       page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
       remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
@@ -361,7 +362,15 @@ export function BulkExerciseModal({
     e: React.ClipboardEvent<HTMLInputElement>,
     index: number
   ) => {
-    const pastedText = e.clipboardData.getData('text');
+    const pastedText = e.clipboardData.getData('text').trim();
+
+    // Check if pasted text is a URL → switch to URL mode
+    if (isUrl(pastedText)) {
+      e.preventDefault();
+      setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "" } : ex));
+      setIsDirty(true);
+      return;
+    }
 
     // Check if Windows path with drive letter (e.g., "Z:\path" or Z:\path)
     const driveMatch = pastedText.match(/^["']?([A-Za-z]):[\\\/]/);
@@ -790,7 +799,7 @@ export function BulkExerciseModal({
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
-          {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
+          {canBrowseFiles && exercises.some(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim())) ? (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -936,32 +945,57 @@ export function BulkExerciseModal({
                       <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     </div>
 
-                    {/* PDF path input */}
-                    <input
-                      ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
-                      type="text"
-                      value={exercise.pdf_name}
-                      onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
-                      onPaste={(e) => handlePasteConvert(e, index)}
-                      onFocus={() => setFocusedRowIndex(index)}
-                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path (drag & drop supported)"}
-                      className={cn(
-                        inputClass,
-                        "text-xs py-1.5 flex-1 min-w-0 transition-all",
-                        isDraggingOver === index && "border-amber-400"
+                    {/* Resource input (PDF path or URL) */}
+                    <div className="relative flex-1 min-w-0">
+                      {exercise.url && (
+                        <Globe className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
                       )}
-                    />
+                      <input
+                        ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
+                        type="text"
+                        value={exercise.url || exercise.pdf_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (isUrl(val)) {
+                            setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: val, pdf_name: "" } : ex));
+                          } else {
+                            setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, pdf_name: val, url: "" } : ex));
+                          }
+                          setIsDirty(true);
+                        }}
+                        onPaste={(e) => handlePasteConvert(e, index)}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path or URL (drag & drop supported)"}
+                        className={cn(
+                          inputClass,
+                          "text-xs py-1.5 w-full transition-all",
+                          exercise.url && "pl-7",
+                          isDraggingOver === index && "border-amber-400"
+                        )}
+                      />
+                    </div>
 
-                    {/* File action buttons */}
-                    <ExerciseActionButtons
-                      hasPdfName={!!exercise.pdf_name}
-                      canBrowseFiles={canBrowseFiles}
-                      fileActionState={fileActionState[exercise.clientId]}
-                      onPaperlessSearch={() => handlePaperlessSearch(index)}
-                      onBrowseFile={() => handleBrowseFile(index)}
-                      onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
-                      onPrintFile={() => handlePrintFile(exercise)}
-                    />
+                    {/* File action buttons (hidden for URL exercises) */}
+                    {exercise.url ? (
+                      <button
+                        type="button"
+                        onClick={() => window.open(exercise.url, '_blank')}
+                        className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex-shrink-0"
+                        title="Open URL in new tab"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                      </button>
+                    ) : (
+                      <ExerciseActionButtons
+                        hasPdfName={!!exercise.pdf_name}
+                        canBrowseFiles={canBrowseFiles}
+                        fileActionState={fileActionState[exercise.clientId]}
+                        onPaperlessSearch={() => handlePaperlessSearch(index)}
+                        onBrowseFile={() => handleBrowseFile(index)}
+                        onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
+                        onPrintFile={() => handlePrintFile(exercise)}
+                      />
+                    )}
 
                     {/* Delete button with inline confirmation */}
                     <ExerciseDeleteButton
@@ -972,7 +1006,8 @@ export function BulkExerciseModal({
                     />
                   </div>
 
-                  {/* Row 2: Page Range Mode Selection */}
+                  {/* Row 2: Page Range Mode Selection (hidden for URL-only exercises) */}
+                  {!exercise.url && (
                   <div className="flex gap-2 items-start">
                     {/* Spacer matching row 1 drag handle */}
                     <div className="w-5 shrink-0" />
@@ -1028,6 +1063,7 @@ export function BulkExerciseModal({
                       />
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
                 )}
@@ -1123,7 +1159,7 @@ export function BulkExerciseModal({
               Confirm Bulk Assignment
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Assign {exercises.filter(ex => ex.pdf_name?.trim()).length} exercise(s) to {sessions.length} session(s)?
+              Assign {exercises.filter(ex => ex.pdf_name?.trim() || ex.url?.trim()).length} exercise(s) to {sessions.length} session(s)?
             </p>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-h-32 overflow-y-auto">
               <div className="font-medium mb-1">Sessions:</div>

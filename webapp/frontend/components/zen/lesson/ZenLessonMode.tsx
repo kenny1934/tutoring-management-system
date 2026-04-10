@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getUrlDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import { ZenLessonHeader } from "./ZenLessonHeader";
@@ -176,6 +176,40 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+          {selectedExercise?.url && !selectedExercise?.pdf_name ? (
+            /* URL exercise: iframe embed or open-in-new-tab */
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "var(--zen-bg)" }}>
+              {(() => {
+                const embedUrl = toEmbedUrl(selectedExercise.url);
+                if (embedUrl) {
+                  return (
+                    <iframe
+                      src={embedUrl}
+                      style={{ width: "100%", flex: 1, border: "none" }}
+                      allowFullScreen
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                      title={getUrlDisplayName(selectedExercise.url)}
+                    />
+                  );
+                }
+                return (
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ color: "var(--zen-dim)", marginBottom: "12px" }}>
+                      This resource cannot be embedded directly.
+                    </p>
+                    <a
+                      href={selectedExercise.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "var(--zen-accent)", textDecoration: "underline" }}
+                    >
+                      Open in new tab
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
           <ZenLessonPdfViewer
             pdfData={pdfData}
             pageNumbers={pageNumbers}
@@ -206,6 +240,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
             hasAnnotationsForExercise={ann.hasAnnotationsForExercise}
             onSaveAnnotated={ann.handleSaveAnnotated}
           />
+          )}
 
           {showAnswerKey && (
             <>
@@ -275,7 +310,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         </span>
         {selectedExercise && (
           <span style={{ color: "var(--zen-fg)" }}>
-            {getDisplayName(selectedExercise.pdf_name)}
+            {selectedExercise.pdf_name ? getDisplayName(selectedExercise.pdf_name) : getUrlDisplayName(selectedExercise.url || '')}
           </span>
         )}
       </div>

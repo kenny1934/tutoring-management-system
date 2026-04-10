@@ -8,6 +8,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface RecapExerciseItemProps {
   pdfName: string;
+  url?: string;
   pageStart?: number;
   pageEnd?: number;
   stamp?: PrintStampInfo;
@@ -18,17 +19,21 @@ interface RecapExerciseItemProps {
  * Shows filename, page info, and copy/open/print buttons.
  * Memoized to prevent re-renders when parent state changes.
  */
-export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, pageStart, pageEnd, stamp }: RecapExerciseItemProps) {
+export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url, pageStart, pageEnd, stamp }: RecapExerciseItemProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
-  // Parse display name from full path
-  const displayName = pdfName.includes('/') || pdfName.includes('\\')
-    ? pdfName.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || pdfName
-    : pdfName.replace(/\.[^.]+$/, '');
+  const isUrlExercise = !!url && !pdfName;
+
+  // Parse display name from full path or URL
+  const displayName = isUrlExercise
+    ? (() => { try { const u = new URL(url!); if (url!.includes('/presentation/')) return 'Google Slides'; if (url!.includes('/document/')) return 'Google Docs'; return u.hostname.replace(/^www\./, ''); } catch { return url!.slice(0, 30); } })()
+    : pdfName.includes('/') || pdfName.includes('\\')
+      ? pdfName.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || pdfName
+      : pdfName.replace(/\.[^.]+$/, '');
 
   const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
     ? `(p${pageStart}-${pageEnd})`
@@ -100,26 +105,40 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
         </>
       )}
 
-      {/* Copy button */}
-      <button type="button" onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
-        {copyState === 'copied' ? <Check className="h-3 w-3 text-green-500" /> :
-         copyState === 'failed' ? <XCircle className="h-3 w-3 text-red-500" /> :
-         <Copy className="h-3 w-3 text-gray-400" />}
-      </button>
-
-      {/* Open/Print buttons - only if file system supported */}
-      {canBrowseFiles && (
+      {isUrlExercise ? (
+        /* URL exercise: just open in new tab */
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }}
+          className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded flex-shrink-0"
+          title="Open URL"
+        >
+          <ExternalLink className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+        </button>
+      ) : (
         <>
-          <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={openState === 'loading' && progressMessage ? progressMessage : "Open file"}>
-            {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-             openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-             <ExternalLink className="h-3 w-3 text-gray-400" />}
+          {/* Copy button */}
+          <button type="button" onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
+            {copyState === 'copied' ? <Check className="h-3 w-3 text-green-500" /> :
+             copyState === 'failed' ? <XCircle className="h-3 w-3 text-red-500" /> :
+             <Copy className="h-3 w-3 text-gray-400" />}
           </button>
-          <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={printState === 'loading' && progressMessage ? progressMessage : "Print file"}>
-            {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-             printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-             <Printer className="h-3 w-3 text-gray-400" />}
-          </button>
+
+          {/* Open/Print buttons - only if file system supported */}
+          {canBrowseFiles && (
+            <>
+              <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={openState === 'loading' && progressMessage ? progressMessage : "Open file"}>
+                {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
+                 openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
+                 <ExternalLink className="h-3 w-3 text-gray-400" />}
+              </button>
+              <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={printState === 'loading' && progressMessage ? progressMessage : "Print file"}>
+                {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
+                 printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
+                 <Printer className="h-3 w-3 text-gray-400" />}
+              </button>
+            </>
+          )}
         </>
       )}
     </div>

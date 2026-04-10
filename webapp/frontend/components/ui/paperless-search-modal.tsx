@@ -94,7 +94,7 @@ export function PaperlessSearchModal({
   );
   // Memoize trending items with pre-computed path and stable ID
   const topTrending = useMemo(() =>
-    (trendingData?.slice(0, MAX_TRENDING) || []).map(item => ({
+    (trendingData?.slice(0, MAX_TRENDING) || []).filter(item => item.filename && item.normalized_paths).map(item => ({
       ...item,
       // Pre-compute path and stable ID once to avoid repeated parsing
       path: item.normalized_paths.split(',')[0]?.trim() || '',

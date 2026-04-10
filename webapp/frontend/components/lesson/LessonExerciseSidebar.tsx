@@ -3,10 +3,10 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X, Printer, Loader2,
+  Check, X, Printer, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
@@ -48,7 +48,8 @@ function ExerciseItem({
   isPrinting?: boolean;
   printProgress?: string | null;
 }) {
-  const displayName = getDisplayName(exercise.pdf_name);
+  const isUrlExercise = !!exercise.url && !exercise.pdf_name;
+  const displayName = exercise.pdf_name ? getDisplayName(exercise.pdf_name) : getUrlDisplayName(exercise.url || '');
   const pageLabel = getPageLabel(exercise);
 
   return (
@@ -63,6 +64,9 @@ function ExerciseItem({
       )}
     >
       <div className="flex items-start gap-1.5 min-w-0">
+        {isUrlExercise && (
+          <ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+        )}
         <div className="flex-1 min-w-0">
           {/* File name */}
           <div className={cn(
@@ -71,7 +75,7 @@ function ExerciseItem({
               ? "text-[#6b4c30] dark:text-[#d4a574]"
               : "text-gray-700 dark:text-gray-300"
           )}>
-            {exercise.pdf_name ? displayName : "(no file)"}
+            {(exercise.pdf_name || exercise.url) ? displayName : "(no file)"}
           </div>
 
           {/* Page range */}
@@ -84,7 +88,7 @@ function ExerciseItem({
 
         {/* Status indicators */}
         <div className="flex items-center gap-1 flex-shrink-0 mt-1">
-          {exercise.pdf_name && onPrint && (
+          {(exercise.pdf_name && !isUrlExercise) && onPrint && (
             <div
               role="button"
               tabIndex={0}

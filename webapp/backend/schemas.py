@@ -513,12 +513,13 @@ class SessionExerciseResponse(BaseModel):
     id: int = Field(..., gt=0)
     session_id: int = Field(..., gt=0)
     exercise_type: str = Field(..., max_length=50)
-    pdf_name: str = Field(..., min_length=1, max_length=500)
+    pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
     created_by: str = Field(..., max_length=200)
     created_at: Optional[datetime] = None
     remarks: Optional[str] = Field(None, max_length=1000)
+    url: Optional[str] = Field(None, max_length=2048)
     # Answer file fields
     answer_pdf_name: Optional[str] = Field(None, max_length=500)
     answer_page_start: Optional[int] = Field(None, gt=0)
@@ -531,15 +532,22 @@ class SessionExerciseResponse(BaseModel):
 class ExerciseCreateRequest(BaseModel):
     """Request schema for creating/updating a session exercise"""
     exercise_type: str = Field(..., pattern="^(CW|HW|Classwork|Homework)$")
-    pdf_name: str = Field(..., min_length=1, max_length=500)
+    pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
     remarks: Optional[str] = Field(None, max_length=1000)
+    url: Optional[str] = Field(None, max_length=2048)
     # Answer file fields (for manual answer selection)
     answer_pdf_name: Optional[str] = Field(None, max_length=500)
     answer_page_start: Optional[int] = Field(None, gt=0)
     answer_page_end: Optional[int] = Field(None, gt=0)
     answer_remarks: Optional[str] = Field(None, max_length=1000)
+
+    @model_validator(mode='after')
+    def check_pdf_or_url(self):
+        if not self.pdf_name and not self.url:
+            raise ValueError('Either pdf_name or url must be provided')
+        return self
 
 
 class ExerciseSaveRequest(BaseModel):
@@ -553,10 +561,17 @@ class BulkExerciseAssignRequest(BaseModel):
     """Request schema for assigning exercises to multiple sessions at once"""
     session_ids: List[int] = Field(..., min_length=1, description="List of session IDs to assign exercises to")
     exercise_type: str = Field(..., pattern="^(CW|HW)$", description="Exercise type (CW or HW)")
-    pdf_name: str = Field(..., min_length=1, max_length=500, description="PDF filename/path")
+    pdf_name: Optional[str] = Field(None, max_length=500, description="PDF filename/path")
     page_start: Optional[int] = Field(None, gt=0, description="Start page number")
     page_end: Optional[int] = Field(None, gt=0, description="End page number")
     remarks: Optional[str] = Field(None, max_length=1000, description="Exercise remarks")
+    url: Optional[str] = Field(None, max_length=2048, description="External URL (Google Slides, etc.)")
+
+    @model_validator(mode='after')
+    def check_pdf_or_url(self):
+        if not self.pdf_name and not self.url:
+            raise ValueError('Either pdf_name or url must be provided')
+        return self
 
 
 class BulkExerciseAssignResponse(BaseModel):
@@ -612,6 +627,7 @@ class HomeworkCompletionResponse(BaseModel):
     pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
+    url: Optional[str] = Field(None, max_length=2048)
     homework_assigned_date: Optional[date] = None
     assigned_by_tutor_id: Optional[int] = Field(None, gt=0)
     assigned_by_tutor: Optional[str] = Field(None, max_length=200)

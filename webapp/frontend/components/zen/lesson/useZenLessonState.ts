@@ -102,6 +102,15 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
       return;
     }
 
+    // URL-only exercises: skip PDF loading
+    if (selectedExercise.url && !selectedExercise.pdf_name) {
+      setPdfData(null);
+      setPdfLoading(false);
+      setPdfError(null);
+      setPageNumbers([]);
+      return;
+    }
+
     const pdfName = selectedExercise.pdf_name;
     const pages = exerciseToPageNumbers(selectedExercise);
     setPageNumbers(pages);
@@ -160,7 +169,7 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
     let cancelled = false;
     const currentIdx = exercises.findIndex(ex => ex.id === selectedExercise.id);
     const adjacent = [exercises[currentIdx - 1], exercises[currentIdx + 1]].filter(
-      (ex): ex is SessionExercise => !!ex?.pdf_name && !pdfCacheRef.current.has(ex.pdf_name)
+      (ex): ex is SessionExercise => !!ex?.pdf_name && !ex?.url && !pdfCacheRef.current.has(ex.pdf_name)
     );
 
     (async () => {
