@@ -332,7 +332,8 @@ export function validateExercisePageRange(
  * "V:\abc\def\ghi.pdf" → "ghi"
  * "jkl.docx" → "jkl"
  */
-export function getDisplayName(pdfName: string): string {
+export function getDisplayName(pdfName: string | null | undefined): string {
+  if (!pdfName) return '';
   const filename = pdfName.split(/[/\\]/).pop() || pdfName;
   return filename.replace(/\.[^.]+$/, '');
 }
@@ -548,6 +549,11 @@ export function findDuplicatesFromIndex(
 // ============================================================================
 // URL Utilities
 // ============================================================================
+
+/** Check if an exercise has a source (PDF path or URL) */
+export function hasExerciseSource(ex: { pdf_name?: string; url?: string }): boolean {
+  return !!(ex.pdf_name?.trim() || ex.url?.trim());
+}
 
 /** Check if a string looks like a URL (http:// or https://) */
 export function isUrl(input: string): boolean {

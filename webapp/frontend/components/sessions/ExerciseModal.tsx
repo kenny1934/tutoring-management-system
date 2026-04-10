@@ -23,7 +23,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl, hasExerciseSource } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -323,7 +323,7 @@ export function ExerciseModal({
 
   const handleSave = useCallback(async () => {
     // Filter out empty exercises (no PDF name or URL)
-    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
+    const validExercises = exercises.filter(hasExerciseSource);
     if (validExercises.length < exercises.length) {
       setExercises(validExercises);
     }
@@ -945,18 +945,18 @@ export function ExerciseModal({
     const studentName = session.student_name.replace(/\s+/g, '_');
     const printTitle = `${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}`;
 
+    const urlExercises = exercises.filter(ex => ex.url && ex.url.trim() && !ex.pdf_name?.trim());
     const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath, printTitle);
     if (error) {
       setPrintAllState('error');
       setTimeout(() => setPrintAllState('idle'), 2000);
     } else {
       setPrintAllState('idle');
-    }
-    // Open URL exercises in new tabs
-    const urlExercises = exercises.filter(ex => ex.url && ex.url.trim() && !ex.pdf_name?.trim());
-    if (urlExercises.length > 0) {
-      urlExercises.forEach(ex => window.open(ex.url, '_blank'));
-      showToast(`${exercisesWithPdfs.length} PDFs printed, ${urlExercises.length} link${urlExercises.length > 1 ? 's' : ''} opened in new tab${urlExercises.length > 1 ? 's' : ''}`, 'info');
+      // Open URL exercises in new tabs only on successful print
+      if (urlExercises.length > 0) {
+        urlExercises.forEach(ex => window.open(ex.url, '_blank'));
+        showToast(`${exercisesWithPdfs.length} PDFs printed, ${urlExercises.length} link${urlExercises.length > 1 ? 's' : ''} opened in new tab${urlExercises.length > 1 ? 's' : ''}`, 'info');
+      }
     }
   }, [exercises, printAllState, buildStampInfo, session, exerciseType, showToast]);
 
@@ -1412,7 +1412,7 @@ export function ExerciseModal({
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - show if there are exercises with PDFs or URLs */}
-          {canBrowseFiles && exercises.some(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim())) ? (
+          {canBrowseFiles && exercises.some(hasExerciseSource) ? (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

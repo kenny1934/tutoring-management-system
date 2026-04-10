@@ -345,7 +345,7 @@ export function LessonMode({
     let cancelled = false;
     const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise.id);
     const adjacent = [allExercises[currentIdx - 1], allExercises[currentIdx + 1]].filter(
-      (ex): ex is SessionExercise => !!ex?.pdf_name && !ex?.url && !pdfCacheRef.current.has(ex.pdf_name)
+      (ex): ex is SessionExercise => !!ex?.pdf_name && !pdfCacheRef.current.has(ex.pdf_name)
     );
 
     (async () => {

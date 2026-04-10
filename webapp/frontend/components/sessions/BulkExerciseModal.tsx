@@ -18,7 +18,7 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convert
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl, hasExerciseSource } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -160,7 +160,7 @@ export function BulkExerciseModal({
   // Initiate save - shows confirmation first
   const initiateSave = useCallback(() => {
     // Filter out exercises with empty PDF names
-    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
+    const validExercises = exercises.filter(hasExerciseSource);
     const emptyCount = exercises.length - validExercises.length;
 
     if (emptyCount > 0) {
@@ -200,7 +200,7 @@ export function BulkExerciseModal({
     setSessionSaveStatus({}); // Reset status
 
     // Filter out empty PDF names (defensive, should already be filtered)
-    const validExercises = exercises.filter(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim()));
+    const validExercises = exercises.filter(hasExerciseSource);
 
     // Build API format with remarks encoding
     const apiExercises = validExercises.map((ex) => ({
@@ -799,7 +799,7 @@ export function BulkExerciseModal({
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
-          {canBrowseFiles && exercises.some(ex => (ex.pdf_name && ex.pdf_name.trim()) || (ex.url && ex.url.trim())) ? (
+          {canBrowseFiles && exercises.some(hasExerciseSource) ? (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -1159,7 +1159,7 @@ export function BulkExerciseModal({
               Confirm Bulk Assignment
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Assign {exercises.filter(ex => ex.pdf_name?.trim() || ex.url?.trim()).length} exercise(s) to {sessions.length} session(s)?
+              Assign {exercises.filter(hasExerciseSource).length} exercise(s) to {sessions.length} session(s)?
             </p>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-h-32 overflow-y-auto">
               <div className="font-medium mb-1">Sessions:</div>

@@ -4,6 +4,7 @@ import { useState, memo } from "react";
 import { Check, XCircle, Copy, Loader2, ExternalLink, Printer } from "lucide-react";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import type { PrintStampInfo } from "@/lib/file-system";
+import { getDisplayName, getUrlDisplayName } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface RecapExerciseItemProps {
@@ -27,13 +28,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   const isUrlExercise = !!url && !pdfName;
-
-  // Parse display name from full path or URL
-  const displayName = isUrlExercise
-    ? (() => { try { const u = new URL(url!); if (url!.includes('/presentation/')) return 'Google Slides'; if (url!.includes('/document/')) return 'Google Docs'; return u.hostname.replace(/^www\./, ''); } catch { return url!.slice(0, 30); } })()
-    : pdfName.includes('/') || pdfName.includes('\\')
-      ? pdfName.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || pdfName
-      : pdfName.replace(/\.[^.]+$/, '');
+  const displayName = isUrlExercise ? getUrlDisplayName(url!) : getDisplayName(pdfName);
 
   const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
     ? `(p${pageStart}-${pageEnd})`

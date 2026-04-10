@@ -201,7 +201,7 @@ export function LessonWideMode({
       if (!group) {
         group = {
           pdfName: entry.exercise.pdf_name,
-          displayName: getDisplayName(entry.exercise.pdf_name),
+          displayName: entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : getUrlDisplayName(entry.exercise.url || ''),
           exerciseType: type,
           entries: [],
         };
@@ -254,7 +254,9 @@ export function LessonWideMode({
   // Exercise label for PDF viewer
   const exerciseLabel = selectedEntry?.exercise?.pdf_name
     ? getDisplayName(selectedEntry.exercise.pdf_name)
-    : undefined;
+    : selectedEntry?.exercise?.url
+      ? getUrlDisplayName(selectedEntry.exercise.url)
+      : undefined;
 
   // --- Browser tab title ---
   useEffect(() => {
@@ -749,7 +751,7 @@ export function LessonWideMode({
 
         const pages = getExercisePageNumbers(entry.exercise);
         const blob = await saveAnnotatedPdf(cached, pages, entryStamp, ann);
-        const label = `${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`;
+        const label = `${entry.studentName}-${entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : 'exercise'}`;
         zip.file(`annotated-${label}.pdf`, blob);
       }
 

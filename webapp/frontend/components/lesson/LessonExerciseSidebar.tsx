@@ -88,7 +88,7 @@ function ExerciseItem({
 
         {/* Status indicators */}
         <div className="flex items-center gap-1 flex-shrink-0 mt-1">
-          {(exercise.pdf_name && !isUrlExercise) && onPrint && (
+          {exercise.pdf_name && onPrint && (
             <div
               role="button"
               tabIndex={0}

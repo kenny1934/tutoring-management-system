@@ -169,7 +169,7 @@ export function useZenLessonState(allExercises: SessionExercise[], resetKey?: un
     let cancelled = false;
     const currentIdx = exercises.findIndex(ex => ex.id === selectedExercise.id);
     const adjacent = [exercises[currentIdx - 1], exercises[currentIdx + 1]].filter(
-      (ex): ex is SessionExercise => !!ex?.pdf_name && !ex?.url && !pdfCacheRef.current.has(ex.pdf_name)
+      (ex): ex is SessionExercise => !!ex?.pdf_name && !pdfCacheRef.current.has(ex.pdf_name)
     );
 
     (async () => {
