@@ -12,7 +12,7 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg } from "@/lib/summer-utils";
 import type { DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -1218,41 +1218,53 @@ export function SummerApplicationDetailModal({
             <div className="p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-lg shrink-0">
               <Grid3X3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
-              {app.sessions && app.sessions.length > 0 ? (
-                <div className="space-y-1 mt-0.5">
-                  {app.sessions.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-foreground">
-                        {p.slot_day} {p.time_slot}
-                      </span>
-                      {p.grade && (
-                        <span className="text-[10px] px-1 rounded bg-gray-100 dark:bg-gray-700 text-muted-foreground">
-                          {p.grade}
-                        </span>
-                      )}
-                      {p.tutor_name && (
-                        <span className="text-xs text-muted-foreground">
-                          {p.tutor_name}
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                          p.session_status === "Confirmed"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                            : p.session_status === "Tentative"
-                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                        )}
-                      >
-                        {p.session_status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {app.sessions && app.sessions.length > 0 ? (() => {
+                const sorted = sortSessionsByDate(app.sessions);
+                return (
+                  <div className="space-y-0.5 mt-1">
+                    {sorted.map((p) => {
+                      const day = p.lesson_date ? getDayFromDate(p.lesson_date) : p.slot_day;
+                      const startTime = p.time_slot ? getStartTime(p.time_slot) : "";
+                      const capacityStr = p.slot_max_students != null && p.slot_current_count != null
+                        ? `${p.slot_current_count}/${p.slot_max_students}`
+                        : null;
+                      return (
+                        <div key={p.id} className={cn(
+                          "flex items-center gap-2 text-sm px-2 py-1 rounded",
+                          sessionStatusBg(p.session_status),
+                        )}>
+                          {p.session_status === "Confirmed"
+                            ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                            : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                          <span className="font-medium text-foreground tabular-nums w-16 shrink-0">
+                            {p.lesson_date ? formatCompactDate(p.lesson_date) : p.slot_day}
+                          </span>
+                          <span className="text-muted-foreground text-xs shrink-0">
+                            {day} {startTime}
+                          </span>
+                          {p.grade && (
+                            <span className="text-[10px] px-1 rounded bg-gray-100 dark:bg-gray-700 text-muted-foreground shrink-0">
+                              {p.grade}
+                            </span>
+                          )}
+                          {p.tutor_name && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {p.tutor_name}
+                            </span>
+                          )}
+                          {capacityStr && (
+                            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-auto">
+                              {capacityStr}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
                 <div className="text-sm text-muted-foreground">Not yet placed</div>
               )}
             </div>

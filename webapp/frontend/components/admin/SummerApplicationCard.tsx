@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
-  Users, User, StickyNote, Copy, Check, Phone, CalendarClock, AlertCircle,
+  Users, User, StickyNote, Copy, Check, Phone, Grid3X3, AlertCircle,
   AlertTriangle, ChevronDown,
   FileInput, Eye, Send, CheckCircle, CreditCard, BadgeCheck,
   GraduationCap, Clock, LogOut, XCircle,
@@ -12,7 +12,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences, displayLocation } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -150,6 +150,7 @@ interface SummerApplicationCardProps {
   showCheckbox: boolean;
   onStatusChange?: (id: number, status: string) => void;
   onProspectClick?: (prospectId: number) => void;
+  totalLessons?: number;
 }
 
 export const SummerApplicationCard = React.memo(function SummerApplicationCard({
@@ -162,6 +163,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   showCheckbox,
   onStatusChange,
   onProspectClick,
+  totalLessons,
 }: SummerApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
   const { combined: prefs } = formatPreferences(app);
@@ -294,23 +296,11 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           </div>
         </div>
 
-        {/* Row 2: placement — the action-relevant line */}
+        {/* Row 2: preferences (always shown) */}
         <div className="flex items-center gap-1.5 text-xs flex-wrap">
-          {isPlaced ? (
+          {classified.primary.length > 0 || prefDisplay ? (
             <>
-              <GraduationCap className="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
-              {app.sessions!.map((s, i) => (
-                <span
-                  key={i}
-                  className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-medium"
-                >
-                  {s.slot_day} {s.time_slot}
-                </span>
-              ))}
-            </>
-          ) : classified.primary.length > 0 || prefDisplay ? (
-            <>
-              <CalendarClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
               {sessionsPerWeek > 1 && (
                 <span className="shrink-0 text-[10px] font-bold px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                   2×
@@ -348,6 +338,47 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             </span>
           )}
         </div>
+
+        {/* Row 2b: placement progress strip (when placed) */}
+        {isPlaced && (() => {
+          const sorted = sortSessionsByDate(app.sessions!);
+          const dates = sorted.map(s => s.lesson_date).filter(Boolean) as string[];
+          const dateRange = dates.length >= 2
+            ? `${formatCompactDate(dates[0])} – ${formatCompactDate(dates[dates.length - 1])}`
+            : dates.length === 1 ? formatCompactDate(dates[0]) : null;
+          const placedCount = sorted.length;
+          const total = totalLessons ?? placedCount;
+          return (
+            <div className="flex items-center gap-1.5 text-xs">
+              <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+              {dateRange && (
+                <span className="shrink-0 text-[11px] font-medium text-foreground">
+                  {dateRange}
+                </span>
+              )}
+              <span className="shrink-0 flex items-center gap-px">
+                {sorted.map((s, i) => (
+                  <span
+                    key={i}
+                    className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
+                    title={s.lesson_date
+                      ? `L${s.lesson_number ?? i + 1}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
+                      : `L${s.lesson_number ?? i + 1}: ${s.session_status}`}
+                  />
+                ))}
+                {total > placedCount && Array.from({ length: total - placedCount }).map((_, i) => (
+                  <span
+                    key={`e${i}`}
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
+                  />
+                ))}
+              </span>
+              <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                {placedCount}/{total}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Row 3: meta footer — phone, wechat, flags, ref, time */}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">

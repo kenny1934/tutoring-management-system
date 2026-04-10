@@ -2673,7 +2673,7 @@ class SummerTutorDutyResponse(BaseModel):
 # ---- Summer Application Session Info (for embedding in application response) ----
 
 class SummerApplicationSessionInfo(BaseModel):
-    """Session info embedded in application response."""
+    """Session info embedded in application response — one per non-cancelled session."""
     id: int
     slot_id: int
     slot_day: str
@@ -2681,6 +2681,10 @@ class SummerApplicationSessionInfo(BaseModel):
     grade: Optional[str] = None
     tutor_name: Optional[str] = None
     session_status: str
+    lesson_number: Optional[int] = None
+    lesson_date: Optional[str] = None
+    slot_max_students: Optional[int] = None
+    slot_current_count: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -220,6 +220,47 @@ export const DAY_ABBREV: Record<string, string> = {
   Sunday: "Sun",
 };
 
+/** Get short weekday from ISO date string, e.g. "2025-07-07" → "Mon". */
+export function getDayFromDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return days[d.getDay()];
+}
+
+/** Extract start time from a time slot like "10:00 - 11:30" → "10:00". */
+export function getStartTime(timeSlot: string): string {
+  return timeSlot.split(" - ")[0] || timeSlot;
+}
+
+/** Sort session-like objects by lesson_date then lesson_number. */
+export function sortSessionsByDate<T extends { lesson_date?: string | null; lesson_number?: number | null }>(
+  sessions: T[],
+): T[] {
+  return [...sessions].sort((a, b) => {
+    if (a.lesson_date && b.lesson_date) return a.lesson_date.localeCompare(b.lesson_date);
+    return (a.lesson_number ?? 0) - (b.lesson_number ?? 0);
+  });
+}
+
+/** Session status → dot/bg color classes. */
+export const SESSION_STATUS_DOT: Record<string, string> = {
+  Confirmed: "bg-green-500 dark:bg-green-400",
+  Tentative: "bg-amber-400 dark:bg-amber-400",
+};
+export const SESSION_STATUS_BG: Record<string, string> = {
+  Confirmed: "bg-green-50 dark:bg-green-900/20",
+  Tentative: "bg-yellow-50 dark:bg-yellow-900/20",
+};
+const SESSION_STATUS_DOT_DEFAULT = "bg-gray-300 dark:bg-gray-600";
+const SESSION_STATUS_BG_DEFAULT = "bg-gray-50 dark:bg-gray-800/30";
+
+export function sessionStatusDot(status: string): string {
+  return SESSION_STATUS_DOT[status] ?? SESSION_STATUS_DOT_DEFAULT;
+}
+export function sessionStatusBg(status: string): string {
+  return SESSION_STATUS_BG[status] ?? SESSION_STATUS_BG_DEFAULT;
+}
+
 /** Map summer config Chinese location names → internal system codes. */
 export const LOCATION_TO_CODE: Record<string, string> = {
   "華士古分校": "MSA",

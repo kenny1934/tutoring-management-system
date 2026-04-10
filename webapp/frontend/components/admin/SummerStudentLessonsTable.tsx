@@ -4,8 +4,7 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, formatCompactDate, formatShortDate } from "@/lib/summer-utils";
-import { DAY_ABBREV } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
 import { ArrowUpDown, Search, Check, Clock } from "lucide-react";
 import type { SummerStudentLessonsRow } from "@/types";
 
@@ -25,18 +24,6 @@ interface SummerStudentLessonsTableProps {
 }
 
 type SortMode = "completion" | "name" | "grade";
-
-/** Get day abbreviation from ISO date string */
-function getDayFromDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return days[d.getDay()];
-}
-
-/** Get start time from time slot like "10:00 - 11:30" */
-function getStartTime(timeSlot: string): string {
-  return timeSlot.split(" - ")[0] || timeSlot;
-}
 
 // Warm palette constants matching WeeklyGridView / applications page
 const HEADER_BG = "bg-[#fef9f3] dark:bg-[#2d2618]";

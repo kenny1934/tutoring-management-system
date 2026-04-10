@@ -1151,18 +1151,21 @@ def _build_application_response(
     group_sizes: Optional[dict[int, int]] = None,
     linked_students: Optional[dict[int, LinkedSecondaryStudentInfo]] = None,
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
+    slot_counts: Optional[dict[int, int]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
     Pass the bulk dicts from `_get_buddy_siblings_bulk`, `_get_buddy_group_sizes`,
-    `_get_linked_students_bulk`, and `_get_linked_prospects_bulk` to avoid N+1
-    in list endpoints. Single-app endpoints can omit all of them.
+    `_get_linked_students_bulk`, `_get_linked_prospects_bulk`, and
+    `_get_slot_session_counts` to avoid N+1 in list endpoints.
+    Single-app endpoints can omit all of them.
     """
     sessions = []
     for s in (app.sessions or []):
         if s.session_status == "Cancelled":
             continue
         slot = s.slot
+        lesson = s.lesson
         sessions.append(SummerApplicationSessionInfo(
             id=s.id,
             slot_id=s.slot_id,
@@ -1171,6 +1174,10 @@ def _build_application_response(
             grade=slot.grade if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
             session_status=s.session_status,
+            lesson_number=lesson.lesson_number if lesson else s.lesson_number,
+            lesson_date=str(lesson.lesson_date) if lesson and lesson.lesson_date else None,
+            slot_max_students=slot.max_students if slot else None,
+            slot_current_count=(slot_counts or {}).get(s.slot_id),
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
@@ -1205,6 +1212,22 @@ def _build_application_response(
     return SummerApplicationResponse.model_validate(data)
 
 
+def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]:
+    """Count distinct students (applications) per slot in bulk."""
+    if not slot_ids:
+        return {}
+    rows = (
+        db.query(SummerSession.slot_id, func.count(func.distinct(SummerSession.application_id)))
+        .filter(
+            SummerSession.slot_id.in_(slot_ids),
+            SummerSession.session_status != "Cancelled",
+        )
+        .group_by(SummerSession.slot_id)
+        .all()
+    )
+    return {slot_id: cnt for slot_id, cnt in rows}
+
+
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
@@ -1215,6 +1238,12 @@ def _build_application_responses(
     student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
     linked_students = _get_linked_students_bulk(db, student_ids)
     linked_prospects = _get_linked_prospects_bulk(db, [a.id for a in apps])
+    # Bulk-fetch slot session counts for capacity display
+    slot_ids = list({
+        s.slot_id for a in apps for s in (a.sessions or [])
+        if s.session_status != "Cancelled"
+    })
+    slot_counts = _get_slot_session_counts(db, slot_ids)
     return [
         _build_application_response(
             a,
@@ -1222,6 +1251,7 @@ def _build_application_responses(
             group_sizes,
             linked_students,
             linked_prospects,
+            slot_counts=slot_counts,
         )
         for a in apps
     ]
@@ -1333,6 +1363,8 @@ def list_applications(
         joinedload(SummerApplication.sessions)
             .joinedload(SummerSession.slot)
             .joinedload(SummerCourseSlot.tutor),
+        joinedload(SummerApplication.sessions)
+            .joinedload(SummerSession.lesson),
     )
 
     if config_id:
@@ -1434,6 +1466,8 @@ def get_application(
         joinedload(SummerApplication.sessions)
             .joinedload(SummerSession.slot)
             .joinedload(SummerCourseSlot.tutor),
+        joinedload(SummerApplication.sessions)
+            .joinedload(SummerSession.lesson),
     ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")

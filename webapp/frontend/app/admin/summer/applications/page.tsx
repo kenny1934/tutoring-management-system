@@ -211,6 +211,7 @@ interface VirtualAppRowProps {
   onToggleCheck: (id: number) => void;
   onStatusChange: (id: number, status: string) => void;
   onProspectClick: (prospectId: number) => void;
+  totalLessons?: number;
 }
 
 function VirtualAppRow({
@@ -224,6 +225,7 @@ function VirtualAppRow({
   onToggleCheck,
   onStatusChange,
   onProspectClick,
+  totalLessons,
 }: RowComponentProps<VirtualAppRowProps>) {
   const app = applications[index];
   return (
@@ -238,6 +240,7 @@ function VirtualAppRow({
         showCheckbox={showCheckboxes}
         onStatusChange={onStatusChange}
         onProspectClick={onProspectClick}
+        totalLessons={totalLessons}
       />
     </div>
   );
@@ -1370,6 +1373,7 @@ export default function SummerApplicationsPage() {
                               showCheckbox={showCheckboxes}
                               onStatusChange={handleStatusChange}
                               onProspectClick={handleProspectClick}
+                              totalLessons={activeConfig?.total_lessons}
                             />
                           );
                         })}
@@ -1392,6 +1396,7 @@ export default function SummerApplicationsPage() {
                     onToggleCheck: toggleCheck,
                     onStatusChange: handleStatusChange,
                     onProspectClick: handleProspectClick,
+                    totalLessons: activeConfig?.total_lessons,
                   }}
                   defaultHeight={listHeight}
                   style={{ height: listHeight }}
@@ -1410,6 +1415,7 @@ export default function SummerApplicationsPage() {
                       showCheckbox={showCheckboxes}
                       onStatusChange={handleStatusChange}
                       onProspectClick={handleProspectClick}
+                      totalLessons={activeConfig?.total_lessons}
                     />
                   ))}
                 </div>

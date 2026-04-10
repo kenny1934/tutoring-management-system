@@ -2262,6 +2262,10 @@ export interface SummerApplicationSessionInfo {
   grade?: string | null;
   tutor_name?: string | null;
   session_status: string;
+  lesson_number?: number | null;
+  lesson_date?: string | null;
+  slot_max_students?: number | null;
+  slot_current_count?: number | null;
 }
 
 export interface SummerApplicationUpdate {
