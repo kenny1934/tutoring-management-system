@@ -96,6 +96,8 @@ function InlineStatusSelect({
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         title="Click to change status"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
       >
         <StatusBadgeContent status={value} />
@@ -104,9 +106,14 @@ function InlineStatusSelect({
       {open && pos && typeof document !== "undefined" && createPortal(
         <div
           ref={menuRef}
+          role="listbox"
+          aria-label="Application status"
           className="fixed z-50 min-w-[180px] bg-card border border-border rounded-lg shadow-lg p-1"
           style={{ top: pos.top, right: pos.right }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
+          }}
         >
           {ALL_STATUSES.map((opt) => {
             const colors = STATUS_COLORS[opt];
@@ -116,6 +123,8 @@ function InlineStatusSelect({
               <button
                 key={opt}
                 type="button"
+                role="option"
+                aria-selected={isSelected}
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpen(false);
@@ -219,12 +228,13 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               "shrink-0 transition-opacity -ml-0.5",
               showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
-            onClick={(e) => { e.stopPropagation(); onToggleCheck(app.id); }}
+            onClick={(e) => e.stopPropagation()}
           >
             <input
               type="checkbox"
               checked={isChecked}
-              onChange={() => {}}
+              onChange={(e) => { e.stopPropagation(); onToggleCheck(app.id); }}
+              aria-label={`Select ${app.student_name}`}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
             />
           </div>

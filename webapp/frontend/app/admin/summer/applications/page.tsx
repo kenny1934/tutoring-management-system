@@ -28,7 +28,7 @@ import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { displayLocation, LOCATION_TO_CODE, MIN_GROUP_SIZE, isPlaced } from "@/lib/summer-utils";
+import { displayLocation, LOCATION_TO_CODE, MIN_GROUP_SIZE, isPlaced, EXIT_STATUSES } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
 import { formatTimeAgo } from "@/lib/formatters";
@@ -54,7 +54,10 @@ const PIPELINE_STATUSES = [
   "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
   "Fee Sent", "Paid", "Enrolled",
 ];
-const EXIT_STATUSES = ["Waitlisted", "Withdrawn", "Rejected"];
+const EXIT_STATUSES_LIST = [...EXIT_STATUSES];
+const STATUS_ORDER: Record<string, number> = Object.fromEntries(
+  ALL_STATUSES.map((s, i) => [s, i])
+);
 
 type ViewPreset = "latest" | "pipeline" | "by_location" | "by_grade" | "by_time_slot";
 
@@ -197,6 +200,24 @@ function DropdownMenu({
 
 const menuItemClass = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
 
+/** Self-ticking "Updated X ago" label. Keeps its own 30s interval so the
+ *  parent page doesn't re-render just to update a timestamp string. */
+function TimeAgo({ timestamp }: { timestamp: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span
+      className="hidden md:inline text-[11px] text-muted-foreground tabular-nums"
+      title={new Date(timestamp).toLocaleString()}
+    >
+      Updated {formatTimeAgo(new Date(timestamp).toISOString())}
+    </span>
+  );
+}
+
 // Virtualized row for the flat view. Fixed height accommodates the common case
 // (identity + placement + meta rows); rare edge cases with many backup slots
 // wrap-hide, which is acceptable given the perf win at scale.
@@ -306,6 +327,8 @@ export default function SummerApplicationsPage() {
   );
 
   // UI state
+  // Single index for both card focus highlight and modal prev/next navigation.
+  // Card list and modal are never visible simultaneously, so one state suffices.
   const [selectedAppIndex, setSelectedAppIndex] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
@@ -319,14 +342,9 @@ export default function SummerApplicationsPage() {
 
   // Data freshness
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [nowTick, setNowTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setNowTick((n) => n + 1), 30000);
-    return () => clearInterval(t);
-  }, []);
 
   // Keyboard nav
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const selectedIndex = selectedAppIndex;
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const listRef = useListRef(null);
@@ -464,6 +482,8 @@ export default function SummerApplicationsPage() {
     branchFilter,
     pendingSiblingOnly ? "pending-sibling" : null,
     unverifiedBranchOnly ? "unverified-branch" : null,
+    placementFilter,
+    buddyFilter,
   ].filter(Boolean).length;
   const clearFilters = useCallback(() => {
     setStatusFilter(null);
@@ -516,7 +536,9 @@ export default function SummerApplicationsPage() {
   // the full applications list — the group-reach calculation needs all
   // members, not just the filtered view, so we can't use sortedApplications.
   const discountByAppId = useMemo(
-    () => computeDiscountsForAll(applications ?? [], activeConfig?.pricing_config),
+    () => activeConfig
+      ? computeDiscountsForAll(applications ?? [], activeConfig.pricing_config)
+      : new Map(),
     [applications, activeConfig],
   );
   const locationOptions = useMemo(
@@ -583,7 +605,7 @@ export default function SummerApplicationsPage() {
         case "name":
           return dir * (a.student_name || "").localeCompare(b.student_name || "");
         case "status":
-          return dir * (ALL_STATUSES.indexOf(a.application_status) - ALL_STATUSES.indexOf(b.application_status));
+          return dir * ((STATUS_ORDER[a.application_status] ?? 99) - (STATUS_ORDER[b.application_status] ?? 99));
         case "grade":
           return dir * (a.grade || "").localeCompare(b.grade || "");
         case "location":
@@ -642,7 +664,7 @@ export default function SummerApplicationsPage() {
 
     // Pre-seed status groups in pipeline order
     if (groupBy === "status") {
-      for (const s of [...PIPELINE_STATUSES, ...EXIT_STATUSES]) {
+      for (const s of [...PIPELINE_STATUSES, ...EXIT_STATUSES_LIST]) {
         groups.set(s, []);
       }
     }
@@ -767,14 +789,14 @@ export default function SummerApplicationsPage() {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex((prev) => {
+          setSelectedAppIndex((prev) => {
             const next = (prev ?? -1) + 1;
             return Math.min(next, navigableItems.length - 1);
           });
           break;
         case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex((prev) => {
+          setSelectedAppIndex((prev) => {
             const next = (prev ?? 0) - 1;
             return Math.max(next, 0);
           });
@@ -794,7 +816,7 @@ export default function SummerApplicationsPage() {
           if (showShortcutHints) { setShowShortcutHints(false); break; }
           if (checkedIds.size > 0) { setCheckedIds(new Set()); break; }
           if (hasFilters) { clearFilters(); break; }
-          setSelectedIndex(null);
+          setSelectedAppIndex(null);
           break;
         case "?":
           e.preventDefault();
@@ -812,7 +834,7 @@ export default function SummerApplicationsPage() {
 
   // Reset selection when sort/filter/group changes
   useEffect(() => {
-    setSelectedIndex(null);
+    setSelectedAppIndex(null);
   }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
@@ -881,14 +903,7 @@ export default function SummerApplicationsPage() {
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   {lastUpdated && (
-                    <span
-                      className="hidden md:inline text-[11px] text-muted-foreground tabular-nums"
-                      title={new Date(lastUpdated).toLocaleString()}
-                      // nowTick is read to keep this label ticking every 30s
-                      data-tick={nowTick}
-                    >
-                      Updated {formatTimeAgo(new Date(lastUpdated).toISOString())}
-                    </span>
+                    <TimeAgo timestamp={lastUpdated} />
                   )}
                   <button
                     onClick={handleRefresh}
@@ -1059,10 +1074,10 @@ export default function SummerApplicationsPage() {
                         {renderRow(null)}
                         <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
                         {PIPELINE_STATUSES.map(renderRow)}
-                        {EXIT_STATUSES.some((s) => (stats?.by_status[s] || 0) > 0) && (
+                        {EXIT_STATUSES_LIST.some((s) => (stats?.by_status[s] || 0) > 0) && (
                           <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
                         )}
-                        {EXIT_STATUSES.map(renderRow)}
+                        {EXIT_STATUSES_LIST.map(renderRow)}
                       </>
                     );
                   }}
@@ -1089,6 +1104,27 @@ export default function SummerApplicationsPage() {
                       <span className="ml-1">total</span>
                     </span>
                   )
+                )}
+
+                {placementFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setPlacementFilter(null)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                  >
+                    {placementFilter === "placed" ? "Placed" : "Unplaced"}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                {buddyFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setBuddyFilter(null)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
+                  >
+                    {{ solo: "Solo", grouped: "Grouped", threshold: "At threshold", below: "Below threshold" }[buddyFilter]}
+                    <X className="h-3 w-3" />
+                  </button>
                 )}
 
                 <div className="flex-1" />
@@ -1575,7 +1611,7 @@ export default function SummerApplicationsPage() {
             hasNext={selectedAppIndex !== null && selectedAppIndex < navigableItems.length - 1}
             currentIndex={selectedAppIndex ?? undefined}
             totalCount={navigableItems.length}
-            locations={configs?.find(c => c.id === configId)?.locations}
+            locations={activeConfig?.locations}
             allApplications={applications}
             onSelectApplication={openDetail}
             discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}

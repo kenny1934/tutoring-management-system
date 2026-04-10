@@ -367,6 +367,15 @@ export function SummerApplicationStats({ applications, filters }: Props) {
 
   const placedPct = placementData.total > 0 ? Math.round((placementData.placed / placementData.total) * 100) : 0;
 
+  if (applications.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Users className="h-10 w-10 text-muted-foreground/30 mb-3" />
+        <p className="text-sm text-muted-foreground">No applications match your filters</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Row 1: Status Pipeline + Placement (full width) */}
