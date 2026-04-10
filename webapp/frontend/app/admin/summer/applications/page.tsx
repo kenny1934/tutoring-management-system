@@ -546,8 +546,10 @@ export default function SummerApplicationsPage() {
     }
     if (branchFilter) {
       filtered = filtered.filter((a) => {
-        const code = getAppBranchCode(a);
-        return branchFilter === "new" ? code === null : code === branchFilter;
+        if (branchFilter === "new") return getAppBranchCode(a) === null;
+        // Match against verified_branch_origin (set by admin / auto-link),
+        // falling back to the derived code for unverified apps.
+        return (a.verified_branch_origin || getAppBranchCode(a)) === branchFilter;
       });
     }
     const sorted = [...filtered];
@@ -582,8 +584,11 @@ export default function SummerApplicationsPage() {
     if (pendingSiblingOnly && (a.pending_sibling_count ?? 0) === 0) return false;
     if (unverifiedBranchOnly && !!a.verified_branch_origin) return false;
     if (branchFilter) {
-      const code = getAppBranchCode(a);
-      if (branchFilter === "new" ? code !== null : code !== branchFilter) return false;
+      if (branchFilter === "new") {
+        if (getAppBranchCode(a) !== null) return false;
+      } else {
+        if ((a.verified_branch_origin || getAppBranchCode(a)) !== branchFilter) return false;
+      }
     }
     return true;
   }, [pendingSiblingOnly, unverifiedBranchOnly, branchFilter]);
@@ -1306,7 +1311,15 @@ export default function SummerApplicationsPage() {
                   ))}
                 </div>
               ) : viewMode === "stats" ? (
-                <SummerApplicationStats applications={applications ?? []} />
+                <SummerApplicationStats
+                  applications={applications ?? []}
+                  filters={{
+                    onStatusFilter: (status) => { setStatusFilter(status); setViewMode("list"); },
+                    onGradeFilter: (grade) => { setGradeFilter(grade); setViewMode("list"); },
+                    onBranchFilter: (branch) => { setBranchFilter(branch); setViewMode("list"); },
+                    onUnverifiedFilter: () => { setUnverifiedBranchOnly(true); setViewMode("list"); },
+                  }}
+                />
               ) : viewMode === "board" ? (
                 <SummerBuddyBoard
                   applications={applications}
