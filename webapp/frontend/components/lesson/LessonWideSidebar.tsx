@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
-import { UrlBadge } from "@/components/ui/url-badge";
+import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,6 +69,9 @@ function StudentExerciseItem({
       )}
     >
       <div className="flex items-start gap-1.5 min-w-0">
+        {entry.exercise.url && !entry.exercise.pdf_name && (
+          <YouTubeThumbnail url={entry.exercise.url} fallbackIcon={null} />
+        )}
         <div className="flex-1 min-w-0">
           <div className={cn(
             "truncate font-medium",

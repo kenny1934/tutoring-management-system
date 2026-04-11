@@ -574,6 +574,12 @@ export function isUrl(input: string): boolean {
   return trimmed.startsWith('http://') || trimmed.startsWith('https://');
 }
 
+/** Extract URL from pasted text — handles iframe embed code (e.g., Polypad) or plain URLs */
+export function extractUrlFromPaste(text: string): string {
+  const iframeSrcMatch = text.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  return iframeSrcMatch ? iframeSrcMatch[1] : text;
+}
+
 /**
  * Extract a display name from a URL.
  * Google Slides → "Google Slides"
@@ -593,6 +599,8 @@ const URL_NAME_MAP: Record<string, string> = {
   'embed.kahoot.it': 'Kahoot',
   'quizizz.com': 'Quizizz',
   'wayground.com': 'Wayground',
+  'mathigon.org': 'Mathigon',
+  'polypad.amplify.com': 'Polypad',
 };
 
 export function getUrlDisplayName(url: string, title?: string): string {
@@ -645,19 +653,9 @@ export function toEmbedUrl(url: string): string | null {
     }
 
     // YouTube
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
-      const vid = u.searchParams.get('v');
-      if (vid) return `https://www.youtube.com/embed/${vid}`;
-      // Already an embed URL
-      const embedMatch = u.pathname.match(/^\/embed\/([^/]+)/);
-      if (embedMatch) return url;
-      return null;
-    }
-    if (host === 'youtu.be') {
-      const id = u.pathname.slice(1).split('/')[0];
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      return null;
-    }
+    const ytId = getYouTubeVideoId(url);
+    if (ytId) return `https://www.youtube.com/embed/${ytId}`;
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be') return null;
 
     // Desmos — calculator URLs are directly embeddable
     if (host === 'desmos.com') {
@@ -701,6 +699,16 @@ export function toEmbedUrl(url: string): string | null {
 
     // Quizizz, Wayground — cookie restrictions block iframe embedding; use "Open in new tab"
 
+    // Mathigon — blocked by X-Frame-Options; use "Open in new tab"
+
+    // Polypad — /embed/ URLs work, convert /p/ URLs to embed format
+    if (host === 'polypad.amplify.com') {
+      if (u.pathname.startsWith('/embed/')) return url;
+      const padMatch = u.pathname.match(/^\/p\/([^/]+)/);
+      if (padMatch) return `https://polypad.amplify.com/embed/${padMatch[1]}`;
+      return null;
+    }
+
     return null;
   } catch {
     return null;
@@ -726,8 +734,28 @@ export function getUrlBadge(url?: string | null): { label: string; className: st
     if (host === 'phet.colorado.edu') return { label: 'Sim', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', hex: '#f97316' };
     if (host === 'kahoot.it' || host === 'kahoot.com' || host === 'create.kahoot.it' || host === 'embed.kahoot.it') return { label: 'Quiz', className: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400', hex: '#8b5cf6' };
     if (host === 'quizizz.com' || host === 'wayground.com') return { label: 'Quiz', className: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400', hex: '#ec4899' };
+    if (host === 'mathigon.org' || host === 'polypad.amplify.com') return { label: 'Math', className: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400', hex: '#06b6d4' };
     return { label: 'Link', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', hex: '#9ca3af' };
   } catch {
     return { label: 'Link', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', hex: '#9ca3af' };
+  }
+}
+
+/** Extract YouTube video ID from a URL. Returns null if not a YouTube URL. */
+export function getYouTubeVideoId(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      return u.searchParams.get('v') || u.pathname.match(/^\/embed\/([^/]+)/)?.[1] || null;
+    }
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1).split('/')[0];
+      return id || null;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }

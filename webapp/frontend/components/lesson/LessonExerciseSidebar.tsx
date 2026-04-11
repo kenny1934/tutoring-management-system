@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
-import { UrlBadge } from "@/components/ui/url-badge";
+import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
@@ -66,7 +66,7 @@ function ExerciseItem({
     >
       <div className="flex items-start gap-1.5 min-w-0">
         {isUrlExercise && (
-          <ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+          <YouTubeThumbnail url={exercise.url} className="mt-0.5" fallbackIcon={<ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />} />
         )}
         <div className="flex-1 min-w-0">
           {/* File name */}

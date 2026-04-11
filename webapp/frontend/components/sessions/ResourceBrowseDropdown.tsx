@@ -62,6 +62,14 @@ const RESOURCES = [
     hint: "Embeds quiz preview card",
   },
   {
+    name: "Polypad",
+    url: "https://polypad.amplify.com",
+    color: "#06b6d4",
+    embed: true,
+    linkFormat: "Paste the embed code or URL",
+    hint: "Embeds interactive manipulatives inline",
+  },
+  {
     name: "Wayground",
     url: "https://wayground.com/admin/resource-library/curriculums/mathematics",
     color: "#ec4899",

@@ -23,11 +23,12 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl, hasExerciseSource } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl, hasExerciseSource, extractUrlFromPaste } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ResourceBrowseDropdown } from "./ResourceBrowseDropdown";
+import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
@@ -711,7 +712,7 @@ export function ExerciseModal({
     e: React.ClipboardEvent<HTMLInputElement>,
     index: number
   ) => {
-    const pastedText = e.clipboardData.getData('text').trim();
+    const pastedText = extractUrlFromPaste(e.clipboardData.getData('text').trim());
 
     // Check if pasted text is a URL → switch to URL mode and fetch title
     if (isUrl(pastedText)) {
@@ -1686,7 +1687,7 @@ export function ExerciseModal({
                     {/* Resource input (PDF path or URL) */}
                     <div className="relative flex-1 min-w-0">
                       {exercise.url && (
-                        <Globe className="absolute left-2 top-[9px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
+                        <YouTubeThumbnail url={exercise.url} className="absolute left-2 top-[8px]" fallbackIcon={<Globe className="absolute left-2 top-[8px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />} />
                       )}
                       <input
                         ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}

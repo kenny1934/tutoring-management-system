@@ -18,10 +18,11 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convert
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl, hasExerciseSource } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl, hasExerciseSource, extractUrlFromPaste } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ResourceBrowseDropdown } from "./ResourceBrowseDropdown";
+import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -364,7 +365,7 @@ export function BulkExerciseModal({
     e: React.ClipboardEvent<HTMLInputElement>,
     index: number
   ) => {
-    const pastedText = e.clipboardData.getData('text').trim();
+    const pastedText = extractUrlFromPaste(e.clipboardData.getData('text').trim());
 
     // Check if pasted text is a URL → switch to URL mode
     if (isUrl(pastedText)) {
@@ -955,7 +956,7 @@ export function BulkExerciseModal({
                     {/* Resource input (PDF path or URL) */}
                     <div className="relative flex-1 min-w-0">
                       {exercise.url && (
-                        <Globe className="absolute left-2 top-[9px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />
+                        <YouTubeThumbnail url={exercise.url} className="absolute left-2 top-[8px]" fallbackIcon={<Globe className="absolute left-2 top-[8px] h-3.5 w-3.5 text-blue-500 dark:text-blue-400 pointer-events-none" />} />
                       )}
                       <input
                         ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}

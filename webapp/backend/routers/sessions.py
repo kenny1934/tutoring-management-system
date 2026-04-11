@@ -462,7 +462,7 @@ async def get_url_metadata(
             title = title_match.group(1).strip()
             for suffix in [" - YouTube", " | Desmos", " - GeoGebra", " – GeoGebra",
                            " - PhET Interactive Simulations", " | Kahoot!", " | Quizizz",
-                           " | Wayground"]:
+                           " | Wayground", " – Mathigon"]:
                 if title.endswith(suffix):
                     title = title[:-len(suffix)].strip()
                     break
