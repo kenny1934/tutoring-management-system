@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown } from "lucide-react";
+import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown, UserCheck, User, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_ABBREV, SUMMER_GRADE_BG, SUMMER_GRADE_BORDER } from "@/lib/summer-utils";
+import { DAY_ABBREV, SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, BRANCH_INFO, MIN_GROUP_SIZE } from "@/lib/summer-utils";
+import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerApplication } from "@/types";
 
@@ -20,8 +21,25 @@ interface SummerUnassignedPanelProps {
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
 }
 
+const STATUS_ABBREV: Record<string, string> = {
+  "Submitted": "Sub",
+  "Under Review": "Rev",
+  "Placement Offered": "Offered",
+  "Placement Confirmed": "Conf",
+  "Fee Sent": "Fee",
+  "Paid": "Paid",
+  "Enrolled": "Enr",
+  "Waitlisted": "Wait",
+  "Withdrawn": "Wdn",
+  "Rejected": "Rej",
+};
 
-type SortMode = "name" | "grade" | "pref";
+type SortMode = "name" | "grade" | "pref" | "completion";
+
+const SORT_CYCLE: SortMode[] = ["grade", "pref", "completion", "name"];
+const SORT_LABELS: Record<SortMode, string> = {
+  name: "name", grade: "grade", pref: "preference", completion: "completion",
+};
 
 function formatPref(day?: string | null, time?: string | null): string {
   if (!day || !time) return "-";
@@ -42,6 +60,7 @@ export function SummerUnassignedPanel({
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [buddiesOnly, setBuddiesOnly] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
 
@@ -49,6 +68,9 @@ export function SummerUnassignedPanel({
     let result = applications;
     if (gradeFilter) {
       result = result.filter((a) => a.grade === gradeFilter);
+    }
+    if (buddiesOnly) {
+      result = result.filter((a) => !!a.buddy_group_id);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -60,8 +82,11 @@ export function SummerUnassignedPanel({
     }
     // Sort
     result = [...result].sort((a, b) => {
+      if (sort === "completion") {
+        const diff = (a.placed_count ?? 0) - (b.placed_count ?? 0);
+        return diff !== 0 ? diff : a.student_name.localeCompare(b.student_name);
+      }
       if (sort === "pref") {
-        // Students with preferences first, then by grade
         const aPref = a.preference_1_day ? 0 : 1;
         const bPref = b.preference_1_day ? 0 : 1;
         if (aPref !== bPref) return aPref - bPref;
@@ -75,7 +100,9 @@ export function SummerUnassignedPanel({
       return a.student_name.localeCompare(b.student_name);
     });
     return result;
-  }, [applications, gradeFilter, search, sort]);
+  }, [applications, gradeFilter, buddiesOnly, search, sort]);
+
+  const nextSort = SORT_CYCLE[(SORT_CYCLE.indexOf(sort) + 1) % SORT_CYCLE.length];
 
   return (
     <div className={cn(
@@ -165,9 +192,21 @@ export function SummerUnassignedPanel({
             </button>
           ))}
           <button
-            onClick={() => setSort(sort === "name" ? "grade" : sort === "grade" ? "pref" : "name")}
-            className="ml-auto p-0.5 text-muted-foreground hover:text-foreground"
-            title={`Sort by ${sort === "name" ? "grade" : sort === "grade" ? "preference" : "name"}`}
+            onClick={() => setBuddiesOnly(!buddiesOnly)}
+            className={cn(
+              "ml-auto px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+              buddiesOnly
+                ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+            )}
+            title={buddiesOnly ? "Showing buddies only" : "Show buddies only"}
+          >
+            <Users className="h-3 w-3 inline -mt-px" />
+          </button>
+          <button
+            onClick={() => setSort(nextSort)}
+            className="p-0.5 text-muted-foreground hover:text-foreground"
+            title={`Sort by ${SORT_LABELS[nextSort]}`}
           >
             <ArrowUpDown className="h-3 w-3" />
           </button>
@@ -188,88 +227,134 @@ export function SummerUnassignedPanel({
           </div>
         ) : (
           <div className="p-1.5 space-y-1">
-            {filtered.map((app) => (
-              <div
-                key={app.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("application-id", String(app.id));
-                  e.dataTransfer.effectAllowed = "move";
-                  onDragStart?.(app);
-                }}
-                onDragEnd={() => onDragEnd?.()}
-                className={cn(
-                  "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
-                  SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
-                )}
-              >
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => onClickStudent?.(app.id)}
-                    className="text-xs font-medium truncate flex-1 text-left hover:text-primary hover:underline"
-                    title="View application details"
-                  >
-                    {app.student_name}
-                  </button>
-                  <span
-                    className={cn(
-                      "text-[10px] font-bold px-1 rounded",
-                      SUMMER_GRADE_BG[app.grade] || "bg-gray-100 dark:bg-gray-700"
+            {filtered.map((app) => {
+              const statusColors = STATUS_COLORS[app.application_status] || STATUS_COLORS["Submitted"];
+              const statusAbbrev = STATUS_ABBREV[app.application_status] || app.application_status;
+              const branchCode = app.verified_branch_origin;
+              const branchStyle = branchCode ? BRANCH_INFO[branchCode]?.badge : null;
+              const buddyCount = app.buddy_group_member_count ?? 0;
+              const hasBuddyGroup = !!app.buddy_group_id;
+              const buddyAtThreshold = buddyCount >= MIN_GROUP_SIZE;
+
+              return (
+                <div
+                  key={app.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application-id", String(app.id));
+                    e.dataTransfer.effectAllowed = "move";
+                    onDragStart?.(app);
+                  }}
+                  onDragEnd={() => onDragEnd?.()}
+                  className={cn(
+                    "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                    SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
+                  )}
+                >
+                  {/* Row 1: identity */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <button
+                      onClick={() => onClickStudent?.(app.id)}
+                      className="text-xs font-medium truncate flex-1 text-left hover:text-primary hover:underline min-w-0"
+                      title="View application details"
+                    >
+                      {app.student_name}
+                    </button>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold px-1 rounded shrink-0",
+                        SUMMER_GRADE_BG[app.grade] || "bg-gray-100 dark:bg-gray-700"
+                      )}
+                    >
+                      {app.grade}
+                    </span>
+                    {(app.sessions_per_week ?? 1) > 1 && (
+                      <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-0.5 rounded shrink-0">
+                        {app.sessions_per_week}x
+                      </span>
                     )}
-                  >
-                    {app.grade}
-                  </span>
-                  {(app.sessions_per_week ?? 1) > 1 && (
-                    <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-0.5 rounded">
-                      {app.sessions_per_week}x
+                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded shrink-0">
+                      {app.placed_count ?? 0}/{totalLessons}
                     </span>
-                  )}
-                  {(app.placed_count ?? 0) > 0 && (
-                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
-                      {app.placed_count}/{totalLessons}
+                  </div>
+
+                  {/* Row 1b: status + branch + linked */}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className={cn("text-[8px] px-1 rounded", statusColors.bg, statusColors.text)}>
+                      {statusAbbrev}
                     </span>
-                  )}
-                </div>
-                {(() => {
-                  const { isPair, primary, backup } = classifyPrefs(app);
-                  const fmt = (s: { day: string; time: string }) => formatPref(s.day, s.time);
-                  if (isPair) {
+                    {branchCode && branchStyle && (
+                      <span className={cn("text-[8px] px-1 rounded", branchStyle)}>
+                        {branchCode}
+                      </span>
+                    )}
+                    <span title={app.existing_student_id ? `Linked to student #${app.existing_student_id}` : "New student"}>
+                      {app.existing_student_id ? (
+                        <UserCheck className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <User className="h-2.5 w-2.5 text-muted-foreground/40" />
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Row 2: preferences */}
+                  {(() => {
+                    const { isPair, primary, backup } = classifyPrefs(app);
+                    const fmt = (s: { day: string; time: string }) => formatPref(s.day, s.time);
+                    if (isPair) {
+                      return (
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                          {primary.length > 0 && (
+                            <div title="Primary pair">P: {primary.map(fmt).join(" + ")}</div>
+                          )}
+                          {backup.length > 0 && (
+                            <div title="Backup pair">B: {backup.map(fmt).join(" + ")}</div>
+                          )}
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                        {primary.length > 0 && (
-                          <div title="Primary pair">P: {primary.map(fmt).join(" + ")}</div>
-                        )}
-                        {backup.length > 0 && (
-                          <div title="Backup pair">B: {backup.map(fmt).join(" + ")}</div>
-                        )}
+                      <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
+                        {primary[0] && <span title="Main">① {fmt(primary[0])}</span>}
+                        {backup[0] && <span title="Backup">② {fmt(backup[0])}</span>}
                       </div>
                     );
-                  }
-                  return (
-                    <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
-                      {primary[0] && <span title="Main">① {fmt(primary[0])}</span>}
-                      {backup[0] && <span title="Backup">② {fmt(backup[0])}</span>}
-                    </div>
-                  );
-                })()}
-                <div className="flex items-center gap-1 mt-0.5">
-                  {app.buddy_code && (
-                    <span className="text-[9px] text-primary/70">
-                      Buddy: {app.buddy_code}
-                    </span>
-                  )}
-                  {onSuggestStudent && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
-                      className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
-                      title="Auto-suggest placement for this student"
-                    >
-                      Suggest
-                    </button>
-                  )}
+                  })()}
+
+                  {/* Row 3: buddy + unavailability + suggest */}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {hasBuddyGroup && (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 text-[9px] px-1 rounded",
+                          buddyAtThreshold
+                            ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                            : "text-muted-foreground bg-gray-50 dark:bg-gray-800"
+                        )}
+                        title={app.buddy_names || `Buddy group (${buddyCount} members)`}
+                      >
+                        <Users className="h-2.5 w-2.5" />
+                        {buddyCount}
+                      </span>
+                    )}
+                    {app.unavailability_notes && (
+                      <span title={app.unavailability_notes} className="shrink-0">
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                      </span>
+                    )}
+                    {onSuggestStudent && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
+                        className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"
+                        title="Auto-suggest placement for this student"
+                      >
+                        Suggest
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -1628,6 +1628,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
                 student_name=s.application.student_name,
                 grade=s.application.grade,
                 session_status=s.session_status,
+                buddy_group_id=s.application.buddy_group_id,
             )
             for s in unique_sessions
         ],
@@ -2017,10 +2018,11 @@ def delete_session(
 def bulk_confirm_sessions(
     config_id: int = Query(...),
     location: Optional[str] = None,
+    slot_id: Optional[int] = None,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Confirm all tentative sessions for a config (optionally filtered by location)."""
+    """Confirm all tentative sessions for a config (optionally filtered by location and/or slot)."""
     q = (
         db.query(SummerSession)
         .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
@@ -2031,6 +2033,8 @@ def bulk_confirm_sessions(
     )
     if location:
         q = q.filter(SummerCourseSlot.location == location)
+    if slot_id:
+        q = q.filter(SummerSession.slot_id == slot_id)
 
     # Collect application IDs with scalar query (no ORM object loading)
     session_app_ids = [
@@ -3117,6 +3121,7 @@ def get_lesson_calendar(
                 student_name=s.application.student_name if s.application else "",
                 grade=s.application.grade if s.application else "",
                 session_status=s.session_status,
+                buddy_group_id=s.application.buddy_group_id if s.application else None,
             )
             for s in lesson.sessions
             if s.session_status != "Cancelled"

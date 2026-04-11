@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
 import { SummerSlotCard } from "./SummerSlotCard";
@@ -22,7 +22,9 @@ interface SummerSlotCellProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
+  buddyHighlight?: boolean;
   availableTutors?: AvailableTutor[];
+  onConfirmSlot?: (slotId: number) => void;
 }
 
 function heatColor(count: number): string {
@@ -47,7 +49,9 @@ export function SummerSlotCell({
   onClickStudent,
   onDropFailed,
   prefHighlight,
+  buddyHighlight,
   availableTutors,
+  onConfirmSlot,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -91,12 +95,19 @@ export function SummerSlotCell({
         "min-h-[80px] p-1.5 transition-colors relative",
         heatColor(remainingDemand),
         dragOver && "ring-2 ring-inset ring-primary",
-        prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5"
+        prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5",
+        buddyHighlight && !dragOver && !prefHighlight && "ring-1 ring-inset ring-violet-400/50 bg-violet-50/30 dark:bg-violet-900/10"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {buddyHighlight && (
+        <div className="absolute top-0.5 right-0.5 z-10" title="Buddy placed here">
+          <Users className="h-3 w-3 text-violet-400" />
+        </div>
+      )}
+
       {/* Demand badge */}
       {demandCell && totalDemand > 0 && (
         <div className="flex items-center gap-1.5 mb-1 text-[10px] leading-tight">
@@ -143,6 +154,7 @@ export function SummerSlotCell({
             onRemoveSession={onRemoveSession}
             onClickStudent={onClickStudent}
             availableTutors={availableTutors}
+            onConfirmSlot={onConfirmSlot}
           />
         ))}
       </div>

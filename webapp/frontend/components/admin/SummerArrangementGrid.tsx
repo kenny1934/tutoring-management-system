@@ -26,6 +26,8 @@ interface SummerArrangementGridProps {
   onDropFailed?: (reason: string) => void;
   dragPrefs?: DragPrefs | null;
   getAvailableTutors?: (day: string, timeSlot: string) => AvailableTutor[];
+  onConfirmSlot?: (slotId: number) => void;
+  dragBuddySlots?: Set<string> | null;
 }
 
 
@@ -44,6 +46,8 @@ export function SummerArrangementGrid({
   onDropFailed,
   dragPrefs,
   getAvailableTutors,
+  onConfirmSlot,
+  dragBuddySlots,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -141,7 +145,9 @@ export function SummerArrangementGrid({
                   onClickStudent={onClickStudent}
                   onDropFailed={onDropFailed}
                   prefHighlight={isPrefMatch}
+                  buddyHighlight={dragBuddySlots?.has(key)}
                   availableTutors={getAvailableTutors?.(day, ts)}
+                  onConfirmSlot={onConfirmSlot}
                 />
               );
             })}

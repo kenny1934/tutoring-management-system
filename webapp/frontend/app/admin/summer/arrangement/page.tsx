@@ -280,14 +280,61 @@ export default function SummerArrangementPage() {
   }, [pendingDelete, mutateSlots, mutateUnassigned, mutateCalendar, mutateStudentLessons, showToast]);
 
 
+  // Navigate to a specific lesson date in the calendar tab.
+  // Uses a sequence counter so clicking the same date twice re-triggers navigation.
+  const [calendarTarget, setCalendarTarget] = useState<{ date: string; seq: number } | null>(null);
+  const handleNavigateToLesson = useCallback((lessonDate: string) => {
+    setCalendarTarget((prev) => ({ date: lessonDate, seq: (prev?.seq ?? 0) + 1 }));
+    setActiveTab("calendar");
+  }, []);
+
+  // Bulk confirm tentative sessions
+  const [bulkConfirmPending, setBulkConfirmPending] = useState<{ slotId?: number; label?: string } | null>(null);
+  const handleBulkConfirm = useCallback(async () => {
+    if (!configId || !bulkConfirmPending) return;
+    setBulkConfirmPending(null);
+    try {
+      const { confirmed } = await summerAPI.bulkConfirmSessions(configId, location, bulkConfirmPending.slotId);
+      showToast(`Confirmed ${confirmed} session${confirmed !== 1 ? "s" : ""}`, "success");
+      refreshAll();
+    } catch (e: unknown) {
+      showToast(formatError(e, "Failed to confirm"), "error");
+    }
+  }, [configId, location, bulkConfirmPending, showToast, refreshAll]);
+
   // Drag preference highlighting — classifyPrefs owns the tier split.
+  const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
+
+  // Pre-index buddy_group_id → slot keys so drag start is O(1).
+  const buddySlotIndex = useMemo(() => {
+    const idx = new Map<number, Set<string>>();
+    if (!slots) return idx;
+    for (const slot of slots) {
+      const key = `${slot.slot_day}|${slot.time_slot}`;
+      for (const s of slot.sessions) {
+        if (s.buddy_group_id != null) {
+          if (!idx.has(s.buddy_group_id)) idx.set(s.buddy_group_id, new Set());
+          idx.get(s.buddy_group_id)!.add(key);
+        }
+      }
+    }
+    return idx;
+  }, [slots]);
+
   const handleDragStart = useCallback((app: SummerApplication) => {
     const { primary, backup } = classifyPrefs(app);
     setDragPrefs({ primary, backup });
-  }, []);
+    if (app.buddy_group_id) {
+      const keys = buddySlotIndex.get(app.buddy_group_id) ?? null;
+      setDragBuddySlots(keys && keys.size > 0 ? keys : null);
+    } else {
+      setDragBuddySlots(null);
+    }
+  }, [buddySlotIndex]);
 
   const handleDragEnd = useCallback(() => {
     setDragPrefs(null);
+    setDragBuddySlots(null);
   }, []);
 
   // Stats
@@ -345,7 +392,17 @@ export default function SummerArrangementPage() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{totalIncomplete} incomplete</span>
-              <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
+              {totalTentative > 0 ? (
+                <button
+                  onClick={() => setBulkConfirmPending({ label: `${LOCATION_TO_CODE[location] || location}` })}
+                  className="text-yellow-600 dark:text-yellow-400 hover:underline cursor-pointer"
+                  title="Click to confirm all tentative sessions"
+                >
+                  {totalTentative} tentative
+                </button>
+              ) : (
+                <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
+              )}
               <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
             </div>
             <div className="flex-1" />
@@ -433,6 +490,8 @@ export default function SummerArrangementPage() {
                     onDropFailed={(reason) => showToast(reason, "error")}
                     dragPrefs={dragPrefs}
                     getAvailableTutors={getAvailableTutors}
+                    onConfirmSlot={(slotId) => setBulkConfirmPending({ slotId })}
+                    dragBuddySlots={dragBuddySlots}
                   />
                 ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
@@ -446,6 +505,7 @@ export default function SummerArrangementPage() {
                     onRemoveSession={handleRemoveSessionFromCalendar}
                     onClickStudent={setSelectedAppId}
                     dragPrefs={dragPrefs}
+                    navigateToWeek={calendarTarget}
                   />
                 ) : (
                   <SummerStudentLessonsTable
@@ -454,6 +514,7 @@ export default function SummerArrangementPage() {
                     totalLessons={activeConfig!.total_lessons}
                     onClickStudent={setSelectedAppId}
                     onFindSlot={setFindSlotTarget}
+                    onNavigateToLesson={handleNavigateToLesson}
                   />
                 )}
               </div>
@@ -612,6 +673,20 @@ export default function SummerArrangementPage() {
           }
           variant="danger"
           confirmText="Remove"
+        />
+
+        {/* Bulk confirm tentative sessions */}
+        <ConfirmDialog
+          isOpen={!!bulkConfirmPending}
+          onConfirm={handleBulkConfirm}
+          onCancel={() => setBulkConfirmPending(null)}
+          title="Confirm Sessions"
+          message={
+            bulkConfirmPending?.slotId
+              ? `Confirm all tentative sessions in this slot?`
+              : `Confirm all ${totalTentative} tentative sessions at ${bulkConfirmPending?.label ?? ""}?`
+          }
+          confirmText="Confirm All"
         />
       </PageTransition>
     </DeskSurface>

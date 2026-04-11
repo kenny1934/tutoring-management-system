@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DAY_ABBREV } from "@/lib/summer-utils";
@@ -29,6 +29,8 @@ interface SummerSessionCalendarProps {
     primary: { day: string; time: string }[];
     backup: { day: string; time: string }[];
   } | null;
+  /** When set externally (e.g. from student table click), jump to this week. */
+  navigateToWeek?: { date: string; seq: number } | null;
 }
 
 const DAY_NAME_FROM_NUM: Record<number, string> = {
@@ -65,6 +67,7 @@ export function SummerSessionCalendar({
   onRemoveSession,
   onClickStudent,
   dragPrefs,
+  navigateToWeek,
 }: SummerSessionCalendarProps) {
   const { showToast } = useToast();
   const { mutate: globalMutate } = useSWRConfig();
@@ -78,6 +81,11 @@ export function SummerSessionCalendar({
     return getWeekStartStr(toDateString(d));
   }, [courseStartDate]);
   const [weekStart, setWeekStart] = useState(initialWeek);
+
+  // External navigation (e.g. from student table click)
+  useEffect(() => {
+    if (navigateToWeek) setWeekStart(getWeekStartStr(navigateToWeek.date));
+  }, [navigateToWeek]);
 
   // Compute dates for this week, filtered to openDays
   const weekDates = useMemo(() => {

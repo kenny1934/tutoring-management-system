@@ -2430,9 +2430,10 @@ export const summerAPI = {
   deleteSession: (id: number, cascade = true) =>
     fetchAPI<{ success: boolean }>(`/summer/sessions/${id}?cascade=${cascade}`, { method: "DELETE" }),
 
-  bulkConfirmSessions: (configId: number, location?: string) => {
+  bulkConfirmSessions: (configId: number, location?: string, slotId?: number) => {
     const params = new URLSearchParams({ config_id: String(configId) });
     if (location) params.set("location", location);
+    if (slotId) params.set("slot_id", String(slotId));
     return fetchAPI<{ confirmed: number }>(`/summer/sessions/bulk-confirm?${params}`, {
       method: "POST",
     });

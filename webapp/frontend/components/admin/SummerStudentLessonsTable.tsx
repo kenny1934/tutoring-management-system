@@ -21,6 +21,7 @@ interface SummerStudentLessonsTableProps {
     afterDate?: string;
     beforeDate?: string;
   }) => void;
+  onNavigateToLesson?: (lessonDate: string) => void;
 }
 
 type SortMode = "completion" | "name" | "grade";
@@ -36,6 +37,7 @@ export function SummerStudentLessonsTable({
   totalLessons,
   onClickStudent,
   onFindSlot,
+  onNavigateToLesson,
 }: SummerStudentLessonsTableProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -329,8 +331,13 @@ export function SummerStudentLessonsTable({
                         return (
                           <td
                             key={n}
-                            className={cn("text-center px-0.5 py-1", bgColor)}
-                            title={`${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})`}
+                            className={cn(
+                              "text-center px-0.5 py-1",
+                              bgColor,
+                              onNavigateToLesson && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40"
+                            )}
+                            title={`${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})${onNavigateToLesson ? " — click to view in calendar" : ""}`}
+                            onClick={onNavigateToLesson ? () => onNavigateToLesson(lesson.lesson_date!) : undefined}
                           >
                             <div className="flex flex-col items-center gap-0">
                               <span className="text-[11px] tabular-nums flex items-center gap-0.5">

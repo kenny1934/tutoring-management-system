@@ -2313,6 +2313,7 @@ export interface SummerSlotSessionInfo {
   student_name: string;
   grade: string;
   session_status: string;
+  buddy_group_id?: number | null;
 }
 
 export interface SummerSlot {

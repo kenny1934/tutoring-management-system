@@ -16,6 +16,7 @@ interface SummerSlotCardProps {
   onRemoveSession: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   availableTutors?: AvailableTutor[];
+  onConfirmSlot?: (slotId: number) => void;
 }
 
 function fillBarColor(pct: number): string {
@@ -33,6 +34,7 @@ export function SummerSlotCard({
   onRemoveSession,
   onClickStudent,
   availableTutors,
+  onConfirmSlot,
 }: SummerSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -275,6 +277,14 @@ export function SummerSlotCard({
               </button>
             </div>
           ))}
+          {onConfirmSlot && slot.sessions.some((p) => p.session_status === "Tentative") && (
+            <button
+              onClick={() => onConfirmSlot(slot.id)}
+              className="w-full text-[9px] font-medium text-green-700 dark:text-green-400 hover:underline mt-1 text-center"
+            >
+              Confirm all
+            </button>
+          )}
         </div>
       )}
     </div>

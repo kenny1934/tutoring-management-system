@@ -2445,6 +2445,7 @@ class SummerSlotSessionInfo(BaseModel):
     student_name: str
     grade: str
     session_status: str
+    buddy_group_id: int | None = None
 
 
 class SummerSlotResponse(BaseModel):
