@@ -7,6 +7,7 @@ import html as html_mod
 import logging
 import os
 import re
+import time
 from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -402,6 +403,12 @@ def _get_drive_service():
     return _get_drive_service._service
 
 
+_wolfram_cache: dict[str, str] = {}
+_wolfram_cache_times: dict[str, float] = {}
+WOLFRAM_CACHE_TTL = 86400  # 24 hours
+WOLFRAM_CACHE_MAX = 200
+
+
 @router.get("/sessions/wolfram-query")
 async def wolfram_query(
     q: str = Query(..., max_length=500),
@@ -412,6 +419,11 @@ async def wolfram_query(
     if not appid:
         return {"image": None, "error": "Wolfram Alpha is not configured"}
 
+    cache_key = q.strip().lower()
+    now = time.time()
+    if cache_key in _wolfram_cache and now - _wolfram_cache_times[cache_key] < WOLFRAM_CACHE_TTL:
+        return {"image": _wolfram_cache[cache_key], "error": None}
+
     encoded_q = quote(q, safe='')
     api_url = f"https://api.wolframalpha.com/v1/simple?appid={appid}&i={encoded_q}&width=500&background=white&foreground=black&fontsize=16"
 
@@ -421,6 +433,13 @@ async def wolfram_query(
             if resp.status_code != 200:
                 return {"image": None, "error": "No results found"}
             image_b64 = base64.b64encode(resp.content).decode()
+            # Evict oldest entries if cache is full
+            if len(_wolfram_cache) >= WOLFRAM_CACHE_MAX:
+                oldest = min(_wolfram_cache_times, key=_wolfram_cache_times.get)  # type: ignore[arg-type]
+                del _wolfram_cache[oldest]
+                del _wolfram_cache_times[oldest]
+            _wolfram_cache[cache_key] = image_b64
+            _wolfram_cache_times[cache_key] = now
             return {"image": image_b64, "error": None}
     except Exception as e:
         logging.error(f"[wolfram-query] Error: {type(e).__name__}: {e}")

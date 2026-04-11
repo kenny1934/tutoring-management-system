@@ -693,6 +693,7 @@ export function LessonMode({
   useStableKeyboardHandler((e: KeyboardEvent) => {
     if (exerciseModalType || showExitConfirm) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (showWolfram && e.key !== "Escape") return;
 
     switch (e.key) {
       case "Escape":

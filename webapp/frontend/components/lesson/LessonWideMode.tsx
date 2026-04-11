@@ -821,6 +821,7 @@ export function LessonWideMode({
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (exerciseModalSession || showExitConfirm) return;
+    if (showWolfram && e.key !== "Escape") return;
 
     switch (e.key) {
       case "Escape":
