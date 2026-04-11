@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown,
+  ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown, Sigma,
   Maximize2, Minimize2, PencilLine, Users,
   AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
 } from "lucide-react";
@@ -29,6 +29,7 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { WolframPanel } from "./WolframPanel";
 import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -145,6 +146,9 @@ export function LessonWideMode({
 
   // --- Shortcut help ---
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+
+  // --- Wolfram Alpha ---
+  const [showWolfram, setShowWolfram] = useState(false);
 
   // --- Drawing / Annotations ---
   // Use a combined key for all sessions in this lesson
@@ -863,6 +867,9 @@ export function LessonWideMode({
       case "f":
         toggleFocusMode();
         break;
+      case "w":
+        setShowWolfram(v => !v);
+        break;
       case "?":
         setShowShortcutHelp(v => !v);
         break;
@@ -1039,6 +1046,18 @@ export function LessonWideMode({
           </button>
         )}
 
+        {/* Wolfram Alpha toggle */}
+        <button
+          onClick={() => setShowWolfram(v => !v)}
+          className={cn(
+            "p-1 sm:p-1.5 rounded-lg transition-colors",
+            showWolfram ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+          )}
+          title="Wolfram Alpha (W)"
+        >
+          <Sigma className="h-3.5 w-3.5" />
+        </button>
+
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
@@ -1187,6 +1206,7 @@ export function LessonWideMode({
                   ["s", "Save annotated PDF"],
                   ["p", "Print"],
                   ["a", "Answer key"],
+                  ["w", "Wolfram Alpha"],
                   ["f", "Focus mode"],
                   ["?", "This help"],
                   ["Esc", "Exit / Back"],
@@ -1483,6 +1503,9 @@ export function LessonWideMode({
           onClose={handleBulkAssignClose}
         />
       )}
+
+      {/* Wolfram Alpha panel */}
+      <WolframPanel isOpen={showWolfram && !focusMode} onClose={() => setShowWolfram(false)} />
 
       {/* Exit confirmation dialog */}
       {showExitConfirm && (

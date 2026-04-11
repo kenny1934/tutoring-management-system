@@ -2,8 +2,10 @@
 Sessions API endpoints.
 Provides read-only access to session log data.
 """
+import base64
 import html as html_mod
 import logging
+import os
 import re
 from urllib.parse import urlparse, quote
 import httpx
@@ -398,6 +400,31 @@ def _get_drive_service():
         _get_drive_service._credentials.refresh(Request())
 
     return _get_drive_service._service
+
+
+@router.get("/sessions/wolfram-query")
+async def wolfram_query(
+    q: str = Query(..., max_length=500),
+    current_user: Tutor = Depends(get_current_user),
+):
+    """Query Wolfram Alpha Simple API. Returns base64 PNG image of results."""
+    appid = os.environ.get("WOLFRAM_APPID")
+    if not appid:
+        return {"image": None, "error": "Wolfram Alpha is not configured"}
+
+    encoded_q = quote(q, safe='')
+    api_url = f"https://api.wolframalpha.com/v1/simple?appid={appid}&i={encoded_q}&width=500&background=white&foreground=black&fontsize=16"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(api_url)
+            if resp.status_code != 200:
+                return {"image": None, "error": "No results found"}
+            image_b64 = base64.b64encode(resp.content).decode()
+            return {"image": image_b64, "error": None}
+    except Exception as e:
+        logging.error(f"[wolfram-query] Error: {type(e).__name__}: {e}")
+        return {"image": None, "error": "Query failed — please try again"}
 
 
 @router.get("/sessions/url-metadata")

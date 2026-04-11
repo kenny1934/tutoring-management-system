@@ -805,6 +805,12 @@ export const sessionsAPI = {
     return fetchAPI<{ title: string }>(`/sessions/url-metadata?url=${encodeURIComponent(url)}`);
   },
 
+  wolframQuery: (query: string) => {
+    return fetchAPI<{ image: string | null; error: string | null }>(
+      `/sessions/wolfram-query?q=${encodeURIComponent(query)}`
+    );
+  },
+
   // Undo/Redo
   undoStatus: (id: number) => {
     return fetchAPI<Session & { undone_from_status?: string }>(`/sessions/${id}/undo`, {

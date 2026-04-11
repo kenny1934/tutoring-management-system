@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
+  ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle, Sigma,
   Maximize2, Minimize2, PencilLine, ChevronDown,
   AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
 } from "lucide-react";
@@ -23,6 +23,7 @@ import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { WolframPanel } from "./WolframPanel";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -123,6 +124,9 @@ export function LessonMode({
 
   // Shortcut help panel
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+
+  // Wolfram Alpha panel
+  const [showWolfram, setShowWolfram] = useState(false);
 
   // S2: Focus mode helpers
   const exitFocusMode = useCallback(() => {
@@ -711,6 +715,10 @@ export function LessonMode({
         e.preventDefault();
         if (!isMobile) toggleFocusMode();
         break;
+      case "w":
+        e.preventDefault();
+        setShowWolfram(v => !v);
+        break;
       case "j":
       case "ArrowDown": {
         e.preventDefault();
@@ -918,6 +926,18 @@ export function LessonMode({
           </button>
         )}
 
+        {/* Wolfram Alpha toggle */}
+        <button
+          onClick={() => setShowWolfram(v => !v)}
+          className={cn(
+            "p-1 sm:p-1.5 rounded-lg transition-colors",
+            showWolfram ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+          )}
+          title="Wolfram Alpha (W)"
+        >
+          <Sigma className="h-3.5 w-3.5" />
+        </button>
+
         {/* Bulk print dropdown */}
         <div className="relative">
           <button
@@ -1042,6 +1062,7 @@ export function LessonMode({
                   ["c / h", "Edit CW / HW"],
                   ["p", "Print"],
                   ["a", "Answer key"],
+                  ["w", "Wolfram Alpha"],
                   ["f", "Focus mode"],
                   ["?", "This help"],
                   ["Esc", "Exit / Back"],
@@ -1310,6 +1331,9 @@ export function LessonMode({
           </div>
         </>
       )}
+
+      {/* Wolfram Alpha panel */}
+      <WolframPanel isOpen={showWolfram && !focusMode} onClose={() => setShowWolfram(false)} />
 
       {/* Exercise Modal */}
       {exerciseModalSession && exerciseModalType && (
