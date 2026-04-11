@@ -2610,6 +2610,23 @@ def auto_suggest(
     Note: unavailability_notes is free-text and not factored into the algorithm.
     Admin should cross-check proposals against student unavailability manually.
     """
+    # 0. Ensure lessons exist for all slots at this location (same as calendar tab)
+    from sqlalchemy import exists as sa_exists
+    slots_needing_lessons = (
+        db.query(SummerCourseSlot)
+        .options(joinedload(SummerCourseSlot.config))
+        .filter(
+            SummerCourseSlot.config_id == data.config_id,
+            SummerCourseSlot.location == data.location,
+            ~sa_exists().where(SummerLesson.slot_id == SummerCourseSlot.id),
+        )
+        .all()
+    )
+    if slots_needing_lessons:
+        for slot in slots_needing_lessons:
+            _ensure_lessons_for_slot(slot, db)
+        db.commit()
+
     # 1. Load all lessons for config+location, joined with slots + tutor
     lessons_query = (
         db.query(SummerLesson, SummerCourseSlot)
