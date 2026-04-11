@@ -23,12 +23,21 @@ interface SummerSlotCellProps {
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
   buddyHighlight?: boolean;
+  gradeMaxDemand?: number;
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
 }
 
+// Solid fill (1st pref) and light fill (2nd pref) for demand sparklines per grade
+const GRADE_BAR_FILL: Record<string, { solid: string; light: string }> = {
+  F1: { solid: "bg-blue-400", light: "bg-blue-200 dark:bg-blue-800" },
+  F2: { solid: "bg-purple-400", light: "bg-purple-200 dark:bg-purple-800" },
+  F3: { solid: "bg-orange-400", light: "bg-orange-200 dark:bg-orange-800" },
+};
+const GRADE_BAR_DEFAULT = { solid: "bg-gray-400", light: "bg-gray-200 dark:bg-gray-700" };
+
 function heatColor(count: number): string {
-  if (count === 0) return "bg-background";
+  if (count === 0) return "bg-white dark:bg-[#1a1a1a]";
   if (count <= 3) return "bg-orange-50/60 dark:bg-orange-950/20";
   if (count <= 6) return "bg-orange-100/60 dark:bg-orange-900/25";
   if (count <= 10) return "bg-orange-200/50 dark:bg-orange-800/25";
@@ -50,6 +59,7 @@ export function SummerSlotCell({
   onDropFailed,
   prefHighlight,
   buddyHighlight,
+  gradeMaxDemand = 1,
   availableTutors,
   onConfirmSlot,
 }: SummerSlotCellProps) {
@@ -108,38 +118,43 @@ export function SummerSlotCell({
         </div>
       )}
 
-      {/* Demand badge */}
-      {demandCell && totalDemand > 0 && (
-        <div className="flex items-center gap-1.5 mb-1 text-[10px] leading-tight">
-          <span className="text-muted-foreground">
-            {demandCell.total_first_pref > 0 && (
-              <span title="1st preference count">{demandCell.total_first_pref}①</span>
-            )}
-            {demandCell.total_second_pref > 0 && (
-              <span title="2nd preference count" className="ml-0.5">
-                {demandCell.total_second_pref}②
+      {/* Demand sparklines: always rendered to keep vertical alignment across cells */}
+      <div className="mb-1 space-y-px">
+        {grades.map((grade) => {
+          const first = demandCell?.by_grade_first[grade] ?? 0;
+          const second = demandCell?.by_grade_second[grade] ?? 0;
+          const total = first + second;
+          const colors = GRADE_BAR_FILL[grade] || GRADE_BAR_DEFAULT;
+          const barPct = gradeMaxDemand > 0 && total > 0 ? (total / gradeMaxDemand) * 100 : 0;
+          const firstPct = total > 0 ? (first / total) * 100 : 0;
+          return (
+            <div key={grade} className="flex items-center gap-0.5 h-[7px]" title={total > 0 ? `${grade}: ${first} first choice, ${second} second choice` : `${grade}: no demand`}>
+              <span className={cn("text-[8px] font-bold w-[14px] shrink-0 text-center leading-none", total > 0 ? SUMMER_GRADE_TEXT[grade] : "text-muted-foreground/30")}>
+                {grade}
               </span>
-            )}
-          </span>
-          {/* Grade breakdown (combined 1st + 2nd) */}
-          <span className="flex gap-1">
-            {(() => {
-              const combined: Record<string, number> = {};
-              for (const [g, c] of Object.entries(demandCell.by_grade_first)) {
-                combined[g] = (combined[g] ?? 0) + c;
-              }
-              for (const [g, c] of Object.entries(demandCell.by_grade_second)) {
-                combined[g] = (combined[g] ?? 0) + c;
-              }
-              return Object.entries(combined).map(([grade, count]) => (
-                <span key={grade} className={cn("font-medium", SUMMER_GRADE_TEXT[grade])}>
-                  {grade}:{count}
-                </span>
-              ));
-            })()}
-          </span>
-        </div>
-      )}
+              <div className="flex-1 h-1.5 flex">
+                {barPct > 0 && (
+                  <>
+                    <div
+                      className={cn("h-full rounded-l-sm", second === 0 && "rounded-r-sm", colors.solid)}
+                      style={{ width: `${firstPct * barPct / 100}%` }}
+                    />
+                    {second > 0 && (
+                      <div
+                        className={cn("h-full rounded-r-sm", first === 0 && "rounded-l-sm", colors.light)}
+                        style={{ width: `${(100 - firstPct) * barPct / 100}%` }}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+              <span className={cn("text-[8px] tabular-nums w-3 shrink-0 text-right leading-none", total > 0 ? "text-muted-foreground" : "text-muted-foreground/30")}>
+                {total || ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Slot cards */}
       <div className="space-y-1">

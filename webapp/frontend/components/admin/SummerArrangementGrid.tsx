@@ -58,6 +58,18 @@ export function SummerArrangementGrid({
     return map;
   }, [demand]);
 
+  // Global per-grade max demand across all cells — used so bars are comparable
+  const gradeMaxDemand = useMemo(() => {
+    let max = 0;
+    for (const cell of demand) {
+      for (const g of new Set([...Object.keys(cell.by_grade_first), ...Object.keys(cell.by_grade_second)])) {
+        const total = (cell.by_grade_first[g] ?? 0) + (cell.by_grade_second[g] ?? 0);
+        if (total > max) max = total;
+      }
+    }
+    return max;
+  }, [demand]);
+
   // Index slots by (day, timeSlot)
   const slotsMap = useMemo(() => {
     const map = new Map<string, SummerSlot[]>();
@@ -146,6 +158,7 @@ export function SummerArrangementGrid({
                   onDropFailed={onDropFailed}
                   prefHighlight={isPrefMatch}
                   buddyHighlight={dragBuddySlots?.has(key)}
+                  gradeMaxDemand={gradeMaxDemand}
                   availableTutors={getAvailableTutors?.(day, ts)}
                   onConfirmSlot={onConfirmSlot}
                 />
