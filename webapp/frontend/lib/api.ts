@@ -806,7 +806,7 @@ export const sessionsAPI = {
   },
 
   wolframQuery: (query: string) => {
-    return fetchAPI<{ image: string | null; error: string | null }>(
+    return fetchAPI<{ image: string | null; error: string | null; cached?: boolean }>(
       `/sessions/wolfram-query?q=${encodeURIComponent(query)}`
     );
   },

@@ -422,7 +422,7 @@ async def wolfram_query(
     cache_key = q.strip().lower()
     now = time.time()
     if cache_key in _wolfram_cache and now - _wolfram_cache_times[cache_key] < WOLFRAM_CACHE_TTL:
-        return {"image": _wolfram_cache[cache_key], "error": None}
+        return {"image": _wolfram_cache[cache_key], "error": None, "cached": True}
 
     encoded_q = quote(q, safe='')
     api_url = f"https://api.wolframalpha.com/v1/simple?appid={appid}&i={encoded_q}&width=500&background=white&foreground=black&fontsize=16"

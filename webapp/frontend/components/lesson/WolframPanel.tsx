@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Search, Loader2, Trash2, ZoomIn } from "lucide-react";
+import { X, Search, Loader2, Trash2, ZoomIn, Clock, Zap } from "lucide-react";
 import ImageLightbox from "@/components/inbox/ImageLightbox";
 import { motion, AnimatePresence } from "framer-motion";
 import { sessionsAPI } from "@/lib/api";
@@ -31,41 +31,50 @@ function latexToWolfram(latex: string): string {
   s = s.replace(new RegExp(`\\\\sum_\\{${B}\\}\\^\\{${B}\\}`, 'g'), 'sum $1 to $2');
   s = s.replace(new RegExp(`\\^\\{${B}\\}`, 'g'), '^($1)');
   s = s.replace(new RegExp(`_\\{${B}\\}`, 'g'), '_$1');
-  // Trig functions
   s = s.replace(/\\(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|ln|log|exp)/g, '$1');
-  // Greek letters
   s = s.replace(/\\(alpha|beta|gamma|delta|theta|phi|pi|omega|sigma|lambda|mu)/g, '$1');
-  // Infinity
   s = s.replace(/\\infty/g, 'infinity');
-  // Times and cdot → *
   s = s.replace(/\\(times|cdot)/g, '*');
-  // Plus/minus
   s = s.replace(/\\pm/g, '+-');
-  // dx, dy spacing
   s = s.replace(/\\,/g, ' ');
-  // Remove remaining backslashes for \left, \right, \operatorname, etc.
   s = s.replace(/\\(left|right|operatorname)/g, '');
-  // Clean up braces
   s = s.replace(/[{}]/g, '');
-  // Collapse whitespace
   s = s.replace(/\s+/g, ' ').trim();
   return s;
+}
+
+const HISTORY_KEY = "wolfram-query-history";
+const MAX_HISTORY = 30;
+
+function loadHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_HISTORY) : [];
+  } catch { return []; }
+}
+
+function saveHistory(history: string[]) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY))); } catch {}
 }
 
 export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ image: string | null; error: string | null } | null>(null);
-  const [history, setHistory] = useState<string[]>([]);
+  const [result, setResult] = useState<{ image: string | null; error: string | null; cached?: boolean } | null>(null);
+  const [history, setHistory] = useState<string[]>(() => loadHistory());
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [mathMode, setMathMode] = useState(false);
   const [mathliveLoaded, setMathliveLoaded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mathfieldRef = useRef<HTMLElement | null>(null);
   const loadingRef = useRef(false);
   const isMobile = useIsMobile();
 
-  // Focus input on open
   useEffect(() => {
     if (isOpen && !mathMode) {
       const t = setTimeout(() => inputRef.current?.focus(), 150);
@@ -73,13 +82,11 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     }
   }, [isOpen, mathMode]);
 
-  // Lazy-load MathLive when math mode is first enabled
   useEffect(() => {
     if (!mathMode || mathliveLoaded) return;
     import("mathlive").then(() => setMathliveLoaded(true));
   }, [mathMode, mathliveLoaded]);
 
-  // Configure mathfield after it renders
   const inputHandlerRef = useRef<{ mf: any; handler: () => void } | null>(null);
   useEffect(() => {
     if (!mathMode || !mathliveLoaded) return;
@@ -113,10 +120,16 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     loadingRef.current = true;
     setLoading(true);
     setResult(null);
+    setShowHistory(false);
     try {
       const res = await sessionsAPI.wolframQuery(q);
       setResult(res);
-      setHistory(prev => [q, ...prev.filter(h => h !== q)].slice(0, 10));
+      setHistory(prev => {
+        const next = [q, ...prev.filter(h => h !== q)].slice(0, MAX_HISTORY);
+        // Save outside updater via microtask to avoid side effect in setState
+        queueMicrotask(() => saveHistory(next));
+        return next;
+      });
     } catch {
       setResult({ image: null, error: "Failed to reach server" });
     } finally {
@@ -131,13 +144,18 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
 
   const handleHistoryClick = useCallback((q: string) => {
     setQuery(q);
+    setShowHistory(false);
     runQuery(q);
   }, [runQuery]);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    saveHistory([]);
+  }, []);
 
   const toggleMathMode = useCallback(() => {
     setMathMode(prev => {
       if (prev) {
-        // Switching back to text — hide virtual keyboard
         const kbd = (window as any).mathVirtualKeyboard;
         if (kbd) kbd.hide();
       }
@@ -218,34 +236,60 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
         )}
       </form>
 
-      {/* Query history chips */}
+      {/* History toggle bar */}
       {history.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-3 py-2 border-b border-[#d4c4a8] dark:border-[#3a3228]">
-          {history.map((h) => (
-            <button
-              key={h}
-              onClick={() => handleHistoryClick(h)}
-              className={cn(
-                "px-2 py-0.5 text-[11px] rounded-full truncate max-w-[180px]",
-                "bg-[#e8dcc8] dark:bg-[#2a2318]",
-                "text-[#6b4c30] dark:text-[#b0a090]",
-                "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]",
-                "transition-colors"
-              )}
-              title={h}
-            >
-              {h}
-            </button>
-          ))}
-          <button
-            onClick={() => setHistory([])}
-            className="p-0.5 text-[#b0a090] hover:text-[#6b4c30] dark:hover:text-[#d4c4a8] transition-colors"
-            title="Clear history"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
+        <button
+          onClick={() => setShowHistory(v => !v)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-[11px] transition-colors border-b",
+            "border-[#d4c4a8] dark:border-[#3a3228]",
+            showHistory
+              ? "bg-[#e8dcc8] dark:bg-[#2a2318] text-[#6b4c30] dark:text-[#b0a090]"
+              : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4] dark:hover:bg-[#252018]"
+          )}
+        >
+          <Clock className="h-3 w-3" />
+          <span>History ({history.length})</span>
+        </button>
       )}
+
+      {/* History list */}
+      <AnimatePresence>
+        {showHistory && history.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden border-b border-[#d4c4a8] dark:border-[#3a3228]"
+          >
+            <div className="max-h-48 overflow-auto">
+              {history.map((h, i) => (
+                <button
+                  key={`${h}-${i}`}
+                  onClick={() => handleHistoryClick(h)}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-xs truncate transition-colors",
+                    "text-[#4a3728] dark:text-[#d4c4a8]",
+                    "hover:bg-[#e8dcc8] dark:hover:bg-[#2a2318]"
+                  )}
+                  title={h}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end px-3 py-1">
+              <button
+                onClick={clearHistory}
+                className="flex items-center gap-1 text-[10px] text-[#b0a090] hover:text-[#6b4c30] dark:hover:text-[#d4c4a8] transition-colors"
+              >
+                <Trash2 className="h-2.5 w-2.5" /> Clear all
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Result area */}
       <div className="flex-1 min-h-0 overflow-auto p-3">
@@ -263,22 +307,30 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
         )}
 
         {!loading && result?.image && (
-          <button
-            onClick={() => setLightboxOpen(true)}
-            className="relative group cursor-zoom-in w-full"
-          >
-            <img
-              src={`data:image/png;base64,${result.image}`}
-              alt="Wolfram Alpha result"
-              className="w-full rounded-lg dark:invert dark:hue-rotate-180"
-            />
-            <span className="absolute top-2 right-2 p-1 rounded bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-              <ZoomIn className="h-3.5 w-3.5" />
-            </span>
-          </button>
+          <>
+            {result.cached && (
+              <div className="flex items-center gap-1 mb-2 text-[10px] text-emerald-600 dark:text-emerald-400">
+                <Zap className="h-3 w-3" />
+                <span>Cached result (no quota used)</span>
+              </div>
+            )}
+            <button
+              onClick={() => setLightboxOpen(true)}
+              className="relative group cursor-zoom-in w-full"
+            >
+              <img
+                src={`data:image/png;base64,${result.image}`}
+                alt="Wolfram Alpha result"
+                className="w-full rounded-lg dark:invert dark:hue-rotate-180"
+              />
+              <span className="absolute top-2 right-2 p-1 rounded bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="h-3.5 w-3.5" />
+              </span>
+            </button>
+          </>
         )}
 
-        {!loading && !result && (
+        {!loading && !result && !showHistory && (
           <div className="flex flex-col items-center justify-center gap-2 py-12 text-[#b0a090] dark:text-[#6b5d4d]">
             <p className="text-xs text-center">
               Type a math expression, equation, or question.
@@ -320,7 +372,6 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     />
   ) : null;
 
-  // Mobile: bottom sheet
   if (isMobile) {
     return (
       <>
@@ -337,7 +388,6 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     );
   }
 
-  // Desktop: right-side slide-in panel
   return (
     <>
     <AnimatePresence>
@@ -362,7 +412,6 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
               "shadow-2xl flex flex-col"
             )}
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
               <h3 className="text-sm font-semibold text-[#4a3728] dark:text-[#d4c4a8]">
                 Wolfram Alpha
