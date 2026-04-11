@@ -19,9 +19,9 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
   const [result, setResult] = useState<{ image: string | null; error: string | null } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loadingRef = useRef(false);
   const isMobile = useIsMobile();
 
-  // Focus input on open
   useEffect(() => {
     if (isOpen) {
       const t = setTimeout(() => inputRef.current?.focus(), 150);
@@ -29,23 +29,9 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     }
   }, [isOpen]);
 
-  // Escape to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [isOpen, onClose]);
-
-  const handleSubmit = useCallback(async () => {
-    const q = query.trim();
-    if (!q || loading) return;
-
+  const runQuery = useCallback(async (q: string) => {
+    if (!q || loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setResult(null);
     try {
@@ -55,14 +41,19 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     } catch {
       setResult({ image: null, error: "Failed to reach server" });
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [query, loading]);
+  }, []);
 
-  const handleHistoryClick = (q: string) => {
+  const handleSubmit = useCallback(() => {
+    runQuery(query.trim());
+  }, [query, runQuery]);
+
+  const handleHistoryClick = useCallback((q: string) => {
     setQuery(q);
-    setTimeout(() => inputRef.current?.form?.requestSubmit(), 0);
-  };
+    runQuery(q);
+  }, [runQuery]);
 
   const panelContent = (
     <div className="flex flex-col h-full">
@@ -77,6 +68,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="e.g. solve x^2 - 4x + 3 = 0"
+          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
           className={cn(
             "flex-1 px-3 py-2 text-sm rounded-lg border",
             "bg-white dark:bg-[#2a2318]",

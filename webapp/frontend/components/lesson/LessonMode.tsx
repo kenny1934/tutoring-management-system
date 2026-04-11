@@ -697,7 +697,9 @@ export function LessonMode({
     switch (e.key) {
       case "Escape":
         e.preventDefault();
-        if (showPrintMenu) {
+        if (showWolfram) {
+          setShowWolfram(false);
+        } else if (showPrintMenu) {
           setShowPrintMenu(false);
         } else if (showShortcutHelp) {
           setShowShortcutHelp(false);

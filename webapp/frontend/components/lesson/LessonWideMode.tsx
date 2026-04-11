@@ -824,6 +824,7 @@ export function LessonWideMode({
 
     switch (e.key) {
       case "Escape":
+        if (showWolfram) { setShowWolfram(false); break; }
         if (showShortcutHelp) { setShowShortcutHelp(false); break; }
         if (drawingEnabled) { setDrawingEnabled(false); setAnnotationTool("pen"); break; }
         if (focusMode) { exitFocusMode(); break; }
