@@ -486,6 +486,8 @@ async def wolfram_query(
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(api_url)
+            if resp.status_code == 403:
+                return {"image": None, "error": "Daily API limit reached. Try again tomorrow."}
             if resp.status_code != 200:
                 return {"image": None, "error": "No results found"}
             image_b64 = base64.b64encode(resp.content).decode()
