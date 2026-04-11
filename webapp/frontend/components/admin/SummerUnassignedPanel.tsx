@@ -8,14 +8,8 @@ import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { classifyPrefs } from "@/lib/summer-preferences";
+import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import type { SummerApplication } from "@/types";
-
-export interface PrefFilter {
-  day: string;
-  timeSlot: string;
-  grade: string;
-  tier: "first" | "second";
-}
 
 interface SummerUnassignedPanelProps {
   applications: SummerApplication[];
@@ -28,7 +22,7 @@ interface SummerUnassignedPanelProps {
   hideCollapse?: boolean;
   totalLessons?: number;
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
-  prefFilter?: PrefFilter | null;
+  prefFilter?: DemandBarFilter | null;
   onClearPrefFilter?: () => void;
 }
 

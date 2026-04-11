@@ -13,6 +13,7 @@ import { summerAPI } from "@/lib/api";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
 import { SummerSessionCalendar } from "@/components/admin/SummerSessionCalendar";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
+import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
@@ -304,7 +305,7 @@ export default function SummerArrangementPage() {
 
   // Drag preference highlighting — classifyPrefs owns the tier split.
   const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
-  const [demandPrefFilter, setDemandPrefFilter] = useState<{ day: string; timeSlot: string; grade: string; tier: "first" | "second" } | null>(null);
+  const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
 
   // Fetch all applications for demand bar filter (only when filter active)
   const { data: demandFilterApps } = useSWR(
