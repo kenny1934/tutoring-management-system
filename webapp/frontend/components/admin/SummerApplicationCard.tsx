@@ -12,7 +12,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot, MIN_GROUP_SIZE } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -51,9 +51,6 @@ const STATUS_ICONS: Record<string, LucideIcon> = {
   "Rejected":            XCircle,
 };
 
-// Buddy group unlocks the discount at 3 members (matches summer/apply form copy:
-// "Groups of 3 or more get a group discount"). Max members is also 3.
-const BUDDY_UNLOCK_THRESHOLD = 3;
 
 // Branch tint — subtle bg per applying centre, so admins instantly see who's responsible.
 const BRANCH_TINT: Record<string, string> = {
@@ -193,7 +190,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   const isPlaced = !!app.sessions && app.sessions.length > 0;
   const sessionsPerWeek = app.sessions_per_week ?? 1;
   const buddyGroupSize = app.buddy_group_id ? (app.buddy_group_member_count ?? 1) : 0;
-  const buddyUnlocked = buddyGroupSize >= BUDDY_UNLOCK_THRESHOLD;
+  const buddyUnlocked = buddyGroupSize >= MIN_GROUP_SIZE;
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
   const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
   const statusBorderL = STATUS_COLORS[app.application_status]?.borderL || "border-l-gray-300";
@@ -261,10 +258,10 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
                         (app.buddy_names || `Buddy group of ${buddyGroupSize}`) +
                         (buddyUnlocked
                           ? " — discount unlocked"
-                          : ` — needs ${BUDDY_UNLOCK_THRESHOLD - buddyGroupSize} more for discount`)
+                          : ` — needs ${MIN_GROUP_SIZE - buddyGroupSize} more for discount`)
                       }
                     >
-                      {Array.from({ length: BUDDY_UNLOCK_THRESHOLD }).map((_, i) => {
+                      {Array.from({ length: MIN_GROUP_SIZE }).map((_, i) => {
                         const filled = i < buddyGroupSize;
                         return (
                           <User

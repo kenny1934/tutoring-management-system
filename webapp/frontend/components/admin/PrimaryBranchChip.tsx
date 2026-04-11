@@ -86,6 +86,7 @@ export function PrimaryBranchChip({
       <span
         className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
         title="Applicant claims to be an existing student — not yet linked"
+        onClick={(e) => e.stopPropagation()}
       >
         Claims: <span className="font-mono">{claimedBranchCode}</span>
       </span>
@@ -96,6 +97,7 @@ export function PrimaryBranchChip({
     <span
       className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
       title="New student — no prior enrolment"
+      onClick={(e) => e.stopPropagation()}
     >
       New
     </span>

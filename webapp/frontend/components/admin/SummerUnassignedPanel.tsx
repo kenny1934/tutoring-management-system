@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, PanelRightClose, PanelRightOpen, ArrowUpDown, UserCheck, User, AlertTriangle } from "lucide-react";
+import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_ABBREV, SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, BRANCH_INFO, MIN_GROUP_SIZE } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot } from "@/lib/summer-utils";
 import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerApplication } from "@/types";
 
@@ -21,30 +23,12 @@ interface SummerUnassignedPanelProps {
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
 }
 
-const STATUS_ABBREV: Record<string, string> = {
-  "Submitted": "Sub",
-  "Under Review": "Rev",
-  "Placement Offered": "Offered",
-  "Placement Confirmed": "Conf",
-  "Fee Sent": "Fee",
-  "Paid": "Paid",
-  "Enrolled": "Enr",
-  "Waitlisted": "Wait",
-  "Withdrawn": "Wdn",
-  "Rejected": "Rej",
-};
-
 type SortMode = "name" | "grade" | "pref" | "completion";
 
 const SORT_CYCLE: SortMode[] = ["grade", "pref", "completion", "name"];
 const SORT_LABELS: Record<SortMode, string> = {
   name: "name", grade: "grade", pref: "preference", completion: "completion",
 };
-
-function formatPref(day?: string | null, time?: string | null): string {
-  if (!day || !time) return "-";
-  return `${DAY_ABBREV[day] || day} ${time}`;
-}
 
 export function SummerUnassignedPanel({
   applications,
@@ -80,7 +64,6 @@ export function SummerUnassignedPanel({
           a.reference_code?.toLowerCase().includes(q)
       );
     }
-    // Sort
     result = [...result].sort((a, b) => {
       if (sort === "completion") {
         const diff = (a.placed_count ?? 0) - (b.placed_count ?? 0);
@@ -164,7 +147,7 @@ export function SummerUnassignedPanel({
           />
         </div>
 
-        {/* Grade filter chips + sort */}
+        {/* Grade filter chips + buddy toggle + sort */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setGradeFilter(null)}
@@ -218,7 +201,7 @@ export function SummerUnassignedPanel({
         {loading ? (
           <div className="p-3 space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+              <div key={i} className="h-14 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -229,12 +212,11 @@ export function SummerUnassignedPanel({
           <div className="p-1.5 space-y-1">
             {filtered.map((app) => {
               const statusColors = STATUS_COLORS[app.application_status] || STATUS_COLORS["Submitted"];
-              const statusAbbrev = STATUS_ABBREV[app.application_status] || app.application_status;
-              const branchCode = app.verified_branch_origin;
-              const branchStyle = branchCode ? BRANCH_INFO[branchCode]?.badge : null;
-              const buddyCount = app.buddy_group_member_count ?? 0;
-              const hasBuddyGroup = !!app.buddy_group_id;
-              const buddyAtThreshold = buddyCount >= MIN_GROUP_SIZE;
+              const buddyGroupSize = app.buddy_group_id ? (app.buddy_group_member_count ?? 1) : 0;
+              const buddyUnlocked = buddyGroupSize >= MIN_GROUP_SIZE;
+              const classified = classifyPrefs(app);
+              const placedCount = app.placed_count ?? 0;
+              const sessionsPerWeek = app.sessions_per_week ?? 1;
 
               return (
                 <div
@@ -251,92 +233,117 @@ export function SummerUnassignedPanel({
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                   )}
                 >
-                  {/* Row 1: identity */}
+                  {/* Row 1: identity — matches applications card layout */}
                   <div className="flex items-center gap-1 min-w-0">
-                    <button
-                      onClick={() => onClickStudent?.(app.id)}
-                      className="text-xs font-medium truncate flex-1 text-left hover:text-primary hover:underline min-w-0"
-                      title="View application details"
-                    >
-                      {app.student_name}
-                    </button>
+                    <div className="min-w-0 flex-1" onClick={() => onClickStudent?.(app.id)}>
+                      <StudentInfoBadges
+                        student={{
+                          student_name: app.student_name,
+                          grade: app.grade,
+                          lang_stream: app.lang_stream ?? undefined,
+                        }}
+                        trailing={
+                          <>
+                            <PrimaryBranchChip app={app} />
+                            {buddyGroupSize > 0 && (
+                              <span
+                                className={cn(
+                                  "shrink-0 inline-flex items-center gap-0.5 px-0.5 py-0.5 rounded",
+                                  buddyUnlocked
+                                    ? "bg-green-100 dark:bg-green-900/30"
+                                    : "bg-amber-100 dark:bg-amber-900/30"
+                                )}
+                                title={
+                                  (app.buddy_names || `Buddy group of ${buddyGroupSize}`) +
+                                  (buddyUnlocked ? " — discount unlocked" : ` — needs ${MIN_GROUP_SIZE - buddyGroupSize} more`)
+                                }
+                              >
+                                {Array.from({ length: MIN_GROUP_SIZE }).map((_, i) => (
+                                  <User
+                                    key={i}
+                                    className={cn(
+                                      "h-2.5 w-2.5",
+                                      i < buddyGroupSize
+                                        ? (buddyUnlocked
+                                            ? "text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400"
+                                            : "text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400")
+                                        : "text-muted-foreground/40"
+                                    )}
+                                  />
+                                ))}
+                              </span>
+                            )}
+                          </>
+                        }
+                      />
+                    </div>
+                    {/* Status dot — compact version of the full status badge */}
                     <span
-                      className={cn(
-                        "text-[10px] font-bold px-1 rounded shrink-0",
-                        SUMMER_GRADE_BG[app.grade] || "bg-gray-100 dark:bg-gray-700"
-                      )}
-                    >
-                      {app.grade}
-                    </span>
-                    {(app.sessions_per_week ?? 1) > 1 && (
-                      <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-0.5 rounded shrink-0">
-                        {app.sessions_per_week}x
-                      </span>
-                    )}
-                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded shrink-0">
-                      {app.placed_count ?? 0}/{totalLessons}
-                    </span>
+                      className={cn("shrink-0 w-2 h-2 rounded-full", statusColors.dot)}
+                      title={app.application_status}
+                    />
                   </div>
 
-                  {/* Row 1b: status + branch + linked */}
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className={cn("text-[8px] px-1 rounded", statusColors.bg, statusColors.text)}>
-                      {statusAbbrev}
-                    </span>
-                    {branchCode && branchStyle && (
-                      <span className={cn("text-[8px] px-1 rounded", branchStyle)}>
-                        {branchCode}
+                  {/* Row 2: preferences — same pill style as applications card */}
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                    {sessionsPerWeek > 1 && (
+                      <span className="shrink-0 text-[9px] font-bold px-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                        2×
                       </span>
                     )}
-                    <span title={app.existing_student_id ? `Linked to student #${app.existing_student_id}` : "New student"}>
-                      {app.existing_student_id ? (
-                        <UserCheck className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <User className="h-2.5 w-2.5 text-muted-foreground/40" />
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Row 2: preferences */}
-                  {(() => {
-                    const { isPair, primary, backup } = classifyPrefs(app);
-                    const fmt = (s: { day: string; time: string }) => formatPref(s.day, s.time);
-                    if (isPair) {
-                      return (
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                          {primary.length > 0 && (
-                            <div title="Primary pair">P: {primary.map(fmt).join(" + ")}</div>
-                          )}
-                          {backup.length > 0 && (
-                            <div title="Backup pair">B: {backup.map(fmt).join(" + ")}</div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
-                        {primary[0] && <span title="Main">① {fmt(primary[0])}</span>}
-                        {backup[0] && <span title="Backup">② {fmt(backup[0])}</span>}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Row 3: buddy + unavailability + suggest */}
-                  <div className="flex items-center gap-1 mt-0.5">
-                    {hasBuddyGroup && (
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-0.5 text-[9px] px-1 rounded",
-                          buddyAtThreshold
-                            ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
-                            : "text-muted-foreground bg-gray-50 dark:bg-gray-800"
+                    {classified.primary.length > 0 ? (
+                      <>
+                        {classified.primary.map((s, i) => (
+                          <span
+                            key={`p${i}`}
+                            className="shrink-0 font-mono text-[9px] px-1 py-0 rounded bg-gray-100 dark:bg-gray-800 text-foreground"
+                          >
+                            {s.day} {s.time}
+                          </span>
+                        ))}
+                        {classified.backup.length > 0 && (
+                          <>
+                            <span className="shrink-0 text-[8px] text-muted-foreground/60 uppercase tracking-wide">alt</span>
+                            {classified.backup.map((s, i) => (
+                              <span
+                                key={`b${i}`}
+                                className="shrink-0 font-mono text-[9px] px-1 py-0 rounded border border-dashed border-gray-300 dark:border-gray-700 text-muted-foreground"
+                              >
+                                {s.day} {s.time}
+                              </span>
+                            ))}
+                          </>
                         )}
-                        title={app.buddy_names || `Buddy group (${buddyCount} members)`}
-                      >
-                        <Users className="h-2.5 w-2.5" />
-                        {buddyCount}
-                      </span>
+                      </>
+                    ) : (
+                      <span className="text-[9px] text-red-500">No prefs</span>
                     )}
+                  </div>
+
+                  {/* Row 3: placement dots + unavailability + suggest */}
+                  <div className="flex items-center gap-1 mt-1">
+                    {/* Placement dot strip — same pattern as applications card */}
+                    <span className="shrink-0 flex items-center gap-px">
+                      {app.sessions && app.sessions.length > 0
+                        ? app.sessions.map((s, i) => (
+                            <span
+                              key={i}
+                              className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
+                              title={`L${s.lesson_number ?? i + 1}: ${s.session_status}`}
+                            />
+                          ))
+                        : null}
+                      {Array.from({ length: totalLessons - placedCount }).map((_, i) => (
+                        <span
+                          key={`e${i}`}
+                          className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
+                        />
+                      ))}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground tabular-nums">
+                      {placedCount}/{totalLessons}
+                    </span>
                     {app.unavailability_notes && (
                       <span title={app.unavailability_notes} className="shrink-0">
                         <AlertTriangle className="h-3 w-3 text-amber-500" />
