@@ -3697,3 +3697,13 @@ body.student-print .print-answer-key {
     overflow: visible !important;
   }
 }
+
+/* Resource browse dropdown animations */
+@keyframes resource-dropdown-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes resource-dropdown-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(4px); }
+}

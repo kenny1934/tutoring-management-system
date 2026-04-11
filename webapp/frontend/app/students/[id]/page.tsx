@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
+import { UrlBadge } from "@/components/ui/url-badge";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -2901,6 +2902,7 @@ function CoursewareTab({
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
                                 {getExerciseDisplayName(exercise)}
+                                <UrlBadge url={exercise.url} />
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
@@ -2944,6 +2946,7 @@ function CoursewareTab({
                             >
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
                                 {getExerciseDisplayName(exercise)}
+                                <UrlBadge url={exercise.url} />
                               </span>
                               {exercise.page_start && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">

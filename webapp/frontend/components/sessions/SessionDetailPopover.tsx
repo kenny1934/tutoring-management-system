@@ -344,7 +344,7 @@ function ExercisesList({ exercises, session }: {
           </div>
           <div className="space-y-0.5 pl-4">
             {cwExercises.map((ex) => (
-              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
+              <ExerciseItem key={`${ex.id ?? ex.pdf_name ?? ex.url}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
             ))}
           </div>
         </div>
@@ -389,7 +389,7 @@ function ExercisesList({ exercises, session }: {
           </div>
           <div className="space-y-0.5 pl-4">
             {hwExercises.map((ex) => (
-              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
+              <ExerciseItem key={`${ex.id ?? ex.pdf_name ?? ex.url}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
             ))}
           </div>
         </div>
@@ -1144,7 +1144,7 @@ export function SessionDetailPopover({
                       {prevClasswork.length > 0 && (
                         <div className="mt-1 space-y-0.5">
                           {prevClasswork.map((ex) => (
-                            <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
+                            <ExerciseItem key={`${ex.id ?? ex.pdf_name ?? ex.url}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
                           ))}
                         </div>
                       )}

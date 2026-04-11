@@ -580,18 +580,35 @@ export function isUrl(input: string): boolean {
  * Google Docs → "Google Docs"
  * Other → hostname
  */
+const URL_NAME_MAP: Record<string, string> = {
+  'youtube.com': 'YouTube',
+  'm.youtube.com': 'YouTube',
+  'youtu.be': 'YouTube',
+  'desmos.com': 'Desmos',
+  'geogebra.org': 'GeoGebra',
+  'phet.colorado.edu': 'PhET',
+  'kahoot.it': 'Kahoot',
+  'kahoot.com': 'Kahoot',
+  'create.kahoot.it': 'Kahoot',
+  'embed.kahoot.it': 'Kahoot',
+  'quizizz.com': 'Quizizz',
+  'wayground.com': 'Wayground',
+};
+
 export function getUrlDisplayName(url: string, title?: string): string {
   if (title) return title;
   if (!url) return '';
   try {
     const u = new URL(url);
-    if (u.hostname === 'docs.google.com') {
+    const host = u.hostname.replace(/^www\./, '');
+
+    if (host === 'docs.google.com') {
       if (url.includes('/presentation/')) return 'Google Slides';
-      if (url.includes('/document/')) return 'Google Docs';
       if (url.includes('/spreadsheets/')) return 'Google Sheets';
       return 'Google Docs';
     }
-    return u.hostname.replace(/^www\./, '');
+
+    return URL_NAME_MAP[host] || host;
   } catch {
     return url.slice(0, 40);
   }
@@ -608,28 +625,109 @@ export function toEmbedUrl(url: string): string | null {
   if (!url) return null;
   try {
     const u = new URL(url);
-    if (u.hostname !== 'docs.google.com') return null;
+    const host = u.hostname.replace(/^www\./, '');
 
-    // Google Slides
-    const slidesMatch = u.pathname.match(/^\/presentation\/d\/([^/]+)/);
-    if (slidesMatch) {
-      return `https://docs.google.com/presentation/d/${slidesMatch[1]}/embed?start=false&loop=false`;
+    // Google Docs/Slides/Sheets
+    if (host === 'docs.google.com') {
+      const slidesMatch = u.pathname.match(/^\/presentation\/d\/([^/]+)/);
+      if (slidesMatch) {
+        return `https://docs.google.com/presentation/d/${slidesMatch[1]}/embed?start=false&loop=false`;
+      }
+      const docsMatch = u.pathname.match(/^\/document\/d\/([^/]+)/);
+      if (docsMatch) {
+        return `https://docs.google.com/document/d/${docsMatch[1]}/preview`;
+      }
+      const sheetsMatch = u.pathname.match(/^\/spreadsheets\/d\/([^/]+)/);
+      if (sheetsMatch) {
+        return `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/preview`;
+      }
+      return null;
     }
 
-    // Google Docs
-    const docsMatch = u.pathname.match(/^\/document\/d\/([^/]+)/);
-    if (docsMatch) {
-      return `https://docs.google.com/document/d/${docsMatch[1]}/preview`;
+    // YouTube
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      const vid = u.searchParams.get('v');
+      if (vid) return `https://www.youtube.com/embed/${vid}`;
+      // Already an embed URL
+      const embedMatch = u.pathname.match(/^\/embed\/([^/]+)/);
+      if (embedMatch) return url;
+      return null;
+    }
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1).split('/')[0];
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      return null;
     }
 
-    // Google Sheets
-    const sheetsMatch = u.pathname.match(/^\/spreadsheets\/d\/([^/]+)/);
-    if (sheetsMatch) {
-      return `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/preview`;
+    // Desmos — calculator URLs are directly embeddable
+    if (host === 'desmos.com') {
+      if (u.pathname.startsWith('/calculator/')) return url;
+      return null;
     }
+
+    // GeoGebra
+    if (host === 'geogebra.org') {
+      // /m/ID, /classic/ID, /calculator/ID, /geometry/ID
+      const geoMatch = u.pathname.match(/^\/(m|classic|calculator|geometry)\/([^/]+)/);
+      if (geoMatch) {
+        return `https://www.geogebra.org/material/iframe/id/${geoMatch[2]}`;
+      }
+      return null;
+    }
+
+    // PhET
+    if (host === 'phet.colorado.edu') {
+      // /en/simulations/sim-name → /sims/html/sim-name/latest/sim-name_all.html
+      const phetMatch = u.pathname.match(/\/simulations\/([a-z0-9-]+)$/);
+      if (phetMatch) {
+        const sim = phetMatch[1];
+        return `https://phet.colorado.edu/sims/html/${sim}/latest/${sim}_all.html`;
+      }
+      // Already a direct sim URL
+      if (u.pathname.includes('/sims/html/')) return url;
+      return null;
+    }
+
+    // Kahoot — use embed.kahoot.it subdomain (official embed endpoint)
+    if (host === 'kahoot.it' || host === 'kahoot.com' || host === 'create.kahoot.it') {
+      // Extract Kahoot ID from various URL formats
+      const kahootId = u.pathname.match(/(?:details|preview|challenge)\/([a-f0-9-]+)/)?.[1];
+      if (kahootId) return `https://embed.kahoot.it/${kahootId}`;
+      // Already an embed URL
+      if (host === 'embed.kahoot.it') return url;
+      return null;
+    }
+    if (host === 'embed.kahoot.it') return url;
+
+    // Quizizz, Wayground — cookie restrictions block iframe embedding; use "Open in new tab"
 
     return null;
   } catch {
     return null;
+  }
+}
+
+/** Get a type badge for a URL exercise. Returns label, Tailwind className, and hex color (for inline styles). */
+export function getUrlBadge(url?: string | null): { label: string; className: string; hex: string } | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+
+    if (host === 'docs.google.com') {
+      if (url.includes('/presentation/')) return { label: 'Slides', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', hex: '#a855f7' };
+      if (url.includes('/document/')) return { label: 'Doc', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', hex: '#3b82f6' };
+      if (url.includes('/spreadsheets/')) return { label: 'Sheet', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', hex: '#22c55e' };
+      return { label: 'Doc', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', hex: '#3b82f6' };
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be') return { label: 'Video', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', hex: '#ef4444' };
+    if (host === 'desmos.com') return { label: 'Math', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', hex: '#a855f7' };
+    if (host === 'geogebra.org') return { label: 'Math', className: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', hex: '#14b8a6' };
+    if (host === 'phet.colorado.edu') return { label: 'Sim', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', hex: '#f97316' };
+    if (host === 'kahoot.it' || host === 'kahoot.com' || host === 'create.kahoot.it' || host === 'embed.kahoot.it') return { label: 'Quiz', className: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400', hex: '#8b5cf6' };
+    if (host === 'quizizz.com' || host === 'wayground.com') return { label: 'Quiz', className: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400', hex: '#ec4899' };
+    return { label: 'Link', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', hex: '#9ca3af' };
+  } catch {
+    return { label: 'Link', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', hex: '#9ca3af' };
   }
 }

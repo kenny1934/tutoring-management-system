@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
+import { UrlBadge } from "@/components/ui/url-badge";
 import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
@@ -74,6 +75,7 @@ function StudentExerciseItem({
             isSelected ? "text-[#6b4c30] dark:text-[#d4a574]" : "text-gray-700 dark:text-gray-300"
           )}>
             {(entry.exercise.pdf_name || entry.exercise.url) ? displayName : "(no file)"}
+            <UrlBadge url={entry.exercise.url} />
           </div>
           {pageLabel && (
             <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">{pageLabel}</span>

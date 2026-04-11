@@ -27,6 +27,7 @@ import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateE
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
+import { ResourceBrowseDropdown } from "./ResourceBrowseDropdown";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
@@ -1710,10 +1711,14 @@ export function ExerciseModal({
                           isDraggingOver === index && "border-amber-400"
                         )}
                       />
-                      {exercise.url && exercise.url_title && (
-                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate pl-7 mt-0.5" title={exercise.url_title}>
-                          {exercise.url_title}
-                        </div>
+                      {exercise.url && (
+                        <input
+                          type="text"
+                          value={exercise.url_title}
+                          onChange={(e) => { updateExercise(index, "url_title", e.target.value); setIsDirty(true); }}
+                          placeholder="Title (auto-fetched or type manually)"
+                          className="text-[10px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                        />
                       )}
                     </div>
 
@@ -1740,15 +1745,18 @@ export function ExerciseModal({
                         <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                       </button>
                     ) : (
-                      <ExerciseActionButtons
-                        hasPdfName={!!exercise.pdf_name}
-                        canBrowseFiles={canBrowseFiles}
-                        fileActionState={fileActionState[exercise.clientId]}
-                        onPaperlessSearch={() => handlePaperlessSearch(index)}
-                        onBrowseFile={() => handleBrowseFile(index)}
-                        onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
-                        onPrintFile={() => handlePrintFile(exercise)}
-                      />
+                      <>
+                        <ExerciseActionButtons
+                          hasPdfName={!!exercise.pdf_name}
+                          canBrowseFiles={canBrowseFiles}
+                          fileActionState={fileActionState[exercise.clientId]}
+                          onPaperlessSearch={() => handlePaperlessSearch(index)}
+                          onBrowseFile={() => handleBrowseFile(index)}
+                          onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
+                          onPrintFile={() => handlePrintFile(exercise)}
+                        />
+                        {!exercise.pdf_name && <ResourceBrowseDropdown />}
+                      </>
                     )}
 
                     {/* Delete button with confirmation */}

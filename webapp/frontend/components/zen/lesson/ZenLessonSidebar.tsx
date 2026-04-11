@@ -1,6 +1,7 @@
 "use client";
 
-import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { UrlBadgeInline } from "@/components/ui/url-badge";
 import type { SessionExercise } from "@/types";
 
 interface ZenLessonSidebarProps {
@@ -113,7 +114,7 @@ export function ZenLessonSidebar({
           {section.items.map(({ exercise, flatIndex }) => {
             const isSelected = flatIndex === selectedIndex;
             const { label, color } = getExerciseTypeLabel(exercise.exercise_type);
-            const displayName = getDisplayName(exercise.pdf_name);
+            const displayName = getExerciseDisplayName(exercise);
             const pageRange = formatPageRange(exercise);
             const answerStatus = answerAvailable?.get(exercise.id);
 
@@ -155,10 +156,11 @@ export function ZenLessonSidebar({
                     whiteSpace: "nowrap",
                     color: "var(--zen-fg)",
                   }}
-                  title={exercise.pdf_name}
+                  title={exercise.pdf_name || exercise.url}
                 >
                   {displayName}
                 </span>
+                <UrlBadgeInline url={exercise.url} />
 
                 <span style={{ color: "var(--zen-dim)", fontSize: "10px", flexShrink: 0 }}>
                   {pageRange}

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
+import { UrlBadge } from "@/components/ui/url-badge";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
@@ -76,6 +77,7 @@ function ExerciseItem({
               : "text-gray-700 dark:text-gray-300"
           )}>
             {(exercise.pdf_name || exercise.url) ? displayName : "(no file)"}
+            <UrlBadge url={exercise.url} />
           </div>
 
           {/* Page range */}

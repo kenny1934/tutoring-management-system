@@ -5,6 +5,7 @@ import { Check, XCircle, Copy, Loader2, ExternalLink, Printer } from "lucide-rea
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import type { PrintStampInfo } from "@/lib/file-system";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
+import { UrlBadge } from "@/components/ui/url-badge";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface RecapExerciseItemProps {
@@ -96,6 +97,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, url,
         <>
           <span className="truncate text-gray-700 dark:text-gray-300 min-w-0" title={pdfName}>
             {displayName}
+            <UrlBadge url={url} />
           </span>
           {pageInfo && <span className="text-gray-500 flex-shrink-0">{pageInfo}</span>}
         </>

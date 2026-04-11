@@ -2,7 +2,11 @@
 Sessions API endpoints.
 Provides read-only access to session log data.
 """
+import html as html_mod
 import logging
+import re
+from urllib.parse import urlparse, quote
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from utils.query_helpers import session_with_relations
@@ -401,27 +405,71 @@ async def get_url_metadata(
     url: str = Query(..., max_length=2048),
     current_user: Tutor = Depends(get_current_user),
 ):
-    """Fetch the page title from a Google Docs/Slides/Sheets URL using Drive API."""
-    import re
-    from urllib.parse import urlparse
-
+    """Fetch the page title from a URL. Uses Drive API for Google Docs, HTML <title> for others."""
     parsed = urlparse(url)
-    if parsed.hostname not in ("docs.google.com",):
-        raise HTTPException(status_code=400, detail="Only Google Docs/Slides/Sheets URLs are supported")
-
-    doc_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', parsed.path)
-    if not doc_id_match:
+    if parsed.scheme != "https":
         return {"title": ""}
-    doc_id = doc_id_match.group(1)
 
-    try:
-        service = _get_drive_service()
-        if not service:
+    # Google Docs/Slides/Sheets: use Drive API for accurate titles
+    if parsed.hostname == "docs.google.com":
+        doc_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', parsed.path)
+        if not doc_id_match:
             return {"title": ""}
-        file_metadata = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
-        return {"title": file_metadata.get("name", "")}
+        doc_id = doc_id_match.group(1)
+        try:
+            service = _get_drive_service()
+            if not service:
+                return {"title": ""}
+            file_metadata = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
+            return {"title": file_metadata.get("name", "")}
+        except Exception as e:
+            logging.error(f"[url-metadata] Drive API error: {type(e).__name__}: {e}")
+            return {"title": ""}
+
+    # YouTube: use oEmbed API (title is at 600KB+ in their HTML, too deep for streaming)
+    if parsed.hostname in ("www.youtube.com", "youtube.com", "m.youtube.com", "youtu.be"):
+        try:
+            oembed_url = f"https://www.youtube.com/oembed?url={quote(url, safe='')}&format=json"
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(oembed_url)
+                if resp.status_code == 200:
+                    return {"title": resp.json().get("title", "")[:500]}
+            return {"title": ""}
+        except Exception as e:
+            logging.error(f"[url-metadata] YouTube oEmbed error: {type(e).__name__}: {e}")
+            return {"title": ""}
+
+    # All other HTTPS URLs: stream HTML and parse <title> from first 500KB
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, max_redirects=3, timeout=5.0) as client:
+            async with client.stream("GET", url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}) as resp:
+                if resp.status_code not in (200, 202):
+                    return {"title": ""}
+                chunks: list[str] = []
+                total = 0
+                found_title = False
+                async for chunk in resp.aiter_text():
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if '</title>' in chunk.lower():
+                        found_title = True
+                    if found_title or total >= 500_000:
+                        break
+                text = "".join(chunks)
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', text, re.IGNORECASE | re.DOTALL)
+            if not title_match:
+                return {"title": ""}
+            title = title_match.group(1).strip()
+            for suffix in [" - YouTube", " | Desmos", " - GeoGebra", " – GeoGebra",
+                           " - PhET Interactive Simulations", " | Kahoot!", " | Quizizz",
+                           " | Wayground"]:
+                if title.endswith(suffix):
+                    title = title[:-len(suffix)].strip()
+                    break
+            title = html_mod.unescape(title)
+            return {"title": title[:500]}
     except Exception as e:
-        logging.error(f"[url-metadata] Drive API error: {type(e).__name__}: {e}")
+        logging.error(f"[url-metadata] HTML fetch error for {parsed.hostname}: {type(e).__name__}: {e}")
         return {"title": ""}
 
 

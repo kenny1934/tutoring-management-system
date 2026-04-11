@@ -21,6 +21,7 @@ import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, isUrl, hasExerciseSource } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
+import { ResourceBrowseDropdown } from "./ResourceBrowseDropdown";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -979,10 +980,14 @@ export function BulkExerciseModal({
                           isDraggingOver === index && "border-amber-400"
                         )}
                       />
-                      {exercise.url && exercise.url_title && (
-                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate pl-7 mt-0.5" title={exercise.url_title}>
-                          {exercise.url_title}
-                        </div>
+                      {exercise.url && (
+                        <input
+                          type="text"
+                          value={exercise.url_title}
+                          onChange={(e) => { updateExercise(index, "url_title", e.target.value); setIsDirty(true); }}
+                          placeholder="Title (auto-fetched or type manually)"
+                          className="text-[10px] text-blue-600 dark:text-blue-400 pl-7 mt-0.5 w-full bg-transparent border-none outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                        />
                       )}
                     </div>
 
@@ -997,15 +1002,18 @@ export function BulkExerciseModal({
                         <ExternalLink className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                       </button>
                     ) : (
-                      <ExerciseActionButtons
-                        hasPdfName={!!exercise.pdf_name}
-                        canBrowseFiles={canBrowseFiles}
-                        fileActionState={fileActionState[exercise.clientId]}
-                        onPaperlessSearch={() => handlePaperlessSearch(index)}
-                        onBrowseFile={() => handleBrowseFile(index)}
-                        onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
-                        onPrintFile={() => handlePrintFile(exercise)}
-                      />
+                      <>
+                        <ExerciseActionButtons
+                          hasPdfName={!!exercise.pdf_name}
+                          canBrowseFiles={canBrowseFiles}
+                          fileActionState={fileActionState[exercise.clientId]}
+                          onPaperlessSearch={() => handlePaperlessSearch(index)}
+                          onBrowseFile={() => handleBrowseFile(index)}
+                          onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
+                          onPrintFile={() => handlePrintFile(exercise)}
+                        />
+                        {!exercise.pdf_name && <ResourceBrowseDropdown />}
+                      </>
                     )}
 
                     {/* Delete button with inline confirmation */}
