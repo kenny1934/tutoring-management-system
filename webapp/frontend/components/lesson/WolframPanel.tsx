@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
+import { patchMathLiveMenu } from "@/lib/mathlive-utils";
 
 interface WolframPanelProps {
   isOpen: boolean;
@@ -111,7 +112,9 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
       if (kbd) kbd.show({ animate: true });
     }, 150);
 
-    return () => clearTimeout(timer);
+    const cleanupPatch = patchMathLiveMenu(mathfieldRef);
+
+    return () => { clearTimeout(timer); cleanupPatch(); };
   }, [mathMode, mathliveLoaded]);
 
   const runQuery = useCallback(async (q: string) => {
