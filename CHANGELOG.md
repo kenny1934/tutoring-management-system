@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.55](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.55) (2026-04-11)
+
+### New Features
+
+* **Wolfram Alpha query panel** — tutors can query Wolfram Alpha directly during lessons via a slide-in panel (press W or click the Sigma button in the header). Results display as a zoomable image with click-to-zoom via the existing lightbox
+* **Math keyboard input** — toggle the f(x) button to switch from plain text to a MathLive math keyboard for structured input. LaTeX is automatically converted to Wolfram-compatible syntax
+* **Query caching** — repeated queries return instantly from a 24-hour backend cache (200 entry cap), saving API quota. Cached results show a green "Cached result" badge
+* **Persistent query history** — past queries are saved in localStorage (up to 30) and persist across sessions. A collapsible history panel lets tutors browse and re-run previous queries
+
 ## [2.0.54](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.54) (2026-04-11)
 
 ### New Features
