@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.54](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.54) (2026-04-11)
+
+### New Features
+
+* **Expanded URL exercise support** — embed YouTube videos, Desmos graphs, GeoGebra tools, PhET simulations, Kahoot quizzes, and Polypad manipulatives directly in lesson mode. Wayground and Mathigon links open in a new tab
+* **Type badges** — URL exercises now show colored badges (Video, Math, Sim, Quiz, Slides, Doc, Link) in lesson sidebars, student courseware tab, recap items, and exercise history
+* **Resource directory** — a new "Browse Resources" dropdown in the exercise editor helps tutors discover educational platforms with link format guidance and embed behavior hints
+* **Editable URL titles** — the auto-fetched title field is now an editable input, so tutors can manually name exercises when auto-fetch fails or returns a bad name
+* **Title fetch for any URL** — pasting a YouTube, Desmos, PhET, or any HTTPS link auto-fetches the page title. YouTube uses the oEmbed API for reliability
+* **YouTube thumbnail preview** — hovering over the YouTube icon in lesson sidebars and exercise modals shows a thumbnail preview of the video
+* **Iframe embed code paste** — pasting an iframe embed code (e.g., from Polypad) automatically extracts the URL
+
+### Bug Fixes
+
+* **Duplicate key warning** — fixed React key collision in SessionDetailPopover when URL exercises have no PDF name
+
 ## [2.0.53](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.53) (2026-04-11)
 
 ### New Features
