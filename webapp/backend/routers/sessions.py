@@ -372,35 +372,91 @@ async def get_aged_pending_makeups_count(
     return AgedPendingMakeupsCount(count=count, critical=critical)
 
 
-def _get_drive_service():
-    """Get or create a cached Google Drive API service. Reuses credentials across requests."""
-    import os
+_drive_sa_key_data: dict | None = None
+_drive_oauth_service = None
+_drive_oauth_creds = None
+
+
+def _get_drive_service_for_user(user_email: str):
+    """Get a Drive API service impersonating user_email via domain-wide delegation. Returns None on failure."""
+    import json
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+    global _drive_sa_key_data
+
+    sa_key_b64 = os.environ.get("GOOGLE_SA_KEY_B64")
+    if not sa_key_b64:
+        return None
+    try:
+        if _drive_sa_key_data is None:
+            _drive_sa_key_data = json.loads(base64.b64decode(sa_key_b64))
+        from google.oauth2 import service_account as sa_module
+        creds = sa_module.Credentials.from_service_account_info(
+            _drive_sa_key_data,
+            scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"],
+            subject=user_email,
+        )
+        creds.refresh(Request())
+        return build("drive", "v3", credentials=creds)
+    except Exception as e:
+        logging.warning(f"[drive] Service account delegation for {user_email} failed: {e}")
+        return None
+
+
+def _get_drive_service_oauth():
+    """Get or create a cached Drive API service using OAuth user credentials (admin fallback)."""
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
+    global _drive_oauth_service, _drive_oauth_creds
 
-    if not hasattr(_get_drive_service, '_service') or _get_drive_service._service is None:
-        drive_refresh_token = os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN")
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        if not all([drive_refresh_token, client_id, client_secret]):
-            return None
-        _get_drive_service._credentials = Credentials(
-            token=None,
-            refresh_token=drive_refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
-            scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"]
-        )
-        _get_drive_service._credentials.refresh(Request())
-        _get_drive_service._service = build("drive", "v3", credentials=_get_drive_service._credentials)
+    if _drive_oauth_service is not None:
+        if not _drive_oauth_creds.valid:
+            _drive_oauth_creds.refresh(Request())
+        return _drive_oauth_service
 
-    # Refresh token if expired
-    if not _get_drive_service._credentials.valid:
-        _get_drive_service._credentials.refresh(Request())
+    drive_refresh_token = os.environ.get("GOOGLE_DRIVE_REFRESH_TOKEN")
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+    if not all([drive_refresh_token, client_id, client_secret]):
+        return None
+    _drive_oauth_creds = Credentials(
+        token=None,
+        refresh_token=drive_refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=["https://www.googleapis.com/auth/drive.metadata.readonly"]
+    )
+    _drive_oauth_creds.refresh(Request())
+    _drive_oauth_service = build("drive", "v3", credentials=_drive_oauth_creds)
+    return _drive_oauth_service
 
-    return _get_drive_service._service
+
+def _fetch_drive_title(doc_id: str, emails: list[str]) -> str:
+    """Try fetching a Drive file title by impersonating each email, then OAuth fallback."""
+    for email in emails:
+        service = _get_drive_service_for_user(email)
+        if not service:
+            continue
+        try:
+            meta = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
+            title = meta.get("name", "")
+            if title:
+                return title
+        except Exception as e:
+            logging.info(f"[drive] Delegation as {email} could not access file {doc_id}: {e}")
+
+    # Fallback: OAuth admin credentials
+    service = _get_drive_service_oauth()
+    if service:
+        try:
+            meta = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
+            return meta.get("name", "")
+        except Exception as e:
+            logging.error(f"[url-metadata] Drive API OAuth fallback error: {type(e).__name__}: {e}")
+
+    return ""
 
 
 _wolfram_cache: dict[str, str] = {}
@@ -449,28 +505,27 @@ async def wolfram_query(
 @router.get("/sessions/url-metadata")
 async def get_url_metadata(
     url: str = Query(..., max_length=2048),
+    session_id: Optional[int] = Query(None),
     current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Fetch the page title from a URL. Uses Drive API for Google Docs, HTML <title> for others."""
     parsed = urlparse(url)
     if parsed.scheme != "https":
         return {"title": ""}
 
-    # Google Docs/Slides/Sheets: use Drive API for accurate titles
+    # Google Docs/Slides/Sheets: try delegation as current user, then session tutor, then OAuth
     if parsed.hostname == "docs.google.com":
         doc_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', parsed.path)
         if not doc_id_match:
             return {"title": ""}
-        doc_id = doc_id_match.group(1)
-        try:
-            service = _get_drive_service()
-            if not service:
-                return {"title": ""}
-            file_metadata = service.files().get(fileId=doc_id, fields="name", supportsAllDrives=True).execute()
-            return {"title": file_metadata.get("name", "")}
-        except Exception as e:
-            logging.error(f"[url-metadata] Drive API error: {type(e).__name__}: {e}")
-            return {"title": ""}
+        emails = [current_user.user_email]
+        if session_id:
+            session_tutor = db.query(Tutor.user_email).join(SessionLog, SessionLog.tutor_id == Tutor.id).filter(SessionLog.id == session_id).scalar()
+            if session_tutor and session_tutor != current_user.user_email:
+                emails.append(session_tutor)
+        title = _fetch_drive_title(doc_id_match.group(1), emails)
+        return {"title": title}
 
     # YouTube: use oEmbed API (title is at 600KB+ in their HTML, too deep for streaming)
     if parsed.hostname in ("www.youtube.com", "youtube.com", "m.youtube.com", "youtu.be"):

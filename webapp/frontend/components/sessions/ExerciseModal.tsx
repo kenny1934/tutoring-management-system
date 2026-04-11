@@ -720,7 +720,7 @@ export function ExerciseModal({
       setExercises(prev => prev.map((ex, i) => i === index ? { ...ex, url: pastedText, pdf_name: "", url_title: "" } : ex));
       setIsDirty(true);
       // Fetch title in background
-      sessionsAPI.fetchUrlMetadata(pastedText).then(res => {
+      sessionsAPI.fetchUrlMetadata(pastedText, session.id).then(res => {
         if (res.title) {
           setExercises(prev => prev.map((ex, i) => i === index && ex.url === pastedText ? { ...ex, url_title: res.title } : ex));
         }

@@ -1303,6 +1303,7 @@ export function LessonWideMode({
                   {(() => {
                     const embedUrl = toEmbedUrl(selectedEntry.exercise.url!);
                     if (embedUrl) {
+                      const isGoogleDoc = selectedEntry.exercise.url?.includes("docs.google.com");
                       return (
                         <>
                           <iframe
@@ -1313,16 +1314,25 @@ export function LessonWideMode({
                             allowFullScreen
                             title={getExerciseDisplayName(selectedEntry.exercise)}
                           />
-                          {isMobile && (
-                            <a
-                              href={selectedEntry.exercise.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-1.5 py-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Open in app for full controls
-                            </a>
+                          {(isMobile || isGoogleDoc) && (
+                            <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
+                              {isMobile && (
+                                <a
+                                  href={selectedEntry.exercise.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Open in app
+                                </a>
+                              )}
+                              {isGoogleDoc && (
+                                <span className="text-[#8b7355] dark:text-[#a09080]">
+                                  Can't see the file? Ask the owner to share it with you.
+                                </span>
+                              )}
+                            </div>
                           )}
                         </>
                       );

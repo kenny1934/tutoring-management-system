@@ -801,8 +801,9 @@ export const sessionsAPI = {
     return fetchAPI<ExerciseHistoryResponse>(`/sessions/student/${studentId}/exercise-history${query ? `?${query}` : ""}`);
   },
 
-  fetchUrlMetadata: (url: string) => {
-    return fetchAPI<{ title: string }>(`/sessions/url-metadata?url=${encodeURIComponent(url)}`);
+  fetchUrlMetadata: (url: string, sessionId?: number) => {
+    const params = `url=${encodeURIComponent(url)}${sessionId ? `&session_id=${sessionId}` : ''}`;
+    return fetchAPI<{ title: string }>(`/sessions/url-metadata?${params}`);
   },
 
   wolframQuery: (query: string) => {
