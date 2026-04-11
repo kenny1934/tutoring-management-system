@@ -8,6 +8,13 @@ import { SummerSlotCard } from "./SummerSlotCard";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
+export interface DemandBarFilter {
+  day: string;
+  timeSlot: string;
+  grade: string;
+  tier: "first" | "second";
+}
+
 interface SummerSlotCellProps {
   day: string;
   timeSlot: string;
@@ -26,6 +33,7 @@ interface SummerSlotCellProps {
   gradeMaxDemand?: number;
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
+  onDemandBarClick?: (filter: DemandBarFilter) => void;
 }
 
 // Solid fill (1st pref) and light fill (2nd pref) for demand sparklines per grade
@@ -62,6 +70,7 @@ export function SummerSlotCell({
   gradeMaxDemand = 1,
   availableTutors,
   onConfirmSlot,
+  onDemandBarClick,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -135,14 +144,24 @@ export function SummerSlotCell({
               <div className="flex-1 h-1.5 flex">
                 {barPct > 0 && (
                   <>
-                    <div
-                      className={cn("h-full rounded-l-sm", second === 0 && "rounded-r-sm", colors.solid)}
-                      style={{ width: `${firstPct * barPct / 100}%` }}
-                    />
+                    {first > 0 && (
+                      <div
+                        className={cn(
+                          "h-full rounded-l-sm", second === 0 && "rounded-r-sm", colors.solid,
+                          onDemandBarClick && "cursor-pointer hover:opacity-80"
+                        )}
+                        style={{ width: `${firstPct * barPct / 100}%` }}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "first" }); } : undefined}
+                      />
+                    )}
                     {second > 0 && (
                       <div
-                        className={cn("h-full rounded-r-sm", first === 0 && "rounded-l-sm", colors.light)}
+                        className={cn(
+                          "h-full rounded-r-sm", first === 0 && "rounded-l-sm", colors.light,
+                          onDemandBarClick && "cursor-pointer hover:opacity-80"
+                        )}
                         style={{ width: `${(100 - firstPct) * barPct / 100}%` }}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "second" }); } : undefined}
                       />
                     )}
                   </>

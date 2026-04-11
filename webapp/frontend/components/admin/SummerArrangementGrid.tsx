@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo } from "react";
 import { SummerSlotCell } from "./SummerSlotCell";
+import type { DemandBarFilter } from "./SummerSlotCell";
 import { DAY_ABBREV } from "@/lib/summer-utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
@@ -28,6 +29,7 @@ interface SummerArrangementGridProps {
   getAvailableTutors?: (day: string, timeSlot: string) => AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
   dragBuddySlots?: Set<string> | null;
+  onDemandBarClick?: (filter: DemandBarFilter) => void;
 }
 
 
@@ -48,6 +50,7 @@ export function SummerArrangementGrid({
   getAvailableTutors,
   onConfirmSlot,
   dragBuddySlots,
+  onDemandBarClick,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -161,6 +164,7 @@ export function SummerArrangementGrid({
                   gradeMaxDemand={gradeMaxDemand}
                   availableTutors={getAvailableTutors?.(day, ts)}
                   onConfirmSlot={onConfirmSlot}
+                  onDemandBarClick={onDemandBarClick}
                 />
               );
             })}

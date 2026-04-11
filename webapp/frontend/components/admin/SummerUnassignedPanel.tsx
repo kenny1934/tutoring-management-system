@@ -1,14 +1,21 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Clock } from "lucide-react";
+import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot, DAY_ABBREV } from "@/lib/summer-utils";
 import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerApplication } from "@/types";
+
+export interface PrefFilter {
+  day: string;
+  timeSlot: string;
+  grade: string;
+  tier: "first" | "second";
+}
 
 interface SummerUnassignedPanelProps {
   applications: SummerApplication[];
@@ -21,6 +28,8 @@ interface SummerUnassignedPanelProps {
   hideCollapse?: boolean;
   totalLessons?: number;
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
+  prefFilter?: PrefFilter | null;
+  onClearPrefFilter?: () => void;
 }
 
 type SortMode = "name" | "grade" | "pref" | "completion";
@@ -41,6 +50,8 @@ export function SummerUnassignedPanel({
   hideCollapse,
   totalLessons = 8,
   onSuggestStudent,
+  prefFilter,
+  onClearPrefFilter,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -119,7 +130,7 @@ export function SummerUnassignedPanel({
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Incomplete</span>
+          <span className="text-sm font-medium">{prefFilter ? "Demand" : "Incomplete"}</span>
           <span className="text-xs text-muted-foreground ml-auto">
             {filtered.length}
             {filtered.length !== applications.length && ` / ${applications.length}`}
@@ -146,6 +157,23 @@ export function SummerUnassignedPanel({
             className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
           />
         </div>
+
+        {/* Active demand-bar filter */}
+        {prefFilter && (
+          <div className="flex items-center gap-1 text-[10px]">
+            <span className="text-muted-foreground">Showing</span>
+            <span className="font-semibold">{prefFilter.grade}</span>
+            <span className="text-muted-foreground">{prefFilter.tier === "first" ? "1st" : "2nd"} pref for</span>
+            <span className="font-semibold">{DAY_ABBREV[prefFilter.day] || prefFilter.day} {prefFilter.timeSlot}</span>
+            <button
+              onClick={onClearPrefFilter}
+              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
+              title="Clear filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         {/* Grade filter chips + buddy toggle + sort */}
         <div className="flex items-center gap-1">

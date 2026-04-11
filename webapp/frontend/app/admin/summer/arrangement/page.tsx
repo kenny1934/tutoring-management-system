@@ -304,6 +304,25 @@ export default function SummerArrangementPage() {
 
   // Drag preference highlighting — classifyPrefs owns the tier split.
   const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
+  const [demandPrefFilter, setDemandPrefFilter] = useState<{ day: string; timeSlot: string; grade: string; tier: "first" | "second" } | null>(null);
+
+  // Fetch all applications for demand bar filter (only when filter active)
+  const { data: demandFilterApps } = useSWR(
+    demandPrefFilter && configId && location
+      ? ["summer-apps-demand", configId, location, demandPrefFilter.grade]
+      : null,
+    () => summerAPI.getApplications({ config_id: configId!, location, grade: demandPrefFilter!.grade }),
+  );
+
+  // Applications matching the demand bar filter (all apps, not just unassigned)
+  const demandFilteredApps = useMemo(() => {
+    if (!demandPrefFilter || !demandFilterApps) return null;
+    return demandFilterApps.filter((a) => {
+      const prefs = classifyPrefs(a);
+      const pool = demandPrefFilter.tier === "first" ? prefs.primary : prefs.backup;
+      return pool.some((p) => p.day === demandPrefFilter.day && p.time === demandPrefFilter.timeSlot);
+    });
+  }, [demandPrefFilter, demandFilterApps]);
 
   // Pre-index buddy_group_id → slot keys so drag start is O(1).
   const buddySlotIndex = useMemo(() => {
@@ -492,6 +511,10 @@ export default function SummerArrangementPage() {
                     getAvailableTutors={getAvailableTutors}
                     onConfirmSlot={(slotId) => setBulkConfirmPending({ slotId })}
                     dragBuddySlots={dragBuddySlots}
+                    onDemandBarClick={(f) => setDemandPrefFilter((prev) =>
+                      prev && prev.day === f.day && prev.timeSlot === f.timeSlot && prev.grade === f.grade && prev.tier === f.tier
+                        ? null : f
+                    )}
                   />
                 ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
@@ -521,14 +544,16 @@ export default function SummerArrangementPage() {
               {/* Desktop: always visible */}
               <div className="hidden md:flex">
                 <SummerUnassignedPanel
-                  applications={unassigned ?? []}
+                  applications={demandFilteredApps ?? unassigned ?? []}
                   grades={grades}
-                  loading={!unassigned && !!configId}
+                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
                   onClickStudent={setSelectedAppId}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   totalLessons={activeConfig?.total_lessons ?? 8}
                   onSuggestStudent={(id, name) => setSuggestForStudent({ id, name })}
+                  prefFilter={demandPrefFilter}
+                  onClearPrefFilter={() => setDemandPrefFilter(null)}
                 />
               </div>
             </div>
@@ -565,14 +590,16 @@ export default function SummerArrangementPage() {
                 <SummerUnassignedPanel
                   className="w-full h-full rounded-none border-0 border-l"
                   hideCollapse
-                  applications={unassigned ?? []}
+                  applications={demandFilteredApps ?? unassigned ?? []}
                   grades={grades}
-                  loading={!unassigned && !!configId}
+                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
                   onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   totalLessons={activeConfig?.total_lessons ?? 8}
                   onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
+                  prefFilter={demandPrefFilter}
+                  onClearPrefFilter={() => setDemandPrefFilter(null)}
                 />
               </div>
             </div>
