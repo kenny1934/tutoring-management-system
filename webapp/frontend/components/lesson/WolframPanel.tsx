@@ -2,9 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Search, Loader2, Trash2, ZoomIn } from "lucide-react";
-import dynamic from "next/dynamic";
-
-const ImageLightbox = dynamic(() => import("@/components/inbox/ImageLightbox"), { ssr: false });
+import ImageLightbox from "@/components/inbox/ImageLightbox";
 import { motion, AnimatePresence } from "framer-motion";
 import { sessionsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -18,25 +16,21 @@ interface WolframPanelProps {
   onClose: () => void;
 }
 
-/** Convert LaTeX to Wolfram Alpha-compatible plain text */
+/** Convert LaTeX to Wolfram Alpha-compatible plain text.
+ *  Brace groups use a pattern that handles one level of nesting (e.g. \frac{x^{2}+1}{x-3}). */
+const B = '([^{}]*(?:\\{[^{}]*\\}[^{}]*)*)'; // one-level brace content capture group
+
 function latexToWolfram(latex: string): string {
   let s = latex;
-  // Fractions: \frac{a}{b} → (a)/(b)
-  s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
-  // Square roots: \sqrt{x} → sqrt(x), \sqrt[n]{x} → root(n, x)
-  s = s.replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, 'root($1, $2)');
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
-  // Integrals: \int_{a}^{b} → integrate from a to b
-  s = s.replace(/\\int_\{([^}]+)\}\^\{([^}]+)\}/g, 'integrate from $1 to $2');
+  s = s.replace(new RegExp(`\\\\frac\\{${B}\\}\\{${B}\\}`, 'g'), '($1)/($2)');
+  s = s.replace(new RegExp(`\\\\sqrt\\[([^\\]]+)\\]\\{${B}\\}`, 'g'), 'root($1, $2)');
+  s = s.replace(new RegExp(`\\\\sqrt\\{${B}\\}`, 'g'), 'sqrt($1)');
+  s = s.replace(new RegExp(`\\\\int_\\{${B}\\}\\^\\{${B}\\}`, 'g'), 'integrate from $1 to $2');
   s = s.replace(/\\int/g, 'integrate');
-  // Limits: \lim_{x \to a} → limit as x -> a
-  s = s.replace(/\\lim_\{([^}]+)\\to\s*([^}]+)\}/g, 'limit as $1 -> $2');
-  // Sums: \sum_{i=a}^{b} → sum from i=a to b
-  s = s.replace(/\\sum_\{([^}]+)\}\^\{([^}]+)\}/g, 'sum $1 to $2');
-  // Superscripts: x^{2} → x^2
-  s = s.replace(/\^\{([^}]+)\}/g, '^($1)');
-  // Subscripts: x_{i} → x_i (mostly harmless)
-  s = s.replace(/_\{([^}]+)\}/g, '_$1');
+  s = s.replace(new RegExp(`\\\\lim_\\{${B}\\\\to\\s*${B}\\}`, 'g'), 'limit as $1 -> $2');
+  s = s.replace(new RegExp(`\\\\sum_\\{${B}\\}\\^\\{${B}\\}`, 'g'), 'sum $1 to $2');
+  s = s.replace(new RegExp(`\\^\\{${B}\\}`, 'g'), '^($1)');
+  s = s.replace(new RegExp(`_\\{${B}\\}`, 'g'), '_$1');
   // Trig functions
   s = s.replace(/\\(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|ln|log|exp)/g, '$1');
   // Greek letters
@@ -85,18 +79,8 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
     import("mathlive").then(() => setMathliveLoaded(true));
   }, [mathMode, mathliveLoaded]);
 
-  // Inject keyboard theme CSS
-  useEffect(() => {
-    if (!mathliveLoaded) return;
-    const id = "wolfram-mathlive-theme";
-    if (document.getElementById(id)) return;
-    const style = document.createElement("style");
-    style.id = id;
-    style.textContent = KEYBOARD_THEME_CSS;
-    document.head.appendChild(style);
-  }, [mathliveLoaded]);
-
   // Configure mathfield after it renders
+  const inputHandlerRef = useRef<{ mf: any; handler: () => void } | null>(null);
   useEffect(() => {
     if (!mathMode || !mathliveLoaded) return;
 
@@ -104,9 +88,9 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
       const mf = mathfieldRef.current as any;
       if (!mf) return;
       mf.mathVirtualKeyboardPolicy = "manual";
-      mf.addEventListener("input", () => {
-        setQuery(latexToWolfram(mf.value || ""));
-      });
+      const handler = () => setQuery(latexToWolfram(mf.value || ""));
+      mf.addEventListener("input", handler);
+      inputHandlerRef.current = { mf, handler };
       mf.focus();
       const kbd = (window as any).mathVirtualKeyboard;
       if (kbd) kbd.show({ animate: true });
@@ -114,7 +98,14 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
 
     const cleanupPatch = patchMathLiveMenu(mathfieldRef);
 
-    return () => { clearTimeout(timer); cleanupPatch(); };
+    return () => {
+      clearTimeout(timer);
+      cleanupPatch();
+      if (inputHandlerRef.current) {
+        inputHandlerRef.current.mf.removeEventListener("input", inputHandlerRef.current.handler);
+        inputHandlerRef.current = null;
+      }
+    };
   }, [mathMode, mathliveLoaded]);
 
   const runQuery = useCallback(async (q: string) => {
@@ -164,6 +155,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
         <div className="flex gap-2">
           {mathMode && mathliveLoaded ? (
             <div className="flex-1 min-w-0">
+              <style>{KEYBOARD_THEME_CSS}</style>
               {/* @ts-expect-error — math-field is a web component from MathLive */}
               <math-field
                 ref={mathfieldRef}
