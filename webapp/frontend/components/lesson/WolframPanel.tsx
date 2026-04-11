@@ -56,7 +56,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
   }, [runQuery]);
 
   const panelContent = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Query input */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
@@ -121,7 +121,7 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
       )}
 
       {/* Result area */}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 min-h-0 overflow-auto p-3">
         {loading && (
           <div className="flex flex-col items-center justify-center gap-2 py-12 text-[#b0a090]">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -164,8 +164,14 @@ export function WolframPanel({ isOpen, onClose }: WolframPanelProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-[#d4c4a8] dark:border-[#3a3228] text-[10px] text-[#b0a090] dark:text-[#6b5d4d]">
-        Powered by Wolfram|Alpha
+      <div className="flex-shrink-0 px-3 py-2 border-t border-[#d4c4a8] dark:border-[#3a3228] space-y-1">
+        <div className="flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+          <span className="flex-shrink-0">&#9888;</span>
+          <span>Shared quota: 100 queries/day, 2,000/month across all tutors. Use wisely.</span>
+        </div>
+        <div className="text-[10px] text-[#b0a090] dark:text-[#6b5d4d]">
+          Powered by Wolfram|Alpha
+        </div>
       </div>
     </div>
   );
