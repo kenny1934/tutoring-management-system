@@ -18,6 +18,12 @@ const changelogData = [
           },
           {
             "description": "**Persistent query history** — past queries are saved in localStorage (up to 30) and persist across sessions. A collapsible history panel lets tutors browse and re-run previous queries"
+          },
+          {
+            "description": "**Cross-user Google Drive title fetch** — URL exercise titles now fetch correctly for Google Docs stored in any workspace user's Drive, not just the admin's. Uses service account delegation to impersonate the current tutor, with session tutor and admin fallback"
+          },
+          {
+            "description": "**Google Docs sharing hint** — lesson mode shows a \"Can't see the file? Ask the owner to share it with you\" hint below Google Docs iframes"
           }
         ]
       }

@@ -8,6 +8,8 @@
 * **Math keyboard input** — toggle the f(x) button to switch from plain text to a MathLive math keyboard for structured input. LaTeX is automatically converted to Wolfram-compatible syntax
 * **Query caching** — repeated queries return instantly from a 24-hour backend cache (200 entry cap), saving API quota. Cached results show a green "Cached result" badge
 * **Persistent query history** — past queries are saved in localStorage (up to 30) and persist across sessions. A collapsible history panel lets tutors browse and re-run previous queries
+* **Cross-user Google Drive title fetch** — URL exercise titles now fetch correctly for Google Docs stored in any workspace user's Drive, not just the admin's. Uses service account delegation to impersonate the current tutor, with session tutor and admin fallback
+* **Google Docs sharing hint** — lesson mode shows a "Can't see the file? Ask the owner to share it with you" hint below Google Docs iframes
 
 ## [2.0.54](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.54) (2026-04-11)
 
