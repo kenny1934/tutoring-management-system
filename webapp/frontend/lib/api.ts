@@ -2439,7 +2439,7 @@ export const summerAPI = {
     });
   },
 
-  bulkCreateSessions: (items: Array<{ application_id: number; slot_id: number; lesson_id: number }>) =>
+  bulkCreateSessions: (items: Array<{ application_id: number; slot_id: number; lesson_id: number; session_status?: string }>) =>
     fetchAPI<{ created: number; skipped: number }>("/summer/sessions/bulk-create", {
       method: "POST",
       body: JSON.stringify(items),

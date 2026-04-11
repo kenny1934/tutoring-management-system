@@ -2488,6 +2488,7 @@ export interface SummerLessonAssignment {
   tutor_name?: string | null;
   student_count?: number;
   max_students?: number;
+  is_pending_makeup?: boolean;
 }
 
 export interface SummerSuggestionItem {
@@ -2511,6 +2512,7 @@ export interface SummerSuggestionItem {
   preference_4_day?: string | null;
   preference_4_time?: string | null;
   placed_count?: number;
+  pending_makeup_count?: number;
 }
 
 export interface SummerSuggestRequest {

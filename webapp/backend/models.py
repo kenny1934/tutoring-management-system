@@ -1354,7 +1354,7 @@ class SummerSession(Base):
     lesson_number = Column(Integer, nullable=True)
     specific_date = Column(Date, nullable=True)
     session_status = Column(
-        Enum('Tentative', 'Confirmed', 'Cancelled', name='summer_placement_status_enum'),
+        Enum('Tentative', 'Confirmed', 'Cancelled', 'Rescheduled - Pending Make-up', name='summer_placement_status_enum'),
         nullable=False, default='Tentative'
     )
     placed_at = Column(DateTime, server_default=func.now())

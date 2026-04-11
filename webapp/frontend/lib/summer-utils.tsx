@@ -254,10 +254,12 @@ export function sortSessionsByDate<T extends { lesson_date?: string | null; less
 export const SESSION_STATUS_DOT: Record<string, string> = {
   Confirmed: "bg-green-500 dark:bg-green-400",
   Tentative: "bg-amber-400 dark:bg-amber-400",
+  "Rescheduled - Pending Make-up": "bg-blue-400 dark:bg-blue-400",
 };
 export const SESSION_STATUS_BG: Record<string, string> = {
   Confirmed: "bg-green-50 dark:bg-green-900/20",
   Tentative: "bg-yellow-50 dark:bg-yellow-900/20",
+  "Rescheduled - Pending Make-up": "bg-blue-50 dark:bg-blue-900/20",
 };
 const SESSION_STATUS_DOT_DEFAULT = "bg-gray-300 dark:bg-gray-600";
 const SESSION_STATUS_BG_DEFAULT = "bg-gray-50 dark:bg-gray-800/30";

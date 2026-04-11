@@ -2476,11 +2476,12 @@ class SummerSessionCreate(BaseModel):
     slot_id: int
     lesson_id: Optional[int] = None
     mode: Literal["all", "first_half", "single"] = "all"
+    session_status: Literal["Tentative", "Rescheduled - Pending Make-up"] = "Tentative"
 
 
 class SummerSessionStatusUpdate(BaseModel):
     """Update session status."""
-    session_status: Literal["Tentative", "Confirmed", "Cancelled"]
+    session_status: Literal["Tentative", "Confirmed", "Cancelled", "Rescheduled - Pending Make-up"]
 
 
 class SummerSessionResponse(BaseModel):
@@ -2630,6 +2631,7 @@ class SummerLessonAssignment(BaseModel):
     tutor_name: Optional[str] = None
     student_count: int = 0
     max_students: int = 8
+    is_pending_makeup: bool = False
 
 
 class SummerSuggestionItem(BaseModel):
@@ -2654,6 +2656,7 @@ class SummerSuggestionItem(BaseModel):
     preference_4_day: Optional[str] = None
     preference_4_time: Optional[str] = None
     placed_count: int = 0
+    pending_makeup_count: int = 0
 
 
 class SummerSuggestResponse(BaseModel):

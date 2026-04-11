@@ -557,7 +557,8 @@ class TestAutoSuggest:
 
         if result.proposals:
             for a in result.proposals[0].lesson_assignments:
-                assert a.lesson_date != first_date, "Excluded date should not appear"
+                if a.lesson_date == first_date:
+                    assert a.is_pending_makeup, "Excluded date must be marked as pending make-up"
 
     def test_unavailability_notes_shown(
         self, db_session, summer_config, slot_type_a, admin_tutor

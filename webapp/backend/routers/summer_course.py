@@ -1897,12 +1897,9 @@ def create_session(
         db.rollback()
         raise HTTPException(status_code=409, detail="Application already placed in this slot")
 
-    # Auto-sync: advance application status to Placement Offered
-    if app.application_status in (
-        SummerApplicationStatus.SUBMITTED,
-        SummerApplicationStatus.UNDER_REVIEW,
-    ):
-        app.application_status = SummerApplicationStatus.PLACEMENT_OFFERED
+    # Auto-sync: advance Submitted → Under Review once sessions exist
+    if app.application_status == SummerApplicationStatus.SUBMITTED:
+        app.application_status = SummerApplicationStatus.UNDER_REVIEW
         db.commit()
 
     # Reload and return one session for the response
@@ -1947,14 +1944,10 @@ def update_session_status(
     session.session_status = data.session_status
     db.commit()
 
-    # Auto-sync application status
+    # If all sessions cancelled, revert app status
     app = session.application
-    if app:
-        if data.session_status == "Confirmed" and app.application_status == SummerApplicationStatus.PLACEMENT_OFFERED:
-            app.application_status = SummerApplicationStatus.PLACEMENT_CONFIRMED
-            db.commit()
-        elif data.session_status == "Cancelled":
-            _maybe_revert_app_status(db, app)
+    if app and data.session_status == "Cancelled":
+        _maybe_revert_app_status(db, app)
 
     db.refresh(session)
     return _build_session_response(session)
@@ -1970,11 +1963,8 @@ def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
         )
         .count()
     )
-    if remaining == 0 and app.application_status in (
-        SummerApplicationStatus.PLACEMENT_OFFERED,
-        SummerApplicationStatus.PLACEMENT_CONFIRMED,
-    ):
-        app.application_status = SummerApplicationStatus.UNDER_REVIEW
+    if remaining == 0 and app.application_status == SummerApplicationStatus.UNDER_REVIEW:
+        app.application_status = SummerApplicationStatus.SUBMITTED
         db.commit()
 
 
@@ -2048,17 +2038,6 @@ def bulk_confirm_sessions(
     )
     db.commit()
 
-    # Auto-sync: advance application statuses to Placement Confirmed
-    if session_app_ids:
-        db.query(SummerApplication).filter(
-            SummerApplication.id.in_(session_app_ids),
-            SummerApplication.application_status == SummerApplicationStatus.PLACEMENT_OFFERED,
-        ).update(
-            {SummerApplication.application_status: SummerApplicationStatus.PLACEMENT_CONFIRMED},
-            synchronize_session="fetch",
-        )
-        db.commit()
-
     return {"confirmed": count}
 
 
@@ -2110,7 +2089,7 @@ def bulk_create_sessions(
             application_id=item.application_id,
             slot_id=item.slot_id,
             lesson_id=item.lesson_id,
-            session_status="Tentative",
+            session_status=item.session_status,
             placed_by=placed_by,
             placed_at=now,
         )
@@ -2122,17 +2101,14 @@ def bulk_create_sessions(
 
     db.commit()
 
-    # Auto-sync application statuses
+    # Auto-sync: Submitted → Under Review once sessions exist
     app_ids = list({item.application_id for item in items})
     if app_ids:
         db.query(SummerApplication).filter(
             SummerApplication.id.in_(app_ids),
-            SummerApplication.application_status.in_([
-                SummerApplicationStatus.SUBMITTED,
-                SummerApplicationStatus.UNDER_REVIEW,
-            ]),
+            SummerApplication.application_status == SummerApplicationStatus.SUBMITTED,
         ).update(
-            {SummerApplication.application_status: SummerApplicationStatus.PLACEMENT_OFFERED},
+            {SummerApplication.application_status: SummerApplicationStatus.UNDER_REVIEW},
             synchronize_session="fetch",
         )
     db.commit()
@@ -2365,27 +2341,66 @@ def _find_best_lesson_set(
     available_lessons: list,
     lesson_capacity: dict[int, int],
     lesson_buddy_groups: dict[int, set[int]],
+    all_lessons: list | None = None,
+    max_gaps: int = 2,
 ) -> tuple[list | None, str, float]:
     """Find the best set of 8 lessons for a student.
+
+    Allows up to `max_gaps` date-excluded lessons marked as pending make-up.
+    Capacity gaps (all candidates full) are NOT included — they are truly skipped.
 
     Returns (assignments_list_or_None, match_type, confidence).
     Each item in assignments is a dict with lesson info ready for SummerLessonAssignment.
     """
-    # Group available lessons by lesson_number
+    # Group available (date-filtered) lessons by lesson_number
     by_number: dict[int, list] = {}
     for lesson, slot in available_lessons:
         if lesson_capacity.get(lesson.id, 0) <= 0:
             continue
         by_number.setdefault(lesson.lesson_number, []).append((lesson, slot))
 
+    # Group ALL lessons (unfiltered) by lesson_number for gap detection
+    all_by_number: dict[int, list] = {}
+    if all_lessons:
+        for lesson, slot in all_lessons:
+            all_by_number.setdefault(lesson.lesson_number, []).append((lesson, slot))
+
+    def _build_assignment(lesson, slot, ln: int, *, is_pending_makeup: bool = False) -> dict:
+        result = {
+            "lesson_id": lesson.id,
+            "slot_id": slot.id,
+            "lesson_number": ln,
+            "lesson_date": lesson.lesson_date,
+            "time_slot": slot.time_slot,
+            "slot_day": slot.slot_day,
+            "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
+            "student_count": slot.max_students - lesson_capacity.get(lesson.id, 0),
+            "max_students": slot.max_students,
+        }
+        if is_pending_makeup:
+            result["is_pending_makeup"] = True
+        return result
+
     needed = list(range(1, 9))  # lesson_numbers 1-8
 
-    # Check we have at least one candidate for every lesson_number
-    if not all(n in by_number for n in needed):
+    # Count how many lesson numbers are missing from filtered set
+    missing_numbers = [n for n in needed if n not in by_number]
+    # Among missing: which have lessons in unfiltered (date-excluded) vs truly none (capacity)?
+    date_excluded_gaps = [n for n in missing_numbers if n in all_by_number]
+    capacity_gaps = [n for n in missing_numbers if n not in all_by_number]
+
+    # Capacity gaps cannot be filled at all — count towards gap limit
+    # Date-excluded gaps can become pending make-up — count towards gap limit
+    total_gaps = len(missing_numbers)
+    if total_gaps > max_gaps:
+        return None, "", 0.0
+    # If there are only capacity gaps (no date exclusion involved), don't allow gaps at all
+    # because there's nothing to mark as pending make-up
+    if capacity_gaps and not date_excluded_gaps and total_gaps > 0:
         return None, "", 0.0
 
-    # --- For 1x/week students: try single-slot solution first ---
-    if app.sessions_per_week == 1:
+    # --- For 1x/week students: try single-slot solution first (only if no gaps) ---
+    if app.sessions_per_week == 1 and total_gaps == 0:
         single_results = _try_single_slot(app, by_number, lesson_buddy_groups, lesson_capacity)
         if single_results:
             # Return the best result; caller handles multiple options
@@ -2397,14 +2412,14 @@ def _find_best_lesson_set(
     process_order = [1, 5, 2, 6, 3, 7, 4, 8]
     assigned: dict[int, dict] = {}  # lesson_number -> assignment dict
     assigned_dates: list[tuple[int, object]] = []  # (lesson_number, date) in assignment order
+    gap_count = 0
 
     best_match = "any_open"
     total_score = 0.0
+    primary_pairs, backup_pairs = _classify_prefs(app)
 
     for ln in process_order:
         candidates = by_number.get(ln, [])
-        if not candidates:
-            return None, "", 0.0
 
         best_candidate = None
         best_cand_score = -1.0
@@ -2414,8 +2429,6 @@ def _find_best_lesson_set(
                 continue
 
             cand_score = 0.0
-
-            primary_pairs, backup_pairs = _classify_prefs(app)
             is_first = any(slot.slot_day == d and slot.time_slot == t for d, t in primary_pairs)
             is_second = (not is_first) and any(
                 slot.slot_day == d and slot.time_slot == t for d, t in backup_pairs
@@ -2438,12 +2451,10 @@ def _find_best_lesson_set(
             # Date ordering: prefer dates that maintain pair/group order
             ordering_bonus = 0.0
             if assigned_dates:
-                # Check if this date would maintain order with already-assigned lessons
                 lesson_date = lesson.lesson_date
                 good_order = 0
                 total_checks = 0
                 for prev_ln, prev_date in assigned_dates:
-                    # For pair partners and group members, correct order matters
                     if (prev_ln < ln and prev_date <= lesson_date) or \
                        (prev_ln > ln and prev_date >= lesson_date):
                         good_order += 1
@@ -2456,37 +2467,56 @@ def _find_best_lesson_set(
                 best_cand_score = cand_score
                 best_candidate = (lesson, slot, is_first, is_second)
 
-        if best_candidate is None:
-            return None, "", 0.0
+        if best_candidate is not None:
+            lesson, slot, is_first, is_second = best_candidate
+            assigned[ln] = _build_assignment(lesson, slot, ln)
+            assigned_dates.append((ln, lesson.lesson_date))
 
-        lesson, slot, is_first, is_second = best_candidate
-        assigned[ln] = {
-            "lesson_id": lesson.id,
-            "slot_id": slot.id,
-            "lesson_number": ln,
-            "lesson_date": lesson.lesson_date,
-            "time_slot": slot.time_slot,
-            "slot_day": slot.slot_day,
-            "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
-            "student_count": slot.max_students - lesson_capacity.get(lesson.id, 0),
-            "max_students": slot.max_students,
-        }
-        assigned_dates.append((ln, lesson.lesson_date))
+            # Track match quality
+            if is_first:
+                total_score += 1.0
+                if best_match != "first_pref":
+                    best_match = "first_pref" if best_match in ("any_open", "first_pref") else "mixed"
+            elif is_second:
+                total_score += 0.7
+                if best_match != "second_pref":
+                    best_match = "second_pref" if best_match in ("any_open", "second_pref") else "mixed"
+            else:
+                total_score += 0.3
 
-        # Track match quality
-        if is_first:
-            total_score += 1.0
-            if best_match != "first_pref":
-                best_match = "first_pref" if best_match in ("any_open", "first_pref") else "mixed"
-        elif is_second:
-            total_score += 0.7
-            if best_match != "second_pref":
-                best_match = "second_pref" if best_match in ("any_open", "second_pref") else "mixed"
+            # Temporarily reserve capacity for greedy consistency
+            lesson_capacity[lesson.id] -= 1
         else:
-            total_score += 0.3
+            # No candidate found — try to fill as date-excluded gap (pending make-up)
+            gap_count += 1
+            if gap_count > max_gaps:
+                return None, "", 0.0
 
-        # Temporarily reserve capacity for greedy consistency
-        lesson_capacity[lesson.id] -= 1
+            # Find the best lesson from ALL (unfiltered) lessons for this number
+            all_candidates = all_by_number.get(ln, [])
+            best_gap = None
+            best_gap_score = -1.0
+            assigned_slot_ids = {a["slot_id"] for a in assigned.values()}
+            for lesson, slot in all_candidates:
+                # For gap lessons: prefer same slot as already-assigned lessons
+                gap_score = 0.5 if slot.id in assigned_slot_ids else 0.0
+                if any(slot.slot_day == d and slot.time_slot == t for d, t in primary_pairs):
+                    gap_score += 0.3
+                elif any(slot.slot_day == d and slot.time_slot == t for d, t in backup_pairs):
+                    gap_score += 0.1
+                if gap_score > best_gap_score:
+                    best_gap_score = gap_score
+                    best_gap = (lesson, slot)
+
+            if best_gap is None:
+                # Truly no lesson exists for this number — capacity gap, fail
+                return None, "", 0.0
+
+            lesson, slot = best_gap
+            assigned[ln] = _build_assignment(lesson, slot, ln, is_pending_makeup=True)
+            assigned_dates.append((ln, lesson.lesson_date))
+            # Don't reserve capacity for gap lessons (student won't attend)
+            # Gap lessons contribute 0 to confidence score
 
     # Build sorted assignment list (by date)
     assignments = sorted(assigned.values(), key=lambda a: a["lesson_date"])
@@ -2729,6 +2759,12 @@ def auto_suggest(
         if slot.grade:
             lessons_by_grade[slot.grade].append((lesson, slot))
 
+    # Also keep unfiltered lessons by grade — used for date-excluded gap detection
+    all_lessons_by_grade: dict[str, list] = defaultdict(list)
+    for lesson, slot in all_lessons:
+        if slot.grade:
+            all_lessons_by_grade[slot.grade].append((lesson, slot))
+
     def count_available(app: SummerApplication) -> int:
         return sum(
             1 for lesson, slot in lessons_by_grade.get(app.grade, [])
@@ -2783,8 +2819,10 @@ def auto_suggest(
                 alt_options = _try_single_slot(app, by_num, lesson_buddy_groups, lesson_capacity)
 
         # Primary result from full algorithm
+        all_grade_lessons = all_lessons_by_grade.get(app.grade, [])
         result = _find_best_lesson_set(
             app, grade_lessons, lesson_capacity, lesson_buddy_groups,
+            all_lessons=all_grade_lessons,
         )
         assignments, match_type, confidence = result
 
@@ -2794,7 +2832,7 @@ def auto_suggest(
             unplaceable.append({
                 "application_id": app.id,
                 "student_name": app.student_name,
-                "reason": f"Cannot fill all 8 lessons for {app.grade}",
+                "reason": f"Cannot fill enough lessons for {app.grade} (more than 2 gaps)",
             })
             continue
 
@@ -2819,6 +2857,12 @@ def auto_suggest(
             if app.sessions_per_week == 1 and len(slot_ids) > 1:
                 reason_parts[0] = "uses multiple slots (1x student)"
 
+            # Count pending make-up gaps
+            makeup_count = sum(1 for a in assign_list if a.get("is_pending_makeup"))
+            if makeup_count > 0:
+                makeup_numbers = [a["lesson_number"] for a in assign_list if a.get("is_pending_makeup")]
+                reason_parts.append(f"L{',L'.join(str(n) for n in makeup_numbers)} pending make-up")
+
             return SummerSuggestionItem(
                 application_id=app.id,
                 student_name=app.student_name,
@@ -2840,7 +2884,83 @@ def auto_suggest(
                 preference_4_day=app.preference_4_day,
                 preference_4_time=app.preference_4_time,
                 placed_count=app_placed_counts.get(app.id, 0),
+                pending_makeup_count=makeup_count,
             )
+
+        # --- Generate "with make-ups" variant if any lessons are in non-pref slots ---
+        # Only meaningful when the student has preferences set
+        primary_pairs, backup_pairs = _classify_prefs(app)
+        has_prefs = len(primary_pairs) > 0 or len(backup_pairs) > 0
+        non_pref_lessons: list[int] = []  # lesson_numbers in non-pref slots
+        for a in assignments:
+            if a.get("is_pending_makeup"):
+                continue  # already a gap
+            is_pref = any(a["slot_day"] == d and a["time_slot"] == t for d, t in primary_pairs)
+            is_backup = any(a["slot_day"] == d and a["time_slot"] == t for d, t in backup_pairs)
+            if not is_pref and not is_backup:
+                non_pref_lessons.append(a["lesson_number"])
+
+        # Build a "with make-ups" variant: swap up to max_gaps non-pref lessons to gaps
+        existing_gaps = sum(1 for a in assignments if a.get("is_pending_makeup"))
+        gap_budget = 2 - existing_gaps
+        makeup_variant = None
+        if has_prefs and non_pref_lessons and gap_budget > 0 and all_grade_lessons:
+            # Pick the non-pref lessons to swap (just take up to gap_budget)
+            swap_numbers = set(non_pref_lessons[:gap_budget])
+            # Build unfiltered lesson index for gap sourcing
+            all_by_num: dict[int, list] = {}
+            for lesson, slot in all_grade_lessons:
+                all_by_num.setdefault(lesson.lesson_number, []).append((lesson, slot))
+
+            makeup_list = []
+            valid = True
+            for a in assignments:
+                if a["lesson_number"] in swap_numbers and not a.get("is_pending_makeup"):
+                    # Find the best lesson from the student's preferred slot
+                    gap_candidates = all_by_num.get(a["lesson_number"], [])
+                    best_gap = None
+                    best_score = -1.0
+                    pref_slot_ids = {aa["slot_id"] for aa in assignments if aa["lesson_number"] not in swap_numbers}
+                    for lesson, slot in gap_candidates:
+                        gs = 0.5 if slot.id in pref_slot_ids else 0.0
+                        if any(slot.slot_day == d and slot.time_slot == t for d, t in primary_pairs):
+                            gs += 0.3
+                        elif any(slot.slot_day == d and slot.time_slot == t for d, t in backup_pairs):
+                            gs += 0.1
+                        if gs > best_score:
+                            best_score = gs
+                            best_gap = (lesson, slot)
+                    if best_gap:
+                        lesson, slot = best_gap
+                        makeup_list.append({
+                            "lesson_id": lesson.id,
+                            "slot_id": slot.id,
+                            "lesson_number": a["lesson_number"],
+                            "lesson_date": lesson.lesson_date,
+                            "time_slot": slot.time_slot,
+                            "slot_day": slot.slot_day,
+                            "tutor_name": slot.tutor.tutor_name if slot.tutor else None,
+                            "student_count": slot.max_students - lesson_capacity.get(lesson.id, 0),
+                            "max_students": slot.max_students,
+                            "is_pending_makeup": True,
+                        })
+                    else:
+                        valid = False
+                        break
+                else:
+                    makeup_list.append(dict(a))  # copy unchanged
+
+            if valid:
+                makeup_list.sort(key=lambda x: x["lesson_date"])
+                # Confidence: re-score without the swapped lessons
+                pref_score = sum(
+                    1.0 if any(a["slot_day"] == d and a["time_slot"] == t for d, t in primary_pairs) else
+                    0.7 if any(a["slot_day"] == d and a["time_slot"] == t for d, t in backup_pairs) else
+                    0.3
+                    for a in makeup_list if not a.get("is_pending_makeup")
+                )
+                makeup_conf = min(pref_score / 8.0, 1.0)
+                makeup_variant = (makeup_list, match_type, makeup_conf)
 
         # Build proposals: if we have multiple single-slot options, emit them
         if len(alt_options) > 1:
@@ -2861,6 +2981,13 @@ def auto_suggest(
                 proposals.append(_build_proposal(alt_assign, alt_match, alt_conf, f"Option {option_labels[idx]}"))
                 emitted_slot_ids.add(alt_slot_ids)
                 idx += 1
+            # Append makeup variant after slot options if it exists
+            if makeup_variant and idx < 4:
+                proposals.append(_build_proposal(*makeup_variant, f"Option {option_labels[idx]}"))
+        elif makeup_variant:
+            # Single primary + makeup variant → emit as Option A / Option B
+            proposals.append(_build_proposal(assignments, match_type, confidence, "Option A"))
+            proposals.append(_build_proposal(*makeup_variant, "Option B"))
         else:
             proposals.append(_build_proposal(assignments, match_type, confidence))
 

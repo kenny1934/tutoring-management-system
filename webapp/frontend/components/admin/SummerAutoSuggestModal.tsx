@@ -105,6 +105,7 @@ function formatReason(reason: string, score: number): string {
       score > 0.8 ? "Lessons are well ordered" : score >= 0.5 ? "Lessons are mostly in order" : "Some lessons may be out of order"
     )
     .replace("uses multiple slots (1x student)", "Uses multiple slots (1x student — date constraints may have forced this)")
+    .replace(/L([\d,L]+) pending make-up/, "✱ L$1 pending make-up")
     .replace(/, /g, " · ");
 }
 
@@ -168,6 +169,7 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
           const dayAbbr = DAY_ABBREV[a.slot_day] || a.slot_day?.slice(0, 3);
           const slotColor = SLOT_BORDER_COLORS[slotColorMap.get(a.slot_id) ?? 0];
           const isSwapped = outOfOrder.has(a.lesson_number);
+          const isMakeup = !!a.is_pending_makeup;
           const count = a.student_count ?? 0;
           const max = a.max_students ?? 8;
           const fillPct = max > 0 ? Math.min(count / max, 1) : 0;
@@ -176,28 +178,36 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
             <div
               key={a.lesson_id}
               className={cn(
-                "flex-1 min-w-0 text-center px-0.5 py-1 rounded bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2 relative overflow-hidden",
-                slotColor,
-                isSwapped && "ring-1 ring-amber-400/60 dark:ring-amber-500/60"
+                "flex-1 min-w-0 text-center px-0.5 py-1 rounded relative overflow-hidden",
+                isMakeup
+                  ? "bg-blue-50/60 dark:bg-blue-900/15 border border-dashed border-blue-300 dark:border-blue-700"
+                  : cn("bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2", slotColor),
+                isSwapped && !isMakeup && "ring-1 ring-amber-400/60 dark:ring-amber-500/60"
               )}
-              title={`${count} of ${max} students${isSwapped ? " · Out of pair order" : ""}`}
+              title={isMakeup
+                ? `L${a.lesson_number} — pending make-up (${dayAbbr} ${formatCompactDate(a.lesson_date)})`
+                : `${count} of ${max} students${isSwapped ? " · Out of pair order" : ""}`
+              }
             >
               <div className={cn(
                 "text-[10px] font-semibold",
-                isSwapped ? "text-amber-600 dark:text-amber-400" : "text-foreground/80"
+                isMakeup ? "text-blue-500 dark:text-blue-400"
+                  : isSwapped ? "text-amber-600 dark:text-amber-400" : "text-foreground/80"
               )}>
-                L{a.lesson_number}{isSwapped && " ↕"}
+                L{a.lesson_number}{isMakeup ? " ✱" : isSwapped ? " ↕" : ""}
               </div>
-              <div className="text-[9px] text-muted-foreground truncate">
+              <div className={cn("text-[9px] truncate", isMakeup ? "text-blue-400/70 dark:text-blue-500/60 line-through" : "text-muted-foreground")}>
                 {dayAbbr} {formatCompactDate(a.lesson_date)}
               </div>
-              {/* Capacity bar */}
-              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-black/5 dark:bg-white/5">
-                <div
-                  className={cn("h-full transition-all", capColor)}
-                  style={{ width: `${fillPct * 100}%` }}
-                />
-              </div>
+              {/* Capacity bar — skip for makeup lessons */}
+              {!isMakeup && (
+                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-black/5 dark:bg-white/5">
+                  <div
+                    className={cn("h-full transition-all", capColor)}
+                    style={{ width: `${fillPct * 100}%` }}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -224,6 +234,13 @@ interface CourseMonthData {
   months: { year: number; month: number; label: string; dates: Date[] }[];
 }
 
+interface LessonMarker {
+  lessonNumber: number;
+  slotColorIdx: number;
+  isMakeup: boolean;
+  tooltip: string;
+}
+
 interface DateConstraintPanelProps {
   appId: number;
   constraints: DateConstraints | undefined;
@@ -232,9 +249,16 @@ interface DateConstraintPanelProps {
   onConstraintsChange: (appId: number, update: Partial<DateConstraints>) => void;
   onClearError: (appId: number) => void;
   onResuggest: (appId: number, mode: "exclude" | "include", flatDates: string[]) => Promise<void>;
+  lessonMarkers?: Map<string, LessonMarker>;
 }
 
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+const MARKER_COLORS = [
+  "bg-amber-400 dark:bg-amber-500",
+  "bg-blue-400 dark:bg-blue-500",
+  "bg-emerald-400 dark:bg-emerald-500",
+];
 
 const DateConstraintPanel = memo(function DateConstraintPanel({
   appId,
@@ -244,6 +268,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
   onConstraintsChange,
   onClearError,
   onResuggest,
+  lessonMarkers,
 }: DateConstraintPanelProps) {
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
@@ -364,6 +389,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
                 const isPreviewEnd = inPreview && dateStr === previewEnd;
                 const isPreviewInterior = inPreview && !isPreviewStart && !isPreviewEnd;
                 const modeIsExclude = mode === "exclude";
+                const marker = lessonMarkers?.get(dateStr);
                 return (
                   <button
                     key={i}
@@ -371,7 +397,7 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
                     onMouseEnter={() => selectable && rangeStart && setHoverDate(dateStr)}
                     disabled={!selectable}
                     className={cn(
-                      "w-7 h-7 flex items-center justify-center text-[11px] transition-colors relative",
+                      "w-7 h-7 flex flex-col items-center justify-center text-[11px] transition-colors relative",
                       !isCurrentMonth && "invisible",
                       isCurrentMonth && !inCourseRange && "opacity-20 cursor-default",
                       selectable && isWeekend && !inCommitted && !inPreview && !isPendingStart && "opacity-40",
@@ -391,9 +417,17 @@ const DateConstraintPanel = memo(function DateConstraintPanel({
                       ),
                       isPreviewInterior && cn("rounded-none", modeIsExclude ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300" : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300"),
                     )}
-                    title={selectable ? dateStr : undefined}
+                    title={marker ? marker.tooltip : selectable ? dateStr : undefined}
                   >
                     {date.getDate()}
+                    {marker && (
+                      <span className={cn(
+                        "absolute bottom-0.5 w-1.5 h-1.5 rounded-full",
+                        marker.isMakeup
+                          ? "border border-blue-400 dark:border-blue-500 bg-transparent"
+                          : MARKER_COLORS[marker.slotColorIdx % MARKER_COLORS.length]
+                      )} />
+                    )}
                   </button>
                 );
               })}
@@ -617,6 +651,7 @@ export function SummerAutoSuggestModal({
         application_id: p.application_id,
         slot_id: a.slot_id,
         lesson_id: a.lesson_id,
+        ...(a.is_pending_makeup ? { session_status: "Rescheduled - Pending Make-up" } : {}),
       }))
     );
 
@@ -897,6 +932,29 @@ export function SummerAutoSuggestModal({
                                 </div>
                               )}
 
+                              {/* Pending make-up warning */}
+                              {(() => {
+                                const activeOpt = group.hasOptions
+                                  ? group.options.find((o) => o.option_label === selectedOption[group.appId]) ?? p
+                                  : p;
+                                const makeupLessons = activeOpt.lesson_assignments.filter((a) => a.is_pending_makeup);
+                                if (makeupLessons.length === 0) return null;
+                                return (
+                                  <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/10 rounded px-2 py-1.5">
+                                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                    <div>
+                                      <span className="font-semibold">
+                                        {makeupLessons.length} lesson{makeupLessons.length > 1 ? "s" : ""} pending make-up
+                                      </span>
+                                      <span className="text-blue-500"> — L{makeupLessons.map((a) => a.lesson_number).join(", L")}</span>
+                                      <div className="text-[10px] text-blue-500/80 mt-0.5">
+                                        Will be created as &quot;Rescheduled - Pending Make-up&quot; on original date
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {/* Inline error from failed re-suggest */}
                               {adjustErrors[group.appId] && (
                                 <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded px-2 py-1.5">
@@ -939,17 +997,36 @@ export function SummerAutoSuggestModal({
                         </div>
 
                         {/* Right column: Date constraint panel */}
-                        {adjustingAppId === group.appId && courseMonths && (
-                          <DateConstraintPanel
-                            appId={group.appId}
-                            constraints={dateConstraints[group.appId]}
-                            courseMonths={courseMonths}
-                            adjustError={adjustErrors[group.appId]}
-                            onConstraintsChange={setConstraintsFor}
-                            onClearError={clearError}
-                            onResuggest={handlePanelResuggest}
-                          />
-                        )}
+                        {adjustingAppId === group.appId && courseMonths && (() => {
+                          // Build lesson markers for the active proposal
+                          const activeOpt = group.hasOptions
+                            ? group.options.find((o) => o.option_label === selectedOption[group.appId]) ?? p
+                            : p;
+                          const slotIds = [...new Set(activeOpt.lesson_assignments.map((a) => a.slot_id))];
+                          const slotColorMap = new Map(slotIds.map((id, i) => [id, i % SLOT_BORDER_COLORS.length]));
+                          const markers = new Map<string, LessonMarker>();
+                          for (const a of activeOpt.lesson_assignments) {
+                            const dayAbbr = DAY_ABBREV[a.slot_day] || a.slot_day?.slice(0, 3);
+                            markers.set(a.lesson_date, {
+                              lessonNumber: a.lesson_number,
+                              slotColorIdx: slotColorMap.get(a.slot_id) ?? 0,
+                              isMakeup: !!a.is_pending_makeup,
+                              tooltip: `L${a.lesson_number} — ${dayAbbr} ${a.time_slot}${a.is_pending_makeup ? " (pending make-up)" : ""}`,
+                            });
+                          }
+                          return (
+                            <DateConstraintPanel
+                              appId={group.appId}
+                              constraints={dateConstraints[group.appId]}
+                              courseMonths={courseMonths}
+                              adjustError={adjustErrors[group.appId]}
+                              onConstraintsChange={setConstraintsFor}
+                              onClearError={clearError}
+                              onResuggest={handlePanelResuggest}
+                              lessonMarkers={markers}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                   );
