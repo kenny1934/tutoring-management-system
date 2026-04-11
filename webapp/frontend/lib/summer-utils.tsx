@@ -250,16 +250,27 @@ export function sortSessionsByDate<T extends { lesson_date?: string | null; less
   });
 }
 
+/** Status value for rescheduled sessions (mirrors backend SUMMER_NON_ATTENDING_STATUSES). */
+export const RESCHEDULED_STATUS = "Rescheduled - Pending Make-up";
+
+/** Statuses where the student will not attend (excluded from capacity counts). */
+const NON_ATTENDING_STATUSES = new Set(["Cancelled", RESCHEDULED_STATUS]);
+
+/** Whether this session status means the student is not attending. */
+export function isNonAttending(status: string): boolean {
+  return NON_ATTENDING_STATUSES.has(status);
+}
+
 /** Session status → dot/bg color classes. */
 export const SESSION_STATUS_DOT: Record<string, string> = {
   Confirmed: "bg-green-500 dark:bg-green-400",
   Tentative: "bg-amber-400 dark:bg-amber-400",
-  "Rescheduled - Pending Make-up": "bg-blue-400 dark:bg-blue-400",
+  "Rescheduled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
 };
 export const SESSION_STATUS_BG: Record<string, string> = {
   Confirmed: "bg-green-50 dark:bg-green-900/20",
   Tentative: "bg-yellow-50 dark:bg-yellow-900/20",
-  "Rescheduled - Pending Make-up": "bg-blue-50 dark:bg-blue-900/20",
+  "Rescheduled - Pending Make-up": "bg-orange-50/80 dark:bg-orange-900/20",
 };
 const SESSION_STATUS_DOT_DEFAULT = "bg-gray-300 dark:bg-gray-600";
 const SESSION_STATUS_BG_DEFAULT = "bg-gray-50 dark:bg-gray-800/30";

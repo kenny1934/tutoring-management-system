@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, RESCHEDULED_STATUS, sessionStatusBg } from "@/lib/summer-utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -245,20 +245,29 @@ export function SummerSlotCard({
               No students placed yet. Drag here to assign.
             </div>
           )}
-          {slot.sessions.map((p) => (
+          {slot.sessions.map((p) => {
+            const isRescheduled = p.session_status === RESCHEDULED_STATUS;
+            return (
             <div
               key={p.id}
               className={cn(
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
-                p.session_status === "Confirmed"
-                  ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-yellow-50 dark:bg-yellow-900/20"
+                sessionStatusBg(p.session_status),
+                isRescheduled && "opacity-80",
               )}
             >
+              {isRescheduled && (
+                <span title={RESCHEDULED_STATUS}>
+                  <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" />
+                </span>
+              )}
               <button
                 onClick={() => onClickStudent?.(p.application_id)}
-                className="truncate flex-1 text-left hover:text-primary hover:underline"
-                title="View application details"
+                className={cn(
+                  "truncate flex-1 text-left hover:text-primary hover:underline",
+                  isRescheduled && "line-through text-orange-600 dark:text-orange-400"
+                )}
+                title={isRescheduled ? RESCHEDULED_STATUS : "View application details"}
               >
                 {p.student_name}
               </button>
@@ -268,6 +277,9 @@ export function SummerSlotCard({
               {p.session_status === "Tentative" && (
                 <span className="text-[8px] text-yellow-600 dark:text-yellow-400">T</span>
               )}
+              {isRescheduled && (
+                <span className="text-[8px] text-orange-600 dark:text-orange-400">R</span>
+              )}
               <button
                 onClick={() => onRemoveSession(p.id, p.student_name)}
                 className="p-0 text-muted-foreground hover:text-red-500"
@@ -276,7 +288,8 @@ export function SummerSlotCard({
                 <X className="h-2.5 w-2.5" />
               </button>
             </div>
-          ))}
+            );
+          })}
           {onConfirmSlot && slot.sessions.some((p) => p.session_status === "Tentative") && (
             <button
               onClick={() => onConfirmSlot(slot.id)}

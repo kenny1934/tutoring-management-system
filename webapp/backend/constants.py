@@ -142,6 +142,10 @@ class SummerPlacementStatus(str, Enum):
     TENTATIVE = 'Tentative'
     CONFIRMED = 'Confirmed'
     CANCELLED = 'Cancelled'
+    RESCHEDULED = 'Rescheduled - Pending Make-up'
+
+# Statuses where the student will not attend the lesson (excluded from capacity)
+SUMMER_NON_ATTENDING_STATUSES = ('Cancelled', 'Rescheduled - Pending Make-up')
 
 
 class SummerSiblingVerificationStatus(str, Enum):

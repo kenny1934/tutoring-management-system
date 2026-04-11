@@ -80,6 +80,7 @@ from constants import (
     hk_now,
     SummerApplicationStatus,
     SummerSiblingVerificationStatus,
+    SUMMER_NON_ATTENDING_STATUSES,
     PRIMARY_BRANCH_OPTIONS,
     PRIMARY_BRANCH_CODES,
 )
@@ -1220,7 +1221,7 @@ def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]
         db.query(SummerSession.slot_id, func.count(func.distinct(SummerSession.application_id)))
         .filter(
             SummerSession.slot_id.in_(slot_ids),
-            SummerSession.session_status != "Cancelled",
+            SummerSession.session_status.not_in(SUMMER_NON_ATTENDING_STATUSES),
         )
         .group_by(SummerSession.slot_id)
         .all()
@@ -1597,6 +1598,7 @@ def update_application(
 def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
     """Build a SummerSlotResponse from an ORM slot with loaded relationships."""
     # Deduplicate: one entry per student (a student may have 8 session rows, one per lesson)
+    # Keep non-cancelled sessions visible; exclude non-attending from capacity count
     seen: set[int] = set()
     unique_sessions = []
     for s in slot.sessions:
@@ -1606,6 +1608,11 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
             continue
         seen.add(s.application_id)
         unique_sessions.append(s)
+
+    attending_count = sum(
+        1 for s in unique_sessions
+        if s.session_status not in SUMMER_NON_ATTENDING_STATUSES
+    )
 
     return SummerSlotResponse(
         id=slot.id,
@@ -1620,7 +1627,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         tutor_name=slot.tutor.tutor_name if slot.tutor else None,
         max_students=slot.max_students,
         created_at=slot.created_at,
-        session_count=len(unique_sessions),
+        session_count=attending_count,
         sessions=[
             SummerSlotSessionInfo(
                 id=s.id,
@@ -1834,7 +1841,8 @@ def create_session(
         )
         if any(s.application_id == data.application_id for s in lesson_sessions):
             raise HTTPException(status_code=400, detail="Already placed in this lesson")
-        if len(lesson_sessions) >= slot.max_students:
+        attending = [s for s in lesson_sessions if s.session_status not in SUMMER_NON_ATTENDING_STATUSES]
+        if len(attending) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Lesson is full")
 
         session = SummerSession(
@@ -1848,7 +1856,7 @@ def create_session(
         db.add(session)
     else:
         # Slot Setup drop — per-slot checks
-        active_students = {s.application_id for s in slot.sessions if s.session_status != "Cancelled"}
+        active_students = {s.application_id for s in slot.sessions if s.session_status not in SUMMER_NON_ATTENDING_STATUSES}
         if len(active_students) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Slot is full")
         if data.application_id in active_students:
@@ -2081,7 +2089,8 @@ def bulk_create_sessions(
             continue
 
         slot = slots_by_id.get(item.slot_id)
-        if slot and len(lesson_sessions) >= slot.max_students:
+        attending = [s for s in lesson_sessions if s.session_status not in SUMMER_NON_ATTENDING_STATUSES]
+        if slot and len(attending) >= slot.max_students:
             skipped += 1
             continue
 
@@ -2674,7 +2683,7 @@ def auto_suggest(
     # Count active sessions per lesson
     session_counts = dict(
         db.query(SummerSession.lesson_id, func.count(SummerSession.id))
-        .filter(SummerSession.session_status != "Cancelled")
+        .filter(SummerSession.session_status.not_in(SUMMER_NON_ATTENDING_STATUSES))
         .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .filter(
             SummerCourseSlot.config_id == data.config_id,
@@ -3313,7 +3322,7 @@ def find_slot(
         select(func.count(SummerSession.id))
         .where(
             SummerSession.lesson_id == SummerLesson.id,
-            SummerSession.session_status != "Cancelled",
+            SummerSession.session_status.not_in(SUMMER_NON_ATTENDING_STATUSES),
         )
         .correlate(SummerLesson)
         .scalar_subquery()

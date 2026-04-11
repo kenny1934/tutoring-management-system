@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronUp, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, RESCHEDULED_STATUS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -33,9 +33,9 @@ export function SummerLessonCard({
   const lessonRef = useRef<HTMLInputElement>(null);
 
   const activeSessions = lesson.sessions;
-  const sessionCount = activeSessions.length;
-  const isFull = sessionCount >= lesson.max_students;
-  const fillPct = lesson.max_students > 0 ? sessionCount / lesson.max_students : 0;
+  const attendingCount = activeSessions.filter((s) => !isNonAttending(s.session_status)).length;
+  const isFull = attendingCount >= lesson.max_students;
+  const fillPct = lesson.max_students > 0 ? attendingCount / lesson.max_students : 0;
   const isCancelled = lesson.lesson_status === "Cancelled";
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -164,7 +164,7 @@ export function SummerLessonCard({
           />
         </div>
         <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-          {sessionCount}/{lesson.max_students}
+          {attendingCount}/{lesson.max_students}
         </span>
       </div>
 
@@ -176,20 +176,29 @@ export function SummerLessonCard({
               No students assigned.
             </div>
           )}
-          {activeSessions.map((s) => (
+          {activeSessions.map((s) => {
+            const isRescheduled = s.session_status === RESCHEDULED_STATUS;
+            return (
             <div
               key={s.id}
               className={cn(
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
-                s.session_status === "Confirmed"
-                  ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-yellow-50 dark:bg-yellow-900/20"
+                sessionStatusBg(s.session_status),
+                isRescheduled && "opacity-80",
               )}
             >
+              {isRescheduled && (
+                <span title={RESCHEDULED_STATUS}>
+                  <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" />
+                </span>
+              )}
               <button
                 onClick={() => onClickStudent?.(s.application_id)}
-                className="truncate flex-1 text-left hover:text-primary hover:underline"
-                title="View details"
+                className={cn(
+                  "truncate flex-1 text-left hover:text-primary hover:underline",
+                  isRescheduled && "line-through text-orange-600 dark:text-orange-400"
+                )}
+                title={isRescheduled ? RESCHEDULED_STATUS : "View details"}
               >
                 {s.student_name}
               </button>
@@ -211,7 +220,8 @@ export function SummerLessonCard({
                 </button>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

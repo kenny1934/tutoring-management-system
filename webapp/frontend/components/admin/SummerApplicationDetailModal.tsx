@@ -12,13 +12,13 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS } from "@/lib/summer-utils";
 import type { DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
-  User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight,
+  User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
   Clock, Grid3X3, Pencil, History, DollarSign,
 } from "lucide-react";
 import type {
@@ -1262,14 +1262,22 @@ export function SummerApplicationDetailModal({
                         ? `${p.slot_current_count}/${p.slot_max_students}`
                         : null;
                       return (
-                        <div key={p.id} className={cn(
+                        <div key={p.id} title={p.session_status} className={cn(
                           "flex items-center gap-2 text-sm px-2 py-1 rounded",
                           sessionStatusBg(p.session_status),
+                          p.session_status === RESCHEDULED_STATUS && "opacity-80",
                         )}>
                           {p.session_status === "Confirmed"
                             ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                            : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
-                          <span className="font-medium text-foreground tabular-nums w-16 shrink-0">
+                            : p.session_status === RESCHEDULED_STATUS
+                              ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+                              : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                          <span className={cn(
+                            "font-medium tabular-nums w-16 shrink-0",
+                            p.session_status === RESCHEDULED_STATUS
+                              ? "line-through text-orange-600 dark:text-orange-400"
+                              : "text-foreground"
+                          )}>
                             {p.lesson_date ? formatCompactDate(p.lesson_date) : p.slot_day}
                           </span>
                           <span className="text-muted-foreground text-xs shrink-0">
