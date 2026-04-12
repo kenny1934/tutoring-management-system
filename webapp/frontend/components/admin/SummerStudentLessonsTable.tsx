@@ -4,8 +4,8 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
-import { ArrowUpDown, Search, Check, Clock } from "lucide-react";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, RESCHEDULED_STATUS, sessionStatusBg, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
+import { ArrowUpDown, Search, Check, Clock, AlertTriangle } from "lucide-react";
 import type { SummerStudentLessonsRow } from "@/types";
 
 interface SummerStudentLessonsTableProps {
@@ -97,7 +97,8 @@ export function SummerStudentLessonsTable({
       students.reduce((sum, s) => sum + (s.total_lessons > 0 ? s.placed_count / s.total_lessons : 0), 0) / total * 100
     );
     const remaining = students.reduce((sum, s) => sum + (s.total_lessons - s.placed_count), 0);
-    return { total, avgPct, remaining };
+    const rescheduled = students.reduce((sum, s) => sum + s.rescheduled_count, 0);
+    return { total, avgPct, remaining, rescheduled };
   }, [students]);
 
   function handleFindSlot(student: SummerStudentLessonsRow, lessonNum: number) {
@@ -242,8 +243,12 @@ export function SummerStudentLessonsTable({
               </tr>
             ) : (
               filtered.map((student, idx) => {
-                const pct = student.total_lessons > 0
-                  ? Math.round((student.placed_count / student.total_lessons) * 100)
+                const attendingCount = student.placed_count - student.rescheduled_count;
+                const attendingPct = student.total_lessons > 0
+                  ? Math.round((attendingCount / student.total_lessons) * 100)
+                  : 0;
+                const rescheduledPct = student.total_lessons > 0
+                  ? Math.round((student.rescheduled_count / student.total_lessons) * 100)
                   : 0;
                 const isEven = idx % 2 === 1;
 
@@ -292,18 +297,25 @@ export function SummerStudentLessonsTable({
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900"
                     )}>
                       <div className="flex items-center gap-1">
-                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              pct === 100
-                                ? "bg-green-400 dark:bg-green-400/80"
-                                : pct > 0
-                                  ? "bg-primary dark:bg-primary/80"
-                                  : "bg-gray-300 dark:bg-gray-600"
-                            )}
-                            style={{ width: `${pct}%` }}
-                          />
+                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+                          {attendingPct > 0 && (
+                            <div
+                              className={cn(
+                                "h-full transition-all",
+                                attendingPct + rescheduledPct >= 100
+                                  ? "bg-green-400 dark:bg-green-400/80"
+                                  : "bg-primary dark:bg-primary/80"
+                              )}
+                              style={{ width: `${attendingPct}%` }}
+                            />
+                          )}
+                          {rescheduledPct > 0 && (
+                            <div
+                              className="h-full bg-orange-400 dark:bg-orange-400/80 transition-all"
+                              style={{ width: `${rescheduledPct}%` }}
+                              title={`${student.rescheduled_count} rescheduled`}
+                            />
+                          )}
                         </div>
                         <span className="text-[9px] text-muted-foreground w-7 text-right tabular-nums">
                           {student.placed_count}/{student.total_lessons}
@@ -316,15 +328,9 @@ export function SummerStudentLessonsTable({
                       const lesson = student.lessons.find((l) => l.lesson_number === n);
                       const placed = lesson?.placed;
                       const status = lesson?.session_status;
+                      const isRescheduled = status === RESCHEDULED_STATUS;
 
                       if (placed && lesson?.lesson_date) {
-                        const bgColor =
-                          status === "Confirmed"
-                            ? "bg-green-50 dark:bg-green-900/20"
-                            : status === "Tentative"
-                              ? "bg-yellow-50 dark:bg-yellow-900/20"
-                              : "bg-gray-50 dark:bg-gray-800/30";
-
                         const day = getDayFromDate(lesson.lesson_date);
                         const startTime = lesson.time_slot ? getStartTime(lesson.time_slot) : "";
 
@@ -333,20 +339,28 @@ export function SummerStudentLessonsTable({
                             key={n}
                             className={cn(
                               "text-center px-0.5 py-1",
-                              bgColor,
+                              sessionStatusBg(status ?? ""),
+                              isRescheduled && "opacity-80",
                               onNavigateToLesson && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40"
                             )}
                             title={`${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})${onNavigateToLesson ? " — click to view in calendar" : ""}`}
                             onClick={onNavigateToLesson ? () => onNavigateToLesson(lesson.lesson_date!) : undefined}
                           >
                             <div className="flex flex-col items-center gap-0">
-                              <span className="text-[11px] tabular-nums flex items-center gap-0.5">
+                              <span className={cn(
+                                "text-[11px] tabular-nums flex items-center gap-0.5",
+                                isRescheduled && "line-through text-orange-600 dark:text-orange-400"
+                              )}>
                                 {status === "Confirmed" && <Check className="h-2.5 w-2.5 text-green-500" />}
                                 {status === "Tentative" && <Clock className="h-2.5 w-2.5 text-yellow-500" />}
+                                {isRescheduled && <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />}
                                 {formatCompactDate(lesson.lesson_date)}
                               </span>
                               {startTime && (
-                                <span className="text-[9px] text-muted-foreground leading-none">
+                                <span className={cn(
+                                  "text-[9px] leading-none",
+                                  isRescheduled ? "text-orange-500/70" : "text-muted-foreground"
+                                )}>
                                   {day} {startTime}
                                 </span>
                               )}
@@ -384,7 +398,7 @@ export function SummerStudentLessonsTable({
                   colSpan={3 + lessonColumns.length}
                   className="px-3 py-2 text-[11px] font-medium text-gray-600 dark:text-gray-400"
                 >
-                  {stats.total} students · {stats.avgPct}% avg completion · {stats.remaining} lessons remaining
+                  {stats.total} students · {stats.avgPct}% avg completion · {stats.remaining} lessons remaining{stats.rescheduled > 0 && ` · ${stats.rescheduled} rescheduled`}
                 </td>
               </tr>
             </tfoot>

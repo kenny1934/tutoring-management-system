@@ -2582,6 +2582,7 @@ class SummerStudentLessonsRow(BaseModel):
     grade: str
     sessions_per_week: int
     placed_count: int
+    rescheduled_count: int = 0
     total_lessons: int
     lessons: List[SummerStudentLessonEntry]
 

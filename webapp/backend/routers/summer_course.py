@@ -2285,12 +2285,17 @@ def get_student_lessons(
                 entries.append(SummerStudentLessonEntry(lesson_number=ln, placed=False))
 
         placed_count = len(placed_by_lesson)
+        rescheduled_count = sum(
+            1 for s in placed_by_lesson.values()
+            if s.session_status in SUMMER_NON_ATTENDING_STATUSES
+        )
         rows.append(SummerStudentLessonsRow(
             application_id=app.id,
             student_name=app.student_name,
             grade=app.grade,
             sessions_per_week=app.sessions_per_week,
             placed_count=placed_count,
+            rescheduled_count=rescheduled_count,
             total_lessons=total,
             lessons=entries,
         ))

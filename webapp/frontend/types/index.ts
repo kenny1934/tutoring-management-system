@@ -2452,6 +2452,7 @@ export interface SummerStudentLessonsRow {
   grade: string;
   sessions_per_week: number;
   placed_count: number;
+  rescheduled_count: number;
   total_lessons: number;
   lessons: SummerStudentLessonEntry[];
 }
