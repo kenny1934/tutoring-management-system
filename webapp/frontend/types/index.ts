@@ -2454,6 +2454,7 @@ export interface SummerStudentLessonsRow {
   application_status?: string | null;
   is_existing_student?: string | null;
   claimed_branch_code?: string | null;
+  verified_branch_origin?: string | null;
   linked_student?: LinkedSecondaryStudentInfo | null;
   linked_prospect?: LinkedPrimaryProspectInfo | null;
   sessions_per_week: number;

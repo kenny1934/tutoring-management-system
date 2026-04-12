@@ -1127,6 +1127,16 @@ export function SummerApplicationDetailModal({
                   </span>
                 )}
                 <PrimaryBranchChip app={app} />
+                {/* Show original claim when verified result overrides it */}
+                {app.verified_branch_origin && app.claimed_branch_code && app.verified_branch_origin !== app.claimed_branch_code && (
+                  <span
+                    className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded line-through opacity-60"
+                    title={`Original claim: ${app.claimed_branch_code} (overridden by verification)`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="font-mono">{app.claimed_branch_code}</span>
+                  </span>
+                )}
                 {readOnly ? (
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded shrink-0",

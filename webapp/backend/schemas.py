@@ -2584,6 +2584,7 @@ class SummerStudentLessonsRow(BaseModel):
     application_status: Optional[str] = None
     is_existing_student: Optional[str] = None
     claimed_branch_code: Optional[str] = None
+    verified_branch_origin: Optional[str] = None
     linked_student: Optional[LinkedSecondaryStudentInfo] = None
     linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
     sessions_per_week: int

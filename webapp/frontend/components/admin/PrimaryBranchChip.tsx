@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
-type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student">;
+type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student" | "verified_branch_origin">;
 
 export function PrimaryBranchChip({
   app,
@@ -17,6 +17,7 @@ export function PrimaryBranchChip({
 }) {
   const linkedStudent = app.linked_student;
   const linkedProspect = app.linked_prospect;
+  const verified = app.verified_branch_origin;
   const claimedBranchCode = app.claimed_branch_code || null;
   const claimsExisting =
     !!claimedBranchCode &&
@@ -83,11 +84,37 @@ export function PrimaryBranchChip({
     );
   }
 
+  // Verified branch origin overrides the claim
+  if (verified) {
+    if (verified === "New") {
+      return (
+        <span
+          className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
+          title="Verified: new student"
+          onClick={(e) => e.stopPropagation()}
+        >
+          New
+        </span>
+      );
+    }
+    const branchColors = BRANCH_INFO[verified]?.badge || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+    return (
+      <span
+        className={cn("shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded", branchColors)}
+        title={`Verified: existing student at ${verified}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <BadgeCheck className="h-3 w-3" />
+        {verified}
+      </span>
+    );
+  }
+
   if (claimsExisting) {
     return (
       <span
         className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
-        title="Applicant claims to be an existing student — not yet linked"
+        title="Applicant claims to be an existing student — not yet verified"
         onClick={(e) => e.stopPropagation()}
       >
         Claims: <span className="font-mono">{claimedBranchCode}</span>
