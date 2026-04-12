@@ -428,7 +428,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           )}
           {app.admin_notes && (
             <span
-              className="shrink-0 inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 truncate max-w-[220px]"
+              className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 min-w-0"
               title={app.admin_notes}
             >
               <StickyNote className="h-3 w-3 shrink-0" />
