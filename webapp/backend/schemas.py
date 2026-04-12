@@ -2580,6 +2580,12 @@ class SummerStudentLessonsRow(BaseModel):
     application_id: int
     student_name: str
     grade: str
+    lang_stream: Optional[str] = None
+    application_status: Optional[str] = None
+    is_existing_student: Optional[str] = None
+    claimed_branch_code: Optional[str] = None
+    linked_student: Optional[LinkedSecondaryStudentInfo] = None
+    linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
     sessions_per_week: int
     placed_count: int
     rescheduled_count: int = 0

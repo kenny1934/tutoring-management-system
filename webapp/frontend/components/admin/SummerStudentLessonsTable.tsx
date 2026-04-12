@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, RESCHEDULED_STATUS, sessionStatusBg, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
+import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
+import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { ArrowUpDown, Search, Check, Clock, AlertTriangle } from "lucide-react";
 import type { SummerStudentLessonsRow } from "@/types";
 
@@ -261,19 +263,28 @@ export function SummerStudentLessonsTable({
                       isEven && "bg-gray-50/30 dark:bg-gray-800/20"
                     )}
                   >
-                    {/* Student name — sticky + grade border */}
+                    {/* Student name + status dot — sticky + grade border */}
                     <td className={cn(
                       "sticky left-0 z-10 px-2 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 border-l-[3px]",
                       SUMMER_GRADE_BORDER[student.grade] || "border-l-gray-300",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900"
                     )}>
-                      <button
-                        onClick={() => onClickStudent?.(student.application_id)}
-                        className="text-[11px] font-medium truncate max-w-[110px] block text-left hover:text-primary hover:underline"
-                        title={student.student_name}
-                      >
-                        {student.student_name}
-                      </button>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <button
+                          onClick={() => onClickStudent?.(student.application_id)}
+                          className="text-[11px] font-medium truncate text-left hover:text-primary hover:underline"
+                          title={student.student_name}
+                        >
+                          {student.student_name}
+                        </button>
+                        <PrimaryBranchChip app={student} />
+                        {student.application_status && (
+                          <span
+                            className={cn("w-1.5 h-1.5 rounded-full shrink-0 ml-auto", STATUS_COLORS[student.application_status]?.dot || "bg-gray-400")}
+                            title={student.application_status}
+                          />
+                        )}
+                      </div>
                     </td>
 
                     {/* Grade badge — sticky */}
@@ -282,7 +293,7 @@ export function SummerStudentLessonsTable({
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900"
                     )}>
                       <span className={cn("text-[10px] font-bold px-1 rounded", SUMMER_GRADE_BG[student.grade] || "bg-gray-100 dark:bg-gray-700")}>
-                        {student.grade}
+                        {student.grade}{student.lang_stream || ""}
                       </span>
                       {student.sessions_per_week > 1 && (
                         <span className="text-[8px] font-medium text-orange-600 dark:text-orange-400 ml-0.5">

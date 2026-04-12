@@ -6,11 +6,13 @@ import { cn } from "@/lib/utils";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
+type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student">;
+
 export function PrimaryBranchChip({
   app,
   onProspectClick,
 }: {
-  app: SummerApplication;
+  app: BranchChipApp;
   onProspectClick?: (prospectId: number) => void;
 }) {
   const linkedStudent = app.linked_student;

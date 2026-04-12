@@ -2255,6 +2255,12 @@ def get_student_lessons(
 
     apps = q.order_by(SummerApplication.student_name).all()
 
+    # Bulk-fetch linked student/prospect info for branch chips
+    student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
+    app_ids = [a.id for a in apps]
+    linked_students = _get_linked_students_bulk(db, student_ids) if student_ids else {}
+    linked_prospects = _get_linked_prospects_bulk(db, app_ids) if app_ids else {}
+
     rows = []
     for app in apps:
         # Build a map: lesson_number → session info
@@ -2289,10 +2295,17 @@ def get_student_lessons(
             1 for s in placed_by_lesson.values()
             if s.session_status in SUMMER_NON_ATTENDING_STATUSES
         )
+        claimed_center = (app.current_centers or [None])[0]
         rows.append(SummerStudentLessonsRow(
             application_id=app.id,
             student_name=app.student_name,
             grade=app.grade,
+            lang_stream=app.lang_stream,
+            application_status=app.application_status,
+            is_existing_student=app.is_existing_student,
+            claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
+            linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,
+            linked_prospect=linked_prospects.get(app.id),
             sessions_per_week=app.sessions_per_week,
             placed_count=placed_count,
             rescheduled_count=rescheduled_count,
