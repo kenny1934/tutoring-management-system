@@ -112,9 +112,9 @@ export function SummerArrangementGrid({
       <div
         className="grid gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
         style={{
-          gridTemplateColumns: `40px repeat(${days.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: `auto repeat(${days.length}, minmax(110px, 1fr))`,
           gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
-          minWidth: `${40 + days.length * 110}px`,
+          minWidth: `${64 + days.length * 110}px`,
         }}
       >
         {/* Header row: empty corner + day headers */}

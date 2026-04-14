@@ -224,18 +224,17 @@ export function SummerSessionCalendar({
         </div>
       ) : (
       /* Grid */
-      <div className="flex-1 overflow-auto">
-        <div
-          className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `40px repeat(${weekDates.length}, minmax(110px, 1fr))`,
-            gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
-            minWidth: `${40 + weekDates.length * 110}px`,
-          }}
-        >
+      <div
+        className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `auto repeat(${weekDates.length}, minmax(110px, 1fr))`,
+          gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
+          minWidth: `${64 + weekDates.length * 110}px`,
+        }}
+      >
           {/* Top-left corner */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10 flex items-center justify-center text-xs font-medium text-muted-foreground">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10 flex items-center justify-center px-1 text-xs font-medium text-muted-foreground">
             Time
           </div>
 
@@ -259,7 +258,7 @@ export function SummerSessionCalendar({
             <React.Fragment key={ts}>
               {/* Time label */}
               <div
-                className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-start justify-center pt-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
+                className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-start justify-center pt-1 px-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
               >
                 {ts}
               </div>
@@ -295,7 +294,6 @@ export function SummerSessionCalendar({
             </React.Fragment>
           ))}
         </div>
-      </div>
       )}
     </div>
   );
