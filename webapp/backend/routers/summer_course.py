@@ -2387,11 +2387,20 @@ def _find_best_lesson_set(
             continue
         by_number.setdefault(lesson.lesson_number, []).append((lesson, slot))
 
+    # Sort each lesson_number's candidates by date ascending. With the strict
+    # `>` comparison in the scoring loop below, earliest-date wins ties — which
+    # is what produces the natural A/B twice-a-week interleave 1,5,2,6,3,7,4,8
+    # for students whose pref 1 and pref 2 both match Type-A/B slots.
+    for n in by_number:
+        by_number[n].sort(key=lambda ls: ls[0].lesson_date)
+
     # Group ALL lessons (unfiltered) by lesson_number for gap detection
     all_by_number: dict[int, list] = {}
     if all_lessons:
         for lesson, slot in all_lessons:
             all_by_number.setdefault(lesson.lesson_number, []).append((lesson, slot))
+        for n in all_by_number:
+            all_by_number[n].sort(key=lambda ls: ls[0].lesson_date)
 
     def _build_assignment(lesson, slot, ln: int, *, is_pending_makeup: bool = False) -> dict:
         result = {
@@ -2446,14 +2455,36 @@ def _find_best_lesson_set(
     total_score = 0.0
     primary_pairs, backup_pairs = _classify_prefs(app)
 
+    # Gated debug: set SUMMER_SUGGEST_DEBUG=1 in the backend env to trace scoring.
+    import os
+    _debug = os.getenv("SUMMER_SUGGEST_DEBUG") == "1"
+    if _debug:
+        print(
+            f"[suggest] app={app.id} name={app.student_name} grade={app.grade} "
+            f"spw={app.sessions_per_week} primary={primary_pairs} backup={backup_pairs}",
+            flush=True,
+        )
+
     for ln in process_order:
         candidates = by_number.get(ln, [])
 
+        # Precompute earliness range across the candidates that still have
+        # capacity. Earliness dominates capacity so A/B twice-a-week students
+        # snap to the earliest preferred slot per lesson instead of drifting
+        # to a slightly-less-full later slot.
+        _avail_dates = [l.lesson_date for l, _ in candidates if lesson_capacity.get(l.id, 0) > 0]
+        _min_d = min(_avail_dates) if _avail_dates else None
+        _max_d = max(_avail_dates) if _avail_dates else None
+        _span_days = (_max_d - _min_d).days if _min_d and _max_d and _max_d > _min_d else 0
+
         best_candidate = None
         best_cand_score = -1.0
+        _debug_rows: list[tuple] = []
 
         for lesson, slot in candidates:
             if lesson_capacity.get(lesson.id, 0) <= 0:
+                if _debug:
+                    _debug_rows.append((lesson.lesson_date, slot.slot_day, slot.time_slot, "FULL", 0.0, 0.0, 0.0))
                 continue
 
             cand_score = 0.0
@@ -2463,10 +2494,13 @@ def _find_best_lesson_set(
             )
             if is_first:
                 cand_score += 1.0
+                _pref_label = "first"
             elif is_second:
                 cand_score += 0.7
+                _pref_label = "second"
             else:
                 cand_score += 0.3
+                _pref_label = "any"
 
             # Buddy bonus
             if app.buddy_group_id and app.buddy_group_id in lesson_buddy_groups.get(lesson.id, set()):
@@ -2475,6 +2509,14 @@ def _find_best_lesson_set(
             # Capacity: slight preference for less-full lessons (normalize to 0-0.05)
             remaining = lesson_capacity.get(lesson.id, 0)
             cand_score += min(remaining / 200.0, 0.05)
+
+            # Earliness bonus (0-0.1): linear preference for earlier dates
+            # within the same lesson number. Outweighs capacity (max 0.05).
+            earliness_bonus = 0.0
+            if _span_days > 0 and _min_d is not None:
+                offset_days = (lesson.lesson_date - _min_d).days
+                earliness_bonus = 0.1 * (1 - offset_days / _span_days)
+            cand_score += earliness_bonus
 
             # Date ordering: prefer dates that maintain pair/group order
             ordering_bonus = 0.0
@@ -2491,9 +2533,24 @@ def _find_best_lesson_set(
                     ordering_bonus = 0.2 * (good_order / total_checks)
             cand_score += ordering_bonus
 
+            if _debug:
+                _debug_rows.append(
+                    (lesson.lesson_date, slot.slot_day, slot.time_slot, _pref_label,
+                     round(earliness_bonus, 3), round(ordering_bonus, 3), round(cand_score, 3))
+                )
+
             if cand_score > best_cand_score:
                 best_cand_score = cand_score
                 best_candidate = (lesson, slot, is_first, is_second)
+
+        if _debug:
+            print(f"[suggest] L{ln} candidates (sorted by date): {_debug_rows}", flush=True)
+            if best_candidate:
+                bl, bs, _, _ = best_candidate
+                print(
+                    f"[suggest] L{ln} WINNER: {bl.lesson_date} {bs.slot_day} {bs.time_slot} score={best_cand_score:.3f}",
+                    flush=True,
+                )
 
         if best_candidate is not None:
             lesson, slot, is_first, is_second = best_candidate
