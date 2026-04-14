@@ -594,7 +594,15 @@ export function SummerAutoSuggestModal({
         include_dates: mode === "include" ? flatDates : undefined,
       });
       if (result.proposals.length > 0) {
-        setData(prev => prev ? { ...prev, proposals: [...prev.proposals.filter((ex) => ex.application_id !== appId), ...result.proposals] } : prev);
+        setData(prev => {
+          if (!prev) return prev;
+          // Preserve the student's position in the list so scroll doesn't jump.
+          const firstIdx = prev.proposals.findIndex(p => p.application_id === appId);
+          const insertAt = firstIdx >= 0 ? firstIdx : prev.proposals.length;
+          const before = prev.proposals.slice(0, insertAt);
+          const after = prev.proposals.slice(insertAt).filter(p => p.application_id !== appId);
+          return { ...prev, proposals: [...before, ...result.proposals, ...after] };
+        });
         if (result.proposals[0].option_label) {
           setSelectedOption(prev => ({ ...prev, [appId]: result.proposals[0].option_label! }));
         }
