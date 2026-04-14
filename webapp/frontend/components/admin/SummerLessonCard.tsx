@@ -83,7 +83,7 @@ export function SummerLessonCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Row 1: Lesson badge + grade + tutor + expand */}
+      {/* Row 1: Lesson badge + grade + course type + expand */}
       <div className="flex items-center gap-1 px-1 py-0.5 min-w-0">
         {/* Lesson number badge */}
         {editingLesson ? (
@@ -138,13 +138,6 @@ export function SummerLessonCard({
           </span>
         )}
 
-        {/* Tutor name */}
-        {lesson.tutor_name && (
-          <span className="text-[9px] text-muted-foreground truncate">
-            {lesson.tutor_name}
-          </span>
-        )}
-
         <div className="flex-1" />
 
         <button
@@ -155,7 +148,12 @@ export function SummerLessonCard({
         </button>
       </div>
 
-      {/* Row 2: Capacity bar */}
+      {/* Row 2: Tutor */}
+      <div className="px-1 pb-0.5 text-[9px] text-muted-foreground dark:text-gray-300 text-center truncate">
+        {lesson.tutor_name || "— tutor —"}
+      </div>
+
+      {/* Row 3: Capacity bar */}
       <div className="flex items-center gap-1 px-1 pb-0.5">
         <div className="flex-1 h-1.5 rounded-full bg-[#e8d4b8]/30 dark:bg-gray-700 overflow-hidden">
           <div
