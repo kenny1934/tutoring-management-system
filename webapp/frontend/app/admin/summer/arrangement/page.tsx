@@ -382,7 +382,7 @@ export default function SummerArrangementPage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
+      <PageTransition className="flex flex-col h-full p-2 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
@@ -393,12 +393,12 @@ export default function SummerArrangementPage() {
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold text-foreground">Timetable Arrangement</h1>
-              <p className="text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
+              <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground"
+              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
             >
               {locations.map((loc) => (
                 <option key={loc.name} value={loc.name}>
@@ -409,7 +409,7 @@ export default function SummerArrangementPage() {
           </div>
 
           {/* Row 2: Stats + actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{totalIncomplete} incomplete</span>
               {totalTentative > 0 ? (
@@ -429,18 +429,20 @@ export default function SummerArrangementPage() {
             <button
               onClick={() => setDutyModalOpen(true)}
               disabled={!location}
+              title="Tutor Duties"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Users2 className="h-3.5 w-3.5" />
-              Tutor Duties
+              <span className="hidden sm:inline">Tutor Duties</span>
             </button>
             <button
               onClick={() => setAutoSuggestOpen(true)}
               disabled={!unassigned?.length || !slots?.length}
+              title="Auto-Suggest"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Wand2 className="h-3.5 w-3.5" />
-              Auto-Suggest
+              <span className="hidden sm:inline">Auto-Suggest</span>
             </button>
           </div>
         </div>
@@ -492,7 +494,7 @@ export default function SummerArrangementPage() {
           </div>
         ) : (
           <>
-            <div className="flex gap-4 flex-1 min-h-0 p-4">
+            <div className="flex gap-4 flex-1 min-h-0 p-2 sm:p-4">
               <div className="flex-1 min-w-0 overflow-auto">
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
@@ -585,7 +587,7 @@ export default function SummerArrangementPage() {
                 onClick={() => setMobilePanelOpen(false)}
               />
               <div className={cn(
-                "fixed top-14 right-0 bottom-0 w-72 z-50 shadow-xl transition-transform duration-300 ease-out",
+                "fixed top-14 right-0 bottom-0 w-[min(20rem,85vw)] z-50 shadow-xl transition-transform duration-300 ease-out",
                 mobilePanelOpen ? "translate-x-0" : "translate-x-full"
               )}>
                 <SummerUnassignedPanel

@@ -203,19 +203,19 @@ export function SummerStudentLessonsTable({
         <table className="w-full border-collapse">
           <thead>
             <tr className={HEADER_BG}>
-              <th className={cn("sticky left-0 z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-left px-2 py-2 border-b-2", HEADER_BORDER, "min-w-[120px]")}>
+              <th className={cn("sticky left-0 z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-left px-2 py-2 border-b-2", HEADER_BORDER, "min-w-[96px] md:min-w-[120px]")}>
                 Student
               </th>
-              <th className={cn("sticky left-[120px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "w-10")}>
+              <th className={cn("md:sticky md:left-[120px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "w-10")}>
                 Grade
               </th>
-              <th className={cn("sticky left-[160px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[72px]")}>
+              <th className={cn("md:sticky md:left-[160px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[72px]")}>
                 Progress
               </th>
               {lessonColumns.map((n) => (
                 <th
                   key={n}
-                  className={cn("text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[60px]")}
+                  className={cn("text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[52px] md:min-w-[60px]")}
                 >
                   L{n}
                 </th>
@@ -277,7 +277,9 @@ export function SummerStudentLessonsTable({
                         >
                           {student.student_name}
                         </button>
-                        <PrimaryBranchChip app={student} />
+                        <span className="hidden md:inline-flex shrink-0">
+                          <PrimaryBranchChip app={student} />
+                        </span>
                         {student.application_status && (
                           <span
                             className={cn("w-1.5 h-1.5 rounded-full shrink-0 ml-auto", STATUS_COLORS[student.application_status]?.dot || "bg-gray-400")}
@@ -287,9 +289,9 @@ export function SummerStudentLessonsTable({
                       </div>
                     </td>
 
-                    {/* Grade badge — sticky */}
+                    {/* Grade badge — sticky on ≥md */}
                     <td className={cn(
-                      "sticky left-[120px] z-10 text-center px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                      "md:sticky md:left-[120px] z-10 text-center px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900"
                     )}>
                       <span className={cn("text-[10px] font-bold px-1 rounded", SUMMER_GRADE_BG[student.grade] || "bg-gray-100 dark:bg-gray-700")}>
@@ -302,9 +304,9 @@ export function SummerStudentLessonsTable({
                       )}
                     </td>
 
-                    {/* Progress bar — sticky */}
+                    {/* Progress bar — sticky on ≥md */}
                     <td className={cn(
-                      "sticky left-[160px] z-10 px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
+                      "md:sticky md:left-[160px] z-10 px-1 py-1.5 border-r border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
                       isEven ? "bg-gray-50/80 dark:bg-gray-900" : "bg-white dark:bg-gray-900"
                     )}>
                       <div className="flex items-center gap-1">

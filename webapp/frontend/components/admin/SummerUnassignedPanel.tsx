@@ -117,7 +117,7 @@ export function SummerUnassignedPanel({
 
       {/* Expanded content */}
       <div className={cn(
-        "flex flex-col flex-1 min-h-0 min-w-[256px] transition-opacity duration-200",
+        "flex flex-col flex-1 min-h-0 min-w-0 sm:min-w-[256px] transition-opacity duration-200",
         collapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
       )}>
       {/* Header */}
