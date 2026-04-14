@@ -172,7 +172,8 @@ export default function SummerArrangementPage() {
     mutateUnassigned();
     mutateCalendar();
     mutateStudentLessons();
-  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons]);
+    mutateFindSlot();
+  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
 
   const handleCreateSlot = useCallback(async (day: string, timeSlot: string) => {
     if (!configId) return;
@@ -192,11 +193,13 @@ export default function SummerArrangementPage() {
   const handleUpdateSlot = useCallback(async (slotId: number, data: SummerSlotUpdate) => {
     try {
       await summerAPI.updateSlot(slotId, data);
-      mutateSlots();
+      // A slot update (grade/tutor/label/max) can change how the slot is
+      // displayed in calendar + student-lessons, so refresh everything.
+      refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to update slot"), "error");
     }
-  }, [mutateSlots, showToast]);
+  }, [refreshAll, showToast]);
 
   const handleDeleteSlot = useCallback((slotId: number) => {
     const slot = slots?.find(s => s.id === slotId);
@@ -227,28 +230,24 @@ export default function SummerArrangementPage() {
     setPendingDrop(null);
     try {
       await summerAPI.createSession({ application_id: appId, slot_id: slotId, mode });
-      mutateSlots();
-      mutateUnassigned();
-      mutateCalendar();
+      refreshAll();
       if (mode === "single") {
         showToast("Lessons ready — switch to Calendar to place individually", "success");
       }
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
     }
-  }, [pendingDrop, mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
+  }, [pendingDrop, refreshAll, showToast]);
 
   // Calendar drop → single session for a specific lesson
   const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
     try {
       await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
-      mutateSlots();
-      mutateUnassigned();
-      mutateCalendar();
+      refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
     }
-  }, [mutateSlots, mutateUnassigned, mutateCalendar, showToast]);
+  }, [refreshAll, showToast]);
 
   // Slot Setup removal — cascade delete all sessions for student+slot
   const handleRemoveSession = useCallback((sessionId: number, studentName?: string) => {
@@ -271,14 +270,11 @@ export default function SummerArrangementPage() {
       } else {
         await summerAPI.deleteSession(id, cascade);
       }
-      mutateSlots();
-      mutateUnassigned();
-      mutateCalendar();
-      mutateStudentLessons();
+      refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to delete"), "error");
     }
-  }, [pendingDelete, mutateSlots, mutateUnassigned, mutateCalendar, mutateStudentLessons, showToast]);
+  }, [pendingDelete, refreshAll, showToast]);
 
 
   // Navigate to a specific lesson date in the calendar tab.
@@ -640,7 +636,7 @@ export default function SummerArrangementPage() {
 
         {/* Application detail modal */}
         <SummerApplicationDetailModal
-          application={selectedApp ?? null}
+          application={selectedApp?.id === selectedAppId ? selectedApp : null}
           isOpen={selectedAppId !== null}
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}
@@ -681,11 +677,7 @@ export default function SummerArrangementPage() {
             timeSlots={timeSlots}
             onPlaced={() => {
               setFindSlotTarget(null);
-              mutateSlots();
-              mutateUnassigned();
-              mutateCalendar();
-              mutateStudentLessons();
-              mutateFindSlot();
+              refreshAll();
             }}
           />
         )}
