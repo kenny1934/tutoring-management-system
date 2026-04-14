@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
-import { List, type RowComponentProps, useListRef } from "react-window";
+import { List, type RowComponentProps, useListRef, useDynamicRowHeight } from "react-window";
 import { summerAPI } from "@/lib/api";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationStats } from "@/components/admin/SummerApplicationStats";
@@ -218,11 +218,11 @@ function TimeAgo({ timestamp }: { timestamp: number }) {
   );
 }
 
-// Virtualized row for the flat view. Fixed height accommodates the common case
-// (identity + placement + meta rows); rare edge cases with many backup slots
-// wrap-hide, which is acceptable given the perf win at scale.
+// Row heights are measured per-row so wrapping preference chips
+// (2× slots + alts on mobile) don't overlap the next card.
 const VIRTUAL_ROW_HEIGHT = 112;
 const VIRTUALIZE_THRESHOLD = 50;
+const ROW_GUTTER_PX = 8;
 
 interface VirtualAppRowProps {
   applications: SummerApplication[];
@@ -234,6 +234,7 @@ interface VirtualAppRowProps {
   onStatusChange: (id: number, status: string) => void;
   onProspectClick: (prospectId: number) => void;
   totalLessons?: number;
+  setRowHeight: (index: number, size: number) => void;
 }
 
 function VirtualAppRow({
@@ -248,22 +249,37 @@ function VirtualAppRow({
   onStatusChange,
   onProspectClick,
   totalLessons,
+  setRowHeight,
 }: RowComponentProps<VirtualAppRowProps>) {
   const app = applications[index];
+  const innerRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const report = () => setRowHeight(index, el.offsetHeight + ROW_GUTTER_PX);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [index, setRowHeight]);
+
   return (
-    <div style={{ ...style, paddingBottom: 8 }}>
-      <SummerApplicationCard
-        application={app}
-        index={index}
-        isFocused={selectedIndex === index}
-        onSelect={onSelect}
-        isChecked={checkedIds.has(app.id)}
-        onToggleCheck={onToggleCheck}
-        showCheckbox={showCheckboxes}
-        onStatusChange={onStatusChange}
-        onProspectClick={onProspectClick}
-        totalLessons={totalLessons}
-      />
+    <div style={{ ...style, paddingBottom: ROW_GUTTER_PX }}>
+      <div ref={innerRef}>
+        <SummerApplicationCard
+          application={app}
+          index={index}
+          isFocused={selectedIndex === index}
+          onSelect={onSelect}
+          isChecked={checkedIds.has(app.id)}
+          onToggleCheck={onToggleCheck}
+          showCheckbox={showCheckboxes}
+          onStatusChange={onStatusChange}
+          onProspectClick={onProspectClick}
+          totalLessons={totalLessons}
+        />
+      </div>
     </div>
   );
 }
@@ -348,6 +364,7 @@ export default function SummerApplicationsPage() {
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const listRef = useListRef(null);
+  const dynamicRowHeight = useDynamicRowHeight({ defaultRowHeight: VIRTUAL_ROW_HEIGHT });
   const [listHeight, setListHeight] = useState(600);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -1486,7 +1503,7 @@ export default function SummerApplicationsPage() {
                 <List<VirtualAppRowProps>
                   listRef={listRef}
                   rowCount={sortedApplications.length}
-                  rowHeight={VIRTUAL_ROW_HEIGHT}
+                  rowHeight={dynamicRowHeight}
                   rowComponent={VirtualAppRow}
                   rowProps={{
                     applications: sortedApplications,
@@ -1498,6 +1515,7 @@ export default function SummerApplicationsPage() {
                     onStatusChange: handleStatusChange,
                     onProspectClick: handleProspectClick,
                     totalLessons: activeConfig?.total_lessons,
+                    setRowHeight: dynamicRowHeight.setRowHeight,
                   }}
                   defaultHeight={listHeight}
                   style={{ height: listHeight }}
