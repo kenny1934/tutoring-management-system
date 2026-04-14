@@ -6,7 +6,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -91,6 +91,7 @@ export default function SummerArrangementPage() {
   const {
     data: slots,
     mutate: mutateSlots,
+    isValidating: slotsValidating,
   } = useSWR(
     configId && location ? ["summer-slots", configId, location] : null,
     () => summerAPI.getSlots(configId!, location),
@@ -100,6 +101,7 @@ export default function SummerArrangementPage() {
   const {
     data: demand,
     mutate: mutateDemand,
+    isValidating: demandValidating,
   } = useSWR(
     configId && location ? ["summer-demand", configId, location] : null,
     () => summerAPI.getDemand(configId!, location),
@@ -109,11 +111,14 @@ export default function SummerArrangementPage() {
   const {
     data: unassigned,
     mutate: mutateUnassigned,
+    isValidating: unassignedValidating,
   } = useSWR(
     configId && location ? ["summer-unassigned", configId, location] : null,
     () => summerAPI.getUnassigned({ config_id: configId!, location }),
     { refreshInterval: 30000 }
   );
+
+  const isValidating = slotsValidating || demandValidating || unassignedValidating;
 
   // Fetch active tutors and duties
   const { data: activeTutors } = useSWR(
@@ -402,6 +407,15 @@ export default function SummerArrangementPage() {
                 </option>
               ))}
             </select>
+            <button
+              onClick={refreshAll}
+              disabled={isValidating}
+              className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              title="Refresh"
+              aria-label="Refresh arrangement data"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
+            </button>
           </div>
 
           {/* Row 2: Stats + actions */}
