@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Clock, X } from "lucide-react";
+import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot, DAY_ABBREV } from "@/lib/summer-utils";
 import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
@@ -50,6 +50,7 @@ export function SummerUnassignedPanel({
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [buddiesOnly, setBuddiesOnly] = useState(false);
+  const [noNotesOnly, setNoNotesOnly] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
 
@@ -60,6 +61,9 @@ export function SummerUnassignedPanel({
     }
     if (buddiesOnly) {
       result = result.filter((a) => !!a.buddy_group_id);
+    }
+    if (noNotesOnly) {
+      result = result.filter((a) => !a.unavailability_notes);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -88,7 +92,7 @@ export function SummerUnassignedPanel({
       return a.student_name.localeCompare(b.student_name);
     });
     return result;
-  }, [applications, gradeFilter, buddiesOnly, search, sort]);
+  }, [applications, gradeFilter, buddiesOnly, noNotesOnly, search, sort]);
 
   const nextSort = SORT_CYCLE[(SORT_CYCLE.indexOf(sort) + 1) % SORT_CYCLE.length];
 
@@ -197,9 +201,21 @@ export function SummerUnassignedPanel({
             </button>
           ))}
           <button
-            onClick={() => setBuddiesOnly(!buddiesOnly)}
+            onClick={() => setNoNotesOnly(!noNotesOnly)}
             className={cn(
               "ml-auto px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+              noNotesOnly
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+            )}
+            title={noNotesOnly ? "Showing only students with no unavailability notes" : "Show only students with no unavailability notes"}
+          >
+            <CheckCircle2 className="h-3 w-3 inline -mt-px" />
+          </button>
+          <button
+            onClick={() => setBuddiesOnly(!buddiesOnly)}
+            className={cn(
+              "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
               buddiesOnly
                 ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                 : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
