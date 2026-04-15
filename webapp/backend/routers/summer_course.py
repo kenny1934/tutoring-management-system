@@ -1329,6 +1329,8 @@ def admin_suggest_student_links(
             matches.append({"application": a_summary(app, code), "student": chosen})
             if not dry_run:
                 app.existing_student_id = chosen["id"]
+                if not app.verified_branch_origin and chosen.get("home_location"):
+                    app.verified_branch_origin = chosen["home_location"]
         elif candidates:
             skipped.append({
                 "application": a_summary(app, code),
