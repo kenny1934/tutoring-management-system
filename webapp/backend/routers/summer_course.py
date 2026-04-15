@@ -253,15 +253,52 @@ def _write_status_audit(
     ))
 
 
-def _assert_buddy_group_has_room(db: Session, group_id: int, *, headroom: int = 1) -> None:
+def _write_buddy_audit(
+    db: Session,
+    app: SummerApplication,
+    old_buddy_code: str | None,
+    new_buddy_code: str | None,
+    edited_via: str,
+    edited_by: str | None,
+) -> None:
+    """Audit row for a buddy_code change (join/leave/move/create)."""
+    db.add(SummerApplicationEdit(
+        application_id=app.id,
+        edited_at=hk_now(),
+        field_name="buddy_code",
+        old_value=old_buddy_code,
+        new_value=new_buddy_code,
+        edited_via=edited_via,
+        edited_by=edited_by,
+    ))
+
+
+def _assert_buddy_group_has_room(
+    db: Session, group_id: int, *, headroom: int = 1, structured: bool = False,
+) -> None:
     """Raise 400 if adding `headroom` members would exceed PUBLIC_BUDDY_GROUP_CAP.
 
     Acquires a row lock on the buddy group so concurrent declarations serialize.
     The lock is held until the calling request commits, so callers must do the
     insert + commit in the same transaction as this check.
+
+    ``structured=True`` raises with a machine-readable detail payload so the
+    admin UI can tell a cap error apart from other 400s and offer the explicit
+    override flow. Public callers keep the plain-text detail for user-facing
+    toast messages.
     """
     db.query(SummerBuddyGroup).filter(SummerBuddyGroup.id == group_id).with_for_update().first()
-    if _get_buddy_member_count(db, group_id) + headroom > PUBLIC_BUDDY_GROUP_CAP:
+    current = _get_buddy_member_count(db, group_id)
+    if current + headroom > PUBLIC_BUDDY_GROUP_CAP:
+        if structured:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": "buddy_cap_exceeded",
+                    "cap": PUBLIC_BUDDY_GROUP_CAP,
+                    "current": current,
+                },
+            )
         raise HTTPException(
             status_code=400,
             detail=f"Group is full (max {PUBLIC_BUDDY_GROUP_CAP} members). Please create a new group or contact us for help.",
@@ -616,10 +653,18 @@ def change_buddy_group(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    prev_group_id = app.buddy_group_id
+    prev_buddy_code = app.buddy_code
+
     if data.action == "leave":
         app.buddy_group_id = None
         app.buddy_joined_at = None
         app.buddy_referrer_name = None
+        if prev_group_id is not None:
+            _write_buddy_audit(
+                db, app, prev_buddy_code, None,
+                edited_via="applicant", edited_by=None,
+            )
         db.commit()
         return SummerBuddyChangeResponse(buddy_code=None, member_count=0)
 
@@ -636,6 +681,11 @@ def change_buddy_group(
         app.buddy_group_id = group.id
         app.buddy_referrer_name = data.buddy_referrer_name
         app.buddy_names = None
+        if prev_group_id != group.id:
+            _write_buddy_audit(
+                db, app, prev_buddy_code, group.buddy_code,
+                edited_via="applicant", edited_by=None,
+            )
         db.commit()
         return SummerBuddyChangeResponse(
             buddy_code=group.buddy_code,
@@ -648,6 +698,10 @@ def change_buddy_group(
         app.buddy_joined_at = now
         app.buddy_referrer_name = None
         app.buddy_names = None
+        _write_buddy_audit(
+            db, app, prev_buddy_code, group.buddy_code,
+            edited_via="applicant", edited_by=None,
+        )
         db.commit()
         return SummerBuddyChangeResponse(
             buddy_code=group.buddy_code,
@@ -1514,8 +1568,11 @@ def update_application(
 
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
+    allow_buddy_overflow = bool(updates.pop("allow_buddy_overflow", False))
     if buddy_code_value is not None:
         prev_group_id = app.buddy_group_id
+        prev_buddy_code = app.buddy_code
+        new_buddy_code: str | None = None
         if buddy_code_value == "":
             # Leave group
             app.buddy_group_id = None
@@ -1526,6 +1583,7 @@ def update_application(
             app.buddy_group_id = group.id
             app.buddy_joined_at = hk_now()
             app.buddy_referrer_name = None
+            new_buddy_code = group.buddy_code
         else:
             # Join existing group by code
             group = db.query(SummerBuddyGroup).filter(
@@ -1534,13 +1592,21 @@ def update_application(
             if not group:
                 raise HTTPException(status_code=400, detail="Invalid buddy code")
             if prev_group_id != group.id:
+                if not allow_buddy_overflow:
+                    _assert_buddy_group_has_room(db, group.id, structured=True)
                 app.buddy_joined_at = hk_now()
             app.buddy_group_id = group.id
+            new_buddy_code = group.buddy_code
             # Set referrer name if provided alongside the join
             if "buddy_referrer_name" in updates:
                 app.buddy_referrer_name = updates.pop("buddy_referrer_name")
         # Remove buddy_referrer_name from generic updates since we handled it
         updates.pop("buddy_referrer_name", None)
+        if app.buddy_group_id != prev_group_id:
+            _write_buddy_audit(
+                db, app, prev_buddy_code, new_buddy_code,
+                edited_via="admin", edited_by=admin_label,
+            )
 
     # Track reviewer + write audit row when status changes
     if "application_status" in updates:

@@ -2388,6 +2388,10 @@ class SummerApplicationUpdate(BaseModel):
     lang_stream: Optional[str] = Field(None, max_length=10)
     buddy_code: Optional[str] = Field(None, max_length=20, description="Set to code to join, empty string to leave, 'NEW' to create")
     buddy_referrer_name: Optional[str] = Field(None, max_length=255)
+    allow_buddy_overflow: bool = Field(
+        False,
+        description="Explicit acknowledgement when buddy_code would push the group past the public cap.",
+    )
     # Detail fields admin can edit (mirrors SummerApplicationEditRequest +
     # identity fields locked for self-service)
     student_name: Optional[str] = Field(None, max_length=255)

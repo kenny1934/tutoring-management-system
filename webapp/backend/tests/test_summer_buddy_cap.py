@@ -1,8 +1,10 @@
 """
 Tests for the summer buddy group capacity cap.
 
-Public apply/change endpoints enforce a 3-member cap; admin PATCH bypasses it
-to allow manual overflow pairing (the "favor pair" use case).
+Public apply/change endpoints enforce a 3-member cap; admin PATCH enforces
+the same cap by default and only bypasses it when the caller sets
+`allow_buddy_overflow=True` (explicit opt-in for manual overflow pairing).
+Every buddy_code change writes a SummerApplicationEdit audit row.
 """
 import pytest
 from datetime import date, datetime, timedelta
@@ -11,6 +13,7 @@ from fastapi import HTTPException
 
 from models import (
     Tutor, SummerCourseConfig, SummerBuddyGroup, SummerApplication,
+    SummerApplicationEdit,
 )
 from utils.rate_limiter import clear_rate_limits
 
@@ -250,14 +253,38 @@ class TestGetBuddyGroupIsFull:
         assert result.member_count == 1
 
 
-class TestAdminCapBypass:
-    """Admin PATCH /summer/applications/{id} must bypass the public cap (favor pair)."""
+class TestAdminCapEnforcement:
+    """Admin PATCH enforces the public cap by default; override is opt-in."""
 
-    def test_admin_can_add_fourth_member(self, db_session, active_config, full_group, solo_applicant, admin_tutor):
+    def test_admin_blocked_without_override(self, db_session, active_config, full_group, solo_applicant, admin_tutor):
         from routers.summer_course import update_application
         from schemas import SummerApplicationUpdate
 
         data = SummerApplicationUpdate(buddy_code=full_group.buddy_code)
+        with pytest.raises(HTTPException) as exc:
+            update_application(
+                app_id=solo_applicant.id,
+                data=data,
+                admin=admin_tutor,
+                db=db_session,
+            )
+        assert exc.value.status_code == 400
+        assert isinstance(exc.value.detail, dict)
+        assert exc.value.detail["error_code"] == "buddy_cap_exceeded"
+        assert exc.value.detail["cap"] == 3
+        assert exc.value.detail["current"] == 3
+        # App must remain unchanged
+        db_session.refresh(solo_applicant)
+        assert solo_applicant.buddy_group_id is None
+
+    def test_admin_override_adds_fourth_member(self, db_session, active_config, full_group, solo_applicant, admin_tutor):
+        from routers.summer_course import update_application
+        from schemas import SummerApplicationUpdate
+
+        data = SummerApplicationUpdate(
+            buddy_code=full_group.buddy_code,
+            allow_buddy_overflow=True,
+        )
         result = update_application(
             app_id=solo_applicant.id,
             data=data,
@@ -265,10 +292,122 @@ class TestAdminCapBypass:
             db=db_session,
         )
         assert result.buddy_code == full_group.buddy_code
-        # Verify the group now has 4 members
         total = (
             db_session.query(SummerApplication)
             .filter(SummerApplication.buddy_group_id == full_group.id)
             .count()
         )
         assert total == 4
+
+
+def _buddy_audits(db_session, app_id):
+    return (
+        db_session.query(SummerApplicationEdit)
+        .filter(
+            SummerApplicationEdit.application_id == app_id,
+            SummerApplicationEdit.field_name == "buddy_code",
+        )
+        .all()
+    )
+
+
+class TestBuddyAudit:
+    """Every buddy_code change writes a SummerApplicationEdit row."""
+
+    def test_admin_join_writes_audit(self, db_session, active_config, half_full_group, solo_applicant, admin_tutor):
+        from routers.summer_course import update_application
+        from schemas import SummerApplicationUpdate
+
+        update_application(
+            app_id=solo_applicant.id,
+            data=SummerApplicationUpdate(buddy_code=half_full_group.buddy_code),
+            admin=admin_tutor,
+            db=db_session,
+        )
+        rows = _buddy_audits(db_session, solo_applicant.id)
+        assert len(rows) == 1
+        assert rows[0].old_value is None
+        assert rows[0].new_value == half_full_group.buddy_code
+        assert rows[0].edited_via == "admin"
+        assert rows[0].edited_by == admin_tutor.tutor_name
+
+    def test_admin_override_audit_records_the_full_group_join(
+        self, db_session, active_config, full_group, solo_applicant, admin_tutor
+    ):
+        from routers.summer_course import update_application
+        from schemas import SummerApplicationUpdate
+
+        update_application(
+            app_id=solo_applicant.id,
+            data=SummerApplicationUpdate(
+                buddy_code=full_group.buddy_code,
+                allow_buddy_overflow=True,
+            ),
+            admin=admin_tutor,
+            db=db_session,
+        )
+        rows = _buddy_audits(db_session, solo_applicant.id)
+        assert len(rows) == 1
+        assert rows[0].new_value == full_group.buddy_code
+        assert rows[0].edited_by == admin_tutor.tutor_name
+
+    def test_public_join_writes_audit(self, db_session, active_config, half_full_group, solo_applicant):
+        from routers.summer_course import change_buddy_group
+        from schemas import SummerBuddyChangeRequest
+
+        change_buddy_group(
+            request=_mock_request(ip="10.0.0.7"),
+            reference_code=solo_applicant.reference_code,
+            data=SummerBuddyChangeRequest(
+                action="join",
+                buddy_code=half_full_group.buddy_code,
+                buddy_referrer_name="Friend",
+            ),
+            phone=solo_applicant.contact_phone,
+            db=db_session,
+        )
+        rows = _buddy_audits(db_session, solo_applicant.id)
+        assert len(rows) == 1
+        assert rows[0].new_value == half_full_group.buddy_code
+        assert rows[0].edited_via == "applicant"
+        assert rows[0].edited_by is None
+
+    def test_public_leave_writes_audit(self, db_session, active_config, half_full_group):
+        from routers.summer_course import change_buddy_group
+        from schemas import SummerBuddyChangeRequest
+
+        existing = (
+            db_session.query(SummerApplication)
+            .filter(SummerApplication.buddy_group_id == half_full_group.id)
+            .first()
+        )
+        prev_code = half_full_group.buddy_code
+        change_buddy_group(
+            request=_mock_request(ip="10.0.0.8"),
+            reference_code=existing.reference_code,
+            data=SummerBuddyChangeRequest(action="leave"),
+            phone=existing.contact_phone,
+            db=db_session,
+        )
+        rows = _buddy_audits(db_session, existing.id)
+        assert len(rows) == 1
+        assert rows[0].old_value == prev_code
+        assert rows[0].new_value is None
+        assert rows[0].edited_via == "applicant"
+
+    def test_public_create_writes_audit(self, db_session, active_config, solo_applicant):
+        from routers.summer_course import change_buddy_group
+        from schemas import SummerBuddyChangeRequest
+
+        result = change_buddy_group(
+            request=_mock_request(ip="10.0.0.9"),
+            reference_code=solo_applicant.reference_code,
+            data=SummerBuddyChangeRequest(action="create"),
+            phone=solo_applicant.contact_phone,
+            db=db_session,
+        )
+        rows = _buddy_audits(db_session, solo_applicant.id)
+        assert len(rows) == 1
+        assert rows[0].old_value is None
+        assert rows[0].new_value == result.buddy_code
+        assert rows[0].edited_via == "applicant"

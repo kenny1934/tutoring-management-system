@@ -268,11 +268,18 @@ export function SummerApplicationDetailModal({
     };
   }, [debouncedBuddySearch, buddyEditMode, app?.id, app?.config_id]);
 
-  const runBuddyUpdate = async (buddyCode: string, successMsg: string) => {
+  const runBuddyUpdate = async (
+    buddyCode: string,
+    successMsg: string,
+    allowOverflow = false,
+  ) => {
     if (!app) return;
     setBuddyEditLoading(true);
     try {
-      await summerAPI.updateApplication(app.id, { buddy_code: buddyCode });
+      await summerAPI.updateApplication(app.id, {
+        buddy_code: buddyCode,
+        ...(allowOverflow ? { allow_buddy_overflow: true } : {}),
+      });
       showToast(successMsg, "success");
       setBuddyEditing(false);
       setBuddyEditMode("code");
@@ -284,7 +291,18 @@ export function SummerApplicationDetailModal({
       setBuddySearchResults([]);
       onUpdated();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Failed", "error");
+      const msg = e instanceof Error ? e.message : "Failed";
+      if (msg.includes("buddy_cap_exceeded")) {
+        showToast(
+          "Buddy group is now full — please re-verify the code before trying again.",
+          "error",
+        );
+        setBuddyEditValid(null);
+        setBuddyEditGroupFull(false);
+        setBuddyPendingAction(null);
+      } else {
+        showToast(msg, "error");
+      }
     } finally {
       setBuddyEditLoading(false);
     }
@@ -1762,63 +1780,73 @@ export function SummerApplicationDetailModal({
         </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={buddyPendingAction !== null}
-        onCancel={() => {
-          if (!buddyEditLoading) setBuddyPendingAction(null);
-        }}
-        onConfirm={() => {
-          if (!buddyPendingAction) return;
-          if (buddyPendingAction.type === "join") {
-            runBuddyUpdate(buddyPendingAction.code, "Joined buddy group");
-          } else if (buddyPendingAction.type === "create") {
-            runBuddyUpdate("NEW", "Created new buddy group");
-          } else if (buddyPendingAction.type === "remove") {
-            runBuddyUpdate("", "Removed from buddy group");
-          }
-        }}
-        title={
-          buddyPendingAction?.type === "join"
-            ? "Join buddy group?"
-            : buddyPendingAction?.type === "create"
-            ? "Create new buddy group?"
-            : "Remove from buddy group?"
+      {(() => {
+        const action = buddyPendingAction;
+        const isOverride = action?.type === "join" && buddyEditGroupFull;
+        const name = app?.student_name;
+        const dialog: { title: string; message: string; confirmText: string; variant: "danger" | "warning" } =
+          action?.type === "remove"
+            ? {
+                title: "Remove from buddy group?",
+                message: `${name} will be removed from their current buddy group.`,
+                confirmText: "Remove",
+                variant: "danger",
+              }
+            : action?.type === "create"
+            ? {
+                title: "Create new buddy group?",
+                message: `${name} will be placed in a newly created buddy group.`,
+                confirmText: "Create",
+                variant: "warning",
+              }
+            : isOverride
+            ? {
+                title: "⚠ Override buddy group cap?",
+                message: `${name} will be moved to ${action.targetLabel}, which is already at the ${buddyEditMaxMembers}-member public cap. Public applicants are blocked at this cap — this override is only for manual pairing.`,
+                confirmText: "Override cap & Join",
+                variant: "danger",
+              }
+            : {
+                title: "Join buddy group?",
+                message: `${name} will be moved to ${action?.type === "join" ? action.targetLabel : ""}.`,
+                confirmText: "Join",
+                variant: "warning",
+              };
+        const consequences: string[] = [];
+        if (app?.buddy_group_id && action?.type !== "remove") {
+          consequences.push(
+            `Currently in ${app.buddy_code ? `group ${app.buddy_code}` : "a buddy group"}. This connection will be replaced.`,
+          );
+          consequences.push("Other members of the old group are not affected.");
         }
-        message={
-          buddyPendingAction?.type === "join"
-            ? `${app?.student_name} will be moved to ${buddyPendingAction.targetLabel}.`
-            : buddyPendingAction?.type === "create"
-            ? `${app?.student_name} will be placed in a newly created buddy group.`
-            : `${app?.student_name} will be removed from their current buddy group.`
+        if (action?.type === "remove") {
+          consequences.push("The applicant will no longer be part of any buddy group.");
         }
-        consequences={(() => {
-          const items: string[] = [];
-          if (app?.buddy_group_id && buddyPendingAction?.type !== "remove") {
-            items.push(
-              `Currently in ${app.buddy_code ? `group ${app.buddy_code}` : "a buddy group"}. This connection will be replaced.`
-            );
-            items.push("Other members of the old group are not affected.");
-          }
-          if (buddyPendingAction?.type === "join" && buddyEditGroupFull) {
-            items.push(
-              `⚠ Target group is already at the ${buddyEditMaxMembers}-member public cap — this will add a ${buddyEditMaxMembers + 1}th member (admin override).`
-            );
-          }
-          if (buddyPendingAction?.type === "remove") {
-            items.push("The applicant will no longer be part of any buddy group.");
-          }
-          return items.length > 0 ? items : undefined;
-        })()}
-        confirmText={
-          buddyPendingAction?.type === "join"
-            ? "Join"
-            : buddyPendingAction?.type === "create"
-            ? "Create"
-            : "Remove"
-        }
-        variant={buddyPendingAction?.type === "remove" ? "danger" : "warning"}
-        loading={buddyEditLoading}
-      />
+        return (
+          <ConfirmDialog
+            isOpen={action !== null}
+            onCancel={() => {
+              if (!buddyEditLoading) setBuddyPendingAction(null);
+            }}
+            onConfirm={() => {
+              if (!action) return;
+              if (action.type === "join") {
+                runBuddyUpdate(action.code, "Joined buddy group", buddyEditGroupFull);
+              } else if (action.type === "create") {
+                runBuddyUpdate("NEW", "Created new buddy group");
+              } else if (action.type === "remove") {
+                runBuddyUpdate("", "Removed from buddy group");
+              }
+            }}
+            title={dialog.title}
+            message={dialog.message}
+            consequences={consequences.length > 0 ? consequences : undefined}
+            confirmText={dialog.confirmText}
+            variant={dialog.variant}
+            loading={buddyEditLoading}
+          />
+        );
+      })()}
 
       <ConfirmDialog
         isOpen={pendingStatusConfirm !== null}

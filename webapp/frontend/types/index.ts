@@ -2281,6 +2281,7 @@ export interface SummerApplicationUpdate {
   lang_stream?: string;
   buddy_code?: string;
   buddy_referrer_name?: string;
+  allow_buddy_overflow?: boolean;
   // Detail-field admin edits (audited)
   student_name?: string;
   grade?: string;
