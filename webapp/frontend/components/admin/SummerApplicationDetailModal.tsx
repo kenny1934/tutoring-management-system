@@ -32,6 +32,8 @@ import type {
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
+import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { UserPlus } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -172,6 +174,7 @@ export function SummerApplicationDetailModal({
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
   const [messagePanel, setMessagePanel] = useState<SummerMessageMode | null>(null);
+  const [createStudentOpen, setCreateStudentOpen] = useState(false);
   // Sync studentId synchronously on app change to avoid a one-frame flash of
   // the previous student's data (e.g. amber home-location warning) when
   // navigating prev/next.
@@ -984,13 +987,22 @@ export function SummerApplicationDetailModal({
                     )}
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowManualId(true)}
-                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Search className="h-3 w-3" />
-                    Can&apos;t find? Enter student ID manually
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => setShowManualId(true)}
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <Search className="h-3 w-3" />
+                      Can&apos;t find? Enter student ID manually
+                    </button>
+                    <button
+                      onClick={() => setCreateStudentOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Create new student
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -1998,6 +2010,32 @@ export function SummerApplicationDetailModal({
         }
         confirmText={rescheduling ? "Marking…" : "Mark for make-up"}
         variant="warning"
+      />
+
+      <AddStudentModal
+        isOpen={createStudentOpen}
+        onClose={() => setCreateStudentOpen(false)}
+        onSuccess={async (student) => {
+          setCreateStudentOpen(false);
+          handleLinkStudent(student.id);
+          try {
+            await summerAPI.updateApplication(app.id, {
+              existing_student_id: student.id,
+            });
+            showToast(`Created ${student.student_name} and linked.`, "success");
+            onUpdated();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Please try again";
+            showToast(`Linked locally but failed to save: ${msg}`, "error");
+          }
+        }}
+        initialData={{
+          student_name: app.student_name,
+          school: app.school ?? undefined,
+          grade: app.grade,
+          lang_stream: app.lang_stream ?? undefined,
+          phone: app.contact_phone ?? undefined,
+        }}
       />
     </Modal>
   );

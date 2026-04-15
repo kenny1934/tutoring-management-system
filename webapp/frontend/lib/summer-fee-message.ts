@@ -84,6 +84,24 @@ function resolveBranch(loc: string | null | undefined): BranchInfo | null {
   return SECONDARY_BRANCHES[code] ?? null;
 }
 
+// When the app is linked to a local student record, use that record's
+// school_student_id + canonical name in parent-facing text — the name
+// on the application is self-reported and may diverge from the one the
+// center uses on invoices/attendance. Returns a block of 0-2 lines.
+function studentIdentityBlock(
+  app: SummerApplication,
+  lang: SummerMessageLang,
+): string {
+  const linked = app.linked_student;
+  const name = linked?.student_name ?? app.student_name;
+  if (linked?.school_student_id) {
+    return lang === "zh"
+      ? `學生編號：${linked.school_student_id}\n學生姓名：${name}`
+      : `Student ID: ${linked.school_student_id}\nStudent Name: ${name}`;
+  }
+  return lang === "zh" ? `學生姓名：${name}` : `Student Name: ${name}`;
+}
+
 function bankBlock(branch: BranchInfo | null, lang: SummerMessageLang): string {
   if (lang === "zh") {
     const base = "銀行：中國銀行\n名稱：弘教數學教育中心";
@@ -232,11 +250,12 @@ export function formatSummerSchedule(
   const schedule = formatScheduleBlock(app, lang);
   const name = branchName(rawLoc, branch, lang);
 
+  const identity = studentIdentityBlock(app, lang);
+
   if (lang === "zh") {
     return `家長您好，以下是 MathConcept中學教室 暑期課程 之【上課安排】：
 
-學生姓名：${app.student_name}
-報名編號：${app.reference_code}
+${identity}
 ${schedule}
 
 MathConcept 中學教室 (${name})`;
@@ -245,8 +264,7 @@ MathConcept 中學教室 (${name})`;
 
 This is the class schedule for the MathConcept Secondary Academy Summer Course:
 
-Student Name: ${app.student_name}
-Reference: ${app.reference_code}
+${identity}
 ${schedule}
 
 MathConcept Secondary Academy (${name})`;
@@ -278,8 +296,7 @@ export function formatSummerFeeMessage(
     }
     return `家長您好，以下是 MathConcept中學教室 暑期課程 之【繳費提示訊息】：
 
-學生姓名：${app.student_name}
-報名編號：${app.reference_code}
+${studentIdentityBlock(app, "zh")}
 ${schedule}
 
 ${feeLine}
@@ -302,8 +319,7 @@ MathConcept 中學教室 (${name})`;
 
 This is a payment reminder for the MathConcept Secondary Academy Summer Course:
 
-Student Name: ${app.student_name}
-Reference: ${app.reference_code}
+${studentIdentityBlock(app, "en")}
 ${schedule}
 
 ${feeLine}

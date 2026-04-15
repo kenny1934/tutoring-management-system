@@ -209,16 +209,16 @@ describe("formatSummerFeeMessage", () => {
     expect(out).toContain("original price $1,500");
   });
 
-  it("includes reference_code, student_name, and localized branch name", () => {
+  it("includes student_name and localized branch name", () => {
     const zh = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "zh");
     expect(zh).toContain("學生姓名：陳小明");
-    expect(zh).toContain("報名編號：SC2026-ABC123");
     expect(zh).toContain("MathConcept 中學教室 (華士古分校)");
+    expect(zh).not.toContain("報名編號");
 
     const en = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "en");
     expect(en).toContain("Student Name: 陳小明");
-    expect(en).toContain("Reference: SC2026-ABC123");
     expect(en).toContain("MathConcept Secondary Academy (Vasco Center)");
+    expect(en).not.toContain("Reference:");
   });
 
   it("uses the MSA bank account number for 華士古分校", () => {
@@ -231,6 +231,41 @@ describe("formatSummerFeeMessage", () => {
     const out = formatSummerFeeMessage(msbApp, makeConfig(), NO_DISCOUNT, "zh");
     expect(out).toContain("185000010473304");
     expect(out).toContain("(二龍喉分校)");
+  });
+
+  it("uses the linked student's school_student_id and name when linked (ZH)", () => {
+    const linked = makeApp([makeSession()], {
+      student_name: "Applicant Typo",
+      linked_student: {
+        id: 99,
+        student_name: "Hayley Wong Hei Man",
+        school_student_id: "1117",
+      },
+    });
+    const out = formatSummerFeeMessage(linked, makeConfig(), NO_DISCOUNT, "zh");
+    expect(out).toContain("學生編號：1117");
+    expect(out).toContain("學生姓名：Hayley Wong Hei Man");
+    expect(out).not.toContain("Applicant Typo");
+  });
+
+  it("uses the linked student's school_student_id and name when linked (EN)", () => {
+    const linked = makeApp([makeSession()], {
+      linked_student: {
+        id: 99,
+        student_name: "Hayley Wong Hei Man",
+        school_student_id: "1117",
+      },
+    });
+    const out = formatSummerFeeMessage(linked, makeConfig(), NO_DISCOUNT, "en");
+    expect(out).toContain("Student ID: 1117");
+    expect(out).toContain("Student Name: Hayley Wong Hei Man");
+  });
+
+  it("omits the student-id line and falls back to app.student_name when unlinked", () => {
+    const unlinked = makeApp([makeSession()], { linked_student: null });
+    const out = formatSummerFeeMessage(unlinked, makeConfig(), NO_DISCOUNT, "zh");
+    expect(out).toContain("學生姓名：陳小明");
+    expect(out).not.toContain("學生編號");
   });
 
   it("branch follows placed session location when it differs from preference", () => {
