@@ -148,6 +148,10 @@ export function parseHKTimestamp(timestamp: string): Date {
 export function formatTimeAgo(timestamp: string): string {
   const now = new Date();
   const date = parseHKTimestamp(timestamp);
+  if (isNaN(date.getTime())) {
+    console.warn("[formatTimeAgo] Invalid timestamp, expected full timestamp not date-only:", timestamp);
+    return "";
+  }
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
@@ -176,6 +180,10 @@ export function formatDaysAgo(dateStr: string): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const date = new Date(dateStr + "T00:00:00");
+  if (isNaN(date.getTime())) {
+    console.warn("[formatDaysAgo] Invalid date string, expected YYYY-MM-DD:", dateStr);
+    return "";
+  }
   const diffDays = Math.round((today.getTime() - date.getTime()) / 86400000);
 
   if (diffDays === 0) return "Today";

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { formatTimeAgo } from "@/lib/formatters";
+import { formatTimeAgo, formatDaysAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
@@ -160,7 +160,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               {isExpired ? (
                 <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  <span>Expired {formatTimeAgo(renewal.effective_end_date)}</span>
+                  <span>Expired {formatDaysAgo(renewal.effective_end_date)}</span>
                 </div>
               ) : (
                 <div className={cn(
