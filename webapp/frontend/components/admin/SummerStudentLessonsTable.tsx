@@ -331,7 +331,7 @@ export function SummerStudentLessonsTable({
                           )}
                         </div>
                         <span className="text-[9px] text-muted-foreground w-7 text-right tabular-nums">
-                          {student.placed_count}/{student.total_lessons}
+                          {student.placed_count}/{student.lessons_paid ?? student.total_lessons}
                         </span>
                       </div>
                     </td>

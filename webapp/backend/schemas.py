@@ -2367,6 +2367,8 @@ class SummerApplicationResponse(BaseModel):
     reviewed_at: Optional[datetime] = None
     form_language: Optional[str] = None
     sessions_per_week: int = 1
+    lessons_paid: int
+    total_lessons: int
     placed_count: int = 0
     sessions: List["SummerApplicationSessionInfo"] = []
     pending_sibling_count: int = 0
@@ -2409,6 +2411,7 @@ class SummerApplicationUpdate(BaseModel):
     preference_4_time: Optional[str] = Field(None, max_length=50)
     unavailability_notes: Optional[str] = Field(None, max_length=2000)
     sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
+    lessons_paid: Optional[int] = Field(None, ge=4, le=8)
 
 
 class SummerApplicationStats(BaseModel):
@@ -2593,6 +2596,7 @@ class SummerStudentLessonsRow(BaseModel):
     linked_student: Optional[LinkedSecondaryStudentInfo] = None
     linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
     sessions_per_week: int
+    lessons_paid: int
     placed_count: int
     rescheduled_count: int = 0
     total_lessons: int
@@ -2669,6 +2673,7 @@ class SummerSuggestionItem(BaseModel):
     preference_4_day: Optional[str] = None
     preference_4_time: Optional[str] = None
     placed_count: int = 0
+    lessons_paid: int = 8
     pending_makeup_count: int = 0
 
 

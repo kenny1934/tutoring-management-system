@@ -175,6 +175,9 @@ export function SummerApplicationDetailModal({
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
   const [messagePanel, setMessagePanel] = useState<SummerMessageMode | null>(null);
   const [createStudentOpen, setCreateStudentOpen] = useState(false);
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [planDraft, setPlanDraft] = useState<number | null>(null);
+  const [planSaving, setPlanSaving] = useState(false);
   // Sync studentId synchronously on app change to avoid a one-frame flash of
   // the previous student's data (e.g. amber home-location warning) when
   // navigating prev/next.
@@ -187,6 +190,8 @@ export function SummerApplicationDetailModal({
     const nextBranch = app.verified_branch_origin || "";
     if (branchOrigin !== nextBranch) setBranchOrigin(nextBranch);
     autoFilledLangRef.current = null;
+    if (planEditorOpen) setPlanEditorOpen(false);
+    if (planDraft !== null) setPlanDraft(null);
   }
   const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
 
@@ -1313,6 +1318,37 @@ export function SummerApplicationDetailModal({
               <Grid3X3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
             </div>
             <div className="min-w-0 flex-1">
+              {(() => {
+                const planTotal = app.total_lessons ?? 8;
+                const planCurrent = app.lessons_paid ?? planTotal;
+                const isPartialPlan = planCurrent < planTotal;
+                const placedCount = app.placed_count ?? app.sessions?.filter(
+                  (s) => s.session_status !== "Cancelled",
+                ).length ?? 0;
+                const planOptions: number[] = [];
+                for (let i = 4; i <= planTotal; i++) planOptions.push(i);
+                const handleSavePlan = async () => {
+                  const value = planDraft ?? planCurrent;
+                  if (value === planCurrent) {
+                    setPlanEditorOpen(false);
+                    return;
+                  }
+                  setPlanSaving(true);
+                  try {
+                    await summerAPI.updateApplication(app.id, { lessons_paid: value });
+                    showToast(`Session plan updated to ${value} lesson${value === 1 ? "" : "s"}.`, "success");
+                    setPlanEditorOpen(false);
+                    setPlanDraft(null);
+                    onUpdated();
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : "Please try again";
+                    showToast(`Could not update session plan: ${msg}`, "error");
+                  } finally {
+                    setPlanSaving(false);
+                  }
+                };
+                return (
+              <>
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
                 {!readOnly && config && (app.sessions?.length ?? 0) > 0 && (() => {
@@ -1344,6 +1380,92 @@ export function SummerApplicationDetailModal({
                     </div>
                   );
                 })()}
+              </div>
+              {/* Session plan row — visible on every placement, gated editor for admins */}
+              <div className="mt-1 text-xs">
+                {!planEditorOpen ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-muted-foreground">Session plan:</span>
+                    <span className={cn(
+                      "tabular-nums font-medium",
+                      isPartialPlan ? "text-amber-600 dark:text-amber-400" : "text-foreground",
+                    )}>
+                      {planCurrent} / {planTotal}
+                    </span>
+                    {isPartialPlan && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5"
+                        title="Flat per-lesson rate, no discounts apply."
+                      >
+                        Partial
+                      </span>
+                    )}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPlanDraft(planCurrent);
+                          setPlanEditorOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        title="Change how many lessons this student is paying for"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit session plan
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-1 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 p-3 space-y-2">
+                    <div className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+                      Session plan defaults to all {planTotal} lessons with bulk pricing and
+                      eligible discounts. Lower this <strong>only</strong> for students on a
+                      negotiated shorter plan — they will pay a flat per-lesson rate with no
+                      discounts applied. Any placed sessions beyond the new count must be
+                      cancelled first.
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="text-[11px] font-medium text-foreground/80">Lessons:</label>
+                      <select
+                        value={planDraft ?? planCurrent}
+                        onChange={(e) => setPlanDraft(parseInt(e.target.value, 10))}
+                        disabled={planSaving}
+                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-foreground disabled:opacity-50"
+                      >
+                        {planOptions.map((n) => (
+                          <option key={n} value={n}>{n}{n === planTotal ? " (full plan)" : ""}</option>
+                        ))}
+                      </select>
+                      {placedCount > 0 && (
+                        <span className="text-[11px] text-muted-foreground">
+                          {placedCount} session{placedCount === 1 ? "" : "s"} placed
+                        </span>
+                      )}
+                      <div className="ml-auto flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlanEditorOpen(false);
+                            setPlanDraft(null);
+                          }}
+                          disabled={planSaving}
+                          className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSavePlan}
+                          disabled={planSaving || (planDraft ?? planCurrent) === planCurrent}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {planSaving && <Loader2 className="h-3 w-3 animate-spin" />}
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               {app.sessions && app.sessions.length > 0 ? (() => {
                 const sorted = sortSessionsByDate(app.sessions);
@@ -1418,6 +1540,9 @@ export function SummerApplicationDetailModal({
               })() : (
                 <div className="text-sm text-muted-foreground">Not yet placed</div>
               )}
+              </>
+                );
+              })()}
             </div>
           </div>
 

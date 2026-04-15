@@ -41,6 +41,8 @@ function makeApp(
     grade: "F1",
     preferred_location: "華士古分校",
     application_status: "Placement Confirmed",
+    lessons_paid: 8,
+    total_lessons: 8,
     sessions,
     ...overrides,
   } as SummerApplication;
@@ -331,5 +333,52 @@ describe("formatSummerFeeMessage — payment terms block", () => {
     const out = formatSummerFeeMessage(app, config, EB_GROUP_DISCOUNT, "zh");
     expect(out).toContain("試用版：請於 2026/07/05 前付款。");
     expect(out).toContain("!! 三人同行早鳥 須於 2026/06/15 前付清 !!");
+  });
+});
+
+describe("formatSummerFeeMessage — partial plan", () => {
+  const partialApp = (lessons: number) =>
+    makeApp(
+      Array.from({ length: lessons }, (_, i) =>
+        makeSession({ id: i + 1, lesson_number: i + 1, lesson_date: `2026-07-${String(6 + i * 7).padStart(2, "0")}` }),
+      ),
+      { lessons_paid: lessons, total_lessons: 8 },
+    );
+
+  const PARTIAL_DISCOUNT: DiscountResult = {
+    best: null,
+    amount: 0,
+    finalFee: 4 * 400,
+    nearMiss: null,
+  };
+
+  it("renders flat-rate fee line with breakdown (ZH)", () => {
+    const out = formatSummerFeeMessage(partialApp(4), makeConfig(), PARTIAL_DISCOUNT, "zh");
+    expect(out).toContain("費用： $400 × 4 = $1,600");
+    expect(out).not.toContain("已折扣");
+    expect(out).not.toContain("原價為");
+  });
+
+  it("renders flat-rate fee line with breakdown (EN)", () => {
+    const out = formatSummerFeeMessage(partialApp(4), makeConfig(), PARTIAL_DISCOUNT, "en");
+    expect(out).toContain("Fee: $400 × 4 = $1,600");
+    expect(out).not.toContain("Discounted");
+    expect(out).not.toContain("original price");
+  });
+
+  it("omits tier-lock warning even when an early-bird discount was passed in", () => {
+    const out = formatSummerFeeMessage(partialApp(4), makeConfig(), EB_GROUP_DISCOUNT, "zh");
+    expect(out).not.toContain("鎖定折扣");
+    expect(out).not.toContain("三人同行早鳥");
+  });
+
+  it("honours pricing_config.partial_per_lesson_rate override", () => {
+    const config = makeConfig({
+      pricing_config: { base_fee: 1500, partial_per_lesson_rate: 350 },
+    });
+    const app4 = partialApp(4);
+    const discount: DiscountResult = { best: null, amount: 0, finalFee: 4 * 350, nearMiss: null };
+    const out = formatSummerFeeMessage(app4, config, discount, "en");
+    expect(out).toContain("Fee: $350 × 4 = $1,400");
   });
 });

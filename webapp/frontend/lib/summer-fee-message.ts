@@ -14,7 +14,11 @@ import {
   dayShort,
   sortSessionsByDate,
 } from "@/lib/summer-utils";
-import type { DiscountResult } from "@/lib/summer-discounts";
+import {
+  DEFAULT_PARTIAL_PER_LESSON_RATE,
+  isPartialApp,
+  type DiscountResult,
+} from "@/lib/summer-discounts";
 
 export type SummerMessageLang = "zh" | "en";
 
@@ -282,17 +286,26 @@ export function formatSummerFeeMessage(
   const branch = resolveBranch(rawLoc);
   const schedule = formatScheduleBlock(app, lang);
   const name = branchName(rawLoc, branch, lang);
+  const partial = isPartialApp(app);
+  const partialRate = pricing?.partial_per_lesson_rate ?? DEFAULT_PARTIAL_PER_LESSON_RATE;
+  // Partial plans never stack with tier-locked discounts, so the tier-lock
+  // warning is irrelevant — pass `null` for the discount to suppress it.
   const paymentTerms = resolvePaymentTermsBlock(
     pricing,
     config.course_start_date,
-    discount,
+    partial ? { best: null, amount: 0, finalFee: discount.finalFee, nearMiss: null } : discount,
     lang,
   );
 
   if (lang === "zh") {
-    let feeLine = `費用： $${discount.finalFee.toLocaleString()}`;
-    if (discount.best) {
-      feeLine += ` (已折扣 $${discount.amount.toLocaleString()} — ${discount.best.name_zh}，原價為 $${baseFee.toLocaleString()})`;
+    let feeLine: string;
+    if (partial) {
+      feeLine = `費用： $${partialRate.toLocaleString()} × ${app.lessons_paid} = $${discount.finalFee.toLocaleString()}`;
+    } else {
+      feeLine = `費用： $${discount.finalFee.toLocaleString()}`;
+      if (discount.best) {
+        feeLine += ` (已折扣 $${discount.amount.toLocaleString()} — ${discount.best.name_zh}，原價為 $${baseFee.toLocaleString()})`;
+      }
     }
     return `家長您好，以下是 MathConcept中學教室 暑期課程 之【繳費提示訊息】：
 
@@ -311,9 +324,14 @@ ${bankBlock(branch, "zh")}
 MathConcept 中學教室 (${name})`;
   }
 
-  let feeLine = `Fee: $${discount.finalFee.toLocaleString()}`;
-  if (discount.best) {
-    feeLine += ` (Discounted $${discount.amount.toLocaleString()} — ${discount.best.name_en}, original price $${baseFee.toLocaleString()})`;
+  let feeLine: string;
+  if (partial) {
+    feeLine = `Fee: $${partialRate.toLocaleString()} × ${app.lessons_paid} = $${discount.finalFee.toLocaleString()}`;
+  } else {
+    feeLine = `Fee: $${discount.finalFee.toLocaleString()}`;
+    if (discount.best) {
+      feeLine += ` (Discounted $${discount.amount.toLocaleString()} — ${discount.best.name_en}, original price $${baseFee.toLocaleString()})`;
+    }
   }
   return `Dear Parent,
 

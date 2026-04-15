@@ -2020,6 +2020,9 @@ export interface SummerPricingConfig {
   // `conditions.before_date`. Supports {tier_name} and {deadline}.
   tier_lock_note_zh?: string;
   tier_lock_note_en?: string;
+  // Per-lesson rate used for partial-plan apps (lessons_paid < total_lessons).
+  // Defaults to 400 on the frontend when absent.
+  partial_per_lesson_rate?: number;
 }
 
 export interface SummerLocation {
@@ -2243,6 +2246,8 @@ export interface SummerApplication {
   reviewed_at?: string | null;
   form_language?: string | null;
   sessions_per_week?: number;
+  lessons_paid: number;
+  total_lessons: number;
   placed_count?: number;
   sessions?: SummerApplicationSessionInfo[];
   pending_sibling_count?: number;
@@ -2307,6 +2312,7 @@ export interface SummerApplicationUpdate {
   preference_4_time?: string;
   unavailability_notes?: string;
   sessions_per_week?: number;
+  lessons_paid?: number;
 }
 
 export interface SummerApplicationStats {
@@ -2469,6 +2475,7 @@ export interface SummerStudentLessonsRow {
   linked_student?: LinkedSecondaryStudentInfo | null;
   linked_prospect?: LinkedPrimaryProspectInfo | null;
   sessions_per_week: number;
+  lessons_paid: number;
   placed_count: number;
   rescheduled_count: number;
   total_lessons: number;
@@ -2531,6 +2538,7 @@ export interface SummerSuggestionItem {
   preference_4_day?: string | null;
   preference_4_time?: string | null;
   placed_count?: number;
+  lessons_paid?: number;
   pending_makeup_count?: number;
 }
 

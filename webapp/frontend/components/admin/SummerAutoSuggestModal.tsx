@@ -910,7 +910,7 @@ export function SummerAutoSuggestModal({
                                 )}
                                 {(p.placed_count ?? 0) > 0 && (
                                   <span className="text-[9px] font-medium text-primary bg-primary/10 px-1 rounded">
-                                    {p.placed_count}/8
+                                    {p.placed_count}/{p.lessons_paid ?? 8}
                                   </span>
                                 )}
                               </div>

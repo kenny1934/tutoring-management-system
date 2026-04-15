@@ -291,7 +291,15 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               {branchCode}
             </span>
           )}
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto shrink-0 flex items-center gap-1.5">
+            {app.total_lessons != null && app.lessons_paid != null && app.lessons_paid < app.total_lessons && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                title={`Student is on a negotiated shorter plan: ${app.lessons_paid} sessions at a flat per-lesson rate. No discounts apply.`}
+              >
+                Partial ({app.lessons_paid})
+              </span>
+            )}
             {onStatusChange ? (
               <InlineStatusSelect
                 value={app.application_status}
@@ -354,7 +362,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             ? `${formatCompactDate(dates[0])} – ${formatCompactDate(dates[dates.length - 1])}`
             : dates.length === 1 ? formatCompactDate(dates[0]) : null;
           const placedCount = sorted.length;
-          const total = totalLessons ?? placedCount;
+          const total = app.lessons_paid ?? totalLessons ?? placedCount;
           return (
             <div className="flex items-center gap-1.5 text-xs">
               <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />

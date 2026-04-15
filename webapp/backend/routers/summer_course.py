@@ -183,6 +183,7 @@ _APPLICANT_EDITABLE_FIELDS: tuple[str, ...] = (
     "preference_4_time",
     "unavailability_notes",
     "sessions_per_week",
+    "lessons_paid",
 )
 
 # Admin can additionally edit identity fields (still audited).
@@ -467,6 +468,7 @@ def submit_application(
         buddy_referrer_name=data.buddy_referrer_name,
         form_language=data.form_language or "zh",
         sessions_per_week=data.sessions_per_week,
+        lessons_paid=config.total_lessons,
         submitted_at=now_ts,
     )
     # Generate unique random reference code with retry on collision
@@ -522,9 +524,16 @@ def check_application_status(
 
 
 def _get_buddy_member_count(db: Session, group_id: int) -> int:
-    """Total members counted toward the discount threshold (apps + non-rejected siblings)."""
-    app_count = db.query(func.count(SummerApplication.id)).filter(
-        SummerApplication.buddy_group_id == group_id
+    """Total members counted toward the discount threshold (apps + non-rejected siblings).
+
+    Partial-plan apps (lessons_paid < config.total_lessons) are excluded — they
+    are ineligible for group discounts and must not inflate siblings' group size.
+    """
+    app_count = db.query(func.count(SummerApplication.id)).join(
+        SummerCourseConfig, SummerCourseConfig.id == SummerApplication.config_id
+    ).filter(
+        SummerApplication.buddy_group_id == group_id,
+        SummerApplication.lessons_paid >= SummerCourseConfig.total_lessons,
     ).scalar() or 0
     sibling_count = db.query(func.count(SummerBuddyMember.id)).filter(
         SummerBuddyMember.buddy_group_id == group_id,
@@ -1194,7 +1203,11 @@ def _get_buddy_group_sizes(
             SummerApplication.buddy_group_id,
             func.count(SummerApplication.id),
         )
-        .filter(SummerApplication.buddy_group_id.in_(group_ids))
+        .join(SummerCourseConfig, SummerCourseConfig.id == SummerApplication.config_id)
+        .filter(
+            SummerApplication.buddy_group_id.in_(group_ids),
+            SummerApplication.lessons_paid >= SummerCourseConfig.total_lessons,
+        )
         .group_by(SummerApplication.buddy_group_id)
         .all()
     )
@@ -1240,6 +1253,7 @@ def _build_application_response(
     data["sessions"] = sessions
     data["placed_count"] = len(sessions)
     data["buddy_code"] = app.buddy_code  # @property, not a column
+    data["total_lessons"] = app.config.total_lessons if app.config else app.lessons_paid
 
     siblings = (siblings_by_group or {}).get(app.buddy_group_id or -1, [])
     data["buddy_siblings"] = siblings
@@ -1418,6 +1432,7 @@ def list_applications(
 ):
     """List summer applications with optional filters."""
     q = db.query(SummerApplication).options(
+        joinedload(SummerApplication.config),
         joinedload(SummerApplication.buddy_group),
         joinedload(SummerApplication.sessions)
             .joinedload(SummerSession.slot)
@@ -1521,6 +1536,7 @@ def get_application(
 ):
     """Get a single application by ID."""
     app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.config),
         joinedload(SummerApplication.buddy_group),
         joinedload(SummerApplication.sessions)
             .joinedload(SummerSession.slot)
@@ -1560,7 +1576,11 @@ def update_application(
     db: Session = Depends(get_db),
 ):
     """Update application status/notes (admin)."""
-    app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
+    # Eager-load sessions so the lessons_paid ≥ placed_count guard below
+    # doesn't trigger a lazy fetch on every PATCH.
+    app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.sessions),
+    ).filter(SummerApplication.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
@@ -1620,6 +1640,23 @@ def update_application(
         app.reviewed_by = admin_label
         app.reviewed_at = hk_now()
 
+    # Guard against lowering lessons_paid below what's already placed — the
+    # admin would leave extra scheduled sessions dangling. They must cancel
+    # the surplus first.
+    if "lessons_paid" in updates and updates["lessons_paid"] is not None:
+        placed_count = sum(
+            1 for s in (app.sessions or []) if s.session_status != "Cancelled"
+        )
+        if updates["lessons_paid"] < placed_count:
+            excess = placed_count - updates["lessons_paid"]
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{placed_count} session(s) are already placed. "
+                    f"Cancel {excess} session(s) before lowering the plan to {updates['lessons_paid']}."
+                ),
+            )
+
     # Detail-field edits go through the audit helper
     detail_changes = {k: updates.pop(k) for k in list(updates.keys()) if k in _ADMIN_EDITABLE_FIELDS}
     if detail_changes:
@@ -1653,6 +1690,7 @@ def update_application(
 
     # Reload with sessions for response
     app = db.query(SummerApplication).options(
+        joinedload(SummerApplication.config),
         joinedload(SummerApplication.buddy_group),
         joinedload(SummerApplication.sessions)
             .joinedload(SummerSession.slot)
@@ -2271,6 +2309,7 @@ def list_unassigned(
     q = (
         db.query(SummerApplication)
         .options(
+            joinedload(SummerApplication.config),
             joinedload(SummerApplication.buddy_group),
             joinedload(SummerApplication.sessions)
                 .joinedload(SummerSession.slot)
@@ -2378,6 +2417,7 @@ def get_student_lessons(
             linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,
             linked_prospect=linked_prospects.get(app.id),
             sessions_per_week=app.sessions_per_week,
+            lessons_paid=app.lessons_paid,
             placed_count=placed_count,
             rescheduled_count=rescheduled_count,
             total_lessons=total,
@@ -3059,6 +3099,7 @@ def auto_suggest(
                 preference_4_day=app.preference_4_day,
                 preference_4_time=app.preference_4_time,
                 placed_count=app_placed_counts.get(app.id, 0),
+                lessons_paid=app.lessons_paid,
                 pending_makeup_count=makeup_count,
             )
 

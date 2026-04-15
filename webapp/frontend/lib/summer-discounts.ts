@@ -25,6 +25,12 @@ import { EXIT_STATUSES, nonRejectedSiblings } from "@/lib/summer-utils";
 
 export type DiscountEntry = NonNullable<SummerPricingConfig["discounts"]>[number];
 
+export const DEFAULT_PARTIAL_PER_LESSON_RATE = 400;
+
+export function isPartialApp(app: SummerApplication): boolean {
+  return app.lessons_paid < app.total_lessons;
+}
+
 export type DiscountResult = {
   // The best discount the applicant currently qualifies for, or null if none.
   best: DiscountEntry | null;
@@ -52,7 +58,7 @@ function groupSiblings(members: SummerApplication[]) {
 /** Nth-smallest join timestamp among non-exit apps + non-rejected siblings, or null if fewer. */
 function nthJoinedAt(members: SummerApplication[], n: number): string | null {
   const appTimes = members
-    .filter((m) => !EXIT_STATUSES.has(m.application_status))
+    .filter((m) => !EXIT_STATUSES.has(m.application_status) && !isPartialApp(m))
     .map((m) => m.buddy_joined_at)
     .filter((t): t is string => !!t);
   const sibTimes = groupSiblings(members)
@@ -63,7 +69,11 @@ function nthJoinedAt(members: SummerApplication[], n: number): string | null {
 }
 
 function activeMemberCount(members: SummerApplication[]): number {
-  const apps = members.filter((m) => !EXIT_STATUSES.has(m.application_status)).length;
+  // Partial-plan apps are ineligible for group discounts and must not inflate
+  // their siblings' group size either.
+  const apps = members.filter(
+    (m) => !EXIT_STATUSES.has(m.application_status) && !isPartialApp(m),
+  ).length;
   return apps + groupSiblings(members).length;
 }
 
@@ -100,6 +110,15 @@ export function computeBestDiscount(
   groupMembers: SummerApplication[],
   config: SummerPricingConfig | null | undefined,
 ): DiscountResult {
+  if (isPartialApp(app)) {
+    const rate = config?.partial_per_lesson_rate ?? DEFAULT_PARTIAL_PER_LESSON_RATE;
+    return {
+      best: null,
+      amount: 0,
+      finalFee: app.lessons_paid * rate,
+      nearMiss: null,
+    };
+  }
   const baseFee = config?.base_fee ?? 0;
   const discounts = config?.discounts ?? [];
 
