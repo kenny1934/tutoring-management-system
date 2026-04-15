@@ -21,7 +21,7 @@
 // for the Nth-joined date check.
 
 import type { SummerApplication, SummerPricingConfig } from "@/types";
-import { EXIT_STATUSES } from "@/lib/summer-utils";
+import { EXIT_STATUSES, nonRejectedSiblings } from "@/lib/summer-utils";
 
 export type DiscountEntry = NonNullable<SummerPricingConfig["discounts"]>[number];
 
@@ -43,12 +43,10 @@ export type DiscountResult = {
   } | null;
 };
 
-// Declared siblings (SummerBuddyMember rows without their own application) count
-// toward the group's discount threshold optimistically — Pending and Confirmed
-// both count, only Rejected is excluded. The backend mirrors the full list onto
-// every member's `buddy_siblings`, so we can read it off `members[0]`.
-function nonRejectedSiblings(members: SummerApplication[]) {
-  return (members[0]?.buddy_siblings ?? []).filter((s) => s.verification_status !== "Rejected");
+// Backend denormalises the group's full sibling list onto every member's
+// `buddy_siblings`, so reading off `members[0]` gives the whole group.
+function groupSiblings(members: SummerApplication[]) {
+  return nonRejectedSiblings(members[0]?.buddy_siblings);
 }
 
 /** Nth-smallest join timestamp among non-exit apps + non-rejected siblings, or null if fewer. */
@@ -57,7 +55,7 @@ function nthJoinedAt(members: SummerApplication[], n: number): string | null {
     .filter((m) => !EXIT_STATUSES.has(m.application_status))
     .map((m) => m.buddy_joined_at)
     .filter((t): t is string => !!t);
-  const sibTimes = nonRejectedSiblings(members)
+  const sibTimes = groupSiblings(members)
     .map((s) => s.created_at)
     .filter((t): t is string => !!t);
   const times = [...appTimes, ...sibTimes].sort();
@@ -66,7 +64,7 @@ function nthJoinedAt(members: SummerApplication[], n: number): string | null {
 
 function activeMemberCount(members: SummerApplication[]): number {
   const apps = members.filter((m) => !EXIT_STATUSES.has(m.application_status)).length;
-  return apps + nonRejectedSiblings(members).length;
+  return apps + groupSiblings(members).length;
 }
 
 function qualifies(

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Users, Copy, Check } from "lucide-react";
 import { StatusBadge } from "./SummerApplicationCard";
 import { PrimaryBranchChip } from "./PrimaryBranchChip";
-import { displayLocation } from "@/lib/summer-utils";
+import { displayLocation, nonRejectedSiblings } from "@/lib/summer-utils";
 import type {
   SummerApplication,
   SummerCourseConfig,
@@ -88,8 +88,7 @@ function buildGroups(apps: SummerApplication[]): {
   for (const g of groupMap.values()) {
     const seenIds = new Set<number>();
     for (const m of g.members) {
-      for (const s of m.buddy_siblings ?? []) {
-        if (s.verification_status === "Rejected") continue;
+      for (const s of nonRejectedSiblings(m.buddy_siblings)) {
         if (seenIds.has(s.id)) continue;
         seenIds.add(s.id);
         g.declaredSiblings.push(s);

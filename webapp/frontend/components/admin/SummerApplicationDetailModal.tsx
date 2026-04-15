@@ -12,7 +12,7 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, nonRejectedSiblings } from "@/lib/summer-utils";
 import type { DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -583,7 +583,7 @@ export function SummerApplicationDetailModal({
     ...s,
     verification_status: siblingOverrides[s.id] ?? s.verification_status,
   }));
-  const visibleSiblings = effectiveSiblings.filter((s) => s.verification_status !== "Rejected");
+  const visibleSiblings = nonRejectedSiblings(effectiveSiblings);
   const pendingSiblingCount = visibleSiblings.filter((s) => s.verification_status === "Pending").length;
   const hasBuddyContent =
     !!app.buddy_group_id || !!app.buddy_names || visibleSiblings.length > 0;

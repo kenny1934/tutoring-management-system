@@ -4,7 +4,7 @@
 
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { SummerPricingConfig } from "@/types";
+import type { SummerPricingConfig, SummerSiblingInfo } from "@/types";
 
 export type Lang = "zh" | "en";
 
@@ -222,6 +222,13 @@ export const DAY_ABBREV: Record<string, string> = {
 
 /** Application statuses that count as "exited" (excluded from active counts). */
 export const EXIT_STATUSES = new Set(["Withdrawn", "Rejected"]);
+
+/** Keep only Pending + Confirmed siblings — Rejected ones are excluded from counts and displays. */
+export function nonRejectedSiblings(
+  siblings: SummerSiblingInfo[] | null | undefined,
+): SummerSiblingInfo[] {
+  return (siblings ?? []).filter((s) => s.verification_status !== "Rejected");
+}
 
 /** Whether an application has any session placements. */
 export function isPlaced(app: { placed_count?: number | null; sessions?: unknown[] | null }): boolean {
