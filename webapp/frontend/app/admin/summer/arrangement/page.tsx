@@ -6,7 +6,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3 } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -17,6 +17,7 @@ import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
@@ -38,6 +39,7 @@ export default function SummerArrangementPage() {
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [workloadOpen, setWorkloadOpen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
@@ -445,6 +447,22 @@ export default function SummerArrangementPage() {
               <Users2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Tutor Duties</span>
             </button>
+            {activeTab === "slots" && (
+              <button
+                onClick={() => setWorkloadOpen((v) => !v)}
+                title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
+                aria-pressed={workloadOpen}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
+                  workloadOpen
+                    ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                    : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                )}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Workload</span>
+              </button>
+            )}
             <button
               onClick={() => setAutoSuggestOpen(true)}
               disabled={!unassigned?.length || !slots?.length}
@@ -455,6 +473,11 @@ export default function SummerArrangementPage() {
               <span className="hidden sm:inline">Auto-Suggest</span>
             </button>
           </div>
+
+          <SummerTutorWorkloadPanel
+            slots={slots ?? []}
+            open={workloadOpen && activeTab === "slots"}
+          />
         </div>
 
         {/* View tabs */}
