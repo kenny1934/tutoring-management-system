@@ -19,7 +19,7 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
-  Clock, Grid3X3, Pencil, History, DollarSign,
+  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -232,6 +232,10 @@ export function SummerApplicationDetailModal({
   // unsaved changes. `null` means no discard prompt is showing.
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pendingReschedule, setPendingReschedule] = useState<
+    { id: number; lessonNumber: number; dateLabel: string } | null
+  >(null);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const { data: formConfig } = useSWR(
     editingDetails ? "summer-form-config" : null,
@@ -1321,11 +1325,29 @@ export function SummerApplicationDetailModal({
                               {p.tutor_name}
                             </span>
                           )}
-                          {capacityStr && (
-                            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-auto">
-                              {capacityStr}
-                            </span>
-                          )}
+                          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                            {capacityStr && (
+                              <span className="text-[10px] text-muted-foreground tabular-nums">
+                                {capacityStr}
+                              </span>
+                            )}
+                            {!readOnly
+                              && p.session_status !== RESCHEDULED_STATUS
+                              && p.session_status !== "Cancelled" && (
+                              <button
+                                type="button"
+                                onClick={() => setPendingReschedule({
+                                  id: p.id,
+                                  lessonNumber: p.lesson_number ?? 0,
+                                  dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
+                                })}
+                                title="Mark this lesson for make-up"
+                                className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1897,6 +1919,35 @@ export function SummerApplicationDetailModal({
         }
         confirmText="Reject"
         variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={pendingReschedule !== null}
+        onCancel={() => { if (!rescheduling) setPendingReschedule(null); }}
+        onConfirm={async () => {
+          if (!pendingReschedule) return;
+          setRescheduling(true);
+          try {
+            await summerAPI.updateSessionStatus(pendingReschedule.id, {
+              session_status: RESCHEDULED_STATUS,
+            });
+            showToast("Lesson marked for make-up", "success");
+            setPendingReschedule(null);
+            onUpdated();
+          } catch (e) {
+            showToast(e instanceof Error ? e.message : "Failed to reschedule", "error");
+          } finally {
+            setRescheduling(false);
+          }
+        }}
+        title="Mark lesson for make-up?"
+        message={
+          pendingReschedule
+            ? `L${pendingReschedule.lessonNumber} (${pendingReschedule.dateLabel}) will be released from this slot. The student will need a make-up session.`
+            : ""
+        }
+        confirmText={rescheduling ? "Marking…" : "Mark for make-up"}
+        variant="warning"
       />
     </Modal>
   );

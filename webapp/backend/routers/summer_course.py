@@ -2980,6 +2980,26 @@ def auto_suggest(
         )
         assignments, match_type, confidence = result
 
+        # Mirror the 1x shape (alt_options[0] == primary) so the emit block below
+        # handles A/B/C uniformly. Each probe clones cap_snapshot so alternatives
+        # don't consume shared capacity.
+        if app.sessions_per_week >= 2 and assignments is not None:
+            alt_options = [(assignments, match_type, confidence)]
+            excluded = {a["slot_id"] for a in assignments}
+            for _ in range(2):
+                filtered = [(l, s) for (l, s) in grade_lessons if s.id not in excluded]
+                if not filtered:
+                    break
+                cap_clone = dict(cap_snapshot)
+                alt_assign, alt_match, alt_conf = _find_best_lesson_set(
+                    app, filtered, cap_clone, lesson_buddy_groups,
+                    all_lessons=all_grade_lessons,
+                )
+                if alt_assign is None or alt_conf < 0.3:
+                    break
+                alt_options.append((alt_assign, alt_match, alt_conf))
+                excluded |= {a["slot_id"] for a in alt_assign}
+
         if assignments is None:
             # Roll back any capacity changes from partial greedy
             lesson_capacity.update(cap_snapshot)

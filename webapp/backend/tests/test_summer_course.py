@@ -588,3 +588,111 @@ class TestAutoSuggest:
         proposal = next((p for p in result.proposals if p.student_name == "Unavailable Kid"), None)
         assert proposal is not None
         assert proposal.unavailability_notes == "7月14至21日不能上課"
+
+    def _make_slot(self, db_session, config, day: str, course_type: str, grade: str = "F1", max_students: int = 6):
+        slot = SummerCourseSlot(
+            config_id=config.id,
+            slot_day=day,
+            time_slot="10:00 - 11:30",
+            location="MSA",
+            grade=grade,
+            course_type=course_type,
+            max_students=max_students,
+        )
+        db_session.add(slot)
+        db_session.commit()
+        return slot
+
+    def test_2x_returns_up_to_3_options_across_slot_pairs(
+        self, db_session, summer_config, application_2x, admin_tutor
+    ):
+        """2x student with 3+ viable slot pairs should surface A/B/C with distinct slot sets."""
+        # Three pairs: (Tue+Fri), (Mon+Thu), (Wed+Sat) — all A/B
+        pairs = [
+            ("Tuesday", "Friday"),
+            ("Monday", "Thursday"),
+            ("Wednesday", "Saturday"),
+        ]
+        slots = []
+        for a_day, b_day in pairs:
+            slots.append(self._make_slot(db_session, summer_config, a_day, "A"))
+            slots.append(self._make_slot(db_session, summer_config, b_day, "B"))
+        self._generate_all_lessons(db_session, *slots)
+
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(
+            config_id=summer_config.id, location="MSA",
+            application_id=application_2x.id,
+        )
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        app_proposals = [p for p in result.proposals if p.application_id == application_2x.id]
+        assert len(app_proposals) == 3, f"expected 3 options, got {len(app_proposals)}"
+        assert [p.option_label for p in app_proposals] == ["Option A", "Option B", "Option C"]
+
+        # Each option must use a distinct set of slots
+        slot_sets = [frozenset(a.slot_id for a in p.lesson_assignments) for p in app_proposals]
+        assert len(set(slot_sets)) == 3, f"options should use distinct slot sets, got {slot_sets}"
+
+        # Confidence non-increasing A → B → C
+        confs = [p.confidence for p in app_proposals]
+        assert confs[0] >= confs[1] >= confs[2]
+
+    def test_2x_single_option_when_only_one_pair_fits(
+        self, db_session, summer_config, slot_type_a, slot_type_b, application_2x, admin_tutor
+    ):
+        """2x student with only one viable slot pair should receive a single proposal."""
+        self._generate_all_lessons(db_session, slot_type_a, slot_type_b)
+
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(
+            config_id=summer_config.id, location="MSA",
+            application_id=application_2x.id,
+        )
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        app_proposals = [p for p in result.proposals if p.application_id == application_2x.id]
+        assert len(app_proposals) == 1
+
+    def test_2x_alternatives_do_not_leak_capacity(
+        self, db_session, summer_config, application_2x, admin_tutor
+    ):
+        """Probing alternatives for one student must not consume capacity seen by the next student."""
+        # Two pairs, primary pair capped so only one student fits; alt pair has room.
+        primary_a = self._make_slot(db_session, summer_config, "Tuesday", "A", max_students=1)
+        primary_b = self._make_slot(db_session, summer_config, "Friday", "B", max_students=1)
+        alt_a = self._make_slot(db_session, summer_config, "Monday", "A", max_students=6)
+        alt_b = self._make_slot(db_session, summer_config, "Thursday", "B", max_students=6)
+        self._generate_all_lessons(db_session, primary_a, primary_b, alt_a, alt_b)
+
+        # Second 2x student competes for the same capacity
+        second = SummerApplication(
+            config_id=summer_config.id,
+            reference_code="SC2025-LEAK",
+            student_name="Second Student",
+            grade="F1",
+            contact_phone="22222222",
+            preferred_location="MSA",
+            application_status="Submitted",
+            sessions_per_week=2,
+        )
+        db_session.add(second)
+        db_session.commit()
+
+        from routers.summer_course import auto_suggest
+        from schemas import SummerSuggestRequest
+
+        data = SummerSuggestRequest(config_id=summer_config.id, location="MSA")
+        result = auto_suggest(data=data, _admin=None, db=db_session)
+
+        # Both students should get at least one proposal — the primary pair's
+        # capacity was only enough for one, but the alt pair covers the other.
+        # If the first student's alt probe leaked (permanently consumed alt capacity),
+        # the second student would have nowhere to go.
+        app_ids = {p.application_id for p in result.proposals}
+        assert application_2x.id in app_ids
+        assert second.id in app_ids

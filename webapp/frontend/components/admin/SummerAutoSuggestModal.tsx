@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, DAY_ABBREV, formatCompactDate } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, DAY_ABBREV, formatCompactDate, RESCHEDULED_STATUS } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { toDateString, getMonthCalendarDates } from "@/lib/calendar-utils";
 import type { SummerSuggestionItem, SummerSuggestResponse } from "@/types";
@@ -93,8 +93,32 @@ function getQualityLabel(score: number): { text: string; className: string } {
   return { text: "Poor fit", className: "text-red-600 dark:text-red-400" };
 }
 
-function formatReason(reason: string, score: number): string {
-  return reason
+function makeupInfoFor(
+  p: SummerSuggestionItem,
+  overrides: Record<string, boolean>,
+): { perLesson: Record<number, boolean>; makeupNumbers: number[] } {
+  const perLesson: Record<number, boolean> = {};
+  const makeupNumbers: number[] = [];
+  for (const a of p.lesson_assignments) {
+    const key = `${p.application_id}:${p.option_label || "_"}:${a.lesson_number}`;
+    if (key in overrides) perLesson[a.lesson_number] = overrides[key];
+    const effective = overrides[key] ?? !!a.is_pending_makeup;
+    if (effective) makeupNumbers.push(a.lesson_number);
+  }
+  return { perLesson, makeupNumbers };
+}
+
+function formatReason(reason: string, score: number, effectiveMakeupNumbers?: number[]): string {
+  // When overrides are supplied, rewrite the backend's baked-in "Lx,Ly pending
+  // make-up" segment so the hint stays in sync with admin toggles.
+  let base = reason;
+  if (effectiveMakeupNumbers !== undefined) {
+    const stripped = base.replace(/(, )?L[\d,L]+ pending make-up/, "");
+    base = effectiveMakeupNumbers.length > 0
+      ? `${stripped}, L${[...effectiveMakeupNumbers].sort((a, b) => a - b).join(",L")} pending make-up`
+      : stripped;
+  }
+  return base
     .replace("first pref match", "Matches 1st preference")
     .replace("second pref match", "Matches 2nd preference")
     .replace("any open match", "Placed in available slot")
@@ -133,7 +157,15 @@ const SLOT_LEGEND_DOT_COLORS = [
 // Pairs where curriculum order matters: L1<L2, L3<L4, L5<L6, L7<L8
 const LESSON_PAIRS: [number, number][] = [[1, 2], [3, 4], [5, 6], [7, 8]];
 
-function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_assignments"] }) {
+function LessonRow({
+  assignments,
+  makeupOverrides,
+  onToggleMakeup,
+}: {
+  assignments: SummerSuggestionItem["lesson_assignments"];
+  makeupOverrides?: Record<number, boolean>;
+  onToggleMakeup?: (lessonNumber: number) => void;
+}) {
   // Build slot-id → color index map
   const slotIds = [...new Set(assignments.map((a) => a.slot_id))];
   const slotColorMap = new Map(slotIds.map((id, i) => [id, i % SLOT_BORDER_COLORS.length]));
@@ -149,6 +181,9 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
       outOfOrder.add(second);
     }
   }
+
+  const resolveMakeup = (a: SummerSuggestionItem["lesson_assignments"][number]) =>
+    makeupOverrides?.[a.lesson_number] ?? !!a.is_pending_makeup;
 
   // Build legend data for multi-slot
   const slotLegend = slotIds.length > 1
@@ -169,24 +204,36 @@ function LessonRow({ assignments }: { assignments: SummerSuggestionItem["lesson_
           const dayAbbr = DAY_ABBREV[a.slot_day] || a.slot_day?.slice(0, 3);
           const slotColor = SLOT_BORDER_COLORS[slotColorMap.get(a.slot_id) ?? 0];
           const isSwapped = outOfOrder.has(a.lesson_number);
-          const isMakeup = !!a.is_pending_makeup;
+          const isMakeup = resolveMakeup(a);
           const count = a.student_count ?? 0;
           const max = a.max_students ?? 8;
           const fillPct = max > 0 ? Math.min(count / max, 1) : 0;
           const capColor = fillPct >= 0.85 ? "bg-red-400 dark:bg-red-500" : fillPct >= 0.5 ? "bg-amber-400 dark:bg-amber-500" : "bg-emerald-400 dark:bg-emerald-500";
+          const clickable = !!onToggleMakeup;
           return (
             <div
               key={a.lesson_id}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? (e) => { e.preventDefault(); e.stopPropagation(); onToggleMakeup!(a.lesson_number); } : undefined}
+              onKeyDown={clickable ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleMakeup!(a.lesson_number);
+                }
+              } : undefined}
               className={cn(
                 "flex-1 min-w-0 text-center px-0.5 py-1 rounded relative overflow-hidden",
+                clickable && "cursor-pointer hover:ring-1 hover:ring-blue-300/60 dark:hover:ring-blue-700/60",
                 isMakeup
                   ? "bg-blue-50/60 dark:bg-blue-900/15 border border-dashed border-blue-300 dark:border-blue-700"
                   : cn("bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-b border-[#e8d4b8]/50 border-l-2", slotColor),
                 isSwapped && !isMakeup && "ring-1 ring-amber-400/60 dark:ring-amber-500/60"
               )}
               title={isMakeup
-                ? `L${a.lesson_number} — pending make-up (${dayAbbr} ${formatCompactDate(a.lesson_date)})`
-                : `${count} of ${max} students${isSwapped ? " · Out of pair order" : ""}`
+                ? `L${a.lesson_number} — pending make-up (${dayAbbr} ${formatCompactDate(a.lesson_date)})${clickable ? " · click to un-mark" : ""}`
+                : `${count} of ${max} students${isSwapped ? " · Out of pair order" : ""}${clickable ? " · click to mark as pending make-up" : ""}`
               }
             >
               <div className={cn(
@@ -487,6 +534,29 @@ export function SummerAutoSuggestModal({
   const [adjustingAppId, setAdjustingAppId] = useState<number | null>(null);
   const [dateConstraints, setDateConstraints] = useState<Record<number, DateConstraints>>({});
   const [adjustErrors, setAdjustErrors] = useState<Record<number, string>>({});
+  // Per-lesson pending-make-up overrides keyed by app:option:lesson. Empty when the
+  // admin hasn't diverged from the algorithm's decision for that lesson.
+  const [makeupOverrides, setMakeupOverrides] = useState<Record<string, boolean>>({});
+
+  const makeupKey = (appId: number, optionLabel: string | null | undefined, lessonNumber: number) =>
+    `${appId}:${optionLabel || "_"}:${lessonNumber}`;
+
+  const toggleMakeupFor = useCallback(
+    (appId: number, optionLabel: string | null | undefined, lessonNumber: number, algorithmFlag: boolean) => {
+      setMakeupOverrides((prev) => {
+        const key = makeupKey(appId, optionLabel, lessonNumber);
+        const nextEffective = !(prev[key] ?? algorithmFlag);
+        const next = { ...prev };
+        if (nextEffective === algorithmFlag) {
+          delete next[key];
+        } else {
+          next[key] = nextEffective;
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   // Stable refs for callbacks used in effects
   const showToastRef = useRef(showToast);
@@ -533,6 +603,7 @@ export function SummerAutoSuggestModal({
     setAccepting(false);
     setAdjustingAppId(null);
     setAdjustErrors({});
+    setMakeupOverrides({});
 
     summerAPI
       .autoSuggest({ config_id: configId, location, application_id: applicationId ?? undefined })
@@ -653,14 +724,17 @@ export function SummerAutoSuggestModal({
     if (toPlace.length === 0) return;
 
     setAccepting(true);
-    // Build bulk items from all selected proposals
     const bulkItems = toPlace.flatMap((p) =>
-      p.lesson_assignments.map((a) => ({
-        application_id: p.application_id,
-        slot_id: a.slot_id,
-        lesson_id: a.lesson_id,
-        ...(a.is_pending_makeup ? { session_status: "Rescheduled - Pending Make-up" } : {}),
-      }))
+      p.lesson_assignments.map((a) => {
+        const key = makeupKey(p.application_id, p.option_label, a.lesson_number);
+        const isMakeup = makeupOverrides[key] ?? !!a.is_pending_makeup;
+        return {
+          application_id: p.application_id,
+          slot_id: a.slot_id,
+          lesson_id: a.lesson_id,
+          ...(isMakeup ? { session_status: RESCHEDULED_STATUS } : {}),
+        };
+      })
     );
 
     try {
@@ -899,10 +973,24 @@ export function SummerAutoSuggestModal({
                                               {getQualityLabel(opt.sequence_score).text}
                                             </span>
                                           </div>
-                                          <LessonRow assignments={opt.lesson_assignments} />
-                                          <div className="text-[10px] text-muted-foreground mt-0.5">
-                                            {formatReason(opt.reason, opt.sequence_score)}
-                                          </div>
+                                          {(() => {
+                                            const info = makeupInfoFor(opt, makeupOverrides);
+                                            return (
+                                              <>
+                                                <LessonRow
+                                                  assignments={opt.lesson_assignments}
+                                                  makeupOverrides={info.perLesson}
+                                                  onToggleMakeup={(ln) => {
+                                                    const algoFlag = !!opt.lesson_assignments.find(la => la.lesson_number === ln)?.is_pending_makeup;
+                                                    toggleMakeupFor(opt.application_id, opt.option_label, ln, algoFlag);
+                                                  }}
+                                                />
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                  {formatReason(opt.reason, opt.sequence_score, info.makeupNumbers)}
+                                                </div>
+                                              </>
+                                            );
+                                          })()}
                                         </div>
                                       </label>
                                     );
@@ -919,10 +1007,24 @@ export function SummerAutoSuggestModal({
                                       {getQualityLabel(p.sequence_score).text}
                                     </span>
                                   </div>
-                                  <LessonRow assignments={p.lesson_assignments} />
-                                  <div className="text-[10px] text-muted-foreground mt-1">
-                                    {formatReason(p.reason, p.sequence_score)}
-                                  </div>
+                                  {(() => {
+                                    const info = makeupInfoFor(p, makeupOverrides);
+                                    return (
+                                      <>
+                                        <LessonRow
+                                          assignments={p.lesson_assignments}
+                                          makeupOverrides={info.perLesson}
+                                          onToggleMakeup={(ln) => {
+                                            const algoFlag = !!p.lesson_assignments.find(la => la.lesson_number === ln)?.is_pending_makeup;
+                                            toggleMakeupFor(p.application_id, p.option_label, ln, algoFlag);
+                                          }}
+                                        />
+                                        <div className="text-[10px] text-muted-foreground mt-1">
+                                          {formatReason(p.reason, p.sequence_score, info.makeupNumbers)}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </>
                               )}
 
@@ -940,23 +1042,23 @@ export function SummerAutoSuggestModal({
                                 </div>
                               )}
 
-                              {/* Pending make-up warning */}
                               {(() => {
                                 const activeOpt = group.hasOptions
                                   ? group.options.find((o) => o.option_label === selectedOption[group.appId]) ?? p
                                   : p;
-                                const makeupLessons = activeOpt.lesson_assignments.filter((a) => a.is_pending_makeup);
-                                if (makeupLessons.length === 0) return null;
+                                const { makeupNumbers } = makeupInfoFor(activeOpt, makeupOverrides);
+                                if (makeupNumbers.length === 0) return null;
+                                const sorted = [...makeupNumbers].sort((a, b) => a - b);
                                 return (
                                   <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/10 rounded px-2 py-1.5">
                                     <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                     <div>
                                       <span className="font-semibold">
-                                        {makeupLessons.length} lesson{makeupLessons.length > 1 ? "s" : ""} pending make-up
+                                        {sorted.length} lesson{sorted.length > 1 ? "s" : ""} pending make-up
                                       </span>
-                                      <span className="text-blue-500"> — L{makeupLessons.map((a) => a.lesson_number).join(", L")}</span>
+                                      <span className="text-blue-500"> — L{sorted.join(", L")}</span>
                                       <div className="text-[10px] text-blue-500/80 mt-0.5">
-                                        Will be created as &quot;Rescheduled - Pending Make-up&quot; on original date
+                                        Will be created as &quot;{RESCHEDULED_STATUS}&quot; on original date
                                       </div>
                                     </div>
                                   </div>
