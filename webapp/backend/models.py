@@ -1279,7 +1279,7 @@ class SummerApplication(Base):
     reviewed_at = Column(DateTime)
     form_language = Column(String(10), default='zh')
     sessions_per_week = Column(Integer, nullable=False, default=1)
-    lessons_paid = Column(Integer, nullable=False)
+    lessons_paid = Column(Integer, nullable=False, default=8)
 
     config = relationship("SummerCourseConfig", back_populates="applications")
     buddy_group = relationship("SummerBuddyGroup", back_populates="applications")
