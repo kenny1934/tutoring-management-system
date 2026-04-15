@@ -25,11 +25,13 @@ import type {
   SummerApplication,
   SummerApplicationUpdate,
   SummerApplicationEditEntry,
+  SummerCourseConfig,
   SummerLocation,
   SiblingVerificationStatus,
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -132,6 +134,7 @@ interface SummerApplicationDetailModalProps {
   onSelectApplication?: (app: SummerApplication) => void;
   discount?: DiscountResult | null;
   baseFee?: number;
+  config?: SummerCourseConfig | null;
 }
 
 export function SummerApplicationDetailModal({
@@ -151,6 +154,7 @@ export function SummerApplicationDetailModal({
   onSelectApplication,
   discount,
   baseFee,
+  config,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -167,6 +171,7 @@ export function SummerApplicationDetailModal({
   const prevAppIdRef = useRef<number | null>(null);
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
+  const [messagePanel, setMessagePanel] = useState<SummerMessageMode | null>(null);
   // Sync studentId synchronously on app change to avoid a one-frame flash of
   // the previous student's data (e.g. amber home-location warning) when
   // navigating prev/next.
@@ -336,6 +341,7 @@ export function SummerApplicationDetailModal({
       setBuddyPendingAction(null);
       setSiblingOverrides({});
       setSiblingPendingReject(null);
+      setMessagePanel(null);
       setBuddySectionCollapsed(false);
       setEditingDetails(false);
       setPendingStatusConfirm(null);
@@ -1003,6 +1009,19 @@ export function SummerApplicationDetailModal({
               placeholder="Internal notes..."
             />
           </div>
+
+          {messagePanel && config && (messagePanel === "schedule" || discount) && (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <SummerMessagePanel
+                app={app}
+                config={config}
+                discount={discount ?? undefined}
+                mode={messagePanel}
+                onClose={() => setMessagePanel(null)}
+                onMarkSent={onUpdated}
+              />
+            </div>
+          )}
         </div>
         )}
 
@@ -1282,7 +1301,38 @@ export function SummerApplicationDetailModal({
               <Grid3X3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Placement</div>
+                {!readOnly && config && (app.sessions?.length ?? 0) > 0 && (() => {
+                  const renderToggle = (
+                    key: SummerMessageMode,
+                    Icon: typeof Copy,
+                    label: string,
+                    title: string,
+                  ) => (
+                    <button
+                      type="button"
+                      onClick={() => setMessagePanel((m) => (m === key ? null : key))}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px]",
+                        messagePanel === key
+                          ? "font-medium text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                      title={title}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </button>
+                  );
+                  return (
+                    <div className="flex items-center gap-2">
+                      {renderToggle("schedule", Copy, "Schedule", "Copy class schedule for parent")}
+                      {discount && renderToggle("fee", DollarSign, "Fee message", "Copy fee message for parent")}
+                    </div>
+                  );
+                })()}
+              </div>
               {app.sessions && app.sessions.length > 0 ? (() => {
                 const sorted = sortSessionsByDate(app.sessions);
                 return (

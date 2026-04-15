@@ -2012,6 +2012,14 @@ export interface SummerPricingConfig {
       [key: string]: unknown;
     };
   }>;
+  // Base payment-terms line inserted before the bank block in fee messages.
+  // Supports {course_start} placeholder (formatted YYYY/MM/DD).
+  payment_terms_zh?: string;
+  payment_terms_en?: string;
+  // Tier-specific warning appended when the applied discount has a
+  // `conditions.before_date`. Supports {tier_name} and {deadline}.
+  tier_lock_note_zh?: string;
+  tier_lock_note_en?: string;
 }
 
 export interface SummerLocation {
@@ -2264,6 +2272,7 @@ export interface SummerApplicationSessionInfo {
   slot_id: number;
   slot_day: string;
   time_slot: string;
+  location?: string | null;
   grade?: string | null;
   tutor_name?: string | null;
   session_status: string;

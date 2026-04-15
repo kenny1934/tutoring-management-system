@@ -1634,6 +1634,7 @@ export default function SummerApplicationsPage() {
             onSelectApplication={openDetail}
             discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
             baseFee={activeConfig?.pricing_config?.base_fee}
+            config={activeConfig ?? null}
           />
 
           {previewProspectId && previewProspect && (

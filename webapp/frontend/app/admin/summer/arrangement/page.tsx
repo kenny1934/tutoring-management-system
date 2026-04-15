@@ -678,6 +678,7 @@ export default function SummerArrangementPage() {
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}
           locations={locations}
+          config={activeConfig ?? null}
         />
 
         {/* Placement mode selector */}

@@ -1227,6 +1227,7 @@ def _build_application_response(
             slot_id=s.slot_id,
             slot_day=slot.slot_day if slot else "",
             time_slot=slot.time_slot if slot else "",
+            location=slot.location if slot else None,
             grade=slot.grade if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
             session_status=s.session_status,
