@@ -98,20 +98,37 @@ const EB_GROUP_DISCOUNT: DiscountResult = {
   nearMiss: null,
 };
 
-describe("formatSummerSchedule — 1x/week ZH", () => {
+describe("formatSummerSchedule — 1x/week", () => {
   const app = makeApp([
     makeSession({ id: 1, lesson_number: 1, lesson_date: "2026-07-06" }),
     makeSession({ id: 2, lesson_number: 2, lesson_date: "2026-07-13" }),
     makeSession({ id: 3, lesson_number: 3, lesson_date: "2026-07-20" }),
   ]);
 
-  it("renders one schedule block with all dates under it", () => {
+  it("renders a single 上課時間 line followed by a 上課日期 block (ZH)", () => {
     const out = formatSummerSchedule(app, "zh");
-    expect(out).toContain("逢星期一 10:00 - 11:30 (共 3 堂)");
-    expect(out).toContain("2026/07/06");
-    expect(out).toContain("2026/07/13");
-    expect(out).toContain("2026/07/20");
+    expect(out).toContain("上課時間：逢星期一 10:00 - 11:30 (90分鐘)");
+    expect(out).toContain("上課日期：");
+    expect(out).toContain("                  2026/07/06");
+    expect(out).toContain("                  2026/07/13");
+    expect(out).toContain("                  2026/07/20");
+    expect(out).toContain("                  (共 3 堂)");
     expect(out).not.toContain("待補堂");
+  });
+
+  it("renders the EN counterpart with Schedule/Lesson Dates headers", () => {
+    const out = formatSummerSchedule(app, "en");
+    expect(out).toContain("Schedule: Every Monday 10:00 - 11:30 (90 minutes)");
+    expect(out).toContain("Lesson Dates:");
+    expect(out).toContain("                  2026/07/06");
+    expect(out).toContain("                  (3 lessons total)");
+  });
+
+  it("omits day-of-week suffix on dates in 1x mode", () => {
+    const zh = formatSummerSchedule(app, "zh");
+    expect(zh).not.toMatch(/2026\/07\/06 \([一二三四五六日]\)/);
+    const en = formatSummerSchedule(app, "en");
+    expect(en).not.toMatch(/2026\/07\/06 \(Mon\)/);
   });
 
   it("uses the correct bilingual branch footer", () => {
@@ -120,7 +137,7 @@ describe("formatSummerSchedule — 1x/week ZH", () => {
   });
 });
 
-describe("formatSummerSchedule — 2x/week EN with rescheduled row", () => {
+describe("formatSummerSchedule — 2x/week with rescheduled row", () => {
   const app = makeApp([
     makeSession({ id: 1, slot_id: 100, slot_day: "Monday", time_slot: "10:00 - 11:30", lesson_date: "2026-07-06" }),
     makeSession({ id: 2, slot_id: 100, slot_day: "Monday", time_slot: "10:00 - 11:30", lesson_date: "2026-07-13", session_status: "Rescheduled - Pending Make-up" }),
@@ -128,31 +145,38 @@ describe("formatSummerSchedule — 2x/week EN with rescheduled row", () => {
     makeSession({ id: 4, slot_id: 200, slot_day: "Thursday", time_slot: "14:30 - 16:00", lesson_date: "2026-07-16" }),
   ]);
 
-  it("renders two distinct schedule blocks ordered by day", () => {
+  it("aggregates two indented time lines under Schedule: (EN)", () => {
     const out = formatSummerSchedule(app, "en");
-    const mondayIdx = out.indexOf("Every Monday");
-    const thursdayIdx = out.indexOf("Every Thursday");
-    expect(mondayIdx).toBeGreaterThan(-1);
-    expect(thursdayIdx).toBeGreaterThan(mondayIdx);
-    expect(out).toContain("Every Monday 10:00 - 11:30 (2 lessons)");
-    expect(out).toContain("Every Thursday 14:30 - 16:00 (2 lessons)");
+    expect(out).toContain("Schedule:\n  Every Monday 10:00 - 11:30 (90 minutes)\n  Every Thursday 14:30 - 16:00 (90 minutes)");
+    expect(out).toContain("Lesson Dates:");
+    expect(out).toContain("                  (4 lessons total)");
   });
 
-  it("marks the rescheduled lesson inline and appends a footer note", () => {
+  it("merges dates chronologically with (Mon)/(Thu) suffixes (EN)", () => {
     const out = formatSummerSchedule(app, "en");
-    expect(out).toContain("2026/07/13 (pending make-up)");
-    expect(out).toContain("1 lesson pending make-up");
+    const mondayDateIdx = out.indexOf("2026/07/06 (Mon)");
+    const thursdayDateIdx = out.indexOf("2026/07/09 (Thu)");
+    expect(mondayDateIdx).toBeGreaterThan(-1);
+    expect(thursdayDateIdx).toBeGreaterThan(mondayDateIdx);
+    expect(out).toContain("2026/07/13 (Mon) (pending make-up)");
+  });
+
+  it("aggregates two indented time lines under 上課時間 (ZH)", () => {
+    const out = formatSummerSchedule(app, "zh");
+    expect(out).toContain("上課時間：\n  逢星期一 10:00 - 11:30 (90分鐘)\n  逢星期四 14:30 - 16:00 (90分鐘)");
+  });
+
+  it("applies (一)/(四) suffixes on ZH dates and keeps 待補堂 marker", () => {
+    const out = formatSummerSchedule(app, "zh");
+    expect(out).toContain("2026/07/06 (一)");
+    expect(out).toContain("2026/07/09 (四)");
+    expect(out).toContain("2026/07/13 (一) (待補堂)");
+    expect(out).toContain("                  (共 4 堂)");
   });
 
   it("uses the English branch name in the footer", () => {
     const out = formatSummerSchedule(app, "en");
     expect(out).toContain("MathConcept Secondary Academy (Vasco Center)");
-  });
-
-  it("keeps 待補堂 marker in ZH variant", () => {
-    const out = formatSummerSchedule(app, "zh");
-    expect(out).toContain("2026/07/13 (待補堂)");
-    expect(out).toContain("1 堂待安排補堂");
   });
 });
 

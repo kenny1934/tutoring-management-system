@@ -48,6 +48,21 @@ const DAY_NAMES_ZH: Record<string, string> = {
 export const dayLabel = (day: string, lang: Lang) =>
   lang === "zh" ? DAY_NAMES_ZH[day] || day : day;
 
+/** Single-character ZH weekday (Monday → 一). */
+export const DAY_SHORT_ZH: Record<string, string> = {
+  Monday: "一",
+  Tuesday: "二",
+  Wednesday: "三",
+  Thursday: "四",
+  Friday: "五",
+  Saturday: "六",
+  Sunday: "日",
+};
+
+/** Short weekday: 一/二/… (zh) or Mon/Tue/… (en). */
+export const dayShort = (day: string, lang: Lang) =>
+  lang === "zh" ? DAY_SHORT_ZH[day] || day : DAY_ABBREV[day] || day;
+
 /** Bilingual label for sessions-per-week frequency. */
 export const frequencyLabel = (n: number, lang: Lang) =>
   n === 1

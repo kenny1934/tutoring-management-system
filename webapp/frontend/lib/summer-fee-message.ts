@@ -11,6 +11,7 @@ import {
   LOCATION_TO_CODE,
   RESCHEDULED_STATUS,
   dayLabel,
+  dayShort,
   sortSessionsByDate,
 } from "@/lib/summer-utils";
 import type { DiscountResult } from "@/lib/summer-discounts";
@@ -127,23 +128,50 @@ function branchName(
   return rawLocation ?? "";
 }
 
-function groupBySlot(
+// Parses a slot like "10:00 - 11:30" → 90. Returns null for unrecognised
+// input so the template can omit the duration suffix gracefully.
+function durationMinutes(timeSlot: string): number | null {
+  const m = timeSlot.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const start = Number(m[1]) * 60 + Number(m[2]);
+  const end = Number(m[3]) * 60 + Number(m[4]);
+  const diff = end - start;
+  return diff > 0 ? diff : null;
+}
+
+type SlotSummary = { slot_id: number; slot_day: string; time_slot: string };
+
+function distinctSlots(
   sessions: SummerApplicationSessionInfo[],
-): SummerApplicationSessionInfo[][] {
-  const groups = new Map<number, SummerApplicationSessionInfo[]>();
+): SlotSummary[] {
+  const seen = new Map<number, SlotSummary>();
   for (const s of sessions) {
-    const arr = groups.get(s.slot_id);
-    if (arr) arr.push(s);
-    else groups.set(s.slot_id, [s]);
+    if (!seen.has(s.slot_id)) {
+      seen.set(s.slot_id, {
+        slot_id: s.slot_id,
+        slot_day: s.slot_day,
+        time_slot: s.time_slot,
+      });
+    }
   }
-  return [...groups.values()]
-    .map((g) => sortSessionsByDate(g))
-    .sort((a, b) => {
-      const ai = DAY_ORDER.indexOf(a[0].slot_day);
-      const bi = DAY_ORDER.indexOf(b[0].slot_day);
-      if (ai !== bi) return ai - bi;
-      return a[0].time_slot.localeCompare(b[0].time_slot);
-    });
+  return [...seen.values()].sort((a, b) => {
+    const ai = DAY_ORDER.indexOf(a.slot_day);
+    const bi = DAY_ORDER.indexOf(b.slot_day);
+    if (ai !== bi) return ai - bi;
+    return a.time_slot.localeCompare(b.time_slot);
+  });
+}
+
+function slotTimeLine(s: SlotSummary, lang: SummerMessageLang): string {
+  const duration = durationMinutes(s.time_slot);
+  const durationSuffix = duration == null
+    ? ""
+    : lang === "zh"
+      ? ` (${duration}分鐘)`
+      : ` (${duration} minutes)`;
+  return lang === "zh"
+    ? `逢${dayLabel(s.slot_day, "zh")} ${s.time_slot}${durationSuffix}`
+    : `Every ${s.slot_day} ${s.time_slot}${durationSuffix}`;
 }
 
 function formatScheduleBlock(
@@ -157,39 +185,40 @@ function formatScheduleBlock(
     return lang === "zh" ? "（尚未編排）" : "(Not yet placed)";
   }
 
-  const groups = groupBySlot(sessions);
+  const slots = distinctSlots(sessions);
+  const multiSlot = slots.length >= 2;
+  const timeHeader = lang === "zh" ? "上課時間：" : "Schedule:";
+  const dateHeader = lang === "zh" ? "上課日期：" : "Lesson Dates:";
+  // ZH uses the full-width colon which visually has no space; EN inserts a
+  // thin space only in single-line mode to match the normal-enrollment form.
+  const timeHeaderGap = lang === "zh" ? "" : " ";
+
   const lines: string[] = [];
-  let rescheduledCount = 0;
-
-  for (const group of groups) {
-    const first = group[0];
-    const day = dayLabel(first.slot_day, lang);
-    const count = group.length;
-    lines.push(
-      lang === "zh"
-        ? `逢${day} ${first.time_slot} (共 ${count} 堂)`
-        : `Every ${day} ${first.time_slot} (${count} lessons)`,
-    );
-    for (const s of group) {
-      const isRes = s.session_status === RESCHEDULED_STATUS;
-      if (isRes) rescheduledCount += 1;
-      const marker = isRes
-        ? lang === "zh"
-          ? " (待補堂)"
-          : " (pending make-up)"
-        : "";
-      const date = formatDate(s.lesson_date) || (lang === "zh" ? "(待定)" : "(TBD)");
-      lines.push(`${DATE_INDENT}${date}${marker}`);
+  if (multiSlot) {
+    lines.push(timeHeader);
+    for (const s of slots) {
+      lines.push(`  ${slotTimeLine(s, lang)}`);
     }
+  } else {
+    lines.push(`${timeHeader}${timeHeaderGap}${slotTimeLine(slots[0], lang)}`);
   }
 
-  if (rescheduledCount > 0) {
-    const note =
-      lang === "zh"
-        ? `\n※ ${rescheduledCount} 堂待安排補堂，稍後通知新日期。`
-        : `\n* ${rescheduledCount} lesson${rescheduledCount > 1 ? "s" : ""} pending make-up — new date${rescheduledCount > 1 ? "s" : ""} will be notified later.`;
-    lines.push(note);
+  lines.push(dateHeader);
+  const sorted = sortSessionsByDate(sessions);
+  for (const s of sorted) {
+    const isRes = s.session_status === RESCHEDULED_STATUS;
+    const date = formatDate(s.lesson_date) || (lang === "zh" ? "(待定)" : "(TBD)");
+    const daySuffix = multiSlot ? ` (${dayShort(s.slot_day, lang)})` : "";
+    const resSuffix = isRes
+      ? lang === "zh" ? " (待補堂)" : " (pending make-up)"
+      : "";
+    lines.push(`${DATE_INDENT}${date}${daySuffix}${resSuffix}`);
   }
+  lines.push(
+    lang === "zh"
+      ? `${DATE_INDENT}(共 ${sessions.length} 堂)`
+      : `${DATE_INDENT}(${sessions.length} lessons total)`,
+  );
 
   return lines.join("\n");
 }
@@ -208,7 +237,6 @@ export function formatSummerSchedule(
 
 學生姓名：${app.student_name}
 報名編號：${app.reference_code}
-上課安排：
 ${schedule}
 
 MathConcept 中學教室 (${name})`;
@@ -219,7 +247,6 @@ This is the class schedule for the MathConcept Secondary Academy Summer Course:
 
 Student Name: ${app.student_name}
 Reference: ${app.reference_code}
-Schedule:
 ${schedule}
 
 MathConcept Secondary Academy (${name})`;
@@ -253,7 +280,6 @@ export function formatSummerFeeMessage(
 
 學生姓名：${app.student_name}
 報名編號：${app.reference_code}
-上課安排：
 ${schedule}
 
 ${feeLine}
@@ -278,7 +304,6 @@ This is a payment reminder for the MathConcept Secondary Academy Summer Course:
 
 Student Name: ${app.student_name}
 Reference: ${app.reference_code}
-Schedule:
 ${schedule}
 
 ${feeLine}
