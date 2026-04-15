@@ -1679,6 +1679,8 @@ def format_fee_message(
 
 費用： ${total_fee:,}{discount_text}
 
+請於每期第一堂或之前繳交學費。逾期繳費者，本中心將收取$200手續費，並保留權利拒絕學生上課。
+
 家長可選擇以下繳費方式：
 1. 交付現金 或
 2. 把學費存入以下戶口，請於備註註明學生姓名及其編號，並發收條至中心微信群。
@@ -1712,6 +1714,8 @@ Lesson Dates:
                   ({lessons_paid} lessons total)
 
 Fee: ${total_fee:,}{discount_text}
+
+Please settle tuition on or before the first lesson of each term. A $200 handling fee will be charged for late payment, and we reserve the right to refuse class attendance.
 
 Parents may choose one of the following payment methods:
 1. Cash payment, or
