@@ -15,7 +15,10 @@
 //
 // Exit-status members (Withdrawn, Rejected) are excluded from the group size
 // count, so a rejected 4th member can't keep an otherwise-qualifying trio
-// gated to the wrong tier.
+// gated to the wrong tier. Declared siblings (SummerBuddyMember rows without
+// their own application) count optimistically — Pending + Confirmed both count
+// toward the threshold, using their `created_at` as the "joined at" timestamp
+// for the Nth-joined date check.
 
 import type { SummerApplication, SummerPricingConfig } from "@/types";
 import { EXIT_STATUSES } from "@/lib/summer-utils";
@@ -40,18 +43,30 @@ export type DiscountResult = {
   } | null;
 };
 
-/** Nth-smallest buddy_joined_at among non-exit members, or null if fewer. */
+// Declared siblings (SummerBuddyMember rows without their own application) count
+// toward the group's discount threshold optimistically — Pending and Confirmed
+// both count, only Rejected is excluded. The backend mirrors the full list onto
+// every member's `buddy_siblings`, so we can read it off `members[0]`.
+function nonRejectedSiblings(members: SummerApplication[]) {
+  return (members[0]?.buddy_siblings ?? []).filter((s) => s.verification_status !== "Rejected");
+}
+
+/** Nth-smallest join timestamp among non-exit apps + non-rejected siblings, or null if fewer. */
 function nthJoinedAt(members: SummerApplication[], n: number): string | null {
-  const times = members
+  const appTimes = members
     .filter((m) => !EXIT_STATUSES.has(m.application_status))
     .map((m) => m.buddy_joined_at)
-    .filter((t): t is string => !!t)
-    .sort();
+    .filter((t): t is string => !!t);
+  const sibTimes = nonRejectedSiblings(members)
+    .map((s) => s.created_at)
+    .filter((t): t is string => !!t);
+  const times = [...appTimes, ...sibTimes].sort();
   return times.length >= n ? times[n - 1] : null;
 }
 
 function activeMemberCount(members: SummerApplication[]): number {
-  return members.filter((m) => !EXIT_STATUSES.has(m.application_status)).length;
+  const apps = members.filter((m) => !EXIT_STATUSES.has(m.application_status)).length;
+  return apps + nonRejectedSiblings(members).length;
 }
 
 function qualifies(

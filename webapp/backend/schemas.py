@@ -2094,6 +2094,7 @@ class SummerSiblingInfo(BaseModel):
     declared_by_application_id: Optional[int] = None
     declared_by_name: Optional[str] = None  # Admin context: who declared the sibling
     can_remove: bool = False  # True if caller can self-remove (Pending + own declaration)
+    created_at: Optional[datetime] = None  # When the sibling was declared — used as their "joined at" in group-reach date checks
 
 
 class SummerSiblingCreateRequest(BaseModel):

@@ -514,6 +514,7 @@ def _serialize_sibling(
             and caller_application_id is not None
             and member.declared_by_application_id == caller_application_id
         ),
+        created_at=member.created_at,
     )
 
 
