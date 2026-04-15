@@ -119,11 +119,23 @@ function StudentSuggestionRow({
   );
 }
 
+// Matches both the applications-page list cache (["summer-apps", ...]) and
+// the arrangement-page single-app cache (["summer-app", id]) that feed this
+// modal — the caches each parent owns but this component reads via props.
+function appCachesMatcher(appId: number) {
+  return (key: unknown) => {
+    if (!Array.isArray(key)) return false;
+    if (key[0] === "summer-apps") return true;
+    if (key[0] === "summer-app" && key[1] === appId) return true;
+    return false;
+  };
+}
+
 interface SummerApplicationDetailModalProps {
   application: SummerApplication | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdated: () => void;
+  onUpdated: () => void | Promise<unknown>;
   readOnly?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
@@ -1335,11 +1347,25 @@ export function SummerApplicationDetailModal({
                   }
                   setPlanSaving(true);
                   try {
-                    await summerAPI.updateApplication(app.id, { lessons_paid: value });
+                    const updatedApp = await summerAPI.updateApplication(app.id, { lessons_paid: value });
+                    // Splice directly so the modal's post-save render sees the
+                    // new value; parent's onUpdated races otherwise.
+                    await globalMutate(
+                      appCachesMatcher(app.id),
+                      (cached: unknown) => {
+                        if (Array.isArray(cached)) {
+                          return cached.map((a: SummerApplication) =>
+                            a.id === app.id ? updatedApp : a,
+                          );
+                        }
+                        return updatedApp;
+                      },
+                      { revalidate: false },
+                    );
+                    await onUpdated();
                     showToast(`Session plan updated to ${value} lesson${value === 1 ? "" : "s"}.`, "success");
                     setPlanEditorOpen(false);
                     setPlanDraft(null);
-                    onUpdated();
                   } catch (err) {
                     const msg = err instanceof Error ? err.message : "Please try again";
                     showToast(`Could not update session plan: ${msg}`, "error");
@@ -1390,7 +1416,7 @@ export function SummerApplicationDetailModal({
                       "tabular-nums font-medium",
                       isPartialPlan ? "text-amber-600 dark:text-amber-400" : "text-foreground",
                     )}>
-                      {planCurrent} / {planTotal}
+                      {planCurrent} lessons
                     </span>
                     {isPartialPlan && (
                       <span
@@ -2118,9 +2144,12 @@ export function SummerApplicationDetailModal({
             await summerAPI.updateSessionStatus(pendingReschedule.id, {
               session_status: RESCHEDULED_STATUS,
             });
+            // Arrangement page's onUpdated doesn't touch ["summer-app", id],
+            // so revalidate the modal's caches explicitly.
+            await globalMutate(appCachesMatcher(app.id));
+            await onUpdated();
             showToast("Lesson marked for make-up", "success");
             setPendingReschedule(null);
-            onUpdated();
           } catch (e) {
             showToast(e instanceof Error ? e.message : "Failed to reschedule", "error");
           } finally {

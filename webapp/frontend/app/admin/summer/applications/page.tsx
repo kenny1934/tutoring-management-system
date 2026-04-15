@@ -428,8 +428,10 @@ export default function SummerApplicationsPage() {
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
-    if (swrKey) mutate(swrKey);
-    if (statsKey) mutate(statsKey);
+    const pending: Promise<unknown>[] = [];
+    if (swrKey) pending.push(mutate(swrKey));
+    if (statsKey) pending.push(mutate(statsKey));
+    return Promise.all(pending);
   }, [swrKey, statsKey]);
 
   const searchRef = useRef<HTMLInputElement>(null);

@@ -174,12 +174,14 @@ export default function SummerArrangementPage() {
 
   // Handlers
   const refreshAll = useCallback(() => {
-    mutateSlots();
-    mutateDemand();
-    mutateUnassigned();
-    mutateCalendar();
-    mutateStudentLessons();
-    mutateFindSlot();
+    return Promise.all([
+      mutateSlots(),
+      mutateDemand(),
+      mutateUnassigned(),
+      mutateCalendar(),
+      mutateStudentLessons(),
+      mutateFindSlot(),
+    ]);
   }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
 
   const handleCreateSlot = useCallback(async (day: string, timeSlot: string) => {
