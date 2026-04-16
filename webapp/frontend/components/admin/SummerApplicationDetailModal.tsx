@@ -1398,15 +1398,25 @@ export function SummerApplicationDetailModal({
                 )}
                 <PrimaryBranchChip app={app} />
                 {/* Show original claim when verified result overrides it */}
-                {app.verified_branch_origin && app.claimed_branch_code && app.verified_branch_origin !== app.claimed_branch_code && (
-                  <span
-                    className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded line-through opacity-60"
-                    title={`Original claim: ${app.claimed_branch_code} (overridden by verification)`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="font-mono">{app.claimed_branch_code}</span>
-                  </span>
-                )}
+                {(() => {
+                  const verified = app.verified_branch_origin;
+                  if (!verified) return null;
+                  const claimsExisting =
+                    !!app.claimed_branch_code &&
+                    !!app.is_existing_student &&
+                    app.is_existing_student !== "None";
+                  const originalLabel = claimsExisting ? app.claimed_branch_code! : "New";
+                  if (originalLabel === verified) return null;
+                  return (
+                    <span
+                      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded line-through opacity-60"
+                      title={`Original claim: ${originalLabel} (overridden by verification)`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className={claimsExisting ? "font-mono" : undefined}>{originalLabel}</span>
+                    </span>
+                  );
+                })()}
                 {!canEdit ? (
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded shrink-0",
