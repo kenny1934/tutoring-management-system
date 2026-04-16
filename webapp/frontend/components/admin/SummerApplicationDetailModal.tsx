@@ -32,6 +32,7 @@ import type {
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
+import { PaidAtEditor } from "@/components/summer/PaidAtEditor";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -2194,12 +2195,20 @@ export function SummerApplicationDetailModal({
                     <span> (−${effectiveDiscount.nearMiss.extraSavings} more)</span>
                   </div>
                 )}
+                {(app.application_status === "Paid" || app.application_status === "Enrolled") && (
+                  <div className="mt-1">
+                    <PaidAtEditor
+                      applicationId={app.id}
+                      paidAt={app.paid_at}
+                      onSaved={onUpdated}
+                    />
+                  </div>
+                )}
                 <div className="mt-2">
                   <TierStatusCallout
                     config={config?.pricing_config}
                     currentCode={effectiveDiscount.best?.code ?? "NONE"}
                     currentAmount={effectiveDiscount.amount}
-                    paidAt={app.paid_at}
                   />
                 </div>
               </div>

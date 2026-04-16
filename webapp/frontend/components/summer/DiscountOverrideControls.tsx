@@ -69,7 +69,7 @@ export function DiscountOverrideControls({
     setSaving(true);
     try {
       await enrollmentsAPI.clearDiscountOverride(enrollmentId);
-      showToast("Override cleared — auto-tier restored", "success");
+      showToast("Override cleared. Auto-tier restored.", "success");
       onChanged();
     } catch (e) {
       showToast(
