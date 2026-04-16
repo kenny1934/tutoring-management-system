@@ -155,8 +155,8 @@ const FAQS: Array<{ q: string; a: string; qEn?: string; aEn?: string }> = [
   {
     q: "此課程是否適合英文部或國際學校學生？",
     qEn: "Is this course suitable for English-medium and international school students?",
-    a: "絕對適合。本暑期班以數學概念為核心，課程適合中文部、英文部及國際學校學生。導師會因應學生的語言背景調整用語與解題講解。歡迎英文部或國際學校家長直接聯絡分校了解更多課程內容。",
-    aEn: "Absolutely. The class focuses on underlying math concepts, so it works equally well for students from Chinese-medium, English-medium, and international schools. Tutors adapt vocabulary and explanations to each student's comfort. English-speaking families are welcome to contact any branch directly for more details.",
+    a: "絕對適合。本暑期班以數學概念為核心，課程適合中文部、英文部及國際學校學生。導師會因應學生的語言背景調整用語以作講解。歡迎英文部或國際學校家長直接聯絡分校了解更多課程內容。",
+    aEn: "Absolutely. The class focuses on underlying maths concepts, so it works equally well for students from Chinese-medium, English-medium, and international schools. Tutors adapt vocabulary and explanations to each student's comfort. English-speaking families are welcome to contact any branch directly for more details.",
   },
   {
     q: "課程共有幾堂？每堂多長時間？",
