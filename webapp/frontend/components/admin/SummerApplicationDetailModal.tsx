@@ -13,7 +13,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, nonRejectedSiblings } from "@/lib/summer-utils";
-import type { DiscountResult } from "@/lib/summer-discounts";
+import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
@@ -150,9 +150,7 @@ interface SummerApplicationDetailModalProps {
   currentIndex?: number;
   totalCount?: number;
   locations?: SummerLocation[];
-  allApplications?: SummerApplication[];
   onSelectApplication?: (app: SummerApplication) => void;
-  discount?: DiscountResult | null;
   baseFee?: number;
   config?: SummerCourseConfig | null;
 }
@@ -171,9 +169,7 @@ export function SummerApplicationDetailModal({
   currentIndex,
   totalCount,
   locations,
-  allApplications,
   onSelectApplication,
-  discount,
   baseFee,
   config,
 }: SummerApplicationDetailModalProps) {
@@ -492,20 +488,28 @@ export function SummerApplicationDetailModal({
     return results;
   }, [duplicateMatches, nameMatches, studentId, app?.contact_phone, systemLocation]);
 
-  // Fetch buddy group members when allApplications is not provided
+  // Fetch by group id, not the page's applications list — that list may be
+  // filtered, which would silently drop members and skew the discount math.
   const { data: fetchedBuddyMembers } = useSWR(
-    app?.buddy_group_id && !allApplications
+    app?.buddy_group_id
       ? ["summer-buddy-group", app.buddy_group_id]
       : null,
     () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! })
   );
 
   const buddyMembers = useMemo(() => {
-    if (!app?.buddy_group_id) return [];
-    const source = allApplications ?? fetchedBuddyMembers;
-    if (!source) return [];
-    return source.filter(a => a.buddy_group_id === app.buddy_group_id && a.id !== app.id);
-  }, [app?.buddy_group_id, app?.id, allApplications, fetchedBuddyMembers]);
+    if (!app?.buddy_group_id || !fetchedBuddyMembers) return [];
+    return fetchedBuddyMembers.filter(a => a.id !== app.id);
+  }, [app?.buddy_group_id, app?.id, fetchedBuddyMembers]);
+
+  const effectiveDiscount = useMemo((): DiscountResult | null => {
+    if (!app || !config?.pricing_config) return null;
+    if (!app.buddy_group_id) {
+      return computeBestDiscount(app, [app], config.pricing_config);
+    }
+    if (!fetchedBuddyMembers) return null;
+    return computeBestDiscount(app, fetchedBuddyMembers, config.pricing_config);
+  }, [app, config, fetchedBuddyMembers]);
 
   const verifySibling = async (id: number, status: SiblingVerificationStatus) => {
     setSiblingOverrides((prev) => ({ ...prev, [id]: status }));
@@ -1221,12 +1225,12 @@ export function SummerApplicationDetailModal({
           </div>
           )}
 
-          {messagePanel && config && (messagePanel === "schedule" || discount) && (
+          {messagePanel && config && (messagePanel === "schedule" || effectiveDiscount) && (
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <SummerMessagePanel
                 app={app}
                 config={config}
-                discount={discount ?? undefined}
+                discount={effectiveDiscount ?? undefined}
                 mode={messagePanel}
                 onClose={() => setMessagePanel(null)}
                 onMarkSent={(newStatus) => {
@@ -1596,7 +1600,7 @@ export function SummerApplicationDetailModal({
                   return (
                     <div className="flex items-center gap-2">
                       {renderToggle("schedule", Copy, "Schedule", "Copy class schedule for parent")}
-                      {discount && renderToggle("fee", DollarSign, "Fee message", "Copy fee message for parent")}
+                      {effectiveDiscount && renderToggle("fee", DollarSign, "Fee message", "Copy fee message for parent")}
                     </div>
                   );
                 })()}
@@ -2159,7 +2163,7 @@ export function SummerApplicationDetailModal({
           )}
 
           {/* Fee summary — best discount + near-miss hint */}
-          {discount && typeof baseFee === "number" && baseFee > 0 && (
+          {effectiveDiscount && typeof baseFee === "number" && baseFee > 0 && (
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg shrink-0">
                 <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -2167,26 +2171,26 @@ export function SummerApplicationDetailModal({
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Fee</div>
                 <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-                  <span className="text-lg font-semibold text-foreground">${discount.finalFee.toLocaleString()}</span>
-                  {discount.best && (
+                  <span className="text-lg font-semibold text-foreground">${effectiveDiscount.finalFee.toLocaleString()}</span>
+                  {effectiveDiscount.best && (
                     <span className="text-xs text-muted-foreground">
-                      = ${baseFee.toLocaleString()} − ${discount.amount}
+                      = ${baseFee.toLocaleString()} − ${effectiveDiscount.amount}
                     </span>
                   )}
                 </div>
-                {discount.best ? (
+                {effectiveDiscount.best ? (
                   <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-                    <span className="font-mono font-semibold">{discount.best.code}</span>
-                    <span className="text-muted-foreground"> · {discount.best.name_en}</span>
+                    <span className="font-mono font-semibold">{effectiveDiscount.best.code}</span>
+                    <span className="text-muted-foreground"> · {effectiveDiscount.best.name_en}</span>
                   </div>
                 ) : (
                   <div className="mt-1 text-xs text-muted-foreground">No discount applied · pays full price</div>
                 )}
-                {discount.nearMiss && (
+                {effectiveDiscount.nearMiss && (
                   <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                    {discount.nearMiss.neededMembers} more buddy member{discount.nearMiss.neededMembers === 1 ? "" : "s"} to unlock{" "}
-                    <span className="font-mono font-semibold">{discount.nearMiss.discount.code}</span>
-                    <span> (−${discount.nearMiss.extraSavings} more)</span>
+                    {effectiveDiscount.nearMiss.neededMembers} more buddy member{effectiveDiscount.nearMiss.neededMembers === 1 ? "" : "s"} to unlock{" "}
+                    <span className="font-mono font-semibold">{effectiveDiscount.nearMiss.discount.code}</span>
+                    <span> (−${effectiveDiscount.nearMiss.extraSavings} more)</span>
                   </div>
                 )}
               </div>

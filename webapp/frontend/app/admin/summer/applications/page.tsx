@@ -1807,9 +1807,7 @@ export default function SummerApplicationsPage() {
             currentIndex={selectedAppIndex ?? undefined}
             totalCount={navigableItems.length}
             locations={activeConfig?.locations}
-            allApplications={applications}
             onSelectApplication={openDetail}
-            discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
             baseFee={activeConfig?.pricing_config?.base_fee}
             config={activeConfig ?? null}
           />

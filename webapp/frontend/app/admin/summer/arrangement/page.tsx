@@ -24,7 +24,6 @@ import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
-import { computeDiscountsForAll } from "@/lib/summer-discounts";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
 export default function SummerArrangementPage() {
@@ -166,19 +165,6 @@ export default function SummerArrangementPage() {
   const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
     selectedAppId ? ["summer-app", selectedAppId] : null,
     () => summerAPI.getApplication(selectedAppId!)
-  );
-
-  // Fetch all applications (for discount calculation) when detail modal is open
-  const { data: allAppsForDiscount } = useSWR(
-    selectedAppId && configId ? ["summer-apps", configId] : null,
-    () => summerAPI.getApplications({ config_id: configId! }),
-  );
-
-  const discountByAppId = useMemo(
-    () => activeConfig
-      ? computeDiscountsForAll(allAppsForDiscount ?? [], activeConfig.pricing_config)
-      : new Map(),
-    [allAppsForDiscount, activeConfig],
   );
 
   // SWR invalidation helpers
@@ -719,7 +705,6 @@ export default function SummerArrangementPage() {
           onOptimisticUpdate={optimisticallyUpdateApp}
           locations={locations}
           config={activeConfig ?? null}
-          discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
           baseFee={activeConfig?.pricing_config?.base_fee}
         />
 
