@@ -525,6 +525,11 @@ export function SummerApplicationDetailModal({
 
   if (!app) return null;
 
+  // Once published, edits flow through the enrollment or require unpublish.
+  // The Publish-bridge section stays interactive so the user can unpublish.
+  const isPublished = !!app.published_enrollment_id;
+  const canEdit = !readOnly && !isPublished;
+
   const detailChanged =
     dStudentName !== (app.student_name || "") ||
     dGrade !== (app.grade || "") ||
@@ -782,7 +787,7 @@ export function SummerApplicationDetailModal({
           )}
 
           {/* Right: Cancel + Save */}
-          {!readOnly && (
+          {canEdit && (
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => guardNav(onClose)}
@@ -812,7 +817,7 @@ export function SummerApplicationDetailModal({
           {/* === 1. ACTION STRIP === */}
           <div className="space-y-3">
             {/* Quick status pills with icons */}
-            {nextStatuses && (
+            {nextStatuses && canEdit && (
               <div>
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Move to</span>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -931,8 +936,16 @@ export function SummerApplicationDetailModal({
               )}
             </div>
 
+            {isPublished && (
+              <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
+                This application is published. Status, placement, notes, and
+                linked student are locked — unpublish above to make changes,
+                or edit the enrollment directly for tutor-facing updates.
+              </div>
+            )}
+
             {/* Lang stream: collapse to read-only badge when linked student matches */}
-            {(() => {
+            {canEdit && (() => {
               const studentLang =
                 linkedStudent?.lang_stream && linkedStudent.id === app.existing_student_id
                   ? linkedStudent.lang_stream
@@ -998,6 +1011,7 @@ export function SummerApplicationDetailModal({
           </div>
 
           {/* === 2. STUDENT LINK === */}
+          {canEdit && (
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
             <div className="flex items-center gap-1.5">
               <Link2 className="h-3 w-3 text-muted-foreground" />
@@ -1189,8 +1203,10 @@ export function SummerApplicationDetailModal({
               </div>
             )}
           </div>
+          )}
 
           {/* === 3. ADMIN NOTES === */}
+          {canEdit && (
           <div>
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
             <textarea
@@ -1203,6 +1219,7 @@ export function SummerApplicationDetailModal({
               placeholder="Internal notes..."
             />
           </div>
+          )}
 
           {messagePanel && config && (messagePanel === "schedule" || discount) && (
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -1243,14 +1260,16 @@ export function SummerApplicationDetailModal({
                   <History className="h-3 w-3" />
                   {historyOpen ? "Hide history" : "History"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingDetails((v) => !v)}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
-                >
-                  <Pencil className="h-3 w-3" />
-                  {editingDetails ? "Done editing" : "Edit details"}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingDetails((v) => !v)}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    {editingDetails ? "Done editing" : "Edit details"}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1382,7 +1401,7 @@ export function SummerApplicationDetailModal({
                     <span className="font-mono">{app.claimed_branch_code}</span>
                   </span>
                 )}
-                {readOnly ? (
+                {!canEdit ? (
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded shrink-0",
                     app.verified_branch_origin
@@ -1601,7 +1620,7 @@ export function SummerApplicationDetailModal({
                         Partial
                       </span>
                     )}
-                    {!readOnly && (
+                    {canEdit && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1716,7 +1735,7 @@ export function SummerApplicationDetailModal({
                                 {capacityStr}
                               </span>
                             )}
-                            {!readOnly
+                            {canEdit
                               && p.session_status !== RESCHEDULED_STATUS
                               && p.session_status !== "Cancelled" && (
                               <button
@@ -1775,7 +1794,7 @@ export function SummerApplicationDetailModal({
                       {pendingSiblingCount} pending
                     </span>
                   )}
-                  {!buddyEditing && !buddySectionCollapsed && (
+                  {!buddyEditing && !buddySectionCollapsed && canEdit && (
                     <button
                       onClick={() => {
                         setBuddyEditing(true);
@@ -2099,7 +2118,7 @@ export function SummerApplicationDetailModal({
                               </span>
                             )}
                           </div>
-                          {!readOnly && (
+                          {canEdit && (
                             <div className="flex items-center gap-1.5">
                               {isPending ? (
                                 <>

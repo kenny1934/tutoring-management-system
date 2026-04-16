@@ -3,16 +3,18 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays } from "@/lib/hooks";
-import type { Session, Enrollment, Tutor, Discount } from "@/types";
+import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
-import { tutorsAPI, enrollmentsAPI, discountsAPI } from "@/lib/api";
+import { tutorsAPI, enrollmentsAPI, discountsAPI, summerAPI } from "@/lib/api";
 import { mutate } from "swr";
 import {
   ArrowLeft, User, BookOpen, Calendar, MapPin, Clock, CreditCard,
   ExternalLink, X, CheckCircle2, HandCoins, Pencil, CalendarClock, History,
-  MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp
+  MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp, Sun
 } from "lucide-react";
+import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
+import { computeBestDiscount } from "@/lib/summer-discounts";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -294,6 +296,26 @@ export default function EnrollmentDetailPage() {
   }, [enrollment?.first_lesson_date, enrollment?.lessons_paid]);
   const { data: holidays } = useHolidays(enrollment?.first_lesson_date, holidayRangeEnd);
 
+  // The enrollment page remains the canonical edit surface post-publish —
+  // the backlink chip is a navigation aid, not an auth gate.
+  // Uses the shared ["summer-app", id] key so mutations from the summer
+  // detail modal (appCachesMatcher) invalidate this cache too.
+  const summerAppId = enrollment?.summer_application_id ?? null;
+  const { data: summerApp } = useSWR<SummerApplication>(
+    summerAppId ? ['summer-app', summerAppId] : null,
+    () => summerAPI.getApplication(summerAppId!)
+  );
+  const { data: summerConfig } = useSWR<SummerCourseConfig>(
+    summerApp?.config_id ? ['summer-config', summerApp.config_id] : null,
+    () => summerAPI.getConfig(summerApp!.config_id)
+  );
+  const summerDiscount = useMemo(() => {
+    if (!summerApp || !summerConfig) return null;
+    // Buddy context skipped — the fee is already locked in on the app at
+    // publish time; this only drives template rendering.
+    return computeBestDiscount(summerApp, [summerApp], summerConfig.pricing_config);
+  }, [summerApp, summerConfig]);
+
   // Sync discount selection when entering edit mode
   useEffect(() => {
     if (isEditingPayment && enrollment) {
@@ -368,7 +390,7 @@ export default function EnrollmentDetailPage() {
 
   // Other options
   const PAYMENT_STATUS_OPTIONS = ["Pending Payment", "Paid", "Cancelled"];
-  const ENROLLMENT_TYPE_OPTIONS = ["Regular", "One-Time", "Trial"];
+  const ENROLLMENT_TYPE_OPTIONS = ["Regular", "One-Time", "Trial", "Summer"];
 
 
 
@@ -409,9 +431,11 @@ export default function EnrollmentDetailPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch fee message when panel is opened or language changes
+  // Summer-published enrollments render SummerMessagePanel instead, which
+  // generates the fee message locally — skip the regular backend fetch.
   useEffect(() => {
     if (!showFeePanel || !enrollment?.id) return;
+    if (summerAppId) return;
 
     let cancelled = false;
     setFeeMessageLoading(true);
@@ -552,6 +576,20 @@ export default function EnrollmentDetailPage() {
             <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium">
               {formatScheduleBadge(enrollment.assigned_day, enrollment.assigned_time)}
             </span>
+
+            {/* Summer backlink — routes through the applications page rather
+                than opening inline so the source app gets its full UI. */}
+            {enrollment.summer_application_id && (
+              <Link
+                href={`/admin/summer/applications?appId=${enrollment.summer_application_id}`}
+                className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-medium hover:bg-orange-200 dark:hover:bg-orange-900/60 transition-colors"
+                title="Open source summer application"
+              >
+                <Sun className="h-3 w-3" />
+                {summerApp?.reference_code ? `Summer ${summerApp.reference_code}` : "Summer App"}
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </Link>
+            )}
 
             <div className="flex-1" />
 
@@ -831,7 +869,9 @@ export default function EnrollmentDetailPage() {
                             ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                             : enrollment.enrollment_type === 'Trial'
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+                              : enrollment.enrollment_type === 'Summer'
+                                ? "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300"
+                                : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
                         )}>
                           {enrollment.enrollment_type}
                         </span>
@@ -1106,6 +1146,23 @@ export default function EnrollmentDetailPage() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
+                        {summerApp && summerConfig ? (
+                          <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <SummerMessagePanel
+                              app={summerApp}
+                              config={summerConfig}
+                              discount={summerDiscount ?? undefined}
+                              mode="fee"
+                              onClose={() => setShowFeePanel(false)}
+                              onMarkSent={() => mutate(['summer-app', summerApp.id])}
+                            />
+                          </div>
+                        ) : summerAppId && !summerApp ? (
+                          <div className="pt-4 flex items-center justify-center py-8 text-sm text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Loading summer application...
+                          </div>
+                        ) : (
                         <div className="pt-4 space-y-4">
                           {/* Language & Lessons selector */}
                           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1270,6 +1327,7 @@ export default function EnrollmentDetailPage() {
                             )}
                           </div>
                         </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>

@@ -310,7 +310,16 @@ export default function SummerApplicationsPage() {
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
     legacyBuddyView: searchParams.get("view") === "by_buddy",
     mode: (searchParams.get("mode") as "list" | "board" | "stats" | null),
+    appId: (() => {
+      const v = searchParams.get("appId");
+      const n = v ? parseInt(v, 10) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : null;
+    })(),
   }).current;
+
+  // Fires at most once per mount — prevents re-open after the user closes
+  // the modal and the navigable list reshuffles.
+  const autoOpenedRef = useRef(false);
 
   // Config selector
   const [configId, setConfigId] = useState<number | null>(null);
@@ -773,8 +782,14 @@ export default function SummerApplicationsPage() {
     return items;
   }, [sortedApplications, groupBy, groupedApplications, collapsedGroups]);
 
-  // Derive selectedApp from index
-  const selectedApp = selectedAppIndex !== null ? navigableItems[selectedAppIndex] ?? null : null;
+  // Fallback selection for apps auto-opened via ?appId=N that aren't in the
+  // current filtered/sorted list — the index-based nav can't address them.
+  const [autoOpenedApp, setAutoOpenedApp] = useState<SummerApplication | null>(null);
+
+  const selectedApp =
+    selectedAppIndex !== null
+      ? navigableItems[selectedAppIndex] ?? null
+      : autoOpenedApp;
 
   // O(1) lookup for navigable index (keyed by id, not object identity)
   const navigableIndexMap = useMemo(() => {
@@ -789,6 +804,37 @@ export default function SummerApplicationsPage() {
     setSelectedAppIndex(idx !== undefined ? idx : null);
     setDetailOpen(true);
   }, [navigableIndexMap]);
+
+  // Auto-open ?appId=N (e.g. from the enrollment detail page's Summer
+  // backlink). Waits for the list so we resolve to a real index when
+  // possible, and falls through to a direct fetch otherwise.
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (!urlInit.appId) return;
+    if (!applications || applications.length === 0) return;
+    const idx = navigableIndexMap.get(urlInit.appId);
+    if (idx === undefined) {
+      // Not in the current filter — fetch directly, and switch configs
+      // if it's from a different year so the fee panel's discount lines up.
+      summerAPI
+        .getApplication(urlInit.appId)
+        .then((app) => {
+          if (app.config_id && app.config_id !== configId) {
+            setConfigId(app.config_id);
+          }
+          setSelectedAppIndex(null);
+          setAutoOpenedApp(app);
+          setDetailOpen(true);
+        })
+        .catch(() => {
+          showToast("Could not load the requested application", "error");
+        });
+    } else {
+      setSelectedAppIndex(idx);
+      setDetailOpen(true);
+    }
+    autoOpenedRef.current = true;
+  }, [urlInit.appId, applications, navigableIndexMap, configId, showToast]);
 
   // Prev/Next navigation in modal
   const handlePrevApp = useCallback(() => {
@@ -1747,7 +1793,10 @@ export default function SummerApplicationsPage() {
           <SummerApplicationDetailModal
             application={selectedApp}
             isOpen={detailOpen}
-            onClose={() => setDetailOpen(false)}
+            onClose={() => {
+              setDetailOpen(false);
+              setAutoOpenedApp(null);
+            }}
             onUpdated={handleRefresh}
             onOptimisticUpdate={optimisticallyUpdateApp}
             readOnly={readOnly}
