@@ -137,16 +137,17 @@ def _qualifies(
         if _active_member_count(group_apps, siblings) < min_size:
             return False
         if d.before_date:
-            # Group must have reached size by deadline.
+            # Group must have reached size by deadline (inclusive — hitting
+            # size on the deadline day still counts).
             reach_at = _nth_joined_at(group_apps, siblings, min_size)
-            if not reach_at or reach_at.date() >= d.before_date:
+            if not reach_at or reach_at.date() > d.before_date:
                 return False
             # AND this applicant must have paid by the deadline.
-            if _effective_date(app, today) >= d.before_date:
+            if _effective_date(app, today) > d.before_date:
                 return False
     elif d.before_date:
         # Solo early-bird — this applicant's effective date must beat deadline.
-        if _effective_date(app, today) >= d.before_date:
+        if _effective_date(app, today) > d.before_date:
             return False
     return True
 

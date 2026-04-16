@@ -24,6 +24,14 @@ function toDateInput(value: string | null | undefined): string {
   return value.slice(0, 10);
 }
 
+/** Render an ISO YYYY-MM-DD as dd/mm/yyyy (HK admin convention). */
+function toDisplay(value: string | null | undefined): string {
+  if (!value) return "";
+  const [y, m, d] = value.slice(0, 10).split("-");
+  if (!y || !m || !d) return value;
+  return `${d}/${m}/${y}`;
+}
+
 export function PaidAtEditor({ applicationId, paidAt, readOnly, onSaved }: Props) {
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -91,7 +99,7 @@ export function PaidAtEditor({ applicationId, paidAt, readOnly, onSaved }: Props
         </>
       ) : (
         <>
-          <span className="font-medium">{current || "not set"}</span>
+          <span className="font-medium">{toDisplay(current) || "not set"}</span>
           {!readOnly && (
             <button
               type="button"

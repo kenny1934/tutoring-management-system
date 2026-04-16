@@ -1160,6 +1160,40 @@ async def get_overdue_enrollments(
 
     overdue_enrollments = query.all()
 
+    # Live-recompute the tier for Summer rows without an override. The stored
+    # snapshot is updated at publish + on paid_at/payment_date edits, but can
+    # still go stale if a deadline passes while the row sits untouched. Doing
+    # it on read keeps the overdue list correct without a cron. Override rows
+    # and non-Summer rows pass through unchanged.
+    from utils.summer_discounts import (
+        compute_best_discount,
+        load_group_context,
+    )
+    live_tier: dict[int, tuple[str, int]] = {}
+    summer_rows = [
+        e for e in overdue_enrollments
+        if e.enrollment_type == "Summer"
+        and not e.discount_override_code
+        and e.summer_application_id
+    ]
+    if summer_rows:
+        app_ids = {e.summer_application_id for e in summer_rows}
+        apps_by_id = {
+            a.id: a for a in (
+                db.query(SummerApplication)
+                .options(joinedload(SummerApplication.config))
+                .filter(SummerApplication.id.in_(app_ids))
+                .all()
+            )
+        }
+        for e in summer_rows:
+            app = apps_by_id.get(e.summer_application_id)
+            if app is None or app.config is None:
+                continue
+            group_apps, siblings = load_group_context(db, app)
+            result_tier = compute_best_discount(app, group_apps, siblings, app.config, today=today)
+            live_tier[e.id] = (result_tier.code, result_tier.amount)
+
     result = []
     for enrollment in overdue_enrollments:
         if enrollment.payment_deadline is not None:
@@ -1169,6 +1203,12 @@ async def get_overdue_enrollments(
             effective = enrollment.first_lesson_date
             deadline_source = "first_lesson"
         days_overdue = (today - effective).days
+
+        # Apply live-computed tier when available; snapshot otherwise.
+        tier_code = enrollment.locked_discount_code
+        tier_amount = enrollment.locked_discount_amount
+        if enrollment.id in live_tier:
+            tier_code, tier_amount = live_tier[enrollment.id]
 
         result.append(OverdueEnrollment(
             id=enrollment.id,
@@ -1187,8 +1227,8 @@ async def get_overdue_enrollments(
             enrollment_type=enrollment.enrollment_type,
             payment_deadline=enrollment.payment_deadline,
             deadline_source=deadline_source,
-            locked_discount_code=enrollment.locked_discount_code,
-            locked_discount_amount=enrollment.locked_discount_amount,
+            locked_discount_code=tier_code,
+            locked_discount_amount=tier_amount,
             discount_override_code=enrollment.discount_override_code,
             discount_override_reason=enrollment.discount_override_reason,
         ))
