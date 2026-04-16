@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Users, Copy, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Users, User, Copy, Check, BadgePercent, Flame } from "lucide-react";
 import { StatusBadge } from "./SummerApplicationCard";
+import { StatCard } from "./SummerApplicationStats";
+import { SummerBuddyMeter } from "./SummerBuddyMeter";
 import { PrimaryBranchChip } from "./PrimaryBranchChip";
 import { displayLocation, nonRejectedSiblings } from "@/lib/summer-utils";
+import { plural } from "@/lib/formatters";
 import type {
   SummerApplication,
   SummerCourseConfig,
@@ -174,12 +177,13 @@ export function SummerBuddyBoard({
     return { incompleteByNeed, byTier };
   }, [visibleGroups, tiers, discountByAppId]);
 
-  // Sort needed-count buckets ascending — closest-to-unlock first.
-  const incompleteBuckets = useMemo(
-    () => [...incompleteByNeed.entries()].sort((a, b) => a[0] - b[0]),
-    [incompleteByNeed],
-  );
+  const incompleteBuckets = [...incompleteByNeed.entries()].sort((a, b) => a[0] - b[0]);
+  const totalIncomplete = incompleteBuckets.reduce((n, [, list]) => n + list.length, 0);
   const lowestTierLabel = tiers[0]?.label ?? "discount";
+
+  let unlockedCount = 0;
+  for (const list of byTier.values()) unlockedCount += list.length;
+  const oneAwayCount = incompleteByNeed.get(1)?.length ?? 0;
 
   const [soloExpanded, setSoloExpanded] = useState(false);
 
@@ -194,24 +198,58 @@ export function SummerBuddyBoard({
 
   return (
     <div className="space-y-6 pb-6">
-      {incompleteBuckets.map(([need, groups]) => (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <StatCard icon={Users} value={visibleGroups.length} label="Buddy groups" />
+        <StatCard
+          icon={BadgePercent}
+          value={unlockedCount}
+          label="Discount unlocked"
+          colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
+        />
+        <StatCard
+          icon={Flame}
+          value={oneAwayCount}
+          label="One away"
+          colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+        />
+        <StatCard icon={User} value={visibleSolo.length} label="Solo applicants" />
+      </div>
+
+      {totalIncomplete > 0 && (
         <BoardSection
-          key={`incomplete-${need}`}
-          title={<>{need} more for <TierName>{lowestTierLabel}</TierName></>}
-          count={groups.length}
+          title={<>Almost there · <TierName>{lowestTierLabel}</TierName></>}
+          count={totalIncomplete}
           tone="amber"
         >
-          {groups.map((g) => (
-            <GroupCard
-              key={g.id}
-              group={g}
-              tiers={tiers}
-              currentTier={null}
-              onSelectApp={onSelectApp}
-            />
+          {incompleteBuckets.map(([need, groups], idx) => (
+            <Fragment key={need}>
+              <div
+                className={cn(
+                  "col-span-full flex items-center gap-2",
+                  idx > 0 && "mt-2",
+                )}
+              >
+                <span className="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  {need} more
+                </span>
+                <span className="h-px flex-1 bg-amber-200/70 dark:bg-amber-900/40" />
+                <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                  {groups.length}
+                </span>
+              </div>
+              {groups.map((g) => (
+                <GroupCard
+                  key={g.id}
+                  group={g}
+                  tiers={tiers}
+                  currentTier={null}
+                  onSelectApp={onSelectApp}
+                />
+              ))}
+            </Fragment>
           ))}
         </BoardSection>
-      ))}
+      )}
 
       {tiers.map((tier) => {
         const list = byTier.get(tier.key) ?? [];
@@ -246,7 +284,7 @@ export function SummerBuddyBoard({
           <button
             type="button"
             onClick={() => setSoloExpanded((v) => !v)}
-            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-primary/50 rounded px-0.5"
           >
             {soloExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             Solo applicants ({visibleSolo.length})
@@ -258,7 +296,7 @@ export function SummerBuddyBoard({
                   key={a.id}
                   type="button"
                   onClick={() => onSelectApp(a)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:bg-muted/60 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary/50"
                 >
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     <PrimaryBranchChip app={a} />
@@ -293,7 +331,7 @@ function BoardSection({
     <div>
       <div className="flex items-baseline gap-2 mb-2">
         <span className={cn(
-          "text-xs font-semibold uppercase tracking-wider",
+          "text-sm font-semibold",
           tone === "amber" ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400",
         )}>
           {title}
@@ -330,20 +368,30 @@ function GroupCard({
     ? tiers.find((t) => t.minSize > currentTier.minSize)
     : tiers[0];
   const needed = nextTier ? nextTier.minSize - group.memberCount : 0;
+  const meterSlots = Math.max(
+    group.memberCount,
+    nextTier?.minSize ?? currentTier?.minSize ?? group.memberCount,
+  );
+  const meterTitle = currentTier
+    ? `${plural(group.memberCount, "member")} — discount unlocked`
+    : `${plural(group.memberCount, "member")} — needs ${meterSlots - group.memberCount} more`;
 
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
       <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center gap-2 flex-wrap">
         {group.code && <CodePill code={group.code} />}
-        <span className="text-[11px] font-medium text-muted-foreground">
-          {group.memberCount} member{group.memberCount === 1 ? "" : "s"}
-        </span>
+        <SummerBuddyMeter
+          count={group.memberCount}
+          slots={meterSlots}
+          unlocked={currentTier != null}
+          title={meterTitle}
+        />
         {group.crossBranch && (
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Cross-branch
           </span>
         )}
-        {nextTier && needed > 0 && (
+        {currentTier && nextTier && needed > 0 && (
           <span className="ml-auto text-[10px] text-muted-foreground">
             {needed} more for <TierName>{nextTier.label}</TierName>
           </span>
@@ -360,7 +408,7 @@ function GroupCard({
             key={a.id}
             type="button"
             onClick={() => onSelectApp(a)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:bg-muted/60 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary/50"
           >
             <div className="flex-1 min-w-0 flex items-center gap-2">
               <PrimaryBranchChip app={a} />
@@ -433,10 +481,10 @@ function CodePill({ code }: { code: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[11px] bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
-      title="Copy buddy code"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded font-mono text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60"
+      title={copied ? "Copied" : "Copy buddy code"}
     >
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {code}
     </button>
   );

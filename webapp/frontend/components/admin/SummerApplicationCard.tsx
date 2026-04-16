@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
-  Users, User, StickyNote, Copy, Check, Phone, Grid3X3, AlertCircle,
+  Users, StickyNote, Copy, Check, Phone, Grid3X3, AlertCircle,
   AlertTriangle, ChevronDown,
   FileInput, Eye, Send, CheckCircle, CreditCard, BadgeCheck,
   GraduationCap, Clock, LogOut, XCircle,
@@ -18,6 +18,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { usePortalPopover } from "@/hooks/usePortalPopover";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
+import { SummerBuddyMeter } from "@/components/admin/SummerBuddyMeter";
 import type { SummerApplication } from "@/types";
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
@@ -247,37 +248,18 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
                 <>
                   <PrimaryBranchChip app={app} onProspectClick={onProspectClick} />
                   {buddyGroupSize > 0 && (
-                    <span
-                      className={cn(
-                        "shrink-0 inline-flex items-center gap-0.5 px-1 py-0.5 rounded",
-                        buddyUnlocked
-                          ? "bg-green-100 dark:bg-green-900/30"
-                          : "bg-amber-100 dark:bg-amber-900/30"
-                      )}
+                    <SummerBuddyMeter
+                      count={buddyGroupSize}
+                      slots={MIN_GROUP_SIZE}
+                      unlocked={buddyUnlocked}
+                      tone="green"
                       title={
                         (app.buddy_names || `Buddy group of ${buddyGroupSize}`) +
                         (buddyUnlocked
                           ? " — discount unlocked"
                           : ` — needs ${MIN_GROUP_SIZE - buddyGroupSize} more for discount`)
                       }
-                    >
-                      {Array.from({ length: MIN_GROUP_SIZE }).map((_, i) => {
-                        const filled = i < buddyGroupSize;
-                        return (
-                          <User
-                            key={i}
-                            className={cn(
-                              "h-3 w-3",
-                              filled
-                                ? (buddyUnlocked
-                                    ? "text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400"
-                                    : "text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400")
-                                : "text-muted-foreground/40"
-                            )}
-                          />
-                        );
-                      })}
-                    </span>
+                    />
                   )}
                 </>
               }

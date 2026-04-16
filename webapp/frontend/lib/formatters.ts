@@ -1,5 +1,9 @@
 import type { Student, Enrollment, Session } from "@/types";
 
+export function plural(n: number, singular: string, pluralForm?: string): string {
+  return `${n} ${n === 1 ? singular : pluralForm ?? `${singular}s`}`;
+}
+
 /**
  * Format student display following CSM Pro pattern:
  * {location} {school_student_id} {student_name} {grade}{lang_stream} {school}

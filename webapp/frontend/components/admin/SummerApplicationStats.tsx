@@ -134,7 +134,7 @@ function DonutChart({ segments, onSegmentClick }: { segments: { label: string; c
   );
 }
 
-function StatCard({ icon: Icon, value, label, colorClass, onClick }: {
+export function StatCard({ icon: Icon, value, label, colorClass, onClick }: {
   icon: typeof User;
   value: number;
   label: string;
