@@ -143,7 +143,7 @@ function PrimaryCTA({ size = "md" }: { size?: "md" | "lg" }) {
 // =============================================================================
 // FAQ
 // =============================================================================
-const FAQS = [
+const FAQS: Array<{ q: string; a: string; qEn?: string; aEn?: string }> = [
   {
     q: "此暑期班是否需要正式報名？",
     a: "本表格主要為收集您心儀的上課時段意向，並非正式報名。提交後，我們的導師團隊將會聯絡家長，確認課堂安排及完成留位手續。",
@@ -151,6 +151,12 @@ const FAQS = [
   {
     q: "適合升讀哪些年級的學生？",
     a: "本暑期中學班專為升讀中一至中三（F1–F3）的學生而設，課程內容會按年級分班，銜接來年正規課程的核心重點。",
+  },
+  {
+    q: "此課程是否適合英文部或國際學校學生？",
+    qEn: "Is this course suitable for English-medium and international school students?",
+    a: "絕對適合。本暑期班以數學概念為核心，課程適合中文部、英文部及國際學校學生。導師會因應學生的語言背景調整用語與解題講解。歡迎英文部或國際學校家長直接聯絡分校了解更多課程內容。",
+    aEn: "Absolutely. The class focuses on underlying math concepts, so it works equally well for students from Chinese-medium, English-medium, and international schools. Tutors adapt vocabulary and explanations to each student's comfort. English-speaking families are welcome to contact any branch directly for more details.",
   },
   {
     q: "課程共有幾堂？每堂多長時間？",
@@ -221,12 +227,16 @@ const SAMPLE_WORKSHEETS = [
 function FaqItem({
   q,
   a,
+  qEn,
+  aEn,
   index,
   open,
   onToggle,
 }: {
   q: string;
   a: string;
+  qEn?: string;
+  aEn?: string;
   index: number;
   open: boolean;
   onToggle: () => void;
@@ -245,11 +255,18 @@ function FaqItem({
         >
           0{index + 1}
         </span>
-        <span
-          className="flex-1 text-lg sm:text-xl text-[#1A1614] group-hover:text-[#B60D20] transition-colors leading-snug"
-          style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
-        >
-          {q}
+        <span className="flex-1">
+          <span
+            className="block text-lg sm:text-xl text-[#1A1614] group-hover:text-[#B60D20] transition-colors leading-snug"
+            style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
+          >
+            {q}
+          </span>
+          {qEn && (
+            <span className="block mt-1.5 text-sm text-[#1A1614]/55 italic leading-snug">
+              {qEn}
+            </span>
+          )}
         </span>
         <span className="shrink-0 mt-2 text-[#B60D20]">
           {open ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -267,6 +284,11 @@ function FaqItem({
           >
             {a}
           </p>
+          {aEn && (
+            <p className="pl-12 pr-4 mt-4 text-sm text-[#1A1614]/55 italic leading-[1.8]">
+              {aEn}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -835,6 +857,8 @@ export default function SummerLandingPage() {
                   key={i}
                   q={f.q}
                   a={f.a}
+                  qEn={f.qEn}
+                  aEn={f.aEn}
                   index={i}
                   open={openFaq === i}
                   onToggle={() => setOpenFaq(openFaq === i ? null : i)}
