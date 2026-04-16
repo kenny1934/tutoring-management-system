@@ -31,6 +31,7 @@ import type {
   Enrollment,
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
+import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -2193,6 +2194,14 @@ export function SummerApplicationDetailModal({
                     <span> (−${effectiveDiscount.nearMiss.extraSavings} more)</span>
                   </div>
                 )}
+                <div className="mt-2">
+                  <TierStatusCallout
+                    config={config?.pricing_config}
+                    currentCode={effectiveDiscount.best?.code ?? "NONE"}
+                    currentAmount={effectiveDiscount.amount}
+                    paidAt={app.paid_at}
+                  />
+                </div>
               </div>
             </div>
           )}

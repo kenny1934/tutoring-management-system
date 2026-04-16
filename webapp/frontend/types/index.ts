@@ -194,6 +194,14 @@ export interface Enrollment {
   fee_message_sent?: boolean;
   is_new_student?: boolean;
   summer_application_id?: number | null;
+  // Summer tier snapshot — locked at publish, kept in sync by nightly sweep.
+  payment_deadline?: string | null;
+  locked_discount_code?: string | null;
+  locked_discount_amount?: number | null;
+  discount_override_code?: string | null;
+  discount_override_reason?: string | null;
+  discount_override_by?: string | null;
+  discount_override_at?: string | null;
   student?: Student;
 }
 
@@ -658,6 +666,15 @@ export interface OverdueEnrollment {
   first_lesson_date: string;  // ISO format (YYYY-MM-DD)
   lessons_paid: number;
   days_overdue: number;
+  enrollment_type?: string | null;
+  // For Summer enrollments: the earlier of (discount deadline, first_lesson_date).
+  // Null for Regular enrollments — urgency falls back to first_lesson_date.
+  payment_deadline?: string | null;
+  deadline_source?: "payment_deadline" | "first_lesson";
+  locked_discount_code?: string | null;
+  locked_discount_amount?: number | null;
+  discount_override_code?: string | null;
+  discount_override_reason?: string | null;
 }
 
 // Unchecked attendance types
@@ -1412,6 +1429,16 @@ export interface EnrollmentDetailResponse {
   contacts?: StudentContact[];
   fee_message_sent: boolean;
   is_new_student?: boolean;
+  enrollment_type?: string | null;
+  summer_application_id?: number | null;
+  payment_date?: string | null;
+  payment_deadline?: string | null;
+  locked_discount_code?: string | null;
+  locked_discount_amount?: number | null;
+  discount_override_code?: string | null;
+  discount_override_reason?: string | null;
+  discount_override_by?: string | null;
+  discount_override_at?: string | null;
 }
 
 // =============================================================================
@@ -2263,6 +2290,9 @@ export interface SummerApplication {
   /** Set when the application has been published into a native Summer
    *  enrollment. Drives the Publish/Unpublish button state. */
   published_enrollment_id?: number | null;
+  /** Stamped when admin marks status Paid; editable for receipt-date fixes.
+   *  Drives discount-tier deadline checks. */
+  paid_at?: string | null;
 }
 
 export interface LinkedSecondaryStudentInfo {
@@ -2320,6 +2350,8 @@ export interface SummerApplicationUpdate {
   unavailability_notes?: string;
   sessions_per_week?: number;
   lessons_paid?: number;
+  /** Editable for receipt-date corrections. Send null to clear. */
+  paid_at?: string | null;
 }
 
 export interface SummerApplicationStats {

@@ -19,7 +19,8 @@ from schemas import (
     BatchEnrollmentRequest, BatchOperationResponse,
     EligibilityResult, BatchRenewCheckResponse, BatchRenewRequest, BatchRenewResult, BatchRenewResponse,
     ScheduleChangeRequest, ScheduleChangePreviewResponse, UnchangeableSession, UpdatableSession,
-    ApplyScheduleChangeRequest, ScheduleChangeResult
+    ApplyScheduleChangeRequest, ScheduleChangeResult,
+    DiscountOverrideRequest,
 )
 from auth.dependencies import require_admin_write, get_current_user
 from utils.query_helpers import enrollment_with_relations, enrollment_with_student_tutor
@@ -1120,18 +1121,24 @@ async def get_overdue_enrollments(
     """
     Get overdue and upcoming enrollments with pending payment.
 
-    Includes:
-    - Overdue: payment_status = 'Pending Payment' AND first_lesson_date <= today
-    - Due Soon: payment_status = 'Pending Payment' AND first_lesson_date within next 7 days
+    Urgency is driven by the effective deadline:
+    - For Summer enrollments published with a locked discount tier that has
+      a `before_date`, the deadline is that tier deadline (whichever is
+      earlier: discount deadline vs. first_lesson_date).
+    - For Regular enrollments (or Summer without a tier deadline), the
+      deadline is `first_lesson_date`.
 
-    Returns enrollments with calculated days_overdue (negative for upcoming).
-    Sorted by days_overdue descending (most overdue first).
-
-    - **location**: Filter by location (optional)
-    - **tutor_id**: Filter by tutor ID (optional)
+    Includes enrollments where the effective deadline is within 7 days or
+    already past. Rows with an admin override stay visible (payment is still
+    pending), but their tier stays locked at the override value.
     """
     today = hk_now().date()
     week_from_now = today + timedelta(days=7)
+
+    # Effective deadline = payment_deadline if set, else first_lesson_date.
+    effective_deadline = func.coalesce(
+        Enrollment.payment_deadline, Enrollment.first_lesson_date
+    )
 
     query = (
         db.query(Enrollment)
@@ -1141,25 +1148,27 @@ async def get_overdue_enrollments(
         .filter(
             Enrollment.payment_status == "Pending Payment",
             Enrollment.first_lesson_date.isnot(None),
-            Enrollment.first_lesson_date <= week_from_now,
+            effective_deadline <= week_from_now,
             Enrollment.student_id.isnot(None)
         )
     )
 
-    # Apply location filter if provided
     if location:
         query = query.filter(Enrollment.location == location)
-
-    # Apply tutor filter if provided
     if tutor_id:
         query = query.filter(Enrollment.tutor_id == tutor_id)
 
     overdue_enrollments = query.all()
 
-    # Build response with days_overdue calculation
     result = []
     for enrollment in overdue_enrollments:
-        days_overdue = (today - enrollment.first_lesson_date).days
+        if enrollment.payment_deadline is not None:
+            effective = enrollment.payment_deadline
+            deadline_source = "payment_deadline"
+        else:
+            effective = enrollment.first_lesson_date
+            deadline_source = "first_lesson"
+        days_overdue = (today - effective).days
 
         result.append(OverdueEnrollment(
             id=enrollment.id,
@@ -1167,8 +1176,6 @@ async def get_overdue_enrollments(
             student_name=enrollment.student.student_name if enrollment.student else "",
             school_student_id=enrollment.student.school_student_id if enrollment.student else None,
             grade=enrollment.student.grade if enrollment.student else None,
-            lang_stream=enrollment.student.lang_stream if enrollment.student else None,
-            school=enrollment.student.school if enrollment.student else None,
             tutor_id=enrollment.tutor_id,
             tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else None,
             assigned_day=enrollment.assigned_day,
@@ -1176,10 +1183,16 @@ async def get_overdue_enrollments(
             location=enrollment.location,
             first_lesson_date=enrollment.first_lesson_date,
             lessons_paid=enrollment.lessons_paid or 0,
-            days_overdue=days_overdue
+            days_overdue=days_overdue,
+            enrollment_type=enrollment.enrollment_type,
+            payment_deadline=enrollment.payment_deadline,
+            deadline_source=deadline_source,
+            locked_discount_code=enrollment.locked_discount_code,
+            locked_discount_amount=enrollment.locked_discount_amount,
+            discount_override_code=enrollment.discount_override_code,
+            discount_override_reason=enrollment.discount_override_reason,
         ))
 
-    # Sort by days_overdue descending (most overdue first)
     result.sort(key=lambda x: x.days_overdue, reverse=True)
 
     return result
@@ -1899,6 +1912,104 @@ async def update_enrollment_extension(
     ).filter(Enrollment.id == enrollment_id).first()
 
     # Build response
+    enrollment_data = EnrollmentResponse.model_validate(enrollment)
+    enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
+    enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+    enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
+    enrollment_data.grade = enrollment.student.grade if enrollment.student else None
+    enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
+    enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+
+    return enrollment_data
+
+
+# ============================================
+# Discount Tier Override (Summer)
+# ============================================
+
+@router.patch("/enrollments/{enrollment_id}/discount-override", response_model=EnrollmentResponse)
+async def set_discount_override(
+    enrollment_id: int,
+    payload: DiscountOverrideRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Force a specific discount tier on a Summer enrollment (admin override).
+
+    The override short-circuits the nightly auto-downgrade, which is needed
+    when a parent actually paid before the deadline but the admin only
+    recorded it afterwards. Every override captures who/when/why for audit.
+    """
+    enrollment = db.query(Enrollment).options(
+        *enrollment_with_relations()
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    if enrollment.enrollment_type != "Summer":
+        raise HTTPException(
+            status_code=400,
+            detail="Discount tier overrides are only supported for Summer enrollments",
+        )
+
+    now = hk_now()
+    enrollment.discount_override_code = payload.code
+    enrollment.discount_override_reason = payload.reason
+    enrollment.discount_override_by = admin.user_email
+    enrollment.discount_override_at = now
+    enrollment.last_modified_time = now
+    enrollment.last_modified_by = admin.user_email
+
+    db.commit()
+
+    enrollment = db.query(Enrollment).options(
+        *enrollment_with_relations()
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    enrollment_data = EnrollmentResponse.model_validate(enrollment)
+    enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
+    enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+    enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
+    enrollment_data.grade = enrollment.student.grade if enrollment.student else None
+    enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
+    enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+
+    return enrollment_data
+
+
+@router.delete("/enrollments/{enrollment_id}/discount-override", response_model=EnrollmentResponse)
+async def clear_discount_override(
+    enrollment_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Clear a previous tier override, returning the enrollment to auto-computed tier."""
+    enrollment = db.query(Enrollment).options(
+        *enrollment_with_relations()
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    now = hk_now()
+    enrollment.discount_override_code = None
+    enrollment.discount_override_reason = None
+    enrollment.discount_override_by = None
+    enrollment.discount_override_at = None
+    enrollment.last_modified_time = now
+    enrollment.last_modified_by = admin.user_email
+
+    db.commit()
+
+    enrollment = db.query(Enrollment).options(
+        *enrollment_with_relations()
+    ).filter(Enrollment.id == enrollment_id).first()
+
     enrollment_data = EnrollmentResponse.model_validate(enrollment)
     enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
     enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None

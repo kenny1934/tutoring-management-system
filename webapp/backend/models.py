@@ -152,6 +152,19 @@ class Enrollment(Base):
         comment='Source summer application if this is a published Summer enrollment'
     )
 
+    # Summer discount tier snapshot (migration 113). For Summer enrollments the
+    # tier is locked at publish time and kept in sync by the nightly sweep.
+    payment_deadline = Column(Date, comment='min(discount.before_date, first_lesson_date) for Summer')
+    locked_discount_code = Column(String(32), comment='EB / EB3P / 3P / NONE')
+    locked_discount_amount = Column(Integer, comment='Discount amount in HKD')
+
+    # Admin override — if set, bypasses computed tier. Used when a parent paid
+    # on time but the payment was recorded late.
+    discount_override_code = Column(String(32))
+    discount_override_reason = Column(Text)
+    discount_override_by = Column(String(255))
+    discount_override_at = Column(DateTime)
+
     # Metadata
     last_modified_by = Column(String(255))
     last_modified_time = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -1296,6 +1309,9 @@ class SummerApplication(Base):
     form_language = Column(String(10), default='zh')
     sessions_per_week = Column(Integer, nullable=False, default=1)
     lessons_paid = Column(Integer, nullable=False, default=8)
+    # Stamped when admin transitions application_status to 'Paid'. Used to
+    # evaluate discount tier against the discount's before_date deadline.
+    paid_at = Column(DateTime, nullable=True)
 
     config = relationship("SummerCourseConfig", back_populates="applications")
     buddy_group = relationship("SummerBuddyGroup", back_populates="applications")
