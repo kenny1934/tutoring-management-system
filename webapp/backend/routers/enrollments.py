@@ -1135,11 +1135,11 @@ async def get_overdue_enrollments(
     today = hk_now().date()
     week_from_now = today + timedelta(days=7)
 
-    # Effective deadline = payment_deadline if set, else first_lesson_date.
-    effective_deadline = func.coalesce(
-        Enrollment.payment_deadline, Enrollment.first_lesson_date
-    )
-
+    # Surface a row if EITHER its tier deadline OR its first_lesson_date is
+    # within the window. At row level we pick whichever is earlier as the
+    # "effective deadline" driving urgency. Using OR rather than COALESCE
+    # also keeps the list correct when the two get out of sync (e.g. a
+    # first_lesson_date gets backdated after publish).
     query = (
         db.query(Enrollment)
         .options(
@@ -1148,7 +1148,10 @@ async def get_overdue_enrollments(
         .filter(
             Enrollment.payment_status == "Pending Payment",
             Enrollment.first_lesson_date.isnot(None),
-            effective_deadline <= week_from_now,
+            or_(
+                Enrollment.payment_deadline <= week_from_now,
+                Enrollment.first_lesson_date <= week_from_now,
+            ),
             Enrollment.student_id.isnot(None)
         )
     )
@@ -1196,7 +1199,13 @@ async def get_overdue_enrollments(
 
     result = []
     for enrollment in overdue_enrollments:
-        if enrollment.payment_deadline is not None:
+        # Use the earlier of the two dates — whichever triggered the row
+        # should drive urgency. A Summer tier deadline that falls before the
+        # lesson date wins; otherwise first_lesson_date does.
+        if (
+            enrollment.payment_deadline is not None
+            and enrollment.payment_deadline <= enrollment.first_lesson_date
+        ):
             effective = enrollment.payment_deadline
             deadline_source = "payment_deadline"
         else:
