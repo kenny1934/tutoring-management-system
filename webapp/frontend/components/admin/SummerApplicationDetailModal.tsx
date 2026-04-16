@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -123,6 +124,112 @@ function StudentSuggestionRow({
   );
 }
 
+/** Collapsible workflow-step row for the admin action pane. */
+function ChecklistRow({
+  index,
+  title,
+  done,
+  summary,
+  open,
+  onToggle,
+  disabled,
+  children,
+}: {
+  index: number;
+  title: string;
+  done: boolean;
+  summary?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-white dark:bg-gray-900/40 overflow-hidden",
+        done
+          ? "border-green-200/70 dark:border-green-900/40"
+          : "border-gray-200 dark:border-gray-700",
+      )}
+    >
+      <button
+        type="button"
+        onClick={disabled ? undefined : onToggle}
+        disabled={disabled}
+        aria-expanded={open}
+        className={cn(
+          "w-full flex items-center gap-2.5 px-2.5 py-2 text-left",
+          disabled
+            ? "cursor-default"
+            : "hover:bg-gray-50 dark:hover:bg-gray-800/50",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+            done
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+          )}
+        >
+          {done ? <Check className="h-3 w-3" /> : index + 1}
+        </span>
+        <span
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-wider",
+            done ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          {title}
+        </span>
+        <span className="ml-auto flex items-center gap-2 min-w-0">
+          {!open && summary ? (
+            <span className="min-w-0 truncate text-xs text-muted-foreground">
+              {summary}
+            </span>
+          ) : null}
+          {!disabled && (
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
+                open && "rotate-180",
+              )}
+            />
+          )}
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="border-t border-gray-100 dark:border-gray-800 p-3">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const FEE_SENT_OR_LATER = new Set(["Fee Sent", "Paid", "Enrolled"]);
+
+/** Picks the first incomplete step in the workflow checklist. Returns null when every step is done. */
+function firstUndoneStep(a: SummerApplication): number | null {
+  if (!a.lang_stream) return 0;
+  if (!a.existing_student_id) return 1;
+  if (!FEE_SENT_OR_LATER.has(a.application_status)) return 2;
+  if (!a.published_enrollment_id) return 3;
+  return null;
+}
+
 // Matches both the applications-page list cache (["summer-apps", ...]) and
 // the arrangement-page single-app cache (["summer-app", id]) that feed this
 // modal — the caches each parent owns but this component reads via props.
@@ -191,6 +298,9 @@ export function SummerApplicationDetailModal({
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
   const [messagePanel, setMessagePanel] = useState<SummerMessageMode | null>(null);
+  // Which workflow checklist row is expanded in the admin action pane. Only one
+  // row is open at a time (accordion). `null` = all collapsed.
+  const [openStepIdx, setOpenStepIdx] = useState<number | null>(null);
   const [createStudentOpen, setCreateStudentOpen] = useState(false);
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   const [planDraft, setPlanDraft] = useState<number | null>(null);
@@ -375,6 +485,7 @@ export function SummerApplicationDetailModal({
       setSiblingOverrides({});
       setSiblingPendingReject(null);
       setMessagePanel(null);
+      setOpenStepIdx(app.published_enrollment_id ? null : firstUndoneStep(app));
       setBuddySectionCollapsed(false);
       setEditingDetails(false);
       setPendingStatusConfirm(null);
@@ -612,8 +723,7 @@ export function SummerApplicationDetailModal({
     if (!app.existing_student_id) {
       return "No student record linked — use the Student section below to link or create one.";
     }
-    const PUBLISHABLE = new Set(["Fee Sent", "Paid", "Enrolled"]);
-    if (!PUBLISHABLE.has(app.application_status)) {
+    if (!FEE_SENT_OR_LATER.has(app.application_status)) {
       return "Send the fee message first — use the Fee Message section below, then click Mark as Sent.";
     }
     const sessions = app.sessions ?? [];
@@ -817,17 +927,42 @@ export function SummerApplicationDetailModal({
       <div className={cn(
         readOnly ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"
       )}>
-        {/* === LEFT COLUMN: Actions === */}
         {!readOnly && (
-        <div className="space-y-4 md:order-2 md:border md:border-gray-200 md:dark:border-gray-700 md:bg-gray-100/60 md:dark:bg-gray-800/50 md:rounded-xl md:p-4">
-          {/* === 1. ACTION STRIP === */}
-          <div className="space-y-3">
-            {/* Quick status pills with icons */}
-            {nextStatuses && canEdit && (
-              <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Move to</span>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                  {nextStatuses.map((s) => {
+        <div className="space-y-3 md:order-2 md:border md:border-gray-200 md:dark:border-gray-700 md:bg-gray-100/60 md:dark:bg-gray-800/50 md:rounded-xl md:p-4">
+          {nextStatuses && canEdit && (
+            <div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Move to</span>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {nextStatuses.map((s) => {
+                  const colors = STATUS_COLORS[s];
+                  const isSelected = status === s;
+                  const Icon = STATUS_ICONS[s];
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setStatus(s)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                        isSelected
+                          ? cn(colors.bg, colors.text, "ring-2 ring-offset-1 ring-current")
+                          : cn(colors.bg, colors.text, "hover:ring-1 hover:ring-current")
+                      )}
+                    >
+                      {Icon && <Icon className="h-3.5 w-3.5" />}
+                      {s}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setShowAllStatuses((v) => !v)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+                >
+                  {showAllStatuses ? "Less" : "All statuses\u2026"}
+                </button>
+              </div>
+              {showAllStatuses && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  {ALL_STATUSES.filter(s => !nextStatuses?.includes(s)).map((s) => {
                     const colors = STATUS_COLORS[s];
                     const isSelected = status === s;
                     const Icon = STATUS_ICONS[s];
@@ -836,60 +971,406 @@ export function SummerApplicationDetailModal({
                         key={s}
                         onClick={() => setStatus(s)}
                         className={cn(
-                          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
                           isSelected
                             ? cn(colors.bg, colors.text, "ring-2 ring-offset-1 ring-current")
                             : cn(colors.bg, colors.text, "hover:ring-1 hover:ring-current")
                         )}
                       >
-                        {Icon && <Icon className="h-3.5 w-3.5" />}
+                        {Icon && <Icon className="h-3 w-3" />}
                         {s}
                       </button>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isPublished && (
+            <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
+              This application is published. Status, placement, notes, and
+              linked student are locked — unpublish via step 4 to make changes,
+              or edit the enrollment directly for tutor-facing updates.
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <ChecklistRow
+              index={0}
+              title="Language stream"
+              done={!!langStream}
+              open={openStepIdx === 0}
+              onToggle={() => setOpenStepIdx((i) => (i === 0 ? null : 0))}
+              disabled={!canEdit}
+              summary={langStream ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                  {langStream}
+                </span>
+              ) : (
+                <span className="text-[10px] italic">Not set</span>
+              )}
+            >
+              {(() => {
+                const studentLang =
+                  linkedStudent?.lang_stream && linkedStudent.id === app.existing_student_id
+                    ? linkedStudent.lang_stream
+                    : null;
+                return studentLang && langStream === studentLang ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                      {langStream}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <Check className="h-3 w-3" /> from student record
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {["C", "E"].map((ls) => (
+                      <button
+                        key={ls}
+                        onClick={() => setLangStream(ls)}
+                        className={cn(
+                          "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                          langStream === ls
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                        )}
+                      >
+                        {ls}
+                      </button>
+                    ))}
+                    {langStream && (
+                      <button
+                        onClick={() => setLangStream("")}
+                        className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        title="Clear"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                    {studentLang && langStream && studentLang !== langStream && (
+                      <button
+                        onClick={() => setLangStream(studentLang)}
+                        className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
+                      >
+                        Student is {studentLang}
+                      </button>
+                    )}
+                    {studentLang && !langStream && (
+                      <button
+                        onClick={() => setLangStream(studentLang)}
+                        className="text-[10px] text-primary hover:underline ml-1"
+                      >
+                        Use student&apos;s: {studentLang}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+            </ChecklistRow>
+
+            <ChecklistRow
+              index={1}
+              title="Link student"
+              done={!!studentId}
+              open={openStepIdx === 1}
+              onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
+              disabled={!canEdit}
+              summary={studentId && linkedStudent ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+                  <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
+                  <span className="truncate">{linkedStudent.student_name}</span>
+                  {linkedStudent.grade && (
+                    <span className="text-muted-foreground">· {linkedStudent.grade}</span>
+                  )}
+                </span>
+              ) : studentId ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <span className="text-[10px] italic">Not linked</span>
+              )}
+            >
+              {studentId && linkedStudent ? (
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-green-500 shrink-0" />
+                      <StudentInfoBadges
+                        student={{
+                          student_id: linkedStudent.id,
+                          student_name: linkedStudent.student_name,
+                          school_student_id: linkedStudent.school_student_id || undefined,
+                          grade: linkedStudent.grade || undefined,
+                          lang_stream: linkedStudent.lang_stream || undefined,
+                          school: linkedStudent.school || undefined,
+                          home_location: linkedStudent.home_location || undefined,
+                        }}
+                        showLink
+                        showLocationPrefix
+                      />
+                    </div>
+                    <div className="ml-6 mt-0.5">
+                      {linkedStudent.enrollment_count != null && (
+                        <span className="text-xs text-muted-foreground">
+                          {linkedStudent.enrollment_count} enrollment{linkedStudent.enrollment_count !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                    {linkedStudent.home_location && systemLocation && linkedStudent.home_location !== systemLocation && (
+                      <div className="mt-1 ml-6 text-[10px] text-amber-600 dark:text-amber-400">
+                        ⚠ Student&apos;s home location ({linkedStudent.home_location}) differs from preferred ({systemLocation})
+                      </div>
+                    )}
+                  </div>
                   <button
-                    onClick={() => setShowAllStatuses((v) => !v)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+                    onClick={handleUnlink}
+                    className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Unlink student"
                   >
-                    {showAllStatuses ? "Less" : "All statuses\u2026"}
+                    <Unlink className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                {showAllStatuses && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    {ALL_STATUSES.filter(s => !nextStatuses?.includes(s)).map((s) => {
-                      const colors = STATUS_COLORS[s];
-                      const isSelected = status === s;
-                      const Icon = STATUS_ICONS[s];
-                      return (
+              ) : studentId ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Loading linked student...</span>
+                  <button onClick={handleUnlink} className="ml-auto text-xs hover:underline">Unlink</button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {isExisting && (
+                    <div className="text-xs text-muted-foreground">
+                      Applicant says: {app.is_existing_student}
+                      {app.current_centers && app.current_centers.length > 0 && (
+                        <> · {app.current_centers.join(", ")}</>
+                      )}
+                    </div>
+                  )}
+
+                  {autoSuggestions.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                        <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                          Suggested matches
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                      </div>
+                      <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
+                        {autoSuggestions.map(({ student, reason }) => (
+                          <StudentSuggestionRow
+                            key={student.id}
+                            student={student}
+                            reason={reason}
+                            onClick={() => handleLinkStudent(student.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    {autoSuggestions.length > 0 && (
+                      <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                        Or search manually
+                      </div>
+                    )}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                        className={cn(inputClass, "pl-8")}
+                        placeholder="Search by name, ID, or phone..."
+                      />
+                    </div>
+                  </div>
+
+                  {searchFocused && searchResults && searchResults.length > 0 && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+                      {searchResults.map((s) => (
+                        <StudentSuggestionRow
+                          key={s.id}
+                          student={s}
+                          onClick={() => handleLinkStudent(s.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {searchFocused && searchResults && searchResults.length === 0 && debouncedStudentSearch.length >= 2 && (
+                    <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                      No students found matching &ldquo;{debouncedStudentSearch}&rdquo;
+                    </div>
+                  )}
+
+                  {showManualId ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={manualIdInput}
+                          onChange={(e) => setManualIdInput(e.target.value.replace(/\D/g, ""))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && manualIdInput) {
+                              setManualIdConfirmed(manualIdInput);
+                            }
+                          }}
+                          className={cn(inputClass, "max-w-[140px]")}
+                          placeholder="School student ID"
+                        />
                         <button
-                          key={s}
-                          onClick={() => setStatus(s)}
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-                            isSelected
-                              ? cn(colors.bg, colors.text, "ring-2 ring-offset-1 ring-current")
-                              : cn(colors.bg, colors.text, "hover:ring-1 hover:ring-current")
-                          )}
+                          onClick={() => manualIdInput && setManualIdConfirmed(manualIdInput)}
+                          disabled={!manualIdInput}
+                          className="px-2.5 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                         >
-                          {Icon && <Icon className="h-3 w-3" />}
-                          {s}
+                          Search
                         </button>
-                      );
-                    })}
+                        <button
+                          onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
+                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                        >
+                          cancel
+                        </button>
+                      </div>
+                      {manualIdResults && manualIdResults.length > 0 && (
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+                          {manualIdResults.map((s) => (
+                            <StudentSuggestionRow key={s.id} student={s} onClick={() => handleLinkStudent(s.id)} />
+                          ))}
+                        </div>
+                      )}
+                      {manualIdResults && manualIdResults.length === 0 && (
+                        <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                          No student found with ID &ldquo;{manualIdConfirmed}&rdquo;
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => setShowManualId(true)}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <Search className="h-3 w-3" />
+                        Can&apos;t find? Enter student ID manually
+                      </button>
+                      <button
+                        onClick={() => setCreateStudentOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Create new student
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </ChecklistRow>
+
+            <ChecklistRow
+              index={2}
+              title="Fee message"
+              done={FEE_SENT_OR_LATER.has(status)}
+              open={openStepIdx === 2}
+              onToggle={() => setOpenStepIdx((i) => (i === 2 ? null : 2))}
+              disabled={!canEdit}
+              summary={FEE_SENT_OR_LATER.has(status) ? (
+                <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">{status}</span>
+              ) : (
+                <span className="text-[10px] italic">Not sent</span>
+              )}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setMessagePanel("schedule")}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                      messagePanel === "schedule"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700",
+                    )}
+                    title="Copy class schedule for parent"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Schedule
+                  </button>
+                  {effectiveDiscount && (
+                    <button
+                      type="button"
+                      onClick={() => setMessagePanel("fee")}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                        messagePanel === "fee"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700",
+                      )}
+                      title="Copy fee message for parent"
+                    >
+                      <DollarSign className="h-3 w-3" />
+                      Fee message
+                    </button>
+                  )}
+                </div>
+                {messagePanel && config && (messagePanel === "schedule" || effectiveDiscount) ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <SummerMessagePanel
+                      app={app}
+                      config={config}
+                      discount={effectiveDiscount ?? undefined}
+                      mode={messagePanel}
+                      onClose={() => setMessagePanel(null)}
+                      onMarkSent={(newStatus) => {
+                        // Sync the local form status so the Move-to pills and the
+                        // hasChanges check reflect the new backend state. Without
+                        // this, Save would think there are unsaved edits and
+                        // overwrite 'Fee Sent' with the stale local value.
+                        setStatus(newStatus);
+                        // Patch the SWR cache so the title badge and the panel's
+                        // own showMarkSent/showUnmarkSent flip instantly.
+                        onOptimisticUpdate?.(app.id, { application_status: newStatus });
+                        onUpdated();
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-muted-foreground">
+                    Pick Schedule or Fee message above to generate copy for the parent.
                   </div>
                 )}
               </div>
-            )}
+            </ChecklistRow>
 
-            {/* Publish bridge — convert confirmed placements into a native
-                Summer enrollment + session_log so the regular tutor workflow
-                takes over. Disabled until all hard blocks pass. */}
-            <div>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Publish to Enrollments
-              </span>
+            {/* Publish stays interactive when the rest is locked so admins can unpublish. */}
+            <ChecklistRow
+              index={3}
+              title="Publish"
+              done={!!app.published_enrollment_id}
+              open={openStepIdx === 3}
+              onToggle={() => setOpenStepIdx((i) => (i === 3 ? null : 3))}
+              summary={app.published_enrollment_id ? (
+                <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                  Enrollment #{app.published_enrollment_id}
+                </span>
+              ) : publishBlocker ? (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <AlertTriangle className="h-3 w-3" />
+                  Blocked
+                </span>
+              ) : (
+                <span className="text-[10px] text-primary font-medium">Ready</span>
+              )}
+            >
               {app.published_enrollment_id ? (
-                <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={(e) =>
@@ -916,7 +1397,7 @@ export function SummerApplicationDetailModal({
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={doPublish}
@@ -940,312 +1421,20 @@ export function SummerApplicationDetailModal({
                   )}
                 </div>
               )}
-            </div>
+            </ChecklistRow>
+          </div>
 
-            {isPublished && (
-              <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
-                This application is published. Status, placement, notes, and
-                linked student are locked — unpublish above to make changes,
-                or edit the enrollment directly for tutor-facing updates.
-              </div>
-            )}
-
-            {/* Lang stream: collapse to read-only badge when linked student matches */}
-            {canEdit && (() => {
-              const studentLang =
-                linkedStudent?.lang_stream && linkedStudent.id === app.existing_student_id
-                  ? linkedStudent.lang_stream
-                  : null;
-              return (
+          {canEdit && (
             <div>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Language Stream</span>
-              {studentLang && langStream === studentLang ? (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                    {langStream}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                    <Check className="h-3 w-3" /> from student record
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 mt-1">
-                  {["C", "E"].map((ls) => (
-                    <button
-                      key={ls}
-                      onClick={() => setLangStream(ls)}
-                      className={cn(
-                        "px-3 py-1 rounded-full text-xs font-medium transition-all",
-                        langStream === ls
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                      )}
-                    >
-                      {ls}
-                    </button>
-                  ))}
-                  {langStream && (
-                    <button
-                      onClick={() => setLangStream("")}
-                      className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                      title="Clear"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                  {studentLang && langStream && studentLang !== langStream && (
-                    <button
-                      onClick={() => setLangStream(studentLang)}
-                      className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline ml-1"
-                    >
-                      Student is {studentLang}
-                    </button>
-                  )}
-                  {studentLang && !langStream && (
-                    <button
-                      onClick={() => setLangStream(studentLang)}
-                      className="text-[10px] text-primary hover:underline ml-1"
-                    >
-                      Use student&apos;s: {studentLang}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-              );
-            })()}
-          </div>
-
-          {/* === 2. STUDENT LINK === */}
-          {canEdit && (
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Link2 className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Link to Student</span>
-            </div>
-
-            {studentId && linkedStudent ? (
-              /* Linked state: show real student data via StudentInfoBadges */
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-green-500 shrink-0" />
-                    <StudentInfoBadges
-                      student={{
-                        student_id: linkedStudent.id,
-                        student_name: linkedStudent.student_name,
-                        school_student_id: linkedStudent.school_student_id || undefined,
-                        grade: linkedStudent.grade || undefined,
-                        lang_stream: linkedStudent.lang_stream || undefined,
-                        school: linkedStudent.school || undefined,
-                        home_location: linkedStudent.home_location || undefined,
-                      }}
-                      showLink
-                      showLocationPrefix
-                    />
-                  </div>
-                  <div className="ml-6 mt-0.5">
-                    {linkedStudent.enrollment_count != null && (
-                      <span className="text-xs text-muted-foreground">
-                        {linkedStudent.enrollment_count} enrollment{linkedStudent.enrollment_count !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </div>
-                  {/* Location mismatch warning */}
-                  {linkedStudent.home_location && systemLocation && linkedStudent.home_location !== systemLocation && (
-                    <div className="mt-1 ml-6 text-[10px] text-amber-600 dark:text-amber-400">
-                      ⚠ Student&apos;s home location ({linkedStudent.home_location}) differs from preferred ({systemLocation})
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleUnlink}
-                  className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                  title="Unlink student"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : studentId ? (
-              /* Loading linked student */
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Loading linked student...</span>
-                <button onClick={handleUnlink} className="ml-auto text-xs hover:underline">Unlink</button>
-              </div>
-            ) : (
-              /* Unlinked: show suggestions and/or search */
-              <div className="space-y-2">
-                {isExisting && (
-                  <div className="text-xs text-muted-foreground">
-                    Applicant says: {app.is_existing_student}
-                    {app.current_centers && app.current_centers.length > 0 && (
-                      <> · {app.current_centers.join(", ")}</>
-                    )}
-                  </div>
-                )}
-
-                {autoSuggestions.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                      <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
-                        Suggested matches
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
-                    </div>
-                    <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
-                      {autoSuggestions.map(({ student, reason }) => (
-                        <StudentSuggestionRow
-                          key={student.id}
-                          student={student}
-                          reason={reason}
-                          onClick={() => handleLinkStudent(student.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  {autoSuggestions.length > 0 && (
-                    <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
-                      Or search manually
-                    </div>
-                  )}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={studentSearch}
-                      onChange={(e) => setStudentSearch(e.target.value)}
-                      onFocus={() => setSearchFocused(true)}
-                      onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                      className={cn(inputClass, "pl-8")}
-                      placeholder="Search by name, ID, or phone..."
-                    />
-                  </div>
-                </div>
-
-                {searchFocused && searchResults && searchResults.length > 0 && (
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
-                    {searchResults.map((s) => (
-                      <StudentSuggestionRow
-                        key={s.id}
-                        student={s}
-                        onClick={() => handleLinkStudent(s.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-                {searchFocused && searchResults && searchResults.length === 0 && debouncedStudentSearch.length >= 2 && (
-                  <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-                    No students found matching &ldquo;{debouncedStudentSearch}&rdquo;
-                  </div>
-                )}
-
-                {showManualId ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={manualIdInput}
-                        onChange={(e) => setManualIdInput(e.target.value.replace(/\D/g, ""))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && manualIdInput) {
-                            setManualIdConfirmed(manualIdInput);
-                          }
-                        }}
-                        className={cn(inputClass, "max-w-[140px]")}
-                        placeholder="School student ID"
-                      />
-                      <button
-                        onClick={() => manualIdInput && setManualIdConfirmed(manualIdInput)}
-                        disabled={!manualIdInput}
-                        className="px-2.5 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                      >
-                        Search
-                      </button>
-                      <button
-                        onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                      >
-                        cancel
-                      </button>
-                    </div>
-                    {manualIdResults && manualIdResults.length > 0 && (
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
-                        {manualIdResults.map((s) => (
-                          <StudentSuggestionRow key={s.id} student={s} onClick={() => handleLinkStudent(s.id)} />
-                        ))}
-                      </div>
-                    )}
-                    {manualIdResults && manualIdResults.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-                        No student found with ID &ldquo;{manualIdConfirmed}&rdquo;
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => setShowManualId(true)}
-                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <Search className="h-3 w-3" />
-                      Can&apos;t find? Enter student ID manually
-                    </button>
-                    <button
-                      onClick={() => setCreateStudentOpen(true)}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      Create new student
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* === 3. ADMIN NOTES === */}
-          {canEdit && (
-          <div>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={notes ? 2 : 1}
-              onFocus={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 2; }}
-              onBlur={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 1; }}
-              className={cn(inputClass, "mt-1 resize-none")}
-              placeholder="Internal notes..."
-            />
-          </div>
-          )}
-
-          {messagePanel && config && (messagePanel === "schedule" || effectiveDiscount) && (
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <SummerMessagePanel
-                app={app}
-                config={config}
-                discount={effectiveDiscount ?? undefined}
-                mode={messagePanel}
-                onClose={() => setMessagePanel(null)}
-                onMarkSent={(newStatus) => {
-                  // Sync the local form status so the Move-to pills and the
-                  // hasChanges check reflect the new backend state. Without
-                  // this, Save would think there are unsaved edits and
-                  // overwrite 'Fee Sent' with the stale local value.
-                  setStatus(newStatus);
-                  // Patch the SWR cache so the title badge and the panel's
-                  // own showMarkSent/showUnmarkSent flip instantly.
-                  onOptimisticUpdate?.(app.id, { application_status: newStatus });
-                  onUpdated();
-                }}
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={notes ? 2 : 1}
+                onFocus={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 2; }}
+                onBlur={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 1; }}
+                className={cn(inputClass, "mt-1 resize-none")}
+                placeholder="Internal notes..."
               />
             </div>
           )}
@@ -1596,7 +1785,14 @@ export function SummerApplicationDetailModal({
                   ) => (
                     <button
                       type="button"
-                      onClick={() => setMessagePanel((m) => (m === key ? null : key))}
+                      onClick={() => {
+                        setMessagePanel((m) => (m === key ? null : key));
+                        // Placement lives in the info pane but the generated
+                        // message renders inside the Fee-message checklist row
+                        // on the right — auto-expand it so the toggle has
+                        // something visible to show.
+                        setOpenStepIdx(2);
+                      }}
                       className={cn(
                         "inline-flex items-center gap-1 text-[11px]",
                         messagePanel === key
