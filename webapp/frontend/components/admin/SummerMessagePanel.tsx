@@ -22,7 +22,10 @@ interface SummerMessagePanelProps {
   discount?: DiscountResult;
   mode: SummerMessageMode;
   onClose: () => void;
-  onMarkSent?: () => void;
+  // Fires with the new application_status after the backend accepts the
+  // mark/unmark. The parent should apply this optimistically and then
+  // trigger a refetch — callers that ignore the argument get a stale modal.
+  onMarkSent?: (newStatus: string) => void;
 }
 
 const STATUS_FEE_SENT = "Fee Sent";
@@ -78,7 +81,7 @@ export function SummerMessagePanel({
     try {
       await summerAPI.updateApplication(app.id, { application_status: STATUS_FEE_SENT });
       showToast("Marked as sent!");
-      onMarkSent?.();
+      onMarkSent?.(STATUS_FEE_SENT);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Please try again";
       showToast(`Failed to mark as sent: ${msg}`, "error");
@@ -94,7 +97,7 @@ export function SummerMessagePanel({
         application_status: STATUS_PLACEMENT_CONFIRMED,
       });
       showToast("Unmarked as sent");
-      onMarkSent?.();
+      onMarkSent?.(STATUS_PLACEMENT_CONFIRMED);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Please try again";
       showToast(`Failed to unmark: ${msg}`, "error");

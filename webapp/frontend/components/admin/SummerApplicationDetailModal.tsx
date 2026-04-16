@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
 import { PrimaryBranchChip } from "./PrimaryBranchChip";
-import { summerAPI, studentsAPI } from "@/lib/api";
+import { summerAPI, studentsAPI, enrollmentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
@@ -19,7 +19,7 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
-  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw,
+  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, Send, CheckCircle2,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -28,11 +28,13 @@ import type {
   SummerCourseConfig,
   SummerLocation,
   SiblingVerificationStatus,
+  Enrollment,
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { UserPlus } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
@@ -136,6 +138,10 @@ interface SummerApplicationDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdated: () => void | Promise<unknown>;
+  // Optional optimistic cache patcher — when provided, side actions (mark
+  // fee sent, etc.) patch the SWR cache immediately so the modal reflects
+  // the change before the onUpdated() refetch lands over the network.
+  onOptimisticUpdate?: (id: number, patch: Partial<SummerApplication>) => void;
   readOnly?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
@@ -156,6 +162,7 @@ export function SummerApplicationDetailModal({
   isOpen,
   onClose,
   onUpdated,
+  onOptimisticUpdate,
   readOnly = false,
   onPrev,
   onNext,
@@ -190,6 +197,14 @@ export function SummerApplicationDetailModal({
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   const [planDraft, setPlanDraft] = useState<number | null>(null);
   const [planSaving, setPlanSaving] = useState(false);
+  // Publish bridge state (Phase 5): drives the Publish/Unpublish buttons.
+  const [publishing, setPublishing] = useState(false);
+  const [pendingUnpublish, setPendingUnpublish] = useState(false);
+  // Floating EnrollmentDetailPopover opened from the "Enrollment #X" chip.
+  const [enrollmentPopover, setEnrollmentPopover] = useState<
+    { enrollment: Enrollment; pos: { x: number; y: number } } | null
+  >(null);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
   // Sync studentId synchronously on app change to avoid a one-frame flash of
   // the previous student's data (e.g. amber home-location warning) when
   // navigating prev/next.
@@ -576,6 +591,95 @@ export function SummerApplicationDetailModal({
     }
   };
 
+  // ─── Publish bridge ─────────────────────────────────────────────────────
+  // Compute the same hard blocks the backend enforces, so we can disable
+  // the Publish button with a clear tooltip explaining why. The backend
+  // remains the source of truth and will re-validate on POST.
+  const publishBlocker = ((): string | null => {
+    if (!app) return "Loading…";
+    if (app.published_enrollment_id) return null; // already published — separate UI
+    if (!app.existing_student_id) {
+      return "No student record linked — use the Student section below to link or create one.";
+    }
+    const PUBLISHABLE = new Set(["Fee Sent", "Paid", "Enrolled"]);
+    if (!PUBLISHABLE.has(app.application_status)) {
+      return "Send the fee message first — use the Fee Message section below, then click Mark as Sent.";
+    }
+    const sessions = app.sessions ?? [];
+    if (sessions.length === 0) return "No sessions scheduled yet — go to the Arrangement page to place this student.";
+    const tentativeCount = sessions.filter((s) => s.session_status === "Tentative").length;
+    if (tentativeCount > 0) {
+      return `${tentativeCount} session${tentativeCount !== 1 ? "s" : ""} still tentative — confirm them on the Arrangement page first.`;
+    }
+    const placedCount = app.placed_count ?? sessions.length;
+    if (placedCount !== app.lessons_paid) {
+      const diff = app.lessons_paid - placedCount;
+      return diff > 0
+        ? `Paid for ${app.lessons_paid} lessons but only ${placedCount} scheduled — add ${diff} more on the Arrangement page.`
+        : `Scheduled ${placedCount} lessons but only ${app.lessons_paid} paid for — remove ${-diff} or update lessons paid.`;
+    }
+    return null;
+  })();
+
+  const doPublish = async () => {
+    if (!app || publishBlocker || publishing) return;
+    setPublishing(true);
+    try {
+      const result = await summerAPI.publishApplication(app.id);
+      showToast("Published to enrollments", "success");
+      // Patch the cache so the chip flips to "Published" and the
+      // status advances to Enrolled (backend does the same transition).
+      onOptimisticUpdate?.(app.id, {
+        published_enrollment_id: result.enrollment_id,
+        application_status: "Enrolled",
+      });
+      setStatus("Enrolled");
+      onUpdated();
+    } catch (e) {
+      // Surface the structured error_code message from the backend.
+      const msg = e instanceof Error ? e.message : "Publish failed";
+      showToast(msg, "error");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const openEnrollmentPopover = async (e: React.MouseEvent, enrollmentId: number) => {
+    // Capture the click anchor before the async fetch so the popover
+    // doesn't drift if the DOM reflows while loading.
+    const pos = { x: e.clientX, y: e.clientY };
+    setEnrollmentLoading(true);
+    try {
+      const enrollment = await enrollmentsAPI.getById(enrollmentId);
+      setEnrollmentPopover({ enrollment, pos });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to load enrollment", "error");
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  const doUnpublish = async () => {
+    if (!app || publishing) return;
+    setPublishing(true);
+    try {
+      const result = await summerAPI.unpublishApplication(app.id);
+      showToast("Unpublished — enrollment removed", "success");
+      onOptimisticUpdate?.(app.id, {
+        published_enrollment_id: null,
+        application_status: result.application_status,
+      });
+      setStatus(result.application_status);
+      onUpdated();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unpublish failed";
+      showToast(msg, "error");
+    } finally {
+      setPublishing(false);
+      setPendingUnpublish(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!hasChanges || saving || readOnly) return;
     // Gate the Submitted → anything else transition: admins need to acknowledge
@@ -765,6 +869,67 @@ export function SummerApplicationDetailModal({
                 )}
               </div>
             )}
+
+            {/* Publish bridge — convert confirmed placements into a native
+                Summer enrollment + session_log so the regular tutor workflow
+                takes over. Disabled until all hard blocks pass. */}
+            <div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Publish to Enrollments
+              </span>
+              {app.published_enrollment_id ? (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      app.published_enrollment_id &&
+                      openEnrollmentPopover(e, app.published_enrollment_id)
+                    }
+                    disabled={enrollmentLoading}
+                    title="Open enrollment details"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60 cursor-pointer disabled:opacity-60"
+                  >
+                    {enrollmentLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Published · Enrollment #{app.published_enrollment_id}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingUnpublish(true)}
+                    disabled={publishing}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60 disabled:opacity-50"
+                  >
+                    {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                    Unpublish
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={doPublish}
+                    disabled={!!publishBlocker || publishing}
+                    title={publishBlocker ?? "Create the summer enrollment so tutors can start marking attendance for these sessions."}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                      publishBlocker
+                        ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90",
+                    )}
+                  >
+                    {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Publish
+                  </button>
+                  {publishBlocker && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {publishBlocker}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Lang stream: collapse to read-only badge when linked student matches */}
             {(() => {
@@ -1047,7 +1212,17 @@ export function SummerApplicationDetailModal({
                 discount={discount ?? undefined}
                 mode={messagePanel}
                 onClose={() => setMessagePanel(null)}
-                onMarkSent={onUpdated}
+                onMarkSent={(newStatus) => {
+                  // Sync the local form status so the Move-to pills and the
+                  // hasChanges check reflect the new backend state. Without
+                  // this, Save would think there are unsaved edits and
+                  // overwrite 'Fee Sent' with the stale local value.
+                  setStatus(newStatus);
+                  // Patch the SWR cache so the title badge and the panel's
+                  // own showMarkSent/showUnmarkSent flip instantly.
+                  onOptimisticUpdate?.(app.id, { application_status: newStatus });
+                  onUpdated();
+                }}
               />
             </div>
           )}
@@ -2114,6 +2289,30 @@ export function SummerApplicationDetailModal({
         confirmText="Discard"
         variant="danger"
       />
+
+      <ConfirmDialog
+        isOpen={pendingUnpublish}
+        onCancel={() => { if (!publishing) setPendingUnpublish(false); }}
+        onConfirm={doUnpublish}
+        title="Unpublish this application?"
+        message="The native Summer enrollment and all of its scheduled sessions will be deleted. The summer placements themselves remain — you can re-publish at any time."
+        consequences={[
+          "Will fail if any session has already been marked attended.",
+          "Application status will revert to its pre-publish state (typically Paid or Fee Sent).",
+        ]}
+        confirmText="Unpublish"
+        variant="warning"
+        loading={publishing}
+      />
+
+      {enrollmentPopover && (
+        <EnrollmentDetailPopover
+          enrollment={enrollmentPopover.enrollment}
+          isOpen={true}
+          onClose={() => setEnrollmentPopover(null)}
+          clickPosition={enrollmentPopover.pos}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={siblingPendingReject !== null}

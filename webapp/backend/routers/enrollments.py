@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, BASE_FEE_PER_LESSON, REGISTRATION_FEE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
-from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo
+from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
@@ -180,6 +180,28 @@ def _count_lesson_dates(
     return effective_end
 
 
+def bulk_load_summer_end_dates(
+    db: Session, enrollments: list[Enrollment]
+) -> dict[int, date]:
+    """Pre-load `course_end_date` for every Summer enrollment in one query,
+    keyed by `summer_application_id`. List endpoints must call this before
+    iterating with `calculate_effective_end_date_bulk`, otherwise each Summer
+    enrollment falls back to `first_lesson_date` (a degraded value)."""
+    summer_app_ids = [
+        e.summer_application_id for e in enrollments
+        if e.enrollment_type == 'Summer' and e.summer_application_id
+    ]
+    if not summer_app_ids:
+        return {}
+    rows = (
+        db.query(SummerApplication.id, SummerCourseConfig.course_end_date)
+        .join(SummerCourseConfig, SummerCourseConfig.id == SummerApplication.config_id)
+        .filter(SummerApplication.id.in_(summer_app_ids))
+        .all()
+    )
+    return {app_id: end_date for app_id, end_date in rows}
+
+
 def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optional[date]:
     """Calculate effective end date with holiday awareness.
 
@@ -188,7 +210,20 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
 
     The last lesson is on the Nth non-holiday date where N = lessons_paid.
     Extension weeks provide additional deadline buffer beyond the last lesson.
+
+    Summer enrollments override this with the course config's end date.
     """
+    if enrollment.enrollment_type == 'Summer':
+        if not enrollment.summer_application_id:
+            return enrollment.first_lesson_date
+        end_date = (
+            db.query(SummerCourseConfig.course_end_date)
+            .join(SummerApplication, SummerApplication.config_id == SummerCourseConfig.id)
+            .filter(SummerApplication.id == enrollment.summer_application_id)
+            .scalar()
+        )
+        return end_date or enrollment.first_lesson_date
+
     if not enrollment.first_lesson_date:
         return None
 
@@ -210,13 +245,21 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
 
 def calculate_effective_end_date_bulk(
     enrollment: Enrollment,
-    holidays: dict
+    holidays: dict,
+    summer_end_dates: Optional[dict[int, date]] = None,
 ) -> Optional[date]:
     """Holiday-aware calculation with pre-loaded holidays dict.
 
     Use this for bulk operations to avoid repeated DB queries.
-    Caller should load holidays once with get_holidays_in_range().
+    Caller should load holidays once with get_holidays_in_range(); for
+    batches that may include Summer enrollments, also pre-load summer end
+    dates via bulk_load_summer_end_dates() and pass the result.
     """
+    if enrollment.enrollment_type == 'Summer':
+        if summer_end_dates is not None and enrollment.summer_application_id:
+            return summer_end_dates.get(enrollment.summer_application_id) or enrollment.first_lesson_date
+        return enrollment.first_lesson_date
+
     if not enrollment.first_lesson_date:
         return None
 
@@ -955,6 +998,7 @@ async def get_enrollments(
     # Load holidays once for bulk calculation
     today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+    summer_end_dates = bulk_load_summer_end_dates(db, enrollments)
 
     # Build response with related data
     result = []
@@ -967,7 +1011,7 @@ async def get_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
         result.append(enrollment_data)
 
     return result
@@ -1023,6 +1067,7 @@ async def get_active_enrollments(
 
     # Load holidays once for bulk calculation
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+    summer_end_dates = bulk_load_summer_end_dates(db, all_enrollments)
 
     # Group by student_id and keep only the latest enrollment per student
     student_enrollments = defaultdict(list)
@@ -1037,7 +1082,7 @@ async def get_active_enrollments(
 
         # Calculate effective_end_date (holiday-aware)
         if latest.first_lesson_date:
-            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays, summer_end_dates)
 
             # Only include if still active (with grace period)
             if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
@@ -1060,7 +1105,7 @@ async def get_active_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
         result.append(enrollment_data)
 
     return result
@@ -1191,6 +1236,7 @@ async def get_my_students(
 
     # Load holidays once for bulk calculation
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+    summer_end_dates = bulk_load_summer_end_dates(db, all_enrollments)
 
     # Group by student_id and keep only the latest enrollment per student
     student_enrollments = defaultdict(list)
@@ -1205,7 +1251,7 @@ async def get_my_students(
 
         # Calculate effective_end_date (holiday-aware)
         if latest.first_lesson_date:
-            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays, summer_end_dates)
 
             # Only include if still active (with grace period)
             if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
@@ -1231,7 +1277,7 @@ async def get_my_students(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
         result.append(enrollment_data)
 
     return result
@@ -1562,6 +1608,14 @@ async def get_fee_message(
 
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    # Summer enrollments use a separate fee message generator in the summer
+    # detail modal — block this generic one to prevent accidental misuse.
+    if enrollment.enrollment_type == 'Summer':
+        raise HTTPException(
+            status_code=400,
+            detail="Summer enrollments use the summer-specific fee message in the application detail modal.",
+        )
 
     # Calculate effective end date of current enrollment
     effective_end = calculate_effective_end_date(enrollment, db)
@@ -1925,6 +1979,15 @@ async def preview_schedule_change(
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
+    # Schedule changes assume a single weekly cadence; Summer enrollments
+    # have per-session dates from placements, so this flow doesn't apply.
+    if enrollment.enrollment_type == 'Summer':
+        raise HTTPException(
+            status_code=400,
+            detail="Schedule changes are not supported for Summer enrollments. "
+                   "Edit placements in the Summer Arrangement page instead.",
+        )
+
     # Get new tutor info
     new_tutor = db.query(Tutor).filter(Tutor.id == new_schedule.tutor_id).first()
     if not new_tutor:
@@ -2087,6 +2150,15 @@ async def apply_schedule_change(
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
+    # Mirror the preview-time block: Summer enrollments don't follow a single
+    # weekly schedule, so this batch update would corrupt their session_log.
+    if enrollment.enrollment_type == 'Summer':
+        raise HTTPException(
+            status_code=400,
+            detail="Schedule changes are not supported for Summer enrollments. "
+                   "Edit placements in the Summer Arrangement page instead.",
+        )
+
     # Verify new tutor exists
     new_tutor = db.query(Tutor).filter(Tutor.id == changes.tutor_id).first()
     if not new_tutor:
@@ -2193,6 +2265,16 @@ async def cancel_enrollment(
     enrollment = db.query(Enrollment).filter(Enrollment.id == enrollment_id).first()
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    # Summer enrollments must be unpublished via the summer flow so the
+    # bridge state stays consistent (otherwise summer_application_id would
+    # still point at a cancelled row, blocking re-publish).
+    if enrollment.enrollment_type == 'Summer':
+        raise HTTPException(
+            status_code=400,
+            detail="Use Unpublish on the Summer application instead of cancelling. "
+                   "This keeps the summer/native bridge in sync.",
+        )
 
     # Check for attended sessions - cannot cancel if any exist
     ATTENDED_STATUSES = ['Attended', 'Attended (Make-up)']
@@ -2378,6 +2460,22 @@ async def batch_renew_check(
             "school": student.school if student else None,
         }
 
+        # Summer enrollments are one-off and cannot be renewed (mark hard-ineligible).
+        if enrollment.enrollment_type == 'Summer':
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid,
+                eligible=False,
+                reason="summer_not_renewable",
+                student_name=student_name,
+                details="Summer enrollments are one-off and cannot be renewed.",
+                overridable=False,
+                **student_info,
+                assigned_day=enrollment.assigned_day,
+                assigned_time=enrollment.assigned_time,
+                suggested_first_lesson_date=None,
+            ))
+            continue
+
         # Calculate schedule info upfront (for all results including ineligible)
         effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         suggested_date = None
@@ -2559,6 +2657,17 @@ async def batch_renew(
                 new_enrollment_id=None,
                 success=False,
                 error="Enrollment not found"
+            ))
+            failed_count += 1
+            continue
+
+        # Summer enrollments are one-off and cannot be renewed.
+        if enrollment.enrollment_type == 'Summer':
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid,
+                new_enrollment_id=None,
+                success=False,
+                error="Summer enrollments cannot be renewed."
             ))
             failed_count += 1
             continue

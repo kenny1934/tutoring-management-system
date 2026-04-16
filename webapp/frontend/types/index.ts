@@ -193,6 +193,7 @@ export interface Enrollment {
   effective_end_date?: string;
   fee_message_sent?: boolean;
   is_new_student?: boolean;
+  summer_application_id?: number | null;
   student?: Student;
 }
 
@@ -2209,6 +2210,9 @@ export interface SummerCourseConfig {
   updated_at?: string | null;
 }
 
+// Note: also see SummerPublishResponse / SummerPublishErrorDetail below for
+// the publish bridge surface area.
+
 export interface SummerApplication {
   id: number;
   config_id: number;
@@ -2256,6 +2260,9 @@ export interface SummerApplication {
   linked_student?: LinkedSecondaryStudentInfo | null;
   linked_prospect?: LinkedPrimaryProspectInfo | null;
   claimed_branch_code?: string | null;
+  /** Set when the application has been published into a native Summer
+   *  enrollment. Drives the Publish/Unpublish button state. */
+  published_enrollment_id?: number | null;
 }
 
 export interface LinkedSecondaryStudentInfo {
@@ -2395,6 +2402,63 @@ export interface SummerSessionCreate {
 
 export interface SummerSessionStatusUpdate {
   session_status: string;
+}
+
+// ---- Summer Publish Bridge (Phase 5) ----
+
+export interface SummerPublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_created: number;
+}
+
+export interface SummerUnpublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_deleted: number;
+  application_status: string;
+}
+
+export interface SummerPublishBatchRequest {
+  application_ids: number[];
+}
+
+export interface SummerPublishResult {
+  application_id: number;
+  success: boolean;
+  enrollment_id?: number | null;
+  sessions_created?: number | null;
+  error_code?: string | null;
+  error?: string | null;
+}
+
+export interface SummerPublishBatchResponse {
+  results: SummerPublishResult[];
+  published_count: number;
+  failed_count: number;
+}
+
+export interface SummerPublishConflictSession {
+  session_id: number;
+  session_date: string;
+  time_slot?: string | null;
+  enrollment_id?: number | null;
+  enrollment_type?: string | null;
+}
+
+// Structured detail returned with 400 errors from publish endpoints. The
+// `error_code` lets the UI map to specific tooltip / toast copy.
+export interface SummerPublishErrorDetail {
+  error_code: string;
+  message: string;
+  // Optional fields surfaced by individual blocks
+  enrollment_id?: number;
+  current_status?: string;
+  placement_ids?: number[];
+  expected?: number;
+  actual?: number;
+  conflicts?: SummerPublishConflictSession[];
+  session_ids?: number[];
 }
 
 // ---- Summer Lesson (class meeting) Types ----

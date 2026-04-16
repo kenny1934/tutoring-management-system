@@ -169,3 +169,44 @@ PRIMARY_BRANCH_OPTIONS = [
     {"code": "KC",  "name_zh": "KidsConcept",  "name_en": "KidsConcept"},
 ]
 PRIMARY_BRANCH_CODES = {b["code"] for b in PRIMARY_BRANCH_OPTIONS}
+
+
+# Secondary (summer) branch display-name → short code. The summer course
+# config stores locations in Chinese display form; enrollments and session_log
+# normalize to the short codes (MSA/MSB) that the rest of the admin UI uses.
+# Mirror of LOCATION_TO_CODE in webapp/frontend/lib/summer-utils.tsx — keep
+# the two in sync when a new branch is added.
+SECONDARY_LOCATION_TO_CODE = {
+    "華士古分校": "MSA",
+    "二龍喉分校": "MSB",
+}
+
+
+def normalize_secondary_location(location: str | None) -> str | None:
+    """Convert a summer-config display location (Chinese) to its short code.
+    Pass-through for values that aren't in the map, so admin-entered short
+    codes stay as-is."""
+    if not location:
+        return location
+    return SECONDARY_LOCATION_TO_CODE.get(location, location)
+
+
+# Day-of-week short forms used throughout the enrollments / session_log
+# tables. Slots on the summer side store full names ("Saturday"); the rest
+# of the CSM system uses the 3-letter abbreviation.
+DAY_FULL_TO_SHORT = {
+    "Monday": "Mon",
+    "Tuesday": "Tue",
+    "Wednesday": "Wed",
+    "Thursday": "Thu",
+    "Friday": "Fri",
+    "Saturday": "Sat",
+    "Sunday": "Sun",
+}
+
+
+def normalize_day_short(day: str | None) -> str | None:
+    """Return the 3-letter form of a weekday name; pass-through if already short."""
+    if not day:
+        return day
+    return DAY_FULL_TO_SHORT.get(day, day)

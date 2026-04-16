@@ -120,7 +120,7 @@ class Enrollment(Base):
     payment_date = Column(Date)
     first_lesson_date = Column(Date)
     payment_status = Column(String(100), default='Pending Payment')
-    enrollment_type = Column(String(50), default='Regular', comment='Regular, One-Time, or Trial')
+    enrollment_type = Column(String(50), default='Regular', comment='Regular, One-Time, Trial, or Summer')
 
     # Financial
     fee_message_sent = Column(Boolean, default=False)
@@ -143,6 +143,15 @@ class Enrollment(Base):
         comment='Links to the previous enrollment that this renewal continues'
     )
 
+    # Unique → one enrollment per summer application: prevents accidental
+    # re-publish at the DB layer (added migration 112).
+    summer_application_id = Column(
+        Integer,
+        ForeignKey("summer_applications.id", ondelete="SET NULL"),
+        nullable=True, unique=True,
+        comment='Source summer application if this is a published Summer enrollment'
+    )
+
     # Metadata
     last_modified_by = Column(String(255))
     last_modified_time = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -153,6 +162,7 @@ class Enrollment(Base):
     discount = relationship("Discount", back_populates="enrollments")
     sessions = relationship("SessionLog", back_populates="enrollment")
     renewed_from = relationship("Enrollment", remote_side=[id], foreign_keys=[renewed_from_enrollment_id])
+    summer_application = relationship("SummerApplication", foreign_keys=[summer_application_id])
 
 
 class SessionLog(Base):
@@ -220,6 +230,11 @@ class SessionLog(Base):
     exam_revision_slot_id = Column(Integer, ForeignKey("exam_revision_slots.id"), nullable=True,
                                     comment='Links session to exam revision slot when enrolled via revision class feature')
 
+    # Set during publish so unpublish can find/clean these rows back out
+    # without touching unrelated session_log entries (added migration 112).
+    summer_session_id = Column(Integer, ForeignKey("summer_sessions.id", ondelete="SET NULL"), nullable=True,
+                                comment='Source summer placement if this session was created via summer publish')
+
     # Notes
     notes = Column(Text)
 
@@ -234,6 +249,7 @@ class SessionLog(Base):
     tutor = relationship("Tutor", back_populates="sessions")
     exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
     exam_revision_slot = relationship("ExamRevisionSlot", back_populates="sessions")
+    summer_session = relationship("SummerSession", foreign_keys=[summer_session_id])
     extension_request = relationship("ExtensionRequest", back_populates="session", uselist=False)
     tutor_memo = relationship("TutorMemo", back_populates="linked_session", uselist=False,
                               foreign_keys="TutorMemo.linked_session_id")

@@ -290,6 +290,18 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             ) : (
               <StatusBadgeContent status={app.application_status} />
             )}
+            {/* Published indicator — appears once the app has been bridged to a
+                native Summer enrollment, so admins can spot at a glance which
+                rows are already in the regular tutor workflow. */}
+            {app.published_enrollment_id && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                title={`Published as enrollment #${app.published_enrollment_id}`}
+              >
+                <CheckCircle className="h-3 w-3" />
+                Published
+              </span>
+            )}
           </div>
         </div>
 

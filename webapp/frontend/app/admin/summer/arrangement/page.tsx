@@ -163,7 +163,7 @@ export default function SummerArrangementPage() {
   );
 
   // Fetch selected application for detail modal
-  const { data: selectedApp } = useSWR(
+  const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
     selectedAppId ? ["summer-app", selectedAppId] : null,
     () => summerAPI.getApplication(selectedAppId!)
   );
@@ -197,6 +197,21 @@ export default function SummerArrangementPage() {
       mutateFindSlot(),
     ]);
   }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
+
+  // Optimistic patch for the single-app cache that drives the detail modal.
+  // Uses the hook's bound mutate so the patch definitely reaches this
+  // specific useSWR subscription — a keyed globalMutate was silently not
+  // re-rendering this hook in practice.
+  const optimisticallyUpdateApp = useCallback(
+    (id: number, patch: Partial<SummerApplication>) => {
+      if (id !== selectedAppId) return;
+      mutateSelectedApp(
+        (current) => (current ? { ...current, ...patch } : current),
+        { revalidate: false },
+      );
+    },
+    [mutateSelectedApp, selectedAppId],
+  );
 
   const handleCreateSlot = useCallback(async (day: string, timeSlot: string) => {
     if (!configId) return;
@@ -314,8 +329,16 @@ export default function SummerArrangementPage() {
     if (!configId || !bulkConfirmPending) return;
     setBulkConfirmPending(null);
     try {
-      const { confirmed } = await summerAPI.bulkConfirmSessions(configId, location, bulkConfirmPending.slotId);
-      showToast(`Confirmed ${confirmed} session${confirmed !== 1 ? "s" : ""}`, "success");
+      const { confirmed, apps_advanced } = await summerAPI.bulkConfirmSessions(
+        configId, location, bulkConfirmPending.slotId,
+      );
+      const appsMsg = apps_advanced > 0
+        ? ` · ${apps_advanced} application${apps_advanced !== 1 ? "s" : ""} → Placement Offered`
+        : "";
+      showToast(
+        `Confirmed ${confirmed} session${confirmed !== 1 ? "s" : ""}${appsMsg}`,
+        "success",
+      );
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to confirm"), "error");
@@ -693,6 +716,7 @@ export default function SummerArrangementPage() {
           isOpen={selectedAppId !== null}
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}
+          onOptimisticUpdate={optimisticallyUpdateApp}
           locations={locations}
           config={activeConfig ?? null}
           discount={selectedApp ? discountByAppId.get(selectedApp.id) ?? null : null}
@@ -764,6 +788,10 @@ export default function SummerArrangementPage() {
               ? `Confirm all tentative sessions in this slot?`
               : `Confirm all ${totalTentative} tentative sessions at ${bulkConfirmPending?.label ?? ""}?`
           }
+          consequences={[
+            "Applications in Submitted or Under Review will advance to Placement Offered.",
+            "Applications already past Placement Offered are left untouched.",
+          ]}
           confirmText="Confirm All"
         />
       </PageTransition>

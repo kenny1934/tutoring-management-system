@@ -26,6 +26,8 @@ from models import (
     Tutor,
     Student,
     PrimaryProspect,
+    Enrollment,
+    SessionLog,
 )
 from schemas import (
     SummerCourseFormConfig,
@@ -72,6 +74,12 @@ from schemas import (
     SummerApplicationSessionInfo,
     LinkedSecondaryStudentInfo,
     LinkedPrimaryProspectInfo,
+    SummerPublishResponse,
+    SummerUnpublishResponse,
+    SummerPublishBatchRequest,
+    SummerPublishBatchResponse,
+    SummerPublishResult,
+    SummerPublishConflictSession,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
@@ -83,6 +91,11 @@ from constants import (
     SUMMER_NON_ATTENDING_STATUSES,
     PRIMARY_BRANCH_OPTIONS,
     PRIMARY_BRANCH_CODES,
+    PENDING_MAKEUP_STATUSES,
+    MAKEUP_BOOKED_STATUSES,
+    COMPLETED_STATUSES,
+    normalize_secondary_location,
+    normalize_day_short,
 )
 
 PENDING = SummerSiblingVerificationStatus.PENDING.value
@@ -1221,6 +1234,7 @@ def _build_application_response(
     linked_students: Optional[dict[int, LinkedSecondaryStudentInfo]] = None,
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
+    published_enrollment_ids: Optional[dict[int, int]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
@@ -1280,6 +1294,9 @@ def _build_application_response(
             claimed_center, app.is_existing_student
         )
 
+    if published_enrollment_ids:
+        data["published_enrollment_id"] = published_enrollment_ids.get(app.id)
+
     return SummerApplicationResponse.model_validate(data)
 
 
@@ -1299,6 +1316,21 @@ def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]
     return {slot_id: cnt for slot_id, cnt in rows}
 
 
+def _get_published_enrollment_ids(
+    db: Session, app_ids: list[int]
+) -> dict[int, int]:
+    """Map app_id → published Enrollment.id for any apps that have been
+    published. Used to drive the Publish/Unpublish button state."""
+    if not app_ids:
+        return {}
+    rows = (
+        db.query(Enrollment.summer_application_id, Enrollment.id)
+        .filter(Enrollment.summer_application_id.in_(app_ids))
+        .all()
+    )
+    return {app_id: enrollment_id for app_id, enrollment_id in rows}
+
+
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
@@ -1315,6 +1347,7 @@ def _build_application_responses(
         if s.session_status != "Cancelled"
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
+    published_ids = _get_published_enrollment_ids(db, [a.id for a in apps])
     return [
         _build_application_response(
             a,
@@ -1323,6 +1356,7 @@ def _build_application_responses(
             linked_students,
             linked_prospects,
             slot_counts=slot_counts,
+            published_enrollment_ids=published_ids,
         )
         for a in apps
     ]
@@ -2142,19 +2176,57 @@ def bulk_confirm_sessions(
     if slot_id:
         q = q.filter(SummerSession.slot_id == slot_id)
 
-    # Collect application IDs with scalar query (no ORM object loading)
-    session_app_ids = [
-        row[0] for row in q.with_entities(SummerSession.application_id).distinct().all()
+    # Collect matching IDs through the joined query, then update by primary key
+    # — SQLAlchemy rejects Query.update() when the query has a join.
+    matching_ids = [row[0] for row in q.with_entities(SummerSession.id).all()]
+    if not matching_ids:
+        return {"confirmed": 0, "apps_advanced": 0}
+
+    # Apps whose sessions are about to be confirmed — candidates for status
+    # advancement below. Must be collected before the session update so the
+    # app_id list isn't affected by the Confirmed filter clause.
+    distinct_app_ids = [
+        row[0] for row in
+        db.query(SummerSession.application_id)
+            .filter(SummerSession.id.in_(matching_ids))
+            .distinct()
+            .all()
     ]
 
-    # Single bulk UPDATE
-    count = q.update(
-        {SummerSession.session_status: "Confirmed"},
-        synchronize_session="fetch",
+    count = (
+        db.query(SummerSession)
+        .filter(SummerSession.id.in_(matching_ids))
+        .update(
+            {SummerSession.session_status: "Confirmed"},
+            synchronize_session="fetch",
+        )
     )
+
+    # Advance app status: Submitted / Under Review → Placement Offered for
+    # any app whose sessions were just confirmed. Apps already past Placement
+    # Offered are left alone so we never downgrade a Paid/Enrolled row.
+    admin_email = admin.user_email or "admin"
+    upgradeable_statuses = [
+        SummerApplicationStatus.SUBMITTED.value,
+        SummerApplicationStatus.UNDER_REVIEW.value,
+    ]
+    apps_to_advance = (
+        db.query(SummerApplication)
+        .filter(
+            SummerApplication.id.in_(distinct_app_ids),
+            SummerApplication.application_status.in_(upgradeable_statuses),
+        )
+        .all()
+    )
+    target_status = SummerApplicationStatus.PLACEMENT_OFFERED.value
+    for app in apps_to_advance:
+        old_status = app.application_status
+        app.application_status = target_status
+        _write_status_audit(db, app, old_status, target_status, admin_email)
+
     db.commit()
 
-    return {"confirmed": count}
+    return {"confirmed": count, "apps_advanced": len(apps_to_advance)}
 
 
 @router.post("/summer/sessions/bulk-create")
@@ -2231,6 +2303,417 @@ def bulk_create_sessions(
     db.commit()
 
     return {"created": created, "skipped": skipped}
+
+
+# ─── Publish Bridge: Summer placements → native enrollments + session_log ────
+#
+# Publishing converts a summer application's placements into a Summer-typed
+# Enrollment and a SessionLog row per non-cancelled placement. Once published
+# the regular tutor / admin workflow (attendance, exercises, session detail)
+# takes over. Cancelled placements are skipped; Tentative placements block.
+# All hard blocks return 400 with a structured `error_code` so the UI can map
+# specific tooltips/copy.
+
+# Statuses from which publishing is allowed. Earlier statuses still permit
+# Tentative placements; side exits (Waitlisted/Withdrawn/Rejected) are
+# explicit non-publishes.
+PUBLISHABLE_APP_STATUSES = (
+    SummerApplicationStatus.FEE_SENT.value,
+    SummerApplicationStatus.PAID.value,
+    SummerApplicationStatus.ENROLLED.value,
+)
+
+
+def _publish_error(error_code: str, message: str, **extra) -> HTTPException:
+    """Build a 400 with a stable error_code so the UI can map to copy."""
+    detail = {"error_code": error_code, "message": message}
+    detail.update(extra)
+    return HTTPException(status_code=400, detail=detail)
+
+
+def _majority_slot(placements: list[SummerSession]) -> SummerCourseSlot:
+    """Slot with the most non-cancelled placements for this app.
+    Tiebreaker: slot of the earliest placed lesson_date, then lowest slot_id."""
+    counts: dict[int, int] = {}
+    earliest_by_slot: dict[int, date_type] = {}
+    slot_by_id: dict[int, SummerCourseSlot] = {}
+    for p in placements:
+        counts[p.slot_id] = counts.get(p.slot_id, 0) + 1
+        slot_by_id[p.slot_id] = p.slot
+        ld = p.lesson.lesson_date if p.lesson else None
+        if ld is not None:
+            current = earliest_by_slot.get(p.slot_id)
+            if current is None or ld < current:
+                earliest_by_slot[p.slot_id] = ld
+    # Highest count wins; on tie, earlier date wins; on tie, lower slot_id wins.
+    best_id = max(
+        counts.keys(),
+        key=lambda sid: (
+            counts[sid],
+            -(earliest_by_slot.get(sid, date_type.max).toordinal()),
+            -sid,
+        ),
+    )
+    return slot_by_id[best_id]
+
+
+def _publish_application_inner(
+    db: Session, app_id: int, admin_email: str
+) -> SummerPublishResponse:
+    """Core publish logic. Raises HTTPException on hard blocks. Caller commits."""
+    app = (
+        db.query(SummerApplication)
+        .options(
+            joinedload(SummerApplication.config),
+            joinedload(SummerApplication.sessions).joinedload(SummerSession.slot),
+            joinedload(SummerApplication.sessions).joinedload(SummerSession.lesson),
+        )
+        .filter(SummerApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Block: must have a linked existing student.
+    if not app.existing_student_id:
+        raise _publish_error(
+            "no_linked_student",
+            "Application has no linked student. Use the Create Student button "
+            "in the application detail modal to create or link one before publishing.",
+        )
+
+    # Block: already published (also enforced by unique index, but pre-check
+    # gives a friendlier error and lets us reveal the existing enrollment id).
+    existing = (
+        db.query(Enrollment)
+        .filter(Enrollment.summer_application_id == app.id)
+        .first()
+    )
+    if existing:
+        raise _publish_error(
+            "already_published",
+            "This application has already been published.",
+            enrollment_id=existing.id,
+        )
+
+    # Block: status threshold.
+    if app.application_status not in PUBLISHABLE_APP_STATUSES:
+        raise _publish_error(
+            "status_too_early",
+            f"Application status is '{app.application_status}'. "
+            "Publishing requires Fee Sent, Paid, or Enrolled.",
+            current_status=app.application_status,
+        )
+
+    # Block: zero placements OR any tentative.
+    placements = list(app.sessions)
+    if not placements:
+        raise _publish_error("no_placements", "Application has no placements to publish.")
+    tentative_ids = [p.id for p in placements if p.session_status == "Tentative"]
+    if tentative_ids:
+        raise _publish_error(
+            "tentative_placements",
+            f"{len(tentative_ids)} placement(s) still Tentative. Confirm them before publishing.",
+            placement_ids=tentative_ids,
+        )
+
+    # Cancelled placements don't produce session_log rows.
+    publishable = [p for p in placements if p.session_status != "Cancelled"]
+    if not publishable:
+        raise _publish_error("no_placements", "All placements are Cancelled. Nothing to publish.")
+
+    # Block: count must equal app.lessons_paid (force alignment up front so
+    # numbers don't drift between summer and native systems).
+    if len(publishable) != app.lessons_paid:
+        raise _publish_error(
+            "lesson_count_mismatch",
+            f"Application is paying for {app.lessons_paid} lessons but has "
+            f"{len(publishable)} non-cancelled placements. They must match.",
+            expected=app.lessons_paid,
+            actual=len(publishable),
+        )
+
+    # Each placement must point at a materialized lesson with a date.
+    missing_dates = [p.id for p in publishable if not (p.lesson and p.lesson.lesson_date)]
+    if missing_dates:
+        raise _publish_error(
+            "missing_lesson_dates",
+            "Some placements are not linked to a materialized lesson with a date. "
+            "Materialize lessons before publishing.",
+            placement_ids=missing_dates,
+        )
+
+    # Block: datetime collision with any existing active session for this student.
+    student_id = app.existing_student_id
+    target_keys = {(p.lesson.lesson_date, p.slot.time_slot) for p in publishable}
+    target_dates = {k[0] for k in target_keys}
+    target_time_slots = {k[1] for k in target_keys}
+    inactive_statuses = ['Cancelled'] + PENDING_MAKEUP_STATUSES + MAKEUP_BOOKED_STATUSES
+    # Filter date AND time_slot in DB so MySQL can narrow via the
+    # (student_id, session_date) index instead of returning every active
+    # session that student has on those dates. The tuple match below filters
+    # out the rare cross-product where a different time on the same date
+    # happens to appear in another placement's time_slot.
+    candidate_sessions = (
+        db.query(SessionLog)
+        .filter(
+            SessionLog.student_id == student_id,
+            SessionLog.session_date.in_(target_dates),
+            SessionLog.time_slot.in_(target_time_slots),
+            SessionLog.session_status.notin_(inactive_statuses),
+        )
+        .all()
+    )
+    conflicts = [s for s in candidate_sessions if (s.session_date, s.time_slot) in target_keys]
+    if conflicts:
+        raise _publish_error(
+            "datetime_collision",
+            f"Student already has {len(conflicts)} active session(s) at the same date+time. "
+            "Resolve conflicts before publishing.",
+            conflicts=[
+                SummerPublishConflictSession(
+                    session_id=s.id,
+                    session_date=s.session_date,
+                    time_slot=s.time_slot,
+                    enrollment_id=s.enrollment_id,
+                ).model_dump(mode="json")
+                for s in conflicts
+            ],
+        )
+
+    # ─── Build enrollment from majority slot ───
+    majority = _majority_slot(publishable)
+    earliest_lesson_date = min(p.lesson.lesson_date for p in publishable)
+
+    is_paid = app.application_status in (
+        SummerApplicationStatus.PAID.value,
+        SummerApplicationStatus.ENROLLED.value,
+    )
+    payment_status = 'Paid' if is_paid else 'Pending Payment'
+    fee_msg_sent = app.application_status in PUBLISHABLE_APP_STATUSES  # Fee Sent / Paid / Enrolled
+
+    # Normalize slot metadata to the CSM-native forms: short weekday
+    # ("Saturday" → "Sat") and branch code ("華士古分校" → "MSA"). Every
+    # other enrollment/session_log row follows these conventions, so the
+    # published Summer rows need to match or tutor views will get a mixed
+    # display.
+    enrollment = Enrollment(
+        student_id=student_id,
+        tutor_id=majority.tutor_id,
+        assigned_day=normalize_day_short(majority.slot_day),
+        assigned_time=majority.time_slot,
+        location=normalize_secondary_location(majority.location),
+        lessons_paid=len(publishable),
+        first_lesson_date=earliest_lesson_date,
+        payment_date=hk_now().date() if is_paid else None,
+        payment_status=payment_status,
+        enrollment_type='Summer',
+        fee_message_sent=fee_msg_sent,
+        is_new_student=False,  # summer skips reg fee — own pricing model
+        summer_application_id=app.id,
+        last_modified_by=admin_email,
+    )
+    db.add(enrollment)
+    db.flush()  # need enrollment.id for child sessions
+
+    # ─── Create one session_log per placement ───
+    fin_status = 'Paid' if is_paid else 'Unpaid'
+    for p in publishable:
+        sess_status = (
+            'Rescheduled - Pending Make-up'
+            if p.session_status == 'Rescheduled - Pending Make-up'
+            else 'Scheduled'
+        )
+        db.add(SessionLog(
+            enrollment_id=enrollment.id,
+            student_id=student_id,
+            tutor_id=p.slot.tutor_id,
+            session_date=p.lesson.lesson_date,
+            time_slot=p.slot.time_slot,
+            location=normalize_secondary_location(p.slot.location),
+            session_status=sess_status,
+            financial_status=fin_status,
+            summer_session_id=p.id,
+            last_modified_by=admin_email,
+        ))
+
+    # Move app status to Enrolled (with audit), unless already there.
+    if app.application_status != SummerApplicationStatus.ENROLLED.value:
+        old_status = app.application_status
+        app.application_status = SummerApplicationStatus.ENROLLED.value
+        _write_status_audit(db, app, old_status, app.application_status, admin_email)
+
+    return SummerPublishResponse(
+        application_id=app.id,
+        enrollment_id=enrollment.id,
+        sessions_created=len(publishable),
+    )
+
+
+@router.post(
+    "/summer/applications/{app_id}/publish",
+    response_model=SummerPublishResponse,
+)
+def publish_application(
+    app_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Publish one summer application's confirmed placements as a native
+    Summer-typed Enrollment with corresponding session_log records."""
+    result = _publish_application_inner(db, app_id, admin.user_email or "admin")
+    db.commit()
+    return result
+
+
+def _previous_status_before_enrollment(db: Session, app_id: int) -> str:
+    """Look up the most recent audit row where status moved into 'Enrolled'
+    and return its old_value. Fall back to 'Paid' if no audit (e.g., publish
+    was performed before audit logging existed, or the app was already
+    Enrolled at publish time)."""
+    edit = (
+        db.query(SummerApplicationEdit)
+        .filter(
+            SummerApplicationEdit.application_id == app_id,
+            SummerApplicationEdit.field_name == "application_status",
+            SummerApplicationEdit.new_value == SummerApplicationStatus.ENROLLED.value,
+        )
+        .order_by(SummerApplicationEdit.edited_at.desc())
+        .first()
+    )
+    if edit and edit.old_value:
+        return edit.old_value
+    return SummerApplicationStatus.PAID.value
+
+
+@router.post(
+    "/summer/applications/publish-batch",
+    response_model=SummerPublishBatchResponse,
+)
+def publish_applications_batch(
+    request: SummerPublishBatchRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Publish many applications in one request. Each app runs in its own
+    SAVEPOINT so a failure on one doesn't roll back successful ones. The
+    response lists per-app outcomes — never short-circuits."""
+    admin_email = admin.user_email or "admin"
+    results: list[SummerPublishResult] = []
+    published = 0
+    failed = 0
+
+    for app_id in request.application_ids:
+        try:
+            with db.begin_nested():  # SAVEPOINT per app
+                outcome = _publish_application_inner(db, app_id, admin_email)
+            results.append(SummerPublishResult(
+                application_id=app_id,
+                success=True,
+                enrollment_id=outcome.enrollment_id,
+                sessions_created=outcome.sessions_created,
+            ))
+            published += 1
+        except HTTPException as exc:
+            # Savepoint already rolled back on exception. Surface structured
+            # error_code so the UI can group failures by reason.
+            detail = exc.detail
+            if isinstance(detail, dict):
+                error_code = detail.get("error_code", "publish_failed")
+                message = detail.get("message", str(detail))
+            else:
+                error_code = "publish_failed"
+                message = str(detail)
+            results.append(SummerPublishResult(
+                application_id=app_id,
+                success=False,
+                error_code=error_code,
+                error=message,
+            ))
+            failed += 1
+        except Exception as exc:  # noqa: BLE001 — last-ditch catch keeps batch alive
+            logger.exception("Unexpected error publishing application %s", app_id)
+            results.append(SummerPublishResult(
+                application_id=app_id,
+                success=False,
+                error_code="internal_error",
+                error=str(exc),
+            ))
+            failed += 1
+
+    db.commit()
+    return SummerPublishBatchResponse(
+        results=results,
+        published_count=published,
+        failed_count=failed,
+    )
+
+
+@router.delete(
+    "/summer/applications/{app_id}/publish",
+    response_model=SummerUnpublishResponse,
+)
+def unpublish_application(
+    app_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Roll back a publish: delete the Summer enrollment and its session_log
+    rows. Blocks if any session has been marked attended."""
+    admin_email = admin.user_email or "admin"
+    app = db.query(SummerApplication).filter(SummerApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    enrollment = (
+        db.query(Enrollment)
+        .filter(Enrollment.summer_application_id == app_id)
+        .first()
+    )
+    if not enrollment:
+        raise _publish_error(
+            "not_published",
+            "This application has not been published. Nothing to unpublish.",
+        )
+
+    # Block: any attended session locks the enrollment.
+    locked = (
+        db.query(SessionLog)
+        .filter(
+            SessionLog.enrollment_id == enrollment.id,
+            SessionLog.session_status.in_(COMPLETED_STATUSES),
+        )
+        .all()
+    )
+    if locked:
+        raise _publish_error(
+            "sessions_attended",
+            f"{len(locked)} session(s) already attended. Cannot unpublish — "
+            "delete or undo attendance on those sessions first.",
+            session_ids=[s.id for s in locked],
+        )
+
+    sessions_deleted = (
+        db.query(SessionLog)
+        .filter(SessionLog.enrollment_id == enrollment.id)
+        .delete(synchronize_session="fetch")
+    )
+    db.delete(enrollment)
+
+    # Revert app status with audit.
+    target_status = _previous_status_before_enrollment(db, app_id)
+    if app.application_status != target_status:
+        old_status = app.application_status
+        app.application_status = target_status
+        _write_status_audit(db, app, old_status, target_status, admin_email)
+
+    db.commit()
+    return SummerUnpublishResponse(
+        application_id=app_id,
+        enrollment_id=enrollment.id,
+        sessions_deleted=sessions_deleted,
+        application_status=app.application_status,
+    )
 
 
 # ─── Demand Heatmap ──────────────────────────────────────────────────────────

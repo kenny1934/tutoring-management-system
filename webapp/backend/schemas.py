@@ -163,6 +163,7 @@ class EnrollmentResponse(EnrollmentBase):
     effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
     fee_message_sent: bool = False
     is_new_student: bool = False
+    summer_application_id: Optional[int] = Field(None, description="Source summer application id if this is a published Summer enrollment")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2377,6 +2378,9 @@ class SummerApplicationResponse(BaseModel):
     linked_student: Optional[LinkedSecondaryStudentInfo] = None
     linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
     claimed_branch_code: Optional[str] = None
+    # Summer publish bridge: set when application has been published into a
+    # native Summer enrollment. Drives the Publish/Unpublish button state.
+    published_enrollment_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2730,6 +2734,56 @@ class SummerApplicationSessionInfo(BaseModel):
     slot_current_count: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================
+# Summer Publish Bridge (Phase 5)
+# ============================================
+
+class SummerPublishConflictSession(BaseModel):
+    """Existing session that collides with a summer placement at the same datetime."""
+    session_id: int
+    session_date: date
+    time_slot: Optional[str] = None
+    enrollment_id: Optional[int] = None
+    enrollment_type: Optional[str] = None
+
+
+class SummerPublishResponse(BaseModel):
+    """Result of publishing one summer application."""
+    application_id: int
+    enrollment_id: int
+    sessions_created: int
+
+
+class SummerUnpublishResponse(BaseModel):
+    """Result of unpublishing one summer application."""
+    application_id: int
+    enrollment_id: int
+    sessions_deleted: int
+    application_status: str
+
+
+class SummerPublishBatchRequest(BaseModel):
+    """Bulk-publish a set of applications. Each runs independently."""
+    application_ids: List[int] = Field(..., min_length=1, max_length=100)
+
+
+class SummerPublishResult(BaseModel):
+    """Per-application result inside a batch publish response."""
+    application_id: int
+    success: bool
+    enrollment_id: Optional[int] = None
+    sessions_created: Optional[int] = None
+    error_code: Optional[str] = None
+    error: Optional[str] = None
+
+
+class SummerPublishBatchResponse(BaseModel):
+    """Aggregate response for batch publish — one result per requested app."""
+    results: List[SummerPublishResult]
+    published_count: int
+    failed_count: int
 
 
 # ============================================

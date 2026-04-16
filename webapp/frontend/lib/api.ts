@@ -150,6 +150,10 @@ import type {
   SummerSession,
   SummerSessionCreate,
   SummerSessionStatusUpdate,
+  SummerPublishResponse,
+  SummerUnpublishResponse,
+  SummerPublishBatchRequest,
+  SummerPublishBatchResponse,
   SummerDemandResponse,
   SummerSuggestRequest,
   SummerSuggestResponse,
@@ -2434,7 +2438,7 @@ export const summerAPI = {
     const params = new URLSearchParams({ config_id: String(configId) });
     if (location) params.set("location", location);
     if (slotId) params.set("slot_id", String(slotId));
-    return fetchAPI<{ confirmed: number }>(`/summer/sessions/bulk-confirm?${params}`, {
+    return fetchAPI<{ confirmed: number; apps_advanced: number }>(`/summer/sessions/bulk-confirm?${params}`, {
       method: "POST",
     });
   },
@@ -2443,6 +2447,23 @@ export const summerAPI = {
     fetchAPI<{ created: number; skipped: number }>("/summer/sessions/bulk-create", {
       method: "POST",
       body: JSON.stringify(items),
+    }),
+
+  // ---- Publish bridge ----
+  publishApplication: (appId: number) =>
+    fetchAPI<SummerPublishResponse>(`/summer/applications/${appId}/publish`, {
+      method: "POST",
+    }),
+
+  unpublishApplication: (appId: number) =>
+    fetchAPI<SummerUnpublishResponse>(`/summer/applications/${appId}/publish`, {
+      method: "DELETE",
+    }),
+
+  publishApplicationsBatch: (applicationIds: number[]) =>
+    fetchAPI<SummerPublishBatchResponse>("/summer/applications/publish-batch", {
+      method: "POST",
+      body: JSON.stringify({ application_ids: applicationIds } satisfies SummerPublishBatchRequest),
     }),
 
   getDemand: (configId: number, location: string) =>
