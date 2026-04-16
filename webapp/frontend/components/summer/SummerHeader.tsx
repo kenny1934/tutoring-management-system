@@ -49,30 +49,67 @@ export function SummerHeader() {
           if (e.target instanceof HTMLImageElement) e.preventDefault();
         }}
       >
-        <Link
-          href="/"
-          aria-label="返回主頁"
-          className="block mx-auto px-4 sm:px-8 py-2 md:h-14 md:py-0 flex flex-col md:flex-row items-center md:justify-between gap-1.5 md:gap-3 hover:brightness-110 transition-[filter]"
+        <div
+          className="mx-auto px-4 sm:px-8 py-2 md:h-14 md:py-0 flex flex-col md:flex-row items-center md:justify-between gap-1.5 md:gap-3"
         >
-          <Image
-            src="/summer/summer-banner-brand.jpg"
-            alt="MathConcept Secondary Academy 中學教室"
-            width={2329}
-            height={507}
-            className="h-9 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
-            draggable={false}
-            priority
-          />
-          <Image
-            src="/summer/summer-banner-date.jpg"
-            alt="暑期中學班 7月5日正式開課 · Secondary Summer Class Starting on 5th July"
-            width={6326}
-            height={796}
-            className="h-6 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
-            draggable={false}
-            priority
-          />
-        </Link>
+          {/* Left group — parent MathConcept mark (primary branch) next to the
+              Secondary Academy brand banner. The primary wordmark uses black
+              + red on a transparent background, so on the red header it needs
+              a white chip to read cleanly. Destinations differ: the primary
+              logo opens the parent-brand site in a new tab, while the
+              secondary banner routes to the summer home. */}
+          <div className="flex items-center gap-2 md:gap-3 shrink-0 md:h-full">
+            <a
+              href="https://mathconcept.com.mo/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="MathConcept"
+              className="inline-flex items-center hover:brightness-110 transition-[filter]"
+            >
+              <span className="inline-flex items-center justify-center bg-white rounded-md px-2 py-1 shadow-sm brightness-90">
+                <Image
+                  src="/logo-mathconcept.png"
+                  alt="MathConcept"
+                  width={1536}
+                  height={410}
+                  className="h-7 md:h-9 w-auto"
+                  draggable={false}
+                  priority
+                />
+              </span>
+            </a>
+            <Link
+              href="/"
+              aria-label="返回主頁"
+              className="block md:h-full hover:brightness-110 transition-[filter]"
+            >
+              <Image
+                src="/summer/summer-banner-brand.jpg"
+                alt="MathConcept Secondary Academy 中學教室"
+                width={2329}
+                height={507}
+                className="h-9 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
+                draggable={false}
+                priority
+              />
+            </Link>
+          </div>
+          <Link
+            href="/"
+            aria-label="返回主頁"
+            className="block md:h-full hover:brightness-110 transition-[filter]"
+          >
+            <Image
+              src="/summer/summer-banner-date.jpg"
+              alt="暑期中學班 7月5日正式開課 · Secondary Summer Class Starting on 5th July"
+              width={6326}
+              height={796}
+              className="h-6 md:h-full w-auto md:py-1.5 shrink-0 brightness-90"
+              draggable={false}
+              priority
+            />
+          </Link>
+        </div>
         {/* Gold accent line — picks up the yellow from the pamphlet slogan
             and softens the hard bottom edge of the red bar. */}
         <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5C518]/80 to-transparent" />
