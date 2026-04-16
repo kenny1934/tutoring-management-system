@@ -98,15 +98,17 @@ function qualifies(
   if (typeof minSize === "number" && minSize > 1) {
     if (activeMemberCount(groupMembers) < minSize) return false;
     if (d.conditions?.before_date) {
-      // Whole-group gate: group must have hit N by deadline.
+      // Whole-group gate: group must have hit N by deadline (inclusive —
+      // reaching size on the deadline day still counts).
       const reachAt = nthJoinedAt(groupMembers, minSize);
-      if (!reachAt || reachAt >= d.conditions.before_date) return false;
+      const reachDate = reachAt?.slice(0, 10);
+      if (!reachDate || reachDate > d.conditions.before_date) return false;
       // Per-applicant gate: THIS applicant must have paid by deadline.
-      if (effectiveDate(app) >= d.conditions.before_date) return false;
+      if (effectiveDate(app) > d.conditions.before_date) return false;
     }
   } else if (d.conditions?.before_date) {
     // Solo early-bird — applicant's own effective date must beat deadline.
-    if (effectiveDate(app) >= d.conditions.before_date) return false;
+    if (effectiveDate(app) > d.conditions.before_date) return false;
   }
   return true;
 }
