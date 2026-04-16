@@ -235,3 +235,64 @@ def effective_tier_code(enrollment) -> str:
     if enrollment.discount_override_code:
         return enrollment.discount_override_code
     return enrollment.locked_discount_code or NONE_CODE
+
+
+def resnap_enrollment_tier(db, app: SummerApplication, today: Optional[date] = None) -> bool:
+    """Recompute and write the locked tier onto the app's published enrollment.
+
+    No-ops for:
+    - apps with no published enrollment,
+    - enrollments with a manual override (admins pinned the tier),
+    - enrollments that aren't Summer-typed (defensive).
+
+    Called when admin-edited fields that affect tier qualification change after
+    publish: `paid_at` (the primary driver), and indirectly enrollment-side
+    `payment_date` edits via a matching hook in enrollments.py.
+
+    Returns True when the snapshot actually changed (so callers can toggle
+    `fee_message_sent` / re-notify).
+    """
+    from models import Enrollment  # local import to avoid circularity
+
+    enrollment = (
+        db.query(Enrollment)
+        .filter(Enrollment.summer_application_id == app.id)
+        .first()
+    )
+    if not enrollment:
+        return False
+    if enrollment.enrollment_type != "Summer":
+        return False
+    if enrollment.discount_override_code:
+        return False
+    if not app.config_id:
+        return False
+    config = app.config
+    if config is None:
+        from models import SummerCourseConfig
+        config = (
+            db.query(SummerCourseConfig)
+            .filter(SummerCourseConfig.id == app.config_id)
+            .first()
+        )
+        if config is None:
+            return False
+
+    group_apps, siblings = load_group_context(db, app)
+    result = compute_best_discount(app, group_apps, siblings, config, today=today)
+    new_deadline = compute_payment_deadline(result, enrollment.first_lesson_date)
+
+    changed = (
+        enrollment.locked_discount_code != result.code
+        or (enrollment.locked_discount_amount or 0) != result.amount
+        or enrollment.payment_deadline != new_deadline
+    )
+    if not changed:
+        return False
+
+    enrollment.locked_discount_code = result.code
+    enrollment.locked_discount_amount = result.amount
+    enrollment.payment_deadline = new_deadline
+    # Admin should re-notify the parent with the new amount.
+    enrollment.fee_message_sent = False
+    return True

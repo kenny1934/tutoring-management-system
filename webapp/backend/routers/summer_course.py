@@ -1621,6 +1621,10 @@ def update_application(
     updates = data.model_dump(exclude_unset=True)
     admin_label = admin.tutor_name or admin.user_email or "admin"
 
+    # Snapshot paid_at so we can re-snap the published enrollment's tier if
+    # this request changes it (either explicitly or via a status→Paid transition).
+    prev_paid_at = app.paid_at
+
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
     allow_buddy_overflow = bool(updates.pop("allow_buddy_overflow", False))
@@ -1728,6 +1732,13 @@ def update_application(
         else:
             # Unlinked — clear auto-set origin (admin can re-verify manually)
             app.verified_branch_origin = None
+
+    # If paid_at shifted (direct edit, or a status→Paid transition auto-stamped
+    # it), recompute tier on the linked enrollment. Overrides are respected —
+    # the resnap helper no-ops when discount_override_code is set.
+    if app.paid_at != prev_paid_at:
+        from utils.summer_discounts import resnap_enrollment_tier
+        resnap_enrollment_tier(db, app, today=hk_now().date())
 
     db.commit()
 
