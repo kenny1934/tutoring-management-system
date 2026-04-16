@@ -322,6 +322,7 @@ export default function SummerLandingPage() {
   const intro = config.course_intro;
   const pillars = intro?.pillars ?? [];
   const philosophy = intro?.philosophy?.zh ?? "";
+  const philosophyEn = intro?.philosophy?.en ?? "";
 
   const gradeNames = config.available_grades.map((g) => g.name);
   const gradeRange = gradeNames.length
@@ -332,6 +333,10 @@ export default function SummerLandingPage() {
     config.course_start_date,
     LANG
   )} – ${formatDateShort(config.course_end_date, LANG)}`;
+
+  const langStreams = config.lang_stream_options?.length
+    ? config.lang_stream_options.map((o) => o.name).join("／")
+    : undefined;
 
   return (
     // Escape SummerLayoutInner padding so we can do full-bleed bands.
@@ -459,15 +464,22 @@ export default function SummerLandingPage() {
                         </span>
                         <div className="mt-2 h-px w-6 bg-[#B60D20]/30" />
                       </div>
-                      <p
-                        className="text-lg sm:text-xl text-[#1A1614] leading-snug pt-1"
-                        style={{
-                          fontFamily: "var(--font-serif-tc)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {p.zh}
-                      </p>
+                      <div className="pt-1">
+                        <p
+                          className="text-lg sm:text-xl text-[#1A1614] leading-snug"
+                          style={{
+                            fontFamily: "var(--font-serif-tc)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {p.zh}
+                        </p>
+                        {p.en && (
+                          <p className="mt-2 text-xs sm:text-sm text-[#1A1614]/50 italic leading-snug">
+                            {p.en}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Reveal>
@@ -487,6 +499,30 @@ export default function SummerLandingPage() {
                 >
                   {philosophy}
                 </p>
+                {philosophyEn && (
+                  <>
+                    <div className="mt-8 mx-auto h-px w-12 bg-[#1A1614]/15" />
+                    <p
+                      className="mt-8 text-sm sm:text-base text-[#1A1614]/55 italic leading-[1.9] max-w-2xl mx-auto"
+                      style={{ textWrap: "balance" }}
+                    >
+                      {philosophyEn}
+                    </p>
+                    <p
+                      className="mt-5 text-xs sm:text-sm text-[#1A1614]/45 italic leading-[1.8] max-w-2xl mx-auto"
+                      style={{ textWrap: "balance" }}
+                    >
+                      We also teach students from English-medium and international schools. For details in English, please{" "}
+                      <a
+                        href="#branches"
+                        className="underline decoration-[#1A1614]/25 underline-offset-4 hover:text-[#B60D20] hover:decoration-[#B60D20]/40 transition-colors"
+                      >
+                        contact any of our branches
+                      </a>
+                      .
+                    </p>
+                  </>
+                )}
                 <div className="mt-10">
                   <GoldRule />
                 </div>
@@ -556,12 +592,11 @@ export default function SummerLandingPage() {
           </Reveal>
 
           <Reveal delay={150}>
-            <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-y-12 md:gap-y-0 md:divide-x md:divide-white/15">
+            <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-y-12 md:gap-y-0 md:divide-x md:divide-white/15">
               {[
-                { zh: "對象", value: gradeRange },
+                { zh: "對象", value: gradeRange, sub: langStreams },
                 { zh: "日期", value: dateRange },
                 { zh: "課堂", value: `${config.total_lessons} 堂 · 90 分鐘` },
-                { zh: "原價", value: `$${config.pricing_config.base_fee.toLocaleString()}` },
               ].map((f, i) => (
                 <div key={i} className="text-center md:px-4">
                   <div
@@ -579,6 +614,14 @@ export default function SummerLandingPage() {
                   >
                     {f.value}
                   </div>
+                  {f.sub && (
+                    <div
+                      className="mt-2 text-xs text-white/60 tracking-wider"
+                      style={{ fontFamily: "var(--font-serif-tc)" }}
+                    >
+                      {f.sub}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -667,7 +710,7 @@ export default function SummerLandingPage() {
       {/* ===================================================================
           BRANCHES
           =================================================================== */}
-      <section className="relative bg-[#F2EAD8] py-20 sm:py-28">
+      <section id="branches" className="relative bg-[#F2EAD8] py-20 sm:py-28">
         <div className="max-w-5xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
