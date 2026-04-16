@@ -135,13 +135,13 @@ export function ContactBuddyStep({
         <p className="text-xs text-muted-foreground leading-relaxed">
           {groupSavings !== null
             ? t(
-                `三人或以上同行報名，每人可減 $${groupSavings}。輸入朋友的同行碼加入小組，或建立新的同行碼分享給朋友。`,
-                `When 3 or more apply together, each person saves $${groupSavings}. Enter a friend's buddy code to join their group, or create a new code to share.`,
+                `三人同行報名，每人可減 $${groupSavings}。輸入朋友的同行碼加入小組，或建立新的同行碼分享給朋友。`,
+                `When 3 apply together, each person saves $${groupSavings}. Enter a friend's buddy code to join their group, or create a new code to share.`,
                 lang
               )
             : t(
-                config?.text_content?.buddy_description_zh || "三人或以上同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
-                config?.text_content?.buddy_description_en || "Groups of 3 or more get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
+                config?.text_content?.buddy_description_zh || "三人同行報名可享團報優惠。您可以輸入同行碼加入已有的小組，或建立新的同行碼分享給朋友。",
+                config?.text_content?.buddy_description_en || "Groups of 3 get a group discount. Enter a buddy code to join an existing group, or create a new code to share with friends.",
                 lang
               )}
         </p>
