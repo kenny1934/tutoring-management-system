@@ -466,6 +466,15 @@ export default function SummerLandingPage() {
               <br />
               <span className="text-[#B60D20]">思維比計算更關鍵</span>
             </h2>
+            <div className="mt-6 mx-auto h-px w-12 bg-[#1A1614]/15" />
+            <p
+              className="mt-6 text-center text-sm sm:text-base text-[#1A1614]/55 italic leading-[1.9]"
+              style={{ textWrap: "balance" }}
+            >
+              Understanding over memorisation.
+              <br />
+              Thinking over calculation.
+            </p>
           </Reveal>
 
           {pillars.length > 0 && (
