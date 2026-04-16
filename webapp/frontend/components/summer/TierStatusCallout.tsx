@@ -19,8 +19,6 @@ interface Props {
   overrideReason?: string | null;
   overrideBy?: string | null;
   overrideAt?: string | null;
-  // Payment context for the "forfeited" message.
-  paidAt?: string | null;
   today?: string;  // ISO date; defaults to browser today
   className?: string;
 }
@@ -45,7 +43,6 @@ export function TierStatusCallout({
   overrideReason,
   overrideBy,
   overrideAt,
-  paidAt,
   today,
   className,
 }: Props) {
@@ -64,104 +61,63 @@ export function TierStatusCallout({
     return d.conditions.before_date <= todayIso;
   });
 
-  const tone: Tone = isOverride
-    ? "override"
-    : forfeited
-    ? "warn"
-    : effective
-    ? "ok"
-    : "none";
+  const tone: Tone = isOverride ? "override" : forfeited ? "warn" : "none";
+
+  // Nothing noteworthy to flag: current tier is auto-computed and no higher
+  // tier was forfeited. The fee block above already shows code, amount and
+  // near-miss hint, so this callout would just add noise.
+  if (tone === "none") return null;
 
   const bg =
     tone === "override"
       ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800"
-      : tone === "warn"
-      ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
-      : tone === "ok"
-      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800"
-      : "bg-gray-50 border-gray-200 dark:bg-gray-900/40 dark:border-gray-700";
-  const Icon =
-    tone === "override" ? Shield : tone === "warn" ? AlertTriangle : CheckCircle2;
+      : "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800";
+  const Icon = tone === "override" ? Shield : AlertTriangle;
   const iconColor =
     tone === "override"
       ? "text-indigo-600 dark:text-indigo-400"
-      : tone === "warn"
-      ? "text-amber-600 dark:text-amber-400"
-      : tone === "ok"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-gray-500";
+      : "text-amber-600 dark:text-amber-400";
 
   const tierLabel = effective
     ? `${effective.name_zh || effective.name_en} (${effective.code})`
     : "No discount";
 
-  const deadline = effective?.conditions?.before_date;
-  const amount = currentAmount ?? effective?.amount ?? 0;
-
   let headline: React.ReactNode;
   if (isOverride) {
     headline = (
       <>
-        Override locked: <strong>{tierLabel}</strong> {amount > 0 && `− $${amount}`}
+        Override: <strong>{tierLabel}</strong>
       </>
     );
-  } else if (forfeited && effective) {
+  } else if (forfeited) {
     const forfeitedLabel = forfeited.name_zh || forfeited.name_en;
     headline = (
       <>
-        <strong>{forfeitedLabel}</strong> forfeited — deadline {formatDeadline(forfeited.conditions?.before_date)} passed.
-        Current tier: <strong>{tierLabel}</strong> {amount > 0 && `− $${amount}`}
+        <strong>{forfeitedLabel}</strong> forfeited. Deadline {formatDeadline(forfeited.conditions?.before_date)} passed.
       </>
     );
-  } else if (forfeited && !effective) {
-    const forfeitedLabel = forfeited.name_zh || forfeited.name_en;
-    headline = (
-      <>
-        <strong>{forfeitedLabel}</strong> forfeited — deadline {formatDeadline(forfeited.conditions?.before_date)} passed.
-        No discount currently qualifies.
-      </>
-    );
-  } else if (effective && deadline) {
-    headline = (
-      <>
-        <strong>{tierLabel}</strong> {amount > 0 && `− $${amount}`} — locks in once paid by {formatDeadline(deadline)}.
-      </>
-    );
-  } else if (effective) {
-    headline = (
-      <>
-        <strong>{tierLabel}</strong> {amount > 0 && `− $${amount}`}
-      </>
-    );
-  } else {
-    headline = <>No discount applies.</>;
   }
 
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm",
+        "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
         bg,
         className
       )}
     >
-      <Icon className={cn("h-4 w-4 flex-shrink-0 mt-0.5", iconColor)} />
+      <Icon className={cn("h-3.5 w-3.5 flex-shrink-0 mt-0.5", iconColor)} />
       <div className="flex-1 min-w-0">
         <div className="leading-snug">{headline}</div>
         {isOverride && (
-          <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-            {overrideReason && <div>Reason: {overrideReason}</div>}
+          <div className="mt-0.5 text-muted-foreground space-y-0.5">
+            {overrideReason && <div>{overrideReason}</div>}
             {(overrideBy || overrideAt) && (
               <div>
-                Set by {overrideBy ?? "admin"}
-                {overrideAt && ` on ${overrideAt.slice(0, 10)}`}
+                by {overrideBy ?? "admin"}
+                {overrideAt && ` · ${overrideAt.slice(0, 10)}`}
               </div>
             )}
-          </div>
-        )}
-        {!isOverride && paidAt && (
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            Payment recorded {paidAt.slice(0, 10)}
           </div>
         )}
       </div>
