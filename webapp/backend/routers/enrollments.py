@@ -1818,6 +1818,8 @@ async def update_enrollment(
         enrollment.payment_status != 'Paid'
     )
 
+    prev_payment_date = enrollment.payment_date
+
     for field, value in update_data.items():
         setattr(enrollment, field, value)
 
@@ -1837,6 +1839,28 @@ async def update_enrollment(
             ).first()
             if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
                 student_coupon.available_coupons -= 1
+
+    # For Summer enrollments, keep the linked application's paid_at in sync
+    # when payment_date changes on this side. paid_at is the canonical input
+    # to the tier deadline check, so we resnap the locked tier afterwards.
+    if (
+        enrollment.enrollment_type == "Summer"
+        and enrollment.summer_application_id is not None
+        and enrollment.payment_date != prev_payment_date
+    ):
+        from utils.summer_discounts import resnap_enrollment_tier
+        app = (
+            db.query(SummerApplication)
+            .filter(SummerApplication.id == enrollment.summer_application_id)
+            .first()
+        )
+        if app is not None:
+            app.paid_at = (
+                datetime.combine(enrollment.payment_date, datetime.min.time())
+                if enrollment.payment_date
+                else None
+            )
+            resnap_enrollment_tier(db, app, today=hk_now().date())
 
     enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = admin.user_email
