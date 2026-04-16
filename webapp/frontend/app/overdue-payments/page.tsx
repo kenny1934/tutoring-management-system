@@ -544,7 +544,7 @@ export default function OverduePaymentsPage() {
                                 <th className="px-4 py-3 text-left font-medium w-16">Grade</th>
                                 <th className="px-4 py-3 text-left font-medium min-w-[100px]">Instructor</th>
                                 <th className="px-4 py-3 text-left font-medium w-28">Schedule</th>
-                                <th className="px-4 py-3 text-left font-medium w-28">First Lesson</th>
+                                <th className="px-4 py-3 text-left font-medium w-28">Deadline</th>
                                 <th className="px-4 py-3 text-center font-medium w-16">Days</th>
                                 <th className="px-4 py-3 text-center font-medium w-16">Lessons</th>
                                 <th className="px-4 py-3 text-right w-36"></th>
@@ -705,6 +705,36 @@ export default function OverduePaymentsPage() {
   );
 }
 
+/** Small inline badge under the student name showing the Summer discount
+ *  tier currently in effect. Hidden for Regular enrollments. Override rows
+ *  use a distinct color so admins see at a glance that the tier was
+ *  manually pinned. */
+function TierBadge({ enrollment }: { enrollment: OverdueEnrollment }) {
+  const code = enrollment.discount_override_code || enrollment.locked_discount_code;
+  if (!code || code === "NONE") return null;
+  const isOverride = !!enrollment.discount_override_code;
+  return (
+    <div className="mt-0.5">
+      <span
+        className={cn(
+          "inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-medium",
+          isOverride
+            ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+            : "bg-[#f5e6d3] text-[#a0704b] dark:bg-[#3d2e1e] dark:text-[#cd853f]"
+        )}
+        title={
+          isOverride
+            ? `Override: ${enrollment.discount_override_reason ?? ""}`
+            : undefined
+        }
+      >
+        {isOverride && "⟲ "}{code}
+        {enrollment.locked_discount_amount ? ` −$${enrollment.locked_discount_amount}` : ""}
+      </span>
+    </div>
+  );
+}
+
 // Overdue Row Component
 function OverdueRow({
   enrollment,
@@ -762,6 +792,7 @@ function OverdueRow({
         >
           {enrollment.student_name}
         </Link>
+        <TierBadge enrollment={enrollment} />
       </td>
       {/* Grade */}
       <td className="px-4 py-3">{enrollment.grade || "-"}</td>
@@ -769,8 +800,17 @@ function OverdueRow({
       <td className="px-4 py-3">{enrollment.tutor_name || "-"}</td>
       {/* Schedule */}
       <td className="px-4 py-3 text-xs">{schedule}</td>
-      {/* First Lesson */}
-      <td className="px-4 py-3 text-xs">{enrollment.first_lesson_date}</td>
+      {/* First Lesson — or payment_deadline for Summer tiers */}
+      <td className="px-4 py-3 text-xs">
+        {enrollment.payment_deadline && enrollment.deadline_source === "payment_deadline" ? (
+          <span className="flex flex-col">
+            <span className="font-medium text-[#a0704b] dark:text-[#cd853f]">{enrollment.payment_deadline}</span>
+            <span className="text-[10px] text-muted-foreground">lesson {enrollment.first_lesson_date}</span>
+          </span>
+        ) : (
+          enrollment.first_lesson_date
+        )}
+      </td>
       {/* Days Overdue / Until */}
       <td className="px-4 py-3 text-center whitespace-nowrap">
         <span className={cn(

@@ -164,6 +164,13 @@ class EnrollmentResponse(EnrollmentBase):
     fee_message_sent: bool = False
     is_new_student: bool = False
     summer_application_id: Optional[int] = Field(None, description="Source summer application id if this is a published Summer enrollment")
+    payment_deadline: Optional[date] = Field(None, description="Summer: discount deadline or first_lesson_date, whichever is earlier")
+    locked_discount_code: Optional[str] = Field(None, max_length=32, description="Summer tier code currently in effect: EB / EB3P / 3P / NONE")
+    locked_discount_amount: Optional[int] = Field(None, description="Summer discount amount currently in effect (HKD)")
+    discount_override_code: Optional[str] = Field(None, max_length=32)
+    discount_override_reason: Optional[str] = None
+    discount_override_by: Optional[str] = Field(None, max_length=255)
+    discount_override_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -200,6 +207,16 @@ class EnrollmentExtensionUpdate(BaseModel):
     reason: str = Field(..., min_length=1, max_length=1000, description="Reason for extension (required for audit)")
 
 
+class DiscountOverrideRequest(BaseModel):
+    """Admin override of the auto-computed summer discount tier.
+
+    Used when a parent paid on time but the payment was recorded late, so the
+    auto-downgrade would incorrectly strip their early-bird discount.
+    """
+    code: str = Field(..., max_length=32, description="Tier code to force, e.g. 'EB3P'. Use 'NONE' for no discount.")
+    reason: str = Field(..., min_length=1, max_length=1000, description="Why the override is being applied (required for audit)")
+
+
 class OverdueEnrollment(BaseModel):
     """Overdue enrollment with days overdue calculation"""
     id: int = Field(..., gt=0)
@@ -215,6 +232,13 @@ class OverdueEnrollment(BaseModel):
     first_lesson_date: date
     lessons_paid: int = Field(..., ge=0)
     days_overdue: int  # Negative for upcoming ("due soon"), positive for overdue
+    enrollment_type: Optional[str] = Field(None, max_length=50)
+    payment_deadline: Optional[date] = Field(None, description="For Summer: discount deadline that drives urgency; None for Regular")
+    deadline_source: str = Field("first_lesson", description="Which date days_overdue was computed against: 'payment_deadline' or 'first_lesson'")
+    locked_discount_code: Optional[str] = Field(None, max_length=32)
+    locked_discount_amount: Optional[int] = None
+    discount_override_code: Optional[str] = Field(None, max_length=32)
+    discount_override_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -433,6 +457,16 @@ class EnrollmentDetailResponse(BaseModel):
     contacts: Optional[List[StudentContact]] = None
     fee_message_sent: bool = False
     is_new_student: bool = False
+    enrollment_type: Optional[str] = None
+    summer_application_id: Optional[int] = None
+    payment_date: Optional[date] = None
+    payment_deadline: Optional[date] = None
+    locked_discount_code: Optional[str] = None
+    locked_discount_amount: Optional[int] = None
+    discount_override_code: Optional[str] = None
+    discount_override_reason: Optional[str] = None
+    discount_override_by: Optional[str] = None
+    discount_override_at: Optional[datetime] = None
 
     @field_validator('fee_message_sent', mode='before')
     @classmethod
@@ -2381,6 +2415,9 @@ class SummerApplicationResponse(BaseModel):
     # Summer publish bridge: set when application has been published into a
     # native Summer enrollment. Drives the Publish/Unpublish button state.
     published_enrollment_id: Optional[int] = None
+    # Stamped when admin marks status as Paid; editable for receipt-date
+    # corrections. Drives discount-tier deadline check.
+    paid_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2416,6 +2453,10 @@ class SummerApplicationUpdate(BaseModel):
     unavailability_notes: Optional[str] = Field(None, max_length=2000)
     sessions_per_week: Optional[int] = Field(None, ge=1, le=3)
     lessons_paid: Optional[int] = Field(None, ge=4, le=8)
+    # Editable so admin can correct the recorded payment date (e.g. parent
+    # transferred before the early-bird deadline but admin marked Paid later).
+    # Sent as an ISO datetime string; None clears it.
+    paid_at: Optional[datetime] = None
 
 
 class SummerApplicationStats(BaseModel):

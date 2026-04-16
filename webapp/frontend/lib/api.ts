@@ -539,6 +539,19 @@ export const enrollmentsAPI = {
     });
   },
 
+  setDiscountOverride: (id: number, data: { code: string; reason: string }) => {
+    return fetchAPI<Enrollment>(`/enrollments/${id}/discount-override`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  clearDiscountOverride: (id: number) => {
+    return fetchAPI<Enrollment>(`/enrollments/${id}/discount-override`, {
+      method: 'DELETE',
+    });
+  },
+
   getMyStudents: (tutorId: number, location?: string) => {
     return fetchAPI<Enrollment[]>(`/enrollments/my-students${buildLocationQuery({}, location, tutorId)}`);
   },

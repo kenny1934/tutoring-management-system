@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
 import { computeBestDiscount } from "@/lib/summer-discounts";
+import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
+import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -278,7 +280,7 @@ export default function EnrollmentDetailPage() {
   };
 
   // Fetch enrollment data
-  const { data: enrollment, error: enrollmentError, isLoading: enrollmentLoading } = useEnrollment(enrollmentId);
+  const { data: enrollment, error: enrollmentError, isLoading: enrollmentLoading, mutate: mutateEnrollment } = useEnrollment(enrollmentId);
 
   // Fetch locations for dropdown
   const { data: locations = [] } = useLocations();
@@ -1100,6 +1102,31 @@ export default function EnrollmentDetailPage() {
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-medium">
                           +$100 Reg Fee
                         </span>
+                      </div>
+                    )}
+
+                    {/* Summer tier status — tier snapshot + override visibility.
+                        Hidden for Regular enrollments. */}
+                    {enrollment.enrollment_type === 'Summer' && (
+                      <div className="pt-2">
+                        <TierStatusCallout
+                          config={summerConfig?.pricing_config}
+                          currentCode={enrollment.locked_discount_code}
+                          currentAmount={enrollment.locked_discount_amount}
+                          overrideCode={enrollment.discount_override_code}
+                          overrideReason={enrollment.discount_override_reason}
+                          overrideBy={enrollment.discount_override_by}
+                          overrideAt={enrollment.discount_override_at}
+                          paidAt={enrollment.payment_date}
+                        />
+                        {!isTutor && (
+                          <DiscountOverrideControls
+                            enrollmentId={enrollment.id}
+                            config={summerConfig?.pricing_config}
+                            currentOverrideCode={enrollment.discount_override_code}
+                            onChanged={() => { void mutateEnrollment(); }}
+                          />
+                        )}
                       </div>
                     )}
                   </>

@@ -5,13 +5,16 @@
 // gate on `before_date` (a submission deadline) and/or `min_group_size` (how
 // many members must be in the applicant's buddy group).
 //
-// The deadline comparison uses different timestamps depending on the gate:
-// - Solo discounts (no min_group_size) compare against the applicant's own
-//   submitted_at — each applicant locks in at their individual submit time.
-// - Group discounts compare against the moment the group reached N members,
-//   which is the Nth-smallest buddy_joined_at across the group's current
-//   non-exit members. This matches the admin mental model: the whole group
-//   locks in together the day the Nth member joined.
+// The deadline comparison is payment-aware: the tier only qualifies if the
+// applicant actually paid by the deadline. Effective date = paid_at when set,
+// else today. Unpaid applications past the deadline cascade to the next tier.
+//
+// Group discounts with a `before_date` have two gates, both must pass:
+// - The group must have reached N members by before_date (whole-group gate,
+//   using Nth-smallest buddy_joined_at / sibling created_at).
+// - THIS applicant must have paid by before_date (per-applicant gate, using
+//   paid_at / today). So in a buddy-3, the on-time payer keeps EB3P while
+//   the late payer drops to 3P.
 //
 // Exit-status members (Withdrawn, Rejected) are excluded from the group size
 // count, so a rejected 4th member can't keep an otherwise-qualifying trio
@@ -77,6 +80,15 @@ function activeMemberCount(members: SummerApplication[]): number {
   return apps + groupSiblings(members).length;
 }
 
+/** Date used to compare against before_date deadlines.
+ *  Prefers paid_at (actual payment date, set when admin marks Paid) and
+ *  falls back to today — so an unpaid applicant past the deadline fails
+ *  deadline-gated tiers, while a paid applicant locks in their tier. */
+function effectiveDate(app: SummerApplication): string {
+  if (app.paid_at) return app.paid_at.slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+}
+
 function qualifies(
   d: DiscountEntry,
   app: SummerApplication,
@@ -86,14 +98,15 @@ function qualifies(
   if (typeof minSize === "number" && minSize > 1) {
     if (activeMemberCount(groupMembers) < minSize) return false;
     if (d.conditions?.before_date) {
+      // Whole-group gate: group must have hit N by deadline.
       const reachAt = nthJoinedAt(groupMembers, minSize);
       if (!reachAt || reachAt >= d.conditions.before_date) return false;
+      // Per-applicant gate: THIS applicant must have paid by deadline.
+      if (effectiveDate(app) >= d.conditions.before_date) return false;
     }
   } else if (d.conditions?.before_date) {
-    // Solo discount — each applicant locks in at their own submit time.
-    if (!app.submitted_at || app.submitted_at >= d.conditions.before_date) {
-      return false;
-    }
+    // Solo early-bird — applicant's own effective date must beat deadline.
+    if (effectiveDate(app) >= d.conditions.before_date) return false;
   }
   return true;
 }

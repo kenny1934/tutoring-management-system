@@ -1673,6 +1673,15 @@ def update_application(
         app.application_status = new_status
         app.reviewed_by = admin_label
         app.reviewed_at = hk_now()
+        # Stamp paid_at the first time we see Paid/Enrolled. Used by the
+        # discount-tier check to compare against the tier's before_date.
+        # Admins with a real receipt date that differs from today should edit
+        # paid_at directly on the application (not covered here yet).
+        if new_status in (
+            SummerApplicationStatus.PAID.value,
+            SummerApplicationStatus.ENROLLED.value,
+        ) and app.paid_at is None:
+            app.paid_at = hk_now()
 
     # Guard against lowering lessons_paid below what's already placed — the
     # admin would leave extra scheduled sessions dangling. They must cancel
@@ -2492,6 +2501,30 @@ def _publish_application_inner(
     payment_status = 'Paid' if is_paid else 'Pending Payment'
     fee_msg_sent = app.application_status in PUBLISHABLE_APP_STATUSES  # Fee Sent / Paid / Enrolled
 
+    # Use the actual paid_at (if we have it) as the enrollment's payment_date,
+    # not "today at publish time". Falls back to today when paid_at is missing
+    # (edge case: legacy data or publish-before-we-started-stamping).
+    if is_paid:
+        enrollment_payment_date = (
+            app.paid_at.date() if app.paid_at else hk_now().date()
+        )
+    else:
+        enrollment_payment_date = None
+
+    # Snapshot the current discount tier. Computed payment-aware, so an app
+    # that's past its early-bird deadline without paid_at locks in the
+    # downgraded tier immediately.
+    from utils.summer_discounts import (
+        compute_best_discount,
+        compute_payment_deadline,
+        load_group_context,
+    )
+    group_apps, siblings = load_group_context(db, app)
+    discount_result = compute_best_discount(
+        app, group_apps, siblings, app.config, today=hk_now().date(),
+    )
+    tier_deadline = compute_payment_deadline(discount_result, earliest_lesson_date)
+
     # Normalize slot metadata to the CSM-native forms: short weekday
     # ("Saturday" → "Sat") and branch code ("華士古分校" → "MSA"). Every
     # other enrollment/session_log row follows these conventions, so the
@@ -2505,12 +2538,15 @@ def _publish_application_inner(
         location=normalize_secondary_location(majority.location),
         lessons_paid=len(publishable),
         first_lesson_date=earliest_lesson_date,
-        payment_date=hk_now().date() if is_paid else None,
+        payment_date=enrollment_payment_date,
         payment_status=payment_status,
         enrollment_type='Summer',
         fee_message_sent=fee_msg_sent,
         is_new_student=False,  # summer skips reg fee — own pricing model
         summer_application_id=app.id,
+        payment_deadline=tier_deadline,
+        locked_discount_code=discount_result.code,
+        locked_discount_amount=discount_result.amount,
         last_modified_by=admin_email,
     )
     db.add(enrollment)
