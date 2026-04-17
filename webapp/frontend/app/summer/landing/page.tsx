@@ -329,9 +329,10 @@ export default function SummerLandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<
+    (typeof SAMPLE_WORKSHEETS)[number] | null
+  >(null);
 
-  // ESC to close lightbox + lock body scroll while open.
   useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
@@ -622,11 +623,11 @@ export default function SummerLandingPage() {
           </Reveal>
 
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
-            {SAMPLE_WORKSHEETS.map(({ src, grade, topic, caption, badge }, i) => (
+            {SAMPLE_WORKSHEETS.map((sample, i) => {
+              const { src, grade, topic, caption, badge } = sample;
+              return (
               <Reveal key={src} delay={150 + i * 120}>
                 <div>
-                  {/* Grade + topic label above — tells parents at a glance
-                      what each sheet teaches before they click in. */}
                   <div className="mb-4 flex items-baseline gap-3">
                     <span
                       className="text-xl sm:text-2xl text-[#F5C518] leading-none tabular-nums"
@@ -645,7 +646,7 @@ export default function SummerLandingPage() {
 
                   <button
                     type="button"
-                    onClick={() => setLightbox(src)}
+                    onClick={() => setLightbox(sample)}
                     className="group relative block w-full text-left cursor-zoom-in"
                     aria-label={`放大檢視 ${grade} ${topic} 課堂教材樣本`}
                   >
@@ -688,7 +689,8 @@ export default function SummerLandingPage() {
                   </p>
                 </div>
               </Reveal>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1129,24 +1131,22 @@ export default function SummerLandingPage() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="課堂教材樣本"
+          aria-label={`${lightbox.grade} ${lightbox.topic} 課堂教材樣本`}
           onClick={() => setLightbox(null)}
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative cursor-default"
+            className="relative pointer-events-none"
             style={{
               height: "min(90vh, calc(90vw * 1684 / 1191))",
               aspectRatio: "1191 / 1684",
             }}
           >
             <Image
-              src={lightbox}
-              alt="課堂教材樣本"
+              src={lightbox.src}
+              alt={`${lightbox.grade} ${lightbox.topic} 課堂教材樣本`}
               fill
-              sizes="(min-width: 768px) 60vw, 90vw"
-              quality={95}
+              sizes="(min-width: 1280px) 45vw, (min-width: 768px) 55vw, 90vw"
               className="object-contain select-none"
               draggable={false}
             />
