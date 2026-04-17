@@ -1854,6 +1854,9 @@ async def update_session(
     if request.notes is not None:
         session.notes = request.notes
 
+    if request.lesson_number is not None:
+        session.lesson_number = request.lesson_number
+
     # Set audit columns
     session.last_modified_by = current_user.user_email
     session.last_modified_time = hk_now()

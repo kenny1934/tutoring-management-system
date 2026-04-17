@@ -1066,3 +1066,31 @@ class TestReadOnlyRoleRestrictions:
             cookies={"access_token": token},
         )
         assert resp.status_code == 403
+
+
+class TestPatchLessonNumber:
+    """PATCH /sessions/{id} supports updating lesson_number."""
+
+    def test_patch_sets_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session, "Admin")
+        assert session.lesson_number is None
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 3},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["lesson_number"] == 3
+
+        db_session.refresh(session)
+        assert session.lesson_number == 3
+
+    def test_patch_rejects_zero_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session, "Admin")
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 0},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 422

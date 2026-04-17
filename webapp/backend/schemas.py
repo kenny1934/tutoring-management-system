@@ -651,6 +651,7 @@ class SessionUpdate(BaseModel):
     session_status: Optional[str] = Field(None, max_length=50)
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
+    lesson_number: Optional[int] = Field(None, ge=1)
 
 
 class HomeworkCompletionResponse(BaseModel):

@@ -35,7 +35,7 @@ import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
-import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { EditableLessonNumberBadge } from "@/components/sessions/EditableLessonNumberBadge";
 
 // Muted dusty chalk palette (top-down view colors)
 const CHALK_PALETTE = {
@@ -678,10 +678,20 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                 >
                   {session.student_name || "Unknown Student"}
                 </Link>
-                <LessonNumberBadge
+                <EditableLessonNumberBadge
                   lessonNumber={session.lesson_number}
                   size="md"
                   className="ml-2 align-middle bg-amber-200/95 text-amber-900 border-amber-300"
+                  disabled={isReadOnly}
+                  onSave={async (value) => {
+                    try {
+                      const updated = await sessionsAPI.updateSession(session.id, { lesson_number: value });
+                      updateSessionInCache(updated);
+                      showToast(`Lesson number set to L${value}`, "success");
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Failed to update lesson number", "error");
+                    }
+                  }}
                 />
               </h1>
 

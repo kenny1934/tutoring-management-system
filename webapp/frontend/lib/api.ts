@@ -774,6 +774,7 @@ export const sessionsAPI = {
       session_status?: string;
       performance_rating?: string;
       notes?: string;
+      lesson_number?: number;
     }
   ) => {
     return fetchAPI<Session>(`/sessions/${sessionId}`, {
