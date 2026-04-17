@@ -678,13 +678,11 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                 >
                   {session.student_name || "Unknown Student"}
                 </Link>
-                {session.lesson_number != null && (
-                  <LessonNumberBadge
-                    lessonNumber={session.lesson_number}
-                    size="md"
-                    className="ml-2 align-middle bg-amber-200/95 text-amber-900 border-amber-300"
-                  />
-                )}
+                <LessonNumberBadge
+                  lessonNumber={session.lesson_number}
+                  size="md"
+                  className="ml-2 align-middle bg-amber-200/95 text-amber-900 border-amber-300"
+                />
               </h1>
 
               {/* Info Button */}

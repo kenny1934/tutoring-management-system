@@ -248,8 +248,6 @@ class SessionLog(Base):
     summer_session_id = Column(Integer, ForeignKey("summer_sessions.id", ondelete="SET NULL"), nullable=True,
                                 comment='Source summer placement if this session was created via summer publish')
 
-    # Which lesson material this session covers. Populated on summer publish
-    # from the source SummerSession; NULL for non-summer sessions today.
     lesson_number = Column(Integer, nullable=True,
                            comment='Lesson material number (e.g., 1-8 for summer). NULL for non-summer sessions.')
 

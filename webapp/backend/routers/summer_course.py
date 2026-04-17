@@ -2581,7 +2581,7 @@ def _publish_application_inner(
             session_status=sess_status,
             financial_status=fin_status,
             summer_session_id=p.id,
-            lesson_number=p.lesson_number if p.lesson_number is not None else (p.lesson.lesson_number if p.lesson else None),
+            lesson_number=p.lesson.lesson_number if p.lesson else p.lesson_number,
             last_modified_by=admin_email,
         ))
 

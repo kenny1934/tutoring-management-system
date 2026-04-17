@@ -1065,9 +1065,7 @@ function DayDetailView({
                   </span>
                   <span style={{ minWidth: "160px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-fg)" }}>
                     {session.student_name || "Unknown"}
-                    {session.lesson_number != null && (
-                      <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1 align-middle" />
-                    )}
+                    <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1 align-middle" />
                     {session.financial_status && session.financial_status !== "Paid" && (
                       <span
                         style={{
