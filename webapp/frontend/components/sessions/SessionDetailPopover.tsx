@@ -42,7 +42,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
-import { EditableLessonNumberBadge } from "./EditableLessonNumberBadge";
+import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
@@ -425,6 +425,7 @@ export function SessionDetailPopover({
   const { showToast } = useToast();
   const { user, effectiveRole, impersonatedTutor, isReadOnly } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const saveLessonNumber = useSaveLessonNumber(session?.id);
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -723,15 +724,7 @@ export function SessionDetailPopover({
               lessonNumber={session.lesson_number}
               size="sm"
               disabled={isReadOnly}
-              onSave={async (value) => {
-                try {
-                  const updated = await sessionsAPI.updateSession(session.id, { lesson_number: value });
-                  updateSessionInCache(updated);
-                  showToast(`Lesson number set to L${value}`, "success");
-                } catch (err) {
-                  showToast(err instanceof Error ? err.message : "Failed to update lesson number", "error");
-                }
-              }}
+              onSave={saveLessonNumber}
             />
             <Link
               href={`/sessions/${session.id}?lesson=true`}

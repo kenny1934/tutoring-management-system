@@ -1,7 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 
 interface EditableLessonNumberBadgeProps {
@@ -15,6 +18,26 @@ interface EditableLessonNumberBadgeProps {
 const MIN_LESSON = 1;
 const MAX_LESSON = 20;
 
+export function useSaveLessonNumber(sessionId: number | null | undefined) {
+  const { showToast } = useToast();
+  return useCallback(
+    async (value: number) => {
+      if (!sessionId) return;
+      try {
+        const updated = await sessionsAPI.updateSession(sessionId, { lesson_number: value });
+        updateSessionInCache(updated);
+        showToast(`Lesson number set to L${value}`, "success");
+      } catch (err) {
+        showToast(
+          err instanceof Error ? err.message : "Failed to update lesson number",
+          "error",
+        );
+      }
+    },
+    [sessionId, showToast],
+  );
+}
+
 export function EditableLessonNumberBadge({
   lessonNumber,
   size = "sm",
@@ -23,29 +46,31 @@ export function EditableLessonNumberBadge({
   disabled,
 }: EditableLessonNumberBadgeProps) {
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Prevents Enter → blur and Esc → blur from triggering commit twice (or at all, for Esc).
+  const skipCommitRef = useRef(false);
 
   if (lessonNumber == null) return null;
 
   const readOnly = !onSave || disabled;
 
-  const commit = async () => {
-    const raw = inputRef.current?.value ?? "";
-    const parsed = parseInt(raw, 10);
+  const commit = () => {
+    if (skipCommitRef.current) return;
+    skipCommitRef.current = true;
+    const parsed = parseInt(inputRef.current?.value ?? "", 10);
     const valid =
       !isNaN(parsed) &&
       parsed >= MIN_LESSON &&
       parsed <= MAX_LESSON &&
       parsed !== lessonNumber;
     if (valid && onSave) {
-      setSaving(true);
-      try {
-        await onSave(parsed);
-      } finally {
-        setSaving(false);
-      }
+      void onSave(parsed);
     }
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    skipCommitRef.current = true;
     setEditing(false);
   };
 
@@ -63,7 +88,6 @@ export function EditableLessonNumberBadge({
         defaultValue={lessonNumber}
         min={MIN_LESSON}
         max={MAX_LESSON}
-        disabled={saving}
         autoFocus
         onFocus={(e) => e.target.select()}
         onBlur={commit}
@@ -73,7 +97,7 @@ export function EditableLessonNumberBadge({
             commit();
           } else if (e.key === "Escape") {
             e.preventDefault();
-            setEditing(false);
+            cancel();
           }
         }}
         onClick={(e) => e.stopPropagation()}
@@ -103,9 +127,10 @@ export function EditableLessonNumberBadge({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
+        skipCommitRef.current = false;
         setEditing(true);
       }}
-      title={`Lesson ${lessonNumber} — click to edit`}
+      title={`Lesson ${lessonNumber}, click to edit`}
       className="inline-flex align-middle rounded focus:outline-none focus:ring-1 focus:ring-amber-400 hover:opacity-80 transition-opacity"
     >
       <LessonNumberBadge
