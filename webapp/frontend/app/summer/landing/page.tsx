@@ -226,9 +226,27 @@ const SUMMER_RULES = [
 // Full materials are intentionally not exposed; see no-image-save protection
 // at the route root and the public/summer/samples/ folder for source.
 const SAMPLE_WORKSHEETS = [
-  "/summer/samples/sample-f1-rationals.jpg",
-  "/summer/samples/sample-f2-pythagoras.jpg",
-  "/summer/samples/sample-f3-quadratics.jpg",
+  {
+    src: "/summer/samples/sample-f1-rationals.jpg",
+    grade: "F1",
+    topic: "有理數",
+    caption: "從負數直覺起步，再建立運算規則",
+    badge: "圖像化概念",
+  },
+  {
+    src: "/summer/samples/sample-f2-pythagoras.jpg",
+    grade: "F2",
+    topic: "勾股定理",
+    caption: "多種方法推演，再歸納為定理",
+    badge: "多路徑推演",
+  },
+  {
+    src: "/summer/samples/sample-f3-quadratics.jpg",
+    grade: "F3",
+    topic: "二次函數",
+    caption: "亦設英文版教材，適合英文部學生",
+    badge: "英文版教材",
+  },
 ] as const;
 
 function FaqItem({
@@ -603,37 +621,72 @@ export default function SummerLandingPage() {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            {SAMPLE_WORKSHEETS.map((src, i) => (
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
+            {SAMPLE_WORKSHEETS.map(({ src, grade, topic, caption, badge }, i) => (
               <Reveal key={src} delay={150 + i * 120}>
-                <button
-                  type="button"
-                  onClick={() => setLightbox(src)}
-                  className="group relative block w-full text-left cursor-zoom-in"
-                  aria-label="放大檢視課堂教材樣本"
-                >
-                  {/* Page peek — suggests this is page 1 of a larger packet. */}
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 translate-x-2 translate-y-2 bg-white border border-[#F5C518]/25 shadow-sm"
-                  />
-                  <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-lg">
-                    <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
-                      <Image
-                        src={src}
-                        alt="課堂教材樣本"
-                        fill
-                        sizes="(min-width: 640px) 33vw, 100vw"
-                        className="object-cover select-none pointer-events-none"
-                        draggable={false}
-                      />
-                    </div>
-                    <CornerOrnament pos="tl" />
-                    <CornerOrnament pos="tr" />
-                    <CornerOrnament pos="bl" />
-                    <CornerOrnament pos="br" />
+                <div>
+                  {/* Grade + topic label above — tells parents at a glance
+                      what each sheet teaches before they click in. */}
+                  <div className="mb-4 flex items-baseline gap-3">
+                    <span
+                      className="text-xl sm:text-2xl text-[#F5C518] leading-none tabular-nums"
+                      style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+                    >
+                      {grade}
+                    </span>
+                    <span className="h-px flex-1 bg-[#1A1614]/15" />
+                    <span
+                      className="text-sm sm:text-base text-[#1A1614]/75 leading-none"
+                      style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 600 }}
+                    >
+                      {topic}
+                    </span>
                   </div>
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(src)}
+                    className="group relative block w-full text-left cursor-zoom-in"
+                    aria-label={`放大檢視 ${grade} ${topic} 課堂教材樣本`}
+                  >
+                    {/* Page peek — suggests this is page 1 of a larger packet. */}
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 translate-x-2 translate-y-2 bg-white border border-[#F5C518]/25 shadow-sm"
+                    />
+                    <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-lg">
+                      <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
+                        <Image
+                          src={src}
+                          alt={`${grade} ${topic} 課堂教材樣本`}
+                          fill
+                          sizes="(min-width: 640px) 33vw, 100vw"
+                          className="object-cover select-none pointer-events-none"
+                          draggable={false}
+                        />
+                      </div>
+                      <CornerOrnament pos="tl" />
+                      <CornerOrnament pos="tr" />
+                      <CornerOrnament pos="bl" />
+                      <CornerOrnament pos="br" />
+                    </div>
+                    {/* "重點" bookmark that slides in on hover/focus. Readable
+                        to screen readers always (info isn't purely decorative). */}
+                    <div
+                      className="absolute -top-3 right-6 z-10 px-3 py-1.5 bg-[#F5C518] text-[#8a0a18] text-[11px] tracking-[0.2em] shadow-md opacity-0 translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 group-focus:opacity-100 group-focus:translate-y-0"
+                      style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
+                    >
+                      重點 · {badge}
+                    </div>
+                  </button>
+
+                  <p
+                    className="mt-5 text-sm text-[#1A1614]/60 italic leading-relaxed"
+                    style={{ fontFamily: "var(--font-serif-tc)", textWrap: "balance" }}
+                  >
+                    {caption}
+                  </p>
+                </div>
               </Reveal>
             ))}
           </div>
