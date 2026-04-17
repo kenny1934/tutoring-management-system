@@ -138,28 +138,29 @@ def _live_sessions_by_summer_id(
     return result
 
 
+def _effective_lesson_number(
+    ss: "SummerSession",
+    live: "SessionLog | None" = None,
+) -> Optional[int]:
+    # Post-publish session_log override → pre-publish per-student override →
+    # slot-level SummerLesson default. Ad-hoc slots set the per-student value
+    # at drop time; regular slots leave it null and inherit from SummerLesson.
+    if live is not None and live.lesson_number is not None:
+        return live.lesson_number
+    if ss.lesson_number is not None:
+        return ss.lesson_number
+    if ss.lesson is not None:
+        return ss.lesson.lesson_number
+    return None
+
+
 def _build_session_info(
     ss: "SummerSession",
     status: str,
     live: "SessionLog | None" = None,
 ) -> "SummerSlotSessionInfo":
-    """Compose the nested summary the calendar cards render per student.
-
-    Centralised so the three sites that emit these rows (on-grid, ad-hoc,
-    ghost) stay byte-identical and the `application-may-be-None` guards
-    don't drift. Per-student `lesson_number` prefers the live session_log
-    override when present (post-publish edits), then the SummerSession-level
-    value (pre-publish ad-hoc placements), else the slot-level default.
-    """
+    """Centralised so on-grid, ad-hoc, and ghost rows stay byte-identical."""
     app = ss.application
-    if live is not None and live.lesson_number is not None:
-        ln = live.lesson_number
-    elif ss.lesson_number is not None:
-        ln = ss.lesson_number
-    elif ss.lesson is not None:
-        ln = ss.lesson.lesson_number
-    else:
-        ln = None
     return SummerSlotSessionInfo(
         id=ss.id,
         application_id=ss.application_id,
@@ -167,7 +168,7 @@ def _build_session_info(
         grade=app.grade if app else "",
         session_status=status,
         buddy_group_id=app.buddy_group_id if app else None,
-        lesson_number=ln,
+        lesson_number=_effective_lesson_number(ss, live),
     )
 
 
@@ -1367,11 +1368,7 @@ def _build_application_response(
             grade=slot.grade if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
             session_status=s.session_status,
-            lesson_number=(
-                s.lesson_number
-                if s.lesson_number is not None
-                else (lesson.lesson_number if lesson else None)
-            ),
+            lesson_number=_effective_lesson_number(s),
             lesson_date=str(lesson.lesson_date) if lesson and lesson.lesson_date else None,
             slot_max_students=slot.max_students if slot else None,
             slot_current_count=(slot_counts or {}).get(s.slot_id),
@@ -1913,11 +1910,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
                 grade=s.application.grade,
                 session_status=s.session_status,
                 buddy_group_id=s.application.buddy_group_id,
-                lesson_number=(
-                    s.lesson_number
-                    if s.lesson_number is not None
-                    else (s.lesson.lesson_number if s.lesson else None)
-                ),
+                lesson_number=_effective_lesson_number(s),
             )
             for s in unique_sessions
         ],
@@ -1972,9 +1965,6 @@ def create_slot(
         .first()
     )
     return _build_slot_response(slot)
-
-
-_WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def _tutor_conflict_note(
@@ -2048,7 +2038,7 @@ def create_makeup_slot(
     slot = SummerCourseSlot(
         config_id=data.config_id,
         location=data.location,
-        slot_day=_WEEKDAY_NAMES[data.date.weekday()],
+        slot_day=data.date.strftime("%A"),
         time_slot=data.time_slot,
         tutor_id=data.tutor_id,
         max_students=data.max_students,
@@ -2066,16 +2056,6 @@ def create_makeup_slot(
     conflict_note = _tutor_conflict_note(
         db, data.config_id, data.tutor_id, data.date, data.time_slot,
         exclude_slot_id=slot.id,
-    )
-
-    slot = (
-        db.query(SummerCourseSlot)
-        .options(
-            joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
-        )
-        .filter(SummerCourseSlot.id == slot.id)
-        .first()
     )
     return SummerMakeupSlotCreateResponse(
         slot=_build_slot_response(slot),
@@ -2830,16 +2810,6 @@ def _publish_application_inner(
             if p.session_status == 'Rescheduled - Pending Make-up'
             else 'Scheduled'
         )
-        # Per-student lesson_number (SummerSession.lesson_number) takes precedence
-        # over the slot-level default on SummerLesson. Ad-hoc Make-up Slots
-        # set the per-student value at drop time; regular slots leave it null
-        # and inherit from SummerLesson.
-        if p.lesson_number is not None:
-            effective_lesson_number = p.lesson_number
-        elif p.lesson is not None:
-            effective_lesson_number = p.lesson.lesson_number
-        else:
-            effective_lesson_number = None
         db.add(SessionLog(
             enrollment_id=enrollment.id,
             student_id=student_id,
@@ -2850,7 +2820,7 @@ def _publish_application_inner(
             session_status=sess_status,
             financial_status=fin_status,
             summer_session_id=p.id,
-            lesson_number=effective_lesson_number,
+            lesson_number=_effective_lesson_number(p),
             last_modified_by=admin_email,
         ))
 
@@ -3186,19 +3156,7 @@ def get_student_lessons(
             if s.session_status == "Cancelled":
                 continue
             live = live_by_summer_id.get(s.id)
-            # Precedence mirrors _build_session_info: post-publish session_log
-            # override → pre-publish per-student SummerSession.lesson_number →
-            # slot-level SummerLesson.lesson_number default. Checking
-            # s.lesson_number BEFORE s.lesson.lesson_number is what surfaces
-            # ad-hoc sessions (where SummerLesson.lesson_number is NULL).
-            if live is not None and live.lesson_number is not None:
-                effective_ln = live.lesson_number
-            elif s.lesson_number is not None:
-                effective_ln = s.lesson_number
-            elif s.lesson is not None:
-                effective_ln = s.lesson.lesson_number
-            else:
-                effective_ln = None
+            effective_ln = _effective_lesson_number(s, live)
             if effective_ln is None:
                 continue
             if effective_ln not in placed_by_lesson:

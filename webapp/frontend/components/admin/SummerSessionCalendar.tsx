@@ -165,20 +165,10 @@ export function SummerSessionCalendar({
     return [...timeSlots, ...extras].sort();
   }, [timeSlots, lessons, configuredTimeSet]);
 
-  // Modal state for creating Make-up Slots. prefill is set when the modal
-  // opens from an empty grid cell; cleared when opened from the header.
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalPrefill, setModalPrefill] = useState<
-    { date: string; time: string } | undefined
-  >(undefined);
-  const openHeaderModal = () => {
-    setModalPrefill(undefined);
-    setModalOpen(true);
-  };
-  const openCellModal = (dateStr: string, ts: string) => {
-    setModalPrefill({ date: dateStr, time: ts });
-    setModalOpen(true);
-  };
+  // null = closed; object = open (with optional prefill from an empty cell).
+  const [makeupModal, setMakeupModal] = useState<
+    { date?: string; time?: string } | null
+  >(null);
   const handleCreated = () => {
     globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
   };
@@ -237,8 +227,7 @@ export function SummerSessionCalendar({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Week navigation + Make-up Slot create */}
-      <div className="flex items-center gap-3 py-2">
-        <div className="flex-1" />
+      <div className="flex items-center justify-center gap-3 py-2">
         <button
           onClick={goPrev}
           disabled={!canGoPrev}
@@ -256,16 +245,14 @@ export function SummerSessionCalendar({
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        <div className="flex-1 flex justify-end">
-          <button
-            onClick={openHeaderModal}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-            title="Create a one-off Make-up Slot"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            Make-up Slot
-          </button>
-        </div>
+        <button
+          onClick={() => setMakeupModal({})}
+          className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+          title="Create a one-off Make-up Slot"
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
+          Make-up Slot
+        </button>
       </div>
 
       {/* Grid (always rendered so the + affordance works on empty weeks) */}
@@ -344,7 +331,7 @@ export function SummerSessionCalendar({
                       ))}
                       {isEmptyCell && (
                         <button
-                          onClick={() => openCellModal(dateStr, ts)}
+                          onClick={() => setMakeupModal({ date: dateStr, time: ts })}
                           className="absolute inset-0 flex items-center justify-center text-[10px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
                           title="Add a Make-up Slot at this time"
                         >
@@ -367,15 +354,15 @@ export function SummerSessionCalendar({
       )}
 
       <CreateMakeupSlotModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={makeupModal != null}
+        onClose={() => setMakeupModal(null)}
         onCreated={handleCreated}
         configId={configId}
         location={location}
         courseStartDate={courseStartDate}
         courseEndDate={courseEndDate}
-        initialDate={modalPrefill?.date}
-        initialTime={modalPrefill?.time}
+        initialDate={makeupModal?.date}
+        initialTime={makeupModal?.time}
       />
     </div>
   );
