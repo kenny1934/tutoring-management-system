@@ -109,6 +109,32 @@ logger = logging.getLogger(__name__)
 PUBLIC_BUDDY_GROUP_CAP = 3
 
 
+def _live_sessions_by_summer_id(
+    db: Session, summer_session_ids: list[int]
+) -> dict[int, SessionLog]:
+    """Index the active SessionLog row for each summer_session_id.
+
+    Follow-up 3 migrates summer_session_id onto the active session through
+    makeups, so at most one row per id is expected. A duplicate means the
+    invariant was violated — log and keep the latest so one student doesn't
+    silently vanish from the arrangement grid without a trail.
+    """
+    if not summer_session_ids:
+        return {}
+    result: dict[int, SessionLog] = {}
+    for sl in db.query(SessionLog).filter(
+        SessionLog.summer_session_id.in_(summer_session_ids)
+    ).all():
+        if sl.summer_session_id in result:
+            logger.warning(
+                "Multiple live session_log rows for summer_session_id=%s "
+                "(ids=%s, %s) — invariant violated",
+                sl.summer_session_id, result[sl.summer_session_id].id, sl.id,
+            )
+        result[sl.summer_session_id] = sl
+    return result
+
+
 def _build_status_response(
     db: Session,
     app: SummerApplication,
@@ -2901,39 +2927,56 @@ def get_student_lessons(
     linked_students = _get_linked_students_bulk(db, student_ids) if student_ids else {}
     linked_prospects = _get_linked_prospects_bulk(db, app_ids) if app_ids else {}
 
+    # Bulk-fetch active session_log per SummerSession so published placements
+    # reflect the live date/status rather than the frozen snapshot.
+    live_by_summer_id = _live_sessions_by_summer_id(
+        db, [s.id for app in apps for s in app.sessions]
+    )
+
     rows = []
     for app in apps:
-        # Build a map: lesson_number → session info
-        placed_by_lesson: dict[int, SummerSession] = {}
+        # Build a map: lesson_number → (session, live_row | None)
+        # lesson_number is sourced from session_log when published (it migrates
+        # through reschedule) and from SummerSession otherwise.
+        placed_by_lesson: dict[int, tuple[SummerSession, Optional[SessionLog]]] = {}
         for s in app.sessions:
             if s.session_status == "Cancelled":
                 continue
-            lesson = s.lesson
-            if lesson and lesson.lesson_number not in placed_by_lesson:
-                placed_by_lesson[lesson.lesson_number] = s
+            live = live_by_summer_id.get(s.id)
+            effective_ln = live.lesson_number if live and live.lesson_number is not None else (
+                s.lesson.lesson_number if s.lesson else s.lesson_number
+            )
+            if effective_ln is None:
+                continue
+            if effective_ln not in placed_by_lesson:
+                placed_by_lesson[effective_ln] = (s, live)
 
         # Build 1..total entries
         entries = []
         for ln in range(1, total + 1):
-            s = placed_by_lesson.get(ln)
-            if s and s.lesson:
+            pair = placed_by_lesson.get(ln)
+            if pair is not None:
+                s, live = pair
+                effective_date = live.session_date if live else (s.lesson.lesson_date if s.lesson else None)
+                effective_time_slot = live.time_slot if live else (s.slot.time_slot if s.slot else None)
+                effective_status = live.session_status if live else s.session_status
                 entries.append(SummerStudentLessonEntry(
                     lesson_number=ln,
                     placed=True,
                     session_id=s.id,
                     lesson_id=s.lesson_id,
-                    lesson_date=s.lesson.lesson_date,
-                    time_slot=s.slot.time_slot if s.slot else None,
+                    lesson_date=effective_date,
+                    time_slot=effective_time_slot,
                     slot_id=s.slot_id,
-                    session_status=s.session_status,
+                    session_status=effective_status,
                 ))
             else:
                 entries.append(SummerStudentLessonEntry(lesson_number=ln, placed=False))
 
         placed_count = len(placed_by_lesson)
         rescheduled_count = sum(
-            1 for s in placed_by_lesson.values()
-            if s.session_status in SUMMER_NON_ATTENDING_STATUSES
+            1 for (s, live) in placed_by_lesson.values()
+            if (live.session_status if live else s.session_status) in SUMMER_NON_ATTENDING_STATUSES
         )
         claimed_center = (app.current_centers or [None])[0]
         rows.append(SummerStudentLessonsRow(
@@ -3990,7 +4033,6 @@ def get_lesson_calendar(
         .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
         .options(
             contains_eager(SummerLesson.slot).contains_eager(SummerCourseSlot.tutor),
-            joinedload(SummerLesson.sessions).joinedload(SummerSession.application),
         )
         .filter(
             SummerCourseSlot.config_id == config_id,
@@ -4002,20 +4044,83 @@ def get_lesson_calendar(
         .all()
     )
 
+    # Resolve each SummerSession to the lesson card it *actually* belongs on
+    # this week, so capacity and placement reflect live reschedule state:
+    #   - Unpublished placement → stays on its frozen SummerLesson.
+    #   - Published placement whose active session_log lines up with another
+    #     SummerLesson in (date, time_slot, location, tutor) → re-groups there.
+    #   - Published placement whose target doesn't match any SummerLesson
+    #     (ad-hoc makeup outside the course grid) → off-grid, dropped here.
+    #     It still shows up in /summer/students/lessons on the live date.
+    #
+    # session_log.location is stored in normalized short-code form (see publish
+    # step — "華士古分校" → "MSA"), so both keys must normalize before matching.
+    week_lesson_by_key: dict[tuple, SummerLesson] = {
+        (
+            lesson.lesson_date,
+            lesson.slot.time_slot,
+            normalize_secondary_location(lesson.slot.location),
+            lesson.slot.tutor_id,
+        ): lesson
+        for lesson in lessons
+    }
+
+    all_sessions = (
+        db.query(SummerSession)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .options(
+            contains_eager(SummerSession.slot),
+            joinedload(SummerSession.application),
+            joinedload(SummerSession.lesson),
+        )
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+        )
+        .all()
+    )
+
+    live_by_ss_id = _live_sessions_by_summer_id(db, [s.id for s in all_sessions])
+
+    sessions_by_lesson_id: dict[int, list[tuple]] = {}
+    for s in all_sessions:
+        if s.session_status == "Cancelled":
+            continue
+        live = live_by_ss_id.get(s.id)
+        if live is not None:
+            effective_key = (live.session_date, live.time_slot, live.location, live.tutor_id)
+            effective_status = live.session_status
+        elif s.lesson is not None and s.slot is not None:
+            effective_key = (
+                s.lesson.lesson_date,
+                s.slot.time_slot,
+                normalize_secondary_location(s.slot.location),
+                s.slot.tutor_id,
+            )
+            effective_status = s.session_status
+        else:
+            continue
+
+        target = week_lesson_by_key.get(effective_key)
+        if target is None:
+            continue
+        sessions_by_lesson_id.setdefault(target.id, []).append((s, effective_status))
+
     entries = []
     for lesson in lessons:
         slot = lesson.slot
+        assigned = sessions_by_lesson_id.get(lesson.id, [])
         active_sessions = [
             SummerSlotSessionInfo(
                 id=s.id,
                 application_id=s.application_id,
                 student_name=s.application.student_name if s.application else "",
                 grade=s.application.grade if s.application else "",
-                session_status=s.session_status,
+                session_status=effective_status,
                 buddy_group_id=s.application.buddy_group_id if s.application else None,
             )
-            for s in lesson.sessions
-            if s.session_status != "Cancelled"
+            for (s, effective_status) in assigned
+            if effective_status != "Cancelled"
         ]
         entries.append(SummerLessonCalendarEntry(
             lesson_id=lesson.id,
