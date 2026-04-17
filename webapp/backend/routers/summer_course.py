@@ -135,6 +135,24 @@ def _live_sessions_by_summer_id(
     return result
 
 
+def _build_session_info(ss: "SummerSession", status: str) -> "SummerSlotSessionInfo":
+    """Compose the nested summary the calendar cards render per student.
+
+    Centralised so the three sites that emit these rows (on-grid, ad-hoc,
+    ghost) stay byte-identical and the `application-may-be-None` guards
+    don't drift.
+    """
+    app = ss.application
+    return SummerSlotSessionInfo(
+        id=ss.id,
+        application_id=ss.application_id,
+        student_name=app.student_name if app else "",
+        grade=app.grade if app else "",
+        session_status=status,
+        buddy_group_id=app.buddy_group_id if app else None,
+    )
+
+
 def _attach_ghost_rows(
     db: Session,
     live_by_ss_id: dict[int, "SessionLog"],
@@ -174,16 +192,8 @@ def _attach_ghost_rows(
                 key = (row.session_date, row.time_slot, row.location, row.tutor_id)
                 target = week_lesson_by_key.get(key)
                 if target is not None:
-                    ss = summer_by_id[ss_id]
                     sessions_by_lesson_id.setdefault(target.id, []).append(
-                        SummerSlotSessionInfo(
-                            id=ss.id,
-                            application_id=ss.application_id,
-                            student_name=ss.application.student_name if ss.application else "",
-                            grade=ss.application.grade if ss.application else "",
-                            session_status=row.session_status,
-                            buddy_group_id=ss.application.buddy_group_id if ss.application else None,
-                        )
+                        _build_session_info(summer_by_id[ss_id], row.session_status)
                     )
             if row.make_up_for_id:
                 next_frontier[row.make_up_for_id] = ss_id
@@ -4105,8 +4115,9 @@ def get_lesson_calendar(
     #   - Published placement whose active session_log lines up with another
     #     SummerLesson in (date, time_slot, location, tutor) → re-groups there.
     #   - Published placement whose target doesn't match any SummerLesson
-    #     (ad-hoc makeup outside the course grid) → off-grid, dropped here.
-    #     It still shows up in /summer/students/lessons on the live date.
+    #     (ad-hoc makeup outside the course grid) → emitted as a synthetic
+    #     `is_adhoc` card so admins see the one-off session that's happening
+    #     in this week/branch.
     #
     # session_log.location is stored in normalized short-code form (see publish
     # step — "華士古分校" → "MSA"), so both keys must normalize before matching.
@@ -4136,8 +4147,11 @@ def get_lesson_calendar(
     )
 
     live_by_ss_id = _live_sessions_by_summer_id(db, [s.id for s in all_sessions])
+    view_location_code = normalize_secondary_location(location)
 
     sessions_by_lesson_id: dict[int, list[SummerSlotSessionInfo]] = {}
+    # (date, time_slot, tutor_id) → {"sessions": [...], "lesson_number": int | None}
+    adhoc_by_key: dict[tuple, dict] = {}
     for s in all_sessions:
         if s.session_status == "Cancelled":
             continue
@@ -4156,18 +4170,32 @@ def get_lesson_calendar(
         else:
             continue
 
-        target = week_lesson_by_key.get(effective_key)
-        if target is None or effective_status == "Cancelled":
+        if effective_status == "Cancelled":
             continue
+
+        target = week_lesson_by_key.get(effective_key)
+        if target is None:
+            # Off-grid: live makeup at a (date, time, location, tutor) tuple
+            # with no materialised SummerLesson. Emit as a synthetic ad-hoc
+            # card when the live row falls within this week at the same branch.
+            # Cross-branch ad-hocs and frozen (unpublished) placements without
+            # a matching cell are intentionally dropped here.
+            eff_date, eff_time, eff_loc, eff_tutor = effective_key
+            if (
+                live is not None
+                and eff_date is not None
+                and eff_loc == view_location_code
+                and week_start <= eff_date <= week_end
+            ):
+                bucket = adhoc_by_key.setdefault(
+                    (eff_date, eff_time, eff_tutor),
+                    {"sessions": [], "lesson_number": live.lesson_number},
+                )
+                bucket["sessions"].append(_build_session_info(s, effective_status))
+            continue
+
         sessions_by_lesson_id.setdefault(target.id, []).append(
-            SummerSlotSessionInfo(
-                id=s.id,
-                application_id=s.application_id,
-                student_name=s.application.student_name if s.application else "",
-                grade=s.application.grade if s.application else "",
-                session_status=effective_status,
-                buddy_group_id=s.application.buddy_group_id if s.application else None,
-            )
+            _build_session_info(s, effective_status)
         )
 
     # Ghost cards: for each active make-up, walk make_up_for_id back and render
@@ -4196,6 +4224,36 @@ def get_lesson_calendar(
             notes=lesson.notes,
             sessions=sessions_by_lesson_id.get(lesson.id, []),
         ))
+
+    # Synthetic ad-hoc entries: one card per unique (date, time_slot, tutor)
+    # tuple in this week/branch. Negative lesson_ids signal synthetic to the
+    # frontend without needing a real SummerLesson row behind them.
+    if adhoc_by_key:
+        tutor_name_by_id: dict[int, str | None] = {}
+        adhoc_tutor_ids = [tid for (_, _, tid) in adhoc_by_key.keys() if tid is not None]
+        if adhoc_tutor_ids:
+            for t in db.query(Tutor).filter(Tutor.id.in_(set(adhoc_tutor_ids))).all():
+                tutor_name_by_id[t.id] = t.tutor_name
+        synthetic_id = -1
+        for (eff_date, eff_time, eff_tutor), bucket in adhoc_by_key.items():
+            entries.append(SummerLessonCalendarEntry(
+                lesson_id=synthetic_id,
+                slot_id=0,
+                slot_day=eff_date.strftime("%A"),
+                time_slot=eff_time,
+                grade=None,
+                course_type=None,
+                lesson_number=bucket["lesson_number"] or 0,
+                lesson_status="Make-up",
+                tutor_id=eff_tutor,
+                tutor_name=tutor_name_by_id.get(eff_tutor) if eff_tutor is not None else None,
+                max_students=len(bucket["sessions"]),
+                date=eff_date,
+                notes=None,
+                sessions=bucket["sessions"],
+                is_adhoc=True,
+            ))
+            synthetic_id -= 1
 
     return SummerLessonCalendarResponse(
         week_start=week_start,

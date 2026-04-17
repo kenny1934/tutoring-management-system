@@ -2596,6 +2596,7 @@ class SummerLessonCalendarEntry(BaseModel):
     date: date
     notes: Optional[str] = None
     sessions: List[SummerSlotSessionInfo] = []
+    is_adhoc: bool = False
 
 
 class SummerLessonCalendarResponse(BaseModel):

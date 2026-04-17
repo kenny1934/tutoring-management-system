@@ -983,12 +983,12 @@ class TestArrangementReadsSessionLog:
         assert origin_entry.sessions[0].application_id == app_full.id
         assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
 
-    def test_calendar_drops_off_grid_reschedule(
+    def test_calendar_renders_adhoc_card_for_off_grid_makeup(
         self, db_session, admin, app_full, slot, slot_tutor
     ):
-        """Makeup on an ad-hoc date (no matching SummerLesson cell) has its
-        active card off-grid, but the origin ghost still renders on the seat
-        the student was moved away from."""
+        """Makeup on an ad-hoc date (no matching SummerLesson cell) emits a
+        synthetic `is_adhoc` card at its live (date, time, tutor) tuple, while
+        the origin ghost still renders on the seat the student was moved from."""
         from routers.summer_course import get_lesson_calendar
 
         lessons = self._publish(db_session, admin, app_full, slot)
@@ -1016,6 +1016,95 @@ class TestArrangementReadsSessionLog:
         origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[3].id)
         assert len(origin_entry.sessions) == 1
         assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+        # A synthetic ad-hoc card now lives at the live (date, time, tutor).
+        adhoc = [l for l in resp.lessons if l.is_adhoc]
+        assert len(adhoc) == 1
+        card = adhoc[0]
+        assert card.date == ad_hoc_date
+        assert card.time_slot == "10:00 - 11:30"
+        assert card.tutor_id == slot_tutor.id
+        assert card.lesson_status == "Make-up"
+        assert card.lesson_id < 0  # synthetic marker
+        assert card.slot_id == 0
+        assert len(card.sessions) == 1
+        assert card.sessions[0].application_id == app_full.id
+        assert card.sessions[0].session_status == "Make-up Class"
+        # Capacity bar is effectively meaningless; max_students mirrors count.
+        assert card.max_students == len(card.sessions)
+
+    def test_calendar_synthetic_entry_for_different_tutor(
+        self, db_session, admin, app_full, slot, other_tutor
+    ):
+        """Ad-hoc makeup booked with a tutor who has no summer slot on this
+        date/time renders as a synthetic card with that tutor's info."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 2,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # Wednesday is not a slot day for either tutor; other_tutor has no
+        # SummerLesson at (10:00, MSA, other_tutor) → synthetic cell.
+        ad_hoc_date = origin_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, ad_hoc_date,
+            other_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        adhoc = [l for l in resp.lessons if l.is_adhoc]
+        assert len(adhoc) == 1
+        card = adhoc[0]
+        assert card.tutor_id == other_tutor.id
+        assert card.tutor_name == other_tutor.tutor_name
+        assert card.date == ad_hoc_date
+        assert len(card.sessions) == 1
+        assert card.sessions[0].application_id == app_full.id
+
+    def test_calendar_no_synthetic_for_cross_branch_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Makeup at a different branch must not surface on the origin branch's
+        calendar — only the origin ghost renders. The ad-hoc card belongs on
+        the destination branch's view."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 3,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # Reschedule to a different branch code; still this week.
+        ad_hoc_date = origin_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, ad_hoc_date,
+            slot_tutor, "10:00 - 11:30", "HSK",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        # Origin ghost renders on lesson 3's cell, as before.
+        origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[2].id)
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+        # No synthetic card on the MSA view — ad-hoc belongs to HSK's grid.
+        assert not any(l.is_adhoc for l in resp.lessons)
 
     def test_calendar_unchanged_without_reschedule(
         self, db_session, admin, app_full, slot

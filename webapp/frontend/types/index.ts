@@ -2529,6 +2529,7 @@ export interface SummerLessonCalendarEntry {
   date: string;
   notes?: string | null;
   sessions: SummerSlotSessionInfo[];
+  is_adhoc?: boolean;
 }
 
 export interface SummerLessonCalendarResponse {
