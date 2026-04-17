@@ -806,18 +806,8 @@ export default function SummerLandingPage() {
                       photoRight ? "md:order-1" : "md:order-2"
                     }`}
                   >
-                    <span
-                      className="block text-2xl sm:text-3xl text-[#F5C518] leading-none tabular-nums"
-                      style={{
-                        fontFamily: "var(--font-serif-tc)",
-                        fontWeight: 700,
-                      }}
-                    >
-                      0{i + 1}
-                    </span>
-                    <div className="mt-3 h-px w-8 bg-[#B60D20]/30" />
                     <h3
-                      className="mt-4 text-2xl sm:text-3xl text-[#1A1614] leading-snug"
+                      className="text-2xl sm:text-3xl text-[#1A1614] leading-snug"
                       style={{
                         fontFamily: "var(--font-serif-tc)",
                         fontWeight: 700,
@@ -858,7 +848,7 @@ export default function SummerLandingPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`在 Google 地圖查看 ${loc.name}：${loc.address}`}
-                      className="group mt-4 inline-block text-sm sm:text-base text-[#1A1614]/75 leading-relaxed decoration-[#1A1614]/20 underline-offset-4 hover:text-[#B60D20] hover:decoration-[#B60D20]/40 underline transition-colors"
+                      className="group mt-5 inline-block text-sm sm:text-base text-[#1A1614]/75 leading-relaxed decoration-[#1A1614]/20 underline-offset-4 hover:text-[#B60D20] hover:decoration-[#B60D20]/40 underline transition-colors"
                       style={{ fontFamily: "var(--font-serif-tc)" }}
                     >
                       {loc.address}
