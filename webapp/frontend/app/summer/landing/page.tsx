@@ -7,7 +7,13 @@ import { ArrowRight, Plus, Minus, Phone, Copy, Check } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseFormConfig, SummerLocation } from "@/types";
-import { getActiveSummerPromo, formatDateShort } from "@/lib/summer-utils";
+import {
+  getActiveSummerPromo,
+  formatDateShort,
+  WEEK_DAY_ORDER,
+  DAY_SHORT_ZH,
+  BRANCH_IMAGES_FALLBACK,
+} from "@/lib/summer-utils";
 
 const LANG = "zh" as const;
 
@@ -201,14 +207,14 @@ function getBranchContact(loc: SummerLocation): BranchContact | null {
   return null;
 }
 
-// Calendar-style header for the open-days strip on each branch card.
-const WEEK_DAY_ORDER = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-] as const;
-const DAY_SHORT_ZH: Record<string, string> = {
-  Sunday: "日", Monday: "一", Tuesday: "二", Wednesday: "三",
-  Thursday: "四", Friday: "五", Saturday: "六",
-};
+// Canonical Google Maps place URLs — address-search can mispin on Macau
+// addresses, so we prefer the `maps.app.goo.gl` short links that point at
+// the exact place. Falls back to address search for unknown branches.
+function getBranchMapsUrl(loc: SummerLocation): string {
+  if (loc.name.includes("華士古")) return "https://maps.app.goo.gl/ho4fRdwPqTdsETXV8";
+  if (loc.name.includes("二龍喉")) return "https://maps.app.goo.gl/qUKkmfWkWZwiB3c99";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
+}
 
 const SUMMER_RULES = [
   "調堂每期（8堂/期）上限2堂。",
@@ -749,27 +755,64 @@ export default function SummerLandingPage() {
             </div>
           </Reveal>
 
-          <div className="mt-12 space-y-1">
+          <div className="mt-16 space-y-16 sm:space-y-20">
             {config.locations.map((loc: SummerLocation, i) => {
               // Phone numbers are not in the config schema yet, so map by
               // location key. If we add more branches, move this to config.
               const contact = getBranchContact(loc);
               const openSet = new Set(loc.open_days || []);
+              const branchImage =
+                loc.image_url || BRANCH_IMAGES_FALLBACK[loc.name_en];
+              const mapsHref = getBranchMapsUrl(loc);
+              // Alternate photo side on desktop for magazine rhythm. Mobile
+              // always stacks photo-above-text.
+              const photoRight = i % 2 === 0;
               return (
-              <Reveal key={loc.name} delay={200 + i * 100}>
-                <div className="flex items-start gap-6 sm:gap-10 py-8 border-b border-[#1A1614]/12 px-2 sm:px-4">
-                  <span
-                    className="text-2xl sm:text-3xl text-[#F5C518] leading-none shrink-0 tabular-nums mt-1"
-                    style={{
-                      fontFamily: "var(--font-serif-tc)",
-                      fontWeight: 700,
-                    }}
+              <Reveal key={loc.name} delay={150 + i * 150}>
+                <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-8 md:gap-14">
+                  {branchImage && (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`relative block bg-white border border-[#F5C518]/40 p-2 shadow-sm transition-shadow duration-300 hover:shadow-md ${
+                        photoRight ? "md:order-2" : "md:order-1"
+                      }`}
+                      aria-label={`在 Google 地圖查看 ${loc.name}`}
+                    >
+                      <div className="relative aspect-[3/2] overflow-hidden bg-[#FBF7F0]">
+                        <Image
+                          src={branchImage}
+                          alt={loc.name}
+                          fill
+                          sizes="(min-width: 1280px) 440px, (min-width: 768px) 40vw, 100vw"
+                          className="object-cover select-none"
+                          draggable={false}
+                        />
+                      </div>
+                      <CornerOrnament pos="tl" />
+                      <CornerOrnament pos="tr" />
+                      <CornerOrnament pos="bl" />
+                      <CornerOrnament pos="br" />
+                    </a>
+                  )}
+                  <div
+                    className={`min-w-0 ${
+                      photoRight ? "md:order-1" : "md:order-2"
+                    }`}
                   >
-                    0{i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
+                    <span
+                      className="block text-2xl sm:text-3xl text-[#F5C518] leading-none tabular-nums"
+                      style={{
+                        fontFamily: "var(--font-serif-tc)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      0{i + 1}
+                    </span>
+                    <div className="mt-3 h-px w-8 bg-[#B60D20]/30" />
                     <h3
-                      className="text-xl sm:text-2xl text-[#1A1614] leading-snug"
+                      className="mt-4 text-2xl sm:text-3xl text-[#1A1614] leading-snug"
                       style={{
                         fontFamily: "var(--font-serif-tc)",
                         fontWeight: 700,
@@ -778,14 +821,14 @@ export default function SummerLandingPage() {
                       {loc.name}
                     </h3>
                     {loc.name_en && (
-                      <p className="text-[11px] tracking-[0.3em] text-[#B60D20]/70 uppercase mt-1">
+                      <p className="text-[11px] tracking-[0.3em] text-[#B60D20]/70 uppercase mt-1.5">
                         {loc.name_en}
                       </p>
                     )}
                     {/* 7-day open strip — closed days ghosted with strikethrough,
                         same pattern as the apply form's branch cards. */}
                     {loc.open_days && loc.open_days.length > 0 && (
-                      <div className="mt-3 flex items-center gap-1">
+                      <div className="mt-4 flex items-center gap-1">
                         {WEEK_DAY_ORDER.map((day) => {
                           const isOpen = openSet.has(day);
                           return (
@@ -794,7 +837,7 @@ export default function SummerLandingPage() {
                               className={`inline-flex items-center justify-center w-6 h-6 text-[11px] tabular-nums ${
                                 isOpen
                                   ? "bg-[#B60D20]/10 text-[#B60D20] font-semibold"
-                                  : "text-[#1A1614]/30 line-through decoration-[#1A1614]/25"
+                                  : "text-[#1A1614]/40 line-through decoration-[#1A1614]/35"
                               }`}
                               style={{ fontFamily: "var(--font-serif-tc)" }}
                               aria-label={`星期${DAY_SHORT_ZH[day]} ${isOpen ? "開放" : "休息"}`}
@@ -805,14 +848,18 @@ export default function SummerLandingPage() {
                         })}
                       </div>
                     )}
-                    <p
-                      className="mt-3 text-sm sm:text-base text-[#1A1614]/70 leading-relaxed"
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`在 Google 地圖查看 ${loc.name}：${loc.address}`}
+                      className="group mt-4 inline-block text-sm sm:text-base text-[#1A1614]/75 leading-relaxed decoration-[#1A1614]/20 underline-offset-4 hover:text-[#B60D20] hover:decoration-[#B60D20]/40 underline transition-colors"
                       style={{ fontFamily: "var(--font-serif-tc)" }}
                     >
                       {loc.address}
-                    </p>
+                    </a>
                     {contact && (
-                      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
                         <a
                           href={`tel:${contact.phone.replace(/\s+/g, "")}`}
                           className="inline-flex items-center gap-2 text-sm text-[#B60D20] hover:text-[#8a0a18] transition-colors"

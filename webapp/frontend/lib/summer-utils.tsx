@@ -59,6 +59,24 @@ export const DAY_SHORT_ZH: Record<string, string> = {
   Sunday: "日",
 };
 
+/** Sunday-first week order for calendar-style open-days strips. */
+export const WEEK_DAY_ORDER = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** Fallback branch photos, keyed by location name_en — overridden by
+ *  `loc.image_url` in config when present. */
+export const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
+  "Jardim de Vasco Center": "/summer/vasco-center.jpg",
+  "Flora Garden Center": "/summer/flora-center.jpg",
+};
+
 /** Short weekday: 一/二/… (zh) or Mon/Tue/… (en). */
 export const dayShort = (day: string, lang: Lang) =>
   lang === "zh" ? DAY_SHORT_ZH[day] || day : DAY_ABBREV[day] || day;
