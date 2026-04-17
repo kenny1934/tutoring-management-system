@@ -2503,6 +2503,10 @@ class SummerSlotSessionInfo(BaseModel):
     grade: str
     session_status: str
     buddy_group_id: int | None = None
+    # Per-student lesson_number override (used on ad-hoc Make-up Slots where
+    # different students may cover different lesson material). For regular
+    # slots this echoes the slot's SummerLesson.lesson_number.
+    lesson_number: Optional[int] = None
 
 
 class SummerSlotResponse(BaseModel):
@@ -2518,11 +2522,29 @@ class SummerSlotResponse(BaseModel):
     tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     max_students: int
+    is_adhoc: bool = False
+    adhoc_date: Optional[date] = None
     created_at: Optional[datetime] = None
     session_count: int = 0
     sessions: List[SummerSlotSessionInfo] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SummerMakeupSlotCreate(BaseModel):
+    """Create an ad-hoc Make-up Slot for a specific date/tutor."""
+    config_id: int
+    location: str = Field(..., max_length=255)
+    date: date
+    time_slot: str = Field(..., max_length=50)
+    tutor_id: int
+    max_students: int = Field(8, gt=0)
+
+
+class SummerMakeupSlotCreateResponse(BaseModel):
+    """Response to Make-up Slot creation, including optional conflict note."""
+    slot: SummerSlotResponse
+    tutor_conflict_note: Optional[str] = None
 
 
 # ---- Summer Session Schemas (per-student bookings) ----
@@ -2534,6 +2556,10 @@ class SummerSessionCreate(BaseModel):
     lesson_id: Optional[int] = None
     mode: Literal["all", "first_half", "single"] = "all"
     session_status: Literal["Tentative", "Rescheduled - Pending Make-up"] = "Tentative"
+    # Per-student lesson_number override, used primarily when dropping onto an
+    # ad-hoc Make-up Slot where different students can cover different material.
+    # Regular slots leave this null and inherit from SummerLesson at publish time.
+    lesson_number: Optional[int] = Field(None, ge=1, le=20)
 
 
 class SummerSessionStatusUpdate(BaseModel):
@@ -2565,7 +2591,7 @@ class SummerLessonResponse(BaseModel):
     id: int
     slot_id: int
     lesson_date: date
-    lesson_number: int
+    lesson_number: Optional[int] = None
     lesson_status: str
     notes: Optional[str] = None
     created_at: Optional[datetime] = None

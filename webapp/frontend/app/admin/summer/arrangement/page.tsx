@@ -263,10 +263,22 @@ export default function SummerArrangementPage() {
     }
   }, [pendingDrop, refreshAll, showToast]);
 
-  // Calendar drop → single session for a specific lesson
-  const handleDropStudentCalendar = useCallback(async (applicationId: number, slotId: number, lessonId: number) => {
+  // Calendar drop → single session for a specific lesson. `lessonNumber` is
+  // supplied only by ad-hoc Make-up Slot drops (collected via the in-card
+  // prompt); regular drops leave it undefined and inherit from SummerLesson.
+  const handleDropStudentCalendar = useCallback(async (
+    applicationId: number,
+    slotId: number,
+    lessonId: number,
+    lessonNumber?: number | null,
+  ) => {
     try {
-      await summerAPI.createSession({ application_id: applicationId, slot_id: slotId, lesson_id: lessonId });
+      await summerAPI.createSession({
+        application_id: applicationId,
+        slot_id: slotId,
+        lesson_id: lessonId,
+        ...(lessonNumber != null ? { lesson_number: lessonNumber } : {}),
+      });
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
@@ -585,6 +597,7 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
+                    totalLessons={activeConfig!.total_lessons}
                     onDropStudent={handleDropStudentCalendar}
                     onRemoveSession={handleRemoveSessionFromCalendar}
                     onClickStudent={setSelectedAppId}

@@ -147,6 +147,8 @@ import type {
   SummerSlot,
   SummerSlotCreate,
   SummerSlotUpdate,
+  SummerMakeupSlotCreate,
+  SummerMakeupSlotCreateResponse,
   SummerSession,
   SummerSessionCreate,
   SummerSessionStatusUpdate,
@@ -2432,6 +2434,12 @@ export const summerAPI = {
 
   deleteSlot: (id: number) =>
     fetchAPI<{ success: boolean }>(`/summer/slots/${id}`, { method: "DELETE" }),
+
+  createMakeupSlot: (data: SummerMakeupSlotCreate) =>
+    fetchAPI<SummerMakeupSlotCreateResponse>("/summer/makeup-slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   createSession: (data: SummerSessionCreate) =>
     fetchAPI<SummerSession>("/summer/sessions", {

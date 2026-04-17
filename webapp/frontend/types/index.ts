@@ -2373,6 +2373,7 @@ export interface SummerSlotSessionInfo {
   grade: string;
   session_status: string;
   buddy_group_id?: number | null;
+  lesson_number?: number | null;
 }
 
 export interface SummerSlot {
@@ -2387,6 +2388,8 @@ export interface SummerSlot {
   tutor_id?: number | null;
   tutor_name?: string | null;
   max_students: number;
+  is_adhoc?: boolean;
+  adhoc_date?: string | null;
   created_at?: string | null;
   session_count: number;
   sessions: SummerSlotSessionInfo[];
@@ -2402,6 +2405,20 @@ export interface SummerSlotCreate {
   course_type?: string | null;
   tutor_id?: number | null;
   max_students?: number;
+}
+
+export interface SummerMakeupSlotCreate {
+  config_id: number;
+  location: string;
+  date: string;
+  time_slot: string;
+  tutor_id: number;
+  max_students?: number;
+}
+
+export interface SummerMakeupSlotCreateResponse {
+  slot: SummerSlot;
+  tutor_conflict_note?: string | null;
 }
 
 export interface SummerSlotUpdate {
@@ -2433,6 +2450,7 @@ export interface SummerSessionCreate {
   slot_id: number;
   lesson_id?: number;
   mode?: "all" | "first_half" | "single";
+  lesson_number?: number | null;
 }
 
 export interface SummerSessionStatusUpdate {
@@ -2502,7 +2520,7 @@ export interface SummerLesson {
   id: number;
   slot_id: number;
   session_date: string;
-  lesson_number: number;
+  lesson_number: number | null;
   lesson_status: string;
   notes?: string | null;
   created_at?: string | null;

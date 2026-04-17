@@ -1218,3 +1218,355 @@ class TestArrangementReadsSessionLog:
         lesson1_entry = next(l for l in resp.lessons if l.lesson_id == lessons[0].id)
         assert len(lesson1_entry.sessions) == 1
         assert lesson1_entry.sessions[0].application_id == app_full.id
+
+
+class TestMakeupSlotCreate:
+    """
+    POST /summer/makeup-slots opens a one-off ad-hoc lesson on a specific
+    date/tutor. Ad-hoc slots are full-citizen SummerCourseSlot rows that
+    materialise exactly one SummerLesson via the existing generation branch,
+    so the rest of the publish → session_log pipeline works unchanged.
+    """
+
+    def _payload(self, config, slot_tutor, adhoc_date, **overrides):
+        from schemas import SummerMakeupSlotCreate
+        data = dict(
+            config_id=config.id,
+            location="MSA",
+            date=adhoc_date,
+            time_slot="10:00 - 11:30",
+            tutor_id=slot_tutor.id,
+            max_students=8,
+        )
+        data.update(overrides)
+        return SummerMakeupSlotCreate(**data)
+
+    def test_creates_slot_and_single_lesson(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+
+        assert resp.slot.is_adhoc is True
+        assert resp.slot.adhoc_date == adhoc_date
+        assert resp.slot.tutor_id == slot_tutor.id
+        assert resp.slot.max_students == 8
+        assert resp.slot.grade is None
+        assert resp.slot.course_type is None
+
+        lessons = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).all()
+        assert len(lessons) == 1
+        assert lessons[0].lesson_date == adhoc_date
+        assert lessons[0].lesson_number is None
+        assert lessons[0].lesson_status == "Scheduled"
+
+    def test_slot_day_derived_from_date(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        wednesday = config.course_start_date + timedelta(days=2)
+        assert wednesday.strftime("%A") == "Wednesday"
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, wednesday),
+            admin=admin, db=db_session,
+        )
+        assert resp.slot.slot_day == "Wednesday"
+
+    def test_date_outside_course_range_rejected(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        before = config.course_start_date - timedelta(days=1)
+        with pytest.raises(HTTPException) as exc:
+            create_makeup_slot(
+                data=self._payload(config, slot_tutor, before),
+                admin=admin, db=db_session,
+            )
+        assert exc.value.status_code == 400
+
+    def test_unknown_tutor_rejected(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        payload = self._payload(config, slot_tutor, adhoc_date, tutor_id=99999)
+        with pytest.raises(HTTPException) as exc:
+            create_makeup_slot(data=payload, admin=admin, db=db_session)
+        assert exc.value.status_code == 404
+
+    def test_tutor_conflict_note_surfaces_regular_slot(
+        self, db_session, admin, config, slot, slot_tutor
+    ):
+        """When the chosen tutor already teaches a regular slot at this
+        (date, time), the response carries a tutor_conflict_note so the
+        admin can confirm the double-up is intentional."""
+        from routers.summer_course import create_makeup_slot
+        lessons = _materialize_lessons(db_session, slot)
+        target_date = lessons[0].lesson_date  # Tuesday 10:00 — conflicts with `slot`
+
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, target_date),
+            admin=admin, db=db_session,
+        )
+        assert resp.tutor_conflict_note is not None
+        assert "F1" in resp.tutor_conflict_note
+
+    def test_tutor_conflict_note_absent_for_different_time(
+        self, db_session, admin, config, slot, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot
+        _materialize_lessons(db_session, slot)
+        adhoc_date = config.course_start_date + timedelta(days=1)  # Tuesday
+        payload = self._payload(
+            config, slot_tutor, adhoc_date,
+            time_slot="14:00 - 15:30",
+        )
+        resp = create_makeup_slot(data=payload, admin=admin, db=db_session)
+        assert resp.tutor_conflict_note is None
+
+    def test_delete_blocked_when_sessions_exist(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Existing delete_slot endpoint rejects when active sessions reference
+        the slot's lesson. Covers ad-hoc slots by extension."""
+        from routers.summer_course import create_makeup_slot, delete_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).first()
+        db_session.add(SummerSession(
+            application_id=app_full.id,
+            slot_id=resp.slot.id,
+            lesson_id=lesson.id,
+            lesson_number=lesson.lesson_number,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            delete_slot(slot_id=resp.slot.id, admin=admin, db=db_session)
+        assert exc.value.status_code == 400
+
+    def test_delete_allowed_when_empty(
+        self, db_session, admin, config, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot, delete_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        result = delete_slot(slot_id=resp.slot.id, admin=admin, db=db_session)
+        assert result.get("success") is True
+        assert db_session.query(SummerCourseSlot).filter(
+            SummerCourseSlot.id == resp.slot.id,
+        ).first() is None
+        assert db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).first() is None
+
+
+class TestMakeupSlotOnCalendar:
+    """Ad-hoc slots appear as first-class cards on the calendar — real
+    SummerLesson behind them (positive lesson_id), is_adhoc=True, editable."""
+
+    def test_drop_sets_per_student_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Dropping a student onto an ad-hoc slot with a lesson_number
+        stores it on SummerSession (pre-publish, per-student override)."""
+        from routers.summer_course import create_makeup_slot, create_session
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+
+        resp = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=7,
+            ),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number == 7
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.id == resp.id,
+        ).first()
+        assert ss.lesson_number == 7
+
+    def test_students_table_surfaces_adhoc_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Regression: get_student_lessons used to short-circuit at
+        SummerLesson.lesson_number, which is NULL for ad-hoc slots. The row
+        then fell through `if effective_ln is None: continue` and the session
+        disappeared from the students table. SummerSession.lesson_number
+        must take precedence when set."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_student_lessons,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        assert lesson.lesson_number is None  # ad-hoc default
+
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=4,  # per-student value
+            ),
+            admin=admin, db=db_session,
+        )
+
+        resp = get_student_lessons(
+            config_id=config.id, location=None,
+            _admin=None, db=db_session,
+        )
+        row = next(r for r in resp.students if r.application_id == app_full.id)
+        entry4 = next(e for e in row.lessons if e.lesson_number == 4)
+        assert entry4.placed is True
+        assert entry4.lesson_date == adhoc_date
+        assert entry4.slot_id == slot_resp.slot.id
+
+    def test_detail_modal_surfaces_adhoc_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """_build_application_response (detail modal + unassigned panel) must
+        prefer SummerSession.lesson_number over SummerLesson.lesson_number
+        so ad-hoc drops render their per-student value, not NULL."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_application,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        sess = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=6,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        detail = get_application(
+            app_id=app_full.id,
+            _admin=None, db=db_session,
+        )
+        placement = next(p for p in detail.sessions if p.id == sess.id)
+        assert placement.lesson_number == 6
+
+    def test_publish_prefers_summer_session_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """When SummerSession.lesson_number is set (ad-hoc drop), publish
+        must write it to session_log — not the slot-level SummerLesson
+        default. Regression: earlier code keyed off p.lesson.lesson_number
+        first, which silently overwrote the per-student override."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, publish_application,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lessons_paid = 1
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        # Slot-level default set to 1; per-student override to 8. Publish
+        # should honour 8.
+        lesson.lesson_number = 1
+        db_session.commit()
+
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=8,
+            ),
+            admin=admin, db=db_session,
+        )
+        # Confirm status so publish accepts it.
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+        ).first()
+        ss.session_status = "Confirmed"
+        db_session.commit()
+
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        log_row = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        assert log_row.lesson_number == 8
+
+    def test_adhoc_slot_surfaces_as_real_card(
+        self, db_session, admin, config, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot, get_lesson_calendar
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        adhoc_entries = [l for l in cal.lessons if l.is_adhoc]
+        assert len(adhoc_entries) == 1
+        entry = adhoc_entries[0]
+        # Distinguish from synthetic off-grid cards: real ad-hoc has a
+        # positive lesson_id backed by an actual SummerLesson row.
+        assert entry.lesson_id > 0
+        assert entry.slot_id == resp.slot.id
+        assert entry.tutor_id == slot_tutor.id
+        assert entry.grade is None
+        assert entry.course_type is None
+        assert entry.lesson_number == 0  # NULL → 0 via response builder
+        assert entry.max_students == 8
+        assert entry.sessions == []

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DAY_ABBREV } from "@/lib/summer-utils";
 import {
@@ -12,6 +12,7 @@ import {
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerLessonCard } from "@/components/admin/SummerLessonCard";
+import { CreateMakeupSlotModal } from "@/components/admin/CreateMakeupSlotModal";
 import { useToast } from "@/contexts/ToastContext";
 import type { SummerLessonUpdate, SummerLessonCalendarEntry } from "@/types";
 
@@ -22,7 +23,14 @@ interface SummerSessionCalendarProps {
   courseEndDate: string;
   openDays: string[];
   timeSlots: string[];
-  onDropStudent?: (applicationId: number, slotId: number, lessonId: number) => void;
+  /** Upper bound for the lesson-number UIs, sourced from config.total_lessons. */
+  totalLessons?: number;
+  onDropStudent?: (
+    applicationId: number,
+    slotId: number,
+    lessonId: number,
+    lessonNumber?: number | null,
+  ) => void;
   onRemoveSession?: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
   dragPrefs?: {
@@ -63,6 +71,7 @@ export function SummerSessionCalendar({
   courseEndDate,
   openDays,
   timeSlots,
+  totalLessons = 8,
   onDropStudent,
   onRemoveSession,
   onClickStudent,
@@ -143,6 +152,37 @@ export function SummerSessionCalendar({
     return m;
   }, [lessons]);
 
+  // Merge in any lesson times that fall outside the configured timeSlots
+  // (typically ad-hoc Make-up Slots at non-standard times). Extension rows
+  // get a subtle italic marker so admins know they're not regular slot rows.
+  const configuredTimeSet = useMemo(() => new Set(timeSlots), [timeSlots]);
+  const effectiveTimeSlots = useMemo(() => {
+    const extras = new Set<string>();
+    for (const l of lessons) {
+      if (!configuredTimeSet.has(l.time_slot)) extras.add(l.time_slot);
+    }
+    if (extras.size === 0) return timeSlots;
+    return [...timeSlots, ...extras].sort();
+  }, [timeSlots, lessons, configuredTimeSet]);
+
+  // Modal state for creating Make-up Slots. prefill is set when the modal
+  // opens from an empty grid cell; cleared when opened from the header.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPrefill, setModalPrefill] = useState<
+    { date: string; time: string } | undefined
+  >(undefined);
+  const openHeaderModal = () => {
+    setModalPrefill(undefined);
+    setModalOpen(true);
+  };
+  const openCellModal = (dateStr: string, ts: string) => {
+    setModalPrefill({ date: dateStr, time: ts });
+    setModalOpen(true);
+  };
+  const handleCreated = () => {
+    globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
+  };
+
   // Update a lesson
   const handleUpdateLesson = useCallback(
     async (lessonId: number, data: SummerLessonUpdate) => {
@@ -196,8 +236,9 @@ export function SummerSessionCalendar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Week navigation */}
-      <div className="flex items-center justify-center gap-3 py-2">
+      {/* Week navigation + Make-up Slot create */}
+      <div className="flex items-center gap-3 py-2">
+        <div className="flex-1" />
         <button
           onClick={goPrev}
           disabled={!canGoPrev}
@@ -215,21 +256,25 @@ export function SummerSessionCalendar({
         >
           <ChevronRight className="h-4 w-4" />
         </button>
+        <div className="flex-1 flex justify-end">
+          <button
+            onClick={openHeaderModal}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            title="Create a one-off Make-up Slot"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Make-up Slot
+          </button>
+        </div>
       </div>
 
-      {/* Empty state for this week */}
-      {isEmpty ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-          <p className="text-sm">No lessons this week.</p>
-        </div>
-      ) : (
-      /* Grid */
+      {/* Grid (always rendered so the + affordance works on empty weeks) */}
       <div
         className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
         style={{
           display: "grid",
           gridTemplateColumns: `auto repeat(${weekDates.length}, minmax(110px, 1fr))`,
-          gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
+          gridTemplateRows: `36px repeat(${effectiveTimeSlots.length}, auto)`,
           minWidth: `${64 + weekDates.length * 110}px`,
         }}
       >
@@ -254,47 +299,84 @@ export function SummerSessionCalendar({
           })}
 
           {/* Time slot rows */}
-          {timeSlots.map((ts) => (
-            <React.Fragment key={ts}>
-              {/* Time label */}
-              <div
-                className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-start justify-center pt-1 px-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10"
-              >
-                {ts}
-              </div>
+          {effectiveTimeSlots.map((ts) => {
+            const isExtensionRow = !configuredTimeSet.has(ts);
+            return (
+              <React.Fragment key={ts}>
+                {/* Time label */}
+                <div
+                  className={cn(
+                    "bg-[#fef9f3] dark:bg-[#2d2618] flex items-start justify-center pt-1 px-1 text-[10px] text-muted-foreground font-medium sticky left-0 z-10",
+                    isExtensionRow && "italic text-amber-700/80 dark:text-amber-300/80",
+                  )}
+                  title={isExtensionRow ? "Ad-hoc time — outside regular slots" : undefined}
+                >
+                  {ts}
+                </div>
 
-              {/* Cells */}
-              {weekDates.map((dateStr) => {
-                const key = `${dateStr}|${ts}`;
-                const cellLessons = lessonIndex.get(key) ?? [];
-                const pref = isPrefCell(dateStr, ts);
+                {/* Cells */}
+                {weekDates.map((dateStr) => {
+                  const key = `${dateStr}|${ts}`;
+                  const cellLessons = lessonIndex.get(key) ?? [];
+                  const pref = isPrefCell(dateStr, ts);
+                  const isEmptyCell = cellLessons.length === 0;
 
-                return (
-                  <div
-                    key={key}
-                    className={cn(
-                      "bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5",
-                      pref === "pref1" && "ring-2 ring-inset ring-primary/40 bg-primary/5",
-                      pref === "pref2" && "ring-2 ring-inset ring-orange-400/40 bg-orange-50/50 dark:bg-orange-900/10"
-                    )}
-                  >
-                    {cellLessons.map((l) => (
-                      <SummerLessonCard
-                        key={l.lesson_id}
-                        lesson={l}
-                        onUpdateLesson={handleUpdateLesson}
-                        onDropStudent={onDropStudent}
-                        onRemoveSession={onRemoveSession}
-                        onClickStudent={onClickStudent}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          ))}
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        "group relative bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5",
+                        pref === "pref1" && "ring-2 ring-inset ring-primary/40 bg-primary/5",
+                        pref === "pref2" && "ring-2 ring-inset ring-orange-400/40 bg-orange-50/50 dark:bg-orange-900/10"
+                      )}
+                    >
+                      {cellLessons.map((l) => (
+                        <SummerLessonCard
+                          key={l.lesson_id}
+                          lesson={l}
+                          onUpdateLesson={handleUpdateLesson}
+                          onDropStudent={onDropStudent}
+                          onRemoveSession={onRemoveSession}
+                          onClickStudent={onClickStudent}
+                          onDeleted={handleCreated}
+                          totalLessons={totalLessons}
+                        />
+                      ))}
+                      {isEmptyCell && (
+                        <button
+                          onClick={() => openCellModal(dateStr, ts)}
+                          className="absolute inset-0 flex items-center justify-center text-[10px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
+                          title="Add a Make-up Slot at this time"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-0.5" />
+                          Make-up
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
         </div>
+
+      {isEmpty && (
+        <p className="mt-2 text-xs text-muted-foreground text-center">
+          No lessons this week. Hover an empty cell to add a Make-up Slot.
+        </p>
       )}
+
+      <CreateMakeupSlotModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={handleCreated}
+        configId={configId}
+        location={location}
+        courseStartDate={courseStartDate}
+        courseEndDate={courseEndDate}
+        initialDate={modalPrefill?.date}
+        initialTime={modalPrefill?.time}
+      />
     </div>
   );
 }

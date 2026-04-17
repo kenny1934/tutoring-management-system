@@ -1,17 +1,33 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
+import { summerAPI } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
+import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
   lesson: SummerLessonCalendarEntry;
   onUpdateLesson: (lessonId: number, data: SummerLessonUpdate) => void;
-  onDropStudent?: (applicationId: number, slotId: number, lessonId: number) => void;
+  /** Regular drops pass undefined for lessonNumber (backend inherits from
+   * the SummerLesson). Ad-hoc drops pass the admin-picked value (or null to
+   * leave blank) collected via the drop prompt. */
+  onDropStudent?: (
+    applicationId: number,
+    slotId: number,
+    lessonId: number,
+    lessonNumber?: number | null,
+  ) => void;
   onRemoveSession?: (sessionId: number, studentName?: string) => void;
   onClickStudent?: (applicationId: number) => void;
+  /** Called after a successful Make-up Slot delete or per-student edit so
+   * the parent can revalidate SWR and drop the card from the grid. */
+  onDeleted?: () => void;
+  /** Inclusive max for the lesson-number input (typically config.total_lessons). */
+  totalLessons?: number;
 }
 
 function fillBarColor(pct: number): string {
@@ -26,48 +42,89 @@ export function SummerLessonCard({
   onDropStudent,
   onRemoveSession,
   onClickStudent,
+  onDeleted,
+  totalLessons = 8,
 }: SummerLessonCardProps) {
+  const { showToast } = useToast();
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingLesson, setEditingLesson] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const lessonRef = useRef<HTMLInputElement>(null);
+  // Pending ad-hoc drop: (appId) waiting on the lesson-number prompt.
+  const [pendingAdhocDrop, setPendingAdhocDrop] = useState<number | null>(null);
 
   const activeSessions = lesson.sessions;
   const attendingCount = activeSessions.filter((s) => !isNonAttending(s.session_status)).length;
   const isFull = attendingCount >= lesson.max_students;
   const fillPct = lesson.max_students > 0 ? attendingCount / lesson.max_students : 0;
   const isCancelled = lesson.lesson_status === "Cancelled";
+  // Distinguish admin-created Make-up Slots (real SummerLesson, lesson_id > 0)
+  // from synthetic cards emitted for off-grid rescheduled makeups
+  // (lesson_id < 0, no backing SummerLesson — read-only).
   const isAdhoc = lesson.is_adhoc === true;
+  const isSyntheticAdhoc = isAdhoc && lesson.lesson_id < 0;
+  const isRealAdhoc = isAdhoc && lesson.lesson_id > 0;
+  const canEditBadge = !isCancelled && !isSyntheticAdhoc;
+  const canDrop = !!onDropStudent && !isSyntheticAdhoc;
+  const showCapacity = !isSyntheticAdhoc;
+  const canDelete = isRealAdhoc && activeSessions.length === 0 && !!onDeleted;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!onDropStudent || isAdhoc) return;
+    if (!canDrop) return;
     e.preventDefault();
     e.stopPropagation();
     if (!isFull && !isCancelled) setDragOver(true);
-  }, [onDropStudent, isFull, isCancelled, isAdhoc]);
+  }, [canDrop, isFull, isCancelled]);
 
   const handleDragLeave = useCallback(() => setDragOver(false), []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      if (!onDropStudent || isAdhoc) return;
+      if (!canDrop || !onDropStudent) return;
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
       const appId = parseInt(e.dataTransfer.getData("application-id"));
-      if (!isNaN(appId) && !isFull && !isCancelled) {
+      if (isNaN(appId) || isFull || isCancelled) return;
+      if (isRealAdhoc) {
+        // Defer: prompt admin for the lesson number this student is covering
+        // on this Make-up Slot before creating the session.
+        setPendingAdhocDrop(appId);
+      } else {
         onDropStudent(appId, lesson.slot_id, lesson.lesson_id);
       }
     },
-    [onDropStudent, isFull, isCancelled, isAdhoc, lesson.slot_id, lesson.lesson_id]
+    [canDrop, onDropStudent, isFull, isCancelled, isRealAdhoc, lesson.slot_id, lesson.lesson_id]
   );
+
+  const handleAdhocDropConfirm = (lessonNumber: number | null) => {
+    if (pendingAdhocDrop == null || !onDropStudent) return;
+    onDropStudent(pendingAdhocDrop, lesson.slot_id, lesson.lesson_id, lessonNumber);
+    setPendingAdhocDrop(null);
+  };
 
   const commitLessonNumber = () => {
     const val = parseInt(lessonRef.current?.value ?? "");
-    if (!isNaN(val) && val >= 1 && val <= 20 && val !== lesson.lesson_number) {
+    if (!isNaN(val) && val >= 1 && val <= totalLessons && val !== lesson.lesson_number) {
       onUpdateLesson(lesson.lesson_id, { lesson_number: val });
     }
     setEditingLesson(false);
+  };
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    if (!window.confirm("Delete this Make-up Slot?")) return;
+    setDeleting(true);
+    try {
+      await summerAPI.deleteSlot(lesson.slot_id);
+      showToast("Make-up Slot deleted.", "success");
+      onDeleted?.();
+    } catch (e: any) {
+      showToast(e?.message || "Failed to delete", "error");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const containerClass = isAdhoc
@@ -92,15 +149,16 @@ export function SummerLessonCard({
     >
       {/* Row 1: Lesson badge + grade + course type + expand */}
       <div className="flex items-center gap-1 px-1 py-0.5 min-w-0">
-        {/* Lesson number badge. Ad-hoc cards have no underlying SummerLesson,
-            so the badge is read-only and shows "—" when no live lesson_number. */}
-        {!isAdhoc && editingLesson ? (
+        {/* Lesson number badge. Synthetic ad-hoc cards are read-only (no
+            backing SummerLesson to PATCH); real ad-hoc + regular cards are
+            click-to-edit. Shows "—" when no lesson_number is assigned. */}
+        {canEditBadge && editingLesson ? (
           <input
             ref={lessonRef}
             type="number"
-            defaultValue={lesson.lesson_number}
+            defaultValue={lesson.lesson_number || undefined}
             min={1}
-            max={20}
+            max={totalLessons}
             className="w-6 h-5 text-[10px] text-center rounded-full border border-primary bg-white dark:bg-gray-800"
             autoFocus
             onBlur={commitLessonNumber}
@@ -111,21 +169,28 @@ export function SummerLessonCard({
           />
         ) : (
           <button
-            onClick={() => !isCancelled && !isAdhoc && setEditingLesson(true)}
-            disabled={isAdhoc}
+            onClick={() => canEditBadge && setEditingLesson(true)}
+            disabled={!canEditBadge}
             className={cn(
               "w-6 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors",
               isCancelled
                 ? "bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 line-through"
                 : isAdhoc
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 cursor-default"
+                ? cn(
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+                    isRealAdhoc ? "hover:opacity-80" : "cursor-default",
+                  )
                 : (LESSON_BADGE_COLORS[lesson.grade ?? ""] || "bg-primary text-primary-foreground") + " hover:opacity-80"
             )}
             title={
-              isAdhoc
+              isSyntheticAdhoc
                 ? lesson.lesson_number
                   ? `Make-up covering Lesson ${lesson.lesson_number}`
                   : "Make-up session"
+                : isRealAdhoc
+                ? lesson.lesson_number
+                  ? `Make-up (Lesson ${lesson.lesson_number}) — click to edit`
+                  : "Make-up — click to set lesson number"
                 : `Lesson ${lesson.lesson_number} — click to edit`
             }
           >
@@ -164,6 +229,16 @@ export function SummerLessonCard({
 
         <div className="flex-1" />
 
+        {canDelete && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="p-0.5 text-muted-foreground hover:text-red-500 shrink-0 disabled:opacity-50"
+            title="Delete Make-up Slot"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
         <button
           onClick={() => setExpanded(!expanded)}
           className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
@@ -177,8 +252,9 @@ export function SummerLessonCard({
         {lesson.tutor_name || "— tutor —"}
       </div>
 
-      {/* Row 3: Capacity bar — hidden for ad-hoc cards (no meaningful max). */}
-      {!isAdhoc && (
+      {/* Row 3: Capacity bar. Synthetic ad-hoc cards hide it (max_students
+          mirrors count); real cards (regular + admin-created ad-hoc) show it. */}
+      {showCapacity && (
         <div className="flex items-center gap-1 px-1 pb-0.5">
           <div className="flex-1 h-1.5 rounded-full bg-[#e8d4b8]/30 dark:bg-gray-700 overflow-hidden">
             <div
@@ -257,6 +333,16 @@ export function SummerLessonCard({
           })}
         </div>
       )}
+
+      <LessonNumberPromptModal
+        isOpen={pendingAdhocDrop != null}
+        onClose={() => setPendingAdhocDrop(null)}
+        onConfirm={handleAdhocDropConfirm}
+        title="Lesson for this student"
+        description="This Make-up Slot can host students covering different lessons. Leave blank to decide later."
+        confirmLabel="Place"
+        maxLesson={totalLessons}
+      />
     </div>
   );
 }

@@ -52,6 +52,8 @@ from schemas import (
     SummerSlotUpdate,
     SummerSlotResponse,
     SummerSlotSessionInfo,
+    SummerMakeupSlotCreate,
+    SummerMakeupSlotCreateResponse,
     SummerSessionCreate,
     SummerSessionStatusUpdate,
     SummerSessionResponse,
@@ -135,14 +137,28 @@ def _live_sessions_by_summer_id(
     return result
 
 
-def _build_session_info(ss: "SummerSession", status: str) -> "SummerSlotSessionInfo":
+def _build_session_info(
+    ss: "SummerSession",
+    status: str,
+    live: "SessionLog | None" = None,
+) -> "SummerSlotSessionInfo":
     """Compose the nested summary the calendar cards render per student.
 
     Centralised so the three sites that emit these rows (on-grid, ad-hoc,
     ghost) stay byte-identical and the `application-may-be-None` guards
-    don't drift.
+    don't drift. Per-student `lesson_number` prefers the live session_log
+    override when present (post-publish edits), then the SummerSession-level
+    value (pre-publish ad-hoc placements), else the slot-level default.
     """
     app = ss.application
+    if live is not None and live.lesson_number is not None:
+        ln = live.lesson_number
+    elif ss.lesson_number is not None:
+        ln = ss.lesson_number
+    elif ss.lesson is not None:
+        ln = ss.lesson.lesson_number
+    else:
+        ln = None
     return SummerSlotSessionInfo(
         id=ss.id,
         application_id=ss.application_id,
@@ -150,6 +166,7 @@ def _build_session_info(ss: "SummerSession", status: str) -> "SummerSlotSessionI
         grade=app.grade if app else "",
         session_status=status,
         buddy_group_id=app.buddy_group_id if app else None,
+        lesson_number=ln,
     )
 
 
@@ -1349,7 +1366,11 @@ def _build_application_response(
             grade=slot.grade if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
             session_status=s.session_status,
-            lesson_number=lesson.lesson_number if lesson else s.lesson_number,
+            lesson_number=(
+                s.lesson_number
+                if s.lesson_number is not None
+                else (lesson.lesson_number if lesson else None)
+            ),
             lesson_date=str(lesson.lesson_date) if lesson and lesson.lesson_date else None,
             slot_max_students=slot.max_students if slot else None,
             slot_current_count=(slot_counts or {}).get(s.slot_id),
@@ -1879,6 +1900,8 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         tutor_id=slot.tutor_id,
         tutor_name=slot.tutor.tutor_name if slot.tutor else None,
         max_students=slot.max_students,
+        is_adhoc=slot.is_adhoc,
+        adhoc_date=slot.adhoc_date,
         created_at=slot.created_at,
         session_count=attending_count,
         sessions=[
@@ -1889,6 +1912,11 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
                 grade=s.application.grade,
                 session_status=s.session_status,
                 buddy_group_id=s.application.buddy_group_id,
+                lesson_number=(
+                    s.lesson_number
+                    if s.lesson_number is not None
+                    else (s.lesson.lesson_number if s.lesson else None)
+                ),
             )
             for s in unique_sessions
         ],
@@ -1943,6 +1971,115 @@ def create_slot(
         .first()
     )
     return _build_slot_response(slot)
+
+
+_WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def _tutor_conflict_note(
+    db: Session, config_id: int, tutor_id: int,
+    lesson_date: date_type, time_slot: str, exclude_slot_id: Optional[int] = None,
+) -> Optional[str]:
+    """If the tutor is already assigned to another active lesson at this
+    (date, time_slot), build a short informational note describing it."""
+    q = (
+        db.query(SummerLesson, SummerCourseSlot)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.tutor_id == tutor_id,
+            SummerCourseSlot.time_slot == time_slot,
+            SummerLesson.lesson_date == lesson_date,
+            SummerLesson.lesson_status != "Cancelled",
+        )
+    )
+    if exclude_slot_id is not None:
+        q = q.filter(SummerCourseSlot.id != exclude_slot_id)
+    other = q.first()
+    if not other:
+        return None
+    other_lesson, other_slot = other
+    if other_slot.is_adhoc:
+        return "Tutor is already teaching another Make-up Slot at this time."
+    bits = []
+    if other_slot.grade:
+        bits.append(other_slot.grade)
+    if other_slot.course_type:
+        bits.append(other_slot.course_type)
+    label = "-".join(bits) if bits else "another class"
+    if other_lesson.lesson_number:
+        return f"Tutor is already teaching {label} (Lesson {other_lesson.lesson_number}) at this time."
+    return f"Tutor is already teaching {label} at this time."
+
+
+@router.post(
+    "/summer/makeup-slots",
+    response_model=SummerMakeupSlotCreateResponse,
+    status_code=201,
+)
+def create_makeup_slot(
+    data: SummerMakeupSlotCreate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Create an ad-hoc Make-up Slot on a specific date/tutor.
+
+    Ad-hoc slots are full-citizen SummerCourseSlot rows that bypass the
+    weekly recurrence: _ensure_lessons_for_slot generates exactly one
+    SummerLesson at adhoc_date. This lets admins open a one-off lesson for
+    students whose availability doesn't fit any regular slot, while reusing
+    the existing publish → session_log pipeline.
+    """
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == data.config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    tutor = db.query(Tutor).filter(Tutor.id == data.tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    if not (config.course_start_date <= data.date <= config.course_end_date):
+        raise HTTPException(
+            status_code=400,
+            detail="Date must fall within the course's start and end dates",
+        )
+
+    slot = SummerCourseSlot(
+        config_id=data.config_id,
+        location=data.location,
+        slot_day=_WEEKDAY_NAMES[data.date.weekday()],
+        time_slot=data.time_slot,
+        tutor_id=data.tutor_id,
+        max_students=data.max_students,
+        is_adhoc=True,
+        adhoc_date=data.date,
+    )
+    db.add(slot)
+    db.flush()
+
+    # Materialise the one SummerLesson for this ad-hoc date up front so the
+    # calendar view and drag-drop work immediately.
+    _ensure_lessons_for_slot(slot, db)
+    db.commit()
+
+    conflict_note = _tutor_conflict_note(
+        db, data.config_id, data.tutor_id, data.date, data.time_slot,
+        exclude_slot_id=slot.id,
+    )
+
+    slot = (
+        db.query(SummerCourseSlot)
+        .options(
+            joinedload(SummerCourseSlot.tutor),
+            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+        )
+        .filter(SummerCourseSlot.id == slot.id)
+        .first()
+    )
+    return SummerMakeupSlotCreateResponse(
+        slot=_build_slot_response(slot),
+        tutor_conflict_note=conflict_note,
+    )
 
 
 @router.patch("/summer/slots/{slot_id}", response_model=SummerSlotResponse)
@@ -2102,6 +2239,7 @@ def create_session(
             application_id=data.application_id,
             slot_id=data.slot_id,
             lesson_id=data.lesson_id,
+            lesson_number=data.lesson_number,
             session_status="Tentative",
             placed_by=placed_by,
             placed_at=now,
@@ -2662,6 +2800,16 @@ def _publish_application_inner(
             if p.session_status == 'Rescheduled - Pending Make-up'
             else 'Scheduled'
         )
+        # Per-student lesson_number (SummerSession.lesson_number) takes precedence
+        # over the slot-level default on SummerLesson. Ad-hoc Make-up Slots
+        # set the per-student value at drop time; regular slots leave it null
+        # and inherit from SummerLesson.
+        if p.lesson_number is not None:
+            effective_lesson_number = p.lesson_number
+        elif p.lesson is not None:
+            effective_lesson_number = p.lesson.lesson_number
+        else:
+            effective_lesson_number = None
         db.add(SessionLog(
             enrollment_id=enrollment.id,
             student_id=student_id,
@@ -2672,7 +2820,7 @@ def _publish_application_inner(
             session_status=sess_status,
             financial_status=fin_status,
             summer_session_id=p.id,
-            lesson_number=p.lesson.lesson_number if p.lesson else p.lesson_number,
+            lesson_number=effective_lesson_number,
             last_modified_by=admin_email,
         ))
 
@@ -3008,9 +3156,19 @@ def get_student_lessons(
             if s.session_status == "Cancelled":
                 continue
             live = live_by_summer_id.get(s.id)
-            effective_ln = live.lesson_number if live and live.lesson_number is not None else (
-                s.lesson.lesson_number if s.lesson else s.lesson_number
-            )
+            # Precedence mirrors _build_session_info: post-publish session_log
+            # override → pre-publish per-student SummerSession.lesson_number →
+            # slot-level SummerLesson.lesson_number default. Checking
+            # s.lesson_number BEFORE s.lesson.lesson_number is what surfaces
+            # ad-hoc sessions (where SummerLesson.lesson_number is NULL).
+            if live is not None and live.lesson_number is not None:
+                effective_ln = live.lesson_number
+            elif s.lesson_number is not None:
+                effective_ln = s.lesson_number
+            elif s.lesson is not None:
+                effective_ln = s.lesson.lesson_number
+            else:
+                effective_ln = None
             if effective_ln is None:
                 continue
             if effective_ln not in placed_by_lesson:
@@ -3972,6 +4130,19 @@ def _ensure_lessons_for_slot(slot: SummerCourseSlot, db: Session) -> int:
     existing = db.query(SummerLesson).filter(SummerLesson.slot_id == slot.id).first()
     if existing:
         return 0
+    if slot.is_adhoc:
+        # Ad-hoc Make-up Slot: exactly one lesson on the specific date, with
+        # no lesson_number (admins set it per-session later via session_log).
+        if slot.adhoc_date is None:
+            return 0
+        db.add(SummerLesson(
+            slot_id=slot.id,
+            lesson_date=slot.adhoc_date,
+            lesson_number=None,
+            lesson_status="Scheduled",
+        ))
+        db.flush()
+        return 1
     config = slot.config
     dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
     for i, d in enumerate(dates):
@@ -4191,11 +4362,11 @@ def get_lesson_calendar(
                     (eff_date, eff_time, eff_tutor),
                     {"sessions": [], "lesson_number": live.lesson_number},
                 )
-                bucket["sessions"].append(_build_session_info(s, effective_status))
+                bucket["sessions"].append(_build_session_info(s, effective_status, live))
             continue
 
         sessions_by_lesson_id.setdefault(target.id, []).append(
-            _build_session_info(s, effective_status)
+            _build_session_info(s, effective_status, live)
         )
 
     # Ghost cards: for each active make-up, walk make_up_for_id back and render
@@ -4215,7 +4386,7 @@ def get_lesson_calendar(
             time_slot=slot.time_slot,
             grade=slot.grade,
             course_type=slot.course_type,
-            lesson_number=lesson.lesson_number,
+            lesson_number=lesson.lesson_number or 0,
             lesson_status=lesson.lesson_status,
             tutor_id=slot.tutor_id,
             tutor_name=slot.tutor.tutor_name if slot.tutor else None,
@@ -4223,6 +4394,7 @@ def get_lesson_calendar(
             date=lesson.lesson_date,
             notes=lesson.notes,
             sessions=sessions_by_lesson_id.get(lesson.id, []),
+            is_adhoc=slot.is_adhoc,
         ))
 
     # Synthetic ad-hoc entries: one card per unique (date, time_slot, tutor)
