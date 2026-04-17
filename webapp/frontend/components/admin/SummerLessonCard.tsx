@@ -53,6 +53,10 @@ export function SummerLessonCard({
   const lessonRef = useRef<HTMLInputElement>(null);
   // Pending ad-hoc drop: (appId) waiting on the lesson-number prompt.
   const [pendingAdhocDrop, setPendingAdhocDrop] = useState<number | null>(null);
+  // Per-student lesson-number edit (expanded view).
+  const [editingSession, setEditingSession] = useState<
+    { id: number; current: number | null } | null
+  >(null);
 
   const activeSessions = lesson.sessions;
   const attendingCount = activeSessions.filter((s) => !isNonAttending(s.session_status)).length;
@@ -105,11 +109,39 @@ export function SummerLessonCard({
   };
 
   const commitLessonNumber = () => {
-    const val = parseInt(lessonRef.current?.value ?? "");
+    const raw = lessonRef.current?.value ?? "";
+    const trimmed = raw.trim();
+    // Empty input on a card that already has a value → clear. This is the
+    // only path back to NULL since None is "no change" in the backend schema.
+    if (trimmed === "") {
+      if (lesson.lesson_number) {
+        onUpdateLesson(lesson.lesson_id, { clear_lesson_number: true });
+      }
+      setEditingLesson(false);
+      return;
+    }
+    const val = parseInt(trimmed, 10);
     if (!isNaN(val) && val >= 1 && val <= totalLessons && val !== lesson.lesson_number) {
       onUpdateLesson(lesson.lesson_id, { lesson_number: val });
     }
     setEditingLesson(false);
+  };
+
+  const handlePerStudentLessonEdit = async (newValue: number | null) => {
+    if (!editingSession) return;
+    try {
+      await summerAPI.updateSessionLessonNumber(editingSession.id, {
+        ...(newValue === null
+          ? { clear_lesson_number: true }
+          : { lesson_number: newValue }),
+      });
+      showToast("Lesson number updated.", "success");
+      onDeleted?.(); // Reuse the refresh callback — it revalidates the calendar SWR.
+    } catch (e: any) {
+      showToast(e?.message || "Failed to update", "error");
+    } finally {
+      setEditingSession(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -311,6 +343,24 @@ export function SummerLessonCard({
               >
                 {s.student_name}
               </button>
+              {isRealAdhoc && (
+                <button
+                  onClick={() =>
+                    setEditingSession({ id: s.id, current: s.lesson_number ?? null })
+                  }
+                  className={cn(
+                    "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+                  )}
+                  title={
+                    s.lesson_number
+                      ? `Lesson ${s.lesson_number} — click to edit`
+                      : "Set lesson number for this student"
+                  }
+                >
+                  L{s.lesson_number ?? "—"}
+                </button>
+              )}
               <span
                 className={cn(
                   "text-[8px] font-bold px-0.5 rounded",
@@ -341,6 +391,16 @@ export function SummerLessonCard({
         title="Lesson for this student"
         description="This Make-up Slot can host students covering different lessons. Leave blank to decide later."
         confirmLabel="Place"
+        maxLesson={totalLessons}
+      />
+      <LessonNumberPromptModal
+        isOpen={editingSession != null}
+        onClose={() => setEditingSession(null)}
+        onConfirm={handlePerStudentLessonEdit}
+        title="Edit lesson number"
+        description="Blank clears the lesson number for this student."
+        initialValue={editingSession?.current ?? null}
+        confirmLabel="Save"
         maxLesson={totalLessons}
       />
     </div>

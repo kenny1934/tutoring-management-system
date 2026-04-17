@@ -1871,7 +1871,9 @@ async def update_session(
     if request.notes is not None:
         session.notes = request.notes
 
-    if request.lesson_number is not None:
+    if request.clear_lesson_number:
+        session.lesson_number = None
+    elif request.lesson_number is not None:
         session.lesson_number = request.lesson_number
 
     # Set audit columns

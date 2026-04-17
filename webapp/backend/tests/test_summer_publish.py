@@ -1489,6 +1489,49 @@ class TestMakeupSlotOnCalendar:
         placement = next(p for p in detail.sessions if p.id == sess.id)
         assert placement.lesson_number == 6
 
+    def test_per_student_lesson_number_clear(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """PATCH /summer/sessions/{id}/lesson-number supports clearing."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, update_session_lesson_number,
+        )
+        from schemas import SummerSessionCreate, SummerSessionLessonNumberUpdate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        sess = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=5,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        # Clear via the opt-in flag.
+        cleared = update_session_lesson_number(
+            session_id=sess.id,
+            data=SummerSessionLessonNumberUpdate(clear_lesson_number=True),
+            admin=admin, db=db_session,
+        )
+        assert cleared.lesson_number is None
+
+        # Set to a different value afterwards.
+        updated = update_session_lesson_number(
+            session_id=sess.id,
+            data=SummerSessionLessonNumberUpdate(lesson_number=3),
+            admin=admin, db=db_session,
+        )
+        assert updated.lesson_number == 3
+
     def test_publish_prefers_summer_session_lesson_number(
         self, db_session, admin, config, slot_tutor, app_full
     ):
@@ -1539,6 +1582,38 @@ class TestMakeupSlotOnCalendar:
             SessionLog.summer_session_id.isnot(None),
         ).first()
         assert log_row.lesson_number == 8
+
+    def test_lesson_level_clear_support(
+        self, db_session, admin, config, slot_tutor
+    ):
+        """PATCH /summer/lessons/{id} with clear_lesson_number nulls the
+        slot-level default (previously impossible — None was 'no change')."""
+        from routers.summer_course import create_makeup_slot, update_lesson
+        from schemas import SummerLessonUpdate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        update_lesson(
+            lesson_id=lesson.id,
+            data=SummerLessonUpdate(lesson_number=6),
+            admin=admin, db=db_session,
+        )
+        db_session.refresh(lesson)
+        assert lesson.lesson_number == 6
+
+        update_lesson(
+            lesson_id=lesson.id,
+            data=SummerLessonUpdate(clear_lesson_number=True),
+            admin=admin, db=db_session,
+        )
+        db_session.refresh(lesson)
+        assert lesson.lesson_number is None
 
     def test_adhoc_slot_surfaces_as_real_card(
         self, db_session, admin, config, slot_tutor

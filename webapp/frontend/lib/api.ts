@@ -152,6 +152,7 @@ import type {
   SummerSession,
   SummerSessionCreate,
   SummerSessionStatusUpdate,
+  SummerSessionLessonNumberUpdate,
   SummerPublishResponse,
   SummerUnpublishResponse,
   SummerPublishBatchRequest,
@@ -2449,6 +2450,15 @@ export const summerAPI = {
 
   updateSessionStatus: (id: number, data: SummerSessionStatusUpdate) =>
     fetchAPI<SummerSession>(`/summer/sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  updateSessionLessonNumber: (
+    id: number,
+    data: SummerSessionLessonNumberUpdate,
+  ) =>
+    fetchAPI<SummerSession>(`/summer/sessions/${id}/lesson-number`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),

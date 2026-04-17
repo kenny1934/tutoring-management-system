@@ -2457,6 +2457,11 @@ export interface SummerSessionStatusUpdate {
   session_status: string;
 }
 
+export interface SummerSessionLessonNumberUpdate {
+  lesson_number?: number | null;
+  clear_lesson_number?: boolean;
+}
+
 // ---- Summer Publish Bridge (Phase 5) ----
 
 export interface SummerPublishResponse {
@@ -2530,6 +2535,7 @@ export interface SummerLessonUpdate {
   lesson_number?: number;
   lesson_status?: "Scheduled" | "Attended" | "Cancelled";
   notes?: string;
+  clear_lesson_number?: boolean;
 }
 
 export interface SummerLessonCalendarEntry {

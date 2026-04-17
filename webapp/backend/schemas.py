@@ -652,6 +652,9 @@ class SessionUpdate(BaseModel):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     lesson_number: Optional[int] = Field(None, ge=1)
+    # Opt-in clear so None stays as "no change". Set this to null the
+    # per-session lesson_number back to NULL (useful for ad-hoc sessions).
+    clear_lesson_number: bool = False
 
 
 class HomeworkCompletionResponse(BaseModel):
@@ -2567,6 +2570,15 @@ class SummerSessionStatusUpdate(BaseModel):
     session_status: Literal["Tentative", "Confirmed", "Cancelled", "Rescheduled - Pending Make-up"]
 
 
+class SummerSessionLessonNumberUpdate(BaseModel):
+    """Narrow PATCH payload for pre-publish SummerSession.lesson_number edits.
+    Used by ad-hoc Make-up Slot per-student badges. Clearing is explicit
+    via `clear_lesson_number` so None stays as "no change" (follows the
+    SummerLessonUpdate / SessionUpdate convention)."""
+    lesson_number: Optional[int] = Field(None, ge=1, le=20)
+    clear_lesson_number: bool = False
+
+
 class SummerSessionResponse(BaseModel):
     """Full per-student session response with joined data."""
     id: int
@@ -2604,6 +2616,9 @@ class SummerLessonUpdate(BaseModel):
     lesson_number: Optional[int] = Field(None, ge=1, le=20)
     lesson_status: Optional[Literal["Scheduled", "Cancelled"]] = None
     notes: Optional[str] = None
+    # Opt-in clear so None stays as "no change" (otherwise admins can't
+    # clear the slot-level default back to NULL on ad-hoc Make-up Slots).
+    clear_lesson_number: bool = False
 
 
 class SummerLessonCalendarEntry(BaseModel):

@@ -56,6 +56,7 @@ from schemas import (
     SummerMakeupSlotCreateResponse,
     SummerSessionCreate,
     SummerSessionStatusUpdate,
+    SummerSessionLessonNumberUpdate,
     SummerSessionResponse,
     SummerLessonResponse,
     SummerLessonUpdate,
@@ -2352,6 +2353,35 @@ def update_session_status(
     return _build_session_response(session)
 
 
+@router.patch(
+    "/summer/sessions/{session_id}/lesson-number",
+    response_model=SummerSessionResponse,
+)
+def update_session_lesson_number(
+    session_id: int,
+    data: SummerSessionLessonNumberUpdate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Edit the per-student lesson_number on a SummerSession (pre-publish)."""
+    session = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.application))
+        .filter(SummerSession.id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if data.clear_lesson_number:
+        session.lesson_number = None
+    elif data.lesson_number is not None:
+        session.lesson_number = data.lesson_number
+    db.commit()
+    db.refresh(session)
+    return _build_session_response(session)
+
+
 def _maybe_revert_app_status(db: Session, app: SummerApplication) -> None:
     """If application has no remaining active sessions, revert status to Under Review."""
     remaining = (
@@ -4223,7 +4253,9 @@ def update_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if data.lesson_number is not None:
+    if data.clear_lesson_number:
+        lesson.lesson_number = None
+    elif data.lesson_number is not None:
         lesson.lesson_number = data.lesson_number
     if data.lesson_status is not None:
         lesson.lesson_status = data.lesson_status

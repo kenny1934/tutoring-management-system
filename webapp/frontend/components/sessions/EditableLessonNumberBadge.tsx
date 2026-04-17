@@ -11,22 +11,33 @@ interface EditableLessonNumberBadgeProps {
   lessonNumber: number | null | undefined;
   size?: "xs" | "sm" | "md";
   className?: string;
-  onSave?: (value: number) => void | Promise<void>;
+  /** Called with the new value, or `null` when admin clears the input. */
+  onSave?: (value: number | null) => void | Promise<void>;
   disabled?: boolean;
+  /** Inclusive upper bound for the input. Defaults to 8 (summer's typical
+   * total_lessons); callers with a different ceiling can pass their own. */
+  maxLesson?: number;
 }
 
 const MIN_LESSON = 1;
-const MAX_LESSON = 20;
+const DEFAULT_MAX_LESSON = 8;
 
 export function useSaveLessonNumber(sessionId: number | null | undefined) {
   const { showToast } = useToast();
   return useCallback(
-    async (value: number) => {
+    async (value: number | null) => {
       if (!sessionId) return;
       try {
-        const updated = await sessionsAPI.updateSession(sessionId, { lesson_number: value });
+        const updated = await sessionsAPI.updateSession(sessionId, {
+          ...(value === null
+            ? { clear_lesson_number: true }
+            : { lesson_number: value }),
+        });
         updateSessionInCache(updated);
-        showToast(`Lesson number set to L${value}`, "success");
+        showToast(
+          value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
+          "success",
+        );
       } catch (err) {
         showToast(
           err instanceof Error ? err.message : "Failed to update lesson number",
@@ -44,6 +55,7 @@ export function EditableLessonNumberBadge({
   className,
   onSave,
   disabled,
+  maxLesson = DEFAULT_MAX_LESSON,
 }: EditableLessonNumberBadgeProps) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,11 +69,21 @@ export function EditableLessonNumberBadge({
   const commit = () => {
     if (skipCommitRef.current) return;
     skipCommitRef.current = true;
-    const parsed = parseInt(inputRef.current?.value ?? "", 10);
+    const raw = (inputRef.current?.value ?? "").trim();
+    if (raw === "") {
+      // Empty input on a populated badge → clear the lesson_number
+      // explicitly. No-op if it was already null.
+      if (lessonNumber != null && onSave) {
+        void onSave(null);
+      }
+      setEditing(false);
+      return;
+    }
+    const parsed = parseInt(raw, 10);
     const valid =
       !isNaN(parsed) &&
       parsed >= MIN_LESSON &&
-      parsed <= MAX_LESSON &&
+      parsed <= maxLesson &&
       parsed !== lessonNumber;
     if (valid && onSave) {
       void onSave(parsed);
@@ -87,7 +109,7 @@ export function EditableLessonNumberBadge({
         type="number"
         defaultValue={lessonNumber}
         min={MIN_LESSON}
-        max={MAX_LESSON}
+        max={maxLesson}
         autoFocus
         onFocus={(e) => e.target.select()}
         onBlur={commit}
