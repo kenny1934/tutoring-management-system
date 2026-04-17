@@ -230,21 +230,21 @@ const SAMPLE_WORKSHEETS = [
     src: "/summer/samples/sample-f1-rationals.jpg",
     grade: "F1",
     topic: "有理數",
-    caption: "從負數直覺起步，再建立運算規則",
+    caption: "從生活直覺切入數學理論",
     badge: "圖像化概念",
   },
   {
     src: "/summer/samples/sample-f2-pythagoras.jpg",
     grade: "F2",
     topic: "勾股定理",
-    caption: "多種方法推演，再歸納為定理",
-    badge: "多路徑推演",
+    caption: "親歷定理推導，深化概念",
+    badge: "動手證明",
   },
   {
     src: "/summer/samples/sample-f3-quadratics.jpg",
     grade: "F3",
     topic: "二次函數",
-    caption: "亦設英文版教材，適合英文部學生",
+    caption: "適合英文部及國際學校學生",
     badge: "英文版教材",
   },
 ] as const;
@@ -670,13 +670,13 @@ export default function SummerLandingPage() {
                       <CornerOrnament pos="bl" />
                       <CornerOrnament pos="br" />
                     </div>
-                    {/* "重點" bookmark that slides in on hover/focus. Readable
+                    {/* Badge bookmark that slides in on hover/focus. Readable
                         to screen readers always (info isn't purely decorative). */}
                     <div
                       className="absolute -top-3 right-6 z-10 px-3 py-1.5 bg-[#F5C518] text-[#8a0a18] text-[11px] tracking-[0.2em] shadow-md opacity-0 translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 group-focus:opacity-100 group-focus:translate-y-0"
                       style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
                     >
-                      重點 · {badge}
+                      {badge}
                     </div>
                   </button>
 
