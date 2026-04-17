@@ -144,8 +144,15 @@ class SummerPlacementStatus(str, Enum):
     CANCELLED = 'Cancelled'
     RESCHEDULED = 'Rescheduled - Pending Make-up'
 
-# Statuses where the student will not attend the lesson (excluded from capacity)
-SUMMER_NON_ATTENDING_STATUSES = ('Cancelled', 'Rescheduled - Pending Make-up')
+# Statuses where the student will not attend the lesson (excluded from capacity).
+# Includes every Pending Make-up variant (rescheduled / sick leave / weather
+# cancelled). Make-up Booked variants aren't listed here because under the
+# Follow-up 3 invariant they only exist on origin rows whose summer_session_id
+# has migrated away; the arrangement renders them via chain traversal.
+SUMMER_NON_ATTENDING_STATUSES = (
+    SessionStatus.CANCELLED.value,
+    *PENDING_MAKEUP_STATUSES,
+)
 
 
 class SummerSiblingVerificationStatus(str, Enum):

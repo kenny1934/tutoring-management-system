@@ -959,7 +959,7 @@ class TestArrangementReadsSessionLog:
             other_tutor, slot_b.time_slot, slot_b.location,
         )
 
-        # Destination: week containing slot B's target lesson.
+        # Destination: week containing slot B's target lesson — active card lives here.
         dest_week_start = target.lesson_date - timedelta(days=target.lesson_date.weekday())
         dest_resp = get_lesson_calendar(
             config_id=slot.config_id, location=slot.location,
@@ -968,22 +968,27 @@ class TestArrangementReadsSessionLog:
         dest_entry = next(l for l in dest_resp.lessons if l.lesson_id == target.id)
         assert len(dest_entry.sessions) == 1
         assert dest_entry.sessions[0].application_id == app_full.id
+        assert dest_entry.sessions[0].session_status == "Make-up Class"
 
-        # Origin: week containing slot A's lesson 1 — should now be empty.
+        # Origin: ghost card (Rescheduled - Make-up Booked) still renders on the
+        # seat the student was moved away from, so admins see the history without
+        # it counting toward capacity.
         origin_week_start = lessons_a[0].lesson_date - timedelta(days=lessons_a[0].lesson_date.weekday())
         origin_resp = get_lesson_calendar(
             config_id=slot.config_id, location=slot.location,
             week_start=origin_week_start, _admin=None, db=db_session,
         )
         origin_entry = next(l for l in origin_resp.lessons if l.lesson_id == lessons_a[0].id)
-        assert origin_entry.sessions == []
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].application_id == app_full.id
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
 
     def test_calendar_drops_off_grid_reschedule(
         self, db_session, admin, app_full, slot, slot_tutor
     ):
-        """Makeup on an ad-hoc date (no matching SummerLesson cell) should
-        disappear from the calendar entirely — capacity freed at origin,
-        nothing rendered at the off-grid destination."""
+        """Makeup on an ad-hoc date (no matching SummerLesson cell) has its
+        active card off-grid, but the origin ghost still renders on the seat
+        the student was moved away from."""
         from routers.summer_course import get_lesson_calendar
 
         lessons = self._publish(db_session, admin, app_full, slot)
@@ -1007,9 +1012,10 @@ class TestArrangementReadsSessionLog:
             week_start=week_start, _admin=None, db=db_session,
         )
 
-        # Lesson 4's card is empty — the session is off-grid.
+        # Lesson 4's card still holds the ghost of the moved-away student.
         origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[3].id)
-        assert origin_entry.sessions == []
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
 
     def test_calendar_unchanged_without_reschedule(
         self, db_session, admin, app_full, slot
@@ -1029,6 +1035,73 @@ class TestArrangementReadsSessionLog:
         lesson1_entry = next(l for l in resp.lessons if l.lesson_id == lessons[0].id)
         assert len(lesson1_entry.sessions) == 1
         assert lesson1_entry.sessions[0].application_id == app_full.id
+
+    def test_sick_leave_pending_counts_as_non_attending(
+        self, db_session, admin, app_full, slot
+    ):
+        """Sick Leave - Pending Make-up should free capacity on the students
+        endpoint the same way Rescheduled - Pending Make-up does."""
+        from routers.sessions import mark_session_sick_leave
+        from routers.summer_course import get_student_lessons
+        import asyncio
+
+        self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 2,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+
+        asyncio.get_event_loop().run_until_complete(
+            mark_session_sick_leave(session_id=session.id, current_user=admin, db=db_session)
+        )
+
+        resp = get_student_lessons(
+            config_id=slot.config_id, location=None,
+            _admin=None, db=db_session,
+        )
+        row = next(r for r in resp.students if r.application_id == app_full.id)
+        # Sick leave is non-attending → counted in rescheduled_count.
+        assert row.rescheduled_count >= 1
+        entry2 = next(e for e in row.lessons if e.lesson_number == 2)
+        assert entry2.session_status == "Sick Leave - Pending Make-up"
+
+    def test_calendar_ghost_for_chained_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Chained make-ups render a ghost on each ancestor cell, so the seat
+        the student was moved through shows as resolved, not occupied."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 5,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # First reschedule: origin → makeup1 (ad-hoc Wed, off-grid).
+        ad_hoc_1 = origin_date + timedelta(days=1)
+        makeup1 = self._reschedule_active(
+            db_session, admin, session, ad_hoc_1,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+        # Second reschedule: makeup1 → makeup2 (another ad-hoc Thu, off-grid too).
+        ad_hoc_2 = origin_date + timedelta(days=2)
+        self._reschedule_active(
+            db_session, admin, makeup1, ad_hoc_2,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[4].id)
+        # The root origin is on-grid and renders as a ghost. makeup1 is off-grid
+        # (ad-hoc Wednesday) so its ghost wouldn't appear anywhere on this week.
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
 
     def test_calendar_normalizes_chinese_location_in_matching(
         self, db_session, admin, app_full, slot, config

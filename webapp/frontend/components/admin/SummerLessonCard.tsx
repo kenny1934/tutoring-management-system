@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ChevronDown, ChevronUp, X, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, RESCHEDULED_STATUS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -175,28 +175,37 @@ export function SummerLessonCard({
             </div>
           )}
           {activeSessions.map((s) => {
-            const isRescheduled = s.session_status === RESCHEDULED_STATUS;
+            const isPending = s.session_status.endsWith("- Pending Make-up");
+            const isBooked = s.session_status.endsWith("- Make-up Booked");
+            const isResolved = isPending || isBooked;
             return (
             <div
               key={s.id}
               className={cn(
                 "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
                 sessionStatusBg(s.session_status),
-                isRescheduled && "opacity-80",
+                isPending && "opacity-80",
+                isBooked && "opacity-60",
               )}
             >
-              {isRescheduled && (
-                <span title={RESCHEDULED_STATUS}>
+              {isPending && (
+                <span title={s.session_status}>
                   <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" />
+                </span>
+              )}
+              {isBooked && (
+                <span title={s.session_status}>
+                  <Loader2 className="h-3 w-3 text-gray-400 shrink-0" />
                 </span>
               )}
               <button
                 onClick={() => onClickStudent?.(s.application_id)}
                 className={cn(
                   "truncate flex-1 text-left hover:text-primary hover:underline",
-                  isRescheduled && "line-through text-orange-600 dark:text-orange-400"
+                  isPending && "line-through text-orange-600 dark:text-orange-400",
+                  isBooked && "line-through text-gray-500 dark:text-gray-400",
                 )}
-                title={isRescheduled ? RESCHEDULED_STATUS : "View details"}
+                title={isResolved ? s.session_status : "View details"}
               >
                 {s.student_name}
               </button>

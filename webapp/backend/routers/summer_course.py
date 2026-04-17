@@ -135,6 +135,61 @@ def _live_sessions_by_summer_id(
     return result
 
 
+def _attach_ghost_rows(
+    db: Session,
+    live_by_ss_id: dict[int, "SessionLog"],
+    summer_by_id: dict[int, "SummerSession"],
+    week_lesson_by_key: dict[tuple, "SummerLesson"],
+    sessions_by_lesson_id: dict[int, list["SummerSlotSessionInfo"]],
+) -> None:
+    """Render Make-up Booked ancestor rows as ghost cards on their origin cells.
+
+    Follow-up 3 migrates summer_session_id onto the successor makeup, so the
+    origin row (status ends with "- Make-up Booked") is otherwise invisible to
+    the arrangement. We trace it via make_up_for_id from the active row and
+    emit a strikethrough card at its own (date, time_slot, location, tutor_id)
+    — matching the session-page convention for resolved reschedules.
+    """
+    # Seed: {parent_id → summer_session_id} for every active row that's a makeup.
+    frontier: dict[int, int] = {}
+    for ss_id, live in live_by_ss_id.items():
+        if live.make_up_for_id and ss_id in summer_by_id:
+            frontier[live.make_up_for_id] = ss_id
+    if not frontier:
+        return
+
+    visited: set[int] = {live.id for live in live_by_ss_id.values() if live.id}
+    while frontier:
+        ids = [pid for pid in frontier if pid not in visited]
+        if not ids:
+            break
+        rows = db.query(SessionLog).filter(SessionLog.id.in_(ids)).all()
+        next_frontier: dict[int, int] = {}
+        for row in rows:
+            visited.add(row.id)
+            ss_id = frontier.get(row.id)
+            if ss_id is None:
+                continue
+            if row.session_status in MAKEUP_BOOKED_STATUSES:
+                key = (row.session_date, row.time_slot, row.location, row.tutor_id)
+                target = week_lesson_by_key.get(key)
+                if target is not None:
+                    ss = summer_by_id[ss_id]
+                    sessions_by_lesson_id.setdefault(target.id, []).append(
+                        SummerSlotSessionInfo(
+                            id=ss.id,
+                            application_id=ss.application_id,
+                            student_name=ss.application.student_name if ss.application else "",
+                            grade=ss.application.grade if ss.application else "",
+                            session_status=row.session_status,
+                            buddy_group_id=ss.application.buddy_group_id if ss.application else None,
+                        )
+                    )
+            if row.make_up_for_id:
+                next_frontier[row.make_up_for_id] = ss_id
+        frontier = next_frontier
+
+
 def _build_status_response(
     db: Session,
     app: SummerApplication,
@@ -4082,7 +4137,7 @@ def get_lesson_calendar(
 
     live_by_ss_id = _live_sessions_by_summer_id(db, [s.id for s in all_sessions])
 
-    sessions_by_lesson_id: dict[int, list[tuple]] = {}
+    sessions_by_lesson_id: dict[int, list[SummerSlotSessionInfo]] = {}
     for s in all_sessions:
         if s.session_status == "Cancelled":
             continue
@@ -4102,15 +4157,9 @@ def get_lesson_calendar(
             continue
 
         target = week_lesson_by_key.get(effective_key)
-        if target is None:
+        if target is None or effective_status == "Cancelled":
             continue
-        sessions_by_lesson_id.setdefault(target.id, []).append((s, effective_status))
-
-    entries = []
-    for lesson in lessons:
-        slot = lesson.slot
-        assigned = sessions_by_lesson_id.get(lesson.id, [])
-        active_sessions = [
+        sessions_by_lesson_id.setdefault(target.id, []).append(
             SummerSlotSessionInfo(
                 id=s.id,
                 application_id=s.application_id,
@@ -4119,9 +4168,18 @@ def get_lesson_calendar(
                 session_status=effective_status,
                 buddy_group_id=s.application.buddy_group_id if s.application else None,
             )
-            for (s, effective_status) in assigned
-            if effective_status != "Cancelled"
-        ]
+        )
+
+    # Ghost cards: for each active make-up, walk make_up_for_id back and render
+    # every Make-up Booked ancestor at its own origin cell. This preserves the
+    # session-page convention (strikethrough ghost on the seat the student was
+    # moved away from) even though Follow-up 3 migrated summer_session_id away.
+    summer_by_id = {s.id: s for s in all_sessions}
+    _attach_ghost_rows(db, live_by_ss_id, summer_by_id, week_lesson_by_key, sessions_by_lesson_id)
+
+    entries = []
+    for lesson in lessons:
+        slot = lesson.slot
         entries.append(SummerLessonCalendarEntry(
             lesson_id=lesson.id,
             slot_id=slot.id,
@@ -4136,7 +4194,7 @@ def get_lesson_calendar(
             max_students=slot.max_students,
             date=lesson.lesson_date,
             notes=lesson.notes,
-            sessions=active_sessions,
+            sessions=sessions_by_lesson_id.get(lesson.id, []),
         ))
 
     return SummerLessonCalendarResponse(
