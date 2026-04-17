@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Plus, Minus, Phone, Copy, Check } from "lucide-react";
+import { ArrowRight, Plus, Minus, Phone, Copy, Check, X } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseFormConfig, SummerLocation } from "@/types";
@@ -311,6 +311,22 @@ export default function SummerLandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  // ESC to close lightbox + lock body scroll while open.
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [lightbox]);
 
   const copyWechat = (id: string) => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
@@ -590,22 +606,34 @@ export default function SummerLandingPage() {
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
             {SAMPLE_WORKSHEETS.map((src, i) => (
               <Reveal key={src} delay={150 + i * 120}>
-                <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm">
-                  <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
-                    <Image
-                      src={src}
-                      alt="課堂教材樣本"
-                      fill
-                      sizes="(min-width: 640px) 33vw, 100vw"
-                      className="object-cover select-none pointer-events-none"
-                      draggable={false}
-                    />
+                <button
+                  type="button"
+                  onClick={() => setLightbox(src)}
+                  className="group relative block w-full text-left cursor-zoom-in"
+                  aria-label="放大檢視課堂教材樣本"
+                >
+                  {/* Page peek — suggests this is page 1 of a larger packet. */}
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 translate-x-2 translate-y-2 bg-white border border-[#F5C518]/25 shadow-sm"
+                  />
+                  <div className="relative bg-white border border-[#F5C518]/40 p-2 shadow-sm transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-lg">
+                    <div className="relative aspect-[1191/1684] overflow-hidden bg-[#FBF7F0]">
+                      <Image
+                        src={src}
+                        alt="課堂教材樣本"
+                        fill
+                        sizes="(min-width: 640px) 33vw, 100vw"
+                        className="object-cover select-none pointer-events-none"
+                        draggable={false}
+                      />
+                    </div>
+                    <CornerOrnament pos="tl" />
+                    <CornerOrnament pos="tr" />
+                    <CornerOrnament pos="bl" />
+                    <CornerOrnament pos="br" />
                   </div>
-                  <CornerOrnament pos="tl" />
-                  <CornerOrnament pos="tr" />
-                  <CornerOrnament pos="bl" />
-                  <CornerOrnament pos="br" />
-                </div>
+                </button>
               </Reveal>
             ))}
           </div>
@@ -1039,6 +1067,50 @@ export default function SummerLandingPage() {
           </Reveal>
         </div>
       </section>
+
+      {/* ===================================================================
+          LIGHTBOX — click any worksheet sample to open at readable size.
+          Watermark is baked into the source JPGs, so no overlay needed.
+          =================================================================== */}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="課堂教材樣本"
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative cursor-default"
+            style={{
+              height: "min(90vh, calc(90vw * 1684 / 1191))",
+              aspectRatio: "1191 / 1684",
+            }}
+          >
+            <Image
+              src={lightbox}
+              alt="課堂教材樣本"
+              fill
+              sizes="(min-width: 768px) 60vw, 90vw"
+              quality={95}
+              className="object-contain select-none"
+              draggable={false}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightbox(null);
+            }}
+            aria-label="關閉"
+            className="absolute top-5 right-5 sm:top-7 sm:right-7 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white backdrop-blur-sm transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
