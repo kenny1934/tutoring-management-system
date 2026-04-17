@@ -1343,6 +1343,8 @@ class SummerCourseSlot(Base):
     course_type = Column(String(10))
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     max_students = Column(Integer, nullable=False, default=8)
+    is_adhoc = Column(Boolean, nullable=False, default=False)
+    adhoc_date = Column(Date, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     config = relationship("SummerCourseConfig", back_populates="slots")
@@ -1365,7 +1367,7 @@ class SummerLesson(Base):
     id = Column(Integer, primary_key=True, index=True)
     slot_id = Column(Integer, ForeignKey("summer_course_slots.id", ondelete="CASCADE"), nullable=False)
     lesson_date = Column(Date, nullable=False)
-    lesson_number = Column(Integer, nullable=False)
+    lesson_number = Column(Integer, nullable=True)
     lesson_status = Column(String(20), nullable=False, default="Scheduled")
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
