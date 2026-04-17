@@ -22,23 +22,54 @@ interface EditableLessonNumberBadgeProps {
 const MIN_LESSON = 1;
 const DEFAULT_MAX_LESSON = 8;
 
+function extractDuplicatePrompt(err: unknown): string | null {
+  // Backend guard surfaces 409 with {error: "DUPLICATE_LESSON_NUMBER", message}
+  // so the admin can confirm the double-up is intentional before saving.
+  if (!(err instanceof Error)) return null;
+  const msg = err.message;
+  if (!msg.includes("DUPLICATE_LESSON_NUMBER")) return null;
+  const match = msg.match(/Student already has another[^"]*/);
+  return match ? match[0].replace(/\\?"/g, "").replace(/}$/, "").trim() : msg;
+}
+
 export function useSaveLessonNumber(sessionId: number | null | undefined) {
   const { showToast } = useToast();
   return useCallback(
     async (value: number | null) => {
       if (!sessionId) return;
-      try {
-        const updated = await sessionsAPI.updateSession(sessionId, {
+      const trySave = async (force: boolean) =>
+        sessionsAPI.updateSession(sessionId, {
           ...(value === null
             ? { clear_lesson_number: true }
             : { lesson_number: value }),
+          ...(force ? { force_lesson_duplicate: true } : {}),
         });
+      try {
+        const updated = await trySave(false);
         updateSessionInCache(updated);
         showToast(
           value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
           "success",
         );
       } catch (err) {
+        const dupPrompt = extractDuplicatePrompt(err);
+        if (dupPrompt && typeof window !== "undefined" && window.confirm(dupPrompt)) {
+          try {
+            const updated = await trySave(true);
+            updateSessionInCache(updated);
+            showToast(
+              value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
+              "success",
+            );
+            return;
+          } catch (retryErr) {
+            showToast(
+              retryErr instanceof Error ? retryErr.message : "Failed to update lesson number",
+              "error",
+            );
+            return;
+          }
+        }
         showToast(
           err instanceof Error ? err.message : "Failed to update lesson number",
           "error",

@@ -778,6 +778,7 @@ export const sessionsAPI = {
       performance_rating?: string;
       notes?: string;
       lesson_number?: number;
+      force_lesson_duplicate?: boolean;
     }
   ) => {
     return fetchAPI<Session>(`/sessions/${sessionId}`, {

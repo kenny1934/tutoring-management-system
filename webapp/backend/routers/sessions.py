@@ -1874,6 +1874,42 @@ async def update_session(
     if request.clear_lesson_number:
         session.lesson_number = None
     elif request.lesson_number is not None:
+        # Guard: warn when the student already has another active summer
+        # session at this lesson_number. The students table currently
+        # deduplicates by lesson_number and silently drops extras (see
+        # get_student_lessons), so admins should confirm the double-up is
+        # intentional before committing.
+        if (
+            request.lesson_number != session.lesson_number
+            and session.student_id is not None
+            and session.summer_session_id is not None
+            and not request.force_lesson_duplicate
+        ):
+            duplicate = (
+                db.query(SessionLog)
+                .filter(
+                    SessionLog.student_id == session.student_id,
+                    SessionLog.summer_session_id.isnot(None),
+                    SessionLog.lesson_number == request.lesson_number,
+                    SessionLog.id != session.id,
+                    SessionLog.session_status != "Cancelled",
+                )
+                .first()
+            )
+            if duplicate is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "DUPLICATE_LESSON_NUMBER",
+                        "message": (
+                            f"Student already has another active session at "
+                            f"Lesson {request.lesson_number} "
+                            f"({duplicate.session_date}). Save anyway?"
+                        ),
+                        "other_session_id": duplicate.id,
+                        "other_session_date": str(duplicate.session_date) if duplicate.session_date else None,
+                    },
+                )
         session.lesson_number = request.lesson_number
 
     # Set audit columns

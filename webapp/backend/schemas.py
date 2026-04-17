@@ -652,6 +652,10 @@ class SessionUpdate(BaseModel):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     lesson_number: Optional[int] = Field(None, ge=1)
+    # Opt-in override when the caller has acknowledged a duplicate-lesson_number
+    # warning. Without it, the endpoint rejects with 409 to prevent the
+    # student from silently accumulating two sessions at the same lesson.
+    force_lesson_duplicate: bool = False
     # Opt-in clear so None stays as "no change". Set this to null the
     # per-session lesson_number back to NULL (useful for ad-hoc sessions).
     clear_lesson_number: bool = False
