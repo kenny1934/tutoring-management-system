@@ -1409,10 +1409,19 @@ async def schedule_makeup(
         session_status="Make-up Class",
         financial_status=original_session.financial_status,  # Inherit from original session
         make_up_for_id=original_session.id,
+        # Summer linkage follows the active session. Preserves the invariant
+        # that at most one session_log row points to a given SummerSession,
+        # so arrangement views can render the live date/lesson without
+        # joining through the stale original.
+        summer_session_id=original_session.summer_session_id,
+        lesson_number=original_session.lesson_number,
         notes=request.notes,  # Optional reason for scheduling
         last_modified_by=current_user.user_email,
         last_modified_time=hk_now()
     )
+    if original_session.summer_session_id is not None:
+        original_session.summer_session_id = None
+        original_session.lesson_number = None
 
     # Auto-link to matching exam revision slot if student matches criteria
     student = db.query(Student).filter(Student.id == original_session.student_id).first()
@@ -1536,6 +1545,14 @@ async def cancel_makeup(
     original_session.rescheduled_to_id = None
     original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = hk_now()
+
+    # Summer linkage follows the active session back to the original when
+    # the makeup is cancelled. Without this, ON DELETE SET NULL would
+    # silently drop the SummerSession pointer and arrangement views would
+    # render a stale or missing card.
+    if makeup_session.summer_session_id is not None:
+        original_session.summer_session_id = makeup_session.summer_session_id
+        original_session.lesson_number = makeup_session.lesson_number
 
     # Delete the makeup session
     db.delete(makeup_session)

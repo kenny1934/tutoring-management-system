@@ -8,7 +8,7 @@ special-casing (effective_end_date, renewal exclusion, overdue inclusion,
 schedule-change block, cancel block, fee-message block).
 """
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 
 from models import (
@@ -708,3 +708,140 @@ class TestDownstreamSummerHandling:
             )
         )
         assert all(r.id != enrollment.id for r in result)
+
+
+# ---------------------------------------------------------------------------
+# Summer linkage migration through reschedule → schedule-makeup → cancel-makeup
+# ---------------------------------------------------------------------------
+
+class TestSummerRescheduleLinkage:
+    """
+    When a published summer session is rescheduled and a make-up scheduled,
+    the SummerSession pointer (summer_session_id) and lesson_number must
+    follow the active session — otherwise arrangement views render from the
+    stale original instead of the live make-up date.
+    """
+
+    def _publish(self, db_session, admin, app_full, slot):
+        from routers.summer_course import publish_application
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+        return lessons
+
+    def _active_summer_session(self, db_session, lesson_number):
+        return db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == lesson_number,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+
+    def _reschedule_and_makeup(self, db_session, admin, session, makeup_date, slot_tutor):
+        """Drive the full reschedule → schedule-makeup flow and return the makeup row."""
+        from routers.sessions import mark_session_rescheduled, schedule_makeup
+        from schemas import ScheduleMakeupRequest
+        import asyncio
+
+        # Super Admin bypasses the 60-day rule, keeping the test free of that concern.
+        admin.role = "Super Admin"
+        slot_tutor.default_location = "MSA"
+        db_session.commit()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            mark_session_rescheduled(session_id=session.id, current_user=admin, db=db_session)
+        )
+
+        req = ScheduleMakeupRequest(
+            session_date=makeup_date,
+            time_slot="10:00 - 11:30",
+            location="MSA",
+            tutor_id=slot_tutor.id,
+        )
+        loop.run_until_complete(
+            schedule_makeup(
+                session_id=session.id, request=req,
+                current_user=admin, db=db_session,
+            )
+        )
+
+        db_session.refresh(session)
+        return db_session.query(SessionLog).filter(
+            SessionLog.make_up_for_id == session.id
+        ).first()
+
+    def test_linkage_migrates_to_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=3)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+        assert original_summer_id is not None
+        assert original_lesson_number == 3
+
+        # Pick a Wednesday (summer lessons are Tuesdays) so there's no slot conflict.
+        makeup_date = session.session_date + timedelta(days=1)
+        makeup = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date, slot_tutor,
+        )
+
+        assert makeup is not None
+        assert makeup.summer_session_id == original_summer_id
+        assert makeup.lesson_number == original_lesson_number
+        assert session.summer_session_id is None
+        assert session.lesson_number is None
+
+    def test_linkage_restores_on_cancel_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        from routers.sessions import cancel_makeup
+        import asyncio
+
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=5)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+
+        makeup_date = session.session_date + timedelta(days=1)
+        makeup = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date, slot_tutor,
+        )
+
+        asyncio.get_event_loop().run_until_complete(
+            cancel_makeup(
+                makeup_session_id=makeup.id,
+                current_user=admin, db=db_session,
+            )
+        )
+
+        db_session.refresh(session)
+        assert session.summer_session_id == original_summer_id
+        assert session.lesson_number == original_lesson_number
+        assert db_session.query(SessionLog).filter(SessionLog.id == makeup.id).first() is None
+
+    def test_linkage_follows_chained_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Makeup of a makeup: linkage should hop to the second makeup."""
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=1)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+
+        makeup_date_1 = session.session_date + timedelta(days=1)
+        makeup1 = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date_1, slot_tutor,
+        )
+        assert makeup1.summer_session_id == original_summer_id
+
+        makeup_date_2 = session.session_date + timedelta(days=2)
+        makeup2 = self._reschedule_and_makeup(
+            db_session, admin, makeup1, makeup_date_2, slot_tutor,
+        )
+
+        db_session.refresh(makeup1)
+        assert makeup2 is not None
+        assert makeup2.summer_session_id == original_summer_id
+        assert makeup2.lesson_number == original_lesson_number
+        assert makeup1.summer_session_id is None
+        assert makeup1.lesson_number is None
