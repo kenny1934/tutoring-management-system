@@ -671,10 +671,10 @@ export default function SummerLandingPage() {
                       <CornerOrnament pos="bl" />
                       <CornerOrnament pos="br" />
                     </div>
-                    {/* Badge bookmark that slides in on hover/focus. Readable
-                        to screen readers always (info isn't purely decorative). */}
+                    {/* Badge bookmark. Always visible on mobile (no hover
+                        affordance); slides in on hover/focus from sm: upward. */}
                     <div
-                      className="absolute -top-3 right-6 z-10 px-3 py-1.5 bg-[#F5C518] text-[#8a0a18] text-[11px] tracking-[0.2em] shadow-md opacity-0 translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 group-focus:opacity-100 group-focus:translate-y-0"
+                      className="absolute -top-3 right-6 z-10 px-3 py-1.5 bg-[#F5C518] text-[#8a0a18] text-[11px] tracking-[0.2em] shadow-md opacity-100 translate-y-0 transition-all duration-300 sm:opacity-0 sm:translate-y-1 sm:group-hover:opacity-100 sm:group-hover:translate-y-0 sm:group-focus:opacity-100 sm:group-focus:translate-y-0"
                       style={{ fontFamily: "var(--font-serif-tc)", fontWeight: 700 }}
                     >
                       {badge}
