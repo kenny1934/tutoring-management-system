@@ -54,7 +54,8 @@ function Reveal({
   return (
     <div
       ref={ref}
-      className={`transition-all duration-[1100ms] ease-out ${
+      // summer-reveal class lets globals.css force-show on print.
+      className={`summer-reveal transition-all duration-[600ms] ease-out ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
       } ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
@@ -132,7 +133,7 @@ function PrimaryCTA({ size = "md" }: { size?: "md" | "lg" }) {
       : "px-10 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl";
   return (
     <Link
-      href="/apply"
+      href="/summer/apply"
       className={`group relative inline-flex items-center gap-3 ${padding} bg-[#F5C518] text-[#8a0a18] font-bold tracking-wider hover:bg-[#FFD23F] transition-all duration-300 shadow-[0_8px_30px_rgba(245,197,24,0.35)] hover:shadow-[0_12px_40px_rgba(245,197,24,0.55)] hover:-translate-y-0.5`}
       style={{ fontFamily: "var(--font-serif-tc)" }}
     >
@@ -431,7 +432,7 @@ export default function SummerLandingPage() {
 
           <Reveal delay={550}>
             <div className="mt-12 sm:mt-14 flex flex-col items-center gap-4">
-              <PrimaryCTA size="md" />
+              <PrimaryCTA size="lg" />
               {promo.ebActive && promo.ebDateFormatted && (
                 <p className="text-xs text-white/70 tracking-widest">
                   早鳥優惠｜{promo.ebDateFormatted}前報名 · 三人同行優惠高達 $4,200
@@ -484,7 +485,11 @@ export default function SummerLandingPage() {
           </Reveal>
 
           {pillars.length > 0 && (
-            <div className="mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
+            <div
+              className={`mt-16 sm:mt-20 grid grid-cols-1 gap-6 sm:gap-8 ${
+                pillars.length > 1 ? "sm:grid-cols-2" : "max-w-xl mx-auto"
+              }`}
+            >
               {pillars.map((p, i) => (
                 <Reveal key={i} delay={200 + i * 120}>
                   <div className="relative bg-white border border-[#1A1614]/8 p-7 sm:p-8">
@@ -643,7 +648,7 @@ export default function SummerLandingPage() {
                     {f.zh}
                   </div>
                   <div
-                    className="text-xl sm:text-2xl text-white"
+                    className="text-xl sm:text-2xl text-white whitespace-nowrap"
                     style={{
                       fontFamily: "var(--font-serif-tc)",
                       fontWeight: 600,
