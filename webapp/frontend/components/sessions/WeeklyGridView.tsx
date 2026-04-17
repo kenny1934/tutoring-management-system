@@ -27,6 +27,7 @@ import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountab
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
 
@@ -638,6 +639,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                       <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
                                         <span className="flex items-center gap-0.5">
                                           {session.school_student_id || "N/A"}
+                                          <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                                           {isCancelledEnrollment ? (
                                             <span className="text-[7px] px-1 py-px rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
                                               Cancelled

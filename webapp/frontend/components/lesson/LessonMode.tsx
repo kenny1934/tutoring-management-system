@@ -20,6 +20,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
@@ -874,6 +875,7 @@ export function LessonMode({
           <span className="text-sm font-bold text-white/90 truncate">
             {session.student_name}
           </span>
+          <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
           {session.grade && (
             <span
               className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"

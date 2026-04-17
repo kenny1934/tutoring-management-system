@@ -23,6 +23,7 @@ import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
@@ -653,6 +654,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
             )}
             {session.student_name}
           </span>
+          <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
           {!isCancelledEnrollment && isUnpaid && (
             <HandCoins className="h-3 w-3 text-red-500 flex-shrink-0" />
           )}

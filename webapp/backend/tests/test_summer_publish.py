@@ -254,6 +254,13 @@ class TestPublishHappyPath:
             assert s.tutor_id == slot.tutor_id
             assert s.summer_session_id is not None
 
+        # lesson_number is denormalized from SummerSession onto session_log so
+        # session UIs can show an "L3" badge without joining back to summer.
+        sessions_by_date = {s.session_date: s for s in sessions}
+        for lesson in lessons:
+            sess = sessions_by_date[lesson.lesson_date]
+            assert sess.lesson_number == lesson.lesson_number
+
         # App status moved to Enrolled.
         db_session.refresh(app_full)
         assert app_full.application_status == "Enrolled"

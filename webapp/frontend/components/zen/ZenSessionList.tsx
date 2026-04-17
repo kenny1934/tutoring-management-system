@@ -19,6 +19,7 @@ import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { isCountableSession } from "@/lib/session-status";
 import { setZenStatus } from "./ZenStatusBar";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 
 interface ZenSessionListProps {
   sessions: Session[];
@@ -451,6 +452,9 @@ export function ZenSessionList({
                   }}
                 >
                   {session.student_name || "Unknown"}
+                  {session.lesson_number != null && (
+                    <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1" />
+                  )}
                   {session.financial_status && session.financial_status !== "Paid" && (
                     <span
                       style={{

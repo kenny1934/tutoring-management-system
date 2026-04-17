@@ -228,9 +228,11 @@ async def get_unchecked_attendance(
             s2.lang_stream,
             uar.school,
             uar.days_overdue,
-            uar.urgency_level
+            uar.urgency_level,
+            sl.lesson_number
         FROM unchecked_attendance_reminders uar
         LEFT JOIN students s2 ON uar.student_id = s2.id
+        LEFT JOIN session_log sl ON sl.id = uar.session_id
         WHERE 1=1
     """
     params = {}
@@ -270,7 +272,8 @@ async def get_unchecked_attendance(
             lang_stream=row.lang_stream,
             school=row.school,
             days_overdue=row.days_overdue,
-            urgency_level=row.urgency_level
+            urgency_level=row.urgency_level,
+            lesson_number=row.lesson_number,
         )
         for row in rows
     ]

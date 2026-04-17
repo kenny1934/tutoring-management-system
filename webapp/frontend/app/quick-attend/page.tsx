@@ -12,6 +12,7 @@ import { PageTransition } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -117,6 +118,7 @@ interface SessionCardData {
   sessionStatus: string;
   sessionDate?: string;
   tutorName?: string;
+  lessonNumber?: number | null;
 }
 
 function sessionToCardData(s: Session): SessionCardData {
@@ -131,6 +133,7 @@ function sessionToCardData(s: Session): SessionCardData {
     location: s.location,
     sessionStatus: s.session_status,
     tutorName: s.tutor_name,
+    lessonNumber: s.lesson_number,
   };
 }
 
@@ -147,6 +150,7 @@ function overdueToCardData(s: UncheckedAttendanceReminder): SessionCardData {
     sessionStatus: s.session_status,
     sessionDate: s.session_date,
     tutorName: s.tutor_name,
+    lessonNumber: s.lesson_number,
   };
 }
 
@@ -744,7 +748,7 @@ const SessionCard = React.memo(function SessionCard({
 }: SessionCardProps) {
   const {
     sessionId, studentName, schoolStudentId, grade, langStream,
-    school, timeSlot, location, sessionStatus, sessionDate, tutorName,
+    school, timeSlot, location, sessionStatus, sessionDate, tutorName, lessonNumber,
   } = data;
   const state = cardStatus?.state || "pending";
   const [dismissed, setDismissed] = useState(false);
@@ -849,6 +853,7 @@ const SessionCard = React.memo(function SessionCard({
                 </span>
               )}
               <span className="font-semibold text-[#3d2b1f] dark:text-[#e8d4b8]">{studentName}</span>
+              <LessonNumberBadge lessonNumber={lessonNumber} size="xs" />
               {grade && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" style={{ backgroundColor: getGradeColor(grade, langStream) }}>
                   {grade}{langStream}

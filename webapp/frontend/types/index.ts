@@ -371,6 +371,7 @@ export interface Session {
   make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;
   enrollment_payment_status?: string;  // Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)
+  lesson_number?: number | null;  // Lesson material number (1-8 for summer). Null for non-summer sessions.
   student?: Student;
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];
@@ -694,6 +695,7 @@ export interface UncheckedAttendanceReminder {
   school?: string;
   days_overdue: number;
   urgency_level: 'Critical' | 'High' | 'Medium' | 'Low';
+  lesson_number?: number | null;  // Lesson material number (1-8 for summer). Null for non-summer.
 }
 
 export interface UncheckedAttendanceCount {
@@ -1400,6 +1402,7 @@ export interface PendingMakeupSession {
   tutor_name?: string;
   has_extension_request: boolean;
   extension_request_status?: string;
+  lesson_number?: number | null;
 }
 
 /** Detailed enrollment response */

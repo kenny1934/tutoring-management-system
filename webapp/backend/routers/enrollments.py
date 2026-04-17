@@ -1615,7 +1615,8 @@ async def get_enrollment_detail_for_modal(
             session_status=session.session_status,
             tutor_name=session.tutor.tutor_name if session.tutor else None,
             has_extension_request=session.id in extension_requests,
-            extension_request_status=extension_requests[session.id].request_status if session.id in extension_requests else None
+            extension_request_status=extension_requests[session.id].request_status if session.id in extension_requests else None,
+            lesson_number=session.lesson_number,
         )
         for session in pending_sessions
     ]

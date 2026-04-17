@@ -34,6 +34,7 @@ import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFro
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1929,6 +1930,7 @@ function SessionsTab({
         <div className="flex-1 p-3 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>

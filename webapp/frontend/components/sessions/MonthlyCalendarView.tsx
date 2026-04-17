@@ -9,6 +9,7 @@ import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import type { Session, Tutor } from "@/types";
 import {
   toDateString,
@@ -1229,6 +1230,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                         {/* Row 1: Student ID + unpaid icon */}
                         <div className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           <span className="truncate">{selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}</span>
+                          <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                           {isCancelledEnrollment ? (
                             <span className="text-[6px] px-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">
                               Cancelled
@@ -1347,6 +1349,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
           <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
             {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}
+            <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
             {isCancelledEnrollment ? (
               <span className="text-[8px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                 Cancelled

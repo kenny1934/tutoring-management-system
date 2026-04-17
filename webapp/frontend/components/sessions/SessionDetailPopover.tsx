@@ -42,6 +42,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
+import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
@@ -718,6 +719,7 @@ export function SessionDetailPopover({
               {session.school_student_id || "N/A"}
             </p>
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
             <Link
               href={`/sessions/${session.id}?lesson=true`}
               onClick={(e) => {

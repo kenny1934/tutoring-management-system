@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHaptic } from "@/lib/useHaptic";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment, Session } from "@/types";
 
@@ -441,6 +442,7 @@ export function EnrollmentDetailModal({
                       )}
                     >
                       <div className="flex items-center gap-2">
+                        <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {formatDate(session.session_date)}
                         </span>

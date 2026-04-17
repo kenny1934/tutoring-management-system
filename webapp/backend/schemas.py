@@ -260,6 +260,7 @@ class UncheckedAttendanceReminder(BaseModel):
     school: Optional[str] = Field(None, max_length=200)
     days_overdue: int = Field(..., ge=0)
     urgency_level: str = Field(..., description="Critical, High, Medium, or Low")
+    lesson_number: Optional[int] = Field(None, description="Lesson material number (1-8 for summer). NULL for non-summer sessions.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -428,6 +429,7 @@ class PendingMakeupSession(BaseModel):
     tutor_name: Optional[str] = None
     has_extension_request: bool = False
     extension_request_status: Optional[str] = None
+    lesson_number: Optional[int] = None
 
 
 class EnrollmentDetailResponse(BaseModel):
@@ -535,6 +537,7 @@ class SessionResponse(SessionBase):
     exercises: List["SessionExerciseResponse"] = []
     undone_from_status: Optional[str] = Field(None, max_length=100, description="Status before undo (for redo toast)")
     enrollment_payment_status: Optional[str] = Field(None, max_length=50, description="Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)")
+    lesson_number: Optional[int] = Field(None, description="Lesson material number (e.g., 1-8 for summer). NULL for non-summer sessions.")
 
     model_config = ConfigDict(from_attributes=True)
 

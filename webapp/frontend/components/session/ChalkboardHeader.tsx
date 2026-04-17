@@ -35,6 +35,7 @@ import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 
 // Muted dusty chalk palette (top-down view colors)
 const CHALK_PALETTE = {
@@ -677,6 +678,13 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                 >
                   {session.student_name || "Unknown Student"}
                 </Link>
+                {session.lesson_number != null && (
+                  <LessonNumberBadge
+                    lessonNumber={session.lesson_number}
+                    size="md"
+                    className="ml-2 align-middle bg-amber-200/95 text-amber-900 border-amber-300"
+                  />
+                )}
               </h1>
 
               {/* Info Button */}

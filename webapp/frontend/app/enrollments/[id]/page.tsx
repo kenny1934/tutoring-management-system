@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -1574,6 +1575,7 @@ export default function EnrollmentDetailPage() {
                       <div className="flex-1 p-3 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+                          <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>

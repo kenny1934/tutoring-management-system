@@ -17,6 +17,7 @@ import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selecto
 import { sessionsAPI } from "@/lib/api";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
@@ -595,7 +596,10 @@ export default function UncheckedAttendancePage() {
                                       {session.time_slot || '-'}
                                     </td>
                                     <td className="px-4 py-3 font-medium">
-                                      {session.student_name}
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{session.student_name}</span>
+                                        <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
+                                      </div>
                                       {session.school_student_id && (
                                         <div className="text-xs text-gray-500 font-mono">
                                           {session.school_student_id}
