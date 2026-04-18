@@ -2883,11 +2883,12 @@ export interface SummerMarketingSnapshotCell {
 
 export interface SummerMarketingSnapshotResponse {
   as_of_date: string;
-  config_id: number;
-  spreadsheet_id: string;
-  tab_name: string;
-  action: "appended" | "updated";
-  row_index: number;
+  config_id: number | null;
+  spreadsheet_id: string | null;
+  tab_name: string | null;
+  action: "appended" | "updated" | "skipped";
+  row_index: number | null;
+  reason: string | null;
   cells: Record<string, Record<string, SummerMarketingSnapshotCell>>;
 }
 
