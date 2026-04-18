@@ -2391,6 +2391,12 @@ export const summerAPI = {
       `/summer/admin/suggest-student-links?config_id=${configId}&dry_run=${options.dryRun ? "true" : "false"}`,
     ),
 
+  pushMarketingSnapshot: () =>
+    fetchAPI<import("@/types").SummerMarketingSnapshotResponse>(
+      "/summer/marketing/snapshot",
+      { method: "POST" },
+    ),
+
   getApplicationStats: (params?: {
     config_id?: number;
     application_status?: string;
