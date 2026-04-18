@@ -3305,14 +3305,19 @@ class SummerMarketingSnapshotCell(BaseModel):
 
 
 class SummerMarketingSnapshotResponse(BaseModel):
-    """Result of pushing a daily marketing snapshot row to Google Sheets."""
+    """Result of pushing a daily marketing snapshot row to Google Sheets.
+
+    `action` is "appended" / "updated" on success, or "skipped" when the cron
+    is past the active config's application_close_date (or no active config).
+    Skipped responses leave sheet-write fields null."""
     as_of_date: date
-    config_id: int
-    spreadsheet_id: str
-    tab_name: str
-    action: str  # "appended" | "updated"
-    row_index: int
-    cells: Dict[str, Dict[str, SummerMarketingSnapshotCell]]
+    config_id: Optional[int] = None
+    spreadsheet_id: Optional[str] = None
+    tab_name: Optional[str] = None
+    action: str  # "appended" | "updated" | "skipped"
+    row_index: Optional[int] = None
+    reason: Optional[str] = None
+    cells: Dict[str, Dict[str, SummerMarketingSnapshotCell]] = {}
 
 
 # Enable forward references for nested models

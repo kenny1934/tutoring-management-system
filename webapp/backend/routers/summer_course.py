@@ -4148,10 +4148,28 @@ def push_marketing_snapshot(
     _auth: None = Depends(_authorize_marketing_snapshot),
     db: Session = Depends(get_db),
 ):
-    """Compute today's marketing snapshot and upsert it into the marketing sheet."""
+    """Compute today's marketing snapshot and upsert it into the marketing sheet.
+
+    Returns action="skipped" (not an error) when there's no active config or
+    the active config's application_close_date has passed — so the daily cron
+    can keep firing through year-end transitions without log noise."""
+    today = hk_now().date()
     config = _get_active_config(db)
     if config is None:
-        raise HTTPException(status_code=400, detail="No active summer config")
+        return SummerMarketingSnapshotResponse(
+            as_of_date=today,
+            action="skipped",
+            reason="No active summer config",
+        )
+
+    close_date = config.application_close_date
+    if close_date is not None and today > close_date.date():
+        return SummerMarketingSnapshotResponse(
+            as_of_date=today,
+            config_id=config.id,
+            action="skipped",
+            reason=f"Application closed on {close_date.date().isoformat()}",
+        )
 
     spreadsheet_id = os.environ.get("SUMMER_MARKETING_SHEET_ID")
     if not spreadsheet_id:
@@ -4161,7 +4179,6 @@ def push_marketing_snapshot(
         )
     tab_name = os.environ.get("SUMMER_MARKETING_SHEET_TAB", "Daily Stats")
 
-    today = hk_now().date()
     snapshot = compute_snapshot(
         db,
         config.id,

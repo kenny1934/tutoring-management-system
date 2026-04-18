@@ -550,10 +550,11 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
       const result = await summerAPI.pushMarketingSnapshot();
       setLastResult(result);
       setLastPushedAt(new Date());
-      showToast(
-        `${result.action === "updated" ? "Updated" : "Appended"} row ${result.row_index} for ${result.as_of_date}`,
-        "success",
-      );
+      const msg =
+        result.action === "skipped"
+          ? `Skipped: ${result.reason ?? "no active config"}`
+          : `${result.action === "updated" ? "Updated" : "Appended"} row ${result.row_index} for ${result.as_of_date}`;
+      showToast(msg, "success");
     } catch (e) {
       showError(e, "Failed to push snapshot");
     } finally {
@@ -561,7 +562,7 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
     }
   };
 
-  const sheetUrl = lastResult
+  const sheetUrl = lastResult?.spreadsheet_id
     ? `https://docs.google.com/spreadsheets/d/${lastResult.spreadsheet_id}/edit`
     : null;
 
@@ -581,20 +582,28 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
         {lastResult && lastPushedAt && (
           <div className="text-[11px] text-muted-foreground mt-2 tabular-nums">
             Last push {lastPushedAt.toLocaleTimeString()} —{" "}
-            <span className="font-medium text-foreground">
-              {lastResult.action === "updated" ? "updated" : "appended"} row {lastResult.row_index}
-            </span>{" "}
-            for <span className="font-mono">{lastResult.as_of_date}</span> in tab{" "}
-            <span className="font-mono">{lastResult.tab_name}</span>
-            {sheetUrl && (
-              <a
-                href={sheetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-1 text-primary hover:underline inline-flex items-center gap-0.5"
-              >
-                open <ExternalLink className="h-3 w-3" />
-              </a>
+            {lastResult.action === "skipped" ? (
+              <span className="font-medium text-foreground">
+                skipped ({lastResult.reason ?? "no active config"})
+              </span>
+            ) : (
+              <>
+                <span className="font-medium text-foreground">
+                  {lastResult.action} row {lastResult.row_index}
+                </span>{" "}
+                for <span className="font-mono">{lastResult.as_of_date}</span> in tab{" "}
+                <span className="font-mono">{lastResult.tab_name}</span>
+                {sheetUrl && (
+                  <a
+                    href={sheetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-primary hover:underline inline-flex items-center gap-0.5"
+                  >
+                    open <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </>
             )}
           </div>
         )}
