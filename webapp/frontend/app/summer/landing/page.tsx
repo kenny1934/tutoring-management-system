@@ -133,7 +133,7 @@ function PrimaryCTA({ size = "md" }: { size?: "md" | "lg" }) {
       : "px-10 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl";
   return (
     <Link
-      href="/summer/apply"
+      href="/apply"
       className={`group relative inline-flex items-center gap-3 ${padding} bg-[#F5C518] text-[#8a0a18] font-bold tracking-wider hover:bg-[#FFD23F] transition-all duration-300 shadow-[0_8px_30px_rgba(245,197,24,0.35)] hover:shadow-[0_12px_40px_rgba(245,197,24,0.55)] hover:-translate-y-0.5`}
       style={{ fontFamily: "var(--font-serif-tc)" }}
     >
