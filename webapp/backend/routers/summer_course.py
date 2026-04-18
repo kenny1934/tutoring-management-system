@@ -8,7 +8,7 @@ import string
 from datetime import date as date_type, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, contains_eager
@@ -84,7 +84,7 @@ from schemas import (
     SummerMarketingSnapshotResponse,
     SummerMarketingSnapshotCell,
 )
-from auth.dependencies import require_admin_view, require_admin_write
+from auth.dependencies import get_current_user, require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
 from services.google_sheets_service import (
     SheetsConfigError,
@@ -4123,12 +4123,29 @@ def find_slot(
     return results
 
 
+def _authorize_marketing_snapshot(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+) -> None:
+    """Allow either an admin cookie session or a matching X-Cron-Secret header.
+
+    The header path lets Cloud Scheduler hit this endpoint without an admin
+    user. Compare via `secrets.compare_digest` to avoid timing leaks.
+    """
+    expected = os.environ.get("SUMMER_MARKETING_CRON_SECRET")
+    if expected and x_cron_secret and secrets.compare_digest(x_cron_secret, expected):
+        return
+    user = get_current_user(request, db)
+    require_admin_write(request, user)
+
+
 @router.post(
     "/summer/marketing/snapshot",
     response_model=SummerMarketingSnapshotResponse,
 )
 def push_marketing_snapshot(
-    _admin: None = Depends(require_admin_write),
+    _auth: None = Depends(_authorize_marketing_snapshot),
     db: Session = Depends(get_db),
 ):
     """Compute today's marketing snapshot and upsert it into the marketing sheet."""
