@@ -3298,6 +3298,23 @@ class WaitlistEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SummerMarketingSnapshotCell(BaseModel):
+    total: int
+    pending: int
+    converted: int
+
+
+class SummerMarketingSnapshotResponse(BaseModel):
+    """Result of pushing a daily marketing snapshot row to Google Sheets."""
+    as_of_date: date
+    config_id: int
+    spreadsheet_id: str
+    tab_name: str
+    action: str  # "appended" | "updated"
+    row_index: int
+    cells: Dict[str, Dict[str, SummerMarketingSnapshotCell]]
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

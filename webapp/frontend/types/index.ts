@@ -2875,6 +2875,22 @@ export interface StudentLinkSuggestResult {
   skipped: StudentLinkSkipEntry[];
 }
 
+export interface SummerMarketingSnapshotCell {
+  total: number;
+  pending: number;
+  converted: number;
+}
+
+export interface SummerMarketingSnapshotResponse {
+  as_of_date: string;
+  config_id: number;
+  spreadsheet_id: string;
+  tab_name: string;
+  action: "appended" | "updated";
+  row_index: number;
+  cells: Record<string, Record<string, SummerMarketingSnapshotCell>>;
+}
+
 // Student Progress Analytics Types
 // ============================================
 

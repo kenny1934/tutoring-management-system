@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { BRANCH_INFO, EXIT_STATUSES, SUMMER_GRADE_BG, displayLocation, MIN_GROUP_SIZE, formatCompactDate, isPlaced } from "@/lib/summer-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
-import { Users, User } from "lucide-react";
-import type { SummerApplication } from "@/types";
+import { Users, User, Send, Loader2, ExternalLink } from "lucide-react";
+import { summerAPI } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
+import type { SummerApplication, SummerMarketingSnapshotResponse } from "@/types";
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -378,6 +380,8 @@ export function SummerApplicationStats({ applications, filters }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <MarketingSnapshotCard className="lg:col-span-2" />
+
       {/* Row 1: Status Pipeline + Placement (full width) */}
       <ChartCard title="Status Pipeline" badge={`${statusData.total} total`} className="lg:col-span-2">
         <div className="space-y-3">
@@ -527,6 +531,88 @@ export function SummerApplicationStats({ applications, filters }: Props) {
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("below") : undefined} />
         </div>
       </ChartCard>
+    </div>
+  );
+}
+
+
+// ── Marketing snapshot push card ───────────────────────────────────────────
+
+function MarketingSnapshotCard({ className }: { className?: string }) {
+  const { showToast, showError } = useToast();
+  const [pushing, setPushing] = useState(false);
+  const [lastResult, setLastResult] = useState<SummerMarketingSnapshotResponse | null>(null);
+  const [lastPushedAt, setLastPushedAt] = useState<Date | null>(null);
+
+  const handlePush = async () => {
+    setPushing(true);
+    try {
+      const result = await summerAPI.pushMarketingSnapshot();
+      setLastResult(result);
+      setLastPushedAt(new Date());
+      showToast(
+        `${result.action === "updated" ? "Updated" : "Appended"} row ${result.row_index} for ${result.as_of_date}`,
+        "success",
+      );
+    } catch (e) {
+      showError(e, "Failed to push snapshot");
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const sheetUrl = lastResult
+    ? `https://docs.google.com/spreadsheets/d/${lastResult.spreadsheet_id}/edit`
+    : null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-gray-200 dark:border-gray-700 p-5 flex flex-wrap items-center gap-4",
+        className,
+      )}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-foreground">Marketing snapshot</div>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          Push today&rsquo;s applicant counts (split by location, bucket, status) to the marketing Google Sheet.
+          Re-running on the same day overwrites the existing row.
+        </div>
+        {lastResult && lastPushedAt && (
+          <div className="text-[11px] text-muted-foreground mt-2 tabular-nums">
+            Last push {lastPushedAt.toLocaleTimeString()} —{" "}
+            <span className="font-medium text-foreground">
+              {lastResult.action === "updated" ? "updated" : "appended"} row {lastResult.row_index}
+            </span>{" "}
+            for <span className="font-mono">{lastResult.as_of_date}</span> in tab{" "}
+            <span className="font-mono">{lastResult.tab_name}</span>
+            {sheetUrl && (
+              <a
+                href={sheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 text-primary hover:underline inline-flex items-center gap-0.5"
+              >
+                open <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={handlePush}
+        disabled={pushing}
+        className={cn(
+          "shrink-0 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+          pushing
+            ? "bg-gray-100 text-muted-foreground cursor-not-allowed dark:bg-gray-800"
+            : "bg-primary text-primary-foreground hover:bg-primary/90",
+        )}
+      >
+        {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        {pushing ? "Pushing…" : "Push snapshot"}
+      </button>
     </div>
   );
 }
