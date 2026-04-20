@@ -8,16 +8,35 @@ must have Sheets API enabled (`gcloud services enable sheets.googleapis.com`).
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import logging
 import os
+import ssl
+import time
 from datetime import date
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
 _SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _sheets_service = None  # cached googleapiclient discovery resource
+
+# On Cloud Run, idle instances get CPU-throttled and intermediaries drop idle
+# sockets. The cached httplib2 connection inside _sheets_service then surfaces
+# as BrokenPipeError / SSL EOF on the next call. Retry + reset the cache so the
+# next attempt builds a fresh TLS connection.
+_TRANSIENT_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    ConnectionError,  # BrokenPipeError, ConnectionResetError, ConnectionAbortedError
+    ssl.SSLError,  # UNEXPECTED_EOF_WHILE_READING, etc.
+    TimeoutError,
+    http.client.RemoteDisconnected,
+    http.client.BadStatusLine,
+)
+_MAX_ATTEMPTS = 3
+_BACKOFF_SECONDS = (0.5, 2.0)  # sleeps between attempts 1→2 and 2→3
+
+T = TypeVar("T")
 
 
 class SheetsConfigError(RuntimeError):
@@ -49,16 +68,48 @@ def _get_sheets_service():
     return _sheets_service
 
 
+def _reset_sheets_service() -> None:
+    global _sheets_service
+    _sheets_service = None
+
+
+def _execute_with_retry(op: Callable[[Any], T]) -> T:
+    """Run op(service) with retry + cache reset on transient connection errors.
+
+    op receives a fresh service each attempt, so a reset forces a new TLS
+    connection before the retry. Non-transient errors (4xx/5xx HttpError from
+    the API, auth errors, bad input) propagate immediately.
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            return op(_get_sheets_service())
+        except _TRANSIENT_EXCEPTIONS as e:
+            last_exc = e
+            logger.warning(
+                "[sheets] transient connection error on attempt %d/%d (%s: %s); resetting cached service",
+                attempt + 1,
+                _MAX_ATTEMPTS,
+                type(e).__name__,
+                e,
+            )
+            _reset_sheets_service()
+            if attempt < _MAX_ATTEMPTS - 1:
+                time.sleep(_BACKOFF_SECONDS[attempt])
+    assert last_exc is not None
+    raise last_exc
+
+
 def _quote_tab(tab_name: str) -> str:
     """Wrap tab name in single quotes (Sheets A1 syntax) and escape inner quotes."""
     escaped = tab_name.replace("'", "''")
     return f"'{escaped}'"
 
 
-def _find_tab_id(service, spreadsheet_id: str, tab_name: str) -> int | None:
+def _find_tab_id(spreadsheet_id: str, tab_name: str) -> int | None:
     """Look up a tab's sheetId by title; return None if absent."""
-    meta = (
-        service.spreadsheets()
+    meta = _execute_with_retry(
+        lambda service: service.spreadsheets()
         .get(spreadsheetId=spreadsheet_id, fields="sheets.properties(sheetId,title)")
         .execute()
     )
@@ -69,11 +120,11 @@ def _find_tab_id(service, spreadsheet_id: str, tab_name: str) -> int | None:
     return None
 
 
-def _create_tab_with_date_format(service, spreadsheet_id: str, tab_name: str) -> int:
+def _create_tab_with_date_format(spreadsheet_id: str, tab_name: str) -> int:
     """Create the tab and apply a column-A yyyy/M/d format so future appended
     date cells render correctly without a per-push format request."""
-    resp = (
-        service.spreadsheets()
+    resp = _execute_with_retry(
+        lambda service: service.spreadsheets()
         .batchUpdate(
             spreadsheetId=spreadsheet_id,
             body={
@@ -85,37 +136,41 @@ def _create_tab_with_date_format(service, spreadsheet_id: str, tab_name: str) ->
         .execute()
     )
     sheet_id = resp["replies"][0]["addSheet"]["properties"]["sheetId"]
-    service.spreadsheets().batchUpdate(
-        spreadsheetId=spreadsheet_id,
-        body={
-            "requests": [
-                {
-                    "repeatCell": {
-                        "range": {
-                            "sheetId": sheet_id,
-                            "startColumnIndex": 0,
-                            "endColumnIndex": 1,
-                        },
-                        "cell": {
-                            "userEnteredFormat": {
-                                "numberFormat": {"type": "DATE", "pattern": "yyyy/M/d"}
-                            }
-                        },
-                        "fields": "userEnteredFormat.numberFormat",
+    _execute_with_retry(
+        lambda service: service.spreadsheets()
+        .batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={
+                "requests": [
+                    {
+                        "repeatCell": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "startColumnIndex": 0,
+                                "endColumnIndex": 1,
+                            },
+                            "cell": {
+                                "userEnteredFormat": {
+                                    "numberFormat": {"type": "DATE", "pattern": "yyyy/M/d"}
+                                }
+                            },
+                            "fields": "userEnteredFormat.numberFormat",
+                        }
                     }
-                }
-            ]
-        },
-    ).execute()
+                ]
+            },
+        )
+        .execute()
+    )
     logger.info("[sheets] Created new tab '%s' (id=%s)", tab_name, sheet_id)
     return sheet_id
 
 
-def _read_column_a(service, spreadsheet_id: str, tab_name: str) -> list[str]:
+def _read_column_a(spreadsheet_id: str, tab_name: str) -> list[str]:
     """Return column-A formatted strings (used to find existing date rows)."""
     rng = f"{_quote_tab(tab_name)}!A:A"
-    resp = (
-        service.spreadsheets()
+    resp = _execute_with_retry(
+        lambda service: service.spreadsheets()
         .values()
         .get(
             spreadsheetId=spreadsheet_id,
@@ -153,21 +208,25 @@ def upsert_snapshot_row(
 
     Returns: { "action": "appended" | "updated", "row_index": int (1-based) }
     """
-    service = _get_sheets_service()
-    sheet_id = _find_tab_id(service, spreadsheet_id, tab_name)
+    sheet_id = _find_tab_id(spreadsheet_id, tab_name)
     if sheet_id is None:
-        sheet_id = _create_tab_with_date_format(service, spreadsheet_id, tab_name)
+        sheet_id = _create_tab_with_date_format(spreadsheet_id, tab_name)
         column_a: list[str] = []
     else:
-        column_a = _read_column_a(service, spreadsheet_id, tab_name)
+        column_a = _read_column_a(spreadsheet_id, tab_name)
 
     if not column_a:
-        service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=f"{_quote_tab(tab_name)}!A1",
-            valueInputOption="RAW",
-            body={"values": [header_row]},
-        ).execute()
+        _execute_with_retry(
+            lambda service: service.spreadsheets()
+            .values()
+            .update(
+                spreadsheetId=spreadsheet_id,
+                range=f"{_quote_tab(tab_name)}!A1",
+                valueInputOption="RAW",
+                body={"values": [header_row]},
+            )
+            .execute()
+        )
         column_a = [header_row[0]]
 
     target_lookup = _format_date_for_lookup(snapshot_date)
@@ -182,16 +241,21 @@ def upsert_snapshot_row(
     serialized_row: list[Any] = [snapshot_date.isoformat()] + list(data_row[1:])
 
     if target_row_index is not None:
-        service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=f"{_quote_tab(tab_name)}!A{target_row_index}",
-            valueInputOption="USER_ENTERED",
-            body={"values": [serialized_row]},
-        ).execute()
+        _execute_with_retry(
+            lambda service: service.spreadsheets()
+            .values()
+            .update(
+                spreadsheetId=spreadsheet_id,
+                range=f"{_quote_tab(tab_name)}!A{target_row_index}",
+                valueInputOption="USER_ENTERED",
+                body={"values": [serialized_row]},
+            )
+            .execute()
+        )
         return {"action": "updated", "row_index": target_row_index}
 
-    resp = (
-        service.spreadsheets()
+    resp = _execute_with_retry(
+        lambda service: service.spreadsheets()
         .values()
         .append(
             spreadsheetId=spreadsheet_id,
