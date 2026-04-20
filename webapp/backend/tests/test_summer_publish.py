@@ -1219,6 +1219,46 @@ class TestArrangementReadsSessionLog:
         assert len(lesson1_entry.sessions) == 1
         assert lesson1_entry.sessions[0].application_id == app_full.id
 
+    def test_tutorless_sibling_slots_do_not_collide_on_calendar(
+        self, db_session, config, app_full,
+    ):
+        """Two slots at the same (date, time_slot, location) with both tutors
+        NULL must not share a calendar-grid card — each must surface its own
+        placements separately, otherwise slot-setup drops misroute in the UI."""
+        from routers.summer_course import get_lesson_calendar
+
+        slot_a = SummerCourseSlot(
+            config_id=config.id, slot_day="Tuesday", time_slot="10:00 - 11:30",
+            location="MSA", grade="F2", course_type="A", max_students=8, tutor_id=None,
+        )
+        slot_b = SummerCourseSlot(
+            config_id=config.id, slot_day="Tuesday", time_slot="10:00 - 11:30",
+            location="MSA", grade="F1", course_type="B", max_students=8, tutor_id=None,
+        )
+        db_session.add_all([slot_a, slot_b])
+        db_session.commit()
+        lessons_a = _materialize_lessons(db_session, slot_a)
+        _materialize_lessons(db_session, slot_b)
+
+        # Student placed on slot_a only.
+        for lesson in lessons_a:
+            db_session.add(SummerSession(
+                application_id=app_full.id, slot_id=slot_a.id,
+                lesson_id=lesson.id, session_status="Confirmed",
+            ))
+        db_session.commit()
+
+        week_start = lessons_a[0].lesson_date - timedelta(days=lessons_a[0].lesson_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        entry_a = next(l for l in resp.lessons if l.lesson_id == lessons_a[0].id)
+        entry_b = next(l for l in resp.lessons if l.slot_id == slot_b.id and l.lesson_number == 1)
+        assert len(entry_a.sessions) == 1
+        assert entry_a.sessions[0].application_id == app_full.id
+        assert len(entry_b.sessions) == 0
+
 
 class TestMakeupSlotCreate:
     """

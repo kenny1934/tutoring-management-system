@@ -4412,34 +4412,30 @@ def get_lesson_calendar(
         if s.session_status == "Cancelled":
             continue
         live = live_by_ss_id.get(s.id)
-        if live is not None:
-            effective_key = (live.session_date, live.time_slot, live.location, live.tutor_id)
-            effective_status = live.session_status
-        elif s.lesson is not None and s.slot is not None:
-            effective_key = (
-                s.lesson.lesson_date,
-                s.slot.time_slot,
-                normalize_secondary_location(s.slot.location),
-                s.slot.tutor_id,
+        # Unpublished placements have a direct SummerLesson FK — route via it
+        # instead of the (date, time, loc, tutor) key, which collides when two
+        # slots at the same date/time/location both have NULL tutor_id.
+        if live is None:
+            if s.lesson is None or not (week_start <= s.lesson.lesson_date <= week_end):
+                continue
+            sessions_by_lesson_id.setdefault(s.lesson.id, []).append(
+                _build_session_info(s, s.session_status, None)
             )
-            effective_status = s.session_status
-        else:
             continue
 
-        if effective_status == "Cancelled":
+        if live.session_status == "Cancelled":
             continue
+        effective_key = (live.session_date, live.time_slot, live.location, live.tutor_id)
 
         target = week_lesson_by_key.get(effective_key)
         if target is None:
             # Off-grid: live makeup at a (date, time, location, tutor) tuple
             # with no materialised SummerLesson. Emit as a synthetic ad-hoc
             # card when the live row falls within this week at the same branch.
-            # Cross-branch ad-hocs and frozen (unpublished) placements without
-            # a matching cell are intentionally dropped here.
+            # Cross-branch ad-hocs are intentionally dropped here.
             eff_date, eff_time, eff_loc, eff_tutor = effective_key
             if (
-                live is not None
-                and eff_date is not None
+                eff_date is not None
                 and eff_loc == view_location_code
                 and week_start <= eff_date <= week_end
             ):
@@ -4447,11 +4443,11 @@ def get_lesson_calendar(
                     (eff_date, eff_time, eff_tutor),
                     {"sessions": [], "lesson_number": live.lesson_number},
                 )
-                bucket["sessions"].append(_build_session_info(s, effective_status, live))
+                bucket["sessions"].append(_build_session_info(s, live.session_status, live))
             continue
 
         sessions_by_lesson_id.setdefault(target.id, []).append(
-            _build_session_info(s, effective_status, live)
+            _build_session_info(s, live.session_status, live)
         )
 
     # Ghost cards: for each active make-up, walk make_up_for_id back and render
