@@ -347,10 +347,12 @@ export function SummerStudentLessonsTable({
                         const day = getDayFromDate(lesson.lesson_date);
                         const startTime = lesson.time_slot ? getStartTime(lesson.time_slot) : "";
                         const dupes = lesson.duplicates ?? [];
-                        const dupeTooltip = dupes
-                          .map((d) => `${d.lesson_date ? formatShortDate(d.lesson_date) : "—"} ${d.time_slot ?? ""} (${d.session_status ?? "Unknown"})`)
-                          .join("\n");
                         const baseTooltip = `${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})${onNavigateToLesson ? " — click to view in calendar" : ""}`;
+                        const tooltip = dupes.length > 0
+                          ? `${baseTooltip}\n\n+${dupes.length} duplicate${dupes.length > 1 ? "s" : ""}:\n${dupes
+                              .map((d) => `${d.lesson_date ? formatShortDate(d.lesson_date) : "—"} ${d.time_slot ?? ""} (${d.session_status ?? "Unknown"})`)
+                              .join("\n")}`
+                          : baseTooltip;
 
                         return (
                           <td
@@ -361,7 +363,7 @@ export function SummerStudentLessonsTable({
                               isRescheduled && "opacity-80",
                               onNavigateToLesson && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40"
                             )}
-                            title={dupes.length > 0 ? `${baseTooltip}\n\n+${dupes.length} duplicate${dupes.length > 1 ? "s" : ""}:\n${dupeTooltip}` : baseTooltip}
+                            title={tooltip}
                             onClick={onNavigateToLesson ? () => onNavigateToLesson(lesson.lesson_date!) : undefined}
                           >
                             <div className="flex flex-col items-center gap-0">

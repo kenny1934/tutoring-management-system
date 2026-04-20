@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { extractDuplicatePrompt } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 
@@ -21,16 +22,6 @@ interface EditableLessonNumberBadgeProps {
 
 const MIN_LESSON = 1;
 const DEFAULT_MAX_LESSON = 8;
-
-function extractDuplicatePrompt(err: unknown): string | null {
-  // Backend guard surfaces 409 with {error: "DUPLICATE_LESSON_NUMBER", message}
-  // so the admin can confirm the double-up is intentional before saving.
-  if (!(err instanceof Error)) return null;
-  const msg = err.message;
-  if (!msg.includes("DUPLICATE_LESSON_NUMBER")) return null;
-  const match = msg.match(/Student already has another[^"]*/);
-  return match ? match[0].replace(/\\?"/g, "").replace(/}$/, "").trim() : msg;
-}
 
 export function useSaveLessonNumber(sessionId: number | null | undefined) {
   const { showToast } = useToast();

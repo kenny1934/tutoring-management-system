@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
 import { summerAPI } from "@/lib/api";
+import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
@@ -74,19 +75,20 @@ export function SummerLessonCard({
   const showCapacity = !isSyntheticAdhoc;
   const canDelete = isRealAdhoc && activeSessions.length === 0 && !!onDeleted;
 
-  // Gap A: surface when a card's students are covering material that differs
-  // from the card's default lesson_number (e.g., a rescheduled make-up now
-  // absorbed into this cell, or an explicit per-student override). Ad-hoc
-  // cards have no meaningful default, so divergence there is noise.
-  const divergentLessonNumbers = isAdhoc
-    ? []
-    : Array.from(
-        new Set(
-          activeSessions
-            .filter((s) => s.lesson_number != null && s.lesson_number !== lesson.lesson_number)
-            .map((s) => s.lesson_number as number),
-        ),
-      ).sort((a, b) => a - b);
+  // Ad-hoc cards have no meaningful default, so divergence there is noise.
+  const divergentLessonNumbers = useMemo(
+    () =>
+      isAdhoc
+        ? []
+        : Array.from(
+            new Set(
+              activeSessions
+                .filter((s) => s.lesson_number != null && s.lesson_number !== lesson.lesson_number)
+                .map((s) => s.lesson_number as number),
+            ),
+          ).sort((a, b) => a - b),
+    [isAdhoc, activeSessions, lesson.lesson_number],
+  );
   const hasMixedSessions = divergentLessonNumbers.length > 0;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -152,27 +154,10 @@ export function SummerLessonCard({
         ...(force ? { force_lesson_duplicate: true } : {}),
       });
     try {
-      try {
-        await trySave(false);
-      } catch (e: any) {
-        // Backend returns 409 DUPLICATE_LESSON_NUMBER when another active
-        // SummerSession for this student already uses this lesson_number.
-        // Confirm the intentional double-up, then retry with the force flag.
-        const msg: string = e?.message || "";
-        if (msg.includes("DUPLICATE_LESSON_NUMBER")) {
-          const prompt = (msg.match(/Student already has another[^"]*/)?.[0] ?? msg)
-            .replace(/\\?"/g, "")
-            .replace(/}$/, "")
-            .trim();
-          if (typeof window !== "undefined" && window.confirm(prompt)) {
-            await trySave(true);
-          } else {
-            setEditingSession(null);
-            return;
-          }
-        } else {
-          throw e;
-        }
+      const result = await confirmDuplicateOrRetry(trySave);
+      if (result === DUPLICATE_CANCELLED) {
+        setEditingSession(null);
+        return;
       }
       showToast("Lesson number updated.", "success");
       onDeleted?.(); // Reuse the refresh callback — it revalidates the calendar SWR.

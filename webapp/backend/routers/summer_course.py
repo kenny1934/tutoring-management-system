@@ -204,6 +204,23 @@ def _find_conflicting_summer_session(
     return None
 
 
+def _raise_duplicate_lesson_number(lesson_number: int, conflict: "SummerSession") -> None:
+    other_date = conflict.lesson.lesson_date if conflict.lesson else None
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "error": "DUPLICATE_LESSON_NUMBER",
+            "message": (
+                f"Student already has another active session at Lesson {lesson_number}"
+                + (f" ({other_date})" if other_date else "")
+                + ". Save anyway?"
+            ),
+            "other_session_id": conflict.id,
+            "other_session_date": str(other_date) if other_date else None,
+        },
+    )
+
+
 def _build_session_info(
     ss: "SummerSession",
     status: str,
@@ -2266,29 +2283,14 @@ def create_session(
         if len(attending) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Lesson is full")
 
-        # Pre-publish duplicate-lesson_number guard. Only fires on explicit
-        # override (ad-hoc drop path). Bulk modes don't set lesson_number so
-        # this branch is the only POST surface that can silently double up.
+        # Bulk modes leave lesson_number=None so this guard naturally skips
+        # them; it only trips on ad-hoc drops that pass an explicit override.
         if data.lesson_number is not None and not data.force_lesson_duplicate:
             conflict = _find_conflicting_summer_session(
                 db, data.application_id, data.lesson_number,
             )
             if conflict is not None:
-                other_date = conflict.lesson.lesson_date if conflict.lesson else None
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "error": "DUPLICATE_LESSON_NUMBER",
-                        "message": (
-                            f"Student already has another active session at "
-                            f"Lesson {data.lesson_number}"
-                            + (f" ({other_date})" if other_date else "")
-                            + ". Save anyway?"
-                        ),
-                        "other_session_id": conflict.id,
-                        "other_session_date": str(other_date) if other_date else None,
-                    },
-                )
+                _raise_duplicate_lesson_number(data.lesson_number, conflict)
 
         session = SummerSession(
             application_id=data.application_id,
@@ -2443,21 +2445,7 @@ def update_session_lesson_number(
                 exclude_session_id=session.id,
             )
             if conflict is not None:
-                other_date = conflict.lesson.lesson_date if conflict.lesson else None
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "error": "DUPLICATE_LESSON_NUMBER",
-                        "message": (
-                            f"Student already has another active session at "
-                            f"Lesson {data.lesson_number}"
-                            + (f" ({other_date})" if other_date else "")
-                            + ". Save anyway?"
-                        ),
-                        "other_session_id": conflict.id,
-                        "other_session_date": str(other_date) if other_date else None,
-                    },
-                )
+                _raise_duplicate_lesson_number(data.lesson_number, conflict)
         session.lesson_number = data.lesson_number
     db.commit()
     db.refresh(session)

@@ -10,6 +10,7 @@ import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
+import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
 import { SummerSessionCalendar } from "@/components/admin/SummerSessionCalendar";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
@@ -281,26 +282,8 @@ export default function SummerArrangementPage() {
         ...(force ? { force_lesson_duplicate: true } : {}),
       });
     try {
-      try {
-        await trySave(false);
-      } catch (e: unknown) {
-        // Backend returns 409 DUPLICATE_LESSON_NUMBER when this drop's explicit
-        // lesson_number collides with another active session for the student.
-        const msg = e instanceof Error ? e.message : "";
-        if (msg.includes("DUPLICATE_LESSON_NUMBER")) {
-          const prompt = (msg.match(/Student already has another[^"]*/)?.[0] ?? msg)
-            .replace(/\\?"/g, "")
-            .replace(/}$/, "")
-            .trim();
-          if (typeof window !== "undefined" && window.confirm(prompt)) {
-            await trySave(true);
-          } else {
-            return;
-          }
-        } else {
-          throw e;
-        }
-      }
+      const result = await confirmDuplicateOrRetry(trySave);
+      if (result === DUPLICATE_CANCELLED) return;
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
