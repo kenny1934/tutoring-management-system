@@ -74,6 +74,21 @@ export function SummerLessonCard({
   const showCapacity = !isSyntheticAdhoc;
   const canDelete = isRealAdhoc && activeSessions.length === 0 && !!onDeleted;
 
+  // Gap A: surface when a card's students are covering material that differs
+  // from the card's default lesson_number (e.g., a rescheduled make-up now
+  // absorbed into this cell, or an explicit per-student override). Ad-hoc
+  // cards have no meaningful default, so divergence there is noise.
+  const divergentLessonNumbers = isAdhoc
+    ? []
+    : Array.from(
+        new Set(
+          activeSessions
+            .filter((s) => s.lesson_number != null && s.lesson_number !== lesson.lesson_number)
+            .map((s) => s.lesson_number as number),
+        ),
+      ).sort((a, b) => a - b);
+  const hasMixedSessions = divergentLessonNumbers.length > 0;
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!canDrop) return;
     e.preventDefault();
@@ -228,7 +243,7 @@ export function SummerLessonCard({
             onClick={() => canEditBadge && setEditingLesson(true)}
             disabled={!canEditBadge}
             className={cn(
-              "w-6 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors",
+              "relative w-6 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors",
               isCancelled
                 ? "bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 line-through"
                 : isAdhoc
@@ -247,10 +262,18 @@ export function SummerLessonCard({
                 ? lesson.lesson_number
                   ? `Make-up (Lesson ${lesson.lesson_number}) — click to edit`
                   : "Make-up — click to set lesson number"
+                : hasMixedSessions
+                ? `Lesson ${lesson.lesson_number} — click to edit\nMixed: some students covering L${divergentLessonNumbers.join(", L")}`
                 : `Lesson ${lesson.lesson_number} — click to edit`
             }
           >
             {lesson.lesson_number || "—"}
+            {hasMixedSessions && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400 ring-1 ring-white dark:ring-gray-900"
+              />
+            )}
           </button>
         )}
 
