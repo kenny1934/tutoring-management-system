@@ -27,11 +27,10 @@ _sheets_service = None  # cached googleapiclient discovery resource
 # as BrokenPipeError / SSL EOF on the next call. Retry + reset the cache so the
 # next attempt builds a fresh TLS connection.
 _TRANSIENT_EXCEPTIONS: tuple[type[BaseException], ...] = (
-    ConnectionError,  # BrokenPipeError, ConnectionResetError, ConnectionAbortedError
+    ConnectionError,  # BrokenPipeError, ConnectionResetError, RemoteDisconnected
     ssl.SSLError,  # UNEXPECTED_EOF_WHILE_READING, etc.
     TimeoutError,
-    http.client.RemoteDisconnected,
-    http.client.BadStatusLine,
+    http.client.BadStatusLine,  # HTTPException, not a ConnectionError
 )
 _MAX_ATTEMPTS = 3
 _BACKOFF_SECONDS = (0.5, 2.0)  # sleeps between attempts 1→2 and 2→3
