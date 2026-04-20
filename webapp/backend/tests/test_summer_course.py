@@ -597,6 +597,60 @@ class TestStudentLessonsDuplicates:
         l4 = next(l for l in student.lessons if l.lesson_number == 4)
         assert len(l4.duplicates) == 1
 
+    def test_two_published_sessions_both_overridden_to_same_ln(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """User edits two published sessions' ln via SessionDetailPopover
+        (post-publish path). Both land at same effective ln via SessionLog
+        override; both must surface in the students table."""
+        from models import Student
+        from models import SessionLog as SessionLogModel
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[0].id, session_status="Confirmed",
+        )
+        s3 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[2].id, session_status="Confirmed",
+        )
+        db_session.add_all([s1, s3])
+        db_session.flush()
+
+        student_row = Student(student_name="Live2x", grade="F1")
+        db_session.add(student_row)
+        db_session.flush()
+        admin = db_session.query(Tutor).first()
+
+        db_session.add(SessionLogModel(
+            student_id=student_row.id, tutor_id=admin.id,
+            session_date=lessons[0].lesson_date, time_slot="10:00 - 11:30",
+            location="MSA", session_status="Confirmed",
+            summer_session_id=s1.id, lesson_number=2,
+        ))
+        db_session.add(SessionLogModel(
+            student_id=student_row.id, tutor_id=admin.id,
+            session_date=lessons[2].lesson_date, time_slot="10:00 - 11:30",
+            location="MSA", session_status="Confirmed",
+            summer_session_id=s3.id, lesson_number=2,
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        l1 = next(l for l in student.lessons if l.lesson_number == 1)
+        l2 = next(l for l in student.lessons if l.lesson_number == 2)
+        l3 = next(l for l in student.lessons if l.lesson_number == 3)
+        assert l1.placed is False
+        assert l3.placed is False
+        assert l2.placed is True
+        assert len(l2.duplicates) == 1
+
 
 class TestSummerSessionLessonNumberDuplicateGuard:
     """Pre-publish duplicate guard on POST /summer/sessions (calendar drop

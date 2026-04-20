@@ -1,12 +1,24 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { mutate as globalMutate } from "swr";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { extractDuplicatePrompt } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberBadge } from "./LessonNumberBadge";
+
+// Summer students-table + calendar both derive effective lesson_number from
+// SessionLog when published, so a post-publish ln edit must revalidate them
+// or duplicates / divergent-ln indicators stay stale.
+function revalidateSummerCaches() {
+  globalMutate(
+    (key) =>
+      Array.isArray(key) &&
+      (key[0] === "summer-student-lessons" || key[0] === "summer-calendar"),
+  );
+}
 
 interface EditableLessonNumberBadgeProps {
   lessonNumber: number | null | undefined;
@@ -38,6 +50,7 @@ export function useSaveLessonNumber(sessionId: number | null | undefined) {
       try {
         const updated = await trySave(false);
         updateSessionInCache(updated);
+        revalidateSummerCaches();
         showToast(
           value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
           "success",
@@ -48,6 +61,7 @@ export function useSaveLessonNumber(sessionId: number | null | undefined) {
           try {
             const updated = await trySave(true);
             updateSessionInCache(updated);
+            revalidateSummerCaches();
             showToast(
               value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
               "success",
