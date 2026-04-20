@@ -2676,6 +2676,9 @@ class SummerStudentLessonEntry(BaseModel):
     time_slot: Optional[str] = None
     slot_id: Optional[int] = None
     session_status: Optional[str] = None
+    # Extra sessions sharing this lesson_number (admin double-up, make-up redo).
+    # The primary sits on the outer entry; dupes attach here and never recurse.
+    duplicates: List["SummerStudentLessonEntry"] = Field(default_factory=list)
 
 
 class SummerStudentLessonsRow(BaseModel):

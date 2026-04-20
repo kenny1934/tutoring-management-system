@@ -154,6 +154,27 @@ def _effective_lesson_number(
     return None
 
 
+def _build_student_lesson_entry(
+    ln: int,
+    ss: "SummerSession",
+    live: "SessionLog | None",
+) -> SummerStudentLessonEntry:
+    """Resolve effective date/time/status from live vs. frozen snapshot."""
+    effective_date = live.session_date if live else (ss.lesson.lesson_date if ss.lesson else None)
+    effective_time_slot = live.time_slot if live else (ss.slot.time_slot if ss.slot else None)
+    effective_status = live.session_status if live else ss.session_status
+    return SummerStudentLessonEntry(
+        lesson_number=ln,
+        placed=True,
+        session_id=ss.id,
+        lesson_id=ss.lesson_id,
+        lesson_date=effective_date,
+        time_slot=effective_time_slot,
+        slot_id=ss.slot_id,
+        session_status=effective_status,
+    )
+
+
 def _build_session_info(
     ss: "SummerSession",
     status: str,
@@ -3148,10 +3169,9 @@ def get_student_lessons(
 
     rows = []
     for app in apps:
-        # Build a map: lesson_number → (session, live_row | None)
-        # lesson_number is sourced from session_log when published (it migrates
-        # through reschedule) and from SummerSession otherwise.
-        placed_by_lesson: dict[int, tuple[SummerSession, Optional[SessionLog]]] = {}
+        # Bucket sessions by effective lesson_number so duplicates (admin
+        # double-up, make-up redo) surface instead of silently collapsing.
+        placed_by_lesson: dict[int, list[tuple[SummerSession, Optional[SessionLog]]]] = {}
         for s in app.sessions:
             if s.session_status == "Cancelled":
                 continue
@@ -3159,34 +3179,40 @@ def get_student_lessons(
             effective_ln = _effective_lesson_number(s, live)
             if effective_ln is None:
                 continue
-            if effective_ln not in placed_by_lesson:
-                placed_by_lesson[effective_ln] = (s, live)
+            placed_by_lesson.setdefault(effective_ln, []).append((s, live))
 
-        # Build 1..total entries
+        # Order within a bucket: published live-row wins primary (its date
+        # has migrated through reschedules); then earliest effective date;
+        # then session.id for a stable tiebreaker.
+        def _bucket_sort_key(pair):
+            s, live = pair
+            has_live = 0 if live is not None else 1
+            effective_date = live.session_date if live else (s.lesson.lesson_date if s.lesson else None)
+            date_key = effective_date or date_type.max
+            return (has_live, date_key, s.id)
+
+        # Build 1..total entries. Primary stays in-band; extras attach as
+        # `duplicates` for the cell to render a +N indicator.
         entries = []
         for ln in range(1, total + 1):
-            pair = placed_by_lesson.get(ln)
-            if pair is not None:
-                s, live = pair
-                effective_date = live.session_date if live else (s.lesson.lesson_date if s.lesson else None)
-                effective_time_slot = live.time_slot if live else (s.slot.time_slot if s.slot else None)
-                effective_status = live.session_status if live else s.session_status
-                entries.append(SummerStudentLessonEntry(
-                    lesson_number=ln,
-                    placed=True,
-                    session_id=s.id,
-                    lesson_id=s.lesson_id,
-                    lesson_date=effective_date,
-                    time_slot=effective_time_slot,
-                    slot_id=s.slot_id,
-                    session_status=effective_status,
-                ))
+            bucket = placed_by_lesson.get(ln)
+            if bucket:
+                bucket.sort(key=_bucket_sort_key)
+                primary_s, primary_live = bucket[0]
+                entry = _build_student_lesson_entry(ln, primary_s, primary_live)
+                entry.duplicates = [
+                    _build_student_lesson_entry(ln, s, live)
+                    for s, live in bucket[1:]
+                ]
+                entries.append(entry)
             else:
                 entries.append(SummerStudentLessonEntry(lesson_number=ln, placed=False))
 
-        placed_count = len(placed_by_lesson)
+        placed_count = sum(len(v) for v in placed_by_lesson.values())
         rescheduled_count = sum(
-            1 for (s, live) in placed_by_lesson.values()
+            1
+            for bucket in placed_by_lesson.values()
+            for (s, live) in bucket
             if (live.session_status if live else s.session_status) in SUMMER_NON_ATTENDING_STATUSES
         )
         claimed_center = (app.current_centers or [None])[0]

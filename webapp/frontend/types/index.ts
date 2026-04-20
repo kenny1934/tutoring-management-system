@@ -2585,6 +2585,7 @@ export interface SummerStudentLessonEntry {
   time_slot?: string | null;
   slot_id?: number | null;
   session_status?: string | null;
+  duplicates?: SummerStudentLessonEntry[];
 }
 
 export interface SummerStudentLessonsRow {
