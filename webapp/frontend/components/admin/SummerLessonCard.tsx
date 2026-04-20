@@ -129,12 +129,36 @@ export function SummerLessonCard({
 
   const handlePerStudentLessonEdit = async (newValue: number | null) => {
     if (!editingSession) return;
-    try {
-      await summerAPI.updateSessionLessonNumber(editingSession.id, {
+    const trySave = (force: boolean) =>
+      summerAPI.updateSessionLessonNumber(editingSession.id, {
         ...(newValue === null
           ? { clear_lesson_number: true }
           : { lesson_number: newValue }),
+        ...(force ? { force_lesson_duplicate: true } : {}),
       });
+    try {
+      try {
+        await trySave(false);
+      } catch (e: any) {
+        // Backend returns 409 DUPLICATE_LESSON_NUMBER when another active
+        // SummerSession for this student already uses this lesson_number.
+        // Confirm the intentional double-up, then retry with the force flag.
+        const msg: string = e?.message || "";
+        if (msg.includes("DUPLICATE_LESSON_NUMBER")) {
+          const prompt = (msg.match(/Student already has another[^"]*/)?.[0] ?? msg)
+            .replace(/\\?"/g, "")
+            .replace(/}$/, "")
+            .trim();
+          if (typeof window !== "undefined" && window.confirm(prompt)) {
+            await trySave(true);
+          } else {
+            setEditingSession(null);
+            return;
+          }
+        } else {
+          throw e;
+        }
+      }
       showToast("Lesson number updated.", "success");
       onDeleted?.(); // Reuse the refresh callback — it revalidates the calendar SWR.
     } catch (e: any) {

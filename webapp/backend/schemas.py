@@ -2567,6 +2567,7 @@ class SummerSessionCreate(BaseModel):
     # ad-hoc Make-up Slot where different students can cover different material.
     # Regular slots leave this null and inherit from SummerLesson at publish time.
     lesson_number: Optional[int] = Field(None, ge=1, le=20)
+    force_lesson_duplicate: bool = False
 
 
 class SummerSessionStatusUpdate(BaseModel):
@@ -2581,6 +2582,7 @@ class SummerSessionLessonNumberUpdate(BaseModel):
     SummerLessonUpdate / SessionUpdate convention)."""
     lesson_number: Optional[int] = Field(None, ge=1, le=20)
     clear_lesson_number: bool = False
+    force_lesson_duplicate: bool = False
 
 
 class SummerSessionResponse(BaseModel):

@@ -2451,6 +2451,7 @@ export interface SummerSessionCreate {
   lesson_id?: number;
   mode?: "all" | "first_half" | "single";
   lesson_number?: number | null;
+  force_lesson_duplicate?: boolean;
 }
 
 export interface SummerSessionStatusUpdate {
@@ -2460,6 +2461,7 @@ export interface SummerSessionStatusUpdate {
 export interface SummerSessionLessonNumberUpdate {
   lesson_number?: number | null;
   clear_lesson_number?: boolean;
+  force_lesson_duplicate?: boolean;
 }
 
 // ---- Summer Publish Bridge (Phase 5) ----

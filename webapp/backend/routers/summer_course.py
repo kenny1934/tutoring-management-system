@@ -175,6 +175,35 @@ def _build_student_lesson_entry(
     )
 
 
+def _find_conflicting_summer_session(
+    db: Session,
+    application_id: int,
+    target_lesson_number: int,
+    exclude_session_id: Optional[int] = None,
+) -> Optional["SummerSession"]:
+    """Return another active SummerSession for this application whose effective
+    lesson_number matches `target_lesson_number`, or None.
+
+    Pre-publish counterpart to the SessionLog guard in PATCH /sessions/{id}.
+    Uses `_effective_lesson_number(ss, live=None)` so per-student overrides and
+    slot-level defaults both count.
+    """
+    q = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.lesson))
+        .filter(
+            SummerSession.application_id == application_id,
+            SummerSession.session_status != "Cancelled",
+        )
+    )
+    if exclude_session_id is not None:
+        q = q.filter(SummerSession.id != exclude_session_id)
+    for other in q.all():
+        if _effective_lesson_number(other) == target_lesson_number:
+            return other
+    return None
+
+
 def _build_session_info(
     ss: "SummerSession",
     status: str,
@@ -2237,6 +2266,30 @@ def create_session(
         if len(attending) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Lesson is full")
 
+        # Pre-publish duplicate-lesson_number guard. Only fires on explicit
+        # override (ad-hoc drop path). Bulk modes don't set lesson_number so
+        # this branch is the only POST surface that can silently double up.
+        if data.lesson_number is not None and not data.force_lesson_duplicate:
+            conflict = _find_conflicting_summer_session(
+                db, data.application_id, data.lesson_number,
+            )
+            if conflict is not None:
+                other_date = conflict.lesson.lesson_date if conflict.lesson else None
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "DUPLICATE_LESSON_NUMBER",
+                        "message": (
+                            f"Student already has another active session at "
+                            f"Lesson {data.lesson_number}"
+                            + (f" ({other_date})" if other_date else "")
+                            + ". Save anyway?"
+                        ),
+                        "other_session_id": conflict.id,
+                        "other_session_date": str(other_date) if other_date else None,
+                    },
+                )
+
         session = SummerSession(
             application_id=data.application_id,
             slot_id=data.slot_id,
@@ -2377,6 +2430,34 @@ def update_session_lesson_number(
     if data.clear_lesson_number:
         session.lesson_number = None
     elif data.lesson_number is not None:
+        # Guard only fires when the effective ln actually changes. Re-saving
+        # the current value is a no-op; clearing is intentionally unguarded
+        # (revert to slot default is always safe enough to allow silently).
+        current_ln = _effective_lesson_number(session)
+        if (
+            data.lesson_number != current_ln
+            and not data.force_lesson_duplicate
+        ):
+            conflict = _find_conflicting_summer_session(
+                db, session.application_id, data.lesson_number,
+                exclude_session_id=session.id,
+            )
+            if conflict is not None:
+                other_date = conflict.lesson.lesson_date if conflict.lesson else None
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "DUPLICATE_LESSON_NUMBER",
+                        "message": (
+                            f"Student already has another active session at "
+                            f"Lesson {data.lesson_number}"
+                            + (f" ({other_date})" if other_date else "")
+                            + ". Save anyway?"
+                        ),
+                        "other_session_id": conflict.id,
+                        "other_session_date": str(other_date) if other_date else None,
+                    },
+                )
         session.lesson_number = data.lesson_number
     db.commit()
     db.refresh(session)

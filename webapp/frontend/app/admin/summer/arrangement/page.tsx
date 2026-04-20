@@ -272,13 +272,35 @@ export default function SummerArrangementPage() {
     lessonId: number,
     lessonNumber?: number | null,
   ) => {
-    try {
-      await summerAPI.createSession({
+    const trySave = (force: boolean) =>
+      summerAPI.createSession({
         application_id: applicationId,
         slot_id: slotId,
         lesson_id: lessonId,
         ...(lessonNumber != null ? { lesson_number: lessonNumber } : {}),
+        ...(force ? { force_lesson_duplicate: true } : {}),
       });
+    try {
+      try {
+        await trySave(false);
+      } catch (e: unknown) {
+        // Backend returns 409 DUPLICATE_LESSON_NUMBER when this drop's explicit
+        // lesson_number collides with another active session for the student.
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("DUPLICATE_LESSON_NUMBER")) {
+          const prompt = (msg.match(/Student already has another[^"]*/)?.[0] ?? msg)
+            .replace(/\\?"/g, "")
+            .replace(/}$/, "")
+            .trim();
+          if (typeof window !== "undefined" && window.confirm(prompt)) {
+            await trySave(true);
+          } else {
+            return;
+          }
+        } else {
+          throw e;
+        }
+      }
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
