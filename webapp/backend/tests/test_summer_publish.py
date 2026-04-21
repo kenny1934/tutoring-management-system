@@ -8,7 +8,7 @@ special-casing (effective_end_date, renewal exclusion, overdue inclusion,
 schedule-change block, cancel block, fee-message block).
 """
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 
 from models import (
@@ -253,6 +253,13 @@ class TestPublishHappyPath:
             assert s.financial_status == "Paid"
             assert s.tutor_id == slot.tutor_id
             assert s.summer_session_id is not None
+
+        # lesson_number is denormalized from SummerSession onto session_log so
+        # session UIs can show an "L3" badge without joining back to summer.
+        sessions_by_date = {s.session_date: s for s in sessions}
+        for lesson in lessons:
+            sess = sessions_by_date[lesson.lesson_date]
+            assert sess.lesson_number == lesson.lesson_number
 
         # App status moved to Enrolled.
         db_session.refresh(app_full)
@@ -701,3 +708,1403 @@ class TestDownstreamSummerHandling:
             )
         )
         assert all(r.id != enrollment.id for r in result)
+
+
+# ---------------------------------------------------------------------------
+# Summer linkage migration through reschedule → schedule-makeup → cancel-makeup
+# ---------------------------------------------------------------------------
+
+class TestSummerRescheduleLinkage:
+    """
+    When a published summer session is rescheduled and a make-up scheduled,
+    the SummerSession pointer (summer_session_id) and lesson_number must
+    follow the active session — otherwise arrangement views render from the
+    stale original instead of the live make-up date.
+    """
+
+    def _publish(self, db_session, admin, app_full, slot):
+        from routers.summer_course import publish_application
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+        return lessons
+
+    def _active_summer_session(self, db_session, lesson_number):
+        return db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == lesson_number,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+
+    def _reschedule_and_makeup(self, db_session, admin, session, makeup_date, slot_tutor):
+        """Drive the full reschedule → schedule-makeup flow and return the makeup row."""
+        from routers.sessions import mark_session_rescheduled, schedule_makeup
+        from schemas import ScheduleMakeupRequest
+        import asyncio
+
+        # Super Admin bypasses the 60-day rule, keeping the test free of that concern.
+        admin.role = "Super Admin"
+        slot_tutor.default_location = "MSA"
+        db_session.commit()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            mark_session_rescheduled(session_id=session.id, current_user=admin, db=db_session)
+        )
+
+        req = ScheduleMakeupRequest(
+            session_date=makeup_date,
+            time_slot="10:00 - 11:30",
+            location="MSA",
+            tutor_id=slot_tutor.id,
+        )
+        loop.run_until_complete(
+            schedule_makeup(
+                session_id=session.id, request=req,
+                current_user=admin, db=db_session,
+            )
+        )
+
+        db_session.refresh(session)
+        return db_session.query(SessionLog).filter(
+            SessionLog.make_up_for_id == session.id
+        ).first()
+
+    def test_linkage_migrates_to_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=3)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+        assert original_summer_id is not None
+        assert original_lesson_number == 3
+
+        # Pick a Wednesday (summer lessons are Tuesdays) so there's no slot conflict.
+        makeup_date = session.session_date + timedelta(days=1)
+        makeup = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date, slot_tutor,
+        )
+
+        assert makeup is not None
+        assert makeup.summer_session_id == original_summer_id
+        assert makeup.lesson_number == original_lesson_number
+        assert session.summer_session_id is None
+        assert session.lesson_number is None
+
+    def test_linkage_restores_on_cancel_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        from routers.sessions import cancel_makeup
+        import asyncio
+
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=5)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+
+        makeup_date = session.session_date + timedelta(days=1)
+        makeup = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date, slot_tutor,
+        )
+
+        asyncio.get_event_loop().run_until_complete(
+            cancel_makeup(
+                makeup_session_id=makeup.id,
+                current_user=admin, db=db_session,
+            )
+        )
+
+        db_session.refresh(session)
+        assert session.summer_session_id == original_summer_id
+        assert session.lesson_number == original_lesson_number
+        assert db_session.query(SessionLog).filter(SessionLog.id == makeup.id).first() is None
+
+    def test_linkage_follows_chained_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Makeup of a makeup: linkage should hop to the second makeup."""
+        self._publish(db_session, admin, app_full, slot)
+        session = self._active_summer_session(db_session, lesson_number=1)
+        original_summer_id = session.summer_session_id
+        original_lesson_number = session.lesson_number
+
+        makeup_date_1 = session.session_date + timedelta(days=1)
+        makeup1 = self._reschedule_and_makeup(
+            db_session, admin, session, makeup_date_1, slot_tutor,
+        )
+        assert makeup1.summer_session_id == original_summer_id
+
+        makeup_date_2 = session.session_date + timedelta(days=2)
+        makeup2 = self._reschedule_and_makeup(
+            db_session, admin, makeup1, makeup_date_2, slot_tutor,
+        )
+
+        db_session.refresh(makeup1)
+        assert makeup2 is not None
+        assert makeup2.summer_session_id == original_summer_id
+        assert makeup2.lesson_number == original_lesson_number
+        assert makeup1.summer_session_id is None
+        assert makeup1.lesson_number is None
+
+
+# ---------------------------------------------------------------------------
+# Arrangement views (students table + calendar) read session_log for published
+# ---------------------------------------------------------------------------
+
+class TestArrangementReadsSessionLog:
+    """
+    After publish + reschedule, the arrangement endpoints must read from
+    session_log, not the frozen SummerSession/SummerLesson snapshot.
+    Otherwise capacity counts mislead and admins double-book slots.
+    """
+
+    def _publish(self, db_session, admin, app_full, slot):
+        from routers.summer_course import publish_application
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+        return lessons
+
+    def _reschedule_active(self, db_session, admin, session, makeup_date, tutor, time_slot, location):
+        from routers.sessions import mark_session_rescheduled, schedule_makeup
+        from schemas import ScheduleMakeupRequest
+        import asyncio
+
+        admin.role = "Super Admin"
+        tutor.default_location = location
+        db_session.commit()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            mark_session_rescheduled(session_id=session.id, current_user=admin, db=db_session)
+        )
+        req = ScheduleMakeupRequest(
+            session_date=makeup_date,
+            time_slot=time_slot,
+            location=location,
+            tutor_id=tutor.id,
+        )
+        loop.run_until_complete(
+            schedule_makeup(
+                session_id=session.id, request=req,
+                current_user=admin, db=db_session,
+            )
+        )
+        return db_session.query(SessionLog).filter(
+            SessionLog.make_up_for_id == session.id
+        ).first()
+
+    def test_students_endpoint_reflects_live_date_and_status(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        from routers.summer_course import get_student_lessons
+
+        self._publish(db_session, admin, app_full, slot)
+
+        # Pre-reschedule: lesson 3's entry shows the frozen SummerLesson date.
+        # (location filter maps to SummerApplication.preferred_location, which
+        # the fixture leaves unset — don't pass it here.)
+        resp_before = get_student_lessons(
+            config_id=slot.config_id, location=None,
+            _admin=None, db=db_session,
+        )
+        row = next(r for r in resp_before.students if r.application_id == app_full.id)
+        entry3_before = next(e for e in row.lessons if e.lesson_number == 3)
+        original_date = entry3_before.lesson_date
+
+        # Reschedule lesson 3 to an ad-hoc Wednesday (off-grid for calendar,
+        # but students table should still report the live date).
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 3,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        new_date = session.session_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, new_date,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        resp_after = get_student_lessons(
+            config_id=slot.config_id, location=None,
+            _admin=None, db=db_session,
+        )
+        row_after = next(r for r in resp_after.students if r.application_id == app_full.id)
+        entry3_after = next(e for e in row_after.lessons if e.lesson_number == 3)
+
+        assert entry3_after.lesson_date == new_date
+        assert entry3_after.lesson_date != original_date
+        # summer_session_id now rides the makeup row, so live.session_status
+        # comes from the new "Make-up Class" row.
+        assert entry3_after.session_status == "Make-up Class"
+
+    def test_calendar_regroups_on_grid_reschedule(
+        self, db_session, admin, app_full, slot, slot_b, other_tutor
+    ):
+        """Moving a session from slot A to a materialised lesson on slot B
+        should make the card shift from origin card to destination card."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons_a = self._publish(db_session, admin, app_full, slot)
+        # Materialise slot B's lessons so the makeup has a target cell on the grid.
+        lessons_b = _materialize_lessons(db_session, slot_b)
+
+        session1 = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 1,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        target = lessons_b[0]
+
+        self._reschedule_active(
+            db_session, admin, session1, target.lesson_date,
+            other_tutor, slot_b.time_slot, slot_b.location,
+        )
+
+        # Destination: week containing slot B's target lesson — active card lives here.
+        dest_week_start = target.lesson_date - timedelta(days=target.lesson_date.weekday())
+        dest_resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=dest_week_start, _admin=None, db=db_session,
+        )
+        dest_entry = next(l for l in dest_resp.lessons if l.lesson_id == target.id)
+        assert len(dest_entry.sessions) == 1
+        assert dest_entry.sessions[0].application_id == app_full.id
+        assert dest_entry.sessions[0].session_status == "Make-up Class"
+
+        # Origin: ghost card (Rescheduled - Make-up Booked) still renders on the
+        # seat the student was moved away from, so admins see the history without
+        # it counting toward capacity.
+        origin_week_start = lessons_a[0].lesson_date - timedelta(days=lessons_a[0].lesson_date.weekday())
+        origin_resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=origin_week_start, _admin=None, db=db_session,
+        )
+        origin_entry = next(l for l in origin_resp.lessons if l.lesson_id == lessons_a[0].id)
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].application_id == app_full.id
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+    def test_calendar_renders_adhoc_card_for_off_grid_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Makeup on an ad-hoc date (no matching SummerLesson cell) emits a
+        synthetic `is_adhoc` card at its live (date, time, tutor) tuple, while
+        the origin ghost still renders on the seat the student was moved from."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 4,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # Reschedule to a Wednesday (the slot is Tuesday-only) → no materialized
+        # SummerLesson at that (slot, date) coordinate.
+        ad_hoc_date = origin_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, ad_hoc_date,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        # Lesson 4's card still holds the ghost of the moved-away student.
+        origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[3].id)
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+        # A synthetic ad-hoc card now lives at the live (date, time, tutor).
+        adhoc = [l for l in resp.lessons if l.is_adhoc]
+        assert len(adhoc) == 1
+        card = adhoc[0]
+        assert card.date == ad_hoc_date
+        assert card.time_slot == "10:00 - 11:30"
+        assert card.tutor_id == slot_tutor.id
+        assert card.lesson_status == "Make-up"
+        assert card.lesson_id < 0  # synthetic marker
+        assert card.slot_id == 0
+        assert len(card.sessions) == 1
+        assert card.sessions[0].application_id == app_full.id
+        assert card.sessions[0].session_status == "Make-up Class"
+        # Capacity bar is effectively meaningless; max_students mirrors count.
+        assert card.max_students == len(card.sessions)
+
+    def test_calendar_synthetic_entry_for_different_tutor(
+        self, db_session, admin, app_full, slot, other_tutor
+    ):
+        """Ad-hoc makeup booked with a tutor who has no summer slot on this
+        date/time renders as a synthetic card with that tutor's info."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 2,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # Wednesday is not a slot day for either tutor; other_tutor has no
+        # SummerLesson at (10:00, MSA, other_tutor) → synthetic cell.
+        ad_hoc_date = origin_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, ad_hoc_date,
+            other_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        adhoc = [l for l in resp.lessons if l.is_adhoc]
+        assert len(adhoc) == 1
+        card = adhoc[0]
+        assert card.tutor_id == other_tutor.id
+        assert card.tutor_name == other_tutor.tutor_name
+        assert card.date == ad_hoc_date
+        assert len(card.sessions) == 1
+        assert card.sessions[0].application_id == app_full.id
+
+    def test_calendar_no_synthetic_for_cross_branch_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Makeup at a different branch must not surface on the origin branch's
+        calendar — only the origin ghost renders. The ad-hoc card belongs on
+        the destination branch's view."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 3,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # Reschedule to a different branch code; still this week.
+        ad_hoc_date = origin_date + timedelta(days=1)
+        self._reschedule_active(
+            db_session, admin, session, ad_hoc_date,
+            slot_tutor, "10:00 - 11:30", "HSK",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        # Origin ghost renders on lesson 3's cell, as before.
+        origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[2].id)
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+        # No synthetic card on the MSA view — ad-hoc belongs to HSK's grid.
+        assert not any(l.is_adhoc for l in resp.lessons)
+
+    def test_calendar_unchanged_without_reschedule(
+        self, db_session, admin, app_full, slot
+    ):
+        """Baseline: a published session that hasn't been rescheduled still
+        renders on its original lesson card with the placement intact."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+
+        week_start = lessons[0].lesson_date - timedelta(days=lessons[0].lesson_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        lesson1_entry = next(l for l in resp.lessons if l.lesson_id == lessons[0].id)
+        assert len(lesson1_entry.sessions) == 1
+        assert lesson1_entry.sessions[0].application_id == app_full.id
+
+    def test_sick_leave_pending_counts_as_non_attending(
+        self, db_session, admin, app_full, slot
+    ):
+        """Sick Leave - Pending Make-up should free capacity on the students
+        endpoint the same way Rescheduled - Pending Make-up does."""
+        from routers.sessions import mark_session_sick_leave
+        from routers.summer_course import get_student_lessons
+        import asyncio
+
+        self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 2,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+
+        asyncio.get_event_loop().run_until_complete(
+            mark_session_sick_leave(session_id=session.id, current_user=admin, db=db_session)
+        )
+
+        resp = get_student_lessons(
+            config_id=slot.config_id, location=None,
+            _admin=None, db=db_session,
+        )
+        row = next(r for r in resp.students if r.application_id == app_full.id)
+        # Sick leave is non-attending → counted in rescheduled_count.
+        assert row.rescheduled_count >= 1
+        entry2 = next(e for e in row.lessons if e.lesson_number == 2)
+        assert entry2.session_status == "Sick Leave - Pending Make-up"
+
+    def test_calendar_ghost_for_chained_makeup(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Chained make-ups render a ghost on each ancestor cell, so the seat
+        the student was moved through shows as resolved, not occupied."""
+        from routers.summer_course import get_lesson_calendar
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+        session = db_session.query(SessionLog).filter(
+            SessionLog.lesson_number == 5,
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        origin_date = session.session_date
+
+        # First reschedule: origin → makeup1 (ad-hoc Wed, off-grid).
+        ad_hoc_1 = origin_date + timedelta(days=1)
+        makeup1 = self._reschedule_active(
+            db_session, admin, session, ad_hoc_1,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+        # Second reschedule: makeup1 → makeup2 (another ad-hoc Thu, off-grid too).
+        ad_hoc_2 = origin_date + timedelta(days=2)
+        self._reschedule_active(
+            db_session, admin, makeup1, ad_hoc_2,
+            slot_tutor, "10:00 - 11:30", "MSA",
+        )
+
+        week_start = origin_date - timedelta(days=origin_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location=slot.location,
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        origin_entry = next(l for l in resp.lessons if l.lesson_id == lessons[4].id)
+        # The root origin is on-grid and renders as a ghost. makeup1 is off-grid
+        # (ad-hoc Wednesday) so its ghost wouldn't appear anywhere on this week.
+        assert len(origin_entry.sessions) == 1
+        assert origin_entry.sessions[0].session_status == "Rescheduled - Make-up Booked"
+
+    def test_calendar_normalizes_chinese_location_in_matching(
+        self, db_session, admin, app_full, slot, config
+    ):
+        """Regression: slots configured with Chinese display names (e.g.
+        "華士古分校") are stored normalised ("MSA") on session_log at publish.
+        The calendar must normalise both sides or every published session
+        falls off the grid."""
+        from routers.summer_course import get_lesson_calendar
+
+        # Flip this slot (and its config's locations metadata) to the Chinese
+        # display name used in real configs.
+        slot.location = "華士古分校"
+        config.locations = [{"name": "華士古分校", "open_days": ["Tuesday"]}]
+        db_session.commit()
+
+        lessons = self._publish(db_session, admin, app_full, slot)
+
+        week_start = lessons[0].lesson_date - timedelta(days=lessons[0].lesson_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=slot.config_id, location="華士古分校",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        lesson1_entry = next(l for l in resp.lessons if l.lesson_id == lessons[0].id)
+        assert len(lesson1_entry.sessions) == 1
+        assert lesson1_entry.sessions[0].application_id == app_full.id
+
+    def test_tutorless_sibling_slots_do_not_collide_on_calendar(
+        self, db_session, config, app_full,
+    ):
+        """Two slots at the same (date, time_slot, location) with both tutors
+        NULL must not share a calendar-grid card — each must surface its own
+        placements separately, otherwise slot-setup drops misroute in the UI."""
+        from routers.summer_course import get_lesson_calendar
+
+        slot_a = SummerCourseSlot(
+            config_id=config.id, slot_day="Tuesday", time_slot="10:00 - 11:30",
+            location="MSA", grade="F2", course_type="A", max_students=8, tutor_id=None,
+        )
+        slot_b = SummerCourseSlot(
+            config_id=config.id, slot_day="Tuesday", time_slot="10:00 - 11:30",
+            location="MSA", grade="F1", course_type="B", max_students=8, tutor_id=None,
+        )
+        db_session.add_all([slot_a, slot_b])
+        db_session.commit()
+        lessons_a = _materialize_lessons(db_session, slot_a)
+        _materialize_lessons(db_session, slot_b)
+
+        # Student placed on slot_a only.
+        for lesson in lessons_a:
+            db_session.add(SummerSession(
+                application_id=app_full.id, slot_id=slot_a.id,
+                lesson_id=lesson.id, session_status="Confirmed",
+            ))
+        db_session.commit()
+
+        week_start = lessons_a[0].lesson_date - timedelta(days=lessons_a[0].lesson_date.weekday())
+        resp = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        entry_a = next(l for l in resp.lessons if l.lesson_id == lessons_a[0].id)
+        entry_b = next(l for l in resp.lessons if l.slot_id == slot_b.id and l.lesson_number == 1)
+        assert len(entry_a.sessions) == 1
+        assert entry_a.sessions[0].application_id == app_full.id
+        assert len(entry_b.sessions) == 0
+
+
+class TestMakeupSlotCreate:
+    """
+    POST /summer/makeup-slots opens a one-off ad-hoc lesson on a specific
+    date/tutor. Ad-hoc slots are full-citizen SummerCourseSlot rows that
+    materialise exactly one SummerLesson via the existing generation branch,
+    so the rest of the publish → session_log pipeline works unchanged.
+    """
+
+    def _payload(self, config, slot_tutor, adhoc_date, **overrides):
+        from schemas import SummerMakeupSlotCreate
+        data = dict(
+            config_id=config.id,
+            location="MSA",
+            date=adhoc_date,
+            time_slot="10:00 - 11:30",
+            tutor_id=slot_tutor.id,
+            max_students=8,
+        )
+        data.update(overrides)
+        return SummerMakeupSlotCreate(**data)
+
+    def test_creates_slot_and_single_lesson(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+
+        assert resp.slot.is_adhoc is True
+        assert resp.slot.adhoc_date == adhoc_date
+        assert resp.slot.tutor_id == slot_tutor.id
+        assert resp.slot.max_students == 8
+        assert resp.slot.grade is None
+        assert resp.slot.course_type is None
+
+        lessons = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).all()
+        assert len(lessons) == 1
+        assert lessons[0].lesson_date == adhoc_date
+        assert lessons[0].lesson_number is None
+        assert lessons[0].lesson_status == "Scheduled"
+
+    def test_slot_day_derived_from_date(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        wednesday = config.course_start_date + timedelta(days=2)
+        assert wednesday.strftime("%A") == "Wednesday"
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, wednesday),
+            admin=admin, db=db_session,
+        )
+        assert resp.slot.slot_day == "Wednesday"
+
+    def test_date_outside_course_range_rejected(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        before = config.course_start_date - timedelta(days=1)
+        with pytest.raises(HTTPException) as exc:
+            create_makeup_slot(
+                data=self._payload(config, slot_tutor, before),
+                admin=admin, db=db_session,
+            )
+        assert exc.value.status_code == 400
+
+    def test_unknown_tutor_rejected(self, db_session, admin, config, slot_tutor):
+        from routers.summer_course import create_makeup_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        payload = self._payload(config, slot_tutor, adhoc_date, tutor_id=99999)
+        with pytest.raises(HTTPException) as exc:
+            create_makeup_slot(data=payload, admin=admin, db=db_session)
+        assert exc.value.status_code == 404
+
+    def test_tutor_conflict_note_surfaces_regular_slot(
+        self, db_session, admin, config, slot, slot_tutor
+    ):
+        """When the chosen tutor already teaches a regular slot at this
+        (date, time), the response carries a tutor_conflict_note so the
+        admin can confirm the double-up is intentional."""
+        from routers.summer_course import create_makeup_slot
+        lessons = _materialize_lessons(db_session, slot)
+        target_date = lessons[0].lesson_date  # Tuesday 10:00 — conflicts with `slot`
+
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, target_date),
+            admin=admin, db=db_session,
+        )
+        assert resp.tutor_conflict_note is not None
+        assert "F1" in resp.tutor_conflict_note
+
+    def test_tutor_conflict_note_absent_for_different_time(
+        self, db_session, admin, config, slot, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot
+        _materialize_lessons(db_session, slot)
+        adhoc_date = config.course_start_date + timedelta(days=1)  # Tuesday
+        payload = self._payload(
+            config, slot_tutor, adhoc_date,
+            time_slot="14:00 - 15:30",
+        )
+        resp = create_makeup_slot(data=payload, admin=admin, db=db_session)
+        assert resp.tutor_conflict_note is None
+
+    def test_delete_blocked_when_sessions_exist(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Existing delete_slot endpoint rejects when active sessions reference
+        the slot's lesson. Covers ad-hoc slots by extension."""
+        from routers.summer_course import create_makeup_slot, delete_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).first()
+        db_session.add(SummerSession(
+            application_id=app_full.id,
+            slot_id=resp.slot.id,
+            lesson_id=lesson.id,
+            lesson_number=lesson.lesson_number,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            delete_slot(slot_id=resp.slot.id, admin=admin, db=db_session)
+        assert exc.value.status_code == 400
+
+    def test_delete_allowed_when_empty(
+        self, db_session, admin, config, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot, delete_slot
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=self._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        result = delete_slot(slot_id=resp.slot.id, admin=admin, db=db_session)
+        assert result.get("success") is True
+        assert db_session.query(SummerCourseSlot).filter(
+            SummerCourseSlot.id == resp.slot.id,
+        ).first() is None
+        assert db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == resp.slot.id,
+        ).first() is None
+
+
+class TestMakeupSlotOnCalendar:
+    """Ad-hoc slots appear as first-class cards on the calendar — real
+    SummerLesson behind them (positive lesson_id), is_adhoc=True, editable."""
+
+    def test_drop_sets_per_student_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Dropping a student onto an ad-hoc slot with a lesson_number
+        stores it on SummerSession (pre-publish, per-student override)."""
+        from routers.summer_course import create_makeup_slot, create_session
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+
+        resp = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=7,
+            ),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number == 7
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.id == resp.id,
+        ).first()
+        assert ss.lesson_number == 7
+
+    def test_students_table_surfaces_adhoc_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """Regression: get_student_lessons used to short-circuit at
+        SummerLesson.lesson_number, which is NULL for ad-hoc slots. The row
+        then fell through `if effective_ln is None: continue` and the session
+        disappeared from the students table. SummerSession.lesson_number
+        must take precedence when set."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_student_lessons,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        assert lesson.lesson_number is None  # ad-hoc default
+
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=4,  # per-student value
+            ),
+            admin=admin, db=db_session,
+        )
+
+        resp = get_student_lessons(
+            config_id=config.id, location=None,
+            _admin=None, db=db_session,
+        )
+        row = next(r for r in resp.students if r.application_id == app_full.id)
+        entry4 = next(e for e in row.lessons if e.lesson_number == 4)
+        assert entry4.placed is True
+        assert entry4.lesson_date == adhoc_date
+        assert entry4.slot_id == slot_resp.slot.id
+
+    def test_detail_modal_surfaces_adhoc_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """_build_application_response (detail modal + unassigned panel) must
+        prefer SummerSession.lesson_number over SummerLesson.lesson_number
+        so ad-hoc drops render their per-student value, not NULL."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_application,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        sess = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=6,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        detail = get_application(
+            app_id=app_full.id,
+            _admin=None, db=db_session,
+        )
+        placement = next(p for p in detail.sessions if p.id == sess.id)
+        assert placement.lesson_number == 6
+
+    def test_per_student_lesson_number_clear(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """PATCH /summer/sessions/{id}/lesson-number supports clearing."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, update_session_lesson_number,
+        )
+        from schemas import SummerSessionCreate, SummerSessionLessonNumberUpdate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        sess = create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=5,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        # Clear via the opt-in flag.
+        cleared = update_session_lesson_number(
+            session_id=sess.id,
+            data=SummerSessionLessonNumberUpdate(clear_lesson_number=True),
+            admin=admin, db=db_session,
+        )
+        assert cleared.lesson_number is None
+
+        # Set to a different value afterwards.
+        updated = update_session_lesson_number(
+            session_id=sess.id,
+            data=SummerSessionLessonNumberUpdate(lesson_number=3),
+            admin=admin, db=db_session,
+        )
+        assert updated.lesson_number == 3
+
+    def test_publish_prefers_summer_session_lesson_number(
+        self, db_session, admin, config, slot_tutor, app_full
+    ):
+        """When SummerSession.lesson_number is set (ad-hoc drop), publish
+        must write it to session_log — not the slot-level SummerLesson
+        default. Regression: earlier code keyed off p.lesson.lesson_number
+        first, which silently overwrote the per-student override."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, publish_application,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lessons_paid = 1
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        # Slot-level default set to 1; per-student override to 8. Publish
+        # should honour 8.
+        lesson.lesson_number = 1
+        db_session.commit()
+
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=8,
+            ),
+            admin=admin, db=db_session,
+        )
+        # Confirm status so publish accepts it.
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+        ).first()
+        ss.session_status = "Confirmed"
+        db_session.commit()
+
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        log_row = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id.isnot(None),
+        ).first()
+        assert log_row.lesson_number == 8
+
+    def test_lesson_level_clear_support(
+        self, db_session, admin, config, slot_tutor
+    ):
+        """PATCH /summer/lessons/{id} with clear_lesson_number nulls the
+        slot-level default (previously impossible — None was 'no change')."""
+        from routers.summer_course import create_makeup_slot, update_lesson
+        from schemas import SummerLessonUpdate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        update_lesson(
+            lesson_id=lesson.id,
+            data=SummerLessonUpdate(lesson_number=6),
+            admin=admin, db=db_session,
+        )
+        db_session.refresh(lesson)
+        assert lesson.lesson_number == 6
+
+        update_lesson(
+            lesson_id=lesson.id,
+            data=SummerLessonUpdate(clear_lesson_number=True),
+            admin=admin, db=db_session,
+        )
+        db_session.refresh(lesson)
+        assert lesson.lesson_number is None
+
+    def test_adhoc_slot_surfaces_as_real_card(
+        self, db_session, admin, config, slot_tutor
+    ):
+        from routers.summer_course import create_makeup_slot, get_lesson_calendar
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+
+        adhoc_entries = [l for l in cal.lessons if l.is_adhoc]
+        assert len(adhoc_entries) == 1
+        entry = adhoc_entries[0]
+        # Distinguish from synthetic off-grid cards: real ad-hoc has a
+        # positive lesson_id backed by an actual SummerLesson row.
+        assert entry.lesson_id > 0
+        assert entry.slot_id == resp.slot.id
+        assert entry.tutor_id == slot_tutor.id
+        assert entry.grade is None
+        assert entry.course_type is None
+        assert entry.lesson_number == 0  # NULL → 0 via response builder
+        assert entry.max_students == 8
+        assert entry.sessions == []
+
+
+class TestLinkedStudentFieldsOnSessionInfo:
+    """SummerSlotSessionInfo carries lang_stream + linked-CSM-student context
+    so the calendar and slot cards can render `1001 Natalie Chang F3C` with
+    a link-out to the profile, matching StudentInfoBadges elsewhere."""
+
+    def test_calendar_session_carries_linked_student_fields(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """get_lesson_calendar populates existing_student_id,
+        school_student_id, existing_student_name, and lang_stream."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_lesson_calendar,
+        )
+        from schemas import SummerSessionCreate
+
+        # Self-filled form value + canonical student fields (different name
+        # to simulate a match with a spelling/character variant).
+        app_full.lang_stream = "C"
+        student.school_student_id = "1001"
+        student.student_name = "Natalie Chang"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=4,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        adhoc_entry = next(l for l in cal.lessons if l.is_adhoc and l.lesson_id > 0)
+        sess = adhoc_entry.sessions[0]
+        assert sess.lang_stream == "C"
+        assert sess.existing_student_id == student.id
+        assert sess.school_student_id == "1001"
+        assert sess.existing_student_name == "Natalie Chang"
+        # Self-filled student_name is preserved alongside for divergence UI
+        assert sess.student_name == "Linked Student"
+        # Pre-publish: no session_log row yet.
+        assert sess.session_log_id is None
+
+    def test_calendar_session_carries_session_log_id_post_publish(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """After publish, the session_log row's id surfaces on the calendar
+        payload so the frontend can open SessionDetailPopover directly."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, publish_application,
+            get_lesson_calendar,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lessons_paid = 1
+        student.school_student_id = "1001"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=3,
+            ),
+            admin=admin, db=db_session,
+        )
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+        ).first()
+        ss.session_status = "Confirmed"
+        db_session.commit()
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        log_row = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss.id,
+        ).first()
+        assert log_row is not None
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        adhoc_entry = next(l for l in cal.lessons if l.is_adhoc and l.lesson_id > 0)
+        sess = adhoc_entry.sessions[0]
+        assert sess.session_log_id == log_row.id
+
+    def test_slot_response_carries_linked_student_fields(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """Same guarantee for the Slot Setup tab via _build_slot_response."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, list_slots,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lang_stream = "E"
+        student.school_student_id = "2042"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=2,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        slots = list_slots(
+            config_id=config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        slot = next(s for s in slots if s.id == slot_resp.slot.id)
+        sess = slot.sessions[0]
+        assert sess.lang_stream == "E"
+        assert sess.existing_student_id == student.id
+        assert sess.school_student_id == "2042"
+        assert sess.existing_student_name == student.student_name
+
+    def test_unlinked_application_leaves_linked_fields_null(
+        self, db_session, admin, config, slot_tutor, app_unlinked
+    ):
+        """Unlinked applications still render fine — linked fields stay None."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, list_slots,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_unlinked.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=1,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        slots = list_slots(
+            config_id=config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        slot = next(s for s in slots if s.id == slot_resp.slot.id)
+        sess = slot.sessions[0]
+        assert sess.existing_student_id is None
+        assert sess.school_student_id is None
+        assert sess.existing_student_name is None
+        # Self-filled name still surfaces for the card's fallback render.
+        assert sess.student_name == "No Link"
+
+
+# ---------------------------------------------------------------------------
+# Application response overlay (post-publish live session_log)
+# ---------------------------------------------------------------------------
+
+class TestApplicationResponseOverlay:
+    """Post-publish, `SummerApplicationDetailModal` and the fee-message
+    schedule copy iterate `app.sessions` — so `_build_application_response`
+    must overlay the active `session_log` onto each row. Otherwise the modal
+    and copy show the frozen placement after a reschedule while the calendar
+    shows the live one, and click-through from the modal lands on the wrong
+    card.
+    """
+
+    def test_prepublish_session_log_id_null_and_original_fields_null(
+        self, db_session, app_full, slot
+    ):
+        """Pre-publish: live == frozen. session_log_id and original_* stay None
+        so the frontend divergence detector short-circuits cleanly."""
+        from routers.summer_course import get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert len(detail.sessions) == 8
+        for p in detail.sessions:
+            assert p.session_log_id is None
+            assert p.original_lesson_date is None
+            assert p.original_session_status is None
+            assert p.original_lesson_number is None
+            assert p.original_time_slot is None
+            assert p.original_location is None
+            assert p.original_tutor_name is None
+
+    def test_postpublish_fields_match_live_original_matches_frozen(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Post-publish, no reschedule yet: live fields equal session_log
+        values (location denormalised back to display form), originals equal
+        the frozen snapshot. session_log_id populated."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        # All session_log rows for this app, keyed by summer_session_id.
+        logs = {
+            sl.summer_session_id: sl
+            for sl in db_session.query(SessionLog).filter(
+                SessionLog.summer_session_id.in_([p.id for p in detail.sessions])
+            ).all()
+        }
+        assert len(detail.sessions) == 8
+        for p in detail.sessions:
+            log = logs[p.id]
+            assert p.session_log_id == log.id
+            # Status: session_log uses "Scheduled" post-publish; original
+            # is the frozen SummerSession status ("Confirmed" from _place_all).
+            assert p.session_status == log.session_status == "Scheduled"
+            assert p.original_session_status == "Confirmed"
+            assert p.lesson_date == str(log.session_date)
+            assert p.original_lesson_date == p.lesson_date  # no reschedule yet
+            # Location: slot.location is "MSA" (happens to already be short
+            # code in these fixtures) so denormalised live == original.
+            assert p.location == p.original_location == slot.location
+            assert p.tutor_name == p.original_tutor_name == slot_tutor.tutor_name
+            assert p.time_slot == p.original_time_slot == slot.time_slot
+            assert p.lesson_number == p.original_lesson_number
+
+    def test_date_reschedule_surfaces_live_date_keeps_original(
+        self, db_session, admin, app_full, slot
+    ):
+        """Rewriting session_log.session_date (e.g. a direct reschedule to a
+        different day) makes the modal row show the new date; original_*
+        preserves the planned date so the divergence chip can render."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+
+        new_date = lessons[0].lesson_date + timedelta(days=3)
+        log.session_date = new_date
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.lesson_date == str(new_date)
+        assert p.original_lesson_date == str(lessons[0].lesson_date)
+        assert p.session_log_id == log.id
+
+    def test_tutor_change_on_session_log_surfaces_live_tutor(
+        self, db_session, admin, app_full, slot, slot_tutor, other_tutor
+    ):
+        """Reassigning a session to a different tutor on the live row should
+        surface the new tutor_name in the row; original_tutor_name stays as
+        the slot's tutor."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.tutor_id = other_tutor.id
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.tutor_name == other_tutor.tutor_name
+        assert p.original_tutor_name == slot_tutor.tutor_name
+
+    def test_pending_makeup_surfaces_on_original_row(
+        self, db_session, admin, app_full, slot
+    ):
+        """Rescheduled - Pending Make-up: summer_session_id still points to
+        the original row, live.session_date == lesson_date. Row shows pending
+        status on the original date (no makeup booked yet)."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.session_status = "Rescheduled - Pending Make-up"
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.session_status == "Rescheduled - Pending Make-up"
+        assert p.original_session_status == "Confirmed"
+        assert p.lesson_date == str(lessons[0].lesson_date)
+
+    def test_makeup_booked_surfaces_on_live_row_at_new_date(
+        self, db_session, admin, app_full, slot, slot_tutor, config
+    ):
+        """Rescheduled - Make-up Booked: summer_session_id migrates to the new
+        session_log (different date). Modal row shows the new date with
+        make-up status; original_* preserves the original placement."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        original_log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+
+        # Follow-up 3 semantics: the original row keeps make_up_for_id on
+        # the new one; summer_session_id migrates to the new row.
+        makeup_date = lessons[0].lesson_date + timedelta(days=14)
+        makeup = SessionLog(
+            student_id=original_log.student_id,
+            tutor_id=slot_tutor.id,
+            enrollment_id=original_log.enrollment_id,
+            session_date=makeup_date,
+            time_slot=slot.time_slot,
+            location=slot.location,
+            session_status="Attended (Make-up)",
+            financial_status=original_log.financial_status,
+            make_up_for_id=original_log.id,
+            summer_session_id=ss_first.id,
+        )
+        original_log.summer_session_id = None
+        original_log.session_status = "Rescheduled - Make-up Booked"
+        db_session.add(makeup)
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        # Live row now == makeup row: new date, make-up status.
+        assert p.session_log_id == makeup.id
+        assert p.lesson_date == str(makeup_date)
+        assert p.session_status == "Attended (Make-up)"
+        # Original snapshot still points at the planned placement.
+        assert p.original_lesson_date == str(lessons[0].lesson_date)
+        assert p.original_session_status == "Confirmed"
+
+    def test_cancelled_live_row_filtered_out(
+        self, db_session, admin, app_full, slot
+    ):
+        """Student-cancelled post-publish (session_log.session_status='Cancelled')
+        drops out of the modal response, matching pre-publish behaviour."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.session_status = "Cancelled"
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert len(detail.sessions) == 7
+        assert all(p.id != ss_first.id for p in detail.sessions)

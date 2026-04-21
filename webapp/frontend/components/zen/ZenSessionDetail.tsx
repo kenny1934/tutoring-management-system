@@ -388,6 +388,13 @@ export function ZenSessionDetail({
           {session.financial_status || "Unknown"}
         </span>
 
+        {session.lesson_number != null && (
+          <>
+            <span style={{ color: "var(--zen-dim)" }}>Lesson:</span>
+            <span style={{ color: "var(--zen-fg)" }}>L{session.lesson_number}</span>
+          </>
+        )}
+
         {session.notes && (
           <>
             <span style={{ color: "var(--zen-dim)" }}>Notes:</span>

@@ -11,6 +11,10 @@ import {
   ChevronRight,
   Info,
   SlidersHorizontal,
+  Search,
+  ArrowUpDown,
+  Sparkles,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
@@ -87,10 +91,14 @@ const SLOT_BORDER_COLORS = [
   "border-l-emerald-400 dark:border-l-emerald-600",
 ];
 
-function getQualityLabel(score: number): { text: string; className: string } {
-  if (score > 0.8) return { text: "Good fit", className: "text-green-600 dark:text-green-400" };
-  if (score >= 0.5) return { text: "Okay fit", className: "text-yellow-600 dark:text-yellow-400" };
-  return { text: "Poor fit", className: "text-red-600 dark:text-red-400" };
+type QualityTier = "good" | "okay" | "poor";
+type QualityFilter = QualityTier | "all" | "review";
+type SectionKey = "review" | "ready" | "unplaceable";
+
+function getQualityLabel(score: number): { tier: QualityTier; text: string; className: string } {
+  if (score > 0.8) return { tier: "good", text: "Good fit", className: "text-green-600 dark:text-green-400" };
+  if (score >= 0.5) return { tier: "okay", text: "Okay fit", className: "text-yellow-600 dark:text-yellow-400" };
+  return { tier: "poor", text: "Poor fit", className: "text-red-600 dark:text-red-400" };
 }
 
 function makeupInfoFor(
@@ -157,6 +165,77 @@ const SLOT_LEGEND_DOT_COLORS = [
 // Pairs where curriculum order matters: L1<L2, L3<L4, L5<L6, L7<L8
 const LESSON_PAIRS: [number, number][] = [[1, 2], [3, 4], [5, 6], [7, 8]];
 
+function findOutOfOrderLessons(assignments: SummerSuggestionItem["lesson_assignments"]): Set<number> {
+  const dateByNumber = new Map(assignments.map((a) => [a.lesson_number, a.lesson_date]));
+  const out = new Set<number>();
+  for (const [first, second] of LESSON_PAIRS) {
+    const d1 = dateByNumber.get(first);
+    const d2 = dateByNumber.get(second);
+    if (d1 && d2 && d1 > d2) {
+      out.add(first);
+      out.add(second);
+    }
+  }
+  return out;
+}
+
+interface StudentGroup {
+  appId: number;
+  primary: SummerSuggestionItem;
+  options: SummerSuggestionItem[];
+  hasOptions: boolean;
+}
+
+function groupProposalsByApp(proposals: SummerSuggestionItem[]): StudentGroup[] {
+  const map = new Map<number, SummerSuggestionItem[]>();
+  for (const p of proposals) {
+    if (!map.has(p.application_id)) map.set(p.application_id, []);
+    map.get(p.application_id)!.push(p);
+  }
+  return [...map.entries()].map(([appId, items]) => ({
+    appId,
+    primary: items[0],
+    options: items,
+    hasOptions: items.length > 1,
+  }));
+}
+
+function getActiveItem(group: StudentGroup, selectedOptionLabel: string | undefined): SummerSuggestionItem {
+  if (!group.hasOptions) return group.primary;
+  return group.options.find((o) => o.option_label === selectedOptionLabel) ?? group.primary;
+}
+
+interface ReviewFlags {
+  hasOptions: boolean;
+  poorFit: boolean;
+  outOfOrder: boolean;
+  pendingMakeup: boolean;
+  unavailabilityNote: boolean;
+  adjustError: boolean;
+}
+
+function computeReviewFlags(
+  group: StudentGroup,
+  active: SummerSuggestionItem,
+  makeupInfo: { makeupNumbers: number[] },
+  hasAdjustError: boolean,
+): ReviewFlags {
+  return {
+    hasOptions: group.hasOptions,
+    poorFit: active.sequence_score < 0.5,
+    outOfOrder: findOutOfOrderLessons(active.lesson_assignments).size > 0,
+    pendingMakeup: makeupInfo.makeupNumbers.length > 0,
+    unavailabilityNote: !!active.unavailability_notes,
+    adjustError: hasAdjustError,
+  };
+}
+
+function anyReviewFlag(f: ReviewFlags): boolean {
+  // pendingMakeup and outOfOrder are expected outputs of the algorithm (surfaced as
+  // icons on the collapsed row) — they don't force the card into the review section.
+  return f.hasOptions || f.poorFit || f.unavailabilityNote || f.adjustError;
+}
+
 function LessonRow({
   assignments,
   makeupOverrides,
@@ -170,17 +249,7 @@ function LessonRow({
   const slotIds = [...new Set(assignments.map((a) => a.slot_id))];
   const slotColorMap = new Map(slotIds.map((id, i) => [id, i % SLOT_BORDER_COLORS.length]));
 
-  // Detect out-of-order pairs
-  const dateByNumber = new Map(assignments.map((a) => [a.lesson_number, a.lesson_date]));
-  const outOfOrder = new Set<number>();
-  for (const [first, second] of LESSON_PAIRS) {
-    const d1 = dateByNumber.get(first);
-    const d2 = dateByNumber.get(second);
-    if (d1 && d2 && d1 > d2) {
-      outOfOrder.add(first);
-      outOfOrder.add(second);
-    }
-  }
+  const outOfOrder = findOutOfOrderLessons(assignments);
 
   const resolveMakeup = (a: SummerSuggestionItem["lesson_assignments"][number]) =>
     makeupOverrides?.[a.lesson_number] ?? !!a.is_pending_makeup;
@@ -537,6 +606,14 @@ export function SummerAutoSuggestModal({
   // Per-lesson pending-make-up overrides keyed by app:option:lesson. Empty when the
   // admin hasn't diverged from the algorithm's decision for that lesson.
   const [makeupOverrides, setMakeupOverrides] = useState<Record<string, boolean>>({});
+  const [expandedApps, setExpandedApps] = useState<Set<number>>(new Set());
+  const [sectionsOpen, setSectionsOpen] = useState<Record<SectionKey, boolean>>({
+    review: true,
+    ready: true,
+    unplaceable: false,
+  });
+  const [filterQuery, setFilterQuery] = useState("");
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all");
 
   const makeupKey = (appId: number, optionLabel: string | null | undefined, lessonNumber: number) =>
     `${appId}:${optionLabel || "_"}:${lessonNumber}`;
@@ -604,30 +681,35 @@ export function SummerAutoSuggestModal({
     setAdjustingAppId(null);
     setAdjustErrors({});
     setMakeupOverrides({});
+    setExpandedApps(new Set());
+    setFilterQuery("");
+    setQualityFilter("all");
 
     summerAPI
       .autoSuggest({ config_id: configId, location, application_id: applicationId ?? undefined })
       .then((result) => {
         setData(result);
-        // Auto-select high-confidence proposals; for option groups, pick first option (Option A)
+        // Pre-select Ready-to-place cards; auto-expand Needs-review cards so the
+        // admin lands on decisions rather than a wall of folded summaries.
         const defaultSelected = new Set<number>();
         const defaultOptions: Record<number, string> = {};
-        const seen = new Set<number>();
-        for (const p of result.proposals) {
-          if (seen.has(p.application_id)) continue; // skip later options for auto-select
-          seen.add(p.application_id);
-          if (p.confidence > 0.5) defaultSelected.add(p.application_id);
-          if (p.option_label) defaultOptions[p.application_id] = p.option_label;
+        const defaultExpanded = new Set<number>();
+        for (const group of groupProposalsByApp(result.proposals)) {
+          if (group.primary.option_label) defaultOptions[group.appId] = group.primary.option_label;
+          const active = getActiveItem(group, group.primary.option_label ?? undefined);
+          const flags = computeReviewFlags(group, active, makeupInfoFor(active, {}), false);
+          if (anyReviewFlag(flags)) defaultExpanded.add(group.appId);
+          else defaultSelected.add(group.appId);
         }
         setSelected(defaultSelected);
         setSelectedOption(defaultOptions);
+        setExpandedApps(defaultExpanded);
       })
       .catch((e) => {
         showToastRef.current(e.message || "Auto-suggest failed", "error");
         onCloseRef.current();
       })
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, configId, location, applicationId]);
 
   // Close on Escape key
@@ -642,6 +724,15 @@ export function SummerAutoSuggestModal({
 
   const toggleItem = useCallback((appId: number) => {
     setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(appId)) next.delete(appId);
+      else next.add(appId);
+      return next;
+    });
+  }, []);
+
+  const toggleExpanded = useCallback((appId: number) => {
+    setExpandedApps((prev) => {
       const next = new Set(prev);
       if (next.has(appId)) next.delete(appId);
       else next.add(appId);
@@ -688,30 +779,67 @@ export function SummerAutoSuggestModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configId, location, data]);
 
-  // Group proposals by student for rendering (options stay within one card)
-  const studentGroups = useMemo(() => {
+  const annotatedGroups = useMemo(() => {
     if (!data) return [];
-    const map = new Map<number, SummerSuggestionItem[]>();
-    for (const p of data.proposals) {
-      if (!map.has(p.application_id)) map.set(p.application_id, []);
-      map.get(p.application_id)!.push(p);
+    return groupProposalsByApp(data.proposals).map((g) => {
+      const active = getActiveItem(g, selectedOption[g.appId]);
+      const makeupInfo = makeupInfoFor(active, makeupOverrides);
+      const flags = computeReviewFlags(g, active, makeupInfo, !!adjustErrors[g.appId]);
+      return { ...g, active, makeupInfo, flags, needsReview: anyReviewFlag(flags) };
+    });
+  }, [data, selectedOption, makeupOverrides, adjustErrors]);
+
+  const reviewGroups = useMemo(() => annotatedGroups.filter((g) => g.needsReview), [annotatedGroups]);
+  const readyGroups = useMemo(() => annotatedGroups.filter((g) => !g.needsReview), [annotatedGroups]);
+
+  const chipCounts = useMemo(() => {
+    const counts = { all: annotatedGroups.length, review: 0, good: 0, okay: 0, poor: 0 };
+    for (const g of annotatedGroups) {
+      if (g.needsReview) counts.review++;
+      counts[getQualityLabel(g.active.sequence_score).tier]++;
     }
-    return [...map.entries()].map(([appId, items]) => ({
-      appId,
-      primary: items[0],
-      options: items,
-      hasOptions: items.length > 1,
-    }));
-  }, [data]);
+    return counts;
+  }, [annotatedGroups]);
+
+  const applyFilter = useCallback(
+    (groups: typeof annotatedGroups) => {
+      const q = filterQuery.trim().toLowerCase();
+      return groups.filter((g) => {
+        if (q && !g.primary.student_name.toLowerCase().includes(q)) return false;
+        if (qualityFilter === "all") return true;
+        if (qualityFilter === "review") return g.needsReview;
+        return getQualityLabel(g.active.sequence_score).tier === qualityFilter;
+      });
+    },
+    [filterQuery, qualityFilter],
+  );
+
+  const filteredReview = useMemo(() => applyFilter(reviewGroups), [applyFilter, reviewGroups]);
+  const filteredReady = useMemo(() => applyFilter(readyGroups), [applyFilter, readyGroups]);
+  const visibleAppIds = useMemo(
+    () => new Set([...filteredReview, ...filteredReady].map((g) => g.appId)),
+    [filteredReview, filteredReady],
+  );
 
   const toggleAll = useCallback(() => {
-    if (!studentGroups.length) return;
-    setSelected(prev =>
-      prev.size === studentGroups.length
-        ? new Set()
-        : new Set(studentGroups.map(g => g.appId))
-    );
-  }, [studentGroups]);
+    if (visibleAppIds.size === 0) return;
+    setSelected(prev => {
+      const selectedVisible = [...visibleAppIds].filter((id) => prev.has(id)).length;
+      const allVisibleSelected = selectedVisible === visibleAppIds.size;
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const id of visibleAppIds) next.delete(id);
+      } else {
+        for (const id of visibleAppIds) next.add(id);
+      }
+      return next;
+    });
+  }, [visibleAppIds]);
+
+  const selectedVisibleCount = useMemo(
+    () => [...visibleAppIds].filter((id) => selected.has(id)).length,
+    [visibleAppIds, selected],
+  );
 
   const handleAccept = async () => {
     if (!data) return;
@@ -840,26 +968,78 @@ export function SummerAutoSuggestModal({
               )}
             </div>
           ) : (
-            <>
-              {/* Select all */}
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.size === studentGroups.length}
-                    onChange={toggleAll}
-                    className="rounded"
-                  />
-                  Select all ({studentGroups.length} student{studentGroups.length !== 1 ? "s" : ""})
-                </label>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {selected.size} selected
-                </span>
+            <div className="space-y-4">
+              {/* Sticky filter bar */}
+              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+                    <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={filterQuery}
+                      onChange={(e) => setFilterQuery(e.target.value)}
+                      placeholder="Search student..."
+                      className="w-full pl-7 pr-2 py-1 text-xs rounded-md border border-[#e8d4b8]/70 bg-background focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {(["all", "review", "good", "okay", "poor"] as const).map((k) => {
+                      const count = chipCounts[k];
+                      if (k !== "all" && count === 0) return null;
+                      const label =
+                        k === "all"
+                          ? "All"
+                          : k === "review"
+                          ? "Needs review"
+                          : k === "good"
+                          ? "Good fit"
+                          : k === "okay"
+                          ? "Okay fit"
+                          : "Poor fit";
+                      const active = qualityFilter === k;
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => setQualityFilter(k)}
+                          className={cn(
+                            "text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors border",
+                            active
+                              ? k === "review"
+                                ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700"
+                                : k === "good"
+                                ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                                : k === "okay"
+                                ? "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
+                                : k === "poor"
+                                ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
+                                : "bg-[#e8d4b8]/50 text-foreground border-[#e8d4b8]"
+                              : "border-transparent text-muted-foreground hover:bg-[#e8d4b8]/20"
+                          )}
+                        >
+                          {label} · {count}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="ml-auto flex items-center gap-3 text-xs">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedVisibleCount === visibleAppIds.size && visibleAppIds.size > 0}
+                        onChange={toggleAll}
+                        className="rounded"
+                      />
+                      <span>Select visible</span>
+                    </label>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {selected.size} / {annotatedGroups.length} selected
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Proposal cards — one per student, options inside */}
-              <div className="space-y-2">
-                {studentGroups.map((group) => {
+              {(() => {
+                const renderCard = (group: (typeof annotatedGroups)[number]) => {
                   const p = group.primary;
                   const gradeBg =
                     SUMMER_GRADE_BG[p.student_grade] ||
@@ -867,36 +1047,47 @@ export function SummerAutoSuggestModal({
                   const gradeBorder =
                     SUMMER_GRADE_BORDER[p.student_grade] ||
                     "border-l-gray-400";
+                  const expanded = expandedApps.has(group.appId);
+                  const isSelected = selected.has(group.appId);
+                  const isAdjusting = adjustingAppId === group.appId;
+                  const activeOpt = group.active;
+                  const activeMakeup = group.makeupInfo;
+                  const quality = getQualityLabel(activeOpt.sequence_score);
+                  const flags = group.flags;
                   return (
                     <div
                       key={group.appId}
                       className={cn(
-                        "rounded-lg border-2 border-l-4 transition-colors",
+                        "rounded-lg border-2 border-l-4 transition-all",
                         gradeBorder,
-                        selected.has(group.appId)
+                        isSelected
                           ? "border-[#e8d4b8] bg-[#fef9f3]/50 dark:bg-[#2d2618]/50"
-                          : "border-gray-200 dark:border-gray-700 hover:border-[#e8d4b8]/60"
+                          : "border-gray-200 dark:border-gray-700 hover:border-[#e8d4b8]/60 opacity-60"
                       )}
                     >
-                      {/* Two-column layout when adjusting */}
                       <div className={cn(
-                        adjustingAppId === group.appId && courseMonths ? "flex flex-col md:flex-row" : ""
+                        isAdjusting && courseMonths && expanded ? "flex flex-col md:flex-row" : ""
                       )}>
-                        {/* Left column: card body */}
                         <div className={cn(
-                          "px-3 py-2.5",
-                          adjustingAppId === group.appId && courseMonths && "md:flex-1 md:min-w-0"
+                          "px-3 py-2",
+                          isAdjusting && courseMonths && expanded && "md:flex-1 md:min-w-0"
                         )}>
-                          {/* Header: checkbox + student info + adjust button */}
                           <div className="flex items-start gap-2.5">
                             <input
                               type="checkbox"
-                              checked={selected.has(group.appId)}
+                              checked={isSelected}
                               onChange={() => toggleItem(group.appId)}
-                              className="rounded mt-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                              className="rounded mt-1"
                             />
-                            <div className="flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(group.appId)}
+                              className="flex-1 min-w-0 text-left"
+                              aria-expanded={expanded}
+                            >
                               <div className="flex items-center gap-2 flex-wrap">
+                                <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
                                 <span className="text-sm font-medium truncate">
                                   {p.student_name}
                                 </span>
@@ -913,14 +1104,87 @@ export function SummerAutoSuggestModal({
                                     {p.placed_count}/{p.lessons_paid ?? 8}
                                   </span>
                                 )}
+                                {!expanded && (
+                                  <>
+                                    <span className="text-[11px] text-foreground/70 font-medium truncate">
+                                      {group.hasOptions ? `${group.options.length} options` : getSlotSummary(p.lesson_assignments)}
+                                    </span>
+                                    <span className={cn("text-[10px] font-semibold", quality.className)}>
+                                      {quality.text}
+                                    </span>
+                                  </>
+                                )}
+                                {!expanded && (flags.hasOptions || flags.pendingMakeup || flags.outOfOrder || flags.unavailabilityNote || flags.adjustError) && (
+                                  <span className="flex items-center gap-1 text-[11px]">
+                                    {flags.hasOptions && (
+                                      <span title={`${group.options.length} options — pick one`} className="inline-flex items-center h-4 px-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[9px] font-bold">
+                                        A/B
+                                      </span>
+                                    )}
+                                    {flags.pendingMakeup && (
+                                      <span title="Has pending make-up lesson(s)" className="text-blue-500 dark:text-blue-400 text-[11px] leading-none">✱</span>
+                                    )}
+                                    {flags.outOfOrder && (
+                                      <span title="Lesson pairs out of order" className="text-amber-600 dark:text-amber-400">
+                                        <ArrowUpDown className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {flags.unavailabilityNote && (
+                                      <span title="Has unavailability note — cross-check manually" className="text-amber-600 dark:text-amber-400">
+                                        <AlertTriangle className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {flags.adjustError && (
+                                      <span title={adjustErrors[group.appId]} className="text-red-600 dark:text-red-400">
+                                        <AlertTriangle className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
                               </div>
+                            </button>
+
+                            <button
+                              className={cn(
+                                "relative shrink-0 p-1.5 rounded-md transition-colors",
+                                isAdjusting
+                                  ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
+                              )}
+                              title="Adjust date constraints"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const nextAdjusting = isAdjusting ? null : group.appId;
+                                setAdjustingAppId(nextAdjusting);
+                                if (nextAdjusting !== null && !expanded) {
+                                  setExpandedApps((prev) => {
+                                    if (prev.has(group.appId)) return prev;
+                                    return new Set(prev).add(group.appId);
+                                  });
+                                }
+                              }}
+                            >
+                              <SlidersHorizontal className="h-3.5 w-3.5" />
+                              {dateConstraints[group.appId]?.ranges.length > 0 && !isAdjusting && (
+                                <span className={cn(
+                                  "absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold rounded-full text-white",
+                                  dateConstraints[group.appId]?.mode === "include" ? "bg-green-500" : "bg-red-500"
+                                )}>
+                                  {dateConstraints[group.appId].ranges.length}
+                                </span>
+                              )}
+                            </button>
+                          </div>
+
+                          {expanded && (
+                            <div className="mt-2 pl-[26px]">
                               {(() => {
                                 const { isPair, primary, backup } = classifyPrefs(p);
                                 if (primary.length === 0 && backup.length === 0) return null;
                                 const fmt = (s: { day: string; time: string }) =>
                                   `${DAY_ABBREV[s.day] || s.day} ${s.time}`.trim();
                                 return (
-                                  <div className="text-[10px] text-muted-foreground mt-0.5 space-y-0.5">
+                                  <div className="text-[10px] text-muted-foreground space-y-0.5">
                                     {primary.length > 0 && (
                                       <div>
                                         {isPair ? "Primary: " : "Pref: "}
@@ -936,7 +1200,6 @@ export function SummerAutoSuggestModal({
                                 );
                               })()}
 
-                              {/* Options: show all as radio-selectable rows */}
                               {group.hasOptions ? (
                                 <div className="mt-2 space-y-1.5">
                                   {group.options.map((opt) => {
@@ -998,13 +1261,12 @@ export function SummerAutoSuggestModal({
                                 </div>
                               ) : (
                                 <>
-                                  {/* Single proposal — slot summary + lesson row + reason */}
                                   <div className="flex items-center gap-2 mt-1 text-[11px]">
                                     <span className="text-foreground/70 font-medium">
                                       {getSlotSummary(p.lesson_assignments)}
                                     </span>
-                                    <span className={cn("font-semibold", getQualityLabel(p.sequence_score).className)}>
-                                      {getQualityLabel(p.sequence_score).text}
+                                    <span className={cn("font-semibold", quality.className)}>
+                                      {quality.text}
                                     </span>
                                   </div>
                                   {(() => {
@@ -1028,7 +1290,6 @@ export function SummerAutoSuggestModal({
                                 </>
                               )}
 
-                              {/* Unavailability warning (shared, from primary) */}
                               {p.unavailability_notes && (
                                 <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded px-2 py-1.5">
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -1042,13 +1303,8 @@ export function SummerAutoSuggestModal({
                                 </div>
                               )}
 
-                              {(() => {
-                                const activeOpt = group.hasOptions
-                                  ? group.options.find((o) => o.option_label === selectedOption[group.appId]) ?? p
-                                  : p;
-                                const { makeupNumbers } = makeupInfoFor(activeOpt, makeupOverrides);
-                                if (makeupNumbers.length === 0) return null;
-                                const sorted = [...makeupNumbers].sort((a, b) => a - b);
+                              {activeMakeup.makeupNumbers.length > 0 && (() => {
+                                const sorted = [...activeMakeup.makeupNumbers].sort((a, b) => a - b);
                                 return (
                                   <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/10 rounded px-2 py-1.5">
                                     <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -1065,7 +1321,6 @@ export function SummerAutoSuggestModal({
                                 );
                               })()}
 
-                              {/* Inline error from failed re-suggest */}
                               {adjustErrors[group.appId] && (
                                 <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded px-2 py-1.5">
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -1078,40 +1333,10 @@ export function SummerAutoSuggestModal({
                                 </div>
                               )}
                             </div>
-
-                            {/* Adjust button */}
-                            <button
-                              className={cn(
-                                "relative shrink-0 p-1.5 rounded-md transition-colors",
-                                adjustingAppId === group.appId
-                                  ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800"
-                              )}
-                              title="Adjust date constraints"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setAdjustingAppId(adjustingAppId === group.appId ? null : group.appId);
-                              }}
-                            >
-                              <SlidersHorizontal className="h-3.5 w-3.5" />
-                              {dateConstraints[group.appId]?.ranges.length > 0 && adjustingAppId !== group.appId && (
-                                <span className={cn(
-                                  "absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold rounded-full text-white",
-                                  dateConstraints[group.appId]?.mode === "include" ? "bg-green-500" : "bg-red-500"
-                                )}>
-                                  {dateConstraints[group.appId].ranges.length}
-                                </span>
-                              )}
-                            </button>
-                          </div>
+                          )}
                         </div>
 
-                        {/* Right column: Date constraint panel */}
-                        {adjustingAppId === group.appId && courseMonths && (() => {
-                          // Build lesson markers for the active proposal
-                          const activeOpt = group.hasOptions
-                            ? group.options.find((o) => o.option_label === selectedOption[group.appId]) ?? p
-                            : p;
+                        {isAdjusting && expanded && courseMonths && (() => {
                           const slotIds = [...new Set(activeOpt.lesson_assignments.map((a) => a.slot_id))];
                           const slotColorMap = new Map(slotIds.map((id, i) => [id, i % SLOT_BORDER_COLORS.length]));
                           const markers = new Map<string, LessonMarker>();
@@ -1140,26 +1365,77 @@ export function SummerAutoSuggestModal({
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                };
 
-              {/* Unplaceable */}
-              {data.unplaceable.length > 0 && (
-                <div className="pt-4 border-t border-[#e8d4b8]/50">
-                  <div className="flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 mb-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Could not place ({data.unplaceable.length})
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    {data.unplaceable.map((u) => (
-                      <div key={u.application_id}>
-                        {u.student_name}: {u.reason}
+                return (
+                  <div className="space-y-4">
+                    {/* Ready to place section — shown first since these are what get placed on Accept */}
+                    {filteredReady.length > 0 && (
+                      <section>
+                        <button
+                          onClick={() => setSectionsOpen((s) => ({ ...s, ready: !s.ready }))}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-400 mb-1.5 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                        >
+                          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !sectionsOpen.ready && "-rotate-90")} />
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Ready to place ({filteredReady.length}) · pre-selected
+                        </button>
+                        {sectionsOpen.ready && (
+                          <div className="space-y-2">{filteredReady.map(renderCard)}</div>
+                        )}
+                      </section>
+                    )}
+
+                    {/* Needs review section — not pre-selected; admin must opt in */}
+                    {filteredReview.length > 0 && (
+                      <section>
+                        <button
+                          onClick={() => setSectionsOpen((s) => ({ ...s, review: !s.review }))}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
+                        >
+                          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !sectionsOpen.review && "-rotate-90")} />
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Needs review ({filteredReview.length}) · decide before including
+                        </button>
+                        {sectionsOpen.review && (
+                          <div className="space-y-2">{filteredReview.map(renderCard)}</div>
+                        )}
+                      </section>
+                    )}
+
+                    {/* No matches (when filter zeros out everything) */}
+                    {filteredReview.length === 0 && filteredReady.length === 0 && (
+                      <div className="text-center py-8 text-xs text-muted-foreground">
+                        No proposals match the current filter.
                       </div>
-                    ))}
+                    )}
+
+                    {/* Unplaceable */}
+                    {data.unplaceable.length > 0 && (
+                      <section className="pt-2 border-t border-[#e8d4b8]/50">
+                        <button
+                          onClick={() => setSectionsOpen((s) => ({ ...s, unplaceable: !s.unplaceable }))}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 mb-1.5 hover:text-orange-700 transition-colors"
+                        >
+                          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !sectionsOpen.unplaceable && "-rotate-90")} />
+                          <UserX className="h-3.5 w-3.5" />
+                          Could not place ({data.unplaceable.length})
+                        </button>
+                        {sectionsOpen.unplaceable && (
+                          <div className="space-y-1 text-xs text-muted-foreground pl-5">
+                            {data.unplaceable.map((u) => (
+                              <div key={u.application_id}>
+                                <span className="font-medium text-foreground/80">{u.student_name}</span>: {u.reason}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
                   </div>
-                </div>
-              )}
-            </>
+                );
+              })()}
+            </div>
           )}
         </div>
 

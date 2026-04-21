@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { SummerSlotCell } from "./SummerSlotCell";
 import type { DemandBarFilter } from "./SummerSlotCell";
 import { DAY_ABBREV } from "@/lib/summer-utils";
+import { cn } from "@/lib/utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -85,6 +86,31 @@ export function SummerArrangementGrid({
     return map;
   }, [slots]);
 
+  // Day-visibility toggle: resets when the set of open days changes (e.g.
+  // location switch). `days` is a fresh array every parent render, so key the
+  // effect off a stable joined string to avoid clobbering user selection.
+  const openDaysKey = days.join("|");
+  const [visibleDays, setVisibleDays] = useState<Set<string>>(
+    () => new Set(days)
+  );
+  useEffect(() => {
+    setVisibleDays(new Set(openDaysKey ? openDaysKey.split("|") : []));
+  }, [openDaysKey]);
+
+  const toggleDay = useCallback((day: string) => {
+    setVisibleDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        if (next.size > 1) next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  }, []);
+
+  const visibleDaysList = days.filter((d) => visibleDays.has(d));
+
   if (days.length === 0 || timeSlots.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
@@ -109,19 +135,50 @@ export function SummerArrangementGrid({
         </div>
       )}
 
+      {/* Day filter chips — subset of open days */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-[9px] text-muted-foreground mr-0.5">Days:</span>
+        {days.map((day) => {
+          const isVisible = visibleDays.has(day);
+          return (
+            <button
+              key={day}
+              onClick={() => toggleDay(day)}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                isVisible
+                  ? "bg-[#a0704b] text-white"
+                  : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
+              )}
+              title={isVisible ? `Hide ${day}` : `Show ${day}`}
+            >
+              {DAY_ABBREV[day] || day}
+            </button>
+          );
+        })}
+        {visibleDays.size !== days.length && (
+          <button
+            onClick={() => setVisibleDays(new Set(days))}
+            className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+          >
+            All
+          </button>
+        )}
+      </div>
+
       <div
         className="grid gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
         style={{
-          gridTemplateColumns: `auto repeat(${days.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: `auto repeat(${visibleDaysList.length}, minmax(110px, 1fr))`,
           gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
-          minWidth: `${64 + days.length * 110}px`,
+          minWidth: `${64 + visibleDaysList.length * 110}px`,
         }}
       >
         {/* Header row: empty corner + day headers */}
         <div className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-xs font-medium text-muted-foreground sticky left-0 top-0 z-20">
           Time
         </div>
-        {days.map((day) => (
+        {visibleDaysList.map((day) => (
           <div
             key={day}
             className="bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center text-sm font-medium sticky top-0 z-10"
@@ -139,7 +196,7 @@ export function SummerArrangementGrid({
             </div>
 
             {/* Cells for each day */}
-            {days.map((day) => {
+            {visibleDaysList.map((day) => {
               const key = `${day}|${ts}`;
               const matches = (s: { day: string; time: string }) => s.day === day && s.time === ts;
               const isPrefMatch =

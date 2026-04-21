@@ -42,6 +42,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
+import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
@@ -422,8 +423,9 @@ export function SessionDetailPopover({
   onProposalClick,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
-  const { user, effectiveRole, impersonatedTutor } = useAuth();
+  const { user, effectiveRole, impersonatedTutor, isReadOnly } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const saveLessonNumber = useSaveLessonNumber(session?.id);
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -718,6 +720,12 @@ export function SessionDetailPopover({
               {session.school_student_id || "N/A"}
             </p>
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <EditableLessonNumberBadge
+              lessonNumber={session.lesson_number}
+              size="sm"
+              disabled={isReadOnly}
+              onSave={saveLessonNumber}
+            />
             <Link
               href={`/sessions/${session.id}?lesson=true`}
               onClick={(e) => {

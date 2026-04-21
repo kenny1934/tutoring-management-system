@@ -228,9 +228,11 @@ async def get_unchecked_attendance(
             s2.lang_stream,
             uar.school,
             uar.days_overdue,
-            uar.urgency_level
+            uar.urgency_level,
+            sl.lesson_number
         FROM unchecked_attendance_reminders uar
         LEFT JOIN students s2 ON uar.student_id = s2.id
+        LEFT JOIN session_log sl ON sl.id = uar.session_id
         WHERE 1=1
     """
     params = {}
@@ -270,7 +272,8 @@ async def get_unchecked_attendance(
             lang_stream=row.lang_stream,
             school=row.school,
             days_overdue=row.days_overdue,
-            urgency_level=row.urgency_level
+            urgency_level=row.urgency_level,
+            lesson_number=row.lesson_number,
         )
         for row in rows
     ]
@@ -1406,10 +1409,19 @@ async def schedule_makeup(
         session_status="Make-up Class",
         financial_status=original_session.financial_status,  # Inherit from original session
         make_up_for_id=original_session.id,
+        # Summer linkage follows the active session. Preserves the invariant
+        # that at most one session_log row points to a given SummerSession,
+        # so arrangement views can render the live date/lesson without
+        # joining through the stale original.
+        summer_session_id=original_session.summer_session_id,
+        lesson_number=original_session.lesson_number,
         notes=request.notes,  # Optional reason for scheduling
         last_modified_by=current_user.user_email,
         last_modified_time=hk_now()
     )
+    if original_session.summer_session_id is not None:
+        original_session.summer_session_id = None
+        original_session.lesson_number = None
 
     # Auto-link to matching exam revision slot if student matches criteria
     student = db.query(Student).filter(Student.id == original_session.student_id).first()
@@ -1533,6 +1545,14 @@ async def cancel_makeup(
     original_session.rescheduled_to_id = None
     original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = hk_now()
+
+    # Summer linkage follows the active session back to the original when
+    # the makeup is cancelled. Without this, ON DELETE SET NULL would
+    # silently drop the SummerSession pointer and arrangement views would
+    # render a stale or missing card.
+    if makeup_session.summer_session_id is not None:
+        original_session.summer_session_id = makeup_session.summer_session_id
+        original_session.lesson_number = makeup_session.lesson_number
 
     # Delete the makeup session
     db.delete(makeup_session)
@@ -1850,6 +1870,47 @@ async def update_session(
 
     if request.notes is not None:
         session.notes = request.notes
+
+    if request.clear_lesson_number:
+        session.lesson_number = None
+    elif request.lesson_number is not None:
+        # Guard: warn when the student already has another active summer
+        # session at this lesson_number. The students table currently
+        # deduplicates by lesson_number and silently drops extras (see
+        # get_student_lessons), so admins should confirm the double-up is
+        # intentional before committing.
+        if (
+            request.lesson_number != session.lesson_number
+            and session.student_id is not None
+            and session.summer_session_id is not None
+            and not request.force_lesson_duplicate
+        ):
+            duplicate = (
+                db.query(SessionLog)
+                .filter(
+                    SessionLog.student_id == session.student_id,
+                    SessionLog.summer_session_id.isnot(None),
+                    SessionLog.lesson_number == request.lesson_number,
+                    SessionLog.id != session.id,
+                    SessionLog.session_status != "Cancelled",
+                )
+                .first()
+            )
+            if duplicate is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "DUPLICATE_LESSON_NUMBER",
+                        "message": (
+                            f"Student already has another active session at "
+                            f"Lesson {request.lesson_number} "
+                            f"({duplicate.session_date}). Save anyway?"
+                        ),
+                        "other_session_id": duplicate.id,
+                        "other_session_date": str(duplicate.session_date) if duplicate.session_date else None,
+                    },
+                )
+        session.lesson_number = request.lesson_number
 
     # Set audit columns
     session.last_modified_by = current_user.user_email

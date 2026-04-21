@@ -4,7 +4,7 @@
 
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { SummerPricingConfig, SummerSiblingInfo } from "@/types";
+import type { SummerApplicationSessionInfo, SummerPricingConfig, SummerSiblingInfo } from "@/types";
 
 export type Lang = "zh" | "en";
 
@@ -290,15 +290,36 @@ export function sortSessionsByDate<T extends { lesson_date?: string | null; less
   });
 }
 
-/** Status value for rescheduled sessions (mirrors backend SUMMER_NON_ATTENDING_STATUSES). */
+/** Status value for a freshly-rescheduled session (no make-up booked yet). */
 export const RESCHEDULED_STATUS = "Rescheduled - Pending Make-up";
 
-/** Statuses where the student will not attend (excluded from capacity counts). */
-const NON_ATTENDING_STATUSES = new Set(["Cancelled", RESCHEDULED_STATUS]);
+/** True when the post-publish session_log has drifted from the originally
+ *  published placement on any of the six user-facing fields. Returns false
+ *  pre-publish (nothing to diverge from). */
+export function hasPlacementDiverged(p: SummerApplicationSessionInfo): boolean {
+  if (p.session_log_id == null) return false;
+  return (
+    p.lesson_date !== p.original_lesson_date ||
+    p.session_status !== p.original_session_status ||
+    p.lesson_number !== p.original_lesson_number ||
+    p.time_slot !== p.original_time_slot ||
+    p.location !== p.original_location ||
+    p.tutor_name !== p.original_tutor_name
+  );
+}
 
-/** Whether this session status means the student is not attending. */
+/**
+ * Whether this session status means the student is not attending the slot.
+ * Covers every Pending Make-up and Make-up Booked variant (Rescheduled /
+ * Sick Leave / Weather Cancelled) plus Cancelled — matches the suffix
+ * pattern used by session-status.ts.
+ */
 export function isNonAttending(status: string): boolean {
-  return NON_ATTENDING_STATUSES.has(status);
+  return (
+    status === "Cancelled" ||
+    status.endsWith("- Pending Make-up") ||
+    status.endsWith("- Make-up Booked")
+  );
 }
 
 /** Session status → dot/bg color classes. */
@@ -306,11 +327,21 @@ export const SESSION_STATUS_DOT: Record<string, string> = {
   Confirmed: "bg-green-500 dark:bg-green-400",
   Tentative: "bg-amber-400 dark:bg-amber-400",
   "Rescheduled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
+  "Sick Leave - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
+  "Weather Cancelled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
+  "Rescheduled - Make-up Booked": "bg-gray-400 dark:bg-gray-400",
+  "Sick Leave - Make-up Booked": "bg-gray-400 dark:bg-gray-400",
+  "Weather Cancelled - Make-up Booked": "bg-gray-400 dark:bg-gray-400",
 };
 export const SESSION_STATUS_BG: Record<string, string> = {
   Confirmed: "bg-green-50 dark:bg-green-900/20",
   Tentative: "bg-yellow-50 dark:bg-yellow-900/20",
   "Rescheduled - Pending Make-up": "bg-orange-50/80 dark:bg-orange-900/20",
+  "Sick Leave - Pending Make-up": "bg-orange-50/80 dark:bg-orange-900/20",
+  "Weather Cancelled - Pending Make-up": "bg-orange-50/80 dark:bg-orange-900/20",
+  "Rescheduled - Make-up Booked": "bg-gray-100/80 dark:bg-gray-800/20",
+  "Sick Leave - Make-up Booked": "bg-gray-100/80 dark:bg-gray-800/20",
+  "Weather Cancelled - Make-up Booked": "bg-gray-100/80 dark:bg-gray-800/20",
 };
 const SESSION_STATUS_DOT_DEFAULT = "bg-gray-300 dark:bg-gray-600";
 const SESSION_STATUS_BG_DEFAULT = "bg-gray-50 dark:bg-gray-800/30";

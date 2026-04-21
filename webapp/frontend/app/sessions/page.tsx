@@ -89,6 +89,7 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
@@ -2216,6 +2217,7 @@ export default function SessionsPage() {
                                             <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                                               {session.student_name}
                                             </span>
+                                            <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                                             {session.grade && (
                                               <span
                                                 className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
@@ -2558,6 +2560,7 @@ export default function SessionsPage() {
                                         )}>
                                           {session.student_name}
                                         </span>
+                                        <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                                         {session.enrollment_payment_status !== 'Cancelled' && session.financial_status !== "Paid" && (
                                           <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )}

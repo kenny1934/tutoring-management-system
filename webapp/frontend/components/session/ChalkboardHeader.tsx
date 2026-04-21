@@ -35,6 +35,7 @@ import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 
 // Muted dusty chalk palette (top-down view colors)
 const CHALK_PALETTE = {
@@ -204,6 +205,7 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
   const { user, effectiveRole, isReadOnly, impersonatedTutor } = useAuth();
   const haptic = useHaptic();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const saveLessonNumber = useSaveLessonNumber(session.id);
 
   // Get tutor name by email, fallback to username from email
   const getTutorName = (email?: string): string | undefined => {
@@ -677,6 +679,13 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                 >
                   {session.student_name || "Unknown Student"}
                 </Link>
+                <EditableLessonNumberBadge
+                  lessonNumber={session.lesson_number}
+                  size="md"
+                  className="ml-2 align-middle bg-amber-200/95 text-amber-900 border-amber-300"
+                  disabled={isReadOnly}
+                  onSave={saveLessonNumber}
+                />
               </h1>
 
               {/* Info Button */}

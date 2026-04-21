@@ -346,6 +346,13 @@ export function SummerStudentLessonsTable({
                       if (placed && lesson?.lesson_date) {
                         const day = getDayFromDate(lesson.lesson_date);
                         const startTime = lesson.time_slot ? getStartTime(lesson.time_slot) : "";
+                        const dupes = lesson.duplicates ?? [];
+                        const baseTooltip = `${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})${onNavigateToLesson ? " — click to view in calendar" : ""}`;
+                        const tooltip = dupes.length > 0
+                          ? `${baseTooltip}\n\n+${dupes.length} duplicate${dupes.length > 1 ? "s" : ""}:\n${dupes
+                              .map((d) => `${d.lesson_date ? formatShortDate(d.lesson_date) : "—"} ${d.time_slot ?? ""} (${d.session_status ?? "Unknown"})`)
+                              .join("\n")}`
+                          : baseTooltip;
 
                         return (
                           <td
@@ -356,7 +363,7 @@ export function SummerStudentLessonsTable({
                               isRescheduled && "opacity-80",
                               onNavigateToLesson && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40"
                             )}
-                            title={`${formatShortDate(lesson.lesson_date)}, ${lesson.time_slot ?? ""} (${status ?? "Unknown"})${onNavigateToLesson ? " — click to view in calendar" : ""}`}
+                            title={tooltip}
                             onClick={onNavigateToLesson ? () => onNavigateToLesson(lesson.lesson_date!) : undefined}
                           >
                             <div className="flex flex-col items-center gap-0">
@@ -368,6 +375,11 @@ export function SummerStudentLessonsTable({
                                 {status === "Tentative" && <Clock className="h-2.5 w-2.5 text-yellow-500" />}
                                 {isRescheduled && <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />}
                                 {formatCompactDate(lesson.lesson_date)}
+                                {dupes.length > 0 && (
+                                  <span className="ml-0.5 px-1 rounded text-[8px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700 leading-tight">
+                                    +{dupes.length}
+                                  </span>
+                                )}
                               </span>
                               {startTime && (
                                 <span className={cn(

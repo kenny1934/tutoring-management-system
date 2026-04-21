@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import type { Session } from "@/types";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 
 interface MoreSessionsPopoverProps {
   sessions: Session[];
@@ -120,6 +121,7 @@ export function MoreSessionsPopover({
                     <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex justify-between items-center">
                       <span className="flex items-center gap-1">
                         {session.school_student_id || "N/A"}
+                        <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
                         {isCancelledEnrollment ? (
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                             Cancelled

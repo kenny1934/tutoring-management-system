@@ -1066,3 +1066,142 @@ class TestReadOnlyRoleRestrictions:
             cookies={"access_token": token},
         )
         assert resp.status_code == 403
+
+
+class TestPatchLessonNumber:
+    """PATCH /sessions/{id} supports updating lesson_number."""
+
+    def test_patch_sets_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session, "Admin")
+        assert session.lesson_number is None
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 3},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["lesson_number"] == 3
+
+        db_session.refresh(session)
+        assert session.lesson_number == 3
+
+    def test_patch_rejects_zero_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session, "Admin")
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 0},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 422
+
+
+class TestLessonNumberDuplicateGuard:
+    """
+    Guard A (2026-04-17): when a summer session_log.lesson_number is edited
+    to a value the same student already uses on another active summer
+    session, return 409 so the admin can explicitly opt in. Without the
+    guard, the students table silently drops the duplicate (see
+    get_student_lessons) and the extra session becomes invisible.
+    """
+
+    def _seed_two_summer_sessions(self, db_session):
+        owner = Tutor(
+            user_email="owner-dup@test.com", tutor_name="Owner",
+            role="Tutor", default_location="MSA",
+        )
+        admin = Tutor(
+            user_email="admin-dup@test.com", tutor_name="Admin",
+            role="Admin", default_location="MSA",
+        )
+        student = Student(
+            school_student_id="DUP1", student_name="Dup Student",
+            grade="F1", phone="0", school="S",
+        )
+        db_session.add_all([owner, admin, student])
+        db_session.commit()
+
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=owner.id,
+            assigned_day="Monday", assigned_time="15:00-16:00",
+            location="MSA", lessons_paid=10,
+            payment_date=date.today(), first_lesson_date=date.today(),
+            payment_status="Paid", enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+
+        # Two summer-linked sessions for the same student. The guard keys
+        # off summer_session_id being non-null, so any positive integer is
+        # enough for the test — we're exercising the guard, not the bridge.
+        s1 = SessionLog(
+            enrollment_id=enrollment.id, student_id=student.id,
+            tutor_id=owner.id, session_date=date.today(),
+            time_slot="15:00-16:00", location="MSA",
+            session_status="Scheduled",
+            summer_session_id=1, lesson_number=1,
+        )
+        s2 = SessionLog(
+            enrollment_id=enrollment.id, student_id=student.id,
+            tutor_id=owner.id, session_date=date.today() + timedelta(days=7),
+            time_slot="15:00-16:00", location="MSA",
+            session_status="Scheduled",
+            summer_session_id=2, lesson_number=2,
+        )
+        db_session.add_all([s1, s2])
+        db_session.commit()
+        db_session.refresh(s1)
+        db_session.refresh(s2)
+        token = make_auth_token(admin.id)
+        return s1, s2, token
+
+    def test_409_on_duplicate_without_force(self, client, db_session):
+        s1, s2, token = self._seed_two_summer_sessions(db_session)
+        # Try to edit s2 → lesson_number=1, which collides with s1.
+        resp = client.patch(
+            f"/api/sessions/{s2.id}",
+            json={"lesson_number": 1},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 409
+        detail = resp.json()["detail"]
+        assert detail["error"] == "DUPLICATE_LESSON_NUMBER"
+        # Nothing committed.
+        db_session.refresh(s2)
+        assert s2.lesson_number == 2
+
+    def test_force_flag_overrides(self, client, db_session):
+        s1, s2, token = self._seed_two_summer_sessions(db_session)
+        resp = client.patch(
+            f"/api/sessions/{s2.id}",
+            json={"lesson_number": 1, "force_lesson_duplicate": True},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(s2)
+        assert s2.lesson_number == 1
+
+    def test_no_guard_for_non_summer_sessions(self, client, db_session):
+        """Guard only fires for summer-linked rows (summer_session_id set).
+        Non-summer sessions use lesson_number less consistently, and the
+        duplicate-drop bug doesn't manifest there."""
+        s1, s2, token = self._seed_two_summer_sessions(db_session)
+        # Strip summer linkage from s2 so it's a plain non-summer row.
+        s2.summer_session_id = None
+        db_session.commit()
+        resp = client.patch(
+            f"/api/sessions/{s2.id}",
+            json={"lesson_number": 1},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+
+    def test_no_guard_when_value_unchanged(self, client, db_session):
+        s1, s2, token = self._seed_two_summer_sessions(db_session)
+        # Setting s1.lesson_number=1 (its current value) shouldn't trip the guard.
+        resp = client.patch(
+            f"/api/sessions/{s1.id}",
+            json={"lesson_number": 1},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200

@@ -147,9 +147,12 @@ import type {
   SummerSlot,
   SummerSlotCreate,
   SummerSlotUpdate,
+  SummerMakeupSlotCreate,
+  SummerMakeupSlotCreateResponse,
   SummerSession,
   SummerSessionCreate,
   SummerSessionStatusUpdate,
+  SummerSessionLessonNumberUpdate,
   SummerPublishResponse,
   SummerUnpublishResponse,
   SummerPublishBatchRequest,
@@ -774,6 +777,8 @@ export const sessionsAPI = {
       session_status?: string;
       performance_rating?: string;
       notes?: string;
+      lesson_number?: number;
+      force_lesson_duplicate?: boolean;
     }
   ) => {
     return fetchAPI<Session>(`/sessions/${sessionId}`, {
@@ -2438,6 +2443,12 @@ export const summerAPI = {
   deleteSlot: (id: number) =>
     fetchAPI<{ success: boolean }>(`/summer/slots/${id}`, { method: "DELETE" }),
 
+  createMakeupSlot: (data: SummerMakeupSlotCreate) =>
+    fetchAPI<SummerMakeupSlotCreateResponse>("/summer/makeup-slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   createSession: (data: SummerSessionCreate) =>
     fetchAPI<SummerSession>("/summer/sessions", {
       method: "POST",
@@ -2446,6 +2457,15 @@ export const summerAPI = {
 
   updateSessionStatus: (id: number, data: SummerSessionStatusUpdate) =>
     fetchAPI<SummerSession>(`/summer/sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  updateSessionLessonNumber: (
+    id: number,
+    data: SummerSessionLessonNumberUpdate,
+  ) =>
+    fetchAPI<SummerSession>(`/summer/sessions/${id}/lesson-number`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),

@@ -260,6 +260,7 @@ class UncheckedAttendanceReminder(BaseModel):
     school: Optional[str] = Field(None, max_length=200)
     days_overdue: int = Field(..., ge=0)
     urgency_level: str = Field(..., description="Critical, High, Medium, or Low")
+    lesson_number: Optional[int] = Field(None, description="Lesson material number (1-8 for summer). NULL for non-summer sessions.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -428,6 +429,7 @@ class PendingMakeupSession(BaseModel):
     tutor_name: Optional[str] = None
     has_extension_request: bool = False
     extension_request_status: Optional[str] = None
+    lesson_number: Optional[int] = None
 
 
 class EnrollmentDetailResponse(BaseModel):
@@ -535,6 +537,7 @@ class SessionResponse(SessionBase):
     exercises: List["SessionExerciseResponse"] = []
     undone_from_status: Optional[str] = Field(None, max_length=100, description="Status before undo (for redo toast)")
     enrollment_payment_status: Optional[str] = Field(None, max_length=50, description="Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)")
+    lesson_number: Optional[int] = Field(None, description="Lesson material number (e.g., 1-8 for summer). NULL for non-summer sessions.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -648,6 +651,14 @@ class SessionUpdate(BaseModel):
     session_status: Optional[str] = Field(None, max_length=50)
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
+    lesson_number: Optional[int] = Field(None, ge=1)
+    # Opt-in override when the caller has acknowledged a duplicate-lesson_number
+    # warning. Without it, the endpoint rejects with 409 to prevent the
+    # student from silently accumulating two sessions at the same lesson.
+    force_lesson_duplicate: bool = False
+    # Opt-in clear so None stays as "no change". Set this to null the
+    # per-session lesson_number back to NULL (useful for ad-hoc sessions).
+    clear_lesson_number: bool = False
 
 
 class HomeworkCompletionResponse(BaseModel):
@@ -2499,6 +2510,23 @@ class SummerSlotSessionInfo(BaseModel):
     grade: str
     session_status: str
     buddy_group_id: int | None = None
+    # Per-student lesson_number override (used on ad-hoc Make-up Slots where
+    # different students may cover different lesson material). For regular
+    # slots this echoes the slot's SummerLesson.lesson_number.
+    lesson_number: Optional[int] = None
+    # Post-publish session_log row id, so the calendar can open the session
+    # detail popover (which has the full PATCH surface) for live sessions.
+    # Null while the application is still pre-publish.
+    session_log_id: Optional[int] = None
+    # Self-filled language stream from the application. Used to render the
+    # combined grade+lang chip (e.g. "F3C").
+    lang_stream: Optional[str] = None
+    # Linked CSM student context. Populated when the application has been
+    # matched to an existing Student record; lets the UI show the canonical
+    # school ID + name and link out to the profile.
+    existing_student_id: Optional[int] = None
+    school_student_id: Optional[str] = None
+    existing_student_name: Optional[str] = None
 
 
 class SummerSlotResponse(BaseModel):
@@ -2514,11 +2542,29 @@ class SummerSlotResponse(BaseModel):
     tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     max_students: int
+    is_adhoc: bool = False
+    adhoc_date: Optional[date] = None
     created_at: Optional[datetime] = None
     session_count: int = 0
     sessions: List[SummerSlotSessionInfo] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SummerMakeupSlotCreate(BaseModel):
+    """Create an ad-hoc Make-up Slot for a specific date/tutor."""
+    config_id: int
+    location: str = Field(..., max_length=255)
+    date: date
+    time_slot: str = Field(..., max_length=50)
+    tutor_id: int
+    max_students: int = Field(8, gt=0)
+
+
+class SummerMakeupSlotCreateResponse(BaseModel):
+    """Response to Make-up Slot creation, including optional conflict note."""
+    slot: SummerSlotResponse
+    tutor_conflict_note: Optional[str] = None
 
 
 # ---- Summer Session Schemas (per-student bookings) ----
@@ -2530,11 +2576,26 @@ class SummerSessionCreate(BaseModel):
     lesson_id: Optional[int] = None
     mode: Literal["all", "first_half", "single"] = "all"
     session_status: Literal["Tentative", "Rescheduled - Pending Make-up"] = "Tentative"
+    # Per-student lesson_number override, used primarily when dropping onto an
+    # ad-hoc Make-up Slot where different students can cover different material.
+    # Regular slots leave this null and inherit from SummerLesson at publish time.
+    lesson_number: Optional[int] = Field(None, ge=1, le=20)
+    force_lesson_duplicate: bool = False
 
 
 class SummerSessionStatusUpdate(BaseModel):
     """Update session status."""
     session_status: Literal["Tentative", "Confirmed", "Cancelled", "Rescheduled - Pending Make-up"]
+
+
+class SummerSessionLessonNumberUpdate(BaseModel):
+    """Narrow PATCH payload for pre-publish SummerSession.lesson_number edits.
+    Used by ad-hoc Make-up Slot per-student badges. Clearing is explicit
+    via `clear_lesson_number` so None stays as "no change" (follows the
+    SummerLessonUpdate / SessionUpdate convention)."""
+    lesson_number: Optional[int] = Field(None, ge=1, le=20)
+    clear_lesson_number: bool = False
+    force_lesson_duplicate: bool = False
 
 
 class SummerSessionResponse(BaseModel):
@@ -2561,7 +2622,7 @@ class SummerLessonResponse(BaseModel):
     id: int
     slot_id: int
     lesson_date: date
-    lesson_number: int
+    lesson_number: Optional[int] = None
     lesson_status: str
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -2574,6 +2635,9 @@ class SummerLessonUpdate(BaseModel):
     lesson_number: Optional[int] = Field(None, ge=1, le=20)
     lesson_status: Optional[Literal["Scheduled", "Cancelled"]] = None
     notes: Optional[str] = None
+    # Opt-in clear so None stays as "no change" (otherwise admins can't
+    # clear the slot-level default back to NULL on ad-hoc Make-up Slots).
+    clear_lesson_number: bool = False
 
 
 class SummerLessonCalendarEntry(BaseModel):
@@ -2592,6 +2656,7 @@ class SummerLessonCalendarEntry(BaseModel):
     date: date
     notes: Optional[str] = None
     sessions: List[SummerSlotSessionInfo] = []
+    is_adhoc: bool = False
 
 
 class SummerLessonCalendarResponse(BaseModel):
@@ -2626,6 +2691,9 @@ class SummerStudentLessonEntry(BaseModel):
     time_slot: Optional[str] = None
     slot_id: Optional[int] = None
     session_status: Optional[str] = None
+    # Extra sessions sharing this lesson_number (admin double-up, make-up redo).
+    # The primary sits on the outer entry; dupes attach here and never recurse.
+    duplicates: List["SummerStudentLessonEntry"] = Field(default_factory=list)
 
 
 class SummerStudentLessonsRow(BaseModel):
@@ -2760,19 +2828,37 @@ class SummerTutorDutyResponse(BaseModel):
 # ---- Summer Application Session Info (for embedding in application response) ----
 
 class SummerApplicationSessionInfo(BaseModel):
-    """Session info embedded in application response — one per non-cancelled session."""
+    """Session info embedded in application response — one per non-cancelled session.
+
+    Post-publish, the primary display fields (`lesson_date`, `session_status`,
+    `lesson_number`, `time_slot`, `location`, `tutor_name`) overlay the active
+    session_log so the modal and the schedule copy reflect live state. The
+    `original_*` fields preserve the frozen SummerSession/SummerLesson/slot
+    values so the UI can detect divergence and show a "Rescheduled" chip.
+    Pre-publish, `session_log_id` is None and `original_*` fields are None
+    (live == original).
+    """
     id: int
     slot_id: int
     slot_day: str
     time_slot: str
     location: Optional[str] = None
     grade: Optional[str] = None
+    course_type: Optional[str] = None
     tutor_name: Optional[str] = None
     session_status: str
     lesson_number: Optional[int] = None
     lesson_date: Optional[str] = None
     slot_max_students: Optional[int] = None
     slot_current_count: Optional[int] = None
+
+    session_log_id: Optional[int] = None
+    original_lesson_date: Optional[str] = None
+    original_session_status: Optional[str] = None
+    original_lesson_number: Optional[int] = None
+    original_time_slot: Optional[str] = None
+    original_location: Optional[str] = None
+    original_tutor_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

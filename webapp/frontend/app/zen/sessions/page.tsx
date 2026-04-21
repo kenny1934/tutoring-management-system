@@ -29,6 +29,7 @@ import { isCountableSession } from "@/lib/session-status";
 import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
 import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
 import type { Session, SessionFilters } from "@/types";
+import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 
 type ViewMode = "week" | "day";
 
@@ -1064,6 +1065,7 @@ function DayDetailView({
                   </span>
                   <span style={{ minWidth: "160px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-fg)" }}>
                     {session.student_name || "Unknown"}
+                    <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1 align-middle" />
                     {session.financial_status && session.financial_status !== "Paid" && (
                       <span
                         style={{

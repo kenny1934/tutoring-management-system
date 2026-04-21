@@ -13,14 +13,16 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, nonRejectedSiblings } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
-  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, Send, CheckCircle2,
+  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, Send, CheckCircle2, Trash2,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -262,6 +264,14 @@ interface SummerApplicationDetailModalProps {
   onSelectApplication?: (app: SummerApplication) => void;
   baseFee?: number;
   config?: SummerCourseConfig | null;
+  /** Click-through on a placement row. Caller owns tab switching + week jump
+   * + location switching. Not providing this leaves rows non-clickable. */
+  onNavigateToLesson?: (target: {
+    lessonDate: string;
+    location: string;
+    timeSlot?: string;
+    sessionId?: number;
+  }) => void;
 }
 
 export function SummerApplicationDetailModal({
@@ -281,6 +291,7 @@ export function SummerApplicationDetailModal({
   onSelectApplication,
   baseFee,
   config,
+  onNavigateToLesson,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -380,10 +391,10 @@ export function SummerApplicationDetailModal({
   // unsaved changes. `null` means no discard prompt is showing.
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [pendingReschedule, setPendingReschedule] = useState<
-    { id: number; lessonNumber: number; dateLabel: string } | null
+  const [pendingAction, setPendingAction] = useState<
+    { kind: "reschedule" | "delete"; id: number; lessonNumber: number; dateLabel: string } | null
   >(null);
-  const [rescheduling, setRescheduling] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const { data: formConfig } = useSWR(
     editingDetails ? "summer-form-config" : null,
@@ -903,7 +914,7 @@ export function SummerApplicationDetailModal({
           )}
 
           {/* Right: Cancel + Save */}
-          {canEdit && (
+          {!readOnly && (
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => guardNav(onClose)}
@@ -989,9 +1000,9 @@ export function SummerApplicationDetailModal({
 
           {isPublished && (
             <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
-              This application is published. Status, placement, notes, and
-              linked student are locked — unpublish via step 4 to make changes,
-              or edit the enrollment directly for tutor-facing updates.
+              This application is published. Status, placement, and linked
+              student are locked — unpublish via step 4 to make changes, or
+              edit the enrollment directly for tutor-facing updates.
             </div>
           )}
 
@@ -1079,12 +1090,19 @@ export function SummerApplicationDetailModal({
               onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
               disabled={!canEdit}
               summary={studentId && linkedStudent ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+                <span className="inline-flex items-center gap-1 text-foreground">
                   <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
-                  <span className="truncate">{linkedStudent.student_name}</span>
-                  {linkedStudent.grade && (
-                    <span className="text-muted-foreground">· {linkedStudent.grade}</span>
-                  )}
+                  <StudentInfoBadges
+                    compact
+                    showLink
+                    student={{
+                      student_id: linkedStudent.id,
+                      student_name: linkedStudent.student_name,
+                      school_student_id: linkedStudent.school_student_id || undefined,
+                      grade: linkedStudent.grade || undefined,
+                      lang_stream: linkedStudent.lang_stream || undefined,
+                    }}
+                  />
                 </span>
               ) : studentId ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -1424,7 +1442,7 @@ export function SummerApplicationDetailModal({
             </ChecklistRow>
           </div>
 
-          {canEdit && (
+          {!readOnly && (
             <div>
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
               <textarea
@@ -1906,63 +1924,179 @@ export function SummerApplicationDetailModal({
                     {sorted.map((p) => {
                       const day = p.lesson_date ? getDayFromDate(p.lesson_date) : p.slot_day;
                       const startTime = p.time_slot ? getStartTime(p.time_slot) : "";
-                      const capacityStr = p.slot_max_students != null && p.slot_current_count != null
-                        ? `${p.slot_current_count}/${p.slot_max_students}`
-                        : null;
+                      // Post-publish rows (session_log_id != null) are styled
+                      // from the canonical session-status config — same icons
+                      // and tints used on the sessions page. Pre-publish rows
+                      // keep local branching because Confirmed / Tentative /
+                      // `Rescheduled - Pending Make-up` are arrangement-level
+                      // placement states, not session statuses.
+                      const cfg = p.session_log_id != null ? getSessionStatusConfig(p.session_status) : null;
+                      const isPreConfirmed = !cfg && p.session_status === "Confirmed";
+                      const isPreRescheduled = !cfg && p.session_status === RESCHEDULED_STATUS;
+                      const strikethrough = cfg ? !!cfg.strikethrough : isPreRescheduled;
+                      const opacityValue = cfg ? cfg.opacity : (isPreRescheduled ? 0.8 : undefined);
+                      const rowBg = cfg ? cfg.bgTint : sessionStatusBg(p.session_status);
+                      const strikeText = cfg ? cfg.textClass : "text-orange-600 dark:text-orange-400";
+                      const strikeBadgeBg = cfg && p.session_status.endsWith("- Make-up Booked")
+                        ? "bg-gray-100 dark:bg-gray-800/30"
+                        : cfg && (p.session_status === "Cancelled" || p.session_status === "No Show")
+                          ? "bg-red-100 dark:bg-red-900/30"
+                          : "bg-orange-100 dark:bg-orange-900/30";
+                      const diverged = hasPlacementDiverged(p);
+                      const divergedTooltip = diverged
+                        ? [
+                            "Originally:",
+                            [
+                              p.original_lesson_number != null ? `L${p.original_lesson_number}` : null,
+                              p.original_lesson_date ? formatCompactDate(p.original_lesson_date) : null,
+                              p.original_lesson_date && p.original_time_slot
+                                ? `${getDayFromDate(p.original_lesson_date)} ${getStartTime(p.original_time_slot)}`
+                                : p.original_lesson_date
+                                  ? getDayFromDate(p.original_lesson_date)
+                                  : p.original_time_slot
+                                    ? getStartTime(p.original_time_slot)
+                                    : null,
+                              p.original_tutor_name ? getTutorFirstName(p.original_tutor_name) : null,
+                              displayLocation(p.original_location) || null,
+                            ].filter(Boolean).join(" · "),
+                            p.original_session_status && p.original_session_status !== p.session_status
+                              ? `Status: ${p.original_session_status}`
+                              : null,
+                          ].filter(Boolean).join("\n")
+                        : undefined;
+                      const canNavigate = !!(
+                        onNavigateToLesson
+                        && p.lesson_date
+                        && p.location
+                        && p.session_status !== "Cancelled"
+                      );
+                      const navigate = canNavigate
+                        ? () => {
+                            onNavigateToLesson!({
+                              lessonDate: p.lesson_date!,
+                              location: p.location!,
+                              timeSlot: p.time_slot ?? undefined,
+                              sessionId: p.id,
+                            });
+                            onClose();
+                          }
+                        : undefined;
                       return (
-                        <div key={p.id} title={p.session_status} className={cn(
-                          "flex items-center gap-2 text-sm px-2 py-1 rounded",
-                          sessionStatusBg(p.session_status),
-                          p.session_status === RESCHEDULED_STATUS && "opacity-80",
-                        )}>
-                          {p.session_status === "Confirmed"
-                            ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                            : p.session_status === RESCHEDULED_STATUS
-                              ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-                              : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                        <div
+                          key={p.id}
+                          title={canNavigate ? `${p.session_status} — click to view in calendar` : p.session_status}
+                          role={canNavigate ? "button" : undefined}
+                          tabIndex={canNavigate ? 0 : undefined}
+                          onClick={navigate}
+                          onKeyDown={canNavigate ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate!();
+                            }
+                          } : undefined}
+                          className={cn(
+                            "flex items-center gap-2 text-sm px-2 py-1 rounded",
+                            rowBg,
+                            opacityValue === 0.8 && "opacity-80",
+                            opacityValue === 0.6 && "opacity-60",
+                            canNavigate && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/60",
+                          )}
+                        >
+                          <span className={cn(
+                            "text-[10px] font-semibold tabular-nums px-1.5 rounded shrink-0 w-7 text-center",
+                            strikethrough
+                              ? cn(strikeBadgeBg, strikeText, "line-through")
+                              : "bg-primary/10 text-primary",
+                          )}>
+                            L{p.lesson_number ?? "—"}
+                          </span>
+                          {cfg
+                            ? <cfg.Icon className={cn("h-3.5 w-3.5 shrink-0", cfg.iconClass ?? cfg.textClass)} />
+                            : isPreConfirmed
+                              ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                              : isPreRescheduled
+                                ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+                                : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
                           <span className={cn(
                             "font-medium tabular-nums w-16 shrink-0",
-                            p.session_status === RESCHEDULED_STATUS
-                              ? "line-through text-orange-600 dark:text-orange-400"
-                              : "text-foreground"
+                            strikethrough ? cn("line-through", strikeText) : "text-foreground"
                           )}>
                             {p.lesson_date ? formatCompactDate(p.lesson_date) : p.slot_day}
                           </span>
                           <span className="text-muted-foreground text-xs shrink-0">
                             {day} {startTime}
                           </span>
-                          {p.grade && (
-                            <span className="text-[10px] px-1 rounded bg-gray-100 dark:bg-gray-700 text-muted-foreground shrink-0">
-                              {p.grade}
+                          {(p.grade || p.course_type) && (
+                            <span className="inline-flex items-center text-[10px] font-semibold rounded shrink-0 overflow-hidden">
+                              {p.grade && (
+                                <span className={cn(
+                                  "px-1",
+                                  SUMMER_GRADE_BG[p.grade] || "bg-gray-100 dark:bg-gray-700 text-muted-foreground",
+                                )}>
+                                  {p.grade}
+                                </span>
+                              )}
+                              {p.course_type && (
+                                <span className={cn(
+                                  "px-1",
+                                  COURSE_TYPE_COLORS[p.course_type] || "bg-primary/10 text-primary",
+                                )}>
+                                  {p.course_type}
+                                </span>
+                              )}
                             </span>
                           )}
                           {p.tutor_name && (
-                            <span className="text-xs text-muted-foreground truncate">
-                              {p.tutor_name}
+                            <span className="text-xs text-muted-foreground truncate" title={p.tutor_name}>
+                              {getTutorFirstName(p.tutor_name)}
                             </span>
                           )}
                           <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                            {capacityStr && (
-                              <span className="text-[10px] text-muted-foreground tabular-nums">
-                                {capacityStr}
+                            {diverged && (
+                              <span
+                                title={divergedTooltip}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Placement moved from original plan"
+                                className="inline-flex items-center justify-center rounded-full p-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 cursor-help shrink-0"
+                              >
+                                <History className="h-3 w-3" />
                               </span>
                             )}
                             {canEdit
                               && p.session_status !== RESCHEDULED_STATUS
-                              && p.session_status !== "Cancelled" && (
-                              <button
-                                type="button"
-                                onClick={() => setPendingReschedule({
-                                  id: p.id,
-                                  lessonNumber: p.lesson_number ?? 0,
-                                  dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
-                                })}
-                                title="Mark this lesson for make-up"
-                                className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
-                              >
-                                <RotateCcw className="h-3 w-3" />
-                              </button>
-                            )}
+                              && p.session_status !== "Cancelled" && (() => {
+                              const target = {
+                                id: p.id,
+                                lessonNumber: p.lesson_number ?? 0,
+                                dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
+                              };
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingAction({ kind: "reschedule", ...target });
+                                    }}
+                                    title="Mark this lesson for make-up"
+                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingAction({ kind: "delete", ...target });
+                                    }}
+                                    title="Delete this placement"
+                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -2581,35 +2715,47 @@ export function SummerApplicationDetailModal({
       />
 
       <ConfirmDialog
-        isOpen={pendingReschedule !== null}
-        onCancel={() => { if (!rescheduling) setPendingReschedule(null); }}
+        isOpen={pendingAction !== null}
+        onCancel={() => { if (!actionBusy) setPendingAction(null); }}
         onConfirm={async () => {
-          if (!pendingReschedule) return;
-          setRescheduling(true);
+          if (!pendingAction) return;
+          const { kind, id } = pendingAction;
+          setActionBusy(true);
           try {
-            await summerAPI.updateSessionStatus(pendingReschedule.id, {
-              session_status: RESCHEDULED_STATUS,
-            });
+            if (kind === "reschedule") {
+              await summerAPI.updateSessionStatus(id, { session_status: RESCHEDULED_STATUS });
+            } else {
+              await summerAPI.deleteSession(id, false);
+            }
             // Arrangement page's onUpdated doesn't touch ["summer-app", id],
-            // so revalidate the modal's caches explicitly.
-            await globalMutate(appCachesMatcher(app.id));
-            await onUpdated();
-            showToast("Lesson marked for make-up", "success");
-            setPendingReschedule(null);
+            // so revalidate the modal's caches alongside it.
+            await Promise.all([
+              globalMutate(appCachesMatcher(app.id)),
+              onUpdated(),
+            ]);
+            showToast(kind === "reschedule" ? "Lesson marked for make-up" : "Placement deleted", "success");
+            setPendingAction(null);
           } catch (e) {
-            showToast(e instanceof Error ? e.message : "Failed to reschedule", "error");
+            const fallback = kind === "reschedule" ? "Failed to reschedule" : "Failed to delete";
+            showToast(e instanceof Error ? e.message : fallback, "error");
           } finally {
-            setRescheduling(false);
+            setActionBusy(false);
           }
         }}
-        title="Mark lesson for make-up?"
+        title={pendingAction?.kind === "reschedule" ? "Mark lesson for make-up?" : "Delete placement?"}
         message={
-          pendingReschedule
-            ? `L${pendingReschedule.lessonNumber} (${pendingReschedule.dateLabel}) will be released from this slot. The student will need a make-up session.`
+          pendingAction
+            ? pendingAction.kind === "reschedule"
+              ? `L${pendingAction.lessonNumber} (${pendingAction.dateLabel}) will be released from this slot. The student will need a make-up session.`
+              : `L${pendingAction.lessonNumber} (${pendingAction.dateLabel}) will be removed from this slot.`
             : ""
         }
-        confirmText={rescheduling ? "Marking…" : "Mark for make-up"}
-        variant="warning"
+        confirmText={
+          pendingAction?.kind === "reschedule"
+            ? (actionBusy ? "Marking…" : "Mark for make-up")
+            : (actionBusy ? "Deleting…" : "Delete")
+        }
+        variant={pendingAction?.kind === "reschedule" ? "warning" : "danger"}
       />
 
       <AddStudentModal

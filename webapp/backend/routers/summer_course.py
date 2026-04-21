@@ -53,8 +53,11 @@ from schemas import (
     SummerSlotUpdate,
     SummerSlotResponse,
     SummerSlotSessionInfo,
+    SummerMakeupSlotCreate,
+    SummerMakeupSlotCreateResponse,
     SummerSessionCreate,
     SummerSessionStatusUpdate,
+    SummerSessionLessonNumberUpdate,
     SummerSessionResponse,
     SummerLessonResponse,
     SummerLessonUpdate,
@@ -109,9 +112,23 @@ from constants import (
     PENDING_MAKEUP_STATUSES,
     MAKEUP_BOOKED_STATUSES,
     COMPLETED_STATUSES,
+    SECONDARY_LOCATION_TO_CODE,
     normalize_secondary_location,
     normalize_day_short,
 )
+
+# Reverse of SECONDARY_LOCATION_TO_CODE: session_log stores normalized short
+# codes ("MSA") while summer slots keep the Chinese display name ("華士古分校").
+# Overlaying live values into the modal requires going back to the display form
+# so the row's `location` stays comparable to `original_location` and renders
+# the same as a non-overlaid row.
+_SECONDARY_CODE_TO_LOCATION = {v: k for k, v in SECONDARY_LOCATION_TO_CODE.items()}
+
+
+def _denormalize_secondary_location(code: str | None) -> str | None:
+    if not code:
+        return code
+    return _SECONDARY_CODE_TO_LOCATION.get(code, code)
 
 PENDING = SummerSiblingVerificationStatus.PENDING.value
 CONFIRMED = SummerSiblingVerificationStatus.CONFIRMED.value
@@ -122,6 +139,191 @@ logger = logging.getLogger(__name__)
 
 # Public cap on buddy group size. Admin PATCH bypasses this to allow manual overflow pairing.
 PUBLIC_BUDDY_GROUP_CAP = 3
+
+
+def _live_sessions_by_summer_id(
+    db: Session, summer_session_ids: list[int]
+) -> dict[int, SessionLog]:
+    """Index the active SessionLog row for each summer_session_id.
+
+    Follow-up 3 migrates summer_session_id onto the active session through
+    makeups, so at most one row per id is expected. A duplicate means the
+    invariant was violated — log and keep the latest so one student doesn't
+    silently vanish from the arrangement grid without a trail.
+
+    Tutor is joinedload'd so overlay callers (modal, schedule message) can
+    read `live.tutor.tutor_name` without an N+1 on list endpoints.
+    """
+    if not summer_session_ids:
+        return {}
+    result: dict[int, SessionLog] = {}
+    for sl in db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.summer_session_id.in_(summer_session_ids)
+    ).all():
+        if sl.summer_session_id in result:
+            logger.warning(
+                "Multiple live session_log rows for summer_session_id=%s "
+                "(ids=%s, %s) — invariant violated",
+                sl.summer_session_id, result[sl.summer_session_id].id, sl.id,
+            )
+        result[sl.summer_session_id] = sl
+    return result
+
+
+def _effective_lesson_number(
+    ss: "SummerSession",
+    live: "SessionLog | None" = None,
+) -> Optional[int]:
+    # Post-publish session_log override → pre-publish per-student override →
+    # slot-level SummerLesson default. Ad-hoc slots set the per-student value
+    # at drop time; regular slots leave it null and inherit from SummerLesson.
+    if live is not None and live.lesson_number is not None:
+        return live.lesson_number
+    if ss.lesson_number is not None:
+        return ss.lesson_number
+    if ss.lesson is not None:
+        return ss.lesson.lesson_number
+    return None
+
+
+def _build_student_lesson_entry(
+    ln: int,
+    ss: "SummerSession",
+    live: "SessionLog | None",
+) -> SummerStudentLessonEntry:
+    """Resolve effective date/time/status from live vs. frozen snapshot."""
+    effective_date = live.session_date if live else (ss.lesson.lesson_date if ss.lesson else None)
+    effective_time_slot = live.time_slot if live else (ss.slot.time_slot if ss.slot else None)
+    effective_status = live.session_status if live else ss.session_status
+    return SummerStudentLessonEntry(
+        lesson_number=ln,
+        placed=True,
+        session_id=ss.id,
+        lesson_id=ss.lesson_id,
+        lesson_date=effective_date,
+        time_slot=effective_time_slot,
+        slot_id=ss.slot_id,
+        session_status=effective_status,
+    )
+
+
+def _find_conflicting_summer_session(
+    db: Session,
+    application_id: int,
+    target_lesson_number: int,
+    exclude_session_id: Optional[int] = None,
+) -> Optional["SummerSession"]:
+    """Return another active SummerSession for this application whose effective
+    lesson_number matches `target_lesson_number`, or None.
+
+    Pre-publish counterpart to the SessionLog guard in PATCH /sessions/{id}.
+    Uses `_effective_lesson_number(ss, live=None)` so per-student overrides and
+    slot-level defaults both count.
+    """
+    q = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.lesson))
+        .filter(
+            SummerSession.application_id == application_id,
+            SummerSession.session_status != "Cancelled",
+        )
+    )
+    if exclude_session_id is not None:
+        q = q.filter(SummerSession.id != exclude_session_id)
+    for other in q.all():
+        if _effective_lesson_number(other) == target_lesson_number:
+            return other
+    return None
+
+
+def _raise_duplicate_lesson_number(lesson_number: int, conflict: "SummerSession") -> None:
+    other_date = conflict.lesson.lesson_date if conflict.lesson else None
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "error": "DUPLICATE_LESSON_NUMBER",
+            "message": (
+                f"Student already has another active session at Lesson {lesson_number}"
+                + (f" ({other_date})" if other_date else "")
+                + ". Save anyway?"
+            ),
+            "other_session_id": conflict.id,
+            "other_session_date": str(other_date) if other_date else None,
+        },
+    )
+
+
+def _build_session_info(
+    ss: "SummerSession",
+    status: str,
+    live: "SessionLog | None" = None,
+) -> "SummerSlotSessionInfo":
+    """Centralised so on-grid, ad-hoc, and ghost rows stay byte-identical."""
+    app = ss.application
+    linked = app.existing_student if app else None
+    return SummerSlotSessionInfo(
+        id=ss.id,
+        application_id=ss.application_id,
+        student_name=app.student_name if app else "",
+        grade=app.grade if app else "",
+        session_status=status,
+        buddy_group_id=app.buddy_group_id if app else None,
+        lesson_number=_effective_lesson_number(ss, live),
+        session_log_id=live.id if live else None,
+        lang_stream=app.lang_stream if app else None,
+        existing_student_id=linked.id if linked else None,
+        school_student_id=linked.school_student_id if linked else None,
+        existing_student_name=linked.student_name if linked else None,
+    )
+
+
+def _attach_ghost_rows(
+    db: Session,
+    live_by_ss_id: dict[int, "SessionLog"],
+    summer_by_id: dict[int, "SummerSession"],
+    week_lesson_by_key: dict[tuple, "SummerLesson"],
+    sessions_by_lesson_id: dict[int, list["SummerSlotSessionInfo"]],
+) -> None:
+    """Render Make-up Booked ancestor rows as ghost cards on their origin cells.
+
+    Follow-up 3 migrates summer_session_id onto the successor makeup, so the
+    origin row (status ends with "- Make-up Booked") is otherwise invisible to
+    the arrangement. We trace it via make_up_for_id from the active row and
+    emit a strikethrough card at its own (date, time_slot, location, tutor_id)
+    — matching the session-page convention for resolved reschedules.
+    """
+    # Seed: {parent_id → summer_session_id} for every active row that's a makeup.
+    frontier: dict[int, int] = {}
+    for ss_id, live in live_by_ss_id.items():
+        if live.make_up_for_id and ss_id in summer_by_id:
+            frontier[live.make_up_for_id] = ss_id
+    if not frontier:
+        return
+
+    visited: set[int] = {live.id for live in live_by_ss_id.values() if live.id}
+    while frontier:
+        ids = [pid for pid in frontier if pid not in visited]
+        if not ids:
+            break
+        rows = db.query(SessionLog).filter(SessionLog.id.in_(ids)).all()
+        next_frontier: dict[int, int] = {}
+        for row in rows:
+            visited.add(row.id)
+            ss_id = frontier.get(row.id)
+            if ss_id is None:
+                continue
+            if row.session_status in MAKEUP_BOOKED_STATUSES:
+                key = (row.session_date, row.time_slot, row.location, row.tutor_id)
+                target = week_lesson_by_key.get(key)
+                if target is not None:
+                    sessions_by_lesson_id.setdefault(target.id, []).append(
+                        _build_session_info(summer_by_id[ss_id], row.session_status)
+                    )
+            if row.make_up_for_id:
+                next_frontier[row.make_up_for_id] = ss_id
+        frontier = next_frontier
 
 
 def _build_status_response(
@@ -1250,33 +1452,108 @@ def _build_application_response(
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
     published_enrollment_ids: Optional[dict[int, int]] = None,
+    live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
     Pass the bulk dicts from `_get_buddy_siblings_bulk`, `_get_buddy_group_sizes`,
-    `_get_linked_students_bulk`, `_get_linked_prospects_bulk`, and
-    `_get_slot_session_counts` to avoid N+1 in list endpoints.
-    Single-app endpoints can omit all of them.
+    `_get_linked_students_bulk`, `_get_linked_prospects_bulk`,
+    `_get_slot_session_counts`, and `_live_sessions_by_summer_id` to avoid
+    N+1 in list endpoints. Single-app endpoints can omit all of them — the
+    single-app helper below fills in `live_by_summer_id` per app.
+
+    Post-publish, each session row overlays the active session_log: date,
+    status, lesson_number, time_slot, location, and tutor all switch to live
+    values, and `original_*` preserves the frozen snapshot so the modal can
+    show a "Rescheduled" chip when anything diverged. `session_log_id` is
+    emitted so the modal can deep-link into the SessionDetailPopover.
     """
+    live_map = live_by_summer_id or {}
     sessions = []
     for s in (app.sessions or []):
-        if s.session_status == "Cancelled":
-            continue
         slot = s.slot
         lesson = s.lesson
+        live = live_map.get(s.id)
+
+        # Frozen baseline: what this placement was planned to be.
+        frozen_date = str(lesson.lesson_date) if lesson and lesson.lesson_date else None
+        frozen_time_slot = slot.time_slot if slot else None
+        frozen_location = slot.location if slot else None
+        frozen_tutor = slot.tutor.tutor_name if slot and slot.tutor else None
+        frozen_lesson_number = _effective_lesson_number(s, live=None)
+        frozen_status = s.session_status
+
+        if live is not None:
+            # Post-publish: live values drive the row; frozen lives in original_*.
+            # session_log.location is stored as a normalised short code while
+            # slot.location could be stored as either the code or the Chinese
+            # display name. When the two normalise to the same branch, surface
+            # slot.location as-is so the row text matches the pre-publish
+            # rendering — only fall back to the denormalised short code when
+            # the live row genuinely moved to a different branch.
+            effective_date = str(live.session_date) if live.session_date else None
+            effective_status = live.session_status
+            effective_time_slot = live.time_slot
+            if (
+                slot and slot.location
+                and normalize_secondary_location(slot.location)
+                == normalize_secondary_location(live.location)
+            ):
+                effective_location = slot.location
+            else:
+                effective_location = _denormalize_secondary_location(live.location)
+            effective_tutor = live.tutor.tutor_name if live.tutor else None
+            effective_lesson_number = _effective_lesson_number(s, live=live)
+            session_log_id = live.id
+            original_date = frozen_date
+            original_status = frozen_status
+            original_time_slot = frozen_time_slot
+            original_location = frozen_location
+            original_tutor = frozen_tutor
+            original_lesson_number = frozen_lesson_number
+        else:
+            # Pre-publish: live == frozen; leave original_* null so frontend
+            # skips the divergence detector cleanly.
+            effective_date = frozen_date
+            effective_status = frozen_status
+            effective_time_slot = frozen_time_slot
+            effective_location = frozen_location
+            effective_tutor = frozen_tutor
+            effective_lesson_number = frozen_lesson_number
+            session_log_id = None
+            original_date = None
+            original_status = None
+            original_time_slot = None
+            original_location = None
+            original_tutor = None
+            original_lesson_number = None
+
+        # Filter out cancelled same as before — at this gate the effective
+        # status already reflects a post-publish student-cancellation.
+        if effective_status == "Cancelled":
+            continue
+
         sessions.append(SummerApplicationSessionInfo(
             id=s.id,
             slot_id=s.slot_id,
             slot_day=slot.slot_day if slot else "",
-            time_slot=slot.time_slot if slot else "",
-            location=slot.location if slot else None,
+            time_slot=effective_time_slot or "",
+            location=effective_location,
             grade=slot.grade if slot else None,
-            tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
-            session_status=s.session_status,
-            lesson_number=lesson.lesson_number if lesson else s.lesson_number,
-            lesson_date=str(lesson.lesson_date) if lesson and lesson.lesson_date else None,
+            course_type=slot.course_type if slot else None,
+            tutor_name=effective_tutor,
+            session_status=effective_status,
+            lesson_number=effective_lesson_number,
+            lesson_date=effective_date,
             slot_max_students=slot.max_students if slot else None,
             slot_current_count=(slot_counts or {}).get(s.slot_id),
+            session_log_id=session_log_id,
+            original_lesson_date=original_date,
+            original_session_status=original_status,
+            original_lesson_number=original_lesson_number,
+            original_time_slot=original_time_slot,
+            original_location=original_location,
+            original_tutor_name=original_tutor,
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
@@ -1363,6 +1640,11 @@ def _build_application_responses(
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
     published_ids = _get_published_enrollment_ids(db, [a.id for a in apps])
+    # Bulk-fetch live session_log rows so published placements overlay live
+    # date/status/tutor onto each row (tutor joinedload'd in the helper).
+    live_by_summer_id = _live_sessions_by_summer_id(
+        db, [s.id for a in apps for s in (a.sessions or [])]
+    )
     return [
         _build_application_response(
             a,
@@ -1372,6 +1654,7 @@ def _build_application_responses(
             linked_prospects,
             slot_counts=slot_counts,
             published_enrollment_ids=published_ids,
+            live_by_summer_id=live_by_summer_id,
         )
         for a in apps
     ]
@@ -1803,19 +2086,11 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         tutor_id=slot.tutor_id,
         tutor_name=slot.tutor.tutor_name if slot.tutor else None,
         max_students=slot.max_students,
+        is_adhoc=slot.is_adhoc,
+        adhoc_date=slot.adhoc_date,
         created_at=slot.created_at,
         session_count=attending_count,
-        sessions=[
-            SummerSlotSessionInfo(
-                id=s.id,
-                application_id=s.application_id,
-                student_name=s.application.student_name,
-                grade=s.application.grade,
-                session_status=s.session_status,
-                buddy_group_id=s.application.buddy_group_id,
-            )
-            for s in unique_sessions
-        ],
+        sessions=[_build_session_info(s, s.session_status) for s in unique_sessions],
     )
 
 
@@ -1831,7 +2106,9 @@ def list_slots(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.config_id == config_id)
     )
@@ -1861,12 +2138,110 @@ def create_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.id == slot.id)
         .first()
     )
     return _build_slot_response(slot)
+
+
+def _tutor_conflict_note(
+    db: Session, config_id: int, tutor_id: int,
+    lesson_date: date_type, time_slot: str, exclude_slot_id: Optional[int] = None,
+) -> Optional[str]:
+    """If the tutor is already assigned to another active lesson at this
+    (date, time_slot), build a short informational note describing it."""
+    q = (
+        db.query(SummerLesson, SummerCourseSlot)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.tutor_id == tutor_id,
+            SummerCourseSlot.time_slot == time_slot,
+            SummerLesson.lesson_date == lesson_date,
+            SummerLesson.lesson_status != "Cancelled",
+        )
+    )
+    if exclude_slot_id is not None:
+        q = q.filter(SummerCourseSlot.id != exclude_slot_id)
+    other = q.first()
+    if not other:
+        return None
+    other_lesson, other_slot = other
+    if other_slot.is_adhoc:
+        return "Tutor is already teaching another Make-up Slot at this time."
+    bits = []
+    if other_slot.grade:
+        bits.append(other_slot.grade)
+    if other_slot.course_type:
+        bits.append(other_slot.course_type)
+    label = "-".join(bits) if bits else "another class"
+    if other_lesson.lesson_number:
+        return f"Tutor is already teaching {label} (Lesson {other_lesson.lesson_number}) at this time."
+    return f"Tutor is already teaching {label} at this time."
+
+
+@router.post(
+    "/summer/makeup-slots",
+    response_model=SummerMakeupSlotCreateResponse,
+    status_code=201,
+)
+def create_makeup_slot(
+    data: SummerMakeupSlotCreate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Create an ad-hoc Make-up Slot on a specific date/tutor.
+
+    Ad-hoc slots are full-citizen SummerCourseSlot rows that bypass the
+    weekly recurrence: _ensure_lessons_for_slot generates exactly one
+    SummerLesson at adhoc_date. This lets admins open a one-off lesson for
+    students whose availability doesn't fit any regular slot, while reusing
+    the existing publish → session_log pipeline.
+    """
+    config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == data.config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    tutor = db.query(Tutor).filter(Tutor.id == data.tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    if not (config.course_start_date <= data.date <= config.course_end_date):
+        raise HTTPException(
+            status_code=400,
+            detail="Date must fall within the course's start and end dates",
+        )
+
+    slot = SummerCourseSlot(
+        config_id=data.config_id,
+        location=data.location,
+        slot_day=data.date.strftime("%A"),
+        time_slot=data.time_slot,
+        tutor_id=data.tutor_id,
+        max_students=data.max_students,
+        is_adhoc=True,
+        adhoc_date=data.date,
+    )
+    db.add(slot)
+    db.flush()
+
+    # Materialise the one SummerLesson for this ad-hoc date up front so the
+    # calendar view and drag-drop work immediately.
+    _ensure_lessons_for_slot(slot, db)
+    db.commit()
+
+    conflict_note = _tutor_conflict_note(
+        db, data.config_id, data.tutor_id, data.date, data.time_slot,
+        exclude_slot_id=slot.id,
+    )
+    return SummerMakeupSlotCreateResponse(
+        slot=_build_slot_response(slot),
+        tutor_conflict_note=conflict_note,
+    )
 
 
 @router.patch("/summer/slots/{slot_id}", response_model=SummerSlotResponse)
@@ -1928,7 +2303,9 @@ def update_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.id == slot_id)
         .first()
@@ -2022,10 +2399,20 @@ def create_session(
         if len(attending) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Lesson is full")
 
+        # Bulk modes leave lesson_number=None so this guard naturally skips
+        # them; it only trips on ad-hoc drops that pass an explicit override.
+        if data.lesson_number is not None and not data.force_lesson_duplicate:
+            conflict = _find_conflicting_summer_session(
+                db, data.application_id, data.lesson_number,
+            )
+            if conflict is not None:
+                _raise_duplicate_lesson_number(data.lesson_number, conflict)
+
         session = SummerSession(
             application_id=data.application_id,
             slot_id=data.slot_id,
             lesson_id=data.lesson_id,
+            lesson_number=data.lesson_number,
             session_status="Tentative",
             placed_by=placed_by,
             placed_at=now,
@@ -2134,6 +2521,49 @@ def update_session_status(
     if app and data.session_status == "Cancelled":
         _maybe_revert_app_status(db, app)
 
+    db.refresh(session)
+    return _build_session_response(session)
+
+
+@router.patch(
+    "/summer/sessions/{session_id}/lesson-number",
+    response_model=SummerSessionResponse,
+)
+def update_session_lesson_number(
+    session_id: int,
+    data: SummerSessionLessonNumberUpdate,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Edit the per-student lesson_number on a SummerSession (pre-publish)."""
+    session = (
+        db.query(SummerSession)
+        .options(joinedload(SummerSession.application))
+        .filter(SummerSession.id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if data.clear_lesson_number:
+        session.lesson_number = None
+    elif data.lesson_number is not None:
+        # Guard only fires when the effective ln actually changes. Re-saving
+        # the current value is a no-op; clearing is intentionally unguarded
+        # (revert to slot default is always safe enough to allow silently).
+        current_ln = _effective_lesson_number(session)
+        if (
+            data.lesson_number != current_ln
+            and not data.force_lesson_duplicate
+        ):
+            conflict = _find_conflicting_summer_session(
+                db, session.application_id, data.lesson_number,
+                exclude_session_id=session.id,
+            )
+            if conflict is not None:
+                _raise_duplicate_lesson_number(data.lesson_number, conflict)
+        session.lesson_number = data.lesson_number
+    db.commit()
     db.refresh(session)
     return _build_session_response(session)
 
@@ -2596,6 +3026,7 @@ def _publish_application_inner(
             session_status=sess_status,
             financial_status=fin_status,
             summer_session_id=p.id,
+            lesson_number=_effective_lesson_number(p),
             last_modified_by=admin_email,
         ))
 
@@ -2915,39 +3346,59 @@ def get_student_lessons(
     linked_students = _get_linked_students_bulk(db, student_ids) if student_ids else {}
     linked_prospects = _get_linked_prospects_bulk(db, app_ids) if app_ids else {}
 
+    # Bulk-fetch active session_log per SummerSession so published placements
+    # reflect the live date/status rather than the frozen snapshot.
+    live_by_summer_id = _live_sessions_by_summer_id(
+        db, [s.id for app in apps for s in app.sessions]
+    )
+
     rows = []
     for app in apps:
-        # Build a map: lesson_number → session info
-        placed_by_lesson: dict[int, SummerSession] = {}
+        # Bucket sessions by effective lesson_number so duplicates (admin
+        # double-up, make-up redo) surface instead of silently collapsing.
+        placed_by_lesson: dict[int, list[tuple[SummerSession, Optional[SessionLog]]]] = {}
         for s in app.sessions:
             if s.session_status == "Cancelled":
                 continue
-            lesson = s.lesson
-            if lesson and lesson.lesson_number not in placed_by_lesson:
-                placed_by_lesson[lesson.lesson_number] = s
+            live = live_by_summer_id.get(s.id)
+            effective_ln = _effective_lesson_number(s, live)
+            if effective_ln is None:
+                continue
+            placed_by_lesson.setdefault(effective_ln, []).append((s, live))
 
-        # Build 1..total entries
+        # Order within a bucket: published live-row wins primary (its date
+        # has migrated through reschedules); then earliest effective date;
+        # then session.id for a stable tiebreaker.
+        def _bucket_sort_key(pair):
+            s, live = pair
+            has_live = 0 if live is not None else 1
+            effective_date = live.session_date if live else (s.lesson.lesson_date if s.lesson else None)
+            date_key = effective_date or date_type.max
+            return (has_live, date_key, s.id)
+
+        # Build 1..total entries. Primary stays in-band; extras attach as
+        # `duplicates` for the cell to render a +N indicator.
         entries = []
         for ln in range(1, total + 1):
-            s = placed_by_lesson.get(ln)
-            if s and s.lesson:
-                entries.append(SummerStudentLessonEntry(
-                    lesson_number=ln,
-                    placed=True,
-                    session_id=s.id,
-                    lesson_id=s.lesson_id,
-                    lesson_date=s.lesson.lesson_date,
-                    time_slot=s.slot.time_slot if s.slot else None,
-                    slot_id=s.slot_id,
-                    session_status=s.session_status,
-                ))
+            bucket = placed_by_lesson.get(ln)
+            if bucket:
+                bucket.sort(key=_bucket_sort_key)
+                primary_s, primary_live = bucket[0]
+                entry = _build_student_lesson_entry(ln, primary_s, primary_live)
+                entry.duplicates = [
+                    _build_student_lesson_entry(ln, s, live)
+                    for s, live in bucket[1:]
+                ]
+                entries.append(entry)
             else:
                 entries.append(SummerStudentLessonEntry(lesson_number=ln, placed=False))
 
-        placed_count = len(placed_by_lesson)
+        placed_count = sum(len(v) for v in placed_by_lesson.values())
         rescheduled_count = sum(
-            1 for s in placed_by_lesson.values()
-            if s.session_status in SUMMER_NON_ATTENDING_STATUSES
+            1
+            for bucket in placed_by_lesson.values()
+            for (s, live) in bucket
+            if (live.session_status if live else s.session_status) in SUMMER_NON_ATTENDING_STATUSES
         )
         claimed_center = (app.current_centers or [None])[0]
         rows.append(SummerStudentLessonsRow(
@@ -3878,6 +4329,19 @@ def _ensure_lessons_for_slot(slot: SummerCourseSlot, db: Session) -> int:
     existing = db.query(SummerLesson).filter(SummerLesson.slot_id == slot.id).first()
     if existing:
         return 0
+    if slot.is_adhoc:
+        # Ad-hoc Make-up Slot: exactly one lesson on the specific date, with
+        # no lesson_number (admins set it per-session later via session_log).
+        if slot.adhoc_date is None:
+            return 0
+        db.add(SummerLesson(
+            slot_id=slot.id,
+            lesson_date=slot.adhoc_date,
+            lesson_number=None,
+            lesson_status="Scheduled",
+        ))
+        db.flush()
+        return 1
     config = slot.config
     dates = get_slot_dates(slot.slot_day, config.course_start_date, config.course_end_date)
     for i, d in enumerate(dates):
@@ -3958,7 +4422,9 @@ def update_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if data.lesson_number is not None:
+    if data.clear_lesson_number:
+        lesson.lesson_number = None
+    elif data.lesson_number is not None:
         lesson.lesson_number = data.lesson_number
     if data.lesson_status is not None:
         lesson.lesson_status = data.lesson_status
@@ -4004,7 +4470,6 @@ def get_lesson_calendar(
         .outerjoin(Tutor, SummerCourseSlot.tutor_id == Tutor.id)
         .options(
             contains_eager(SummerLesson.slot).contains_eager(SummerCourseSlot.tutor),
-            joinedload(SummerLesson.sessions).joinedload(SummerSession.application),
         )
         .filter(
             SummerCourseSlot.config_id == config_id,
@@ -4016,21 +4481,103 @@ def get_lesson_calendar(
         .all()
     )
 
+    # Resolve each SummerSession to the lesson card it *actually* belongs on
+    # this week, so capacity and placement reflect live reschedule state:
+    #   - Unpublished placement → stays on its frozen SummerLesson.
+    #   - Published placement whose active session_log lines up with another
+    #     SummerLesson in (date, time_slot, location, tutor) → re-groups there.
+    #   - Published placement whose target doesn't match any SummerLesson
+    #     (ad-hoc makeup outside the course grid) → emitted as a synthetic
+    #     `is_adhoc` card so admins see the one-off session that's happening
+    #     in this week/branch.
+    #
+    # session_log.location is stored in normalized short-code form (see publish
+    # step — "華士古分校" → "MSA"), so both keys must normalize before matching.
+    week_lesson_by_key: dict[tuple, SummerLesson] = {
+        (
+            lesson.lesson_date,
+            lesson.slot.time_slot,
+            normalize_secondary_location(lesson.slot.location),
+            lesson.slot.tutor_id,
+        ): lesson
+        for lesson in lessons
+    }
+
+    all_sessions = (
+        db.query(SummerSession)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .options(
+            contains_eager(SummerSession.slot),
+            joinedload(SummerSession.application).joinedload(
+                SummerApplication.existing_student
+            ),
+            joinedload(SummerSession.lesson),
+        )
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+        )
+        .all()
+    )
+
+    live_by_ss_id = _live_sessions_by_summer_id(db, [s.id for s in all_sessions])
+    view_location_code = normalize_secondary_location(location)
+
+    sessions_by_lesson_id: dict[int, list[SummerSlotSessionInfo]] = {}
+    # (date, time_slot, tutor_id) → {"sessions": [...], "lesson_number": int | None}
+    adhoc_by_key: dict[tuple, dict] = {}
+    for s in all_sessions:
+        if s.session_status == "Cancelled":
+            continue
+        live = live_by_ss_id.get(s.id)
+        # Unpublished placements have a direct SummerLesson FK — route via it
+        # instead of the (date, time, loc, tutor) key, which collides when two
+        # slots at the same date/time/location both have NULL tutor_id.
+        if live is None:
+            if s.lesson is None or not (week_start <= s.lesson.lesson_date <= week_end):
+                continue
+            sessions_by_lesson_id.setdefault(s.lesson.id, []).append(
+                _build_session_info(s, s.session_status, None)
+            )
+            continue
+
+        if live.session_status == "Cancelled":
+            continue
+        effective_key = (live.session_date, live.time_slot, live.location, live.tutor_id)
+
+        target = week_lesson_by_key.get(effective_key)
+        if target is None:
+            # Off-grid: live makeup at a (date, time, location, tutor) tuple
+            # with no materialised SummerLesson. Emit as a synthetic ad-hoc
+            # card when the live row falls within this week at the same branch.
+            # Cross-branch ad-hocs are intentionally dropped here.
+            eff_date, eff_time, eff_loc, eff_tutor = effective_key
+            if (
+                eff_date is not None
+                and eff_loc == view_location_code
+                and week_start <= eff_date <= week_end
+            ):
+                bucket = adhoc_by_key.setdefault(
+                    (eff_date, eff_time, eff_tutor),
+                    {"sessions": [], "lesson_number": live.lesson_number},
+                )
+                bucket["sessions"].append(_build_session_info(s, live.session_status, live))
+            continue
+
+        sessions_by_lesson_id.setdefault(target.id, []).append(
+            _build_session_info(s, live.session_status, live)
+        )
+
+    # Ghost cards: for each active make-up, walk make_up_for_id back and render
+    # every Make-up Booked ancestor at its own origin cell. This preserves the
+    # session-page convention (strikethrough ghost on the seat the student was
+    # moved away from) even though Follow-up 3 migrated summer_session_id away.
+    summer_by_id = {s.id: s for s in all_sessions}
+    _attach_ghost_rows(db, live_by_ss_id, summer_by_id, week_lesson_by_key, sessions_by_lesson_id)
+
     entries = []
     for lesson in lessons:
         slot = lesson.slot
-        active_sessions = [
-            SummerSlotSessionInfo(
-                id=s.id,
-                application_id=s.application_id,
-                student_name=s.application.student_name if s.application else "",
-                grade=s.application.grade if s.application else "",
-                session_status=s.session_status,
-                buddy_group_id=s.application.buddy_group_id if s.application else None,
-            )
-            for s in lesson.sessions
-            if s.session_status != "Cancelled"
-        ]
         entries.append(SummerLessonCalendarEntry(
             lesson_id=lesson.id,
             slot_id=slot.id,
@@ -4038,15 +4585,46 @@ def get_lesson_calendar(
             time_slot=slot.time_slot,
             grade=slot.grade,
             course_type=slot.course_type,
-            lesson_number=lesson.lesson_number,
+            lesson_number=lesson.lesson_number or 0,
             lesson_status=lesson.lesson_status,
             tutor_id=slot.tutor_id,
             tutor_name=slot.tutor.tutor_name if slot.tutor else None,
             max_students=slot.max_students,
             date=lesson.lesson_date,
             notes=lesson.notes,
-            sessions=active_sessions,
+            sessions=sessions_by_lesson_id.get(lesson.id, []),
+            is_adhoc=slot.is_adhoc,
         ))
+
+    # Synthetic ad-hoc entries: one card per unique (date, time_slot, tutor)
+    # tuple in this week/branch. Negative lesson_ids signal synthetic to the
+    # frontend without needing a real SummerLesson row behind them.
+    if adhoc_by_key:
+        tutor_name_by_id: dict[int, str | None] = {}
+        adhoc_tutor_ids = [tid for (_, _, tid) in adhoc_by_key.keys() if tid is not None]
+        if adhoc_tutor_ids:
+            for t in db.query(Tutor).filter(Tutor.id.in_(set(adhoc_tutor_ids))).all():
+                tutor_name_by_id[t.id] = t.tutor_name
+        synthetic_id = -1
+        for (eff_date, eff_time, eff_tutor), bucket in adhoc_by_key.items():
+            entries.append(SummerLessonCalendarEntry(
+                lesson_id=synthetic_id,
+                slot_id=0,
+                slot_day=eff_date.strftime("%A"),
+                time_slot=eff_time,
+                grade=None,
+                course_type=None,
+                lesson_number=bucket["lesson_number"] or 0,
+                lesson_status="Make-up",
+                tutor_id=eff_tutor,
+                tutor_name=tutor_name_by_id.get(eff_tutor) if eff_tutor is not None else None,
+                max_students=len(bucket["sessions"]),
+                date=eff_date,
+                notes=None,
+                sessions=bucket["sessions"],
+                is_adhoc=True,
+            ))
+            synthetic_id -= 1
 
     return SummerLessonCalendarResponse(
         week_start=week_start,

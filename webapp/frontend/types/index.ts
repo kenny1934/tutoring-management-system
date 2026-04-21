@@ -371,6 +371,7 @@ export interface Session {
   make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;
   enrollment_payment_status?: string;  // Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)
+  lesson_number?: number | null;
   student?: Student;
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];
@@ -694,6 +695,7 @@ export interface UncheckedAttendanceReminder {
   school?: string;
   days_overdue: number;
   urgency_level: 'Critical' | 'High' | 'Medium' | 'Low';
+  lesson_number?: number | null;
 }
 
 export interface UncheckedAttendanceCount {
@@ -1400,6 +1402,7 @@ export interface PendingMakeupSession {
   tutor_name?: string;
   has_extension_request: boolean;
   extension_request_status?: string;
+  lesson_number?: number | null;
 }
 
 /** Detailed enrollment response */
@@ -2316,12 +2319,22 @@ export interface SummerApplicationSessionInfo {
   time_slot: string;
   location?: string | null;
   grade?: string | null;
+  course_type?: string | null;
   tutor_name?: string | null;
   session_status: string;
   lesson_number?: number | null;
   lesson_date?: string | null;
   slot_max_students?: number | null;
   slot_current_count?: number | null;
+  // Post-publish only — populated from active session_log row so the modal
+  // can overlay live state and render a divergence chip when anything moved.
+  session_log_id?: number | null;
+  original_lesson_date?: string | null;
+  original_session_status?: string | null;
+  original_lesson_number?: number | null;
+  original_time_slot?: string | null;
+  original_location?: string | null;
+  original_tutor_name?: string | null;
 }
 
 export interface SummerApplicationUpdate {
@@ -2370,6 +2383,12 @@ export interface SummerSlotSessionInfo {
   grade: string;
   session_status: string;
   buddy_group_id?: number | null;
+  lesson_number?: number | null;
+  session_log_id?: number | null;
+  lang_stream?: string | null;
+  existing_student_id?: number | null;
+  school_student_id?: string | null;
+  existing_student_name?: string | null;
 }
 
 export interface SummerSlot {
@@ -2384,6 +2403,8 @@ export interface SummerSlot {
   tutor_id?: number | null;
   tutor_name?: string | null;
   max_students: number;
+  is_adhoc?: boolean;
+  adhoc_date?: string | null;
   created_at?: string | null;
   session_count: number;
   sessions: SummerSlotSessionInfo[];
@@ -2399,6 +2420,20 @@ export interface SummerSlotCreate {
   course_type?: string | null;
   tutor_id?: number | null;
   max_students?: number;
+}
+
+export interface SummerMakeupSlotCreate {
+  config_id: number;
+  location: string;
+  date: string;
+  time_slot: string;
+  tutor_id: number;
+  max_students?: number;
+}
+
+export interface SummerMakeupSlotCreateResponse {
+  slot: SummerSlot;
+  tutor_conflict_note?: string | null;
 }
 
 export interface SummerSlotUpdate {
@@ -2430,10 +2465,18 @@ export interface SummerSessionCreate {
   slot_id: number;
   lesson_id?: number;
   mode?: "all" | "first_half" | "single";
+  lesson_number?: number | null;
+  force_lesson_duplicate?: boolean;
 }
 
 export interface SummerSessionStatusUpdate {
   session_status: string;
+}
+
+export interface SummerSessionLessonNumberUpdate {
+  lesson_number?: number | null;
+  clear_lesson_number?: boolean;
+  force_lesson_duplicate?: boolean;
 }
 
 // ---- Summer Publish Bridge (Phase 5) ----
@@ -2499,7 +2542,7 @@ export interface SummerLesson {
   id: number;
   slot_id: number;
   session_date: string;
-  lesson_number: number;
+  lesson_number: number | null;
   lesson_status: string;
   notes?: string | null;
   created_at?: string | null;
@@ -2509,6 +2552,7 @@ export interface SummerLessonUpdate {
   lesson_number?: number;
   lesson_status?: "Scheduled" | "Attended" | "Cancelled";
   notes?: string;
+  clear_lesson_number?: boolean;
 }
 
 export interface SummerLessonCalendarEntry {
@@ -2526,6 +2570,7 @@ export interface SummerLessonCalendarEntry {
   date: string;
   notes?: string | null;
   sessions: SummerSlotSessionInfo[];
+  is_adhoc?: boolean;
 }
 
 export interface SummerLessonCalendarResponse {
@@ -2557,6 +2602,7 @@ export interface SummerStudentLessonEntry {
   time_slot?: string | null;
   slot_id?: number | null;
   session_status?: string | null;
+  duplicates?: SummerStudentLessonEntry[];
 }
 
 export interface SummerStudentLessonsRow {

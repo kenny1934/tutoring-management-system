@@ -404,6 +404,502 @@ class TestStudentLessons:
         assert len(placed_lessons) == 4
 
 
+class TestStudentLessonsDuplicates:
+    """Duplicates at the same effective lesson_number must surface via the
+    `duplicates` field rather than silently collapsing to a single primary."""
+
+    def _setup(self, db_session, slot):
+        from routers.summer_course import _ensure_lessons_for_slot
+        _ensure_lessons_for_slot(slot, db_session)
+        db_session.commit()
+        return (
+            db_session.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot.id)
+            .order_by(SummerLesson.lesson_number)
+            .all()
+        )
+
+    def test_duplicate_lesson_number_surfaces_in_duplicates(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Sessions at L1, L2, L2, L3 → L2 entry carries one duplicate."""
+        lessons = self._setup(db_session, slot_type_a)
+        for ln in (1, 2, 3):
+            db_session.add(SummerSession(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lessons[ln - 1].id,
+                session_status="Confirmed",
+            ))
+        # Second L2 via per-student override on lesson #4's date.
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            lesson_number=2,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        l2 = next(l for l in student.lessons if l.lesson_number == 2)
+        assert l2.placed is True
+        assert len(l2.duplicates) == 1
+        assert l2.duplicates[0].lesson_number == 2
+        assert l2.duplicates[0].placed is True
+        # Earlier date wins primary (lesson #2 date < lesson #4 date).
+        assert l2.lesson_date == lessons[1].lesson_date
+        assert l2.duplicates[0].lesson_date == lessons[3].lesson_date
+
+    def test_placed_count_includes_duplicates(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """[L1, L2, L2, L3] → placed_count == 4, not 3."""
+        lessons = self._setup(db_session, slot_type_a)
+        for lesson in lessons[:3]:
+            db_session.add(SummerSession(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lesson.id,
+                session_status="Confirmed",
+            ))
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            lesson_number=2,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        assert result.students[0].placed_count == 4
+
+    def test_rescheduled_count_includes_duplicate_rescheduleds(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """A rescheduled duplicate counts toward rescheduled_count."""
+        lessons = self._setup(db_session, slot_type_a)
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,
+            session_status="Confirmed",
+        ))
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            lesson_number=2,
+            session_status="Rescheduled - Pending Make-up",
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        assert student.placed_count == 2
+        assert student.rescheduled_count == 1
+
+    def test_live_session_wins_primary_over_stale(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """A published session_log row beats a pre-publish twin as primary,
+        even when the twin sorts earlier by date."""
+        from models import Student
+        from models import SessionLog as SessionLogModel
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,  # L2 material, earlier date
+            session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,  # L4 material, overridden to L2
+            lesson_number=2,
+            session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.flush()
+
+        student_row = Student(student_name="Live", grade="F1")
+        db_session.add(student_row)
+        db_session.flush()
+        admin = db_session.query(Tutor).first()
+
+        db_session.add(SessionLogModel(
+            student_id=student_row.id,
+            tutor_id=admin.id,
+            session_date=lessons[3].lesson_date,  # later than s1's
+            time_slot="10:00 - 11:30",
+            location="MSA",
+            session_status="Confirmed",
+            summer_session_id=s2.id,
+            lesson_number=2,
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        l2 = next(l for l in result.students[0].lessons if l.lesson_number == 2)
+        assert l2.session_id == s2.id
+        assert len(l2.duplicates) == 1
+        assert l2.duplicates[0].session_id == s1.id
+
+    def test_placed_count_can_exceed_total_lessons(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """9 sessions across 8 lesson_numbers → placed_count=9 > total=8."""
+        lessons = self._setup(db_session, slot_type_a)
+        for lesson in lessons:
+            db_session.add(SummerSession(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lesson.id,
+                session_status="Confirmed",
+            ))
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[7].id,
+            lesson_number=4,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        assert student.total_lessons == 8
+        assert student.placed_count == 9
+        l4 = next(l for l in student.lessons if l.lesson_number == 4)
+        assert len(l4.duplicates) == 1
+
+    def test_two_published_sessions_both_overridden_to_same_ln(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """User edits two published sessions' ln via SessionDetailPopover
+        (post-publish path). Both land at same effective ln via SessionLog
+        override; both must surface in the students table."""
+        from models import Student
+        from models import SessionLog as SessionLogModel
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[0].id, session_status="Confirmed",
+        )
+        s3 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[2].id, session_status="Confirmed",
+        )
+        db_session.add_all([s1, s3])
+        db_session.flush()
+
+        student_row = Student(student_name="Live2x", grade="F1")
+        db_session.add(student_row)
+        db_session.flush()
+        admin = db_session.query(Tutor).first()
+
+        db_session.add(SessionLogModel(
+            student_id=student_row.id, tutor_id=admin.id,
+            session_date=lessons[0].lesson_date, time_slot="10:00 - 11:30",
+            location="MSA", session_status="Confirmed",
+            summer_session_id=s1.id, lesson_number=2,
+        ))
+        db_session.add(SessionLogModel(
+            student_id=student_row.id, tutor_id=admin.id,
+            session_date=lessons[2].lesson_date, time_slot="10:00 - 11:30",
+            location="MSA", session_status="Confirmed",
+            summer_session_id=s3.id, lesson_number=2,
+        ))
+        db_session.commit()
+
+        from routers.summer_course import get_student_lessons
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        l1 = next(l for l in student.lessons if l.lesson_number == 1)
+        l2 = next(l for l in student.lessons if l.lesson_number == 2)
+        l3 = next(l for l in student.lessons if l.lesson_number == 3)
+        assert l1.placed is False
+        assert l3.placed is False
+        assert l2.placed is True
+        assert len(l2.duplicates) == 1
+
+
+class TestSummerSessionLessonNumberDuplicateGuard:
+    """Pre-publish duplicate guard on POST /summer/sessions (calendar drop
+    with explicit lesson_number) and PATCH /summer/sessions/{id}/lesson-number.
+    Mirrors the SessionLog guard in PATCH /sessions/{id}."""
+
+    def _setup(self, db_session, slot):
+        from routers.summer_course import _ensure_lessons_for_slot
+        _ensure_lessons_for_slot(slot, db_session)
+        db_session.commit()
+        return (
+            db_session.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot.id)
+            .order_by(SummerLesson.lesson_number)
+            .all()
+        )
+
+    def test_post_raises_409_on_duplicate_lesson_number(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Calendar drop with explicit lesson_number that collides with an
+        existing active session for the student raises 409."""
+        from fastapi import HTTPException
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+
+        lessons = self._setup(db_session, slot_type_a)
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,  # material L2
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        with pytest.raises(HTTPException) as exc:
+            create_session(
+                data=SummerSessionCreate(
+                    application_id=application.id,
+                    slot_id=slot_type_a.id,
+                    lesson_id=lessons[3].id,  # material L4
+                    lesson_number=2,  # but overridden to L2 → collision
+                ),
+                admin=admin, db=db_session,
+            )
+        assert exc.value.status_code == 409
+        assert exc.value.detail["error"] == "DUPLICATE_LESSON_NUMBER"
+
+    def test_post_force_lesson_duplicate_overrides_guard(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """force_lesson_duplicate=True lets admin commit an intentional dupe."""
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+
+        lessons = self._setup(db_session, slot_type_a)
+        db_session.add(SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,
+            session_status="Confirmed",
+        ))
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        resp = create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lessons[3].id,
+                lesson_number=2,
+                force_lesson_duplicate=True,
+            ),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number == 2
+
+    def test_post_bulk_mode_does_not_trigger_guard(
+        self, db_session, summer_config, slot_type_a, slot_type_b, application_2x, admin_tutor,
+    ):
+        """Bulk mode (`all`) leaves lesson_number=None so the guard — gated on
+        `data.lesson_number is not None` — never fires. This lets a 2x student
+        sit in two slots that share material numbers 1-8 without interference."""
+        from routers.summer_course import _ensure_lessons_for_slot, create_session
+        from schemas import SummerSessionCreate
+
+        _ensure_lessons_for_slot(slot_type_a, db_session)
+        _ensure_lessons_for_slot(slot_type_b, db_session)
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application_2x.id,
+                slot_id=slot_type_a.id, mode="all",
+            ),
+            admin=admin, db=db_session,
+        )
+        # Second bulk place into a different slot should succeed — no guard.
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application_2x.id,
+                slot_id=slot_type_b.id, mode="all",
+            ),
+            admin=admin, db=db_session,
+        )
+        sessions = db_session.query(SummerSession).filter(
+            SummerSession.application_id == application_2x.id,
+        ).all()
+        assert len(sessions) == 16
+
+    def test_patch_raises_409_on_duplicate_lesson_number(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Changing an existing session's lesson_number to collide raises 409."""
+        from fastapi import HTTPException
+        from routers.summer_course import update_session_lesson_number
+        from schemas import SummerSessionLessonNumberUpdate
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,  # L2
+            session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,  # L4
+            session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        with pytest.raises(HTTPException) as exc:
+            update_session_lesson_number(
+                session_id=s2.id,
+                data=SummerSessionLessonNumberUpdate(lesson_number=2),
+                admin=admin, db=db_session,
+            )
+        assert exc.value.status_code == 409
+        assert exc.value.detail["error"] == "DUPLICATE_LESSON_NUMBER"
+        assert exc.value.detail["other_session_id"] == s1.id
+
+    def test_patch_force_overrides_guard(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        from routers.summer_course import update_session_lesson_number
+        from schemas import SummerSessionLessonNumberUpdate
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,
+            session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        resp = update_session_lesson_number(
+            session_id=s2.id,
+            data=SummerSessionLessonNumberUpdate(
+                lesson_number=2, force_lesson_duplicate=True,
+            ),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number == 2
+
+    def test_patch_clear_is_unguarded(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Clearing an override (reverting to slot default) bypasses the guard.
+        Even if the slot default happens to collide, clear is always allowed —
+        an admin explicitly nulling a value shouldn't be blocked."""
+        from routers.summer_course import update_session_lesson_number
+        from schemas import SummerSessionLessonNumberUpdate
+
+        lessons = self._setup(db_session, slot_type_a)
+        # s1 at material L2. s2 at material L4 but overridden to L3.
+        s1 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,
+            session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            lesson_number=3,
+            session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        resp = update_session_lesson_number(
+            session_id=s2.id,
+            data=SummerSessionLessonNumberUpdate(clear_lesson_number=True),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number is None
+
+    def test_patch_no_change_is_unguarded(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Re-saving the current effective lesson_number must not trip the
+        guard (guard is scoped to actual changes)."""
+        from routers.summer_course import update_session_lesson_number
+        from schemas import SummerSessionLessonNumberUpdate
+
+        lessons = self._setup(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id,  # effective L2 via slot default
+            session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id,
+            slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id,
+            lesson_number=3,
+            session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+
+        # Re-save 3 — matches current, no guard.
+        resp = update_session_lesson_number(
+            session_id=s2.id,
+            data=SummerSessionLessonNumberUpdate(lesson_number=3),
+            admin=admin, db=db_session,
+        )
+        assert resp.lesson_number == 3
+
+
 class TestSequenceScoring:
     """Test the _score_sequence helper."""
 
