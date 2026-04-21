@@ -4,7 +4,7 @@
 
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { SummerPricingConfig, SummerSiblingInfo } from "@/types";
+import type { SummerApplicationSessionInfo, SummerPricingConfig, SummerSiblingInfo } from "@/types";
 
 export type Lang = "zh" | "en";
 
@@ -274,6 +274,21 @@ export function sortSessionsByDate<T extends { lesson_date?: string | null; less
 
 /** Status value for a freshly-rescheduled session (no make-up booked yet). */
 export const RESCHEDULED_STATUS = "Rescheduled - Pending Make-up";
+
+/** True when the post-publish session_log has drifted from the originally
+ *  published placement on any of the six user-facing fields. Returns false
+ *  pre-publish (nothing to diverge from). */
+export function hasPlacementDiverged(p: SummerApplicationSessionInfo): boolean {
+  if (p.session_log_id == null) return false;
+  return (
+    p.lesson_date !== p.original_lesson_date ||
+    p.session_status !== p.original_session_status ||
+    p.lesson_number !== p.original_lesson_number ||
+    p.time_slot !== p.original_time_slot ||
+    p.location !== p.original_location ||
+    p.tutor_name !== p.original_tutor_name
+  );
+}
 
 /**
  * Whether this session status means the student is not attending the slot.

@@ -68,16 +68,23 @@ export default function SummerArrangementPage() {
   } | null>(null);
   // Calendar week-jump target. Uses a sequence counter so clicking the same
   // date twice re-triggers navigation. `highlightSessionId` opt-in briefly
-  // rings the card containing that SummerSession after the jump. Declared up
-  // here so the deep-link effect below can seed it before the handler that
-  // normally sets it.
+  // rings the card containing that SummerSession after the jump and
+  // auto-expands it. Declared up here so the deep-link effect below can seed
+  // it before the handler that normally sets it.
   const [calendarTarget, setCalendarTarget] = useState<{
     date: string;
     seq: number;
     highlightSessionId?: number | null;
   } | null>(null);
-  const bumpCalendarTarget = useCallback((date: string, highlightSessionId: number | null) => {
-    setCalendarTarget((prev) => ({ date, seq: (prev?.seq ?? 0) + 1, highlightSessionId }));
+  const bumpCalendarTarget = useCallback((
+    date: string,
+    highlightSessionId: number | null,
+  ) => {
+    setCalendarTarget((prev) => ({
+      date,
+      seq: (prev?.seq ?? 0) + 1,
+      highlightSessionId,
+    }));
   }, []);
 
   // Fetch configs
@@ -120,8 +127,8 @@ export default function SummerArrangementPage() {
       setActiveTab(tab);
     }
     if (lessonDate) {
-      const parsed = sessionId != null ? Number(sessionId) : NaN;
-      const highlightSessionId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+      const parsedSid = sessionId != null ? Number(sessionId) : NaN;
+      const highlightSessionId = Number.isInteger(parsedSid) && parsedSid > 0 ? parsedSid : null;
       bumpCalendarTarget(lessonDate, highlightSessionId);
     }
     deepLinkConsumedRef.current = true;

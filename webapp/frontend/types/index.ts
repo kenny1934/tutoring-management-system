@@ -2326,6 +2326,15 @@ export interface SummerApplicationSessionInfo {
   lesson_date?: string | null;
   slot_max_students?: number | null;
   slot_current_count?: number | null;
+  // Post-publish only — populated from active session_log row so the modal
+  // can overlay live state and render a divergence chip when anything moved.
+  session_log_id?: number | null;
+  original_lesson_date?: string | null;
+  original_session_status?: string | null;
+  original_lesson_number?: number | null;
+  original_time_slot?: string | null;
+  original_location?: string | null;
+  original_tutor_name?: string | null;
 }
 
 export interface SummerApplicationUpdate {

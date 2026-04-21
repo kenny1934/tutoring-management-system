@@ -41,7 +41,8 @@ interface SummerSessionCalendarProps {
   } | null;
   /** When set externally (e.g. from student table click), jump to this week.
    * `highlightSessionId` opt-in briefly rings the card containing that
-   * SummerSession after the jump lands. */
+   * SummerSession after the jump lands and auto-expands it so the matching
+   * student row is visible. */
   navigateToWeek?: {
     date: string;
     seq: number;
@@ -409,7 +410,10 @@ export function SummerSessionCalendar({
                           totalLessons={totalLessons}
                           highlightTarget={
                             navigateToWeek?.highlightSessionId
-                              ? { sessionId: navigateToWeek.highlightSessionId, seq: navigateToWeek.seq }
+                              ? {
+                                  sessionId: navigateToWeek.highlightSessionId,
+                                  seq: navigateToWeek.seq,
+                                }
                               : null
                           }
                         />

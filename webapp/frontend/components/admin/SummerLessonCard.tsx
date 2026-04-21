@@ -37,8 +37,14 @@ interface SummerLessonCardProps {
   /** Inclusive max for the lesson-number input (typically config.total_lessons). */
   totalLessons?: number;
   /** Briefly ring + scroll-into-view the card if one of its sessions matches.
-   * `seq` lets the effect re-fire when the same session is targeted twice. */
-  highlightTarget?: { sessionId: number; seq: number } | null;
+   * `seq` lets the effect re-fire when the same session is targeted twice.
+   * On match, the card auto-expands and the matching student row rings for
+   * the same 2s as the card outline, so arrivals from the application modal
+   * land directly on the relevant student. */
+  highlightTarget?: {
+    sessionId: number;
+    seq: number;
+  } | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -79,15 +85,18 @@ export function SummerLessonCard({
   // after 2s. Deps exclude lesson.sessions on purpose: SWR revalidates every
   // 30s and returns a fresh array each time — including it would re-fire the
   // highlight every refresh while calendarTarget is still set.
-  const [isHighlighted, setIsHighlighted] = useState(false);
+  const [highlightedSessionId, setHighlightedSessionId] = useState<number | null>(null);
+  const isHighlighted = highlightedSessionId != null;
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!highlightTarget) return;
-    if (!lesson.sessions.some((s) => s.id === highlightTarget.sessionId)) return;
-    setIsHighlighted(true);
+    const matchingSession = lesson.sessions.find((s) => s.id === highlightTarget.sessionId);
+    if (!matchingSession) return;
+    setHighlightedSessionId(matchingSession.id);
+    setExpanded(true);
     rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    const timer = setTimeout(() => setIsHighlighted(false), 2000);
-    return () => clearTimeout(timer);
+    const clearTimer = setTimeout(() => setHighlightedSessionId(null), 2000);
+    return () => clearTimeout(clearTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightTarget?.seq, highlightTarget?.sessionId]);
   const attendingCount = activeSessions.filter((s) => !isNonAttending(s.session_status)).length;
@@ -409,10 +418,11 @@ export function SummerLessonCard({
             <div
               key={s.id}
               className={cn(
-                "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
+                "flex items-center gap-1 rounded px-1 py-0.5 min-w-0 transition-shadow",
                 sessionStatusBg(s.session_status),
                 isPending && "opacity-80",
                 isBooked && "opacity-60",
+                highlightedSessionId === s.id && "ring-2 ring-primary/60 ring-offset-1",
               )}
             >
               {isPending && (

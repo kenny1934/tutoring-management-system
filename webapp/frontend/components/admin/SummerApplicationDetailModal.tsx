@@ -13,7 +13,8 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
 import { classifyPrefs } from "@/lib/summer-preferences";
@@ -1923,6 +1924,40 @@ export function SummerApplicationDetailModal({
                     {sorted.map((p) => {
                       const day = p.lesson_date ? getDayFromDate(p.lesson_date) : p.slot_day;
                       const startTime = p.time_slot ? getStartTime(p.time_slot) : "";
+                      // Post-publish rows (session_log_id != null) are styled
+                      // from the canonical session-status config — same icons
+                      // and tints used on the sessions page. Pre-publish rows
+                      // keep local branching because Confirmed / Tentative /
+                      // `Rescheduled - Pending Make-up` are arrangement-level
+                      // placement states, not session statuses.
+                      const cfg = p.session_log_id != null ? getSessionStatusConfig(p.session_status) : null;
+                      const isPreConfirmed = !cfg && p.session_status === "Confirmed";
+                      const isPreRescheduled = !cfg && p.session_status === RESCHEDULED_STATUS;
+                      const strikethrough = cfg ? !!cfg.strikethrough : isPreRescheduled;
+                      const opacityValue = cfg ? cfg.opacity : (isPreRescheduled ? 0.8 : undefined);
+                      const rowBg = cfg ? cfg.bgTint : sessionStatusBg(p.session_status);
+                      const strikeText = cfg ? cfg.textClass : "text-orange-600 dark:text-orange-400";
+                      const strikeBadgeBg = cfg && p.session_status.endsWith("- Make-up Booked")
+                        ? "bg-gray-100 dark:bg-gray-800/30"
+                        : cfg && (p.session_status === "Cancelled" || p.session_status === "No Show")
+                          ? "bg-red-100 dark:bg-red-900/30"
+                          : "bg-orange-100 dark:bg-orange-900/30";
+                      const diverged = hasPlacementDiverged(p);
+                      const divergedTooltip = diverged
+                        ? [
+                            "Originally:",
+                            [
+                              p.original_lesson_date ? formatCompactDate(p.original_lesson_date) : null,
+                              p.original_time_slot ? getStartTime(p.original_time_slot) : null,
+                              p.original_lesson_number != null ? `L${p.original_lesson_number}` : null,
+                              p.original_tutor_name ? getTutorFirstName(p.original_tutor_name) : null,
+                              p.original_location || null,
+                            ].filter(Boolean).join(" · "),
+                            p.original_session_status && p.original_session_status !== p.session_status
+                              ? `Status: ${p.original_session_status}`
+                              : null,
+                          ].filter(Boolean).join("\n")
+                        : undefined;
                       const canNavigate = !!(
                         onNavigateToLesson
                         && p.lesson_date
@@ -1955,29 +1990,30 @@ export function SummerApplicationDetailModal({
                           } : undefined}
                           className={cn(
                             "flex items-center gap-2 text-sm px-2 py-1 rounded",
-                            sessionStatusBg(p.session_status),
-                            p.session_status === RESCHEDULED_STATUS && "opacity-80",
+                            rowBg,
+                            opacityValue === 0.8 && "opacity-80",
+                            opacityValue === 0.6 && "opacity-60",
                             canNavigate && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/60",
                           )}
                         >
                           <span className={cn(
                             "text-[10px] font-semibold tabular-nums px-1.5 rounded shrink-0 w-7 text-center",
-                            p.session_status === RESCHEDULED_STATUS
-                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 line-through"
+                            strikethrough
+                              ? cn(strikeBadgeBg, strikeText, "line-through")
                               : "bg-primary/10 text-primary",
                           )}>
                             L{p.lesson_number ?? "—"}
                           </span>
-                          {p.session_status === "Confirmed"
-                            ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                            : p.session_status === RESCHEDULED_STATUS
-                              ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-                              : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                          {cfg
+                            ? <cfg.Icon className={cn("h-3.5 w-3.5 shrink-0", cfg.iconClass ?? cfg.textClass)} />
+                            : isPreConfirmed
+                              ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                              : isPreRescheduled
+                                ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+                                : <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
                           <span className={cn(
                             "font-medium tabular-nums w-16 shrink-0",
-                            p.session_status === RESCHEDULED_STATUS
-                              ? "line-through text-orange-600 dark:text-orange-400"
-                              : "text-foreground"
+                            strikethrough ? cn("line-through", strikeText) : "text-foreground"
                           )}>
                             {p.lesson_date ? formatCompactDate(p.lesson_date) : p.slot_day}
                           </span>
@@ -2010,6 +2046,16 @@ export function SummerApplicationDetailModal({
                             </span>
                           )}
                           <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                            {diverged && (
+                              <span
+                                title={divergedTooltip}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Placement moved from original plan"
+                                className="inline-flex items-center justify-center rounded-full p-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 cursor-help shrink-0"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </span>
+                            )}
                             {canEdit
                               && p.session_status !== RESCHEDULED_STATUS
                               && p.session_status !== "Cancelled" && (() => {

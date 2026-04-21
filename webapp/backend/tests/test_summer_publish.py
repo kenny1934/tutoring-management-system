@@ -1876,3 +1876,235 @@ class TestLinkedStudentFieldsOnSessionInfo:
         assert sess.existing_student_name is None
         # Self-filled name still surfaces for the card's fallback render.
         assert sess.student_name == "No Link"
+
+
+# ---------------------------------------------------------------------------
+# Application response overlay (post-publish live session_log)
+# ---------------------------------------------------------------------------
+
+class TestApplicationResponseOverlay:
+    """Post-publish, `SummerApplicationDetailModal` and the fee-message
+    schedule copy iterate `app.sessions` — so `_build_application_response`
+    must overlay the active `session_log` onto each row. Otherwise the modal
+    and copy show the frozen placement after a reschedule while the calendar
+    shows the live one, and click-through from the modal lands on the wrong
+    card.
+    """
+
+    def test_prepublish_session_log_id_null_and_original_fields_null(
+        self, db_session, app_full, slot
+    ):
+        """Pre-publish: live == frozen. session_log_id and original_* stay None
+        so the frontend divergence detector short-circuits cleanly."""
+        from routers.summer_course import get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert len(detail.sessions) == 8
+        for p in detail.sessions:
+            assert p.session_log_id is None
+            assert p.original_lesson_date is None
+            assert p.original_session_status is None
+            assert p.original_lesson_number is None
+            assert p.original_time_slot is None
+            assert p.original_location is None
+            assert p.original_tutor_name is None
+
+    def test_postpublish_fields_match_live_original_matches_frozen(
+        self, db_session, admin, app_full, slot, slot_tutor
+    ):
+        """Post-publish, no reschedule yet: live fields equal session_log
+        values (location denormalised back to display form), originals equal
+        the frozen snapshot. session_log_id populated."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        # All session_log rows for this app, keyed by summer_session_id.
+        logs = {
+            sl.summer_session_id: sl
+            for sl in db_session.query(SessionLog).filter(
+                SessionLog.summer_session_id.in_([p.id for p in detail.sessions])
+            ).all()
+        }
+        assert len(detail.sessions) == 8
+        for p in detail.sessions:
+            log = logs[p.id]
+            assert p.session_log_id == log.id
+            # Status: session_log uses "Scheduled" post-publish; original
+            # is the frozen SummerSession status ("Confirmed" from _place_all).
+            assert p.session_status == log.session_status == "Scheduled"
+            assert p.original_session_status == "Confirmed"
+            assert p.lesson_date == str(log.session_date)
+            assert p.original_lesson_date == p.lesson_date  # no reschedule yet
+            # Location: slot.location is "MSA" (happens to already be short
+            # code in these fixtures) so denormalised live == original.
+            assert p.location == p.original_location == slot.location
+            assert p.tutor_name == p.original_tutor_name == slot_tutor.tutor_name
+            assert p.time_slot == p.original_time_slot == slot.time_slot
+            assert p.lesson_number == p.original_lesson_number
+
+    def test_date_reschedule_surfaces_live_date_keeps_original(
+        self, db_session, admin, app_full, slot
+    ):
+        """Rewriting session_log.session_date (e.g. a direct reschedule to a
+        different day) makes the modal row show the new date; original_*
+        preserves the planned date so the divergence chip can render."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+
+        new_date = lessons[0].lesson_date + timedelta(days=3)
+        log.session_date = new_date
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.lesson_date == str(new_date)
+        assert p.original_lesson_date == str(lessons[0].lesson_date)
+        assert p.session_log_id == log.id
+
+    def test_tutor_change_on_session_log_surfaces_live_tutor(
+        self, db_session, admin, app_full, slot, slot_tutor, other_tutor
+    ):
+        """Reassigning a session to a different tutor on the live row should
+        surface the new tutor_name in the row; original_tutor_name stays as
+        the slot's tutor."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.tutor_id = other_tutor.id
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.tutor_name == other_tutor.tutor_name
+        assert p.original_tutor_name == slot_tutor.tutor_name
+
+    def test_pending_makeup_surfaces_on_original_row(
+        self, db_session, admin, app_full, slot
+    ):
+        """Rescheduled - Pending Make-up: summer_session_id still points to
+        the original row, live.session_date == lesson_date. Row shows pending
+        status on the original date (no makeup booked yet)."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.session_status = "Rescheduled - Pending Make-up"
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        assert p.session_status == "Rescheduled - Pending Make-up"
+        assert p.original_session_status == "Confirmed"
+        assert p.lesson_date == str(lessons[0].lesson_date)
+
+    def test_makeup_booked_surfaces_on_live_row_at_new_date(
+        self, db_session, admin, app_full, slot, slot_tutor, config
+    ):
+        """Rescheduled - Make-up Booked: summer_session_id migrates to the new
+        session_log (different date). Modal row shows the new date with
+        make-up status; original_* preserves the original placement."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        original_log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+
+        # Follow-up 3 semantics: the original row keeps make_up_for_id on
+        # the new one; summer_session_id migrates to the new row.
+        makeup_date = lessons[0].lesson_date + timedelta(days=14)
+        makeup = SessionLog(
+            student_id=original_log.student_id,
+            tutor_id=slot_tutor.id,
+            enrollment_id=original_log.enrollment_id,
+            session_date=makeup_date,
+            time_slot=slot.time_slot,
+            location=slot.location,
+            session_status="Attended (Make-up)",
+            financial_status=original_log.financial_status,
+            make_up_for_id=original_log.id,
+            summer_session_id=ss_first.id,
+        )
+        original_log.summer_session_id = None
+        original_log.session_status = "Rescheduled - Make-up Booked"
+        db_session.add(makeup)
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        p = next(p for p in detail.sessions if p.id == ss_first.id)
+        # Live row now == makeup row: new date, make-up status.
+        assert p.session_log_id == makeup.id
+        assert p.lesson_date == str(makeup_date)
+        assert p.session_status == "Attended (Make-up)"
+        # Original snapshot still points at the planned placement.
+        assert p.original_lesson_date == str(lessons[0].lesson_date)
+        assert p.original_session_status == "Confirmed"
+
+    def test_cancelled_live_row_filtered_out(
+        self, db_session, admin, app_full, slot
+    ):
+        """Student-cancelled post-publish (session_log.session_status='Cancelled')
+        drops out of the modal response, matching pre-publish behaviour."""
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        ss_first = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+            SummerSession.lesson_id == lessons[0].id,
+        ).first()
+        log = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss_first.id,
+        ).first()
+        log.session_status = "Cancelled"
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert len(detail.sessions) == 7
+        assert all(p.id != ss_first.id for p in detail.sessions)

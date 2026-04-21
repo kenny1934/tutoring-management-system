@@ -97,9 +97,23 @@ from constants import (
     PENDING_MAKEUP_STATUSES,
     MAKEUP_BOOKED_STATUSES,
     COMPLETED_STATUSES,
+    SECONDARY_LOCATION_TO_CODE,
     normalize_secondary_location,
     normalize_day_short,
 )
+
+# Reverse of SECONDARY_LOCATION_TO_CODE: session_log stores normalized short
+# codes ("MSA") while summer slots keep the Chinese display name ("華士古分校").
+# Overlaying live values into the modal requires going back to the display form
+# so the row's `location` stays comparable to `original_location` and renders
+# the same as a non-overlaid row.
+_SECONDARY_CODE_TO_LOCATION = {v: k for k, v in SECONDARY_LOCATION_TO_CODE.items()}
+
+
+def _denormalize_secondary_location(code: str | None) -> str | None:
+    if not code:
+        return code
+    return _SECONDARY_CODE_TO_LOCATION.get(code, code)
 
 PENDING = SummerSiblingVerificationStatus.PENDING.value
 CONFIRMED = SummerSiblingVerificationStatus.CONFIRMED.value
@@ -121,11 +135,16 @@ def _live_sessions_by_summer_id(
     makeups, so at most one row per id is expected. A duplicate means the
     invariant was violated — log and keep the latest so one student doesn't
     silently vanish from the arrangement grid without a trail.
+
+    Tutor is joinedload'd so overlay callers (modal, schedule message) can
+    read `live.tutor.tutor_name` without an N+1 on list endpoints.
     """
     if not summer_session_ids:
         return {}
     result: dict[int, SessionLog] = {}
-    for sl in db.query(SessionLog).filter(
+    for sl in db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
         SessionLog.summer_session_id.in_(summer_session_ids)
     ).all():
         if sl.summer_session_id in result:
@@ -1418,34 +1437,108 @@ def _build_application_response(
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
     published_enrollment_ids: Optional[dict[int, int]] = None,
+    live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
     Pass the bulk dicts from `_get_buddy_siblings_bulk`, `_get_buddy_group_sizes`,
-    `_get_linked_students_bulk`, `_get_linked_prospects_bulk`, and
-    `_get_slot_session_counts` to avoid N+1 in list endpoints.
-    Single-app endpoints can omit all of them.
+    `_get_linked_students_bulk`, `_get_linked_prospects_bulk`,
+    `_get_slot_session_counts`, and `_live_sessions_by_summer_id` to avoid
+    N+1 in list endpoints. Single-app endpoints can omit all of them — the
+    single-app helper below fills in `live_by_summer_id` per app.
+
+    Post-publish, each session row overlays the active session_log: date,
+    status, lesson_number, time_slot, location, and tutor all switch to live
+    values, and `original_*` preserves the frozen snapshot so the modal can
+    show a "Rescheduled" chip when anything diverged. `session_log_id` is
+    emitted so the modal can deep-link into the SessionDetailPopover.
     """
+    live_map = live_by_summer_id or {}
     sessions = []
     for s in (app.sessions or []):
-        if s.session_status == "Cancelled":
-            continue
         slot = s.slot
         lesson = s.lesson
+        live = live_map.get(s.id)
+
+        # Frozen baseline: what this placement was planned to be.
+        frozen_date = str(lesson.lesson_date) if lesson and lesson.lesson_date else None
+        frozen_time_slot = slot.time_slot if slot else None
+        frozen_location = slot.location if slot else None
+        frozen_tutor = slot.tutor.tutor_name if slot and slot.tutor else None
+        frozen_lesson_number = _effective_lesson_number(s, live=None)
+        frozen_status = s.session_status
+
+        if live is not None:
+            # Post-publish: live values drive the row; frozen lives in original_*.
+            # session_log.location is stored as a normalised short code while
+            # slot.location could be stored as either the code or the Chinese
+            # display name. When the two normalise to the same branch, surface
+            # slot.location as-is so the row text matches the pre-publish
+            # rendering — only fall back to the denormalised short code when
+            # the live row genuinely moved to a different branch.
+            effective_date = str(live.session_date) if live.session_date else None
+            effective_status = live.session_status
+            effective_time_slot = live.time_slot
+            if (
+                slot and slot.location
+                and normalize_secondary_location(slot.location)
+                == normalize_secondary_location(live.location)
+            ):
+                effective_location = slot.location
+            else:
+                effective_location = _denormalize_secondary_location(live.location)
+            effective_tutor = live.tutor.tutor_name if live.tutor else None
+            effective_lesson_number = _effective_lesson_number(s, live=live)
+            session_log_id = live.id
+            original_date = frozen_date
+            original_status = frozen_status
+            original_time_slot = frozen_time_slot
+            original_location = frozen_location
+            original_tutor = frozen_tutor
+            original_lesson_number = frozen_lesson_number
+        else:
+            # Pre-publish: live == frozen; leave original_* null so frontend
+            # skips the divergence detector cleanly.
+            effective_date = frozen_date
+            effective_status = frozen_status
+            effective_time_slot = frozen_time_slot
+            effective_location = frozen_location
+            effective_tutor = frozen_tutor
+            effective_lesson_number = frozen_lesson_number
+            session_log_id = None
+            original_date = None
+            original_status = None
+            original_time_slot = None
+            original_location = None
+            original_tutor = None
+            original_lesson_number = None
+
+        # Filter out cancelled same as before — at this gate the effective
+        # status already reflects a post-publish student-cancellation.
+        if effective_status == "Cancelled":
+            continue
+
         sessions.append(SummerApplicationSessionInfo(
             id=s.id,
             slot_id=s.slot_id,
             slot_day=slot.slot_day if slot else "",
-            time_slot=slot.time_slot if slot else "",
-            location=slot.location if slot else None,
+            time_slot=effective_time_slot or "",
+            location=effective_location,
             grade=slot.grade if slot else None,
             course_type=slot.course_type if slot else None,
-            tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
-            session_status=s.session_status,
-            lesson_number=_effective_lesson_number(s),
-            lesson_date=str(lesson.lesson_date) if lesson and lesson.lesson_date else None,
+            tutor_name=effective_tutor,
+            session_status=effective_status,
+            lesson_number=effective_lesson_number,
+            lesson_date=effective_date,
             slot_max_students=slot.max_students if slot else None,
             slot_current_count=(slot_counts or {}).get(s.slot_id),
+            session_log_id=session_log_id,
+            original_lesson_date=original_date,
+            original_session_status=original_status,
+            original_lesson_number=original_lesson_number,
+            original_time_slot=original_time_slot,
+            original_location=original_location,
+            original_tutor_name=original_tutor,
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
@@ -1532,6 +1625,11 @@ def _build_application_responses(
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
     published_ids = _get_published_enrollment_ids(db, [a.id for a in apps])
+    # Bulk-fetch live session_log rows so published placements overlay live
+    # date/status/tutor onto each row (tutor joinedload'd in the helper).
+    live_by_summer_id = _live_sessions_by_summer_id(
+        db, [s.id for a in apps for s in (a.sessions or [])]
+    )
     return [
         _build_application_response(
             a,
@@ -1541,6 +1639,7 @@ def _build_application_responses(
             linked_prospects,
             slot_counts=slot_counts,
             published_enrollment_ids=published_ids,
+            live_by_summer_id=live_by_summer_id,
         )
         for a in apps
     ]

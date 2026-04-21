@@ -2828,7 +2828,16 @@ class SummerTutorDutyResponse(BaseModel):
 # ---- Summer Application Session Info (for embedding in application response) ----
 
 class SummerApplicationSessionInfo(BaseModel):
-    """Session info embedded in application response — one per non-cancelled session."""
+    """Session info embedded in application response — one per non-cancelled session.
+
+    Post-publish, the primary display fields (`lesson_date`, `session_status`,
+    `lesson_number`, `time_slot`, `location`, `tutor_name`) overlay the active
+    session_log so the modal and the schedule copy reflect live state. The
+    `original_*` fields preserve the frozen SummerSession/SummerLesson/slot
+    values so the UI can detect divergence and show a "Rescheduled" chip.
+    Pre-publish, `session_log_id` is None and `original_*` fields are None
+    (live == original).
+    """
     id: int
     slot_id: int
     slot_day: str
@@ -2842,6 +2851,14 @@ class SummerApplicationSessionInfo(BaseModel):
     lesson_date: Optional[str] = None
     slot_max_students: Optional[int] = None
     slot_current_count: Optional[int] = None
+
+    session_log_id: Optional[int] = None
+    original_lesson_date: Optional[str] = None
+    original_session_status: Optional[str] = None
+    original_lesson_number: Optional[int] = None
+    original_time_slot: Optional[str] = None
+    original_location: Optional[str] = None
+    original_tutor_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
