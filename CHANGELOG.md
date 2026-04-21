@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.0.57](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.57) (2026-04-22)
+
+### New Features
+
+* **Lesson number editing on published summer sessions** — inline edit via badge on session detail and popover, per-student overrides that survive reschedules, a duplicate-number guard that returns a clear error, and duplicate L# highlighting on the students table
+* **Ad-hoc Make-up Slots** — admins can spin up one-off slots off the weekly grid for rescheduled lessons; off-grid dates render as make-up cards on the arrangement calendar
+* **Live session data on published applications** — the arrangement grid and application modal now read live session state after publish, so rescheduled, edited, and cancelled lessons show their current details instead of the frozen plan
+* **Divergence cues + eye icon on placement rows** — an icon-only orange pill marks rows that have drifted from the original plan, with a tooltip showing the original schedule; an eye icon on post-publish rows opens the session detail popover directly, so admins can reschedule, edit, or cancel without leaving the calendar
+* **Placement rows jump to calendar** — clicking a placement row in the application modal navigates to the matching week and branch, expands the card, and rings the target student row
+* **Delete placement post-publish** — remove a single published session from an application while keeping notes intact
+* **Auto-suggest modal reorg** — cards collapsed by default with attention icons, sticky filter bar (search + quality chips + select-visible), a Ready-to-place section pre-selected up top, and a Needs-review section that auto-expands without pre-selection
+* **Calendar density controls** — toggle day columns on slot setup and the arrangement grid to hide empty or unneeded days and reclaim horizontal space
+* **Mixed-lesson indicators** — slot cards show a dot when students are on different lesson materials, and rows with divergent lesson numbers render their own L# badge
+* **Linked CSM student chip on arrangement rows** — slot rows and calendar cards surface the matched CSM student identity alongside the applicant name
+
+### Bug Fixes
+
+* **Lesson-number cache staleness** — post-publish lesson number edits now propagate immediately across views instead of waiting for a refresh
+* **Unpublished placement lookup** — calendar navigation now routes via the SummerLesson FK to avoid stale lookups
+* **Auto-suggest sticky filter bar** — filter bar now sits flush at the top of the scroll area when scrolled
+
 ## [2.0.56](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.56) (2026-04-11)
 
 ### New Features
