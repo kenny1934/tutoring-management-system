@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
 import { summerAPI } from "@/lib/api";
@@ -436,6 +436,20 @@ export function SummerLessonCard({
                   }
                 >
                   L{s.lesson_number}
+                </button>
+              )}
+              {s.session_log_id != null && !isResolved && (
+                <button
+                  onClick={(e) =>
+                    onOpenSessionPopover?.(s.session_log_id!, {
+                      x: e.clientX,
+                      y: e.clientY,
+                    })
+                  }
+                  className="p-0 text-muted-foreground/50 hover:text-foreground shrink-0 transition-colors"
+                  title="View session details"
+                >
+                  <Eye className="h-3 w-3" />
                 </button>
               )}
               {isRealAdhoc && (
