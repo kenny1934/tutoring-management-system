@@ -43,6 +43,7 @@ export default function SummerArrangementPage() {
     tab: searchParams.get("tab"),
     location: searchParams.get("location"),
     lessonDate: searchParams.get("lesson_date"),
+    sessionId: searchParams.get("session_id"),
   }));
   const [activeTab, setActiveTab] = useState<"slots" | "calendar" | "students">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
@@ -66,9 +67,18 @@ export default function SummerArrangementPage() {
     backup: { day: string; time: string }[];
   } | null>(null);
   // Calendar week-jump target. Uses a sequence counter so clicking the same
-  // date twice re-triggers navigation. Declared up here so the deep-link
-  // effect below can seed it before the handler that normally sets it.
-  const [calendarTarget, setCalendarTarget] = useState<{ date: string; seq: number } | null>(null);
+  // date twice re-triggers navigation. `highlightSessionId` opt-in briefly
+  // rings the card containing that SummerSession after the jump. Declared up
+  // here so the deep-link effect below can seed it before the handler that
+  // normally sets it.
+  const [calendarTarget, setCalendarTarget] = useState<{
+    date: string;
+    seq: number;
+    highlightSessionId?: number | null;
+  } | null>(null);
+  const bumpCalendarTarget = useCallback((date: string, highlightSessionId: number | null) => {
+    setCalendarTarget((prev) => ({ date, seq: (prev?.seq ?? 0) + 1, highlightSessionId }));
+  }, []);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -96,7 +106,7 @@ export default function SummerArrangementPage() {
   useEffect(() => {
     if (deepLinkConsumedRef.current) return;
     if (!configs || configs.length === 0 || configId === null || !location) return;
-    const { tab, location: urlLocation, lessonDate } = initialDeepLink;
+    const { tab, location: urlLocation, lessonDate, sessionId } = initialDeepLink;
     if (!tab && !urlLocation && !lessonDate) {
       deepLinkConsumedRef.current = true;
       return;
@@ -110,7 +120,9 @@ export default function SummerArrangementPage() {
       setActiveTab(tab);
     }
     if (lessonDate) {
-      setCalendarTarget((prev) => ({ date: lessonDate, seq: (prev?.seq ?? 0) + 1 }));
+      const parsed = sessionId != null ? Number(sessionId) : NaN;
+      const highlightSessionId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+      bumpCalendarTarget(lessonDate, highlightSessionId);
     }
     deepLinkConsumedRef.current = true;
     router.replace("/admin/summer/arrangement", { scroll: false });
@@ -369,10 +381,11 @@ export default function SummerArrangementPage() {
   }) => {
     const lessonDate = typeof arg === "string" ? arg : arg.lessonDate;
     const targetLocation = typeof arg === "string" ? null : arg.location;
+    const highlightSessionId = typeof arg === "string" ? null : arg.sessionId ?? null;
     if (targetLocation && targetLocation !== location) setLocation(targetLocation);
-    setCalendarTarget((prev) => ({ date: lessonDate, seq: (prev?.seq ?? 0) + 1 }));
+    bumpCalendarTarget(lessonDate, highlightSessionId);
     setActiveTab("calendar");
-  }, [location]);
+  }, [location, bumpCalendarTarget]);
 
   // Bulk confirm tentative sessions
   const [bulkConfirmPending, setBulkConfirmPending] = useState<{ slotId?: number; label?: string } | null>(null);

@@ -39,8 +39,14 @@ interface SummerSessionCalendarProps {
     primary: { day: string; time: string }[];
     backup: { day: string; time: string }[];
   } | null;
-  /** When set externally (e.g. from student table click), jump to this week. */
-  navigateToWeek?: { date: string; seq: number } | null;
+  /** When set externally (e.g. from student table click), jump to this week.
+   * `highlightSessionId` opt-in briefly rings the card containing that
+   * SummerSession after the jump lands. */
+  navigateToWeek?: {
+    date: string;
+    seq: number;
+    highlightSessionId?: number | null;
+  } | null;
 }
 
 const DAY_NAME_FROM_NUM: Record<number, string> = {
@@ -401,6 +407,11 @@ export function SummerSessionCalendar({
                           onOpenSessionPopover={handleOpenSessionPopover}
                           onDeleted={handleCreated}
                           totalLessons={totalLessons}
+                          highlightTarget={
+                            navigateToWeek?.highlightSessionId
+                              ? { sessionId: navigateToWeek.highlightSessionId, seq: navigateToWeek.seq }
+                              : null
+                          }
                         />
                       ))}
                       {isEmptyCell && (

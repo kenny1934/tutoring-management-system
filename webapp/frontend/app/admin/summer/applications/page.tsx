@@ -1816,6 +1816,7 @@ export default function SummerApplicationsPage() {
                 location: t.location,
                 lesson_date: t.lessonDate,
               });
+              if (t.sessionId) params.set("session_id", String(t.sessionId));
               router.push(`/admin/summer/arrangement?${params.toString()}`);
             }}
           />

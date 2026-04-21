@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
@@ -36,6 +36,9 @@ interface SummerLessonCardProps {
   ) => void;
   /** Inclusive max for the lesson-number input (typically config.total_lessons). */
   totalLessons?: number;
+  /** Briefly ring + scroll-into-view the card if one of its sessions matches.
+   * `seq` lets the effect re-fire when the same session is targeted twice. */
+  highlightTarget?: { sessionId: number; seq: number } | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -55,6 +58,7 @@ export function SummerLessonCard({
   onOpenSessionPopover,
   onDeleted,
   totalLessons = 8,
+  highlightTarget,
 }: SummerLessonCardProps) {
   const { showToast } = useToast();
   const [dragOver, setDragOver] = useState(false);
@@ -70,6 +74,22 @@ export function SummerLessonCard({
   >(null);
 
   const activeSessions = lesson.sessions;
+
+  // Brief attention-ring when arriving from a placement-row click. Auto-clears
+  // after 2s. Deps exclude lesson.sessions on purpose: SWR revalidates every
+  // 30s and returns a fresh array each time — including it would re-fire the
+  // highlight every refresh while calendarTarget is still set.
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!highlightTarget) return;
+    if (!lesson.sessions.some((s) => s.id === highlightTarget.sessionId)) return;
+    setIsHighlighted(true);
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const timer = setTimeout(() => setIsHighlighted(false), 2000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightTarget?.seq, highlightTarget?.sessionId]);
   const attendingCount = activeSessions.filter((s) => !isNonAttending(s.session_status)).length;
   const isFull = attendingCount >= lesson.max_students;
   const fillPct = lesson.max_students > 0 ? attendingCount / lesson.max_students : 0;
@@ -204,10 +224,12 @@ export function SummerLessonCard({
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         isCancelled && "opacity-50",
         containerClass,
+        isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
