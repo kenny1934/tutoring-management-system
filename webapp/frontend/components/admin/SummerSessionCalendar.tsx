@@ -96,15 +96,39 @@ export function SummerSessionCalendar({
     if (navigateToWeek) setWeekStart(getWeekStartStr(navigateToWeek.date));
   }, [navigateToWeek]);
 
-  // Compute dates for this week, filtered to openDays
+  // Day-visibility toggle: persists across week nav, resets when the set of
+  // open days changes (e.g. location switch). openDays is a fresh array on
+  // every parent render, so key the effect off a stable joined string to
+  // avoid clobbering the user's selection on unrelated re-renders.
+  const openDaysKey = openDays.join("|");
+  const [visibleDays, setVisibleDays] = useState<Set<string>>(
+    () => new Set(openDays)
+  );
+  useEffect(() => {
+    setVisibleDays(new Set(openDaysKey ? openDaysKey.split("|") : []));
+  }, [openDaysKey]);
+
+  const toggleDay = useCallback((day: string) => {
+    setVisibleDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        if (next.size > 1) next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  }, []);
+
+  // Compute dates for this week, filtered to openDays ∩ visibleDays
   const weekDates = useMemo(() => {
     const all = getWeekDateStrings(weekStart);
     return all.filter((dateStr) => {
       const d = new Date(dateStr + "T00:00:00");
       const dayName = DAY_NAME_FROM_NUM[d.getDay()];
-      return openDays.includes(dayName);
+      return openDays.includes(dayName) && visibleDays.has(dayName);
     });
-  }, [weekStart, openDays]);
+  }, [weekStart, openDays, visibleDays]);
 
   const weekEnd = useMemo(() => {
     const d = new Date(weekStart + "T00:00:00");
@@ -226,25 +250,56 @@ export function SummerSessionCalendar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Week navigation + Make-up Slot create */}
-      <div className="flex items-center justify-center gap-3 py-2">
-        <button
-          onClick={goPrev}
-          disabled={!canGoPrev}
-          className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-medium min-w-[140px] text-center">
-          {formatWeekRange(weekDates[0] || weekStart, weekDates[weekDates.length - 1] || weekEnd, courseStartDate)}
-        </span>
-        <button
-          onClick={goNext}
-          disabled={!canGoNext}
-          className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+      {/* Week navigation + day toggles + Make-up Slot create */}
+      <div className="flex items-center gap-3 py-2 flex-wrap">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={goPrev}
+            disabled={!canGoPrev}
+            className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-medium min-w-[140px] text-center">
+            {formatWeekRange(weekDates[0] || weekStart, weekDates[weekDates.length - 1] || weekEnd, courseStartDate)}
+          </span>
+          <button
+            onClick={goNext}
+            disabled={!canGoNext}
+            className="p-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Day filter chips — subset of openDays */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] text-muted-foreground mr-0.5">Days:</span>
+          {openDays.map((day) => (
+            <button
+              key={day}
+              onClick={() => toggleDay(day)}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                visibleDays.has(day)
+                  ? "bg-[#a0704b] text-white"
+                  : "bg-gray-100 dark:bg-gray-800 text-foreground/40 hover:text-foreground/60"
+              )}
+              title={visibleDays.has(day) ? `Hide ${day}` : `Show ${day}`}
+            >
+              {DAY_ABBREV[day] || day}
+            </button>
+          ))}
+          {visibleDays.size !== openDays.length && (
+            <button
+              onClick={() => setVisibleDays(new Set(openDays))}
+              className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+            >
+              All
+            </button>
+          )}
+        </div>
+
         <button
           onClick={() => setMakeupModal({})}
           className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
