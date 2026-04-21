@@ -1810,6 +1810,14 @@ export default function SummerApplicationsPage() {
             onSelectApplication={openDetail}
             baseFee={activeConfig?.pricing_config?.base_fee}
             config={activeConfig ?? null}
+            onNavigateToLesson={(t) => {
+              const params = new URLSearchParams({
+                tab: "calendar",
+                location: t.location,
+                lesson_date: t.lessonDate,
+              });
+              router.push(`/admin/summer/arrangement?${params.toString()}`);
+            }}
           />
 
           {previewProspectId && previewProspect && (

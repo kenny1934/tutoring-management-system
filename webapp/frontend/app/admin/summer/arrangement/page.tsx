@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +35,15 @@ export default function SummerArrangementPage() {
   const canView = isAdmin || isSuperAdmin;
 
   const { mutate: globalMutate } = useSWRConfig();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Snapshot deep-link params on first render so the consumption effect below
+  // doesn't re-fire every render (useSearchParams returns a fresh object).
+  const [initialDeepLink] = useState(() => ({
+    tab: searchParams.get("tab"),
+    location: searchParams.get("location"),
+    lessonDate: searchParams.get("lesson_date"),
+  }));
   const [activeTab, setActiveTab] = useState<"slots" | "calendar" | "students">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
@@ -55,6 +65,10 @@ export default function SummerArrangementPage() {
     primary: { day: string; time: string }[];
     backup: { day: string; time: string }[];
   } | null>(null);
+  // Calendar week-jump target. Uses a sequence counter so clicking the same
+  // date twice re-triggers navigation. Declared up here so the deep-link
+  // effect below can seed it before the handler that normally sets it.
+  const [calendarTarget, setCalendarTarget] = useState<{ date: string; seq: number } | null>(null);
 
   // Fetch configs
   const { data: configs } = useSWR(
@@ -73,6 +87,34 @@ export default function SummerArrangementPage() {
       }
     }
   }, [configs, configId, location]);
+
+  // Cross-page deep link: /admin/summer/arrangement?tab=calendar&location=X&lesson_date=Y
+  // Fired from SummerApplicationDetailModal on the applications page. Applied
+  // once after the first location is set, then params are stripped so a refresh
+  // doesn't re-jump.
+  const deepLinkConsumedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkConsumedRef.current) return;
+    if (!configs || configs.length === 0 || configId === null || !location) return;
+    const { tab, location: urlLocation, lessonDate } = initialDeepLink;
+    if (!tab && !urlLocation && !lessonDate) {
+      deepLinkConsumedRef.current = true;
+      return;
+    }
+    const currentConfig = configs.find((c) => c.id === configId);
+    const locNames = currentConfig?.locations?.map((l) => l.name) ?? [];
+    if (urlLocation && locNames.includes(urlLocation) && urlLocation !== location) {
+      setLocation(urlLocation);
+    }
+    if (tab === "slots" || tab === "calendar" || tab === "students") {
+      setActiveTab(tab);
+    }
+    if (lessonDate) {
+      setCalendarTarget((prev) => ({ date: lessonDate, seq: (prev?.seq ?? 0) + 1 }));
+    }
+    deepLinkConsumedRef.current = true;
+    router.replace("/admin/summer/arrangement", { scroll: false });
+  }, [configs, configId, location, initialDeepLink, router]);
 
   const activeConfig = configs?.find((c) => c.id === configId);
   const locations = activeConfig?.locations ?? [];
@@ -319,12 +361,18 @@ export default function SummerArrangementPage() {
 
 
   // Navigate to a specific lesson date in the calendar tab.
-  // Uses a sequence counter so clicking the same date twice re-triggers navigation.
-  const [calendarTarget, setCalendarTarget] = useState<{ date: string; seq: number } | null>(null);
-  const handleNavigateToLesson = useCallback((lessonDate: string) => {
+  // Accepts either a bare lesson date (student-lessons table) or an object with
+  // an explicit target location (placement rows — may sit at a different branch
+  // than the currently-viewed one). `calendarTarget` state lives up top.
+  const handleNavigateToLesson = useCallback((arg: string | {
+    lessonDate: string; location: string; timeSlot?: string; sessionId?: number;
+  }) => {
+    const lessonDate = typeof arg === "string" ? arg : arg.lessonDate;
+    const targetLocation = typeof arg === "string" ? null : arg.location;
+    if (targetLocation && targetLocation !== location) setLocation(targetLocation);
     setCalendarTarget((prev) => ({ date: lessonDate, seq: (prev?.seq ?? 0) + 1 }));
     setActiveTab("calendar");
-  }, []);
+  }, [location]);
 
   // Bulk confirm tentative sessions
   const [bulkConfirmPending, setBulkConfirmPending] = useState<{ slotId?: number; label?: string } | null>(null);
@@ -724,6 +772,7 @@ export default function SummerArrangementPage() {
           locations={locations}
           config={activeConfig ?? null}
           baseFee={activeConfig?.pricing_config?.base_fee}
+          onNavigateToLesson={handleNavigateToLesson}
         />
 
         {/* Placement mode selector */}

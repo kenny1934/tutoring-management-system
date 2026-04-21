@@ -263,6 +263,14 @@ interface SummerApplicationDetailModalProps {
   onSelectApplication?: (app: SummerApplication) => void;
   baseFee?: number;
   config?: SummerCourseConfig | null;
+  /** Click-through on a placement row. Caller owns tab switching + week jump
+   * + location switching. Not providing this leaves rows non-clickable. */
+  onNavigateToLesson?: (target: {
+    lessonDate: string;
+    location: string;
+    timeSlot?: string;
+    sessionId?: number;
+  }) => void;
 }
 
 export function SummerApplicationDetailModal({
@@ -282,6 +290,7 @@ export function SummerApplicationDetailModal({
   onSelectApplication,
   baseFee,
   config,
+  onNavigateToLesson,
 }: SummerApplicationDetailModalProps) {
   const { showToast } = useToast();
   const [status, setStatus] = useState("");
@@ -1914,12 +1923,43 @@ export function SummerApplicationDetailModal({
                     {sorted.map((p) => {
                       const day = p.lesson_date ? getDayFromDate(p.lesson_date) : p.slot_day;
                       const startTime = p.time_slot ? getStartTime(p.time_slot) : "";
+                      const canNavigate = !!(
+                        onNavigateToLesson
+                        && p.lesson_date
+                        && p.location
+                        && p.session_status !== "Cancelled"
+                      );
+                      const navigate = canNavigate
+                        ? () => {
+                            onNavigateToLesson!({
+                              lessonDate: p.lesson_date!,
+                              location: p.location!,
+                              timeSlot: p.time_slot ?? undefined,
+                              sessionId: p.id,
+                            });
+                            onClose();
+                          }
+                        : undefined;
                       return (
-                        <div key={p.id} title={p.session_status} className={cn(
-                          "flex items-center gap-2 text-sm px-2 py-1 rounded",
-                          sessionStatusBg(p.session_status),
-                          p.session_status === RESCHEDULED_STATUS && "opacity-80",
-                        )}>
+                        <div
+                          key={p.id}
+                          title={canNavigate ? `${p.session_status} — click to view in calendar` : p.session_status}
+                          role={canNavigate ? "button" : undefined}
+                          tabIndex={canNavigate ? 0 : undefined}
+                          onClick={navigate}
+                          onKeyDown={canNavigate ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate!();
+                            }
+                          } : undefined}
+                          className={cn(
+                            "flex items-center gap-2 text-sm px-2 py-1 rounded",
+                            sessionStatusBg(p.session_status),
+                            p.session_status === RESCHEDULED_STATUS && "opacity-80",
+                            canNavigate && "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/40 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/60",
+                          )}
+                        >
                           <span className={cn(
                             "text-[10px] font-semibold tabular-nums px-1.5 rounded shrink-0 w-7 text-center",
                             p.session_status === RESCHEDULED_STATUS
@@ -1982,7 +2022,10 @@ export function SummerApplicationDetailModal({
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => setPendingAction({ kind: "reschedule", ...target })}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingAction({ kind: "reschedule", ...target });
+                                    }}
                                     title="Mark this lesson for make-up"
                                     className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
                                   >
@@ -1990,7 +2033,10 @@ export function SummerApplicationDetailModal({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setPendingAction({ kind: "delete", ...target })}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingAction({ kind: "delete", ...target });
+                                    }}
                                     title="Delete this placement"
                                     className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
                                   >
