@@ -10,6 +10,16 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* Summer landing reveal-on-scroll: force visible in print so Ctrl+P /
+ * "Save as PDF" doesn't capture blank sections below the fold. */
+@media print {
+  .summer-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
 @plugin "@tailwindcss/typography";
 
 @variant dark (&:is(.dark *));

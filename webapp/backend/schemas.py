@@ -3384,6 +3384,28 @@ class WaitlistEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SummerMarketingSnapshotCell(BaseModel):
+    total: int
+    pending: int
+    converted: int
+
+
+class SummerMarketingSnapshotResponse(BaseModel):
+    """Result of pushing a daily marketing snapshot row to Google Sheets.
+
+    `action` is "appended" / "updated" on success, or "skipped" when the cron
+    is past the active config's application_close_date (or no active config).
+    Skipped responses leave sheet-write fields null."""
+    as_of_date: date
+    config_id: Optional[int] = None
+    spreadsheet_id: Optional[str] = None
+    tab_name: Optional[str] = None
+    action: str  # "appended" | "updated" | "skipped"
+    row_index: Optional[int] = None
+    reason: Optional[str] = None
+    cells: Dict[str, Dict[str, SummerMarketingSnapshotCell]] = {}
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

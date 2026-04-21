@@ -14,31 +14,17 @@ import {
   radioLabelClass,
   RequiredMark,
   IconLabel,
+  WEEK_DAY_ORDER,
+  DAY_SHORT_ZH,
+  BRANCH_IMAGES_FALLBACK,
 } from "@/lib/summer-utils";
 import {
   PreferenceSlotGrid,
   type PreferenceSlot,
 } from "@/components/summer/PreferenceSlotGrid";
 
-const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
-  "Jardim de Vasco Center": "/summer/vasco-center.jpg",
-  "Flora Garden Center": "/summer/flora-center.jpg",
-};
-
-// Calendar-style header order for the open-days strip on each branch card.
-const WEEK_DAY_ORDER = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-] as const;
-const DAY_SHORT_ZH: Record<string, string> = {
-  Sunday: "日", Monday: "一", Tuesday: "二", Wednesday: "三",
-  Thursday: "四", Friday: "五", Saturday: "六",
-};
+// Single-letter English weekday for the compact strip — distinct from
+// summer-utils' 3-letter DAY_ABBREV.
 const DAY_SHORT_EN: Record<string, string> = {
   Sunday: "S", Monday: "M", Tuesday: "T", Wednesday: "W",
   Thursday: "T", Friday: "F", Saturday: "S",

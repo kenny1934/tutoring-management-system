@@ -2,12 +2,13 @@
 Summer course router: public application form + admin management endpoints.
 """
 import logging
+import os
 import secrets
 import string
 from datetime import date as date_type, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, contains_eager
@@ -83,9 +84,23 @@ from schemas import (
     SummerPublishBatchResponse,
     SummerPublishResult,
     SummerPublishConflictSession,
+    SummerMarketingSnapshotResponse,
+    SummerMarketingSnapshotCell,
 )
-from auth.dependencies import require_admin_view, require_admin_write
+from auth.dependencies import get_current_user, require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
+from services.google_sheets_service import (
+    SheetsConfigError,
+    upsert_snapshot_row,
+)
+from services.summer_marketing_snapshot import (
+    BUCKETS,
+    LOCATIONS,
+    build_header_row,
+    compute_snapshot,
+    excluded_reference_codes_from_env,
+    snapshot_to_row,
+)
 from utils.rate_limiter import check_ip_rate_limit
 from constants import (
     hk_now,
@@ -4684,3 +4699,97 @@ def find_slot(
     # Sort: matches first, then by date
     results.sort(key=lambda r: (not r.lesson_match, r.date))
     return results
+
+
+def _authorize_marketing_snapshot(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+) -> None:
+    """Allow either an admin cookie session or a matching X-Cron-Secret header.
+
+    The header path lets Cloud Scheduler hit this endpoint without an admin
+    user. Compare via `secrets.compare_digest` to avoid timing leaks.
+    """
+    expected = os.environ.get("SUMMER_MARKETING_CRON_SECRET")
+    if expected and x_cron_secret and secrets.compare_digest(x_cron_secret, expected):
+        return
+    user = get_current_user(request, db)
+    require_admin_write(request, user)
+
+
+@router.post(
+    "/summer/marketing/snapshot",
+    response_model=SummerMarketingSnapshotResponse,
+)
+def push_marketing_snapshot(
+    _auth: None = Depends(_authorize_marketing_snapshot),
+    db: Session = Depends(get_db),
+):
+    """Compute today's marketing snapshot and upsert it into the marketing sheet.
+
+    Returns action="skipped" (not an error) when there's no active config or
+    the active config's application_close_date has passed — so the daily cron
+    can keep firing through year-end transitions without log noise."""
+    today = hk_now().date()
+    config = _get_active_config(db)
+    if config is None:
+        return SummerMarketingSnapshotResponse(
+            as_of_date=today,
+            action="skipped",
+            reason="No active summer config",
+        )
+
+    close_date = config.application_close_date
+    if close_date is not None and today > close_date.date():
+        return SummerMarketingSnapshotResponse(
+            as_of_date=today,
+            config_id=config.id,
+            action="skipped",
+            reason=f"Application closed on {close_date.date().isoformat()}",
+        )
+
+    spreadsheet_id = os.environ.get("SUMMER_MARKETING_SHEET_ID")
+    if not spreadsheet_id:
+        raise HTTPException(
+            status_code=500,
+            detail="SUMMER_MARKETING_SHEET_ID env var is not set",
+        )
+    tab_name = os.environ.get("SUMMER_MARKETING_SHEET_TAB", "Daily Stats")
+
+    snapshot = compute_snapshot(
+        db,
+        config.id,
+        today,
+        excluded_reference_codes=excluded_reference_codes_from_env(),
+    )
+
+    try:
+        result = upsert_snapshot_row(
+            spreadsheet_id=spreadsheet_id,
+            tab_name=tab_name,
+            header_row=build_header_row(),
+            data_row=snapshot_to_row(snapshot),
+            snapshot_date=today,
+        )
+    except SheetsConfigError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.exception("[summer-marketing] Sheet write failed")
+        raise HTTPException(status_code=502, detail=f"Sheets API call failed: {e}")
+
+    return SummerMarketingSnapshotResponse(
+        as_of_date=today,
+        config_id=config.id,
+        spreadsheet_id=spreadsheet_id,
+        tab_name=tab_name,
+        action=result["action"],
+        row_index=result["row_index"],
+        cells={
+            loc: {
+                bucket: SummerMarketingSnapshotCell(**snapshot["cells"][loc][bucket])
+                for bucket in BUCKETS
+            }
+            for loc in LOCATIONS
+        },
+    )

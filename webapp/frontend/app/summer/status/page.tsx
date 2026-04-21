@@ -1049,7 +1049,7 @@ export default function SummerStatusPage() {
       {/* Link to apply */}
       <div className="text-center">
         <a
-          href="/summer/apply"
+          href="/apply"
           className="text-sm text-primary hover:text-primary-hover"
         >
           {t("前往報名", "Go to Application Form", lang)}
