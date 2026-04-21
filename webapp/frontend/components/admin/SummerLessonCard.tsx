@@ -470,7 +470,7 @@ export function SummerLessonCard({
                   L{s.lesson_number}
                 </button>
               )}
-              {s.session_log_id != null && !isResolved && (
+              {s.session_log_id != null && (
                 <button
                   onClick={(e) =>
                     onOpenSessionPopover?.(s.session_log_id!, {

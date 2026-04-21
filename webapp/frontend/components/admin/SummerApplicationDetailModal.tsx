@@ -13,7 +13,7 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
@@ -1947,11 +1947,17 @@ export function SummerApplicationDetailModal({
                         ? [
                             "Originally:",
                             [
-                              p.original_lesson_date ? formatCompactDate(p.original_lesson_date) : null,
-                              p.original_time_slot ? getStartTime(p.original_time_slot) : null,
                               p.original_lesson_number != null ? `L${p.original_lesson_number}` : null,
+                              p.original_lesson_date ? formatCompactDate(p.original_lesson_date) : null,
+                              p.original_lesson_date && p.original_time_slot
+                                ? `${getDayFromDate(p.original_lesson_date)} ${getStartTime(p.original_time_slot)}`
+                                : p.original_lesson_date
+                                  ? getDayFromDate(p.original_lesson_date)
+                                  : p.original_time_slot
+                                    ? getStartTime(p.original_time_slot)
+                                    : null,
                               p.original_tutor_name ? getTutorFirstName(p.original_tutor_name) : null,
-                              p.original_location || null,
+                              displayLocation(p.original_location) || null,
                             ].filter(Boolean).join(" · "),
                             p.original_session_status && p.original_session_status !== p.session_status
                               ? `Status: ${p.original_session_status}`
@@ -2053,7 +2059,7 @@ export function SummerApplicationDetailModal({
                                 aria-label="Placement moved from original plan"
                                 className="inline-flex items-center justify-center rounded-full p-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 cursor-help shrink-0"
                               >
-                                <RotateCcw className="h-3 w-3" />
+                                <History className="h-3 w-3" />
                               </span>
                             )}
                             {canEdit
