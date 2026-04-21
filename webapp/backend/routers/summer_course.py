@@ -237,6 +237,7 @@ def _build_session_info(
         session_status=status,
         buddy_group_id=app.buddy_group_id if app else None,
         lesson_number=_effective_lesson_number(ss, live),
+        session_log_id=live.id if live else None,
         lang_stream=app.lang_stream if app else None,
         existing_student_id=linked.id if linked else None,
         school_student_id=linked.school_student_id if linked else None,

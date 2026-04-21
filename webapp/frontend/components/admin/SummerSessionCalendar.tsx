@@ -13,6 +13,8 @@ import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { SummerLessonCard } from "@/components/admin/SummerLessonCard";
 import { CreateMakeupSlotModal } from "@/components/admin/CreateMakeupSlotModal";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { useSession } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import type { SummerLessonUpdate, SummerLessonCalendarEntry } from "@/types";
 
@@ -197,6 +199,22 @@ export function SummerSessionCalendar({
     globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar");
   };
 
+  // Session-detail popover for post-publish rows. The card hands up the
+  // session_log id + click point so this parent can own the portal lifecycle
+  // and fetch the Session the popover expects as a prop.
+  const [sessionPopover, setSessionPopover] = useState<
+    { id: number; position: { x: number; y: number } } | null
+  >(null);
+  const { data: popoverSession, isLoading: popoverLoading } = useSession(
+    sessionPopover?.id ?? null,
+  );
+  const handleOpenSessionPopover = useCallback(
+    (id: number, position: { x: number; y: number }) => {
+      setSessionPopover({ id, position });
+    },
+    [],
+  );
+
   // Update a lesson
   const handleUpdateLesson = useCallback(
     async (lessonId: number, data: SummerLessonUpdate) => {
@@ -380,6 +398,7 @@ export function SummerSessionCalendar({
                           onDropStudent={onDropStudent}
                           onRemoveSession={onRemoveSession}
                           onClickStudent={onClickStudent}
+                          onOpenSessionPopover={handleOpenSessionPopover}
                           onDeleted={handleCreated}
                           totalLessons={totalLessons}
                         />
@@ -419,6 +438,16 @@ export function SummerSessionCalendar({
         initialDate={makeupModal?.date}
         initialTime={makeupModal?.time}
       />
+
+      {sessionPopover && (
+        <SessionDetailPopover
+          session={popoverSession ?? null}
+          isOpen
+          isLoading={popoverLoading}
+          onClose={() => setSessionPopover(null)}
+          clickPosition={sessionPopover.position}
+        />
+      )}
     </div>
   );
 }

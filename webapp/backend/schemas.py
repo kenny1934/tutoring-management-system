@@ -2514,6 +2514,10 @@ class SummerSlotSessionInfo(BaseModel):
     # different students may cover different lesson material). For regular
     # slots this echoes the slot's SummerLesson.lesson_number.
     lesson_number: Optional[int] = None
+    # Post-publish session_log row id, so the calendar can open the session
+    # detail popover (which has the full PATCH surface) for live sessions.
+    # Null while the application is still pre-publish.
+    session_log_id: Optional[int] = None
     # Self-filled language stream from the application. Used to render the
     # combined grade+lang chip (e.g. "F3C").
     lang_stream: Optional[str] = None

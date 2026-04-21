@@ -1740,6 +1740,61 @@ class TestLinkedStudentFieldsOnSessionInfo:
         assert sess.existing_student_name == "Natalie Chang"
         # Self-filled student_name is preserved alongside for divergence UI
         assert sess.student_name == "Linked Student"
+        # Pre-publish: no session_log row yet.
+        assert sess.session_log_id is None
+
+    def test_calendar_session_carries_session_log_id_post_publish(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """After publish, the session_log row's id surfaces on the calendar
+        payload so the frontend can open SessionDetailPopover directly."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, publish_application,
+            get_lesson_calendar,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lessons_paid = 1
+        student.school_student_id = "1001"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=3,
+            ),
+            admin=admin, db=db_session,
+        )
+        ss = db_session.query(SummerSession).filter(
+            SummerSession.application_id == app_full.id,
+        ).first()
+        ss.session_status = "Confirmed"
+        db_session.commit()
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        log_row = db_session.query(SessionLog).filter(
+            SessionLog.summer_session_id == ss.id,
+        ).first()
+        assert log_row is not None
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        adhoc_entry = next(l for l in cal.lessons if l.is_adhoc and l.lesson_id > 0)
+        sess = adhoc_entry.sessions[0]
+        assert sess.session_log_id == log_row.id
 
     def test_slot_response_carries_linked_student_fields(
         self, db_session, admin, config, slot_tutor, app_full, student

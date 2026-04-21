@@ -28,6 +28,12 @@ interface SummerLessonCardProps {
   /** Called after a successful Make-up Slot delete or per-student edit so
    * the parent can revalidate SWR and drop the card from the grid. */
   onDeleted?: () => void;
+  /** Post-publish rows open the session-detail popover in the parent — it
+   * owns the popover portal and the useSession fetch. */
+  onOpenSessionPopover?: (
+    sessionLogId: number,
+    clickPosition: { x: number; y: number },
+  ) => void;
   /** Inclusive max for the lesson-number input (typically config.total_lessons). */
   totalLessons?: number;
 }
@@ -38,12 +44,15 @@ function fillBarColor(pct: number): string {
   return "bg-green-400 dark:bg-green-400/80";
 }
 
+const AMBER_BADGE = "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
+
 export function SummerLessonCard({
   lesson,
   onUpdateLesson,
   onDropStudent,
   onRemoveSession,
   onClickStudent,
+  onOpenSessionPopover,
   onDeleted,
   totalLessons = 8,
 }: SummerLessonCardProps) {
@@ -234,7 +243,7 @@ export function SummerLessonCard({
                 ? "bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 line-through"
                 : isAdhoc
                 ? cn(
-                    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+                    AMBER_BADGE,
                     isRealAdhoc ? "hover:opacity-80" : "cursor-default",
                   )
                 : (LESSON_BADGE_COLORS[lesson.grade ?? ""] || "bg-primary text-primary-foreground") + " hover:opacity-80"
@@ -345,6 +354,13 @@ export function SummerLessonCard({
             const isPending = s.session_status.endsWith("- Pending Make-up");
             const isBooked = s.session_status.endsWith("- Make-up Booked");
             const isResolved = isPending || isBooked;
+            // Per-row divergent L-badge: regular slots only, active rows
+            // only. Matches the card-level dot's logic.
+            const isDivergent =
+              !isAdhoc &&
+              !isResolved &&
+              s.lesson_number != null &&
+              s.lesson_number !== lesson.lesson_number;
             // Prefer the linked CSM student's canonical name; surface the
             // self-filled form value as a tooltip when the two diverge so
             // admins can still spot mismatches.
@@ -357,6 +373,16 @@ export function SummerLessonCard({
               : nameDiverges
               ? `Application form name: ${s.student_name}`
               : "View details";
+            const handleDivergentClick = (e: React.MouseEvent) => {
+              if (s.session_log_id != null) {
+                onOpenSessionPopover?.(s.session_log_id, {
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              } else {
+                setEditingSession({ id: s.id, current: s.lesson_number ?? null });
+              }
+            };
             return (
             <div
               key={s.id}
@@ -396,6 +422,22 @@ export function SummerLessonCard({
                   onNameClick={() => onClickStudent?.(s.application_id)}
                 />
               </div>
+              {isDivergent && (
+                <button
+                  onClick={handleDivergentClick}
+                  className={cn(
+                    "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                    AMBER_BADGE,
+                  )}
+                  title={
+                    s.session_log_id != null
+                      ? `Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number}) — click for session details`
+                      : `Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number}) — click to edit`
+                  }
+                >
+                  L{s.lesson_number}
+                </button>
+              )}
               {isRealAdhoc && (
                 <button
                   onClick={() =>
@@ -403,7 +445,7 @@ export function SummerLessonCard({
                   }
                   className={cn(
                     "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
-                    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+                    AMBER_BADGE,
                   )}
                   title={
                     s.lesson_number
