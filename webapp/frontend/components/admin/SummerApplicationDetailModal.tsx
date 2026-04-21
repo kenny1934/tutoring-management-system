@@ -381,14 +381,10 @@ export function SummerApplicationDetailModal({
   // unsaved changes. `null` means no discard prompt is showing.
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [pendingReschedule, setPendingReschedule] = useState<
-    { id: number; lessonNumber: number; dateLabel: string } | null
+  const [pendingAction, setPendingAction] = useState<
+    { kind: "reschedule" | "delete"; id: number; lessonNumber: number; dateLabel: string } | null
   >(null);
-  const [rescheduling, setRescheduling] = useState(false);
-  const [pendingCancel, setPendingCancel] = useState<
-    { id: number; lessonNumber: number; dateLabel: string } | null
-  >(null);
-  const [cancelling, setCancelling] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const { data: formConfig } = useSWR(
     editingDetails ? "summer-form-config" : null,
@@ -1976,34 +1972,33 @@ export function SummerApplicationDetailModal({
                           <div className="ml-auto flex items-center gap-1.5 shrink-0">
                             {canEdit
                               && p.session_status !== RESCHEDULED_STATUS
-                              && p.session_status !== "Cancelled" && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingReschedule({
-                                    id: p.id,
-                                    lessonNumber: p.lesson_number ?? 0,
-                                    dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
-                                  })}
-                                  title="Mark this lesson for make-up"
-                                  className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingCancel({
-                                    id: p.id,
-                                    lessonNumber: p.lesson_number ?? 0,
-                                    dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
-                                  })}
-                                  title="Delete this placement"
-                                  className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </>
-                            )}
+                              && p.session_status !== "Cancelled" && (() => {
+                              const target = {
+                                id: p.id,
+                                lessonNumber: p.lesson_number ?? 0,
+                                dateLabel: p.lesson_date ? formatCompactDate(p.lesson_date) : (p.slot_day ?? ""),
+                              };
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingAction({ kind: "reschedule", ...target })}
+                                    title="Mark this lesson for make-up"
+                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingAction({ kind: "delete", ...target })}
+                                    title="Delete this placement"
+                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -2622,63 +2617,47 @@ export function SummerApplicationDetailModal({
       />
 
       <ConfirmDialog
-        isOpen={pendingReschedule !== null}
-        onCancel={() => { if (!rescheduling) setPendingReschedule(null); }}
+        isOpen={pendingAction !== null}
+        onCancel={() => { if (!actionBusy) setPendingAction(null); }}
         onConfirm={async () => {
-          if (!pendingReschedule) return;
-          setRescheduling(true);
+          if (!pendingAction) return;
+          const { kind, id } = pendingAction;
+          setActionBusy(true);
           try {
-            await summerAPI.updateSessionStatus(pendingReschedule.id, {
-              session_status: RESCHEDULED_STATUS,
-            });
+            if (kind === "reschedule") {
+              await summerAPI.updateSessionStatus(id, { session_status: RESCHEDULED_STATUS });
+            } else {
+              await summerAPI.deleteSession(id, false);
+            }
             // Arrangement page's onUpdated doesn't touch ["summer-app", id],
-            // so revalidate the modal's caches explicitly.
-            await globalMutate(appCachesMatcher(app.id));
-            await onUpdated();
-            showToast("Lesson marked for make-up", "success");
-            setPendingReschedule(null);
+            // so revalidate the modal's caches alongside it.
+            await Promise.all([
+              globalMutate(appCachesMatcher(app.id)),
+              onUpdated(),
+            ]);
+            showToast(kind === "reschedule" ? "Lesson marked for make-up" : "Placement deleted", "success");
+            setPendingAction(null);
           } catch (e) {
-            showToast(e instanceof Error ? e.message : "Failed to reschedule", "error");
+            const fallback = kind === "reschedule" ? "Failed to reschedule" : "Failed to delete";
+            showToast(e instanceof Error ? e.message : fallback, "error");
           } finally {
-            setRescheduling(false);
+            setActionBusy(false);
           }
         }}
-        title="Mark lesson for make-up?"
+        title={pendingAction?.kind === "reschedule" ? "Mark lesson for make-up?" : "Delete placement?"}
         message={
-          pendingReschedule
-            ? `L${pendingReschedule.lessonNumber} (${pendingReschedule.dateLabel}) will be released from this slot. The student will need a make-up session.`
+          pendingAction
+            ? pendingAction.kind === "reschedule"
+              ? `L${pendingAction.lessonNumber} (${pendingAction.dateLabel}) will be released from this slot. The student will need a make-up session.`
+              : `L${pendingAction.lessonNumber} (${pendingAction.dateLabel}) will be removed from this slot.`
             : ""
         }
-        confirmText={rescheduling ? "Marking…" : "Mark for make-up"}
-        variant="warning"
-      />
-
-      <ConfirmDialog
-        isOpen={pendingCancel !== null}
-        onCancel={() => { if (!cancelling) setPendingCancel(null); }}
-        onConfirm={async () => {
-          if (!pendingCancel) return;
-          setCancelling(true);
-          try {
-            await summerAPI.deleteSession(pendingCancel.id, false);
-            await globalMutate(appCachesMatcher(app.id));
-            await onUpdated();
-            showToast("Placement deleted", "success");
-            setPendingCancel(null);
-          } catch (e) {
-            showToast(e instanceof Error ? e.message : "Failed to delete", "error");
-          } finally {
-            setCancelling(false);
-          }
-        }}
-        title="Delete placement?"
-        message={
-          pendingCancel
-            ? `L${pendingCancel.lessonNumber} (${pendingCancel.dateLabel}) will be removed from this slot.`
-            : ""
+        confirmText={
+          pendingAction?.kind === "reschedule"
+            ? (actionBusy ? "Marking…" : "Mark for make-up")
+            : (actionBusy ? "Deleting…" : "Delete")
         }
-        confirmText={cancelling ? "Deleting…" : "Delete"}
-        variant="danger"
+        variant={pendingAction?.kind === "reschedule" ? "warning" : "danger"}
       />
 
       <AddStudentModal
