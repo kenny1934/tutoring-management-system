@@ -2835,6 +2835,7 @@ class SummerApplicationSessionInfo(BaseModel):
     time_slot: str
     location: Optional[str] = None
     grade: Optional[str] = None
+    course_type: Optional[str] = None
     tutor_name: Optional[str] = None
     session_status: str
     lesson_number: Optional[int] = None

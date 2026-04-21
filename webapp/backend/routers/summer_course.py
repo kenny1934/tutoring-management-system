@@ -1439,6 +1439,7 @@ def _build_application_response(
             time_slot=slot.time_slot if slot else "",
             location=slot.location if slot else None,
             grade=slot.grade if slot else None,
+            course_type=slot.course_type if slot else None,
             tutor_name=slot.tutor.tutor_name if slot and slot.tutor else None,
             session_status=s.session_status,
             lesson_number=_effective_lesson_number(s),

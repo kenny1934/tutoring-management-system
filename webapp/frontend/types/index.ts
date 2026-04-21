@@ -2319,6 +2319,7 @@ export interface SummerApplicationSessionInfo {
   time_slot: string;
   location?: string | null;
   grade?: string | null;
+  course_type?: string | null;
   tutor_name?: string | null;
   session_status: string;
   lesson_number?: number | null;
