@@ -968,9 +968,9 @@ export function SummerAutoSuggestModal({
               )}
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               {/* Sticky filter bar */}
-              <div className="sticky top-0 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 space-y-2">
+              <div className="sticky -top-5 z-10 -mx-5 px-5 py-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/40 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[180px] max-w-[240px]">
                     <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -1435,7 +1435,7 @@ export function SummerAutoSuggestModal({
                   </div>
                 );
               })()}
-            </>
+            </div>
           )}
         </div>
 
