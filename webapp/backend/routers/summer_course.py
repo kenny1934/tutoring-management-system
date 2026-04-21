@@ -228,6 +228,7 @@ def _build_session_info(
 ) -> "SummerSlotSessionInfo":
     """Centralised so on-grid, ad-hoc, and ghost rows stay byte-identical."""
     app = ss.application
+    linked = app.existing_student if app else None
     return SummerSlotSessionInfo(
         id=ss.id,
         application_id=ss.application_id,
@@ -236,6 +237,10 @@ def _build_session_info(
         session_status=status,
         buddy_group_id=app.buddy_group_id if app else None,
         lesson_number=_effective_lesson_number(ss, live),
+        lang_stream=app.lang_stream if app else None,
+        existing_student_id=linked.id if linked else None,
+        school_student_id=linked.school_student_id if linked else None,
+        existing_student_name=linked.student_name if linked else None,
     )
 
 
@@ -1969,18 +1974,7 @@ def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
         adhoc_date=slot.adhoc_date,
         created_at=slot.created_at,
         session_count=attending_count,
-        sessions=[
-            SummerSlotSessionInfo(
-                id=s.id,
-                application_id=s.application_id,
-                student_name=s.application.student_name,
-                grade=s.application.grade,
-                session_status=s.session_status,
-                buddy_group_id=s.application.buddy_group_id,
-                lesson_number=_effective_lesson_number(s),
-            )
-            for s in unique_sessions
-        ],
+        sessions=[_build_session_info(s, s.session_status) for s in unique_sessions],
     )
 
 
@@ -1996,7 +1990,9 @@ def list_slots(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.config_id == config_id)
     )
@@ -2026,7 +2022,9 @@ def create_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.id == slot.id)
         .first()
@@ -2189,7 +2187,9 @@ def update_slot(
         db.query(SummerCourseSlot)
         .options(
             joinedload(SummerCourseSlot.tutor),
-            joinedload(SummerCourseSlot.sessions).joinedload(SummerSession.application),
+            joinedload(SummerCourseSlot.sessions)
+            .joinedload(SummerSession.application)
+            .joinedload(SummerApplication.existing_student),
         )
         .filter(SummerCourseSlot.id == slot_id)
         .first()
@@ -4392,7 +4392,9 @@ def get_lesson_calendar(
         .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
         .options(
             contains_eager(SummerSession.slot),
-            joinedload(SummerSession.application),
+            joinedload(SummerSession.application).joinedload(
+                SummerApplication.existing_student
+            ),
             joinedload(SummerSession.lesson),
         )
         .filter(

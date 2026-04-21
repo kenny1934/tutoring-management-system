@@ -1685,3 +1685,139 @@ class TestMakeupSlotOnCalendar:
         assert entry.lesson_number == 0  # NULL → 0 via response builder
         assert entry.max_students == 8
         assert entry.sessions == []
+
+
+class TestLinkedStudentFieldsOnSessionInfo:
+    """SummerSlotSessionInfo carries lang_stream + linked-CSM-student context
+    so the calendar and slot cards can render `1001 Natalie Chang F3C` with
+    a link-out to the profile, matching StudentInfoBadges elsewhere."""
+
+    def test_calendar_session_carries_linked_student_fields(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """get_lesson_calendar populates existing_student_id,
+        school_student_id, existing_student_name, and lang_stream."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, get_lesson_calendar,
+        )
+        from schemas import SummerSessionCreate
+
+        # Self-filled form value + canonical student fields (different name
+        # to simulate a match with a spelling/character variant).
+        app_full.lang_stream = "C"
+        student.school_student_id = "1001"
+        student.student_name = "Natalie Chang"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=4,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        week_start = adhoc_date - timedelta(days=adhoc_date.weekday())
+        cal = get_lesson_calendar(
+            config_id=config.id, location="MSA",
+            week_start=week_start, _admin=None, db=db_session,
+        )
+        adhoc_entry = next(l for l in cal.lessons if l.is_adhoc and l.lesson_id > 0)
+        sess = adhoc_entry.sessions[0]
+        assert sess.lang_stream == "C"
+        assert sess.existing_student_id == student.id
+        assert sess.school_student_id == "1001"
+        assert sess.existing_student_name == "Natalie Chang"
+        # Self-filled student_name is preserved alongside for divergence UI
+        assert sess.student_name == "Linked Student"
+
+    def test_slot_response_carries_linked_student_fields(
+        self, db_session, admin, config, slot_tutor, app_full, student
+    ):
+        """Same guarantee for the Slot Setup tab via _build_slot_response."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, list_slots,
+        )
+        from schemas import SummerSessionCreate
+
+        app_full.lang_stream = "E"
+        student.school_student_id = "2042"
+        db_session.commit()
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_full.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=2,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        slots = list_slots(
+            config_id=config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        slot = next(s for s in slots if s.id == slot_resp.slot.id)
+        sess = slot.sessions[0]
+        assert sess.lang_stream == "E"
+        assert sess.existing_student_id == student.id
+        assert sess.school_student_id == "2042"
+        assert sess.existing_student_name == student.student_name
+
+    def test_unlinked_application_leaves_linked_fields_null(
+        self, db_session, admin, config, slot_tutor, app_unlinked
+    ):
+        """Unlinked applications still render fine — linked fields stay None."""
+        from routers.summer_course import (
+            create_makeup_slot, create_session, list_slots,
+        )
+        from schemas import SummerSessionCreate
+
+        adhoc_date = config.course_start_date + timedelta(days=2)
+        slot_resp = create_makeup_slot(
+            data=TestMakeupSlotCreate()._payload(config, slot_tutor, adhoc_date),
+            admin=admin, db=db_session,
+        )
+        lesson = db_session.query(SummerLesson).filter(
+            SummerLesson.slot_id == slot_resp.slot.id,
+        ).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=app_unlinked.id,
+                slot_id=slot_resp.slot.id,
+                lesson_id=lesson.id,
+                lesson_number=1,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        slots = list_slots(
+            config_id=config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        slot = next(s for s in slots if s.id == slot_resp.slot.id)
+        sess = slot.sessions[0]
+        assert sess.existing_student_id is None
+        assert sess.school_student_id is None
+        assert sess.existing_student_name is None
+        # Self-filled name still surfaces for the card's fallback render.
+        assert sess.student_name == "No Link"

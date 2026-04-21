@@ -2514,6 +2514,15 @@ class SummerSlotSessionInfo(BaseModel):
     # different students may cover different lesson material). For regular
     # slots this echoes the slot's SummerLesson.lesson_number.
     lesson_number: Optional[int] = None
+    # Self-filled language stream from the application. Used to render the
+    # combined grade+lang chip (e.g. "F3C").
+    lang_stream: Optional[str] = None
+    # Linked CSM student context. Populated when the application has been
+    # matched to an existing Student record; lets the UI show the canonical
+    # school ID + name and link out to the profile.
+    existing_student_id: Optional[int] = None
+    school_student_id: Optional[str] = None
+    existing_student_name: Optional[str] = None
 
 
 class SummerSlotResponse(BaseModel):

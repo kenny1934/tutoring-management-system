@@ -8,6 +8,7 @@ import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -344,11 +345,23 @@ export function SummerLessonCard({
             const isPending = s.session_status.endsWith("- Pending Make-up");
             const isBooked = s.session_status.endsWith("- Make-up Booked");
             const isResolved = isPending || isBooked;
+            // Prefer the linked CSM student's canonical name; surface the
+            // self-filled form value as a tooltip when the two diverge so
+            // admins can still spot mismatches.
+            const displayName = s.existing_student_name || s.student_name;
+            const nameDiverges =
+              !!s.existing_student_name &&
+              s.existing_student_name !== s.student_name;
+            const nameTooltip = isResolved
+              ? s.session_status
+              : nameDiverges
+              ? `Application form name: ${s.student_name}`
+              : "View details";
             return (
             <div
               key={s.id}
               className={cn(
-                "flex items-center gap-1 text-[10px] rounded px-1 py-0.5",
+                "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
                 sessionStatusBg(s.session_status),
                 isPending && "opacity-80",
                 isBooked && "opacity-60",
@@ -364,17 +377,25 @@ export function SummerLessonCard({
                   <Loader2 className="h-3 w-3 text-gray-400 shrink-0" />
                 </span>
               )}
-              <button
-                onClick={() => onClickStudent?.(s.application_id)}
+              <div
                 className={cn(
-                  "truncate flex-1 text-left hover:text-primary hover:underline",
+                  "flex-1 min-w-0",
                   isPending && "line-through text-orange-600 dark:text-orange-400",
                   isBooked && "line-through text-gray-500 dark:text-gray-400",
                 )}
-                title={isResolved ? s.session_status : "View details"}
               >
-                {s.student_name}
-              </button>
+                <StudentInfoBadges
+                  compact
+                  student={{
+                    student_name: displayName,
+                    school_student_id: s.school_student_id ?? undefined,
+                    grade: s.grade,
+                    lang_stream: s.lang_stream ?? undefined,
+                  }}
+                  nameTitle={nameTooltip}
+                  onNameClick={() => onClickStudent?.(s.application_id)}
+                />
+              </div>
               {isRealAdhoc && (
                 <button
                   onClick={() =>
@@ -393,14 +414,6 @@ export function SummerLessonCard({
                   L{s.lesson_number ?? "—"}
                 </button>
               )}
-              <span
-                className={cn(
-                  "text-[8px] font-bold px-0.5 rounded",
-                  SUMMER_GRADE_BG[s.grade] || "bg-[#e8d4b8]/30 dark:bg-gray-700"
-                )}
-              >
-                {s.grade}
-              </span>
               {onRemoveSession && (
                 <button
                   onClick={() => onRemoveSession(s.id, s.student_name)}

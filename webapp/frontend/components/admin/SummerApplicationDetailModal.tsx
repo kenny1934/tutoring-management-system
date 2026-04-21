@@ -1079,12 +1079,19 @@ export function SummerApplicationDetailModal({
               onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
               disabled={!canEdit}
               summary={studentId && linkedStudent ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+                <span className="inline-flex items-center gap-1 text-foreground">
                   <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
-                  <span className="truncate">{linkedStudent.student_name}</span>
-                  {linkedStudent.grade && (
-                    <span className="text-muted-foreground">· {linkedStudent.grade}</span>
-                  )}
+                  <StudentInfoBadges
+                    compact
+                    showLink
+                    student={{
+                      student_id: linkedStudent.id,
+                      student_name: linkedStudent.student_name,
+                      school_student_id: linkedStudent.school_student_id || undefined,
+                      grade: linkedStudent.grade || undefined,
+                      lang_stream: linkedStudent.lang_stream || undefined,
+                    }}
+                  />
                 </span>
               ) : studentId ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

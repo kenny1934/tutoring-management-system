@@ -2374,6 +2374,10 @@ export interface SummerSlotSessionInfo {
   session_status: string;
   buddy_group_id?: number | null;
   lesson_number?: number | null;
+  lang_stream?: string | null;
+  existing_student_id?: number | null;
+  school_student_id?: string | null;
+  existing_student_name?: string | null;
 }
 
 export interface SummerSlot {
