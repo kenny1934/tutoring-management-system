@@ -22,7 +22,7 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
-  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, Send, CheckCircle2, Trash2,
+  Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, CalendarClock, Send, CheckCircle2, Trash2,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -2063,9 +2063,7 @@ export function SummerApplicationDetailModal({
                                 <History className="h-3 w-3" />
                               </span>
                             )}
-                            {canEdit
-                              && p.session_status !== RESCHEDULED_STATUS
-                              && p.session_status !== "Cancelled" && (() => {
+                            {canEdit && p.session_status !== "Cancelled" && (() => {
                               const target = {
                                 id: p.id,
                                 lessonNumber: p.lesson_number ?? 0,
@@ -2073,17 +2071,19 @@ export function SummerApplicationDetailModal({
                               };
                               return (
                                 <>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPendingAction({ kind: "reschedule", ...target });
-                                    }}
-                                    title="Mark this lesson for make-up"
-                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
-                                  >
-                                    <RotateCcw className="h-3 w-3" />
-                                  </button>
+                                  {p.session_status !== RESCHEDULED_STATUS && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingAction({ kind: "reschedule", ...target });
+                                      }}
+                                      title="Request Reschedule"
+                                      className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
+                                    >
+                                      <CalendarClock className="h-3 w-3" />
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={(e) => {
