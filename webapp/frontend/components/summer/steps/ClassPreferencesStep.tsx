@@ -55,6 +55,8 @@ interface ClassPreferencesStepProps {
   setPref4Time: (v: string) => void;
   unavailability: string;
   setUnavailability: (v: string) => void;
+  /** Forwarded to PreferenceSlotGrid. See its prop doc. */
+  compact?: boolean;
 }
 
 export function ClassPreferencesStep({
@@ -82,6 +84,7 @@ export function ClassPreferencesStep({
   setPref4Time,
   unavailability,
   setUnavailability,
+  compact = false,
 }: ClassPreferencesStepProps) {
   const selectedLocationData = config.locations.find(
     (l) => l.name === selectedLocation
@@ -284,6 +287,7 @@ export function ClassPreferencesStep({
               onChange={writeBack}
               mode={isPair ? "pair" : "single"}
               lang={lang}
+              compact={compact}
             />
           </div>
         </div>

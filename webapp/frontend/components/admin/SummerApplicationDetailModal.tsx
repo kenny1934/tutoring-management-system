@@ -1574,6 +1574,7 @@ export function SummerApplicationDetailModal({
                   setPref4Time={setDPref4Time}
                   unavailability={dUnavail}
                   setUnavailability={setDUnavail}
+                  compact
                 />
               ) : (
                 <div className="text-xs text-muted-foreground">Loading form config...</div>
