@@ -24,7 +24,7 @@ from schemas import (
     TerminationReviewCount,
     StatDetailStudent
 )
-from auth.dependencies import require_admin_write, get_current_user, get_effective_role, reject_guest
+from auth.dependencies import require_admin_write, get_current_user, get_effective_role, reject_guest, reject_read_only
 
 router = APIRouter()
 
@@ -263,12 +263,13 @@ async def get_terminated_students(
 async def update_termination_record(
     student_id: int,
     data: TerminationRecordUpdate,
-    admin: Tutor = Depends(require_admin_write),
+    current_user: Tutor = Depends(reject_read_only),
     updated_by: str = Query(..., description="Email of user making the update"),
     db: Session = Depends(get_db)
 ):
     """
-    Create or update a termination record for a student. Admin only.
+    Create or update a termination record for a student.
+    Allowed for Tutor, Admin, Super Admin (blocks Supervisor/Guest read-only roles).
     Uses UPSERT behavior - creates if not exists, updates if exists.
     """
     # Verify student exists

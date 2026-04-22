@@ -72,7 +72,6 @@ function ScheduledTrialCard({
                 school: trial.school,
                 home_location: trial.location,
               }}
-              compact
             />
           </div>
 
@@ -135,7 +134,6 @@ function AwaitingTrialCard({
             school: trial.school,
             home_location: trial.location,
           }}
-          compact
         />
       </div>
 

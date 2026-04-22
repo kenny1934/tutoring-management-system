@@ -490,8 +490,19 @@ export default function TerminatedStudentsPage() {
         });
       }
 
-      // Revalidate data
-      mutateStudents();
+      // Seed SWR cache with optimistic values so saved edits appear immediately,
+      // then revalidate to reconcile any server-side drift (e.g. partial failures).
+      const optimisticStudents = terminatedStudents.map(s => {
+        const change = pendingChanges.get(s.student_id);
+        if (!change) return s;
+        return {
+          ...s,
+          reason: change.reason ?? s.reason,
+          reason_category: change.reasonCategory ?? s.reason_category,
+          count_as_terminated: change.countAsTerminated ?? s.count_as_terminated,
+        };
+      });
+      mutateStudents(optimisticStudents, { revalidate: true });
       mutate(['termination-stats', selectedQuarter, selectedYear, effectiveLocation || 'all', effectiveTutorId || 'all']);
 
       // Clear pending changes
