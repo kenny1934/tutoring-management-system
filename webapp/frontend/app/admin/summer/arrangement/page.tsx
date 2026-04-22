@@ -100,6 +100,7 @@ export default function SummerArrangementPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
@@ -237,6 +238,20 @@ export default function SummerArrangementPage() {
   const { data: appStats, mutate: mutateAppStats } = useSWR(
     canView && configId && location ? ["summer-app-stats", configId, location] : null,
     () => summerAPI.getApplicationStats({ config_id: configId!, location }),
+    { refreshInterval: 30000 }
+  );
+
+  // Demand takes precedence, so this hook stays idle while the demand-bar filter
+  // is active to avoid two competing scopes fighting over the panel.
+  const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
+    statusFilter && !demandPrefFilter && configId && location
+      ? ["summer-apps-status", configId, location, statusFilter]
+      : null,
+    () => summerAPI.getApplications({
+      config_id: configId!,
+      location,
+      application_status: statusFilter!,
+    }),
     { refreshInterval: 30000 }
   );
 
@@ -478,7 +493,6 @@ export default function SummerArrangementPage() {
 
   // Drag preference highlighting — classifyPrefs owns the tier split.
   const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
-  const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
 
   // Fetch all applications for demand bar filter (only when filter active)
   const { data: demandFilterApps } = useSWR(
@@ -486,20 +500,6 @@ export default function SummerArrangementPage() {
       ? ["summer-apps-demand", configId, location, demandPrefFilter.grade]
       : null,
     () => summerAPI.getApplications({ config_id: configId!, location, grade: demandPrefFilter!.grade }),
-  );
-
-  // Demand takes precedence, so this hook stays idle while the demand-bar filter
-  // is active to avoid two competing scopes fighting over the panel.
-  const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
-    statusFilter && !demandPrefFilter && configId && location
-      ? ["summer-apps-status", configId, location, statusFilter]
-      : null,
-    () => summerAPI.getApplications({
-      config_id: configId!,
-      location,
-      application_status: statusFilter!,
-    }),
-    { refreshInterval: 30000 }
   );
 
   // Applications matching the demand bar filter (all apps, not just unassigned)
