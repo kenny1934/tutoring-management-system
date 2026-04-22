@@ -1690,6 +1690,13 @@ def admin_suggest_student_links(
     # resolve it per-row here. Narrow the SQL filter to secondary claimants
     # (is_existing_student == "MathConcept Secondary Academy") and unlinked
     # apps; Python then drops rows whose center doesn't resolve to MSA/MSB.
+    # Also exclude apps that a primary prospect already claims — those are
+    # effectively linked already, even though existing_student_id is empty.
+    prospect_claimed_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
     candidate_apps = (
         db.query(SummerApplication)
         .filter(
@@ -1701,6 +1708,8 @@ def admin_suggest_student_links(
     )
     apps: list[tuple[SummerApplication, str]] = []
     for app in candidate_apps:
+        if app.id in prospect_claimed_ids:
+            continue
         center_name = (app.current_centers or [None])[0]
         code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
         if code in _SECONDARY_BRANCH_CODES:

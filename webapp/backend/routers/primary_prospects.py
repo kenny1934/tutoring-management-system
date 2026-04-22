@@ -505,13 +505,25 @@ def admin_find_matches(
 
     phones = [p for p in [prospect.phone_1, prospect.phone_2] if p]
 
+    # Exclude apps that some other prospect already links to, or that a local
+    # MSA/MSB student already claims — those aren't candidates for this prospect.
+    taken_app_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
+
     # Pull a year-wide pool once so name scoring doesn't require a second trip.
     year_apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
-        .filter(SummerCourseConfig.year == prospect.year)
+        .filter(
+            SummerCourseConfig.year == prospect.year,
+            SummerApplication.existing_student_id.is_(None),
+        )
         .all()
     )
+    year_apps = [a for a in year_apps if a.id not in taken_app_ids]
 
     # app_id -> (app, signals, similarity)
     candidates: dict[int, tuple[SummerApplication, set[str], int]] = {}
@@ -595,15 +607,26 @@ def admin_auto_match(
     if not phone_to_prospects:
         return empty
 
+    # An app already claimed by another prospect — or linked to a local MSA/MSB
+    # student — is off the table. Collect the IDs once and reuse the exclusion
+    # for both the phone-match query and the Pass 3 fuzzy candidate pool.
+    taken_app_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
+
     apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerApplication.contact_phone.in_(phone_to_prospects.keys()),
             SummerCourseConfig.year == year,
+            SummerApplication.existing_student_id.is_(None),
         )
         .all()
     )
+    apps = [a for a in apps if a.id not in taken_app_ids]
 
     apps_by_phone: dict[str, list[SummerApplication]] = {}
     for app in apps:
@@ -687,14 +710,25 @@ def admin_auto_match(
     # so surface candidates for manual review — never auto-link.
     remaining_prospects = [p for p in unlinked if p.id not in handled_prospect_ids and p.student_name]
     if remaining_prospects:
-        linked_app_ids = {m["application"]["id"] for m in matches}
+        # `taken_app_ids` covers apps claimed by other prospects (including any
+        # we linked in Pass 1 this run) plus apps linked to secondary students;
+        # `matches` covers apps we just queued for link in Pass 1.
+        freshly_matched_ids = {m["application"]["id"] for m in matches}
         candidate_apps = (
             db.query(SummerApplication)
             .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
-            .filter(SummerCourseConfig.year == year)
+            .filter(
+                SummerCourseConfig.year == year,
+                SummerApplication.existing_student_id.is_(None),
+            )
             .all()
         )
-        candidate_apps = [a for a in candidate_apps if a.id not in linked_app_ids and a.student_name]
+        candidate_apps = [
+            a for a in candidate_apps
+            if a.id not in taken_app_ids
+            and a.id not in freshly_matched_ids
+            and a.student_name
+        ]
         for p in remaining_prospects:
             scored = []
             for app in candidate_apps:
