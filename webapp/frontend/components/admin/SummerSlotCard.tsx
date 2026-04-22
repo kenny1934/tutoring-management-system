@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, sessionStatusBg } from "@/lib/summer-utils";
@@ -19,6 +19,10 @@ interface SummerSlotCardProps {
   onClickStudent?: (applicationId: number) => void;
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
+  /** Briefly ring + auto-expand the card if one of its sessions matches the
+   * given application. The matching student row also rings. `seq` re-fires
+   * the effect on repeat selection of the same student. */
+  highlightTarget?: { applicationId: number; seq: number } | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -37,6 +41,7 @@ export function SummerSlotCard({
   onClickStudent,
   availableTutors,
   onConfirmSlot,
+  highlightTarget,
 }: SummerSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -44,8 +49,26 @@ export function SummerSlotCard({
   const [editingLabel, setEditingLabel] = useState(false);
   const maxRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const isFull = slot.session_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.session_count / slot.max_students : 0;
+
+  // Search-jump highlight. Deps exclude slot.sessions on purpose: SWR
+  // revalidates every 30s and returns a fresh array — including it would
+  // re-fire the highlight each refresh while the same slotTarget stands.
+  const [highlightedAppId, setHighlightedAppId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!highlightTarget) return;
+    const hasMatch = slot.sessions.some((p) => p.application_id === highlightTarget.applicationId);
+    if (!hasMatch) return;
+    setHighlightedAppId(highlightTarget.applicationId);
+    setExpanded(true);
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const clearTimer = setTimeout(() => setHighlightedAppId(null), 2000);
+    return () => clearTimeout(clearTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightTarget?.seq, highlightTarget?.applicationId]);
+  const isHighlighted = highlightedAppId != null;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -88,13 +111,15 @@ export function SummerSlotCard({
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
           ? "border-primary bg-primary/15"
           : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
-        isFull && "opacity-80"
+        isFull && "opacity-80",
+        isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -261,6 +286,7 @@ export function SummerSlotCard({
               className={cn(
                 "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
                 sessionStatusBg(p.session_status),
+                highlightedAppId === p.application_id && "ring-2 ring-primary/60 ring-offset-1",
               )}
             >
               <div className="flex-1 min-w-0">

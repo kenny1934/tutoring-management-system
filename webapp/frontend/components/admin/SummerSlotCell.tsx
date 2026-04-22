@@ -34,6 +34,7 @@ interface SummerSlotCellProps {
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
   onDemandBarClick?: (filter: DemandBarFilter) => void;
+  slotHighlightTarget?: { applicationId: number; seq: number } | null;
 }
 
 // Solid fill (1st pref) and light fill (2nd pref) for demand sparklines per grade
@@ -71,6 +72,7 @@ export function SummerSlotCell({
   availableTutors,
   onConfirmSlot,
   onDemandBarClick,
+  slotHighlightTarget,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -189,6 +191,7 @@ export function SummerSlotCell({
             onClickStudent={onClickStudent}
             availableTutors={availableTutors}
             onConfirmSlot={onConfirmSlot}
+            highlightTarget={slotHighlightTarget}
           />
         ))}
       </div>

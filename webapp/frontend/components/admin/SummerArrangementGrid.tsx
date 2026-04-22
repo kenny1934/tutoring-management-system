@@ -31,6 +31,9 @@ interface SummerArrangementGridProps {
   onConfirmSlot?: (slotId: number) => void;
   dragBuddySlots?: Set<string> | null;
   onDemandBarClick?: (filter: DemandBarFilter) => void;
+  /** Ring + auto-expand every slot card containing this application. `seq`
+   * lets the effect re-fire when the same student is targeted twice. */
+  slotHighlightTarget?: { applicationId: number; seq: number } | null;
 }
 
 
@@ -52,6 +55,7 @@ export function SummerArrangementGrid({
   onConfirmSlot,
   dragBuddySlots,
   onDemandBarClick,
+  slotHighlightTarget,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -222,6 +226,7 @@ export function SummerArrangementGrid({
                   availableTutors={getAvailableTutors?.(day, ts)}
                   onConfirmSlot={onConfirmSlot}
                   onDemandBarClick={onDemandBarClick}
+                  slotHighlightTarget={slotHighlightTarget}
                 />
               );
             })}

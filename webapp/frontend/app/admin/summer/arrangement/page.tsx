@@ -141,6 +141,22 @@ export default function SummerArrangementPage() {
     }));
   }, []);
 
+  // Slot-grid highlight target — mirrors calendarTarget. Bumped by the global
+  // student search so selecting a result on the slots tab rings every slot
+  // card containing that student (multi-slot placements ring together) and
+  // auto-expands them. `seq` re-fires the effect when the same student is
+  // targeted twice in a row.
+  const [slotTarget, setSlotTarget] = useState<{
+    applicationId: number;
+    seq: number;
+  } | null>(null);
+  const bumpSlotTarget = useCallback((applicationId: number) => {
+    setSlotTarget((prev) => ({
+      applicationId,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, []);
+
   // Fetch configs
   const { data: configs } = useSWR(
     canView ? "summer-configs" : null,
@@ -617,16 +633,41 @@ export default function SummerArrangementPage() {
     return out;
   }, [studentLessonsData, unassigned]);
 
+  // Applications that appear in at least one recurring-slot card — i.e. are
+  // findable on the Slot Setup grid. Students whose sessions were dropped
+  // directly onto the Calendar (flexible-schedule case) won't be in this set
+  // and we fall back to a calendar jump.
+  const applicationIdsInSlots = useMemo(() => {
+    const set = new Set<number>();
+    for (const s of slots ?? []) {
+      for (const p of s.sessions) set.add(p.application_id);
+    }
+    return set;
+  }, [slots]);
+
   const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
-    if (entry.placed && entry.firstLesson) {
+    if (!entry.placed) {
+      // Unplaced students have no lesson to jump to — open the detail modal
+      // so the admin can review and place from there.
+      setSelectedAppId(entry.applicationId);
+      return;
+    }
+    if (applicationIdsInSlots.has(entry.applicationId)) {
+      bumpSlotTarget(entry.applicationId);
+      setActiveTab("slots");
+      return;
+    }
+    if (entry.firstLesson) {
       bumpCalendarTarget(entry.firstLesson.lessonDate, entry.firstLesson.sessionId);
       setActiveTab("calendar");
-    } else {
-      // Unplaced students have no lesson to jump to — open the detail modal so
-      // the admin can review and place from there.
-      setSelectedAppId(entry.applicationId);
+      showToast(
+        "No recurring slot placement — showing individual sessions on the Calendar",
+        "info",
+      );
+      return;
     }
-  }, [bumpCalendarTarget]);
+    setSelectedAppId(entry.applicationId);
+  }, [applicationIdsInSlots, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;
@@ -845,6 +886,7 @@ export default function SummerArrangementPage() {
                       prev && prev.day === f.day && prev.timeSlot === f.timeSlot && prev.grade === f.grade && prev.tier === f.tier
                         ? null : f
                     )}
+                    slotHighlightTarget={slotTarget}
                   />
                 ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
