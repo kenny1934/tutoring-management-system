@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
@@ -108,7 +108,8 @@ export function SummerUnassignedPanel({
       result = result.filter(
         (a) =>
           a.student_name.toLowerCase().includes(q) ||
-          a.reference_code?.toLowerCase().includes(q)
+          a.reference_code?.toLowerCase().includes(q) ||
+          getLinkedStudentId(a)?.toLowerCase().includes(q)
       );
     }
     result = [...result].sort((a, b) => {
@@ -193,7 +194,7 @@ export function SummerUnassignedPanel({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
+            placeholder="Search name, ref code, student ID..."
             className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
           />
         </div>

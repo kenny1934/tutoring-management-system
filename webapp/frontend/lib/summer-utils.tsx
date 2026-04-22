@@ -547,3 +547,14 @@ export function formatPreferences(app: {
   const pref2 = [app.preference_2_day, app.preference_2_time].filter(Boolean).join(" ");
   return { pref1, pref2, combined: [pref1, pref2].filter(Boolean).join(", ") };
 }
+
+export function getLinkedStudentId(app: {
+  linked_student?: { school_student_id?: string | null } | null;
+  linked_prospect?: { primary_student_id?: string | null } | null;
+}): string | null {
+  return (
+    app.linked_student?.school_student_id ??
+    app.linked_prospect?.primary_student_id ??
+    null
+  );
+}

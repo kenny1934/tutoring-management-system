@@ -1116,7 +1116,7 @@ export default function SummerApplicationsPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder='Search name, phone, ref code... (press "/")'
+                    placeholder='Search name, phone, ref code, student ID... (press "/")'
                     className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
                   />
                   {searchQuery && (

@@ -26,7 +26,7 @@ import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
-import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
+import { LOCATION_TO_CODE, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
@@ -616,8 +616,7 @@ export default function SummerArrangementPage() {
       linked_student?: { school_student_id?: string | null } | null;
       linked_prospect?: { primary_student_id?: string | null } | null;
     }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
-      const studentId =
-        source.linked_student?.school_student_id ?? source.linked_prospect?.primary_student_id ?? null;
+      const studentId = getLinkedStudentId(source);
       return {
         applicationId: source.application_id,
         name: source.student_name,
