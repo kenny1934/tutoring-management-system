@@ -22,6 +22,7 @@ import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
 import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
+import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components/admin/SummerStudentSearch";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
@@ -238,6 +239,16 @@ export default function SummerArrangementPage() {
   const { data: appStats, mutate: mutateAppStats } = useSWR(
     canView && configId && location ? ["summer-app-stats", configId, location] : null,
     () => summerAPI.getApplicationStats({ config_id: configId!, location }),
+    { refreshInterval: 30000 }
+  );
+
+  // Student-lessons feed — drives the Students tab but also the header global
+  // search (we need lesson_date + session_id on each placed lesson to build a
+  // jump target). SWR dedupes with the Students tab's hook, and refreshAll's
+  // existing `mutateStudentLessons` invalidates this cache via key-prefix match.
+  const { data: studentLessonsData } = useSWR(
+    canView && configId && location ? ["summer-student-lessons", configId, location] : null,
+    () => summerAPI.getStudentLessons(configId!, location),
     { refreshInterval: 30000 }
   );
 
@@ -557,6 +568,67 @@ export default function SummerArrangementPage() {
     : statusFilter ? !statusFilteredApps
     : (!unassigned && !!configId);
 
+  // Build global search index: placed students (via studentLessons) + unplaced
+  // (via unassigned). Placed entries carry a jump target — first placed lesson's
+  // date + session id — so selecting them routes straight to the calendar with
+  // a ring highlight. Haystack folds phone digits + school/primary student id
+  // so admins can paste any of those from a parent message and find the row.
+  const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
+    const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
+    const lowerOrEmpty = (s?: string | null) => (s ? s.toLowerCase() : "");
+    const out: SummerStudentSearchEntry[] = [];
+    const seen = new Set<number>();
+    for (const s of studentLessonsData?.students ?? []) {
+      const placedLessons = s.lessons
+        .filter((l) => l.placed && l.lesson_date)
+        .sort((a, b) => (a.lesson_number ?? 0) - (b.lesson_number ?? 0));
+      const first = placedLessons[0];
+      const placed = placedLessons.length > 0;
+      const studentId =
+        s.linked_student?.school_student_id ?? s.linked_prospect?.primary_student_id ?? null;
+      out.push({
+        applicationId: s.application_id,
+        name: s.student_name,
+        grade: s.grade,
+        langStream: s.lang_stream ?? null,
+        studentId,
+        placed,
+        firstLesson: first
+          ? { lessonDate: first.lesson_date!, sessionId: first.session_id ?? null }
+          : null,
+        haystack: `${s.student_name.toLowerCase()} ${digits(s.contact_phone)} ${lowerOrEmpty(studentId)}`,
+      });
+      seen.add(s.application_id);
+    }
+    for (const a of unassigned ?? []) {
+      if (seen.has(a.id)) continue;
+      const studentId =
+        a.linked_student?.school_student_id ?? a.linked_prospect?.primary_student_id ?? null;
+      out.push({
+        applicationId: a.id,
+        name: a.student_name,
+        grade: a.grade,
+        langStream: a.lang_stream ?? null,
+        studentId,
+        placed: false,
+        firstLesson: null,
+        haystack: `${a.student_name.toLowerCase()} ${digits(a.contact_phone)} ${lowerOrEmpty(studentId)}`,
+      });
+    }
+    return out;
+  }, [studentLessonsData, unassigned]);
+
+  const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+    if (entry.placed && entry.firstLesson) {
+      bumpCalendarTarget(entry.firstLesson.lessonDate, entry.firstLesson.sessionId);
+      setActiveTab("calendar");
+    } else {
+      // Unplaced students have no lesson to jump to — open the detail modal so
+      // the admin can review and place from there.
+      setSelectedAppId(entry.applicationId);
+    }
+  }, [bumpCalendarTarget]);
+
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;
   const totalTentative = slots?.reduce(
@@ -586,8 +658,10 @@ export default function SummerArrangementPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-          {/* Row 1: Title + location + refresh */}
-          <div className="flex items-center gap-3">
+          {/* Row 1: Title + search + location + refresh. On mobile the search
+              wraps to its own full-width row via order-last + w-full; on sm+
+              it sits inline between the title and the location select. */}
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
               <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -595,6 +669,11 @@ export default function SummerArrangementPage() {
               <h1 className="text-lg font-semibold text-foreground">Timetable Arrangement</h1>
               <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
+            <SummerStudentSearch
+              entries={searchEntries}
+              onSelect={handleSearchSelect}
+              className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
+            />
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}

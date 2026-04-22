@@ -3410,6 +3410,7 @@ def get_student_lessons(
             is_existing_student=app.is_existing_student,
             claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
             verified_branch_origin=app.verified_branch_origin,
+            contact_phone=app.contact_phone,
             linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,
             linked_prospect=linked_prospects.get(app.id),
             sessions_per_week=app.sessions_per_week,
