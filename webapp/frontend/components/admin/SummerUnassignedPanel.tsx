@@ -37,6 +37,35 @@ const SORT_LABELS: Record<SortMode, string> = {
   name: "name", grade: "grade", pref: "preference", completion: "completion",
 };
 
+function FilterBanner({
+  children,
+  onClear,
+  clearTitle,
+}: {
+  children: React.ReactNode;
+  onClear?: () => void;
+  clearTitle: string;
+}) {
+  return (
+    <div className="flex items-center gap-1 text-[10px]">
+      {children}
+      <button
+        onClick={onClear}
+        className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
+        title={clearTitle}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function emptyStateMessage(statusFilter?: string | null, prefFilter?: DemandBarFilter | null): string {
+  if (statusFilter) return `No applications at ${statusFilter}.`;
+  if (prefFilter) return "No applications match this demand.";
+  return "All students fully placed!";
+}
+
 export function SummerUnassignedPanel({
   applications,
   grades,
@@ -59,6 +88,9 @@ export function SummerUnassignedPanel({
   const [noNotesOnly, setNoNotesOnly] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
+
+  const StatusHeaderIcon = statusFilter ? STATUS_ICONS[statusFilter] : null;
+  const statusHeaderColors = statusFilter ? STATUS_COLORS[statusFilter] : null;
 
   const filtered = useMemo(() => {
     let result = applications;
@@ -133,14 +165,9 @@ export function SummerUnassignedPanel({
       {/* Header */}
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
-          {(() => {
-            const StatusIcon = statusFilter ? STATUS_ICONS[statusFilter] : null;
-            const statusColors = statusFilter ? STATUS_COLORS[statusFilter] : null;
-            if (StatusIcon && statusColors) {
-              return <StatusIcon className={cn("h-4 w-4", statusColors.text)} />;
-            }
-            return <Users className="h-4 w-4 text-muted-foreground" />;
-          })()}
+          {StatusHeaderIcon && statusHeaderColors
+            ? <StatusHeaderIcon className={cn("h-4 w-4", statusHeaderColors.text)} />
+            : <Users className="h-4 w-4 text-muted-foreground" />}
           <span className="text-sm font-medium truncate">
             {prefFilter ? "Demand" : statusFilter ?? "Incomplete"}
           </span>
@@ -171,40 +198,23 @@ export function SummerUnassignedPanel({
           />
         </div>
 
-        {/* Active demand-bar filter */}
         {prefFilter && (
-          <div className="flex items-center gap-1 text-[10px]">
+          <FilterBanner onClear={onClearPrefFilter} clearTitle="Clear filter">
             <span className="text-muted-foreground">Showing</span>
             <span className="font-semibold">{prefFilter.grade}</span>
             <span className="text-muted-foreground">{prefFilter.tier === "first" ? "1st" : "2nd"} pref for</span>
             <span className="font-semibold">{DAY_ABBREV[prefFilter.day] || prefFilter.day} {prefFilter.timeSlot}</span>
-            <button
-              onClick={onClearPrefFilter}
-              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
-              title="Clear filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+          </FilterBanner>
         )}
 
-        {/* Active workflow chip — panel is scoped to all apps at this status,
-            placed or not. Clearing returns to the default incomplete list. */}
         {!prefFilter && statusFilter && (
-          <div className="flex items-center gap-1 text-[10px]">
+          <FilterBanner onClear={onClearStatusFilter} clearTitle="Clear workflow filter">
             <span className="text-muted-foreground">Workflow:</span>
-            <span className={cn("font-semibold", STATUS_COLORS[statusFilter]?.text)}>
+            <span className={cn("font-semibold", statusHeaderColors?.text)}>
               {statusFilter}
             </span>
             <span className="text-muted-foreground">· includes placed</span>
-            <button
-              onClick={onClearStatusFilter}
-              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
-              title="Clear workflow filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+          </FilterBanner>
         )}
 
         {/* Grade filter chips + buddy toggle + sort */}
@@ -278,13 +288,7 @@ export function SummerUnassignedPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {applications.length === 0
-              ? (statusFilter
-                  ? `No applications at ${statusFilter}.`
-                  : prefFilter
-                  ? "No applications match this demand."
-                  : "All students fully placed!")
-              : "No matches."}
+            {applications.length === 0 ? emptyStateMessage(statusFilter, prefFilter) : "No matches."}
           </div>
         ) : (
           <div className="p-1.5 space-y-1">

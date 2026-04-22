@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -29,10 +29,8 @@ import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
-// Application-workflow stages grouped by phase. Pre-arrangement statuses sit left
-// of a divider so admins can distinguish triage (Submitted/Under Review) from the
-// post-placement pipeline they actively drive. Exit states (Waitlisted/Withdrawn/
-// Rejected) stay on the applications page.
+// Exit states (Waitlisted/Withdrawn/Rejected) are intentionally omitted — those
+// belong to the applications page triage surface, not the arrangement workflow.
 const PRE_ARRANGEMENT_STATUSES = ["Submitted", "Under Review"] as const;
 const POST_ARRANGEMENT_STATUSES = [
   "Placement Offered",
@@ -41,6 +39,10 @@ const POST_ARRANGEMENT_STATUSES = [
   "Paid",
   "Enrolled",
 ] as const;
+const ARRANGEMENT_STATUSES = [
+  ...PRE_ARRANGEMENT_STATUSES,
+  ...POST_ARRANGEMENT_STATUSES,
+];
 
 function StatusFilterChip({
   status,
@@ -297,11 +299,12 @@ export default function SummerArrangementPage() {
       mutateDemand(),
       mutateUnassigned(),
       mutateAppStats(),
+      mutateStatusFilteredApps(),
       mutateCalendar(),
       mutateStudentLessons(),
       mutateFindSlot(),
     ]);
-  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateAppStats, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
+  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateAppStats, mutateStatusFilteredApps, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
 
   // Optimistic patch for the single-app cache that drives the detail modal.
   // Uses the hook's bound mutate so the patch definitely reaches this
@@ -485,9 +488,9 @@ export default function SummerArrangementPage() {
     () => summerAPI.getApplications({ config_id: configId!, location, grade: demandPrefFilter!.grade }),
   );
 
-  // Fetch applications matching the active workflow chip (runs only when chip set
-  // and no demand filter — demand takes precedence to avoid clashing scopes).
-  const { data: statusFilteredApps } = useSWR(
+  // Demand takes precedence, so this hook stays idle while the demand-bar filter
+  // is active to avoid two competing scopes fighting over the panel.
+  const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
     statusFilter && !demandPrefFilter && configId && location
       ? ["summer-apps-status", configId, location, statusFilter]
       : null,
@@ -541,12 +544,14 @@ export default function SummerArrangementPage() {
     setDragBuddySlots(null);
   }, []);
 
-  // Panel data precedence: demand-bar filter (widest use, explicit pref targeting)
-  // beats workflow chip which beats the default incomplete list.
-  const panelApplications =
-    demandPrefFilter ? (demandFilterApps ?? [])
-    : statusFilter ? (statusFilteredApps ?? [])
-    : (unassigned ?? []);
+  // Precedence: demand-bar filter > workflow chip > default incomplete list.
+  const panelApplications = useMemo(
+    () =>
+      demandPrefFilter ? (demandFilterApps ?? [])
+      : statusFilter ? (statusFilteredApps ?? [])
+      : (unassigned ?? []),
+    [demandPrefFilter, demandFilterApps, statusFilter, statusFilteredApps, unassigned]
+  );
   const panelLoading =
     demandPrefFilter ? !demandFilterApps
     : statusFilter ? !statusFilteredApps
@@ -632,29 +637,19 @@ export default function SummerArrangementPage() {
 
             <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
 
-            {/* Application workflow chips — filter by pipeline stage. Inactive
-                chips show icon + count only to keep the row compact; the active
-                chip expands to show its label for clarity. Pre-arrangement
-                statuses sit left of a subtle divider. */}
             <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
-              {PRE_ARRANGEMENT_STATUSES.map((status) => (
-                <StatusFilterChip
-                  key={status}
-                  status={status}
-                  count={appStats?.by_status?.[status] ?? 0}
-                  active={statusFilter === status}
-                  onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
-                />
-              ))}
-              <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
-              {POST_ARRANGEMENT_STATUSES.map((status) => (
-                <StatusFilterChip
-                  key={status}
-                  status={status}
-                  count={appStats?.by_status?.[status] ?? 0}
-                  active={statusFilter === status}
-                  onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
-                />
+              {ARRANGEMENT_STATUSES.map((status, i) => (
+                <Fragment key={status}>
+                  {i === PRE_ARRANGEMENT_STATUSES.length && (
+                    <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                  )}
+                  <StatusFilterChip
+                    status={status}
+                    count={appStats?.by_status?.[status] ?? 0}
+                    active={statusFilter === status}
+                    onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
+                  />
+                </Fragment>
               ))}
             </div>
 
