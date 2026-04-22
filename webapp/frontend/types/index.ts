@@ -2389,6 +2389,7 @@ export interface SummerSlotSessionInfo {
   existing_student_id?: number | null;
   school_student_id?: string | null;
   existing_student_name?: string | null;
+  application_status?: string | null;
 }
 
 export interface SummerSlot {

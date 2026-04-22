@@ -276,6 +276,7 @@ def _build_session_info(
         existing_student_id=linked.id if linked else None,
         school_student_id=linked.school_student_id if linked else None,
         existing_student_name=linked.student_name if linked else None,
+        application_status=app.application_status if app else None,
     )
 
 

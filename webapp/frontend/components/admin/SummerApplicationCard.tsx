@@ -61,6 +61,24 @@ const BRANCH_TINT: Record<string, string> = {
 
 export { STATUS_COLORS, ALL_STATUSES, STATUS_ICONS };
 
+export function WorkflowStatusIcon({
+  status,
+  className,
+}: {
+  status?: string | null;
+  className?: string;
+}) {
+  if (!status) return null;
+  const colors = STATUS_COLORS[status];
+  const Icon = STATUS_ICONS[status];
+  if (!Icon) return null;
+  return (
+    <span title={status} className="inline-flex shrink-0">
+      <Icon className={cn("h-3 w-3", colors?.text, className)} />
+    </span>
+  );
+}
+
 function StatusBadgeContent({ status }: { status: string }) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS["Submitted"];
   const Icon = STATUS_ICONS[status];

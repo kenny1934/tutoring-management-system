@@ -9,6 +9,7 @@ import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-dupli
 import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { WorkflowStatusIcon } from "@/components/admin/SummerApplicationCard";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -454,6 +455,7 @@ export function SummerLessonCard({
                   onNameClick={() => onClickStudent?.(s.application_id)}
                 />
               </div>
+              <WorkflowStatusIcon status={s.application_status} />
               {isDivergent && (
                 <button
                   onClick={handleDivergentClick}
