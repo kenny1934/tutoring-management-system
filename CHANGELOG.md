@@ -2,6 +2,10 @@
 
 ## [2.0.58](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.58) (2026-04-22)
 
+### New Features
+
+* **Animal emojis on the dashboard**: the greeting at the top now has a chance to pick one of 36 new animal emojis
+
 ### Bug Fixes
 
 * **Tutors can save termination reasons**: reason and category edits on the Terminated Students page no longer fail for non-admin users

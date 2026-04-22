@@ -5,6 +5,14 @@ const changelogData = [
     "date": "2026-04-22",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Animal emojis on the dashboard**: the greeting at the top now has a chance to pick one of 36 new animal emojis"
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {
