@@ -575,45 +575,44 @@ export default function SummerArrangementPage() {
   // so admins can paste any of those from a parent message and find the row.
   const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
     const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
-    const lowerOrEmpty = (s?: string | null) => (s ? s.toLowerCase() : "");
+    const makeEntry = (source: {
+      application_id: number;
+      student_name: string;
+      grade: string;
+      lang_stream?: string | null;
+      contact_phone?: string | null;
+      linked_student?: { school_student_id?: string | null } | null;
+      linked_prospect?: { primary_student_id?: string | null } | null;
+    }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
+      const studentId =
+        source.linked_student?.school_student_id ?? source.linked_prospect?.primary_student_id ?? null;
+      return {
+        applicationId: source.application_id,
+        name: source.student_name,
+        grade: source.grade,
+        langStream: source.lang_stream ?? null,
+        studentId,
+        placed: firstLesson != null,
+        firstLesson,
+        haystack: `${source.student_name.toLowerCase()} ${digits(source.contact_phone)} ${studentId?.toLowerCase() ?? ""}`,
+      };
+    };
+
     const out: SummerStudentSearchEntry[] = [];
     const seen = new Set<number>();
     for (const s of studentLessonsData?.students ?? []) {
-      const placedLessons = s.lessons
+      const first = s.lessons
         .filter((l) => l.placed && l.lesson_date)
-        .sort((a, b) => (a.lesson_number ?? 0) - (b.lesson_number ?? 0));
-      const first = placedLessons[0];
-      const placed = placedLessons.length > 0;
-      const studentId =
-        s.linked_student?.school_student_id ?? s.linked_prospect?.primary_student_id ?? null;
-      out.push({
-        applicationId: s.application_id,
-        name: s.student_name,
-        grade: s.grade,
-        langStream: s.lang_stream ?? null,
-        studentId,
-        placed,
-        firstLesson: first
-          ? { lessonDate: first.lesson_date!, sessionId: first.session_id ?? null }
-          : null,
-        haystack: `${s.student_name.toLowerCase()} ${digits(s.contact_phone)} ${lowerOrEmpty(studentId)}`,
-      });
+        .sort((a, b) => (a.lesson_number ?? 0) - (b.lesson_number ?? 0))[0];
+      const jumpTarget = first
+        ? { lessonDate: first.lesson_date!, sessionId: first.session_id ?? null }
+        : null;
+      out.push(makeEntry(s, jumpTarget));
       seen.add(s.application_id);
     }
     for (const a of unassigned ?? []) {
       if (seen.has(a.id)) continue;
-      const studentId =
-        a.linked_student?.school_student_id ?? a.linked_prospect?.primary_student_id ?? null;
-      out.push({
-        applicationId: a.id,
-        name: a.student_name,
-        grade: a.grade,
-        langStream: a.lang_stream ?? null,
-        studentId,
-        placed: false,
-        firstLesson: null,
-        haystack: `${a.student_name.toLowerCase()} ${digits(a.contact_phone)} ${lowerOrEmpty(studentId)}`,
-      });
+      out.push(makeEntry({ ...a, application_id: a.id }, null));
     }
     return out;
   }, [studentLessonsData, unassigned]);

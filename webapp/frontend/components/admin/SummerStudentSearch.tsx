@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
+import { useClickOutside } from "@/lib/hooks";
 
 export interface SummerStudentSearchEntry {
   applicationId: number;
@@ -73,14 +74,8 @@ export function SummerStudentSearch({
     setActiveIdx(0);
   }, [query]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const handleClose = useCallback(() => setOpen(false), []);
+  useClickOutside(rootRef, handleClose, open);
 
   const handleSelect = useCallback(
     (entry: SummerStudentSearchEntry) => {
