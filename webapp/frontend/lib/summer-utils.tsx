@@ -367,19 +367,14 @@ export function sessionStatusBg(status: string): string {
   return SESSION_STATUS_BG[status] ?? SESSION_STATUS_BG_DEFAULT;
 }
 
-/** One slot in the dot strip: either the session covering this lesson_number,
- *  or null for an unplaced slot. Sessions missing lesson_number are appended
- *  after the 1..totalLessons grid so nothing is lost. */
-export interface PlacementDotSlot {
+interface PlacementDotSlot {
   lessonNumber: number | null;
   session: SummerApplicationSessionInfo | null;
 }
 
-/** Build a dot-strip layout indexed by lesson_number. Position N always
- *  represents lesson N (1..totalLessons); an empty slot means the student
- *  isn't placed on that specific lesson. Orphan sessions without a resolved
- *  lesson_number come last so they're still visible. */
-export function buildPlacementDots(
+/** Orphan sessions (no resolved lesson_number) trail after the 1..totalLessons
+ *  grid so nothing gets dropped silently. */
+function buildPlacementDots(
   sessions: SummerApplicationSessionInfo[] | null | undefined,
   totalLessons: number,
 ): PlacementDotSlot[] {
@@ -400,6 +395,43 @@ export function buildPlacementDots(
     slots.push({ lessonNumber: null, session: o });
   }
   return slots;
+}
+
+/** Lesson-number-indexed placement dot strip. Position N represents lesson N
+ *  (1..totalLessons); a gap means the student isn't placed on that lesson. */
+export function PlacementDotStrip({
+  sessions,
+  totalLessons,
+}: {
+  sessions: SummerApplicationSessionInfo[] | null | undefined;
+  totalLessons: number;
+}) {
+  return (
+    <span className="shrink-0 flex items-center gap-px">
+      {buildPlacementDots(sessions, totalLessons).map((slot, i) => {
+        const label = slot.lessonNumber != null ? `L${slot.lessonNumber}` : "L?";
+        if (!slot.session) {
+          return (
+            <span
+              key={`e${i}`}
+              className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
+              title={`${label}: Unplaced`}
+            />
+          );
+        }
+        const s = slot.session;
+        return (
+          <span
+            key={s.id}
+            className={`inline-block w-1.5 h-1.5 rounded-full ${sessionStatusDot(s.session_status)}`}
+            title={s.lesson_date
+              ? `${label}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
+              : `${label}: ${s.session_status}`}
+          />
+        );
+      })}
+    </span>
+  );
 }
 
 /** Map summer config Chinese location names → internal system codes. */

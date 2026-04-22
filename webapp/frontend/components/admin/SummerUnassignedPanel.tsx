@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot, buildPlacementDots, formatCompactDate, DAY_ABBREV } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV } from "@/lib/summer-utils";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
@@ -405,33 +405,7 @@ export function SummerUnassignedPanel({
 
                   {/* Row 3: placement dots + unavailability + suggest */}
                   <div className="flex items-center gap-1 mt-1">
-                    {/* Placement dot strip — indexed by lesson_number so position
-                        N always represents lesson N and gaps surface where the
-                        student is actually unplaced, matching the applications card. */}
-                    <span className="shrink-0 flex items-center gap-px">
-                      {buildPlacementDots(app.sessions, totalLessons).map((slot, i) => {
-                        const label = slot.lessonNumber != null ? `L${slot.lessonNumber}` : "L?";
-                        if (!slot.session) {
-                          return (
-                            <span
-                              key={`e${i}`}
-                              className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
-                              title={`${label}: Unplaced`}
-                            />
-                          );
-                        }
-                        const s = slot.session;
-                        return (
-                          <span
-                            key={s.id}
-                            className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
-                            title={s.lesson_date
-                              ? `${label}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
-                              : `${label}: ${s.session_status}`}
-                          />
-                        );
-                      })}
-                    </span>
+                    <PlacementDotStrip sessions={app.sessions} totalLessons={totalLessons} />
                     <span className="text-[9px] text-muted-foreground tabular-nums">
                       {placedCount}/{totalLessons}
                     </span>
