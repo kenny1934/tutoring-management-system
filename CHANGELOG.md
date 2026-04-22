@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.59](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.59) (2026-04-23)
+
+### New Features
+
+* **Arrangement workflow status chips**: quick chips at the top of the arrangement page filter by All, Unplaced, Incomplete, Placement Offered, or Confirmed, with a panel toggle so the incomplete side list matches the same cut
+* **Workflow status icons on placed rows**: small icons next to placed students show at a glance who still needs a fee message, needs confirmation, or is fully done
+* **Global student search on the arrangement page**: type a name or CSM student ID in the page header and jump straight to that student's slot, falling back to the calendar if they're still unplaced
+* **Students tab filter rework**: filters on the Students tab now match the arrangement page vocabulary (location, grade, buddy state, workflow status) with cleaner chips and a dedicated search
+* **Applications search by linked student ID**: the applications list and unassigned side panel now match on CSM student ID in addition to name
+* **Smarter prospect link suggestions**: fuzzy-name matching catches typos and reordered characters, and already-linked applications are skipped so suggestions only show genuine candidates
+
+### Bug Fixes
+
+* **Marketing snapshot card on mobile**: shrunk padding, hid the long description, and shortened the button label so the card no longer dominates the stats view on narrow screens
+* **Demand-bar click filter restored**: clicking a grade bar on the slot grid now correctly filters the side panel by day and time slot again
+* **Rescheduled placement delete**: renamed the calendar action to "Reschedule" and let admins delete an already-rescheduled placement without having to revert it first
+* **Placement dot alignment**: dots in the placement strip now line up with lesson numbers and reflect post-publish session status (cancelled, rescheduled)
+* **Slot chip label wrap in admin edit pane**: long slot chips now wrap instead of forcing horizontal overflow
+* **Prospect link popover**: right-aligned so it no longer clips off the right edge of narrow rows
+
 ## [2.0.58](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.58) (2026-04-22)
 
 ### New Features
