@@ -17,6 +17,10 @@ interface PreferenceSlotGridProps {
    *  "pair"   = 2x/week (max 4 picks: primary pair + backup pair). */
   mode: "single" | "pair";
   lang: Lang;
+  /** When true, wrap slot labels onto two lines (start / end) so they fit in
+   *  a narrow container (e.g. the admin detail-modal edit pane). Leave false
+   *  for the public apply flow — single-line labels are part of that design. */
+  compact?: boolean;
 }
 
 const sameSlot = (a: PreferenceSlot | null, b: PreferenceSlot) =>
@@ -59,6 +63,7 @@ export function PreferenceSlotGrid({
   onChange,
   mode,
   lang,
+  compact = false,
 }: PreferenceSlotGridProps) {
   const isPair = mode === "pair";
   const maxPicks = isPair ? 4 : 2;
@@ -119,13 +124,16 @@ export function PreferenceSlotGrid({
                   const idx = pickIdx.get(`${day}|${time}`) ?? -1;
                   const isPrimary = idx >= 0 && idx < primaryCount;
                   const isBackup = idx >= primaryCount;
+                  const labelParts = compact ? time.split(/\s*[-–]\s*/) : null;
                   return (
                     <button
                       key={time}
                       type="button"
                       onClick={() => handleTap({ day, time })}
                       aria-pressed={idx >= 0}
-                      className={`relative cursor-pointer inline-flex items-center justify-center px-2 py-2 rounded-xl border-2 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                      className={`relative cursor-pointer inline-flex items-center justify-center px-2 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 ${
+                        compact ? "" : "whitespace-nowrap"
+                      } ${
                         isPrimary
                           ? "bg-primary text-primary-foreground border-primary shadow-sm"
                           : isBackup
@@ -133,7 +141,15 @@ export function PreferenceSlotGrid({
                           : "bg-card text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
                       }`}
                     >
-                      {time}
+                      {labelParts && labelParts.length > 1 ? (
+                        <span className="flex flex-col items-center leading-tight">
+                          {labelParts.map((part, i) => (
+                            <span key={i}>{part}</span>
+                          ))}
+                        </span>
+                      ) : (
+                        time
+                      )}
                       {idx >= 0 && (
                         <span
                           className={`absolute -top-2 -right-2 inline-flex items-center justify-center min-w-[1.4rem] h-5 px-1 rounded-full text-[10px] font-bold shadow ring-2 ring-card ${

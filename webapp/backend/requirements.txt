@@ -57,3 +57,6 @@ PyMuPDF==1.24.0
 
 # Chinese Simplified → Traditional conversion (worksheet OCR)
 opencc-python-reimplemented>=0.1.7
+
+# Fuzzy string matching (prospect/application name similarity)
+rapidfuzz>=3.0.0

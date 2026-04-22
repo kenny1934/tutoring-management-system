@@ -322,10 +322,24 @@ export function isNonAttending(status: string): boolean {
   );
 }
 
-/** Session status → dot/bg color classes. */
+/** Session status → dot/bg color classes.
+ *  Pre-publish placements use SummerSession statuses (Tentative / Confirmed /
+ *  Rescheduled-Pending). Post-publish placements overlay live SessionLog
+ *  statuses (Scheduled / Attended / No Show / Cancelled / Make-up variants)
+ *  via _build_session_info in summer_course.py. Both sets must be mapped,
+ *  or published rows fall back to the unplaced gray and read as missing. */
 export const SESSION_STATUS_DOT: Record<string, string> = {
+  // Pre-publish (SummerSession)
   Confirmed: "bg-green-500 dark:bg-green-400",
   Tentative: "bg-amber-400 dark:bg-amber-400",
+  // Post-publish (SessionLog overlay) — Scheduled is a locked-in future placement
+  Scheduled: "bg-green-500 dark:bg-green-400",
+  Attended: "bg-green-600 dark:bg-green-500",
+  "Attended (Make-up)": "bg-green-600 dark:bg-green-500",
+  "Attended (Trial)": "bg-green-600 dark:bg-green-500",
+  "No Show": "bg-red-500 dark:bg-red-400",
+  Cancelled: "bg-red-500 dark:bg-red-400",
+  // Make-up lifecycle (same visual in both publish states)
   "Rescheduled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
   "Sick Leave - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
   "Weather Cancelled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
@@ -351,6 +365,73 @@ export function sessionStatusDot(status: string): string {
 }
 export function sessionStatusBg(status: string): string {
   return SESSION_STATUS_BG[status] ?? SESSION_STATUS_BG_DEFAULT;
+}
+
+interface PlacementDotSlot {
+  lessonNumber: number | null;
+  session: SummerApplicationSessionInfo | null;
+}
+
+/** Orphan sessions (no resolved lesson_number) trail after the 1..totalLessons
+ *  grid so nothing gets dropped silently. */
+function buildPlacementDots(
+  sessions: SummerApplicationSessionInfo[] | null | undefined,
+  totalLessons: number,
+): PlacementDotSlot[] {
+  const byLesson = new Map<number, SummerApplicationSessionInfo>();
+  const orphans: SummerApplicationSessionInfo[] = [];
+  for (const s of sessions ?? []) {
+    if (s.lesson_number != null && s.lesson_number >= 1 && s.lesson_number <= totalLessons) {
+      byLesson.set(s.lesson_number, s);
+    } else {
+      orphans.push(s);
+    }
+  }
+  const slots: PlacementDotSlot[] = [];
+  for (let n = 1; n <= totalLessons; n++) {
+    slots.push({ lessonNumber: n, session: byLesson.get(n) ?? null });
+  }
+  for (const o of orphans) {
+    slots.push({ lessonNumber: null, session: o });
+  }
+  return slots;
+}
+
+/** Lesson-number-indexed placement dot strip. Position N represents lesson N
+ *  (1..totalLessons); a gap means the student isn't placed on that lesson. */
+export function PlacementDotStrip({
+  sessions,
+  totalLessons,
+}: {
+  sessions: SummerApplicationSessionInfo[] | null | undefined;
+  totalLessons: number;
+}) {
+  return (
+    <span className="shrink-0 flex items-center gap-px">
+      {buildPlacementDots(sessions, totalLessons).map((slot, i) => {
+        const label = slot.lessonNumber != null ? `L${slot.lessonNumber}` : "L?";
+        if (!slot.session) {
+          return (
+            <span
+              key={`e${i}`}
+              className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
+              title={`${label}: Unplaced`}
+            />
+          );
+        }
+        const s = slot.session;
+        return (
+          <span
+            key={s.id}
+            className={`inline-block w-1.5 h-1.5 rounded-full ${sessionStatusDot(s.session_status)}`}
+            title={s.lesson_date
+              ? `${label}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
+              : `${label}: ${s.session_status}`}
+          />
+        );
+      })}
+    </span>
+  );
 }
 
 /** Map summer config Chinese location names → internal system codes. */
@@ -465,4 +546,15 @@ export function formatPreferences(app: {
   const pref1 = [app.preference_1_day, app.preference_1_time].filter(Boolean).join(" ");
   const pref2 = [app.preference_2_day, app.preference_2_time].filter(Boolean).join(" ");
   return { pref1, pref2, combined: [pref1, pref2].filter(Boolean).join(", ") };
+}
+
+export function getLinkedStudentId(app: {
+  linked_student?: { school_student_id?: string | null } | null;
+  linked_prospect?: { primary_student_id?: string | null } | null;
+}): string | null {
+  return (
+    app.linked_student?.school_student_id ??
+    app.linked_prospect?.primary_student_id ??
+    null
+  );
 }

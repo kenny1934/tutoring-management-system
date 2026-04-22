@@ -2527,6 +2527,9 @@ class SummerSlotSessionInfo(BaseModel):
     existing_student_id: Optional[int] = None
     school_student_id: Optional[str] = None
     existing_student_name: Optional[str] = None
+    # Drives the in-situ workflow-status icon on placed rows (slot grid +
+    # calendar) so admins can see pipeline stage without opening the modal.
+    application_status: Optional[str] = None
 
 
 class SummerSlotResponse(BaseModel):
@@ -2706,6 +2709,7 @@ class SummerStudentLessonsRow(BaseModel):
     is_existing_student: Optional[str] = None
     claimed_branch_code: Optional[str] = None
     verified_branch_origin: Optional[str] = None
+    contact_phone: Optional[str] = None
     linked_student: Optional[LinkedSecondaryStudentInfo] = None
     linked_prospect: Optional[LinkedPrimaryProspectInfo] = None
     sessions_per_week: int

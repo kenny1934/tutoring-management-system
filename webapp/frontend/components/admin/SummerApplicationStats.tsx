@@ -569,18 +569,18 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-gray-200 dark:border-gray-700 p-5 flex flex-wrap items-center gap-4",
+        "rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-5 flex flex-wrap items-center gap-x-4 gap-y-2",
         className,
       )}
     >
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-foreground">Marketing snapshot</div>
-        <div className="text-xs text-muted-foreground mt-0.5">
+        <div className="hidden sm:block text-xs text-muted-foreground mt-0.5">
           Push today&rsquo;s applicant counts (split by location, bucket, status) to the marketing Google Sheet.
           Re-running on the same day overwrites the existing row.
         </div>
         {lastResult && lastPushedAt && (
-          <div className="text-[11px] text-muted-foreground mt-2 tabular-nums">
+          <div className="text-[11px] text-muted-foreground mt-1 sm:mt-2 tabular-nums">
             Last push {lastPushedAt.toLocaleTimeString()} —{" "}
             {lastResult.action === "skipped" ? (
               <span className="font-medium text-foreground">
@@ -620,7 +620,7 @@ function MarketingSnapshotCard({ className }: { className?: string }) {
         )}
       >
         {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-        {pushing ? "Pushing…" : "Push snapshot"}
+        {pushing ? "Pushing…" : <><span className="sm:hidden">Push</span><span className="hidden sm:inline">Push snapshot</span></>}
       </button>
     </div>
   );

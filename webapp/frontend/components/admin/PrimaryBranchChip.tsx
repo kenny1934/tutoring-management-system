@@ -8,6 +8,18 @@ import type { SummerApplication } from "@/types";
 
 type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student" | "verified_branch_origin">;
 
+/** True if the applicant has any signal of being an existing student — linked
+ *  record, verified existing origin, or an unverified claim. Kept next to the
+ *  chip so the filter bucket and the badge can't drift. */
+export function isExistingOrigin(app: BranchChipApp): boolean {
+  if (app.linked_student || app.linked_prospect) return true;
+  if (app.verified_branch_origin && app.verified_branch_origin !== "New") return true;
+  if (app.claimed_branch_code && app.is_existing_student && app.is_existing_student !== "None") {
+    return true;
+  }
+  return false;
+}
+
 export function PrimaryBranchChip({
   app,
   onProspectClick,

@@ -12,7 +12,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot, MIN_GROUP_SIZE } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, PlacementDotStrip, MIN_GROUP_SIZE } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -60,6 +60,24 @@ const BRANCH_TINT: Record<string, string> = {
 };
 
 export { STATUS_COLORS, ALL_STATUSES, STATUS_ICONS };
+
+export function WorkflowStatusIcon({
+  status,
+  className,
+}: {
+  status?: string | null;
+  className?: string;
+}) {
+  if (!status) return null;
+  const colors = STATUS_COLORS[status];
+  const Icon = STATUS_ICONS[status];
+  if (!Icon) return null;
+  return (
+    <span title={status} className="inline-flex shrink-0">
+      <Icon className={cn("h-3 w-3", colors?.text, className)} />
+    </span>
+  );
+}
 
 function StatusBadgeContent({ status }: { status: string }) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS["Submitted"];
@@ -365,23 +383,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
                   {dateRange}
                 </span>
               )}
-              <span className="shrink-0 flex items-center gap-px">
-                {sorted.map((s, i) => (
-                  <span
-                    key={i}
-                    className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
-                    title={s.lesson_date
-                      ? `L${s.lesson_number ?? i + 1}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
-                      : `L${s.lesson_number ?? i + 1}: ${s.session_status}`}
-                  />
-                ))}
-                {total > placedCount && Array.from({ length: total - placedCount }).map((_, i) => (
-                  <span
-                    key={`e${i}`}
-                    className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
-                  />
-                ))}
-              </span>
+              <PlacementDotStrip sessions={sorted} totalLessons={total} />
               <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                 {placedCount}/{total}
               </span>

@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot, DAY_ABBREV } from "@/lib/summer-utils";
-import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
+import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
+import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { classifyPrefs } from "@/lib/summer-preferences";
@@ -24,6 +24,10 @@ interface SummerUnassignedPanelProps {
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
   prefFilter?: DemandBarFilter | null;
   onClearPrefFilter?: () => void;
+  /** When set, the panel is scoped to apps matching this workflow status rather
+   * than the default incomplete list. Heading + banner reflect the active chip. */
+  statusFilter?: string | null;
+  onClearStatusFilter?: () => void;
 }
 
 type SortMode = "name" | "grade" | "pref" | "completion";
@@ -32,6 +36,35 @@ const SORT_CYCLE: SortMode[] = ["grade", "pref", "completion", "name"];
 const SORT_LABELS: Record<SortMode, string> = {
   name: "name", grade: "grade", pref: "preference", completion: "completion",
 };
+
+function FilterBanner({
+  children,
+  onClear,
+  clearTitle,
+}: {
+  children: React.ReactNode;
+  onClear?: () => void;
+  clearTitle: string;
+}) {
+  return (
+    <div className="flex items-center gap-1 text-[10px]">
+      {children}
+      <button
+        onClick={onClear}
+        className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
+        title={clearTitle}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function emptyStateMessage(statusFilter?: string | null, prefFilter?: DemandBarFilter | null): string {
+  if (statusFilter) return `No applications at ${statusFilter}.`;
+  if (prefFilter) return "No applications match this demand.";
+  return "All students fully placed!";
+}
 
 export function SummerUnassignedPanel({
   applications,
@@ -46,6 +79,8 @@ export function SummerUnassignedPanel({
   onSuggestStudent,
   prefFilter,
   onClearPrefFilter,
+  statusFilter,
+  onClearStatusFilter,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -53,6 +88,9 @@ export function SummerUnassignedPanel({
   const [noNotesOnly, setNoNotesOnly] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
+
+  const StatusHeaderIcon = statusFilter ? STATUS_ICONS[statusFilter] : null;
+  const statusHeaderColors = statusFilter ? STATUS_COLORS[statusFilter] : null;
 
   const filtered = useMemo(() => {
     let result = applications;
@@ -70,7 +108,8 @@ export function SummerUnassignedPanel({
       result = result.filter(
         (a) =>
           a.student_name.toLowerCase().includes(q) ||
-          a.reference_code?.toLowerCase().includes(q)
+          a.reference_code?.toLowerCase().includes(q) ||
+          getLinkedStudentId(a)?.toLowerCase().includes(q)
       );
     }
     result = [...result].sort((a, b) => {
@@ -127,8 +166,12 @@ export function SummerUnassignedPanel({
       {/* Header */}
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{prefFilter ? "Demand" : "Incomplete"}</span>
+          {StatusHeaderIcon && statusHeaderColors
+            ? <StatusHeaderIcon className={cn("h-4 w-4", statusHeaderColors.text)} />
+            : <Users className="h-4 w-4 text-muted-foreground" />}
+          <span className="text-sm font-medium truncate">
+            {prefFilter ? "Demand" : statusFilter ?? "Incomplete"}
+          </span>
           <span className="text-xs text-muted-foreground ml-auto">
             {filtered.length}
             {filtered.length !== applications.length && ` / ${applications.length}`}
@@ -151,26 +194,28 @@ export function SummerUnassignedPanel({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
+            placeholder="Search name, ref code, student ID..."
             className="w-full pl-7 pr-2 py-1 text-xs border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 rounded bg-white dark:bg-gray-800"
           />
         </div>
 
-        {/* Active demand-bar filter */}
         {prefFilter && (
-          <div className="flex items-center gap-1 text-[10px]">
+          <FilterBanner onClear={onClearPrefFilter} clearTitle="Clear filter">
             <span className="text-muted-foreground">Showing</span>
             <span className="font-semibold">{prefFilter.grade}</span>
             <span className="text-muted-foreground">{prefFilter.tier === "first" ? "1st" : "2nd"} pref for</span>
             <span className="font-semibold">{DAY_ABBREV[prefFilter.day] || prefFilter.day} {prefFilter.timeSlot}</span>
-            <button
-              onClick={onClearPrefFilter}
-              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
-              title="Clear filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+          </FilterBanner>
+        )}
+
+        {!prefFilter && statusFilter && (
+          <FilterBanner onClear={onClearStatusFilter} clearTitle="Clear workflow filter">
+            <span className="text-muted-foreground">Workflow:</span>
+            <span className={cn("font-semibold", statusHeaderColors?.text)}>
+              {statusFilter}
+            </span>
+            <span className="text-muted-foreground">· includes placed</span>
+          </FilterBanner>
         )}
 
         {/* Grade filter chips + buddy toggle + sort */}
@@ -244,7 +289,7 @@ export function SummerUnassignedPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {applications.length === 0 ? "All students fully placed!" : "No matches."}
+            {applications.length === 0 ? emptyStateMessage(statusFilter, prefFilter) : "No matches."}
           </div>
         ) : (
           <div className="p-1.5 space-y-1">
@@ -361,24 +406,7 @@ export function SummerUnassignedPanel({
 
                   {/* Row 3: placement dots + unavailability + suggest */}
                   <div className="flex items-center gap-1 mt-1">
-                    {/* Placement dot strip — same pattern as applications card */}
-                    <span className="shrink-0 flex items-center gap-px">
-                      {app.sessions && app.sessions.length > 0
-                        ? app.sessions.map((s, i) => (
-                            <span
-                              key={i}
-                              className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
-                              title={`L${s.lesson_number ?? i + 1}: ${s.session_status}`}
-                            />
-                          ))
-                        : null}
-                      {Array.from({ length: totalLessons - placedCount }).map((_, i) => (
-                        <span
-                          key={`e${i}`}
-                          className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
-                        />
-                      ))}
-                    </span>
+                    <PlacementDotStrip sessions={app.sessions} totalLessons={totalLessons} />
                     <span className="text-[9px] text-muted-foreground tabular-nums">
                       {placedCount}/{totalLessons}
                     </span>

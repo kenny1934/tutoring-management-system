@@ -25,6 +25,7 @@ from schemas import (
     PrimaryProspectMatchResult,
 )
 from auth.dependencies import require_admin_view, require_admin_write
+from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -491,42 +492,82 @@ def admin_find_matches(
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin_view),
 ):
-    """Find summer applications matching a prospect by phone."""
+    """Find summer applications that might belong to this prospect.
+
+    Candidates come from two signals: phone match (either prospect phone
+    equals contact_phone) and name similarity (rapidfuzz WRatio >=
+    NAME_CANDIDATE_THRESHOLD). They're merged so an app matching both
+    signals appears once with match_type "phone+name".
+    """
     prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(404, "Prospect not found")
 
     phones = [p for p in [prospect.phone_1, prospect.phone_2] if p]
-    if not phones:
-        return PrimaryProspectMatchResult(prospect_id=prospect_id, matches=[])
 
-    apps = (
+    # Exclude apps that some other prospect already links to, or that a local
+    # MSA/MSB student already claims — those aren't candidates for this prospect.
+    taken_app_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
+
+    # Pull a year-wide pool once so name scoring doesn't require a second trip.
+    year_apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
-            SummerApplication.contact_phone.in_(phones),
             SummerCourseConfig.year == prospect.year,
+            SummerApplication.existing_student_id.is_(None),
         )
         .all()
     )
+    year_apps = [a for a in year_apps if a.id not in taken_app_ids]
+
+    # app_id -> (app, signals, similarity)
+    candidates: dict[int, tuple[SummerApplication, set[str], int]] = {}
+
+    for app in year_apps:
+        if phones and app.contact_phone in phones:
+            candidates[app.id] = (app, {"phone"}, 0)
+
+    if prospect.student_name:
+        for app in year_apps:
+            if not app.student_name:
+                continue
+            score = name_similarity(prospect.student_name, app.student_name)
+            if score >= NAME_CANDIDATE_THRESHOLD:
+                existing = candidates.get(app.id)
+                if existing:
+                    candidates[app.id] = (app, existing[1] | {"name"}, score)
+                else:
+                    candidates[app.id] = (app, {"name"}, score)
+
+    def format_match_type(signals: set[str]) -> str:
+        if signals == {"phone"}:
+            return "phone"
+        if signals == {"name"}:
+            return "name"
+        return "phone+name"
 
     matches = []
-    for app in apps:
-        match_type = "phone"
-        if prospect.student_name and app.student_name:
-            # Check if names share common parts
-            p_parts = set(prospect.student_name.lower().split())
-            a_parts = set(app.student_name.lower().split())
-            if p_parts & a_parts:
-                match_type = "phone+name"
+    for app, signals, similarity in candidates.values():
         matches.append({
             "application_id": app.id,
             "reference_code": app.reference_code,
             "student_name": app.student_name,
             "contact_phone": app.contact_phone,
             "application_status": app.application_status,
-            "match_type": match_type,
+            "match_type": format_match_type(signals),
+            "similarity": similarity if "name" in signals else None,
         })
+
+    # Highest confidence first: phone+name, then phone, then name (by score).
+    def sort_key(m: dict) -> tuple[int, int]:
+        rank = {"phone+name": 0, "phone": 1, "name": 2}.get(m["match_type"], 3)
+        return (rank, -(m.get("similarity") or 0))
+    matches.sort(key=sort_key)
 
     return PrimaryProspectMatchResult(prospect_id=prospect_id, matches=matches)
 
@@ -566,15 +607,26 @@ def admin_auto_match(
     if not phone_to_prospects:
         return empty
 
+    # An app already claimed by another prospect — or linked to a local MSA/MSB
+    # student — is off the table. Collect the IDs once and reuse the exclusion
+    # for both the phone-match query and the Pass 3 fuzzy candidate pool.
+    taken_app_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
+
     apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerApplication.contact_phone.in_(phone_to_prospects.keys()),
             SummerCourseConfig.year == year,
+            SummerApplication.existing_student_id.is_(None),
         )
         .all()
     )
+    apps = [a for a in apps if a.id not in taken_app_ids]
 
     apps_by_phone: dict[str, list[SummerApplication]] = {}
     for app in apps:
@@ -652,6 +704,48 @@ def admin_auto_match(
                     "conflicting_apps": [a_summary(single_app)],
                     "conflicting_prospects": [p_summary(q) for q in prospects_at_phone if q.id != p.id],
                 })
+
+    # Pass 3: name-similarity suggestions for prospects no phone pass could
+    # resolve. Wrong phone numbers are the exact failure mode this pass covers,
+    # so surface candidates for manual review — never auto-link.
+    remaining_prospects = [p for p in unlinked if p.id not in handled_prospect_ids and p.student_name]
+    if remaining_prospects:
+        # `taken_app_ids` covers apps claimed by other prospects (including any
+        # we linked in Pass 1 this run) plus apps linked to secondary students;
+        # `matches` covers apps we just queued for link in Pass 1.
+        freshly_matched_ids = {m["application"]["id"] for m in matches}
+        candidate_apps = (
+            db.query(SummerApplication)
+            .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
+            .filter(
+                SummerCourseConfig.year == year,
+                SummerApplication.existing_student_id.is_(None),
+            )
+            .all()
+        )
+        candidate_apps = [
+            a for a in candidate_apps
+            if a.id not in taken_app_ids
+            and a.id not in freshly_matched_ids
+            and a.student_name
+        ]
+        for p in remaining_prospects:
+            scored = []
+            for app in candidate_apps:
+                score = name_similarity(p.student_name, app.student_name)
+                if score >= NAME_CANDIDATE_THRESHOLD:
+                    scored.append((score, app))
+            if not scored:
+                continue
+            scored.sort(key=lambda sa: sa[0], reverse=True)
+            skipped.append({
+                "prospect": p_summary(p),
+                "reason": "name_similarity",
+                "conflicting_apps": [
+                    {**a_summary(app), "similarity": score} for score, app in scored[:5]
+                ],
+                "conflicting_prospects": [],
+            })
 
     if not dry_run:
         db.commit()

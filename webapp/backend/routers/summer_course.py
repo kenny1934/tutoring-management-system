@@ -276,6 +276,7 @@ def _build_session_info(
         existing_student_id=linked.id if linked else None,
         school_student_id=linked.school_student_id if linked else None,
         existing_student_name=linked.student_name if linked else None,
+        application_status=app.application_status if app else None,
     )
 
 
@@ -1358,6 +1359,35 @@ def _resolve_claimed_branch_code(
     )
 
 
+def _application_search_clause(search: str):
+    """Search clause matching name, ref code, phone, or linked student/prospect
+    school IDs. Uses correlated EXISTS so linkage joins don't inflate row counts."""
+    pattern = f"%{search}%"
+    student_match = (
+        select(Student.id)
+        .where(
+            Student.id == SummerApplication.existing_student_id,
+            Student.school_student_id.ilike(pattern),
+        )
+        .exists()
+    )
+    prospect_match = (
+        select(PrimaryProspect.id)
+        .where(
+            PrimaryProspect.summer_application_id == SummerApplication.id,
+            PrimaryProspect.primary_student_id.ilike(pattern),
+        )
+        .exists()
+    )
+    return (
+        SummerApplication.student_name.ilike(pattern)
+        | SummerApplication.reference_code.ilike(pattern)
+        | SummerApplication.contact_phone.ilike(pattern)
+        | student_match
+        | prospect_match
+    )
+
+
 def _get_linked_students_bulk(
     db: Session, student_ids: list[int]
 ) -> dict[int, LinkedSecondaryStudentInfo]:
@@ -1689,6 +1719,13 @@ def admin_suggest_student_links(
     # resolve it per-row here. Narrow the SQL filter to secondary claimants
     # (is_existing_student == "MathConcept Secondary Academy") and unlinked
     # apps; Python then drops rows whose center doesn't resolve to MSA/MSB.
+    # Also exclude apps that a primary prospect already claims — those are
+    # effectively linked already, even though existing_student_id is empty.
+    prospect_claimed_ids = {
+        aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
+        .filter(PrimaryProspect.summer_application_id.isnot(None))
+        if aid is not None
+    }
     candidate_apps = (
         db.query(SummerApplication)
         .filter(
@@ -1700,6 +1737,8 @@ def admin_suggest_student_links(
     )
     apps: list[tuple[SummerApplication, str]] = []
     for app in candidate_apps:
+        if app.id in prospect_claimed_ids:
+            continue
         center_name = (app.current_centers or [None])[0]
         code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
         if code in _SECONDARY_BRANCH_CODES:
@@ -1784,12 +1823,7 @@ def list_applications(
     if buddy_group_id:
         q = q.filter(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
-        pattern = f"%{search}%"
-        q = q.filter(
-            (SummerApplication.student_name.ilike(pattern))
-            | (SummerApplication.reference_code.ilike(pattern))
-            | (SummerApplication.contact_phone.ilike(pattern))
-        )
+        q = q.filter(_application_search_clause(search))
 
     apps = q.order_by(SummerApplication.submitted_at.desc()).all()
     return _build_application_responses(db, apps)
@@ -1821,12 +1855,7 @@ def get_application_stats(
     if buddy_group_id:
         filters.append(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
-        pattern = f"%{search}%"
-        filters.append(
-            (SummerApplication.student_name.ilike(pattern))
-            | (SummerApplication.reference_code.ilike(pattern))
-            | (SummerApplication.contact_phone.ilike(pattern))
-        )
+        filters.append(_application_search_clause(search))
 
     total = db.query(func.count(SummerApplication.id)).filter(*filters).scalar() or 0
 
@@ -3410,6 +3439,7 @@ def get_student_lessons(
             is_existing_student=app.is_existing_student,
             claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
             verified_branch_origin=app.verified_branch_origin,
+            contact_phone=app.contact_phone,
             linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,
             linked_prospect=linked_prospects.get(app.id),
             sessions_per_week=app.sessions_per_week,

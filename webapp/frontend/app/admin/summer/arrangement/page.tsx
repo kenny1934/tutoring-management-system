@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -22,11 +22,63 @@ import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
 import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
+import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components/admin/SummerStudentSearch";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
+import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
+import { LOCATION_TO_CODE, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
+
+// Exit states (Waitlisted/Withdrawn/Rejected) are intentionally omitted — those
+// belong to the applications page triage surface, not the arrangement workflow.
+const PRE_ARRANGEMENT_STATUSES = ["Submitted", "Under Review"] as const;
+const POST_ARRANGEMENT_STATUSES = [
+  "Placement Offered",
+  "Placement Confirmed",
+  "Fee Sent",
+  "Paid",
+  "Enrolled",
+] as const;
+const ARRANGEMENT_STATUSES = [
+  ...PRE_ARRANGEMENT_STATUSES,
+  ...POST_ARRANGEMENT_STATUSES,
+];
+
+function StatusFilterChip({
+  status,
+  count,
+  active,
+  onToggle,
+}: {
+  status: string;
+  count: number;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  const colors = STATUS_COLORS[status];
+  const Icon = STATUS_ICONS[status];
+  const isZero = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      title={active ? `Clear ${status} filter` : `${status} — click to filter`}
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all",
+        active
+          ? cn(colors.bg, colors.text, "ring-1 ring-current/30")
+          : "bg-gray-50 dark:bg-gray-800 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700",
+        isZero && !active && "opacity-60"
+      )}
+    >
+      {Icon && <Icon className={cn("h-3 w-3 shrink-0", !active && colors.text)} />}
+      {active && <span>{status}</span>}
+      <span className="tabular-nums">{count}</span>
+    </button>
+  );
+}
 
 export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
@@ -48,6 +100,8 @@ export default function SummerArrangementPage() {
   const [activeTab, setActiveTab] = useState<"slots" | "calendar" | "students">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
@@ -84,6 +138,38 @@ export default function SummerArrangementPage() {
       date,
       seq: (prev?.seq ?? 0) + 1,
       highlightSessionId,
+    }));
+  }, []);
+
+  // Slot-grid highlight target — mirrors calendarTarget. Every slot card
+  // containing `applicationId` rings + auto-expands; only the one matching
+  // `scrollSlotId` scrolls into view (prevents scroll races on multi-slot
+  // placements).
+  const [slotTarget, setSlotTarget] = useState<{
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null>(null);
+  const bumpSlotTarget = useCallback((applicationId: number, scrollSlotId: number | null) => {
+    setSlotTarget((prev) => ({
+      applicationId,
+      scrollSlotId,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, []);
+
+  // Students-table highlight target — same shape/contract as slotTarget, but
+  // the matching row in SummerStudentLessonsTable scrolls + rings. Used when
+  // the header search fires while the Students tab is active, so we keep the
+  // user in context instead of routing them to Slot Setup / Calendar.
+  const [studentsTarget, setStudentsTarget] = useState<{
+    applicationId: number;
+    seq: number;
+  } | null>(null);
+  const bumpStudentsTarget = useCallback((applicationId: number) => {
+    setStudentsTarget((prev) => ({
+      applicationId,
+      seq: (prev?.seq ?? 0) + 1,
     }));
   }, []);
 
@@ -182,6 +268,36 @@ export default function SummerArrangementPage() {
     { refreshInterval: 30000 }
   );
 
+  const { data: appStats, mutate: mutateAppStats } = useSWR(
+    canView && configId && location ? ["summer-app-stats", configId, location] : null,
+    () => summerAPI.getApplicationStats({ config_id: configId!, location }),
+    { refreshInterval: 30000 }
+  );
+
+  // Student-lessons feed — drives the Students tab but also the header global
+  // search (we need lesson_date + session_id on each placed lesson to build a
+  // jump target). SWR dedupes with the Students tab's hook, and refreshAll's
+  // existing `mutateStudentLessons` invalidates this cache via key-prefix match.
+  const { data: studentLessonsData } = useSWR(
+    canView && configId && location ? ["summer-student-lessons", configId, location] : null,
+    () => summerAPI.getStudentLessons(configId!, location),
+    { refreshInterval: 30000 }
+  );
+
+  // Demand takes precedence, so this hook stays idle while the demand-bar filter
+  // is active to avoid two competing scopes fighting over the panel.
+  const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
+    statusFilter && !demandPrefFilter && configId && location
+      ? ["summer-apps-status", configId, location, statusFilter]
+      : null,
+    () => summerAPI.getApplications({
+      config_id: configId!,
+      location,
+      application_status: statusFilter!,
+    }),
+    { refreshInterval: 30000 }
+  );
+
   const isValidating = slotsValidating || demandValidating || unassignedValidating;
 
   // Fetch active tutors and duties
@@ -240,11 +356,13 @@ export default function SummerArrangementPage() {
       mutateSlots(),
       mutateDemand(),
       mutateUnassigned(),
+      mutateAppStats(),
+      mutateStatusFilteredApps(),
       mutateCalendar(),
       mutateStudentLessons(),
       mutateFindSlot(),
     ]);
-  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
+  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateAppStats, mutateStatusFilteredApps, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
 
   // Optimistic patch for the single-app cache that drives the detail modal.
   // Uses the hook's bound mutate so the patch definitely reaches this
@@ -418,7 +536,6 @@ export default function SummerArrangementPage() {
 
   // Drag preference highlighting — classifyPrefs owns the tier split.
   const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
-  const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
 
   // Fetch all applications for demand bar filter (only when filter active)
   const { data: demandFilterApps } = useSWR(
@@ -470,6 +587,108 @@ export default function SummerArrangementPage() {
     setDragBuddySlots(null);
   }, []);
 
+  // Precedence: demand-bar filter > workflow chip > default incomplete list.
+  const panelApplications = useMemo(
+    () =>
+      demandPrefFilter ? (demandFilteredApps ?? [])
+      : statusFilter ? (statusFilteredApps ?? [])
+      : (unassigned ?? []),
+    [demandPrefFilter, demandFilteredApps, statusFilter, statusFilteredApps, unassigned]
+  );
+  const panelLoading =
+    demandPrefFilter ? !demandFilterApps
+    : statusFilter ? !statusFilteredApps
+    : (!unassigned && !!configId);
+
+  // Build global search index: placed students (via studentLessons) + unplaced
+  // (via unassigned). Placed entries carry a jump target — first placed lesson's
+  // date + session id — so selecting them routes straight to the calendar with
+  // a ring highlight. Haystack folds phone digits + school/primary student id
+  // so admins can paste any of those from a parent message and find the row.
+  const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
+    const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
+    const makeEntry = (source: {
+      application_id: number;
+      student_name: string;
+      grade: string;
+      lang_stream?: string | null;
+      contact_phone?: string | null;
+      linked_student?: { school_student_id?: string | null } | null;
+      linked_prospect?: { primary_student_id?: string | null } | null;
+    }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
+      const studentId = getLinkedStudentId(source);
+      return {
+        applicationId: source.application_id,
+        name: source.student_name,
+        grade: source.grade,
+        langStream: source.lang_stream ?? null,
+        studentId,
+        placed: firstLesson != null,
+        firstLesson,
+        haystack: `${source.student_name.toLowerCase()} ${digits(source.contact_phone)} ${studentId?.toLowerCase() ?? ""}`,
+      };
+    };
+
+    const out: SummerStudentSearchEntry[] = [];
+    const seen = new Set<number>();
+    for (const s of studentLessonsData?.students ?? []) {
+      const first = s.lessons
+        .filter((l) => l.placed && l.lesson_date)
+        .sort((a, b) => (a.lesson_number ?? 0) - (b.lesson_number ?? 0))[0];
+      const jumpTarget = first
+        ? { lessonDate: first.lesson_date!, sessionId: first.session_id ?? null }
+        : null;
+      out.push(makeEntry(s, jumpTarget));
+      seen.add(s.application_id);
+    }
+    for (const a of unassigned ?? []) {
+      if (seen.has(a.id)) continue;
+      out.push(makeEntry({ ...a, application_id: a.id }, null));
+    }
+    return out;
+  }, [studentLessonsData, unassigned]);
+
+  const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+    // Students tab already shows every row (placed + unplaced), so when the
+    // user searches from that context, stay put and just ring the match
+    // instead of yanking them to Slot Setup / Calendar.
+    if (activeTab === "students") {
+      bumpStudentsTarget(entry.applicationId);
+      return;
+    }
+    if (!entry.placed) {
+      setSelectedAppId(entry.applicationId);
+      return;
+    }
+    // Slot Setup is the primary target — find every slot the student sits in,
+    // pick the earliest by day/time as the scroll anchor, let all matching
+    // cards ring.
+    const matchingSlots = (slots ?? []).filter((s) =>
+      s.sessions.some((p) => p.application_id === entry.applicationId),
+    );
+    if (matchingSlots.length > 0) {
+      const dayIndex = new Map(openDays.map((d, i) => [d, i]));
+      const [first] = [...matchingSlots].sort((a, b) => {
+        const da = dayIndex.get(a.slot_day) ?? Number.MAX_SAFE_INTEGER;
+        const db = dayIndex.get(b.slot_day) ?? Number.MAX_SAFE_INTEGER;
+        return da !== db ? da - db : a.time_slot.localeCompare(b.time_slot);
+      });
+      bumpSlotTarget(entry.applicationId, first?.id ?? null);
+      setActiveTab("slots");
+      return;
+    }
+    if (entry.firstLesson) {
+      bumpCalendarTarget(entry.firstLesson.lessonDate, entry.firstLesson.sessionId);
+      setActiveTab("calendar");
+      showToast(
+        "No recurring slot placement — showing individual sessions on the Calendar",
+        "info",
+      );
+      return;
+    }
+    setSelectedAppId(entry.applicationId);
+  }, [activeTab, bumpStudentsTarget, slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
+
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;
   const totalTentative = slots?.reduce(
@@ -499,8 +718,10 @@ export default function SummerArrangementPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-          {/* Row 1: Title + location + refresh */}
-          <div className="flex items-center gap-3">
+          {/* Row 1: Title + search + location + refresh. On mobile the search
+              wraps to its own full-width row via order-last + w-full; on sm+
+              it sits inline between the title and the location select. */}
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
               <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -508,6 +729,11 @@ export default function SummerArrangementPage() {
               <h1 className="text-lg font-semibold text-foreground">Timetable Arrangement</h1>
               <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
+            <SummerStudentSearch
+              entries={searchEntries}
+              onSelect={handleSearchSelect}
+              className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
+            />
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -547,6 +773,25 @@ export default function SummerArrangementPage() {
               )}
               <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
             </div>
+
+            <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+            <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
+              {ARRANGEMENT_STATUSES.map((status, i) => (
+                <Fragment key={status}>
+                  {i === PRE_ARRANGEMENT_STATUSES.length && (
+                    <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                  )}
+                  <StatusFilterChip
+                    status={status}
+                    count={appStats?.by_status?.[status] ?? 0}
+                    active={statusFilter === status}
+                    onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
+                  />
+                </Fragment>
+              ))}
+            </div>
+
             <div className="flex-1" />
             <button
               onClick={() => setDutyModalOpen(true)}
@@ -661,6 +906,7 @@ export default function SummerArrangementPage() {
                       prev && prev.day === f.day && prev.timeSlot === f.timeSlot && prev.grade === f.grade && prev.tier === f.tier
                         ? null : f
                     )}
+                    slotHighlightTarget={slotTarget}
                   />
                 ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
@@ -682,6 +928,8 @@ export default function SummerArrangementPage() {
                     configId={configId!}
                     location={location}
                     totalLessons={activeConfig!.total_lessons}
+                    statusFilter={demandPrefFilter ? null : statusFilter}
+                    highlightTarget={studentsTarget}
                     onClickStudent={setSelectedAppId}
                     onFindSlot={setFindSlotTarget}
                     onNavigateToLesson={handleNavigateToLesson}
@@ -691,9 +939,9 @@ export default function SummerArrangementPage() {
               {/* Desktop: always visible */}
               <div className="hidden md:flex">
                 <SummerUnassignedPanel
-                  applications={demandFilteredApps ?? unassigned ?? []}
+                  applications={panelApplications}
                   grades={grades}
-                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
+                  loading={panelLoading}
                   onClickStudent={setSelectedAppId}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -701,6 +949,8 @@ export default function SummerArrangementPage() {
                   onSuggestStudent={(id, name) => setSuggestForStudent({ id, name })}
                   prefFilter={demandPrefFilter}
                   onClearPrefFilter={() => setDemandPrefFilter(null)}
+                  statusFilter={demandPrefFilter ? null : statusFilter}
+                  onClearStatusFilter={() => setStatusFilter(null)}
                 />
               </div>
             </div>
@@ -737,9 +987,9 @@ export default function SummerArrangementPage() {
                 <SummerUnassignedPanel
                   className="w-full h-full rounded-none border-0 border-l"
                   hideCollapse
-                  applications={demandFilteredApps ?? unassigned ?? []}
+                  applications={panelApplications}
                   grades={grades}
-                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
+                  loading={panelLoading}
                   onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -747,6 +997,8 @@ export default function SummerArrangementPage() {
                   onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
                   prefFilter={demandPrefFilter}
                   onClearPrefFilter={() => setDemandPrefFilter(null)}
+                  statusFilter={demandPrefFilter ? null : statusFilter}
+                  onClearStatusFilter={() => setStatusFilter(null)}
                 />
               </div>
             </div>
