@@ -31,9 +31,14 @@ interface SummerArrangementGridProps {
   onConfirmSlot?: (slotId: number) => void;
   dragBuddySlots?: Set<string> | null;
   onDemandBarClick?: (filter: DemandBarFilter) => void;
-  /** Ring + auto-expand every slot card containing this application. `seq`
-   * lets the effect re-fire when the same student is targeted twice. */
-  slotHighlightTarget?: { applicationId: number; seq: number } | null;
+  /** Ring + auto-expand every slot card containing this application. Only
+   * the card whose id matches `scrollSlotId` scrolls into view. `seq` lets
+   * the effect re-fire when the same student is targeted twice. */
+  slotHighlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null;
 }
 
 

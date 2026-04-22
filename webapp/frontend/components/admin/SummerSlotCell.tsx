@@ -34,7 +34,11 @@ interface SummerSlotCellProps {
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
   onDemandBarClick?: (filter: DemandBarFilter) => void;
-  slotHighlightTarget?: { applicationId: number; seq: number } | null;
+  slotHighlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null;
 }
 
 // Solid fill (1st pref) and light fill (2nd pref) for demand sparklines per grade

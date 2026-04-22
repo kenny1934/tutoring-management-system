@@ -141,18 +141,19 @@ export default function SummerArrangementPage() {
     }));
   }, []);
 
-  // Slot-grid highlight target — mirrors calendarTarget. Bumped by the global
-  // student search so selecting a result on the slots tab rings every slot
-  // card containing that student (multi-slot placements ring together) and
-  // auto-expands them. `seq` re-fires the effect when the same student is
-  // targeted twice in a row.
+  // Slot-grid highlight target — mirrors calendarTarget. Every slot card
+  // containing `applicationId` rings + auto-expands; only the one matching
+  // `scrollSlotId` scrolls into view (prevents scroll races on multi-slot
+  // placements).
   const [slotTarget, setSlotTarget] = useState<{
     applicationId: number;
+    scrollSlotId: number | null;
     seq: number;
   } | null>(null);
-  const bumpSlotTarget = useCallback((applicationId: number) => {
+  const bumpSlotTarget = useCallback((applicationId: number, scrollSlotId: number | null) => {
     setSlotTarget((prev) => ({
       applicationId,
+      scrollSlotId,
       seq: (prev?.seq ?? 0) + 1,
     }));
   }, []);
@@ -633,27 +634,25 @@ export default function SummerArrangementPage() {
     return out;
   }, [studentLessonsData, unassigned]);
 
-  // Applications that appear in at least one recurring-slot card — i.e. are
-  // findable on the Slot Setup grid. Students whose sessions were dropped
-  // directly onto the Calendar (flexible-schedule case) won't be in this set
-  // and we fall back to a calendar jump.
-  const applicationIdsInSlots = useMemo(() => {
-    const set = new Set<number>();
-    for (const s of slots ?? []) {
-      for (const p of s.sessions) set.add(p.application_id);
-    }
-    return set;
-  }, [slots]);
-
   const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
     if (!entry.placed) {
-      // Unplaced students have no lesson to jump to — open the detail modal
-      // so the admin can review and place from there.
       setSelectedAppId(entry.applicationId);
       return;
     }
-    if (applicationIdsInSlots.has(entry.applicationId)) {
-      bumpSlotTarget(entry.applicationId);
+    // Slot Setup is the primary target — find every slot the student sits in,
+    // pick the earliest by day/time as the scroll anchor, let all matching
+    // cards ring.
+    const matchingSlots = (slots ?? []).filter((s) =>
+      s.sessions.some((p) => p.application_id === entry.applicationId),
+    );
+    if (matchingSlots.length > 0) {
+      const dayIndex = new Map(openDays.map((d, i) => [d, i]));
+      const [first] = [...matchingSlots].sort((a, b) => {
+        const da = dayIndex.get(a.slot_day) ?? Number.MAX_SAFE_INTEGER;
+        const db = dayIndex.get(b.slot_day) ?? Number.MAX_SAFE_INTEGER;
+        return da !== db ? da - db : a.time_slot.localeCompare(b.time_slot);
+      });
+      bumpSlotTarget(entry.applicationId, first?.id ?? null);
       setActiveTab("slots");
       return;
     }
@@ -667,7 +666,7 @@ export default function SummerArrangementPage() {
       return;
     }
     setSelectedAppId(entry.applicationId);
-  }, [applicationIdsInSlots, bumpSlotTarget, bumpCalendarTarget, showToast]);
+  }, [slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;

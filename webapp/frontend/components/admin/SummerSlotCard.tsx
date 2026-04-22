@@ -20,9 +20,14 @@ interface SummerSlotCardProps {
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
   /** Briefly ring + auto-expand the card if one of its sessions matches the
-   * given application. The matching student row also rings. `seq` re-fires
-   * the effect on repeat selection of the same student. */
-  highlightTarget?: { applicationId: number; seq: number } | null;
+   * given application. The matching student row also rings. Only the card
+   * whose id equals `scrollSlotId` scrolls into view. `seq` re-fires the
+   * effect on repeat selection of the same student. */
+  highlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -63,7 +68,9 @@ export function SummerSlotCard({
     if (!hasMatch) return;
     setHighlightedAppId(highlightTarget.applicationId);
     setExpanded(true);
-    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (highlightTarget.scrollSlotId === slot.id) {
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
     const clearTimer = setTimeout(() => setHighlightedAppId(null), 2000);
     return () => clearTimeout(clearTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
