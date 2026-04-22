@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { summerAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_BORDER, RESCHEDULED_STATUS, sessionStatusBg, formatCompactDate, formatShortDate, getDayFromDate, getStartTime } from "@/lib/summer-utils";
 import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
-import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
+import { PrimaryBranchChip, isExistingOrigin } from "@/components/admin/PrimaryBranchChip";
 import { ArrowDown, ArrowUp, Check, Clock, AlertTriangle, RefreshCcw, X } from "lucide-react";
 import type { SummerStudentLessonsRow } from "@/types";
 
@@ -57,15 +57,6 @@ function progressBucket(row: SummerStudentLessonsRow): ProgressBucket {
   return "in_progress";
 }
 
-function originBucket(row: SummerStudentLessonsRow): OriginBucket {
-  if (row.linked_student || row.linked_prospect) return "existing";
-  if (row.verified_branch_origin && row.verified_branch_origin !== "New") return "existing";
-  if (row.claimed_branch_code && row.is_existing_student && row.is_existing_student !== "None") {
-    return "existing";
-  }
-  return "new";
-}
-
 function attendingFillColor(attendingPct: number, isFullyPlaced: boolean): string {
   if (isFullyPlaced) return "bg-green-400 dark:bg-green-400/80";
   if (attendingPct >= 66) return "bg-primary dark:bg-primary/80";
@@ -98,11 +89,32 @@ function Chip({
   );
 }
 
-function ChipGroup({ label, children }: { label: string; children: React.ReactNode }) {
+type ChipOption<V> = { value: V; label: React.ReactNode; title?: string };
+
+function ToggleChipGroup<V>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: V | null;
+  onChange: (next: V | null) => void;
+  options: ChipOption<V>[];
+}) {
   return (
     <div className="inline-flex items-center gap-1">
       <span className="text-[10px] text-muted-foreground">{label}</span>
-      {children}
+      {options.map((opt) => (
+        <Chip
+          key={String(opt.value)}
+          active={value === opt.value}
+          onClick={() => onChange(value === opt.value ? null : opt.value)}
+          title={opt.title}
+        >
+          {opt.label}
+        </Chip>
+      ))}
     </div>
   );
 }
@@ -180,7 +192,8 @@ export function SummerStudentLessonsTable({
       result = result.filter((s) => s.sessions_per_week === sessionsFilter);
     }
     if (originFilter) {
-      result = result.filter((s) => originBucket(s) === originFilter);
+      const wantExisting = originFilter === "existing";
+      result = result.filter((s) => isExistingOrigin(s) === wantExisting);
     }
     if (rescheduledOnly) {
       result = result.filter((s) => s.rescheduled_count > 0);
@@ -189,17 +202,13 @@ export function SummerStudentLessonsTable({
       result = result.filter((s) => s.application_status === statusFilter);
     }
 
+    const primary: Record<SortMode, (a: SummerStudentLessonsRow, b: SummerStudentLessonsRow) => number> = {
+      completion: (a, b) => a.placed_count - b.placed_count,
+      grade: (a, b) => a.grade.localeCompare(b.grade),
+      name: () => 0,
+    };
     result = [...result].sort((a, b) => {
-      let cmp = 0;
-      if (sort === "completion") {
-        cmp = a.placed_count - b.placed_count;
-        if (cmp === 0) cmp = a.student_name.localeCompare(b.student_name);
-      } else if (sort === "grade") {
-        cmp = a.grade.localeCompare(b.grade);
-        if (cmp === 0) cmp = a.student_name.localeCompare(b.student_name);
-      } else {
-        cmp = a.student_name.localeCompare(b.student_name);
-      }
+      const cmp = primary[sort](a, b) || a.student_name.localeCompare(b.student_name);
       return sortDir === "asc" ? cmp : -cmp;
     });
 
@@ -237,11 +246,15 @@ export function SummerStudentLessonsTable({
 
   // Search-jump highlight (mirrors SummerSlotCard). seq re-fires on repeat
   // selection of the same student; applicationId alone would no-op on repeat.
-  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  // Uses a data-app-id attribute rather than a ref map so rows don't thrash
+  // the map on every re-render.
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const [highlightedAppId, setHighlightedAppId] = useState<number | null>(null);
   useEffect(() => {
     if (!highlightTarget) return;
-    const row = rowRefs.current.get(highlightTarget.applicationId);
+    const row = tableContainerRef.current?.querySelector<HTMLTableRowElement>(
+      `tr[data-app-id="${highlightTarget.applicationId}"]`,
+    );
     if (!row) return;
     setHighlightedAppId(highlightTarget.applicationId);
     row.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -249,11 +262,6 @@ export function SummerStudentLessonsTable({
     return () => clearTimeout(clearTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightTarget?.seq, highlightTarget?.applicationId]);
-
-  const setRowRef = useCallback((appId: number, el: HTMLTableRowElement | null) => {
-    if (el) rowRefs.current.set(appId, el);
-    else rowRefs.current.delete(appId);
-  }, []);
 
   function handleFindSlot(student: SummerStudentLessonsRow, lessonNum: number) {
     if (!onFindSlot) return;
@@ -306,81 +314,47 @@ export function SummerStudentLessonsTable({
       {/* Toolbar */}
       <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap">
         {grades.length > 1 && (
-          <ChipGroup label="Grade">
-            <Chip active={gradeFilter === null} onClick={() => setGradeFilter(null)}>
-              All
-            </Chip>
-            {grades.map((g) => (
-              <Chip
-                key={g}
-                active={gradeFilter === g}
-                onClick={() => setGradeFilter(gradeFilter === g ? null : g)}
-              >
-                {g}
-              </Chip>
-            ))}
-          </ChipGroup>
+          <ToggleChipGroup
+            label="Grade"
+            value={gradeFilter}
+            onChange={setGradeFilter}
+            options={grades.map((g) => ({ value: g, label: g }))}
+          />
         )}
 
-        <ChipGroup label="Progress">
-          <Chip
-            active={progressFilter === "not_started"}
-            onClick={() =>
-              setProgressFilter(progressFilter === "not_started" ? null : "not_started")
-            }
-            title="0 lessons placed"
-          >
-            Not started
-          </Chip>
-          <Chip
-            active={progressFilter === "in_progress"}
-            onClick={() =>
-              setProgressFilter(progressFilter === "in_progress" ? null : "in_progress")
-            }
-          >
-            In progress
-          </Chip>
-          <Chip
-            active={progressFilter === "fully_placed"}
-            onClick={() =>
-              setProgressFilter(progressFilter === "fully_placed" ? null : "fully_placed")
-            }
-          >
-            Fully placed
-          </Chip>
-        </ChipGroup>
+        <ToggleChipGroup<ProgressBucket>
+          label="Progress"
+          value={progressFilter}
+          onChange={setProgressFilter}
+          options={[
+            { value: "not_started", label: "Not started", title: "0 lessons placed" },
+            { value: "in_progress", label: "In progress" },
+            { value: "fully_placed", label: "Fully placed" },
+          ]}
+        />
 
         {sessionsOptions.length > 1 && (
-          <ChipGroup label="Sessions">
-            {sessionsOptions.map((n) => (
-              <Chip
-                key={n}
-                active={sessionsFilter === n}
-                onClick={() => setSessionsFilter(sessionsFilter === n ? null : n)}
-                title={`${n} session${n > 1 ? "s" : ""} per week`}
-              >
-                {n}×
-              </Chip>
-            ))}
-          </ChipGroup>
+          <ToggleChipGroup<number>
+            label="Sessions"
+            value={sessionsFilter}
+            onChange={setSessionsFilter}
+            options={sessionsOptions.map((n) => ({
+              value: n,
+              label: `${n}×`,
+              title: `${n} session${n > 1 ? "s" : ""} per week`,
+            }))}
+          />
         )}
 
-        <ChipGroup label="Origin">
-          <Chip
-            active={originFilter === "new"}
-            onClick={() => setOriginFilter(originFilter === "new" ? null : "new")}
-            title="Not linked to any existing student or prospect"
-          >
-            New
-          </Chip>
-          <Chip
-            active={originFilter === "existing"}
-            onClick={() => setOriginFilter(originFilter === "existing" ? null : "existing")}
-            title="Linked to an existing student / prospect, or verified as existing"
-          >
-            Existing
-          </Chip>
-        </ChipGroup>
+        <ToggleChipGroup<OriginBucket>
+          label="Origin"
+          value={originFilter}
+          onChange={setOriginFilter}
+          options={[
+            { value: "new", label: "New", title: "Not linked to any existing student or prospect" },
+            { value: "existing", label: "Existing", title: "Linked to an existing student / prospect, or verified as existing" },
+          ]}
+        />
 
         <button
           onClick={() => setRescheduledOnly((v) => !v)}
@@ -442,7 +416,7 @@ export function SummerStudentLessonsTable({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg flex-1">
+      <div ref={tableContainerRef} className="overflow-x-auto border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg flex-1">
         <table className="w-full border-collapse">
           <thead>
             <tr className={HEADER_BG}>
@@ -497,11 +471,14 @@ export function SummerStudentLessonsTable({
                 const isFullyPlaced = target > 0 && student.placed_count >= target;
                 const isEven = idx % 2 === 1;
                 const isHighlighted = highlightedAppId === student.application_id;
+                const lessonByNumber = new Map(
+                  student.lessons.map((l) => [l.lesson_number, l]),
+                );
 
                 return (
                   <tr
                     key={student.application_id}
-                    ref={(el) => setRowRef(student.application_id, el)}
+                    data-app-id={student.application_id}
                     className={cn(
                       "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30",
                       ROW_HOVER,
@@ -585,7 +562,7 @@ export function SummerStudentLessonsTable({
 
                     {/* Lesson cells */}
                     {lessonColumns.map((n) => {
-                      const lesson = student.lessons.find((l) => l.lesson_number === n);
+                      const lesson = lessonByNumber.get(n);
                       const placed = lesson?.placed;
                       const status = lesson?.session_status;
                       const isRescheduled = status === RESCHEDULED_STATUS;
