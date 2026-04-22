@@ -925,7 +925,9 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
   const [linking, setLinking] = useState<number | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
-  const { triggerRef, menuRef, pos } = usePortalPopover(open, close);
+  // Linked column sits at the far right of the table — anchor the popover
+  // to the trigger's right edge so it grows leftward instead of overflowing.
+  const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
 
   // Lazy + cached + deduped via SWR. Fetches only when the popover opens.
   const { data, error, isLoading } = useSWR(
@@ -964,7 +966,7 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
         <div
           ref={menuRef}
           className="fixed z-50 w-72 bg-card border border-border rounded-lg shadow-lg p-2"
-          style={{ top: pos.top, left: pos.left }}
+          style={{ top: pos.top, right: pos.right }}
         >
           {isLoading ? (
             <div className="p-3 text-xs text-muted-foreground text-center">Searching matches…</div>
