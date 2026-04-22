@@ -5,6 +5,8 @@
 ### Bug Fixes
 
 * **Tutors can save termination reasons**: reason and category edits on the Terminated Students page no longer fail for non-admin users
+* **Instant save feedback on Terminated Students**: saved reasons and categories now appear immediately instead of briefly reverting while the page reloads
+* **Trials quicklink student names**: restored normal name size in the dashboard trials popover (was accidentally shrunk to the dense summer-calendar size)
 
 ## [2.0.57](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.57) (2026-04-22)
 

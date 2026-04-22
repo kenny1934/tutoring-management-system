@@ -9,6 +9,12 @@ const changelogData = [
         "items": [
           {
             "description": "**Tutors can save termination reasons**: reason and category edits on the Terminated Students page no longer fail for non-admin users"
+          },
+          {
+            "description": "**Instant save feedback on Terminated Students**: saved reasons and categories now appear immediately instead of briefly reverting while the page reloads"
+          },
+          {
+            "description": "**Trials quicklink student names**: restored normal name size in the dashboard trials popover (was accidentally shrunk to the dense summer-calendar size)"
           }
         ]
       }
