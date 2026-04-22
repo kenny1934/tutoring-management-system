@@ -10,6 +10,7 @@ from database import get_db
 from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
+from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 
 router = APIRouter()
 
@@ -73,12 +74,23 @@ def find_duplicate_students(
 ) -> list[dict]:
     """Find potential duplicate students at a location by name and/or phone.
 
-    Returns one row per candidate with a merged match_reason — if both name
-    and phone match, the reason surfaces both so callers can judge confidence.
-    Rows are sorted with the highest-confidence (name+phone) first.
+    Returns one row per candidate with a merged match_reason. Signals:
+    exact name, fuzzy name (rapidfuzz), and phone. A candidate that matches
+    exact name AND phone is strongest confidence — the
+    admin_suggest_student_links auto-link path keys on that exact reason
+    string, so fuzzy hits always stay in the suggestion bucket.
     """
-    # id -> (Student, set of signals)
-    candidates: dict[int, tuple[Student, set[str]]] = {}
+    # id -> (Student, set of signals, fuzzy score if any)
+    candidates: dict[int, tuple[Student, set[str], int]] = {}
+
+    def add_signal(s: Student, signal: str, score: int = 0) -> None:
+        existing = candidates.get(s.id)
+        if existing:
+            _, signals, prev_score = existing
+            signals.add(signal)
+            candidates[s.id] = (s, signals, max(prev_score, score))
+        else:
+            candidates[s.id] = (s, {signal}, score)
 
     # Signal 1: exact name match at same location (case-insensitive)
     name_matches = db.query(Student).filter(
@@ -86,7 +98,7 @@ def find_duplicate_students(
         Student.home_location == location
     ).limit(3).all()
     for s in name_matches:
-        candidates.setdefault(s.id, (s, set()))[1].add("name")
+        add_signal(s, "name")
 
     # Signal 2: phone match at same location (if provided and has at least 8 digits)
     if phone and len(phone) >= 8:
@@ -98,14 +110,48 @@ def find_duplicate_students(
             Student.home_location == location
         ).limit(3).all()
         for s in phone_matches:
-            candidates.setdefault(s.id, (s, set()))[1].add("phone")
+            add_signal(s, "phone")
+
+    # Signal 3: fuzzy name match at same location. Broader sweep catches
+    # Romanized word-order flips and typos that exact ilike misses.
+    if student_name:
+        location_students = db.query(Student).filter(
+            Student.home_location == location,
+            Student.student_name.isnot(None),
+        ).all()
+        fuzzy_hits = []
+        for s in location_students:
+            if s.id in candidates and "name" in candidates[s.id][1]:
+                continue  # exact-name already covers this row
+            score = name_similarity(student_name, s.student_name)
+            if score >= NAME_CANDIDATE_THRESHOLD:
+                fuzzy_hits.append((score, s))
+        fuzzy_hits.sort(key=lambda ss: ss[0], reverse=True)
+        for score, s in fuzzy_hits[:3]:
+            add_signal(s, "fuzzy_name", score)
 
     def format_reason(signals: set[str]) -> str:
-        if "name" in signals and "phone" in signals:
+        has_name = "name" in signals
+        has_fuzzy = "fuzzy_name" in signals
+        has_phone = "phone" in signals
+        if has_name and has_phone:
             return "Same name and phone at this location"
-        if "name" in signals:
+        if has_fuzzy and has_phone:
+            return "Similar name and phone at this location"
+        if has_name:
             return "Same name at this location"
+        if has_fuzzy:
+            return "Similar name at this location"
         return "Same phone number at this location"
+
+    def reason_rank(reason: str) -> int:
+        return {
+            "Same name and phone at this location": 0,
+            "Similar name and phone at this location": 1,
+            "Same name at this location": 2,
+            "Similar name at this location": 3,
+            "Same phone number at this location": 4,
+        }.get(reason, 5)
 
     duplicates = [
         {
@@ -118,10 +164,9 @@ def find_duplicate_students(
             "lang_stream": s.lang_stream,
             "match_reason": format_reason(signals),
         }
-        for s, signals in candidates.values()
+        for s, signals, _ in candidates.values()
     ]
-    # Name+phone matches are highest confidence — surface them first.
-    duplicates.sort(key=lambda d: 0 if "and" in d["match_reason"] else 1)
+    duplicates.sort(key=lambda d: reason_rank(d["match_reason"]))
     return duplicates
 
 

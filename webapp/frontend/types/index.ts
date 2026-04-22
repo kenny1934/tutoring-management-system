@@ -2840,6 +2840,7 @@ export interface PrimaryProspectMatchResult {
     contact_phone: string;
     application_status: string;
     match_type: string;
+    similarity?: number | null;
   }>;
 }
 
@@ -2863,7 +2864,8 @@ export interface AutoMatchAppSummary {
 
 export type AutoMatchSkipReason =
   | "multiple_prospects_share_phone"
-  | "multiple_apps_share_phone";
+  | "multiple_apps_share_phone"
+  | "name_similarity";
 
 export interface AutoMatchEntry {
   prospect: AutoMatchProspectSummary;
@@ -2874,7 +2876,9 @@ export interface AutoMatchSkipEntry {
   prospect: AutoMatchProspectSummary;
   reason: AutoMatchSkipReason;
   conflicting_prospects: AutoMatchProspectSummary[];
-  conflicting_apps: AutoMatchAppSummary[];
+  // For the "name_similarity" reason, each app has an extra `similarity`
+  // (0-100) field so the UI can show how close the name match is.
+  conflicting_apps: (AutoMatchAppSummary & { similarity?: number })[];
 }
 
 export interface AutoMatchResult {

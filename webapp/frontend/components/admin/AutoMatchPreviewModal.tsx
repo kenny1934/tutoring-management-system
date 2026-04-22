@@ -134,7 +134,7 @@ export function AutoMatchPreviewModal({
             <div>{summaryText}</div>
             {skipped.length > 0 && (
               <div className="text-xs text-muted-foreground mt-0.5">
-                {skipped.length} skipped due to ambiguity — resolve manually below.
+                {skipped.length} need review — pick one below.
                 {totalOverridden > 0 && <> {totalOverridden} resolved.</>}
               </div>
             )}
@@ -155,7 +155,7 @@ export function AutoMatchPreviewModal({
 
         {skipped.length > 0 && (
           <Section
-            title="Ambiguous — pick one to link"
+            title="Needs review — pick one to link"
             count={skipped.length}
             tone="warning"
           >
@@ -176,7 +176,7 @@ export function AutoMatchPreviewModal({
           <div className="text-sm text-muted-foreground text-center py-6">
             {total_unlinked === 0
               ? "No unlinked prospects for this year."
-              : "No phone matches found among unlinked prospects."}
+              : "No phone or name matches found among unlinked prospects."}
           </div>
         )}
       </div>
@@ -266,9 +266,10 @@ function SkipRow({
   onOverride: (prospectId: number, appId: number) => void;
 }) {
   const phoneList = [entry.prospect.phone_1, entry.prospect.phone_2].filter(Boolean).join(" / ");
-  const reasonLabel = entry.reason === "multiple_apps_share_phone"
-    ? "Multiple applications share this phone"
-    : "Multiple prospects share this phone";
+  const reasonLabel =
+    entry.reason === "multiple_apps_share_phone" ? "Multiple applications share this phone" :
+    entry.reason === "multiple_prospects_share_phone" ? "Multiple prospects share this phone" :
+    "Similar name — no matching phone";
 
   if (overriddenAppId !== null) {
     const picked = entry.conflicting_apps.find((a) => a.id === overriddenAppId);
@@ -282,6 +283,8 @@ function SkipRow({
     );
   }
 
+  const showPhone = entry.reason !== "name_similarity" && Boolean(phoneList);
+
   return (
     <div className="px-3 py-2 space-y-2">
       <div className="min-w-0 space-y-0.5">
@@ -289,13 +292,18 @@ function SkipRow({
         <div className="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-3 w-3 shrink-0" />
           <span>{reasonLabel}</span>
-          {phoneList && <span className="text-muted-foreground font-mono">· {phoneList}</span>}
+          {showPhone && <span className="text-muted-foreground font-mono">· {phoneList}</span>}
         </div>
       </div>
       <div className="pl-4 space-y-1">
         {entry.conflicting_apps.map((a) => (
           <div key={a.id} className="flex items-center gap-2">
-            <div className="flex-1 min-w-0"><AppChip a={a} /></div>
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <AppChip a={a} />
+              {typeof a.similarity === "number" && (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{a.similarity}% name</span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => onOverride(entry.prospect.id, a.id)}

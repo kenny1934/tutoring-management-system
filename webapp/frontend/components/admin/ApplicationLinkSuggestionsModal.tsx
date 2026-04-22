@@ -197,7 +197,7 @@ export function ApplicationLinkSuggestionsModal({
               </div>
               {totalSkipped > 0 && (
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {totalSkipped} ambiguous — resolve manually below.
+                  {totalSkipped} need review — pick one below.
                 </div>
               )}
             </div>
@@ -209,7 +209,7 @@ export function ApplicationLinkSuggestionsModal({
             <GroupHeader
               icon={<GraduationCap className="h-4 w-4" />}
               title="Primary branch prospects"
-              subtitle="Matched by phone to P6 prospect records"
+              subtitle="Matched by phone to P6 prospect records; similar names surfaced for review"
             />
             {primaryMatches.length > 0 && (
               <SectionList title={isResult ? "Linked" : "Will link"} count={primaryMatches.length} tone="success">
@@ -217,7 +217,7 @@ export function ApplicationLinkSuggestionsModal({
               </SectionList>
             )}
             {primarySkipped.length > 0 && (
-              <SectionList title="Ambiguous — pick one to link" count={primarySkipped.length} tone="warning">
+              <SectionList title="Needs review — pick one to link" count={primarySkipped.length} tone="warning">
                 {primarySkipped.map((s) => (
                   <ProspectSkipRow
                     key={s.prospect.id}
@@ -372,9 +372,11 @@ function ProspectSkipRow({
   onOverride: (prospectId: number, appId: number) => void;
 }) {
   const phoneList = [entry.prospect.phone_1, entry.prospect.phone_2].filter(Boolean).join(" / ");
-  const reasonLabel = entry.reason === "multiple_apps_share_phone"
-    ? "Multiple applications share this phone"
-    : "Multiple prospects share this phone";
+  const reasonLabel =
+    entry.reason === "multiple_apps_share_phone" ? "Multiple applications share this phone" :
+    entry.reason === "multiple_prospects_share_phone" ? "Multiple prospects share this phone" :
+    "Similar name — no matching phone";
+  const showPhone = entry.reason !== "name_similarity" && Boolean(phoneList);
 
   if (overriddenAppId !== null) {
     const picked = entry.conflicting_apps.find((a) => a.id === overriddenAppId);
@@ -394,13 +396,18 @@ function ProspectSkipRow({
         <div className="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-3 w-3 shrink-0" />
           <span>{reasonLabel}</span>
-          {phoneList && <span className="text-muted-foreground font-mono">· {phoneList}</span>}
+          {showPhone && <span className="text-muted-foreground font-mono">· {phoneList}</span>}
         </div>
       </div>
       <div className="pl-4 space-y-1">
         {entry.conflicting_apps.map((a) => (
           <div key={a.id} className="flex items-center gap-2">
-            <div className="flex-1 min-w-0"><AppChip a={a} /></div>
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <AppChip a={a} />
+              {typeof a.similarity === "number" && (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{a.similarity}% name</span>
+              )}
+            </div>
             <LinkThisButton onClick={() => onOverride(entry.prospect.id, a.id)} />
           </div>
         ))}
