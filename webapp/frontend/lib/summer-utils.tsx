@@ -322,10 +322,24 @@ export function isNonAttending(status: string): boolean {
   );
 }
 
-/** Session status → dot/bg color classes. */
+/** Session status → dot/bg color classes.
+ *  Pre-publish placements use SummerSession statuses (Tentative / Confirmed /
+ *  Rescheduled-Pending). Post-publish placements overlay live SessionLog
+ *  statuses (Scheduled / Attended / No Show / Cancelled / Make-up variants)
+ *  via _build_session_info in summer_course.py. Both sets must be mapped,
+ *  or published rows fall back to the unplaced gray and read as missing. */
 export const SESSION_STATUS_DOT: Record<string, string> = {
+  // Pre-publish (SummerSession)
   Confirmed: "bg-green-500 dark:bg-green-400",
   Tentative: "bg-amber-400 dark:bg-amber-400",
+  // Post-publish (SessionLog overlay) — Scheduled is a locked-in future placement
+  Scheduled: "bg-green-500 dark:bg-green-400",
+  Attended: "bg-green-600 dark:bg-green-500",
+  "Attended (Make-up)": "bg-green-600 dark:bg-green-500",
+  "Attended (Trial)": "bg-green-600 dark:bg-green-500",
+  "No Show": "bg-red-500 dark:bg-red-400",
+  Cancelled: "bg-red-500 dark:bg-red-400",
+  // Make-up lifecycle (same visual in both publish states)
   "Rescheduled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
   "Sick Leave - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
   "Weather Cancelled - Pending Make-up": "bg-orange-500 dark:bg-orange-400",
@@ -351,6 +365,41 @@ export function sessionStatusDot(status: string): string {
 }
 export function sessionStatusBg(status: string): string {
   return SESSION_STATUS_BG[status] ?? SESSION_STATUS_BG_DEFAULT;
+}
+
+/** One slot in the dot strip: either the session covering this lesson_number,
+ *  or null for an unplaced slot. Sessions missing lesson_number are appended
+ *  after the 1..totalLessons grid so nothing is lost. */
+export interface PlacementDotSlot {
+  lessonNumber: number | null;
+  session: SummerApplicationSessionInfo | null;
+}
+
+/** Build a dot-strip layout indexed by lesson_number. Position N always
+ *  represents lesson N (1..totalLessons); an empty slot means the student
+ *  isn't placed on that specific lesson. Orphan sessions without a resolved
+ *  lesson_number come last so they're still visible. */
+export function buildPlacementDots(
+  sessions: SummerApplicationSessionInfo[] | null | undefined,
+  totalLessons: number,
+): PlacementDotSlot[] {
+  const byLesson = new Map<number, SummerApplicationSessionInfo>();
+  const orphans: SummerApplicationSessionInfo[] = [];
+  for (const s of sessions ?? []) {
+    if (s.lesson_number != null && s.lesson_number >= 1 && s.lesson_number <= totalLessons) {
+      byLesson.set(s.lesson_number, s);
+    } else {
+      orphans.push(s);
+    }
+  }
+  const slots: PlacementDotSlot[] = [];
+  for (let n = 1; n <= totalLessons; n++) {
+    slots.push({ lessonNumber: n, session: byLesson.get(n) ?? null });
+  }
+  for (const o of orphans) {
+    slots.push({ lessonNumber: null, session: o });
+  }
+  return slots;
 }
 
 /** Map summer config Chinese location names → internal system codes. */

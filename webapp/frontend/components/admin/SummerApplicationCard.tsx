@@ -12,7 +12,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot, MIN_GROUP_SIZE } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, sessionStatusDot, buildPlacementDots, MIN_GROUP_SIZE } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -375,6 +375,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
             : dates.length === 1 ? formatCompactDate(dates[0]) : null;
           const placedCount = sorted.length;
           const total = app.lessons_paid ?? totalLessons ?? placedCount;
+          const slots = buildPlacementDots(sorted, total);
           return (
             <div className="flex items-center gap-1.5 text-xs">
               <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
@@ -384,21 +385,28 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
                 </span>
               )}
               <span className="shrink-0 flex items-center gap-px">
-                {sorted.map((s, i) => (
-                  <span
-                    key={i}
-                    className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
-                    title={s.lesson_date
-                      ? `L${s.lesson_number ?? i + 1}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
-                      : `L${s.lesson_number ?? i + 1}: ${s.session_status}`}
-                  />
-                ))}
-                {total > placedCount && Array.from({ length: total - placedCount }).map((_, i) => (
-                  <span
-                    key={`e${i}`}
-                    className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
-                  />
-                ))}
+                {slots.map((slot, i) => {
+                  const label = slot.lessonNumber != null ? `L${slot.lessonNumber}` : "L?";
+                  if (!slot.session) {
+                    return (
+                      <span
+                        key={`e${i}`}
+                        className="inline-block w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700"
+                        title={`${label}: Unplaced`}
+                      />
+                    );
+                  }
+                  const s = slot.session;
+                  return (
+                    <span
+                      key={s.id}
+                      className={cn("inline-block w-1.5 h-1.5 rounded-full", sessionStatusDot(s.session_status))}
+                      title={s.lesson_date
+                        ? `${label}: ${formatCompactDate(s.lesson_date)} ${s.time_slot} (${s.session_status})`
+                        : `${label}: ${s.session_status}`}
+                    />
+                  );
+                })}
               </span>
               <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                 {placedCount}/{total}
