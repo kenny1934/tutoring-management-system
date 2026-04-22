@@ -558,10 +558,10 @@ export default function SummerArrangementPage() {
   // Precedence: demand-bar filter > workflow chip > default incomplete list.
   const panelApplications = useMemo(
     () =>
-      demandPrefFilter ? (demandFilterApps ?? [])
+      demandPrefFilter ? (demandFilteredApps ?? [])
       : statusFilter ? (statusFilteredApps ?? [])
       : (unassigned ?? []),
-    [demandPrefFilter, demandFilterApps, statusFilter, statusFilteredApps, unassigned]
+    [demandPrefFilter, demandFilteredApps, statusFilter, statusFilteredApps, unassigned]
   );
   const panelLoading =
     demandPrefFilter ? !demandFilterApps
