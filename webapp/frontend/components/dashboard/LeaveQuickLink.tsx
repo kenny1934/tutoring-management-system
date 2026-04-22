@@ -6,12 +6,13 @@ import { formatDateCompact } from "@/lib/formatters";
 import { arkLeaveAPI, authAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ARK_BASE_URL } from "@/config/leave-records";
 import { mutate } from "swr";
 import useSWR from "swr";
-import type { ArkLeaveBalance, ArkLeaveRequest, ArkCalendarEntry } from "@/types";
+import type { ArkLeaveBalance, ArkLeaveRequest, ArkCalendarEntry, ArkStaffLeaveSummary } from "@/types";
 import {
   getMonthCalendarDates,
   getMonthName,
@@ -33,6 +34,8 @@ import {
   Clock,
   AlertCircle,
   Eye,
+  Search,
+  Users,
 } from "lucide-react";
 import { FloatingPortal } from "@floating-ui/react";
 import { useDropdown } from "@/lib/ui-hooks";
@@ -730,7 +733,175 @@ function RequestCard({
 }
 
 
-type TabId = "balances" | "requests" | "pending" | "calendar";
+type TabId = "balances" | "requests" | "pending" | "calendar" | "all-staff";
+
+
+// ─── All-staff balances tab (admin) ───
+
+/** Color tier for a remaining-days value. Mirrors ARK's `remainingColor`. */
+function remainingColorCls(v: number): string {
+  if (v < 2) return "text-red-600 dark:text-red-400";
+  if (v < 5) return "text-amber-600 dark:text-amber-400";
+  return "text-emerald-600 dark:text-emerald-400";
+}
+
+function fmt(n: number): string {
+  return Number(n).toFixed(2);
+}
+
+function fmtOrDash(n: number): string {
+  return n > 0 ? fmt(n) : "-";
+}
+
+function AllStaffBalancesPanel({
+  data,
+  isLoading,
+  selectedLocation,
+  onRowClick,
+}: {
+  data: ArkStaffLeaveSummary[] | undefined;
+  isLoading: boolean;
+  selectedLocation: string;
+  onRowClick: (e: React.MouseEvent) => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const rows = data ?? [];
+    const byBranch = selectedLocation === "All Locations"
+      ? rows
+      : rows.filter(r => (r.branch_name ?? "") === selectedLocation);
+    const q = search.trim().toLowerCase();
+    if (!q) return byBranch;
+    return byBranch.filter(r =>
+      r.staff_name.toLowerCase().includes(q) ||
+      (r.staff_name_zh ?? "").toLowerCase().includes(q)
+    );
+  }, [data, selectedLocation, search]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {/* Search + branch badge */}
+      <div className="sticky top-0 z-10 px-3 py-2 bg-[#faf6f1] dark:bg-[#2d2820] border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search staff..."
+            aria-label="Search staff"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-[#d4a574]/40 dark:border-[#6b5a4a] bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+          />
+        </div>
+        {selectedLocation !== "All Locations" && (
+          <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#a0704b]/10 text-[#a0704b] dark:text-[#cd853f] border border-[#a0704b]/30">
+            {selectedLocation}
+          </span>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-8 px-4">
+          <Users className="h-8 w-8 mx-auto mb-2 text-gray-400 opacity-50" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {(data?.length ?? 0) === 0 ? "No balances to show" : "No staff match this filter"}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop: compact table mirrors ARK's two-group layout */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <th rowSpan={2} className="sticky top-0 px-2 py-1.5 text-left font-medium uppercase tracking-wider text-[10px] text-gray-500 dark:text-gray-400">
+                    Staff
+                  </th>
+                  <th colSpan={5} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    Annual Leave
+                  </th>
+                  <th colSpan={3} className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    Sick Leave
+                  </th>
+                </tr>
+                <tr className="bg-[#f5ede3]/80 dark:bg-[#3d3628]/60 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]" title="Entitlement (base + carry-over + adjustments)">Ent.</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Overtime compensation">OC</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500" title="Birthday leave">Bday</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60" title="Used (AL + OC + Bday)">Used</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" title="Pool remaining">Rem.</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 border-l border-[#e8d4b8] dark:border-[#6b5a4a]">Ent.</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Used</th>
+                  <th className="px-1.5 py-1 text-right text-[9px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Rem.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr
+                    key={r.staff_id}
+                    onClick={onRowClick}
+                    className="cursor-pointer transition-colors hover:bg-[#faf6f1]/60 dark:hover:bg-[#2d2820]/60 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40"
+                  >
+                    <td className="px-2 py-1.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                      {r.staff_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.al_entitlement))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_oc))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-400 dark:text-gray-500">{fmtOrDash(Number(r.al_bday))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-dashed border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.al_used))}</td>
+                    <td className={cn("px-1.5 py-1.5 text-right font-mono tabular-nums font-semibold", remainingColorCls(Number(r.al_remaining)))}>{fmt(Number(r.al_remaining))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300 border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">{fmt(Number(r.sl_entitlement))}</td>
+                    <td className="px-1.5 py-1.5 text-right font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(Number(r.sl_used))}</td>
+                    <td className={cn("px-1.5 py-1.5 text-right font-mono tabular-nums font-semibold", remainingColorCls(Number(r.sl_remaining)))}>{fmt(Number(r.sl_remaining))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: stacked cards per staff */}
+          <div className="sm:hidden divide-y divide-[#e8d4b8]/40 dark:divide-[#6b5a4a]/40">
+            {filtered.map((r) => (
+              <button
+                key={r.staff_id}
+                onClick={onRowClick}
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#faf6f1]/60 dark:hover:bg-[#2d2820]/60"
+              >
+                <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                  {r.staff_name}
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+                  <div className="text-gray-500 dark:text-gray-400">
+                    AL pool <span className="text-gray-400">{fmt(Number(r.al_used))} used /</span>{" "}
+                    <span className={cn("font-semibold font-mono tabular-nums", remainingColorCls(Number(r.al_remaining)))}>
+                      {fmt(Number(r.al_remaining))} left
+                    </span>
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    SL <span className="text-gray-400">{fmt(Number(r.sl_used))} used /</span>{" "}
+                    <span className={cn("font-semibold font-mono tabular-nums", remainingColorCls(Number(r.sl_remaining)))}>
+                      {fmt(Number(r.sl_remaining))} left
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 // ─── Main component ───
 
@@ -742,6 +913,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const [requestFilter, setRequestFilter] = useState<"upcoming" | "history">("upcoming");
   const { isAdmin, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
   const { viewMode } = useRole();
+  const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
   const isAdminView = isAdmin && viewMode !== "my-view";
@@ -754,7 +926,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const scopeKey = asTutorId ?? "self";
 
   // Default tab: admin sees pending review, staff sees balances
-  const [activeTab, setActiveTab] = useState<"balances" | "requests" | "pending" | "calendar">(
+  const [activeTab, setActiveTab] = useState<TabId>(
     isAdminView ? "pending" : "balances"
   );
 
@@ -779,6 +951,12 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const { data: pendingRequests, isLoading: loadingPending } = useSWR(
     isOpen && isAdminView ? "ark-leave-pending" : null,
     () => arkLeaveAPI.getPending(),
+    { revalidateOnFocus: false }
+  );
+
+  const { data: allStaffSummary, isLoading: loadingAllStaff } = useSWR(
+    isOpen && isAdminView && activeTab === "all-staff" ? "ark-leave-all-balances-summary" : null,
+    () => arkLeaveAPI.getAllBalancesSummary(),
     { revalidateOnFocus: false }
   );
 
@@ -921,6 +1099,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     if (isAdminView) {
       t.push({ id: "pending", label: "Review", count: pendingCount?.count || undefined });
       t.push({ id: "calendar", label: "Calendar" });
+      t.push({ id: "all-staff", label: "All Staff" });
     }
     return t;
   }, [isAdminView, myPendingCount, pendingCount]);
@@ -956,7 +1135,10 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-50 w-80 max-h-[70vh] flex flex-col",
+              "z-50 max-h-[70vh] flex flex-col",
+              activeTab === "all-staff" && !showForm
+                ? "w-[560px] max-w-[95vw]"
+                : "w-80",
               "paper-cream paper-texture rounded-lg shadow-xl",
               "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
@@ -1148,6 +1330,13 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 )
               ) : activeTab === "calendar" ? (
                 <LeaveCalendarView />
+              ) : activeTab === "all-staff" ? (
+                <AllStaffBalancesPanel
+                  data={allStaffSummary}
+                  isLoading={loadingAllStaff}
+                  selectedLocation={selectedLocation}
+                  onRowClick={handleOpenArk}
+                />
               ) : null}
             </div>
 

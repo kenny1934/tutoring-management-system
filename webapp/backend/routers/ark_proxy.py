@@ -231,6 +231,23 @@ async def ark_leave_calendar(
     )
 
 
+@router.get("/ark/leave/all-balances-summary")
+async def ark_all_balances_summary(
+    year: Optional[int] = Query(None),
+    current_user: Tutor = Depends(require_admin),
+):
+    """All active staff's AL pool + Sick Leave summary (admin only).
+
+    Branch filtering happens client-side: CSM uses location names, ARK uses branch ids,
+    and there is no shared mapping. ARK returns branch_name per row so the frontend can
+    filter by the user's selectedLocation.
+    """
+    params = {"year": year} if year else {}
+    return await _ark_request(
+        "GET", "/leave-balances-summary", current_user.user_email, params=params,
+    )
+
+
 @router.get("/ark/leave/pending")
 async def ark_pending_requests(
     current_user: Tutor = Depends(require_admin),

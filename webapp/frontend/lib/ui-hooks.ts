@@ -230,6 +230,7 @@ import {
   flip,
   shift,
   size,
+  autoUpdate,
   useClick,
   useDismiss,
   useInteractions,
@@ -252,6 +253,8 @@ export function useDropdown(
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange,
+    // Re-position when the floating element's own size changes (e.g. a wider tab switches in)
+    whileElementsMounted: autoUpdate,
     middleware: [
       offset(8),
       flip({ fallbackAxisSideDirection: "end", padding: 8 }),

@@ -3205,6 +3205,23 @@ export interface ArkCreateOvertime {
   description?: string | null;
 }
 
+export interface ArkStaffLeaveSummary {
+  staff_id: number;
+  staff_name: string;
+  staff_name_zh?: string | null;
+  branch_id?: number | null;
+  branch_name?: string | null;
+  profile_photo_url?: string | null;
+  al_entitlement: number;
+  al_oc: number;
+  al_bday: number;
+  al_used: number;
+  al_remaining: number;
+  sl_entitlement: number;
+  sl_used: number;
+  sl_remaining: number;
+}
+
 // ============================================
 // Waitlist Types
 // ============================================
