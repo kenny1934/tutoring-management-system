@@ -64,7 +64,7 @@ function StatusFilterChip({
       type="button"
       onClick={onToggle}
       aria-pressed={active}
-      title={active ? `Clear ${status} filter` : `${status} — click to filter panel`}
+      title={active ? `Clear ${status} filter` : `${status} — click to filter`}
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all",
         active
@@ -154,6 +154,21 @@ export default function SummerArrangementPage() {
     setSlotTarget((prev) => ({
       applicationId,
       scrollSlotId,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, []);
+
+  // Students-table highlight target — same shape/contract as slotTarget, but
+  // the matching row in SummerStudentLessonsTable scrolls + rings. Used when
+  // the header search fires while the Students tab is active, so we keep the
+  // user in context instead of routing them to Slot Setup / Calendar.
+  const [studentsTarget, setStudentsTarget] = useState<{
+    applicationId: number;
+    seq: number;
+  } | null>(null);
+  const bumpStudentsTarget = useCallback((applicationId: number) => {
+    setStudentsTarget((prev) => ({
+      applicationId,
       seq: (prev?.seq ?? 0) + 1,
     }));
   }, []);
@@ -635,6 +650,13 @@ export default function SummerArrangementPage() {
   }, [studentLessonsData, unassigned]);
 
   const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+    // Students tab already shows every row (placed + unplaced), so when the
+    // user searches from that context, stay put and just ring the match
+    // instead of yanking them to Slot Setup / Calendar.
+    if (activeTab === "students") {
+      bumpStudentsTarget(entry.applicationId);
+      return;
+    }
     if (!entry.placed) {
       setSelectedAppId(entry.applicationId);
       return;
@@ -666,7 +688,7 @@ export default function SummerArrangementPage() {
       return;
     }
     setSelectedAppId(entry.applicationId);
-  }, [slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
+  }, [activeTab, bumpStudentsTarget, slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;
@@ -907,6 +929,8 @@ export default function SummerArrangementPage() {
                     configId={configId!}
                     location={location}
                     totalLessons={activeConfig!.total_lessons}
+                    statusFilter={demandPrefFilter ? null : statusFilter}
+                    highlightTarget={studentsTarget}
                     onClickStudent={setSelectedAppId}
                     onFindSlot={setFindSlotTarget}
                     onNavigateToLesson={handleNavigateToLesson}
