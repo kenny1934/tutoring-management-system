@@ -24,9 +24,58 @@ import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementMode
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { LOCATION_TO_CODE, DAY_ABBREV } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
+
+// Application-workflow stages grouped by phase. Pre-arrangement statuses sit left
+// of a divider so admins can distinguish triage (Submitted/Under Review) from the
+// post-placement pipeline they actively drive. Exit states (Waitlisted/Withdrawn/
+// Rejected) stay on the applications page.
+const PRE_ARRANGEMENT_STATUSES = ["Submitted", "Under Review"] as const;
+const POST_ARRANGEMENT_STATUSES = [
+  "Placement Offered",
+  "Placement Confirmed",
+  "Fee Sent",
+  "Paid",
+  "Enrolled",
+] as const;
+
+function StatusFilterChip({
+  status,
+  count,
+  active,
+  onToggle,
+}: {
+  status: string;
+  count: number;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  const colors = STATUS_COLORS[status];
+  const Icon = STATUS_ICONS[status];
+  const isZero = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      title={active ? `Clear ${status} filter` : `${status} — click to filter panel`}
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all",
+        active
+          ? cn(colors.bg, colors.text, "ring-1 ring-current/30")
+          : "bg-gray-50 dark:bg-gray-800 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700",
+        isZero && !active && "opacity-60"
+      )}
+    >
+      {Icon && <Icon className={cn("h-3 w-3 shrink-0", !active && colors.text)} />}
+      {active && <span>{status}</span>}
+      <span className="tabular-nums">{count}</span>
+    </button>
+  );
+}
 
 export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
@@ -48,6 +97,7 @@ export default function SummerArrangementPage() {
   const [activeTab, setActiveTab] = useState<"slots" | "calendar" | "students">("slots");
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
@@ -182,6 +232,12 @@ export default function SummerArrangementPage() {
     { refreshInterval: 30000 }
   );
 
+  const { data: appStats, mutate: mutateAppStats } = useSWR(
+    canView && configId && location ? ["summer-app-stats", configId, location] : null,
+    () => summerAPI.getApplicationStats({ config_id: configId!, location }),
+    { refreshInterval: 30000 }
+  );
+
   const isValidating = slotsValidating || demandValidating || unassignedValidating;
 
   // Fetch active tutors and duties
@@ -240,11 +296,12 @@ export default function SummerArrangementPage() {
       mutateSlots(),
       mutateDemand(),
       mutateUnassigned(),
+      mutateAppStats(),
       mutateCalendar(),
       mutateStudentLessons(),
       mutateFindSlot(),
     ]);
-  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
+  }, [mutateSlots, mutateDemand, mutateUnassigned, mutateAppStats, mutateCalendar, mutateStudentLessons, mutateFindSlot]);
 
   // Optimistic patch for the single-app cache that drives the detail modal.
   // Uses the hook's bound mutate so the patch definitely reaches this
@@ -428,6 +485,20 @@ export default function SummerArrangementPage() {
     () => summerAPI.getApplications({ config_id: configId!, location, grade: demandPrefFilter!.grade }),
   );
 
+  // Fetch applications matching the active workflow chip (runs only when chip set
+  // and no demand filter — demand takes precedence to avoid clashing scopes).
+  const { data: statusFilteredApps } = useSWR(
+    statusFilter && !demandPrefFilter && configId && location
+      ? ["summer-apps-status", configId, location, statusFilter]
+      : null,
+    () => summerAPI.getApplications({
+      config_id: configId!,
+      location,
+      application_status: statusFilter!,
+    }),
+    { refreshInterval: 30000 }
+  );
+
   // Applications matching the demand bar filter (all apps, not just unassigned)
   const demandFilteredApps = useMemo(() => {
     if (!demandPrefFilter || !demandFilterApps) return null;
@@ -469,6 +540,17 @@ export default function SummerArrangementPage() {
     setDragPrefs(null);
     setDragBuddySlots(null);
   }, []);
+
+  // Panel data precedence: demand-bar filter (widest use, explicit pref targeting)
+  // beats workflow chip which beats the default incomplete list.
+  const panelApplications =
+    demandPrefFilter ? (demandFilterApps ?? [])
+    : statusFilter ? (statusFilteredApps ?? [])
+    : (unassigned ?? []);
+  const panelLoading =
+    demandPrefFilter ? !demandFilterApps
+    : statusFilter ? !statusFilteredApps
+    : (!unassigned && !!configId);
 
   // Stats
   const totalIncomplete = unassigned?.length ?? 0;
@@ -547,6 +629,35 @@ export default function SummerArrangementPage() {
               )}
               <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
             </div>
+
+            <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+            {/* Application workflow chips — filter by pipeline stage. Inactive
+                chips show icon + count only to keep the row compact; the active
+                chip expands to show its label for clarity. Pre-arrangement
+                statuses sit left of a subtle divider. */}
+            <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
+              {PRE_ARRANGEMENT_STATUSES.map((status) => (
+                <StatusFilterChip
+                  key={status}
+                  status={status}
+                  count={appStats?.by_status?.[status] ?? 0}
+                  active={statusFilter === status}
+                  onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
+                />
+              ))}
+              <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+              {POST_ARRANGEMENT_STATUSES.map((status) => (
+                <StatusFilterChip
+                  key={status}
+                  status={status}
+                  count={appStats?.by_status?.[status] ?? 0}
+                  active={statusFilter === status}
+                  onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
+                />
+              ))}
+            </div>
+
             <div className="flex-1" />
             <button
               onClick={() => setDutyModalOpen(true)}
@@ -691,9 +802,9 @@ export default function SummerArrangementPage() {
               {/* Desktop: always visible */}
               <div className="hidden md:flex">
                 <SummerUnassignedPanel
-                  applications={demandFilteredApps ?? unassigned ?? []}
+                  applications={panelApplications}
                   grades={grades}
-                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
+                  loading={panelLoading}
                   onClickStudent={setSelectedAppId}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -701,6 +812,8 @@ export default function SummerArrangementPage() {
                   onSuggestStudent={(id, name) => setSuggestForStudent({ id, name })}
                   prefFilter={demandPrefFilter}
                   onClearPrefFilter={() => setDemandPrefFilter(null)}
+                  statusFilter={demandPrefFilter ? null : statusFilter}
+                  onClearStatusFilter={() => setStatusFilter(null)}
                 />
               </div>
             </div>
@@ -737,9 +850,9 @@ export default function SummerArrangementPage() {
                 <SummerUnassignedPanel
                   className="w-full h-full rounded-none border-0 border-l"
                   hideCollapse
-                  applications={demandFilteredApps ?? unassigned ?? []}
+                  applications={panelApplications}
                   grades={grades}
-                  loading={demandPrefFilter ? !demandFilterApps : (!unassigned && !!configId)}
+                  loading={panelLoading}
                   onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -747,6 +860,8 @@ export default function SummerArrangementPage() {
                   onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
                   prefFilter={demandPrefFilter}
                   onClearPrefFilter={() => setDemandPrefFilter(null)}
+                  statusFilter={demandPrefFilter ? null : statusFilter}
+                  onClearStatusFilter={() => setStatusFilter(null)}
                 />
               </div>
             </div>

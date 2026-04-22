@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, sessionStatusDot, DAY_ABBREV } from "@/lib/summer-utils";
-import { STATUS_COLORS } from "@/components/admin/SummerApplicationCard";
+import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { classifyPrefs } from "@/lib/summer-preferences";
@@ -24,6 +24,10 @@ interface SummerUnassignedPanelProps {
   onSuggestStudent?: (applicationId: number, studentName: string) => void;
   prefFilter?: DemandBarFilter | null;
   onClearPrefFilter?: () => void;
+  /** When set, the panel is scoped to apps matching this workflow status rather
+   * than the default incomplete list. Heading + banner reflect the active chip. */
+  statusFilter?: string | null;
+  onClearStatusFilter?: () => void;
 }
 
 type SortMode = "name" | "grade" | "pref" | "completion";
@@ -46,6 +50,8 @@ export function SummerUnassignedPanel({
   onSuggestStudent,
   prefFilter,
   onClearPrefFilter,
+  statusFilter,
+  onClearStatusFilter,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -127,8 +133,17 @@ export function SummerUnassignedPanel({
       {/* Header */}
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{prefFilter ? "Demand" : "Incomplete"}</span>
+          {(() => {
+            const StatusIcon = statusFilter ? STATUS_ICONS[statusFilter] : null;
+            const statusColors = statusFilter ? STATUS_COLORS[statusFilter] : null;
+            if (StatusIcon && statusColors) {
+              return <StatusIcon className={cn("h-4 w-4", statusColors.text)} />;
+            }
+            return <Users className="h-4 w-4 text-muted-foreground" />;
+          })()}
+          <span className="text-sm font-medium truncate">
+            {prefFilter ? "Demand" : statusFilter ?? "Incomplete"}
+          </span>
           <span className="text-xs text-muted-foreground ml-auto">
             {filtered.length}
             {filtered.length !== applications.length && ` / ${applications.length}`}
@@ -167,6 +182,25 @@ export function SummerUnassignedPanel({
               onClick={onClearPrefFilter}
               className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
               title="Clear filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        {/* Active workflow chip — panel is scoped to all apps at this status,
+            placed or not. Clearing returns to the default incomplete list. */}
+        {!prefFilter && statusFilter && (
+          <div className="flex items-center gap-1 text-[10px]">
+            <span className="text-muted-foreground">Workflow:</span>
+            <span className={cn("font-semibold", STATUS_COLORS[statusFilter]?.text)}>
+              {statusFilter}
+            </span>
+            <span className="text-muted-foreground">· includes placed</span>
+            <button
+              onClick={onClearStatusFilter}
+              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-[#e8d4b8]/30"
+              title="Clear workflow filter"
             >
               <X className="h-3 w-3" />
             </button>
@@ -244,7 +278,13 @@ export function SummerUnassignedPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {applications.length === 0 ? "All students fully placed!" : "No matches."}
+            {applications.length === 0
+              ? (statusFilter
+                  ? `No applications at ${statusFilter}.`
+                  : prefFilter
+                  ? "No applications match this demand."
+                  : "All students fully placed!")
+              : "No matches."}
           </div>
         ) : (
           <div className="p-1.5 space-y-1">
