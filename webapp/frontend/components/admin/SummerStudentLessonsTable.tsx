@@ -416,23 +416,23 @@ export function SummerStudentLessonsTable({
       </div>
 
       {/* Table */}
-      <div ref={tableContainerRef} className="overflow-x-auto border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg flex-1">
+      <div ref={tableContainerRef} className="overflow-auto border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg flex-1 min-h-0">
         <table className="w-full border-collapse">
           <thead>
             <tr className={HEADER_BG}>
-              <th className={cn("sticky left-0 z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-left px-2 py-2 border-b-2", HEADER_BORDER, "min-w-[96px] md:min-w-[120px]")}>
+              <th className={cn("sticky left-0 top-0 z-30", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-left px-2 py-2 border-b-2", HEADER_BORDER, "min-w-[96px] md:min-w-[120px]")}>
                 Student
               </th>
-              <th className={cn("md:sticky md:left-[120px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "w-10")}>
+              <th className={cn("sticky top-0 z-20 md:left-[120px] md:z-30", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "w-10")}>
                 Grade
               </th>
-              <th className={cn("md:sticky md:left-[160px] z-10", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[72px]")}>
+              <th className={cn("sticky top-0 z-20 md:left-[160px] md:z-30", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[72px]")}>
                 Progress
               </th>
               {lessonColumns.map((n) => (
                 <th
                   key={n}
-                  className={cn("text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[52px] md:min-w-[60px]")}
+                  className={cn("sticky top-0 z-20", HEADER_BG, "text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center px-1 py-2 border-b-2", HEADER_BORDER, "min-w-[52px] md:min-w-[60px]")}
                 >
                   L{n}
                 </th>

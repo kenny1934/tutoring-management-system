@@ -886,7 +886,7 @@ export default function SummerArrangementPage() {
         ) : (
           <>
             <div className="flex gap-4 flex-1 min-h-0 p-2 sm:p-4">
-              <div className="flex-1 min-w-0 overflow-auto">
+              <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
                     days={openDays}

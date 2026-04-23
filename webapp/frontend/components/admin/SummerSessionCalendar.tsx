@@ -336,8 +336,9 @@ export function SummerSessionCalendar({
       </div>
 
       {/* Grid (always rendered so the + affordance works on empty weeks) */}
+      <div className="flex-1 min-h-0 overflow-auto rounded-lg border-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
       <div
-        className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
+        className="gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40"
         style={{
           display: "grid",
           gridTemplateColumns: `auto repeat(${weekDates.length}, minmax(110px, 1fr))`,
@@ -346,7 +347,7 @@ export function SummerSessionCalendar({
         }}
       >
           {/* Top-left corner */}
-          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 z-10 flex items-center justify-center px-1 text-xs font-medium text-muted-foreground">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] sticky left-0 top-0 z-20 flex items-center justify-center px-1 text-xs font-medium text-muted-foreground">
             Time
           </div>
 
@@ -357,7 +358,7 @@ export function SummerSessionCalendar({
             return (
               <div
                 key={dateStr}
-                className="bg-[#fef9f3] dark:bg-[#2d2618] flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
+                className="bg-[#fef9f3] dark:bg-[#2d2618] sticky top-0 z-10 flex flex-col items-center justify-center text-xs font-medium text-muted-foreground"
               >
                 <span>{DAY_ABBREV[dayName] || dayName}</span>
                 <span className="text-[10px]">{formatColumnDate(dateStr)}</span>
@@ -435,6 +436,7 @@ export function SummerSessionCalendar({
             );
           })}
         </div>
+      </div>
 
       {isEmpty && (
         <p className="mt-2 text-xs text-muted-foreground text-center">

@@ -132,7 +132,7 @@ export function SummerArrangementGrid({
   const hasDemand = demand.length > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full min-h-0 gap-3">
       {/* Getting started hint */}
       {!hasSlots && (
         <div className="rounded-lg border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-900/20 px-4 py-3 text-sm text-orange-800 dark:text-orange-200">
@@ -175,8 +175,9 @@ export function SummerArrangementGrid({
         )}
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto rounded-lg border-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
       <div
-        className="grid gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40 border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden"
+        className="grid gap-px bg-[#e8d4b8]/40 dark:bg-[#6b5a4a]/40"
         style={{
           gridTemplateColumns: `auto repeat(${visibleDaysList.length}, minmax(110px, 1fr))`,
           gridTemplateRows: `36px repeat(${timeSlots.length}, auto)`,
@@ -237,6 +238,7 @@ export function SummerArrangementGrid({
             })}
           </Fragment>
         ))}
+      </div>
       </div>
     </div>
   );
