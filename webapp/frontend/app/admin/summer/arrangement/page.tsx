@@ -545,10 +545,13 @@ export default function SummerArrangementPage() {
     () => summerAPI.getApplications({ config_id: configId!, location, grade: demandPrefFilter!.grade }),
   );
 
-  // Applications matching the demand bar filter (all apps, not just unassigned)
+  // Applications matching the demand bar filter (all apps, not just unassigned).
+  // /summer/applications returns exit states too, unlike /summer/unassigned —
+  // drop them here so Demand matches what Incomplete shows.
   const demandFilteredApps = useMemo(() => {
     if (!demandPrefFilter || !demandFilterApps) return null;
     return demandFilterApps.filter((a) => {
+      if (!ARRANGEMENT_STATUSES.includes(a.application_status)) return false;
       const prefs = classifyPrefs(a);
       const pool = demandPrefFilter.tier === "first" ? prefs.primary : prefs.backup;
       return pool.some((p) => p.day === demandPrefFilter.day && p.time === demandPrefFilter.timeSlot);
