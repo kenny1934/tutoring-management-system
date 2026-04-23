@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.60](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.60) (2026-04-23)
+
+### New Features
+
+* **All-staff leave balances for admins**: new "All Staff" tab in the Leave quick-link shows every active staff's Annual, OC, Birthday, and Sick Leave remaining, with search and branch scoping from the sidebar location picker
+* **Supervisors can open the ARK dashboard**: the leave/HR quick-link now works for Supervisor accounts, auto-provisioning them on first visit to ARK
+
+### Bug Fixes
+
+* **Missing entries on unchecked attendance**: tutors (and anyone with a location filter) now see the unchecked sessions that the notification bell was counting
+
 ## [2.0.59](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.59) (2026-04-23)
 
 ### New Features
