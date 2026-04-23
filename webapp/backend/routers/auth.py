@@ -283,5 +283,9 @@ async def get_handoff_token(
     (ARK) can validate it and create its own session without requiring
     the user to log in again via OAuth.
     """
-    token = create_handoff_token(current_user.user_email, current_user.tutor_name)
+    token = create_handoff_token(
+        current_user.user_email,
+        current_user.tutor_name,
+        role=current_user.role,
+    )
     return {"token": token}
