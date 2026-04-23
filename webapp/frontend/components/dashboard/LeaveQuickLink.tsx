@@ -1137,9 +1137,13 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {...getFloatingProps()}
             className={cn(
               "z-50 max-h-[70vh] flex flex-col",
-              activeTab === "all-staff" && !showForm
+              // Admins have 5 tabs — give them a wider drawer so labels fit; the
+              // All Staff table needs even more room.
+              !showForm && activeTab === "all-staff"
                 ? "w-[560px] max-w-[95vw]"
-                : "w-80",
+                : !showForm && isAdminView
+                  ? "w-96 max-w-[95vw]"
+                  : "w-80",
               "paper-cream paper-texture rounded-lg shadow-xl",
               "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
