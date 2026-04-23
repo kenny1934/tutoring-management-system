@@ -133,7 +133,7 @@ def can_refresh_token(token: str) -> bool:
         return False
 
 
-def create_handoff_token(email: str, name: str) -> str:
+def create_handoff_token(email: str, name: str, role: Optional[str] = None) -> str:
     """
     Create a short-lived JWT for cross-app SSO handoff.
 
@@ -143,6 +143,9 @@ def create_handoff_token(email: str, name: str) -> str:
     Args:
         email: User's email address (identity key in both systems)
         name: User's display name
+        role: Optional CSM role (e.g. "Supervisor"). ARK uses this to
+            auto-provision a passport record on first cross-app login for
+            users who aren't MathConcept employees.
 
     Returns:
         Encoded JWT token string (60s TTL)
@@ -154,6 +157,8 @@ def create_handoff_token(email: str, name: str) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(seconds=60),
         "iat": datetime.now(timezone.utc),
     }
+    if role:
+        payload["role"] = role
     return jwt.encode(payload, CROSS_APP_SECRET, algorithm=ALGORITHM)
 
 
