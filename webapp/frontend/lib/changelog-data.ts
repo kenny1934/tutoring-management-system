@@ -26,6 +26,9 @@ const changelogData = [
           },
           {
             "description": "**Termination rate precision**: term rate percentages on the Terminated Students page now round to true two decimal places (e.g. 6.67% instead of 6.70% for 5/75)"
+          },
+          {
+            "description": "**Message stream no longer pins database connections**: long-lived message tabs used to each hold a database connection open for the life of the tab, which could saturate the pool and trigger app-wide slowdowns or 503s during busy periods"
           }
         ]
       }

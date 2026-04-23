@@ -12,6 +12,7 @@
 
 * **Missing entries on unchecked attendance**: tutors (and anyone with a location filter) now see the unchecked sessions that the notification bell was counting
 * **Termination rate precision**: term rate percentages on the Terminated Students page now round to true two decimal places (e.g. 6.67% instead of 6.70% for 5/75)
+* **Message stream no longer pins database connections**: long-lived message tabs used to each hold a database connection open for the life of the tab, which could saturate the pool and trigger app-wide slowdowns or 503s during busy periods
 
 ## [2.0.59](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.59) (2026-04-23)
 
