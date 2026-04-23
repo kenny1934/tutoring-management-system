@@ -517,12 +517,15 @@ def admin_find_matches(
     }
 
     # Pull a year-wide pool once so name scoring doesn't require a second trip.
+    # Withdrawn/Rejected apps aren't candidates — linking a prospect to a dead
+    # application just creates noise in the dashboard.
     year_apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerCourseConfig.year == prospect.year,
             SummerApplication.existing_student_id.is_(None),
+            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
         )
         .all()
     )
@@ -623,13 +626,15 @@ def admin_auto_match(
     }
 
     # Load the year's unlinked apps once; we can't filter by normalized phone
-    # in SQL, and the same pool feeds Pass 3 anyway.
+    # in SQL, and the same pool feeds Pass 3 anyway. Withdrawn/Rejected apps
+    # are excluded — linking to a dead application is never the right outcome.
     year_apps = (
         db.query(SummerApplication)
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerCourseConfig.year == year,
             SummerApplication.existing_student_id.is_(None),
+            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
         )
         .all()
     )
