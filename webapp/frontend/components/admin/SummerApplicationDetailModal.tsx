@@ -13,7 +13,7 @@ import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
@@ -23,6 +23,7 @@ import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
   Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, CalendarClock, Send, CheckCircle2, Trash2,
+  LogOut, XCircle,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -861,6 +862,7 @@ export function SummerApplicationDetailModal({
   const submittedDate = app.submitted_at ? parseHKTimestamp(app.submitted_at).toLocaleString() : "—";
   const reviewedDate = app.reviewed_at ? parseHKTimestamp(app.reviewed_at).toLocaleString() : null;
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
+  const isExited = EXIT_STATUSES.has(app.application_status);
   const locationConfig = locations?.find(l => l.name === app.preferred_location);
 
   const effectiveSiblings = (app.buddy_siblings ?? []).map((s) => ({
@@ -935,6 +937,14 @@ export function SummerApplicationDetailModal({
         </div>
       }
     >
+      {isExited && (
+        <div className="sticky top-0 z-10 mb-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+          {app.application_status === "Rejected"
+            ? <XCircle className="h-4 w-4 shrink-0" />
+            : <LogOut className="h-4 w-4 shrink-0" />}
+          <span>This application has been <span className="font-medium">{app.application_status.toLowerCase()}</span>.</span>
+        </div>
+      )}
       <div className={cn(
         readOnly ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"
       )}>

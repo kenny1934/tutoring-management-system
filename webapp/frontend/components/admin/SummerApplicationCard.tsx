@@ -12,7 +12,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, PlacementDotStrip, MIN_GROUP_SIZE } from "@/lib/summer-utils";
+import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDate, PlacementDotStrip, MIN_GROUP_SIZE, EXIT_STATUSES } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
@@ -213,6 +213,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
   const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
   const statusBorderL = STATUS_COLORS[app.application_status]?.borderL || "border-l-gray-300";
+  const isExited = EXIT_STATUSES.has(app.application_status);
 
   const editedAfterReview =
     !!app.reviewed_at && !!app.updated_at &&
@@ -230,6 +231,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
         statusBorderL,
         branchTint,
         "hover:bg-muted/40",
+        isExited && !isChecked && "opacity-60 hover:opacity-100",
         isFocused && "ring-2 ring-primary/50",
         isChecked
           ? "border-primary !border-l-primary ring-1 ring-primary/30 bg-primary/[0.05]"
