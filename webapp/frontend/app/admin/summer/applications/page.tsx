@@ -801,7 +801,16 @@ export default function SummerApplicationsPage() {
   // Detail modal
   const openDetail = useCallback((app: SummerApplication) => {
     const idx = navigableIndexMap.get(app.id);
-    setSelectedAppIndex(idx !== undefined ? idx : null);
+    if (idx !== undefined) {
+      setSelectedAppIndex(idx);
+    } else {
+      // App isn't in the current filtered list (e.g. clicked from a buddy
+      // link in the modal). Use the autoOpenedApp fallback so the modal
+      // still opens; Prev/Next stay disabled, matching the URL auto-open
+      // path below.
+      setSelectedAppIndex(null);
+      setAutoOpenedApp(app);
+    }
     setDetailOpen(true);
   }, [navigableIndexMap]);
 
