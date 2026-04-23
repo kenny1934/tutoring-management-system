@@ -2180,6 +2180,10 @@ export const arkLeaveAPI = {
     fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
   getCalendar: (year: number, month: number) =>
     fetchAPI<import("@/types").ArkCalendarEntry[]>(`/ark/leave/calendar?year=${year}&month=${month}`),
+  getAllBalancesSummary: (year?: number) =>
+    fetchAPI<import("@/types").ArkStaffLeaveSummary[]>(
+      `/ark/leave/all-balances-summary${arkLeaveQuery({ year })}`
+    ),
   getMyOvertime: (year?: number, asTutorId?: number) =>
     fetchAPI<import("@/types").ArkOvertimeRecord[]>(
       `/ark/overtime/my${arkLeaveQuery({ year, as_tutor_id: asTutorId })}`

@@ -231,6 +231,22 @@ async def ark_leave_calendar(
     )
 
 
+@router.get("/ark/leave/all-balances-summary")
+async def ark_all_balances_summary(
+    year: Optional[int] = Query(None),
+    current_user: Tutor = Depends(require_admin),
+):
+    """All active staff's AL pool + Sick Leave summary (admin only).
+
+    Branch filtering is done client-side against `branch_code` — CSM's
+    selectedLocation is a branch code (e.g. "MSA"), not a numeric id.
+    """
+    params = {"year": year} if year else {}
+    return await _ark_request(
+        "GET", "/leave-balances-summary", current_user.user_email, params=params,
+    )
+
+
 @router.get("/ark/leave/pending")
 async def ark_pending_requests(
     current_user: Tutor = Depends(require_admin),
