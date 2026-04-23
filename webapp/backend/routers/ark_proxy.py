@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,23 @@ from models import Tutor
 from auth.dependencies import get_current_user, require_admin
 
 logger = logging.getLogger(__name__)
+
+
+def require_admin_or_supervisor(
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Read-only admin access for the leave quick-link: Admin, Super Admin, or Supervisor.
+
+    Supervisors are CSM Pro staff with read-only admin visibility on Leave
+    (Review/Calendar/All Staff); write actions stay on `require_admin`.
+    """
+    if current_user.role not in ("Admin", "Super Admin", "Supervisor"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or Supervisor access required",
+        )
+    return current_user
 
 router = APIRouter()
 
@@ -222,9 +239,9 @@ async def ark_create_overtime(
 async def ark_leave_calendar(
     year: int = Query(...),
     month: int = Query(...),
-    current_user: Tutor = Depends(require_admin),
+    current_user: Tutor = Depends(require_admin_or_supervisor),
 ):
-    """Team leave calendar for a month (admin only)."""
+    """Team leave calendar for a month (admin/supervisor read-only)."""
     return await _ark_request(
         "GET", "/leave-calendar", current_user.user_email,
         params={"year": year, "month": month},
@@ -234,9 +251,9 @@ async def ark_leave_calendar(
 @router.get("/ark/leave/all-balances-summary")
 async def ark_all_balances_summary(
     year: Optional[int] = Query(None),
-    current_user: Tutor = Depends(require_admin),
+    current_user: Tutor = Depends(require_admin_or_supervisor),
 ):
-    """All active staff's AL pool + Sick Leave summary (admin only).
+    """All active staff's AL pool + Sick Leave summary (admin/supervisor read-only).
 
     Branch filtering is done client-side against `branch_code` — CSM's
     selectedLocation is a branch code (e.g. "MSA"), not a numeric id.
@@ -249,9 +266,9 @@ async def ark_all_balances_summary(
 
 @router.get("/ark/leave/pending")
 async def ark_pending_requests(
-    current_user: Tutor = Depends(require_admin),
+    current_user: Tutor = Depends(require_admin_or_supervisor),
 ):
-    """All pending leave requests (admin only)."""
+    """All pending leave requests (admin/supervisor read-only)."""
     return await _ark_request(
         "GET", "/leave-requests", current_user.user_email,
         params={"status": "pending"},
@@ -260,7 +277,7 @@ async def ark_pending_requests(
 
 @router.get("/ark/leave/pending/count")
 async def ark_pending_count(
-    current_user: Tutor = Depends(require_admin),
+    current_user: Tutor = Depends(require_admin_or_supervisor),
 ):
     """Count of pending leave requests (for badge)."""
     try:
