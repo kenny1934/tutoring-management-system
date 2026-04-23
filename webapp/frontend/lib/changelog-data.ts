@@ -29,6 +29,9 @@ const changelogData = [
           },
           {
             "description": "**Message stream no longer pins database connections**: long-lived message tabs used to each hold a database connection open for the life of the tab, which could saturate the pool and trigger app-wide slowdowns or 503s during busy periods"
+          },
+          {
+            "description": "**Withdrawn apps hidden in demand view**: clicking a slot minibar to switch the side panel into Demand now drops Withdrawn, Rejected, and Waitlisted applications, matching what the Incomplete panel already shows"
           }
         ]
       }
