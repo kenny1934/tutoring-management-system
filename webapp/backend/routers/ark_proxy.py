@@ -238,9 +238,8 @@ async def ark_all_balances_summary(
 ):
     """All active staff's AL pool + Sick Leave summary (admin only).
 
-    Branch filtering happens client-side: CSM uses location names, ARK uses branch ids,
-    and there is no shared mapping. ARK returns branch_name per row so the frontend can
-    filter by the user's selectedLocation.
+    Branch filtering is done client-side against `branch_code` — CSM's
+    selectedLocation is a branch code (e.g. "MSA"), not a numeric id.
     """
     params = {"year": year} if year else {}
     return await _ark_request(

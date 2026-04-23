@@ -80,7 +80,7 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
 
   return (
     <div
-      className="px-3 py-2 cursor-pointer hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
+      className="px-3 py-2 cursor-pointer hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] transition-colors"
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-3">
@@ -850,7 +850,7 @@ function AllStaffBalancesPanel({
                   <tr
                     key={r.staff_id}
                     onClick={onRowClick}
-                    className="cursor-pointer transition-colors hover:bg-[#faf6f1]/60 dark:hover:bg-[#2d2820]/60 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40"
+                    className="cursor-pointer transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628] border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40"
                   >
                     <td className="px-2 py-1.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
                       {r.staff_name}
@@ -875,7 +875,7 @@ function AllStaffBalancesPanel({
               <button
                 key={r.staff_id}
                 onClick={onRowClick}
-                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#faf6f1]/60 dark:hover:bg-[#2d2820]/60"
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3d3628]"
               >
                 <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                   {r.staff_name}
@@ -1105,6 +1105,15 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     return t;
   }, [isAdminView, myPendingCount, pendingCount]);
 
+  // Admins have 5 tabs — widen to fit labels; the All Staff table needs even more room.
+  const drawerWidthCls = showForm
+    ? "w-80"
+    : activeTab === "all-staff"
+      ? "w-[560px] max-w-[95vw]"
+      : isAdminView
+        ? "w-96 max-w-[95vw]"
+        : "w-80";
+
   return (
     <div className={cn("relative", className)}>
       <button
@@ -1137,13 +1146,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
             {...getFloatingProps()}
             className={cn(
               "z-50 max-h-[70vh] flex flex-col",
-              // Admins have 5 tabs — give them a wider drawer so labels fit; the
-              // All Staff table needs even more room.
-              !showForm && activeTab === "all-staff"
-                ? "w-[560px] max-w-[95vw]"
-                : !showForm && isAdminView
-                  ? "w-96 max-w-[95vw]"
-                  : "w-80",
+              drawerWidthCls,
               "paper-cream paper-texture rounded-lg shadow-xl",
               "border border-[#d4a574] dark:border-[#6b5a4a]"
             )}
