@@ -368,7 +368,8 @@ def write_to_sheet(service, spreadsheet_id, tab_name, headers, data, columns=Non
             return 0
 
 
-def export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts):
+def export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts,
+                             location_totals=None):
     """Export report data to Google Sheets for a location."""
     sheet_id = get_sheet_id_for_location(location)
     if not sheet_id:
@@ -420,6 +421,20 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
     cells = write_to_sheet(service, sheet_id, "Term Rate", stats_headers, stats_data,
                            columns=['A', 'B', 'C', 'D', 'E'])
     print(f"    Updated {cells} cells")
+
+    # Location-wide totals at I3:J3 (Opening, Terminated)
+    if location_totals is not None:
+        print(f"  Writing location totals to 'Term Rate'!I3:J3...")
+        try:
+            service.spreadsheets().values().update(
+                spreadsheetId=sheet_id,
+                range="'Term Rate'!I3:J3",
+                valueInputOption='RAW',
+                body={'values': [[location_totals["opening"], location_totals["terminated"]]]}
+            ).execute()
+            print(f"    Opening={location_totals['opening']}, Terminated={location_totals['terminated']}")
+        except Exception as e:
+            print(f"  Error writing location totals: {e}")
 
     return True
 
@@ -652,20 +667,114 @@ def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, openi
     return counts
 
 
+def fetch_location_totals(year, quarter_num, location, opening_start, opening_end, closing_end):
+    """Compute location-wide Opening and Terminated totals using COUNT(DISTINCT).
+
+    These are NOT the sum of per-tutor counts: a student enrolled with two
+    tutors contributes 2 to the per-tutor sum but only 1 to the location total.
+    Matches the location_stats block in /api/terminations/stats.
+    """
+    prev_closing_end = opening_start - timedelta(days=1)
+
+    opening_query = text("""
+        SELECT COUNT(DISTINCT e.student_id) as cnt
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.id
+        WHERE e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
+        AND calculate_effective_end_date(
+            e.first_lesson_date, e.lessons_paid,
+            COALESCE(e.deadline_extension_weeks, 0)
+        ) >= :opening_start
+        AND (
+            e.first_lesson_date <= :opening_end
+            OR e.student_id IN (
+                SELECT DISTINCT e2.student_id
+                FROM enrollments e2
+                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+                AND e2.enrollment_type = 'Regular'
+                AND e2.first_lesson_date IS NOT NULL
+                AND e2.first_lesson_date <= :opening_end
+                AND calculate_effective_end_date(
+                    e2.first_lesson_date, e2.lessons_paid,
+                    COALESCE(e2.deadline_extension_weeks, 0)
+                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
+            )
+        )
+        AND e.location = :location
+    """)
+
+    terminated_query = text("""
+        WITH quarter_enrollments AS (
+            SELECT e.*,
+                   calculate_effective_end_date(
+                       e.first_lesson_date, e.lessons_paid,
+                       COALESCE(e.deadline_extension_weeks, 0)
+                   ) as eff_end_date,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY e.first_lesson_date DESC
+                   ) as rn
+            FROM enrollments e
+            WHERE e.payment_status IN ('Paid', 'Pending Payment')
+            AND e.enrollment_type = 'Regular'
+            AND e.first_lesson_date IS NOT NULL
+            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        ),
+        termed AS (
+            SELECT qe.student_id
+            FROM quarter_enrollments qe
+            WHERE qe.rn = 1
+            AND qe.eff_end_date >= :opening_start
+            AND qe.eff_end_date <= :closing_end
+        )
+        SELECT COUNT(DISTINCT te.student_id) as cnt
+        FROM termed te
+        JOIN students s ON te.student_id = s.id
+        JOIN termination_records tr ON te.student_id = tr.student_id
+            AND tr.quarter = :quarter AND tr.year = :year
+        WHERE tr.count_as_terminated = TRUE
+        AND s.home_location = :location
+    """)
+
+    db = SessionLocal()
+    try:
+        opening = db.execute(opening_query, {
+            "opening_start": opening_start,
+            "opening_end": opening_end,
+            "prev_closing_end": prev_closing_end,
+            "location": location,
+        }).scalar() or 0
+        terminated = db.execute(terminated_query, {
+            "quarter": quarter_num,
+            "year": year,
+            "opening_start": opening_start,
+            "closing_end": closing_end,
+            "location": location,
+        }).scalar() or 0
+    finally:
+        db.close()
+
+    return {"opening": int(opening), "terminated": int(terminated)}
+
+
 def load_report_from_csv(location, year, quarter):
     """
     Load terminated students and enrollment stats from existing CSV file.
-    Returns: (terminated_list, enrollment_stats, termination_counts)
+    Returns: (terminated_list, enrollment_stats, termination_counts, location_totals)
     """
     csv_file = f"quarterly_report_{year}_{quarter}_{location}.csv"
 
     if not os.path.exists(csv_file):
         print(f"  CSV file not found: {csv_file}")
-        return None, None, None
+        return None, None, None, None
 
     terminated_list = []
     enrollment_stats = {}
     termination_counts = {}
+    location_totals = None
 
     with open(csv_file, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
@@ -684,9 +793,12 @@ def load_report_from_csv(location, year, quarter):
         elif row[0] == "=== TUTOR ENROLLMENT STATS ===":
             section = "stats"
             continue
+        elif row[0] == "=== LOCATION TOTALS ===":
+            section = "location"
+            continue
 
         # Skip header rows
-        if row[0] in ["ID#", "Instructor"]:
+        if row[0] in ["ID#", "Instructor", "Opening"]:
             continue
 
         if section == "terminated":
@@ -712,11 +824,18 @@ def load_report_from_csv(location, year, quarter):
             }
             if termination:
                 termination_counts[tutor_name] = termination
+        elif section == "location":
+            if len(row) >= 2 and row[0] and row[1]:
+                location_totals = {
+                    "opening": int(row[0]),
+                    "terminated": int(row[1]),
+                }
 
-    return terminated_list, enrollment_stats, termination_counts
+    return terminated_list, enrollment_stats, termination_counts, location_totals
 
 
-def write_report(location, year, quarter, terminated_list, enrollment_stats, termination_counts):
+def write_report(location, year, quarter, terminated_list, enrollment_stats, termination_counts,
+                 location_totals=None):
     """Write the combined report CSV for a location."""
     output_file = f"quarterly_report_{year}_{quarter}_{location}.csv"
 
@@ -771,6 +890,13 @@ def write_report(location, year, quarter, terminated_list, enrollment_stats, ter
                 closing,
                 net
             ])
+
+        # Section 3: Location-wide totals (distinct student counts, not per-tutor sums)
+        if location_totals is not None:
+            writer.writerow([])
+            writer.writerow(["=== LOCATION TOTALS ==="])
+            writer.writerow(["Opening", "Terminated"])
+            writer.writerow([location_totals["opening"], location_totals["terminated"]])
 
     return output_file
 
@@ -830,16 +956,19 @@ def main():
             print(f"Processing location: {location}")
             print(f"{'='*60}")
 
-            terminated_list, enrollment_stats, termination_counts = load_report_from_csv(location, year, quarter)
+            terminated_list, enrollment_stats, termination_counts, location_totals = load_report_from_csv(location, year, quarter)
 
             if terminated_list is None:
                 continue
 
             print(f"  Loaded {len(terminated_list)} terminated students")
             print(f"  Loaded {len(enrollment_stats)} tutor stats")
+            if location_totals is None:
+                print("  Warning: CSV has no LOCATION TOTALS section (regenerate to populate I3:J3)")
 
             print(f"Exporting to Google Sheets...")
-            export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts)
+            export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts,
+                                     location_totals=location_totals)
 
         print(f"\n{'='*60}")
         print("DONE!")
@@ -898,15 +1027,23 @@ def main():
             year, quarter_num, location, tutors, opening_start, closing_end
         )
 
+        # Location-wide totals (COUNT DISTINCT, not sum of per-tutor counts)
+        location_totals = fetch_location_totals(
+            year, quarter_num, location, opening_start, opening_end, closing_end
+        )
+        print(f"Location totals: Opening={location_totals['opening']}, Terminated={location_totals['terminated']}")
+
         # Write report
-        output_file = write_report(location, year, quarter, terminated_list, enrollment_stats, termination_counts)
+        output_file = write_report(location, year, quarter, terminated_list, enrollment_stats,
+                                    termination_counts, location_totals=location_totals)
         output_files.append(output_file)
         print(f"Report written: {output_file}")
 
         # Export to Google Sheets if requested
         if export_sheets:
             print(f"Exporting to Google Sheets...")
-            export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts)
+            export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts,
+                                     location_totals=location_totals)
 
     # Summary
     print(f"\n{'='*60}")
