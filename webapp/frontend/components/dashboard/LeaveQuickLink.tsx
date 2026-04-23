@@ -912,12 +912,14 @@ export function LeaveQuickLink({ className }: { className?: string }) {
   const [showForm, setShowForm] = useState<false | "leave" | "overtime">(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"upcoming" | "history">("upcoming");
-  const { isAdmin, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
+  const { isAdmin, isSupervisor, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
   const { viewMode } = useRole();
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
 
-  const isAdminView = isAdmin && viewMode !== "my-view";
+  // Supervisors are CSM Pro users with read-only admin visibility — they only see
+  // the Review/Calendar/All Staff tabs, never their own balances/requests.
+  const isAdminView = (isAdmin || isSupervisor) && viewMode !== "my-view";
 
   // Super Admin impersonating a specific tutor: scope ARK reads to that tutor (read-only).
   const asTutorId = (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id)
@@ -938,13 +940,13 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
   // SWR hooks — data fetched on open, badge counts polled in background
   const { data: balances, isLoading: loadingBalances, error: balancesError } = useSWR(
-    isOpen ? ["ark-leave-balances", scopeKey] : null,
+    isOpen && !isSupervisor ? ["ark-leave-balances", scopeKey] : null,
     () => arkLeaveAPI.getBalances(undefined, asTutorId),
     { revalidateOnFocus: false }
   );
 
   const { data: myRequests, isLoading: loadingRequests } = useSWR(
-    isOpen ? ["ark-leave-my-requests", scopeKey] : null,
+    isOpen && !isSupervisor ? ["ark-leave-my-requests", scopeKey] : null,
     () => arkLeaveAPI.getMyRequests(undefined, asTutorId),
     { revalidateOnFocus: false }
   );
@@ -1039,11 +1041,16 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     }
   }, [showToast]);
 
-  // ARK SSO handoff
+  // ARK SSO handoff — redirect follows the active tab so admins/supervisors land
+  // on the matching ARK sub-view.
   const handleOpenArk = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     setIsOpen(false);
-    const arkPath = isAdminView ? "/leave" : "/my/leave";
+    const arkPath =
+      activeTab === "pending" ? "/leave"
+      : activeTab === "calendar" ? "/leave?tab=calendar"
+      : activeTab === "all-staff" ? "/leave?tab=balances"
+      : "/my/leave";
     try {
       const { token } = await authAPI.getHandoffToken();
       window.open(
@@ -1053,7 +1060,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
     } catch {
       window.open(`${ARK_BASE_URL}${arkPath}`, "_blank");
     }
-  }, [isAdminView]);
+  }, [activeTab]);
 
   // Floating UI
   const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(
@@ -1093,17 +1100,18 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
   // Tabs config
   const tabs = useMemo(() => {
-    const t: { id: TabId; label: string; count?: number }[] = [
-      { id: "balances", label: "Balances" },
-      { id: "requests", label: "Requests", count: myPendingCount || undefined },
-    ];
+    const t: { id: TabId; label: string; count?: number }[] = [];
+    if (!isSupervisor) {
+      t.push({ id: "balances", label: "Balances" });
+      t.push({ id: "requests", label: "Requests", count: myPendingCount || undefined });
+    }
     if (isAdminView) {
       t.push({ id: "pending", label: "Review", count: pendingCount?.count || undefined });
       t.push({ id: "calendar", label: "Calendar" });
       t.push({ id: "all-staff", label: "All Staff" });
     }
     return t;
-  }, [isAdminView, myPendingCount, pendingCount]);
+  }, [isSupervisor, isAdminView, myPendingCount, pendingCount]);
 
   // Admins have 5 tabs — widen to fit labels; the All Staff table needs even more room.
   const drawerWidthCls = showForm
@@ -1350,7 +1358,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
 
             {/* Footer */}
             <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-              {!isViewingOther && (
+              {!isViewingOther && !isSupervisor && (
                 <button
                   onClick={() => setShowForm("leave")}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-md transition-colors"
@@ -1364,7 +1372,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                 onClick={handleOpenArk}
                 className={cn(
                   "flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-md transition-colors",
-                  isViewingOther && "flex-1"
+                  (isViewingOther || isSupervisor) && "flex-1"
                 )}
               >
                 <ArkIcon className="h-3.5 w-3.5" /> ARK <ExternalLink className="h-3 w-3" />
