@@ -538,7 +538,7 @@ async def get_termination_stats(
         terminated = terminated_rows.get(tid, 0)
         closing = closing_rows.get(tid, 0)
         enrollment_transfer = closing - opening + terminated
-        term_rate = round(terminated / opening * 100, 1) if opening > 0 else 0.0
+        term_rate = round(terminated / opening * 100, 2) if opening > 0 else 0.0
 
         tutor_stats.append(TutorTerminationStats(
             tutor_id=tid,
@@ -662,7 +662,7 @@ async def get_termination_stats(
     }).scalar()
 
     total_enrollment_transfer = total_closing - total_opening + total_terminated
-    location_term_rate = round(total_terminated / total_opening * 100, 1) if total_opening > 0 else 0.0
+    location_term_rate = round(total_terminated / total_opening * 100, 2) if total_opening > 0 else 0.0
     location_stats = LocationTerminationStats(
         opening=total_opening,
         enrollment_transfer=total_enrollment_transfer,
@@ -801,7 +801,7 @@ def _compute_location_stats(
         "location": location, "tutor_id": tutor_id
     }).scalar() or 0
 
-    term_rate = round(total_terminated / total_opening * 100, 1) if total_opening > 0 else 0.0
+    term_rate = round(total_terminated / total_opening * 100, 2) if total_opening > 0 else 0.0
 
     # Reason category breakdown
     reason_query = text("""
