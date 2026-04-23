@@ -28,7 +28,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
 import { LOCATION_TO_CODE, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { classifyPrefs } from "@/lib/summer-preferences";
-import type { SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
+import type { SummerSlot, SummerSlotUpdate, SummerApplication, AvailableTutor } from "@/types";
 
 // Exit states (Waitlisted/Withdrawn/Rejected) are intentionally omitted — those
 // belong to the applications page triage surface, not the arrangement workflow.
@@ -381,29 +381,98 @@ export default function SummerArrangementPage() {
 
   const handleCreateSlot = useCallback(async (day: string, timeSlot: string) => {
     if (!configId) return;
+    // Temporary id is unique within this list and distinct from real
+    // auto-increment ids (always positive). Replaced with the server's slot
+    // once the POST resolves.
+    const tempId = -Date.now();
+    const placeholder: SummerSlot = {
+      id: tempId,
+      config_id: configId,
+      slot_day: day,
+      time_slot: timeSlot,
+      location,
+      grade: null,
+      slot_label: null,
+      course_type: null,
+      tutor_id: null,
+      tutor_name: null,
+      max_students: 8,
+      is_adhoc: false,
+      adhoc_date: null,
+      created_at: new Date().toISOString(),
+      session_count: 0,
+      sessions: [],
+    };
     try {
-      await summerAPI.createSlot({
-        config_id: configId,
-        slot_day: day,
-        time_slot: timeSlot,
-        location,
-      });
-      mutateSlots();
+      await mutateSlots(
+        async (current) => {
+          const created = await summerAPI.createSlot({
+            config_id: configId,
+            slot_day: day,
+            time_slot: timeSlot,
+            location,
+          });
+          return [...(current ?? []).filter((s) => s.id !== tempId), created];
+        },
+        {
+          optimisticData: (current) => [...(current ?? []), placeholder],
+          rollbackOnError: true,
+          revalidate: false,
+        },
+      );
+      // New slot auto-generates lessons on next calendar fetch.
+      mutateCalendar();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to create slot"), "error");
     }
-  }, [configId, location, mutateSlots, showToast]);
+  }, [configId, location, mutateSlots, mutateCalendar, showToast]);
 
   const handleUpdateSlot = useCallback(async (slotId: number, data: SummerSlotUpdate) => {
+    // Resolve tutor_name locally so the optimistic patch shows the right name
+    // until the PATCH response overwrites the cache. `undefined` means the
+    // update doesn't touch tutor_id, so don't overwrite tutor_name either.
+    let tutorNameOverride: string | null | undefined;
+    if (data.tutor_id === undefined) {
+      tutorNameOverride = undefined;
+    } else if (data.tutor_id === null) {
+      tutorNameOverride = null;
+    } else {
+      tutorNameOverride =
+        activeTutors?.find((t) => t.id === data.tutor_id)?.tutor_name ?? null;
+    }
     try {
-      await summerAPI.updateSlot(slotId, data);
-      // A slot update (grade/tutor/label/max) can change how the slot is
-      // displayed in calendar + student-lessons, so refresh everything.
-      refreshAll();
+      await mutateSlots(
+        async (current) => {
+          const updated = await summerAPI.updateSlot(slotId, data);
+          return (current ?? []).map((s) => (s.id === slotId ? updated : s));
+        },
+        {
+          optimisticData: (current) =>
+            (current ?? []).map((s) =>
+              s.id === slotId
+                ? {
+                    ...s,
+                    ...data,
+                    ...(tutorNameOverride !== undefined
+                      ? { tutor_name: tutorNameOverride }
+                      : {}),
+                  }
+                : s,
+            ),
+          rollbackOnError: true,
+          revalidate: false,
+        },
+      );
+      // A slot field change (grade/type/tutor/label) propagates to lesson
+      // cards on the calendar and to the student-lessons feed. Other caches
+      // (demand, unassigned, app-stats, status-filtered-apps, find-slot) are
+      // keyed off applications, not slots, so skip them.
+      mutateCalendar();
+      mutateStudentLessons();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to update slot"), "error");
     }
-  }, [refreshAll, showToast]);
+  }, [mutateSlots, mutateCalendar, mutateStudentLessons, activeTutors, showToast]);
 
   const handleDeleteSlot = useCallback((slotId: number) => {
     const slot = slots?.find(s => s.id === slotId);
