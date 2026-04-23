@@ -11,6 +11,7 @@
 ### Bug Fixes
 
 * **Missing entries on unchecked attendance**: tutors (and anyone with a location filter) now see the unchecked sessions that the notification bell was counting
+* **Termination rate precision**: term rate percentages on the Terminated Students page now round to true two decimal places (e.g. 6.67% instead of 6.70% for 5/75)
 
 ## [2.0.59](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.59) (2026-04-23)
 
