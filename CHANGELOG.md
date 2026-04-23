@@ -6,6 +6,7 @@
 
 * **All-staff leave balances for admins**: new "All Staff" tab in the Leave quick-link shows every active staff's Annual, OC, Birthday, and Sick Leave remaining, with search and branch scoping from the sidebar location picker
 * **Supervisors can open the ARK dashboard**: the leave/HR quick-link now works for Supervisor accounts, auto-provisioning them on first visit to ARK
+* **Supervisor-tailored Leave quick-link**: Supervisors see Review, Calendar, and All Staff tabs (defaulting to Review), and the ARK footer link for admins and Supervisors now opens straight to the matching tab in ARK
 
 ### Bug Fixes
 

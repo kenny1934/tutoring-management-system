@@ -12,6 +12,9 @@ const changelogData = [
           },
           {
             "description": "**Supervisors can open the ARK dashboard**: the leave/HR quick-link now works for Supervisor accounts, auto-provisioning them on first visit to ARK"
+          },
+          {
+            "description": "**Supervisor-tailored Leave quick-link**: Supervisors see Review, Calendar, and All Staff tabs (defaulting to Review), and the ARK footer link for admins and Supervisors now opens straight to the matching tab in ARK"
           }
         ]
       },
