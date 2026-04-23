@@ -238,18 +238,18 @@ async def get_unchecked_attendance(
     params = {}
 
     if location:
-        base_query += " AND location = :location"
+        base_query += " AND uar.location = :location"
         params["location"] = location
 
     if tutor_id:
-        base_query += " AND tutor_id = :tutor_id"
+        base_query += " AND uar.tutor_id = :tutor_id"
         params["tutor_id"] = tutor_id
 
     if urgency:
-        base_query += " AND LOWER(urgency_level) = LOWER(:urgency)"
+        base_query += " AND LOWER(uar.urgency_level) = LOWER(:urgency)"
         params["urgency"] = urgency
 
-    base_query += " ORDER BY days_overdue DESC, session_date DESC LIMIT 500"
+    base_query += " ORDER BY uar.days_overdue DESC, uar.session_date DESC LIMIT 500"
     query = text(base_query)
 
     logger.info(f"Unchecked attendance query - location: {location}, tutor_id: {tutor_id}, urgency: {urgency}")
