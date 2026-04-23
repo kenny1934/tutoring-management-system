@@ -5,6 +5,7 @@
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SummerApplicationSessionInfo, SummerPricingConfig, SummerSiblingInfo } from "@/types";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 export type Lang = "zh" | "en";
 
@@ -557,4 +558,36 @@ export function getLinkedStudentId(app: {
     app.linked_prospect?.primary_student_id ??
     null
   );
+}
+
+/**
+ * Visual order for slot/lesson cards within a single (day, time) cell:
+ * grade ASC → course_type ASC → tutor first name ASC → id.
+ * Slots with an unset grade or course_type sink to the bottom so newly-added
+ * blank cards stay near the "Add slot" affordance until they're configured.
+ */
+type SummerSlotSortable = {
+  id?: number;
+  slot_id?: number;
+  grade?: string | null;
+  course_type?: string | null;
+  tutor_name?: string | null;
+};
+
+export function compareSummerSlots(
+  a: SummerSlotSortable,
+  b: SummerSlotSortable,
+): number {
+  const aDone = !!(a.grade && a.course_type);
+  const bDone = !!(b.grade && b.course_type);
+  if (aDone !== bDone) return aDone ? -1 : 1;
+  const byGrade = (a.grade ?? "").localeCompare(b.grade ?? "");
+  if (byGrade) return byGrade;
+  const byType = (a.course_type ?? "").localeCompare(b.course_type ?? "");
+  if (byType) return byType;
+  const byTutor = getTutorFirstName(a.tutor_name ?? "").localeCompare(
+    getTutorFirstName(b.tutor_name ?? ""),
+  );
+  if (byTutor) return byTutor;
+  return (a.slot_id ?? a.id ?? 0) - (b.slot_id ?? b.id ?? 0);
 }

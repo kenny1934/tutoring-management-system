@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_ABBREV } from "@/lib/summer-utils";
+import { DAY_ABBREV, compareSummerSlots } from "@/lib/summer-utils";
 import {
   getWeekStartStr,
   getWeekDateStrings,
@@ -174,13 +174,18 @@ export function SummerSessionCalendar({
 
   const lessons = calendarData?.lessons ?? [];
 
-  // Index lessons by "date|timeSlot"
+  // Index lessons by "date|timeSlot", with each group sorted by
+  // (grade, course_type, tutor first name, slot_id) so the calendar grid
+  // mirrors the arrangement grid's visual order.
   const lessonIndex = useMemo(() => {
     const m = new Map<string, SummerLessonCalendarEntry[]>();
     for (const l of lessons) {
       const key = `${l.date}|${l.time_slot}`;
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(l);
+    }
+    for (const group of m.values()) {
+      group.sort(compareSummerSlots);
     }
     return m;
   }, [lessons]);

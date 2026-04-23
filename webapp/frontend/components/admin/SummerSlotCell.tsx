@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Plus, Users } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_TEXT } from "@/lib/summer-utils";
+import { SUMMER_GRADE_TEXT, compareSummerSlots } from "@/lib/summer-utils";
 import { SummerSlotCard } from "./SummerSlotCard";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
@@ -80,6 +81,52 @@ export function SummerSlotCell({
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
+  // Slots auto-sort by (grade, course_type, tutor first name, id). While the
+  // pointer is inside the cell, order is frozen so cards don't shuffle under
+  // the admin's edits; on mouse-leave the freeze releases and cards settle
+  // into sorted order, with the last-edited card briefly ringing.
+  const [frozenOrder, setFrozenOrder] = useState<number[] | null>(null);
+  const [lastEditedId, setLastEditedId] = useState<number | null>(null);
+  const [settlingId, setSettlingId] = useState<number | null>(null);
+
+  const sortedSlots = useMemo(() => [...slots].sort(compareSummerSlots), [slots]);
+
+  const displaySlots = useMemo(() => {
+    if (!frozenOrder) return sortedSlots;
+    const byId = new Map(slots.map((s) => [s.id, s] as const));
+    const frozenSet = new Set(frozenOrder);
+    const preserved = frozenOrder
+      .map((id) => byId.get(id))
+      .filter((s): s is SummerSlot => !!s);
+    const newlyAdded = slots.filter((s) => !frozenSet.has(s.id));
+    return [...preserved, ...newlyAdded];
+  }, [slots, frozenOrder, sortedSlots]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (frozenOrder !== null) return;
+    setFrozenOrder(sortedSlots.map((s) => s.id));
+    setLastEditedId(null);
+  }, [frozenOrder, sortedSlots]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (frozenOrder !== null && lastEditedId !== null) {
+      const before = displaySlots.findIndex((s) => s.id === lastEditedId);
+      const after = sortedSlots.findIndex((s) => s.id === lastEditedId);
+      if (before !== -1 && after !== -1 && before !== after) {
+        setSettlingId(lastEditedId);
+      }
+    }
+    setFrozenOrder(null);
+    setLastEditedId(null);
+    setDragOver(false);
+  }, [frozenOrder, lastEditedId, displaySlots, sortedSlots]);
+
+  useEffect(() => {
+    if (settlingId === null) return;
+    const t = setTimeout(() => setSettlingId(null), 700);
+    return () => clearTimeout(t);
+  }, [settlingId]);
+
   const totalDemand = (demandCell?.total_first_pref ?? 0) + (demandCell?.total_second_pref ?? 0);
   const totalPlaced = slots.reduce((sum, s) => sum + s.session_count, 0);
   const remainingDemand = Math.max(0, totalDemand - totalPlaced);
@@ -126,6 +173,8 @@ export function SummerSlotCell({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {buddyHighlight && (
         <div className="absolute top-0.5 right-0.5 z-10" title="Buddy placed here">
@@ -183,20 +232,33 @@ export function SummerSlotCell({
 
       {/* Slot cards */}
       <div className="space-y-1">
-        {slots.map((slot) => (
-          <SummerSlotCard
+        {displaySlots.map((slot) => (
+          <motion.div
             key={slot.id}
-            slot={slot}
-            grades={grades}
-            onUpdate={(data) => onUpdateSlot(slot.id, data)}
-            onDelete={() => onDeleteSlot(slot.id)}
-            onDropStudent={(appId) => onDropStudent(appId, slot.id)}
-            onRemoveSession={onRemoveSession}
-            onClickStudent={onClickStudent}
-            availableTutors={availableTutors}
-            onConfirmSlot={onConfirmSlot}
-            highlightTarget={slotHighlightTarget}
-          />
+            layout
+            transition={{ type: "spring", stiffness: 400, damping: 34, mass: 0.7 }}
+            className={cn(
+              "rounded-[5px] transition-shadow duration-500 ease-out",
+              settlingId === slot.id &&
+                "ring-2 ring-primary/70 ring-offset-1 ring-offset-transparent shadow-sm"
+            )}
+          >
+            <SummerSlotCard
+              slot={slot}
+              grades={grades}
+              onUpdate={(data) => {
+                setLastEditedId(slot.id);
+                onUpdateSlot(slot.id, data);
+              }}
+              onDelete={() => onDeleteSlot(slot.id)}
+              onDropStudent={(appId) => onDropStudent(appId, slot.id)}
+              onRemoveSession={onRemoveSession}
+              onClickStudent={onClickStudent}
+              availableTutors={availableTutors}
+              onConfirmSlot={onConfirmSlot}
+              highlightTarget={slotHighlightTarget}
+            />
+          </motion.div>
         ))}
       </div>
 
