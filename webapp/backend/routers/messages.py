@@ -14,7 +14,7 @@ from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
-from database import get_db
+from database import get_db, SessionLocal
 from sse import sse_manager
 import re
 from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, ThreadPin, ThreadMute, MessageSnooze, MessageMention, MessageRecipient, MessageTemplate, Tutor, MakeupProposal
@@ -685,13 +685,21 @@ async def _run_periodic_checks():
 async def message_stream(
     tutor_id: int = Query(..., description="Tutor ID to stream events for"),
     request: Request = None,
-    current_user: Tutor = Depends(get_current_user),
 ):
     """Server-Sent Events stream for real-time message delivery.
 
     Pushes events: new_message, message_read, reaction, typing, presence.
     Client connects via EventSource and receives JSON payloads.
     """
+    # Resolve auth with a short-lived session so the pool connection is
+    # released before the long-lived stream begins. Using Depends(get_current_user)
+    # here would pin a session for the lifetime of the SSE connection.
+    auth_db = SessionLocal()
+    try:
+        current_user = get_current_user(request, auth_db)
+    finally:
+        auth_db.close()
+
     _check_tutor_access(current_user, tutor_id)
     queue = sse_manager.connect(tutor_id)
 
