@@ -768,9 +768,10 @@ function AllStaffBalancesPanel({
 
   const filtered = useMemo(() => {
     const rows = data ?? [];
+    // CSM's selectedLocation is the branch code (e.g. "MSA"), not the full name.
     const byBranch = selectedLocation === "All Locations"
       ? rows
-      : rows.filter(r => (r.branch_name ?? "") === selectedLocation);
+      : rows.filter(r => (r.branch_code ?? "") === selectedLocation);
     const q = search.trim().toLowerCase();
     if (!q) return byBranch;
     return byBranch.filter(r =>

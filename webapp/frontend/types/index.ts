@@ -3210,6 +3210,7 @@ export interface ArkStaffLeaveSummary {
   staff_name: string;
   staff_name_zh?: string | null;
   branch_id?: number | null;
+  branch_code?: string | null;
   branch_name?: string | null;
   profile_photo_url?: string | null;
   al_entitlement: number;
