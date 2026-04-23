@@ -23,7 +23,6 @@ import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
   Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, CalendarClock, Send, CheckCircle2, Trash2,
-  LogOut, XCircle,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -863,6 +862,7 @@ export function SummerApplicationDetailModal({
   const reviewedDate = app.reviewed_at ? parseHKTimestamp(app.reviewed_at).toLocaleString() : null;
   const nextStatuses = NEXT_STATUS_MAP[app.application_status];
   const isExited = EXIT_STATUSES.has(app.application_status);
+  const ExitIcon = isExited ? STATUS_ICONS[app.application_status] : null;
   const locationConfig = locations?.find(l => l.name === app.preferred_location);
 
   const effectiveSiblings = (app.buddy_siblings ?? []).map((s) => ({
@@ -939,9 +939,7 @@ export function SummerApplicationDetailModal({
     >
       {isExited && (
         <div className="sticky top-0 z-10 mb-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-          {app.application_status === "Rejected"
-            ? <XCircle className="h-4 w-4 shrink-0" />
-            : <LogOut className="h-4 w-4 shrink-0" />}
+          {ExitIcon && <ExitIcon className="h-4 w-4 shrink-0" />}
           <span>This application has been <span className="font-medium">{app.application_status.toLowerCase()}</span>.</span>
         </div>
       )}
