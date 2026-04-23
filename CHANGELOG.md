@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.61](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.61) (2026-04-24)
+
+### New Features
+
+* **Slot cards auto-sort**: slot cards inside each day/time cell now follow a consistent order (grade, then course type, then tutor) on the arrangement grid and calendar. Ordering freezes while the pointer is over a cell so cards don't shuffle under your edits, and the card you just edited briefly rings so you can see where it landed.
+* **Withdrawn and Rejected applications fade back**: closed applications render at reduced opacity in the applications list so they recede in the default view, and their detail modal shows a sticky banner at the top announcing the closed state.
+* **Sticky toolbar and headers on arrangement tabs**: the filter/toolbar row stays pinned while scrolling on the slot grid, calendar, and students table; the calendar gets sticky date headers and the students table gets a sticky header row.
+* **Quarterly report totals match the Terminated Students page**: Opening/Closing/Termination/Enrollment-Transfer now use the same SQL as the web page (21-day grace window, quarter-scoped tutor attribution), and the Reasons tab exports Category, Reason, and Count-as-Term with working sheet checkboxes.
+* **Location totals on the Term Rate tab**: the quarterly report writes location-wide Opening and Terminated counts de-duplicated across tutors, so a student placed with two tutors counts twice per-tutor but only once at the location.
+
+### Bug Fixes
+
+* **Arrangement sidebar card clicks**: clicks on unassigned student cards now open the detail modal consistently, even when the pointer twitches slightly or you click on a pill or status dot.
+* **Slot capacity counts rescheduled first lessons**: students whose first lesson is already rescheduled now count against slot capacity, so the arrangement grid stops over-accepting placements.
+* **Buddy detail opens from applications modal**: clicking a buddy member in the detail modal now opens their application even when they're filtered out of the current list. Previously the modal went blank.
+* **Prospect auto-link across phone country codes**: auto-link now normalizes HK/Macau country-code prefixes before comparing, and compact names score correctly against fuller forms that contain the same name tokens.
+* **Prospect auto-link skips closed applications**: Withdrawn and Rejected applications are no longer scanned as match candidates, so dead apps can't auto-link on a phone match.
+
+### Performance
+
+* **Instant slot card create and edit**: creating a slot or editing its grade, type, tutor, label, or max now updates the grid immediately while the server request settles in the background. Edits also trigger half as many downstream refreshes.
+
 ## [2.0.60](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.60) (2026-04-23)
 
 ### New Features
