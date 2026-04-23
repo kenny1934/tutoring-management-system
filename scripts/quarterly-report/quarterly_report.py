@@ -17,7 +17,6 @@ import os
 import sys
 import requests
 from datetime import datetime, timedelta
-from collections import defaultdict
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -51,25 +50,6 @@ def load_env_file(path):
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 env_path = os.path.join(project_root, 'webapp', 'backend', '.env')
 load_env_file(env_path)
-
-# Global holidays set (loaded at startup)
-HOLIDAYS = set()
-
-
-def load_holidays():
-    """Load holidays from database into global set (same source as MySQL function)."""
-    global HOLIDAYS
-    db = SessionLocal()
-    try:
-        query = text("SELECT holiday_date FROM holidays")
-        result = db.execute(query)
-        HOLIDAYS = {row[0] for row in result.fetchall()}
-        print(f"Loaded {len(HOLIDAYS)} holidays from database")
-    except Exception as e:
-        print(f"Warning: Could not load holidays from database: {e}")
-        HOLIDAYS = set()
-    finally:
-        db.close()
 
 # Database configuration
 DB_USER = os.getenv("DB_USER")
@@ -136,16 +116,25 @@ def get_quarter_number(quarter):
 # =============================================================================
 
 def fetch_terminated_students_from_db(year, quarter_num):
-    """Fetch terminated students from database view."""
+    """Fetch terminated students from database view, joined with user-editable
+    termination_records (reason_category, reason, count_as_terminated) and the
+    students table for grade."""
     db = SessionLocal()
     try:
         query = text("""
-            SELECT student_id, student_name, school_student_id, home_location,
-                   company_id, termination_date
-            FROM terminated_students
-            WHERE termination_year = :year
-            AND termination_quarter = :quarter
-            ORDER BY home_location, termination_date
+            SELECT ts.student_id, ts.student_name, ts.school_student_id, ts.home_location,
+                   ts.company_id, ts.termination_date,
+                   s.grade,
+                   tr.reason_category, tr.reason, tr.count_as_terminated
+            FROM terminated_students ts
+            JOIN students s ON s.id = ts.student_id
+            LEFT JOIN termination_records tr
+              ON tr.student_id = ts.student_id
+             AND tr.year = :year
+             AND tr.quarter = :quarter
+            WHERE ts.termination_year = :year
+            AND ts.termination_quarter = :quarter
+            ORDER BY ts.home_location, ts.termination_date
         """)
         result = db.execute(query, {"year": year, "quarter": quarter_num})
         rows = result.fetchall()
@@ -175,17 +164,6 @@ def fetch_locations_from_db():
 # API Calls
 # =============================================================================
 
-def fetch_student_details(student_id):
-    """Fetch student details (grade) via API."""
-    try:
-        response = requests.get(f"{API_BASE_URL}/students/{student_id}")
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        print(f"  Warning: Error fetching student {student_id}: {e}")
-    return None
-
-
 def fetch_student_enrollments(student_id):
     """Fetch all enrollments for a student via API."""
     try:
@@ -207,33 +185,6 @@ def fetch_tutors():
     except Exception as e:
         print(f"Error fetching tutors: {e}")
     return []
-
-
-def fetch_all_enrollments():
-    """Fetch all enrollments via API (paginated)."""
-    all_enrollments = []
-    offset = 0
-    limit = 500
-
-    while True:
-        try:
-            response = requests.get(f"{API_BASE_URL}/enrollments",
-                                    params={"enrollment_type": "Regular", "limit": limit, "offset": offset})
-            if response.status_code == 200:
-                enrollments = response.json()
-                if not enrollments:
-                    break
-                all_enrollments.extend(enrollments)
-                if len(enrollments) < limit:
-                    break
-                offset += limit
-            else:
-                break
-        except Exception as e:
-            print(f"Error fetching enrollments: {e}")
-            break
-
-    return all_enrollments
 
 
 # =============================================================================
@@ -275,85 +226,10 @@ def format_day_abbrev(day):
     return day_map.get(day, day[:3] if day else "")
 
 
-def parse_date(date_str):
-    """Parse date string to date object."""
-    if not date_str:
-        return None
-    if isinstance(date_str, datetime):
-        return date_str.date()
-    if hasattr(date_str, 'date'):  # Already a date
-        return date_str
-    try:
-        return datetime.strptime(str(date_str), "%Y-%m-%d").date()
-    except:
-        return None
-
-
 def get_tutor_sort_name(name):
     """Strip Mr/Ms/Mrs prefix for sorting by first name."""
     import re
     return re.sub(r'^(Mr\.?|Ms\.?|Mrs\.?)\s*', '', name, flags=re.IGNORECASE)
-
-
-def calculate_effective_end_date(enrollment):
-    """
-    Calculate when an enrollment effectively ends, skipping holidays.
-
-    This matches the MySQL calculate_effective_end_date function which:
-    1. Starts from first_lesson_date
-    2. Iterates week by week
-    3. Skips weeks where the lesson date falls on a holiday
-    4. Counts valid lesson dates until lessons_paid + extension_weeks
-    """
-    first_lesson = parse_date(enrollment.get("first_lesson_date"))
-    if not first_lesson:
-        return None
-    lessons_paid = enrollment.get("lessons_paid") or 0
-    extension_weeks = enrollment.get("deadline_extension_weeks") or 0
-    total_lesson_dates = lessons_paid + extension_weeks
-
-    # Count valid lesson dates (skipping holidays) until we reach the total
-    current_date = first_lesson
-    lessons_counted = 0
-    end_date = first_lesson
-
-    while lessons_counted < total_lesson_dates:
-        # Check if current date is a holiday
-        if current_date not in HOLIDAYS:
-            lessons_counted += 1
-            end_date = current_date
-
-        # Move to next week (same day of week)
-        current_date = current_date + timedelta(weeks=1)
-
-    return end_date
-
-
-def is_enrollment_active_during(enrollment, start_date, end_date):
-    """Check if an enrollment was active during a date range."""
-    first_lesson = parse_date(enrollment.get("first_lesson_date"))
-    if not first_lesson:
-        return False
-    effective_end = calculate_effective_end_date(enrollment)
-    if not effective_end:
-        return False
-    if first_lesson > end_date:
-        return False
-    if effective_end <= start_date:
-        return False
-    if enrollment.get("payment_status") not in ("Paid", "Pending Payment"):
-        return False
-    if enrollment.get("enrollment_type") != "Regular":
-        return False
-    return True
-
-
-def has_lesson_after_date(enrollment, target_date):
-    """Check if an enrollment has lessons after a target date."""
-    effective_end = calculate_effective_end_date(enrollment)
-    if not effective_end:
-        return False
-    return effective_end > target_date
 
 
 # =============================================================================
@@ -504,20 +380,27 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
         print(f"  Error initializing Google Sheets: {e}")
         return False
 
-    # Export Terminated Students to "Reasons" tab (columns A:F only, don't touch other columns)
+    # Export Terminated Students to "Reasons" tab (columns A:I)
     print(f"  Exporting to 'Reasons' tab...")
-    terminated_headers = ["ID#", "Student", "Grade", "Instructor", "Schedule", "LastLesson"]
+    terminated_headers = ["ID#", "Student", "Grade", "Instructor", "Schedule", "LastLesson",
+                          "Category", "Reason", "Count as Term?"]
     terminated_data = [
-        [s["company_id"], s["student_name"], s["grade"], s["tutor_name"], s["schedule"], s["termination_date"]]
+        [
+            s["company_id"], s["student_name"], s["grade"], s["tutor_name"], s["schedule"],
+            s["termination_date"],
+            s.get("reason_category", ""),
+            s.get("reason", ""),
+            bool(s.get("count_as_terminated")),  # Sheets checkbox: must be actual bool
+        ]
         for s in terminated_list
     ]
     cells = write_to_sheet(service, sheet_id, "Reasons", terminated_headers, terminated_data,
-                           columns=['A', 'B', 'C', 'D', 'E', 'F'])
+                           columns=['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
     print(f"    Updated {cells} cells")
 
-    # Export Enrollment Stats to "Term Rate" tab (columns A, B, E only - don't touch C, D, F or beyond)
+    # Export Enrollment Stats to "Term Rate" tab (columns A:E - don't touch F or beyond)
     print(f"  Exporting to 'Term Rate' tab...")
-    stats_headers = ["Instructor", "Opening", "Closing"]  # Only 3 columns
+    stats_headers = ["Instructor", "Opening", "Enrollment / Transfer", "Termination", "Closing"]
     stats_data = []
 
     sorted_tutors = sorted(enrollment_stats.keys(), key=get_tutor_sort_name)
@@ -525,15 +408,17 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
         stats = enrollment_stats[tutor_name]
         opening = stats["opening"]
         closing = stats["closing"]
+        termination = termination_counts.get(tutor_name, 0)
 
         # Skip tutors with no activity at this location
-        if opening == 0 and closing == 0:
+        if opening == 0 and closing == 0 and termination == 0:
             continue
 
-        stats_data.append([tutor_name, opening, closing])  # Only 3 values
+        enrollment_transfer = closing - opening + termination
+        stats_data.append([tutor_name, opening, enrollment_transfer, termination, closing])
 
     cells = write_to_sheet(service, sheet_id, "Term Rate", stats_headers, stats_data,
-                           columns=['A', 'B', 'E'])  # Write to A, B, E only
+                           columns=['A', 'B', 'C', 'D', 'E'])
     print(f"    Updated {cells} cells")
 
     return True
@@ -556,10 +441,7 @@ def build_terminated_students_list(terminated_students):
         company_id = student["company_id"]
         student_name = student["student_name"]
         termination_date = student["termination_date"]
-
-        # Fetch grade
-        student_details = fetch_student_details(student_id)
-        grade = student_details.get("grade", "") if student_details else ""
+        grade = student.get("grade") or ""
 
         # Fetch last enrollment for tutor and schedule
         enrollments = fetch_student_enrollments(student_id)
@@ -592,75 +474,198 @@ def build_terminated_students_list(terminated_students):
             "grade": grade,
             "tutor_name": tutor_name,
             "schedule": schedule,
-            "termination_date": formatted_date
+            "termination_date": formatted_date,
+            "reason_category": student.get("reason_category") or "",
+            "reason": student.get("reason") or "",
+            "count_as_terminated": bool(student.get("count_as_terminated")),
         })
 
     return results
 
 
-def calculate_enrollment_stats(all_enrollments, tutors, location, opening_start, opening_end, closing_end):
-    """Calculate enrollment stats for a specific location."""
-    # Filter enrollments by location
-    location_enrollments = [e for e in all_enrollments if e.get("location") == location]
+def calculate_enrollment_stats(tutors, location, opening_start, opening_end, closing_end):
+    """Calculate Opening/Closing enrollment stats per tutor for a location.
 
-    # Calculate Opening
-    opening_by_tutor = defaultdict(set)
-    for enrollment in location_enrollments:
-        if is_enrollment_active_during(enrollment, opening_start, opening_end):
-            tutor_id = enrollment.get("tutor_id")
-            student_id = enrollment.get("student_id")
-            if tutor_id and student_id:
-                opening_by_tutor[tutor_id].add(student_id)
+    Runs the same SQL as /api/terminations/stats so the numbers match the
+    Terminated Students page exactly. Uses the MySQL calculate_effective_end_date
+    function and the 21-day grace window for holiday-delayed renewals.
+    """
+    prev_closing_end = opening_start - timedelta(days=1)
 
-    # Calculate Closing
-    closing_by_tutor = defaultdict(set)
-    for enrollment in location_enrollments:
-        if enrollment.get("payment_status") not in ("Paid", "Pending Payment"):
-            continue
-        if enrollment.get("enrollment_type") != "Regular":
-            continue
-        if has_lesson_after_date(enrollment, closing_end):
-            tutor_id = enrollment.get("tutor_id")
-            student_id = enrollment.get("student_id")
-            if tutor_id and student_id:
-                closing_by_tutor[tutor_id].add(student_id)
+    opening_query = text("""
+        SELECT
+            e.tutor_id,
+            COUNT(DISTINCT e.student_id) as opening_count
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.id
+        WHERE e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
+        AND calculate_effective_end_date(
+            e.first_lesson_date,
+            e.lessons_paid,
+            COALESCE(e.deadline_extension_weeks, 0)
+        ) >= :opening_start
+        AND (
+            e.first_lesson_date <= :opening_end
+            OR e.student_id IN (
+                SELECT DISTINCT e2.student_id
+                FROM enrollments e2
+                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+                AND e2.enrollment_type = 'Regular'
+                AND e2.first_lesson_date IS NOT NULL
+                AND e2.first_lesson_date <= :opening_end
+                AND calculate_effective_end_date(
+                    e2.first_lesson_date,
+                    e2.lessons_paid,
+                    COALESCE(e2.deadline_extension_weeks, 0)
+                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
+            )
+        )
+        AND e.location = :location
+        GROUP BY e.tutor_id
+    """)
 
-    # Build results
+    closing_query = text("""
+        SELECT
+            e.tutor_id,
+            COUNT(DISTINCT e.student_id) as closing_count
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.id
+        WHERE e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+        AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
+        AND calculate_effective_end_date(
+            e.first_lesson_date,
+            e.lessons_paid,
+            COALESCE(e.deadline_extension_weeks, 0)
+        ) > :closing_end
+        AND e.student_id IN (
+            SELECT DISTINCT e2.student_id
+            FROM enrollments e2
+            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+            AND e2.enrollment_type = 'Regular'
+            AND e2.first_lesson_date IS NOT NULL
+            AND e2.first_lesson_date <= :closing_end
+            AND calculate_effective_end_date(
+                e2.first_lesson_date,
+                e2.lessons_paid,
+                COALESCE(e2.deadline_extension_weeks, 0)
+            ) >= :opening_start
+        )
+        AND e.location = :location
+        GROUP BY e.tutor_id
+    """)
+
+    db = SessionLocal()
+    try:
+        opening_rows = db.execute(opening_query, {
+            "opening_start": opening_start,
+            "opening_end": opening_end,
+            "prev_closing_end": prev_closing_end,
+            "location": location,
+        }).fetchall()
+        opening_by_tutor = {row.tutor_id: row.opening_count for row in opening_rows}
+
+        closing_rows = db.execute(closing_query, {
+            "opening_start": opening_start,
+            "closing_end": closing_end,
+            "location": location,
+        }).fetchall()
+        closing_by_tutor = {row.tutor_id: row.closing_count for row in closing_rows}
+    finally:
+        db.close()
+
     results = {}
     for tutor in tutors:
         tutor_id = tutor["id"]
         tutor_name = tutor["tutor_name"]
         results[tutor_name] = {
-            "opening": len(opening_by_tutor.get(tutor_id, set())),
-            "closing": len(closing_by_tutor.get(tutor_id, set()))
+            "opening": opening_by_tutor.get(tutor_id, 0),
+            "closing": closing_by_tutor.get(tutor_id, 0),
         }
 
     return results
 
 
-def count_terminations_by_tutor(terminated_list):
-    """Count terminations per tutor from the terminated students list."""
-    counts = defaultdict(int)
-    for student in terminated_list:
-        tutor_name = student.get("tutor_name", "")
-        if tutor_name:
-            counts[tutor_name] += 1
+def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, opening_start, closing_end):
+    """Count terminations per tutor for a location using the same SQL as
+    /api/terminations/stats. Only counts students with count_as_terminated=TRUE
+    for the quarter; attributes them to the tutor of their latest enrollment
+    within closing_end + 30 days. Returns {tutor_name: count}."""
+    query = text("""
+        WITH quarter_enrollments AS (
+            SELECT e.*,
+                   calculate_effective_end_date(
+                       e.first_lesson_date,
+                       e.lessons_paid,
+                       COALESCE(e.deadline_extension_weeks, 0)
+                   ) as eff_end_date,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY e.first_lesson_date DESC
+                   ) as rn
+            FROM enrollments e
+            WHERE e.payment_status IN ('Paid', 'Pending Payment')
+            AND e.enrollment_type = 'Regular'
+            AND e.first_lesson_date IS NOT NULL
+            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        ),
+        termed AS (
+            SELECT qe.student_id, qe.tutor_id
+            FROM quarter_enrollments qe
+            WHERE qe.rn = 1
+            AND qe.eff_end_date >= :opening_start
+            AND qe.eff_end_date <= :closing_end
+        )
+        SELECT te.tutor_id, COUNT(*) as terminated_count
+        FROM termed te
+        JOIN students s ON te.student_id = s.id
+        JOIN termination_records tr
+          ON te.student_id = tr.student_id
+         AND tr.quarter = :quarter AND tr.year = :year
+        WHERE tr.count_as_terminated = TRUE
+        AND s.home_location = :location
+        GROUP BY te.tutor_id
+    """)
+
+    db = SessionLocal()
+    try:
+        rows = db.execute(query, {
+            "year": year,
+            "quarter": quarter_num,
+            "opening_start": opening_start,
+            "closing_end": closing_end,
+            "location": location,
+        }).fetchall()
+    finally:
+        db.close()
+
+    tutor_name_by_id = {t["id"]: t["tutor_name"] for t in tutors}
+    counts = {}
+    for row in rows:
+        name = tutor_name_by_id.get(row.tutor_id)
+        if name:
+            counts[name] = row.terminated_count
     return counts
 
 
 def load_report_from_csv(location, year, quarter):
     """
     Load terminated students and enrollment stats from existing CSV file.
-    Returns: (terminated_list, enrollment_stats)
+    Returns: (terminated_list, enrollment_stats, termination_counts)
     """
     csv_file = f"quarterly_report_{year}_{quarter}_{location}.csv"
 
     if not os.path.exists(csv_file):
         print(f"  CSV file not found: {csv_file}")
-        return None, None
+        return None, None, None
 
     terminated_list = []
     enrollment_stats = {}
+    termination_counts = {}
 
     with open(csv_file, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
@@ -691,18 +696,24 @@ def load_report_from_csv(location, year, quarter):
                 "grade": row[2],
                 "tutor_name": row[3],
                 "schedule": row[4],
-                "termination_date": row[5] if len(row) > 5 else ""
+                "termination_date": row[5] if len(row) > 5 else "",
+                "reason_category": row[6] if len(row) > 6 else "",
+                "reason": row[7] if len(row) > 7 else "",
+                "count_as_terminated": (row[8].strip().lower() in ("true", "yes")) if len(row) > 8 else False,
             })
         elif section == "stats":
             tutor_name = row[0]
             opening = int(row[1]) if row[1] else 0
+            termination = int(row[3]) if len(row) > 3 and row[3] else 0
             closing = int(row[4]) if len(row) > 4 and row[4] else 0
             enrollment_stats[tutor_name] = {
                 "opening": opening,
                 "closing": closing
             }
+            if termination:
+                termination_counts[tutor_name] = termination
 
-    return terminated_list, enrollment_stats
+    return terminated_list, enrollment_stats, termination_counts
 
 
 def write_report(location, year, quarter, terminated_list, enrollment_stats, termination_counts):
@@ -714,7 +725,8 @@ def write_report(location, year, quarter, terminated_list, enrollment_stats, ter
 
         # Section 1: Terminated Students
         writer.writerow(["=== TERMINATED STUDENTS ==="])
-        writer.writerow(["ID#", "Student", "Grade", "Instructor", "Schedule", "LastLesson"])
+        writer.writerow(["ID#", "Student", "Grade", "Instructor", "Schedule", "LastLesson",
+                         "Category", "Reason", "Count as Term?"])
 
         for student in terminated_list:
             writer.writerow([
@@ -723,7 +735,10 @@ def write_report(location, year, quarter, terminated_list, enrollment_stats, ter
                 student["grade"],
                 student["tutor_name"],
                 student["schedule"],
-                student["termination_date"]
+                student["termination_date"],
+                student.get("reason_category", ""),
+                student.get("reason", ""),
+                "TRUE" if student.get("count_as_terminated") else "FALSE",
             ])
 
         writer.writerow([])  # Blank row
@@ -745,8 +760,8 @@ def write_report(location, year, quarter, terminated_list, enrollment_stats, ter
             if opening == 0 and closing == 0 and termination == 0:
                 continue
 
-            enrollment_transfer = closing - opening - termination
-            net = enrollment_transfer + termination
+            enrollment_transfer = closing - opening + termination
+            net = closing - opening
 
             writer.writerow([
                 tutor_name,
@@ -772,9 +787,6 @@ def main():
     parser.add_argument("--from-csv", action="store_true",
                         help="Read from existing CSV files instead of querying database")
     args = parser.parse_args()
-
-    # Load holidays for holiday-aware effective end date calculation
-    load_holidays()
 
     year = args.year
     quarter = args.quarter.upper()
@@ -818,7 +830,7 @@ def main():
             print(f"Processing location: {location}")
             print(f"{'='*60}")
 
-            terminated_list, enrollment_stats = load_report_from_csv(location, year, quarter)
+            terminated_list, enrollment_stats, termination_counts = load_report_from_csv(location, year, quarter)
 
             if terminated_list is None:
                 continue
@@ -827,7 +839,7 @@ def main():
             print(f"  Loaded {len(enrollment_stats)} tutor stats")
 
             print(f"Exporting to Google Sheets...")
-            export_to_google_sheets(location, terminated_list, enrollment_stats, {})
+            export_to_google_sheets(location, terminated_list, enrollment_stats, termination_counts)
 
         print(f"\n{'='*60}")
         print("DONE!")
@@ -855,11 +867,6 @@ def main():
     tutors = fetch_tutors()
     print(f"Found {len(tutors)} tutors")
 
-    # Fetch all enrollments
-    print("Fetching all enrollments...")
-    all_enrollments = fetch_all_enrollments()
-    print(f"Found {len(all_enrollments)} enrollments")
-
     # Process each location
     output_files = []
 
@@ -883,11 +890,13 @@ def main():
         # Calculate enrollment stats for this location
         print("Calculating enrollment stats...")
         enrollment_stats = calculate_enrollment_stats(
-            all_enrollments, tutors, location, opening_start, opening_end, closing_end
+            tutors, location, opening_start, opening_end, closing_end
         )
 
-        # Count terminations by tutor
-        termination_counts = count_terminations_by_tutor(terminated_list)
+        # Count terminations by tutor (matches /api/terminations/stats)
+        termination_counts = fetch_termination_counts_by_tutor(
+            year, quarter_num, location, tutors, opening_start, closing_end
+        )
 
         # Write report
         output_file = write_report(location, year, quarter, terminated_list, enrollment_stats, termination_counts)
