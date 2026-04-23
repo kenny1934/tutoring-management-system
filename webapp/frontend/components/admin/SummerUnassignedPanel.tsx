@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
@@ -88,6 +88,7 @@ export function SummerUnassignedPanel({
   const [noNotesOnly, setNoNotesOnly] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const StatusHeaderIcon = statusFilter ? STATUS_ICONS[statusFilter] : null;
   const statusHeaderColors = statusFilter ? STATUS_COLORS[statusFilter] : null;
@@ -305,12 +306,25 @@ export function SummerUnassignedPanel({
                 <div
                   key={app.id}
                   draggable
+                  onPointerDown={(e) => {
+                    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+                  }}
                   onDragStart={(e) => {
+                    pointerStartRef.current = null;
                     e.dataTransfer.setData("application-id", String(app.id));
                     e.dataTransfer.effectAllowed = "move";
                     onDragStart?.(app);
                   }}
                   onDragEnd={() => onDragEnd?.()}
+                  onClick={(e) => {
+                    const start = pointerStartRef.current;
+                    pointerStartRef.current = null;
+                    if (!start) return;
+                    const dx = e.clientX - start.x;
+                    const dy = e.clientY - start.y;
+                    if (dx * dx + dy * dy > 16) return;
+                    onClickStudent?.(app.id);
+                  }}
                   className={cn(
                     "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
@@ -318,7 +332,7 @@ export function SummerUnassignedPanel({
                 >
                   {/* Row 1: identity — matches applications card layout */}
                   <div className="flex items-center gap-1 min-w-0">
-                    <div className="min-w-0 flex-1" onClick={() => onClickStudent?.(app.id)}>
+                    <div className="min-w-0 flex-1">
                       <StudentInfoBadges
                         student={{
                           student_name: app.student_name,
