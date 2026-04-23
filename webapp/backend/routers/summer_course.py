@@ -2086,18 +2086,24 @@ def update_application(
 
 def _build_slot_response(slot: SummerCourseSlot) -> SummerSlotResponse:
     """Build a SummerSlotResponse from an ORM slot with loaded relationships."""
-    # Deduplicate: one entry per student (a student may have 8 session rows, one per lesson)
-    # Keep non-cancelled sessions visible; exclude non-attending from capacity count
-    seen: set[int] = set()
-    unique_sessions = []
+    # A student may have up to 8 session rows here (one per lesson). Pick one
+    # representative per application, preferring an attending row so a student
+    # whose first lesson was rescheduled still counts toward capacity via their
+    # remaining attending lessons.
+    by_app: dict[int, SummerSession] = {}
     for s in slot.sessions:
         if s.session_status == "Cancelled":
             continue
-        if s.application_id in seen:
+        existing = by_app.get(s.application_id)
+        if existing is None:
+            by_app[s.application_id] = s
             continue
-        seen.add(s.application_id)
-        unique_sessions.append(s)
+        existing_attending = existing.session_status not in SUMMER_NON_ATTENDING_STATUSES
+        is_attending = s.session_status not in SUMMER_NON_ATTENDING_STATUSES
+        if is_attending and not existing_attending:
+            by_app[s.application_id] = s
 
+    unique_sessions = list(by_app.values())
     attending_count = sum(
         1 for s in unique_sessions
         if s.session_status not in SUMMER_NON_ATTENDING_STATUSES
