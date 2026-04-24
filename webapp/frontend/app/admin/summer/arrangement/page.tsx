@@ -337,19 +337,27 @@ export default function SummerArrangementPage() {
     return m;
   }, [tutorDuties]);
 
-  // Compute available tutors for a given cell (day, timeSlot)
-  const getAvailableTutors = useCallback(
-    (day: string, timeSlot: string): AvailableTutor[] => {
-      if (!activeTutors) return [];
-      const dutySet = dutyMap.get(`${day}|${timeSlot}`);
-      return activeTutors.map((t) => ({
-        id: t.id,
-        name: t.tutor_name,
-        onDuty: dutySet?.has(t.id) ?? false,
-      }));
-    },
-    [activeTutors, dutyMap]
-  );
+  // Precompute per-cell tutor lists once so every cell shares a stable array
+  // identity — otherwise the fresh arrays from a per-call function break memo
+  // on every slot card receiving `availableTutors`.
+  const availableTutorsMap = useMemo(() => {
+    const m = new Map<string, AvailableTutor[]>();
+    if (!activeTutors) return m;
+    for (const day of openDays) {
+      for (const ts of timeSlots) {
+        const dutySet = dutyMap.get(`${day}|${ts}`);
+        m.set(
+          `${day}|${ts}`,
+          activeTutors.map((t) => ({
+            id: t.id,
+            name: t.tutor_name,
+            onDuty: dutySet?.has(t.id) ?? false,
+          })),
+        );
+      }
+    }
+    return m;
+  }, [activeTutors, dutyMap, openDays, timeSlots]);
 
   // Fetch selected application for detail modal
   const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
@@ -726,6 +734,28 @@ export default function SummerArrangementPage() {
     setDragBuddySlots(null);
   }, []);
 
+  const handleGridDropFailed = useCallback(
+    (reason: string) => showToast(reason, "error"),
+    [showToast],
+  );
+
+  const handleGridConfirmSlot = useCallback(
+    (slotId: number) => setBulkConfirmPending({ slotId }),
+    [],
+  );
+
+  const handleGridDemandBarClick = useCallback((f: DemandBarFilter) => {
+    setDemandPrefFilter((prev) =>
+      prev &&
+      prev.day === f.day &&
+      prev.timeSlot === f.timeSlot &&
+      prev.grade === f.grade &&
+      prev.tier === f.tier
+        ? null
+        : f,
+    );
+  }, []);
+
   // Precedence: demand-bar filter > workflow chip > default incomplete list.
   const panelApplications = useMemo(
     () =>
@@ -1037,15 +1067,12 @@ export default function SummerArrangementPage() {
                     onDropStudent={handleDropStudent}
                     onRemoveSession={handleRemoveSession}
                     onClickStudent={setSelectedAppId}
-                    onDropFailed={(reason) => showToast(reason, "error")}
+                    onDropFailed={handleGridDropFailed}
                     dragPrefs={dragPrefs}
-                    getAvailableTutors={getAvailableTutors}
-                    onConfirmSlot={(slotId) => setBulkConfirmPending({ slotId })}
+                    availableTutorsMap={availableTutorsMap}
+                    onConfirmSlot={handleGridConfirmSlot}
                     dragBuddySlots={dragBuddySlots}
-                    onDemandBarClick={(f) => setDemandPrefFilter((prev) =>
-                      prev && prev.day === f.day && prev.timeSlot === f.timeSlot && prev.grade === f.grade && prev.tier === f.tier
-                        ? null : f
-                    )}
+                    onDemandBarClick={handleGridDemandBarClick}
                     slotHighlightTarget={slotTarget}
                   />
                 ) : activeTab === "calendar" ? (

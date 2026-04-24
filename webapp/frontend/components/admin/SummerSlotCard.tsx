@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, sessionStatusBg, getMismatchedSessionGrades } from "@/lib/summer-utils";
@@ -36,7 +36,7 @@ function fillBarColor(pct: number): string {
   return "bg-green-400 dark:bg-green-400/80";
 }
 
-export function SummerSlotCard({
+export const SummerSlotCard = memo(function SummerSlotCard({
   slot,
   grades,
   onUpdate,
@@ -357,4 +357,4 @@ export function SummerSlotCard({
       )}
     </div>
   );
-}
+});

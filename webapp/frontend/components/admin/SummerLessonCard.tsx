@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg, getMismatchedSessionGrades } from "@/lib/summer-utils";
@@ -56,7 +56,7 @@ function fillBarColor(pct: number): string {
 
 const AMBER_BADGE = "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
 
-export function SummerLessonCard({
+export const SummerLessonCard = memo(function SummerLessonCard({
   lesson,
   onUpdateLesson,
   onDropStudent,
@@ -570,4 +570,4 @@ export function SummerLessonCard({
       />
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { memo, useState, useCallback, useEffect, useMemo } from "react";
 import { Plus, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ interface SummerSlotCellProps {
   demandCell?: SummerDemandCell;
   slots: SummerSlot[];
   grades: string[];
-  onCreateSlot: () => void;
+  onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
@@ -58,7 +58,7 @@ function heatColor(count: number): string {
   return "bg-orange-300/40 dark:bg-orange-700/25";
 }
 
-export function SummerSlotCell({
+export const SummerSlotCell = memo(function SummerSlotCell({
   day,
   timeSlot,
   demandCell,
@@ -264,7 +264,7 @@ export function SummerSlotCell({
 
       {/* Add slot button — more prominent when no slots yet */}
       <button
-        onClick={onCreateSlot}
+        onClick={() => onCreateSlot(day, timeSlot)}
         className={cn(
           "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
           slots.length === 0
@@ -277,4 +277,4 @@ export function SummerSlotCell({
       </button>
     </div>
   );
-}
+});

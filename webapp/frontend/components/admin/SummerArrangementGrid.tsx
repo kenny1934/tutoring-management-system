@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
+// Stable empty-slot array so cells with no slots keep a fixed `slots` prop
+// identity across renders — otherwise `slotsMap.get(key) ?? []` emits a fresh
+// array every tick and breaks memo on every empty cell.
+const EMPTY_SLOTS: SummerSlot[] = [];
+
 interface DragPrefs {
   primary: { day: string; time: string }[];
   backup: { day: string; time: string }[];
@@ -31,7 +36,7 @@ interface SummerArrangementGridProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   dragPrefs?: DragPrefs | null;
-  getAvailableTutors?: (day: string, timeSlot: string) => AvailableTutor[];
+  availableTutorsMap?: Map<string, AvailableTutor[]>;
   onConfirmSlot?: (slotId: number) => void;
   dragBuddySlots?: Set<string> | null;
   onDemandBarClick?: (filter: DemandBarFilter) => void;
@@ -61,7 +66,7 @@ export function SummerArrangementGrid({
   onClickStudent,
   onDropFailed,
   dragPrefs,
-  getAvailableTutors,
+  availableTutorsMap,
   onConfirmSlot,
   dragBuddySlots,
   onDemandBarClick,
@@ -234,9 +239,9 @@ export function SummerArrangementGrid({
                   day={day}
                   timeSlot={ts}
                   demandCell={demandMap.get(key)}
-                  slots={slotsMap.get(key) ?? []}
+                  slots={slotsMap.get(key) ?? EMPTY_SLOTS}
                   grades={grades}
-                  onCreateSlot={() => onCreateSlot(day, ts)}
+                  onCreateSlot={onCreateSlot}
                   onUpdateSlot={onUpdateSlot}
                   onDeleteSlot={onDeleteSlot}
                   onDropStudent={onDropStudent}
@@ -246,7 +251,7 @@ export function SummerArrangementGrid({
                   prefHighlight={isPrefMatch}
                   buddyHighlight={dragBuddySlots?.has(key)}
                   gradeMaxDemand={gradeMaxDemand}
-                  availableTutors={getAvailableTutors?.(day, ts)}
+                  availableTutors={availableTutorsMap?.get(key)}
                   onConfirmSlot={onConfirmSlot}
                   onDemandBarClick={onDemandBarClick}
                   slotHighlightTarget={slotHighlightTarget}
