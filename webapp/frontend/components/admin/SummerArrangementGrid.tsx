@@ -19,6 +19,10 @@ interface SummerArrangementGridProps {
   demand: SummerDemandCell[];
   slots: SummerSlot[];
   grades: string[];
+  /** True on initial load while slots/demand are still fetching — renders
+   * pulsing skeleton cells and suppresses the getting-started banner so the
+   * empty grid isn't mistaken for a legit empty state. */
+  loading?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
@@ -48,6 +52,7 @@ export function SummerArrangementGrid({
   demand,
   slots,
   grades,
+  loading = false,
   onCreateSlot,
   onUpdateSlot,
   onDeleteSlot,
@@ -133,8 +138,9 @@ export function SummerArrangementGrid({
 
   return (
     <div className="flex flex-col h-full min-h-0 gap-3">
-      {/* Getting started hint */}
-      {!hasSlots && (
+      {/* Getting started hint (suppressed during initial load so the empty
+       * state isn't shown before data arrives) */}
+      {!loading && !hasSlots && (
         <div className="rounded-lg border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-900/20 px-4 py-3 text-sm text-orange-800 dark:text-orange-200">
           {hasDemand ? (
             <>Demand data loaded from applications. Click <strong>+ slot</strong> in any cell to create a class slot, then drag students from the panel on the right.</>
@@ -208,6 +214,17 @@ export function SummerArrangementGrid({
             {/* Cells for each day */}
             {visibleDaysList.map((day) => {
               const key = `${day}|${ts}`;
+              if (loading) {
+                return (
+                  <div
+                    key={key}
+                    className="bg-white dark:bg-[#1a1a1a] min-h-[80px] p-1.5"
+                    aria-hidden
+                  >
+                    <div className="h-full w-full rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                  </div>
+                );
+              }
               const matches = (s: { day: string; time: string }) => s.day === day && s.time === ts;
               const isPrefMatch =
                 dragPrefs?.primary.some(matches) || dragPrefs?.backup.some(matches);

@@ -277,6 +277,10 @@ export function SummerSessionCalendar({
   };
 
   const isEmpty = !isLoading && lessons.length === 0;
+  // Show skeleton only on the very first load (no cached data yet). Once
+  // we have any data, keepPreviousData (global SWR default) shows the
+  // previous week while revalidating, so week-nav doesn't blank.
+  const showSkeleton = !calendarData && isLoading;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -390,6 +394,17 @@ export function SummerSessionCalendar({
                 {/* Cells */}
                 {weekDates.map((dateStr) => {
                   const key = `${dateStr}|${ts}`;
+                  if (showSkeleton) {
+                    return (
+                      <div
+                        key={key}
+                        className="bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px]"
+                        aria-hidden
+                      >
+                        <div className="h-full w-full rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                    );
+                  }
                   const cellLessons = lessonIndex.get(key) ?? [];
                   const pref = isPrefCell(dateStr, ts);
                   const isEmptyCell = cellLessons.length === 0;

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle } from "@/lib/hooks";
+import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3 } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
@@ -243,6 +243,13 @@ export default function SummerArrangementPage() {
   }, [selectedLocation, openDays, activeConfig?.time_slots]);
   const grades = (activeConfig?.available_grades ?? []).map((g: { value: string }) => g.value);
 
+  // Poll only the active tab's feed; other tabs refresh on switch.
+  const slotsPollMs = useVisibilityAwareInterval(activeTab === "slots" ? 30000 : 0);
+  const demandPollMs = useVisibilityAwareInterval(activeTab === "slots" ? 60000 : 0);
+  const unassignedPollMs = useVisibilityAwareInterval(30000);
+  const appStatsPollMs = useVisibilityAwareInterval(30000);
+  const statusFilteredPollMs = useVisibilityAwareInterval(30000);
+
   // Fetch data (3 parallel SWR calls)
   const {
     data: slots,
@@ -251,7 +258,7 @@ export default function SummerArrangementPage() {
   } = useSWR(
     configId && location ? ["summer-slots", configId, location] : null,
     () => summerAPI.getSlots(configId!, location),
-    { refreshInterval: 30000 }
+    { refreshInterval: slotsPollMs }
   );
 
   const {
@@ -261,7 +268,7 @@ export default function SummerArrangementPage() {
   } = useSWR(
     configId && location ? ["summer-demand", configId, location] : null,
     () => summerAPI.getDemand(configId!, location),
-    { refreshInterval: 60000 }
+    { refreshInterval: demandPollMs }
   );
 
   const {
@@ -271,23 +278,22 @@ export default function SummerArrangementPage() {
   } = useSWR(
     configId && location ? ["summer-unassigned", configId, location] : null,
     () => summerAPI.getUnassigned({ config_id: configId!, location }),
-    { refreshInterval: 30000 }
+    { refreshInterval: unassignedPollMs }
   );
 
   const { data: appStats, mutate: mutateAppStats } = useSWR(
     canView && configId && location ? ["summer-app-stats", configId, location] : null,
     () => summerAPI.getApplicationStats({ config_id: configId!, location }),
-    { refreshInterval: 30000 }
+    { refreshInterval: appStatsPollMs }
   );
 
   // Student-lessons feed — drives the Students tab but also the header global
   // search (we need lesson_date + session_id on each placed lesson to build a
-  // jump target). SWR dedupes with the Students tab's hook, and refreshAll's
-  // existing `mutateStudentLessons` invalidates this cache via key-prefix match.
+  // jump target). SWR dedupes with the Students tab's hook, which handles the
+  // poll when that tab is active.
   const { data: studentLessonsData } = useSWR(
     canView && configId && location ? ["summer-student-lessons", configId, location] : null,
-    () => summerAPI.getStudentLessons(configId!, location),
-    { refreshInterval: 30000 }
+    () => summerAPI.getStudentLessons(configId!, location)
   );
 
   // Demand takes precedence, so this hook stays idle while the demand-bar filter
@@ -301,7 +307,7 @@ export default function SummerArrangementPage() {
       location,
       application_status: statusFilter!,
     }),
-    { refreshInterval: 30000 }
+    { refreshInterval: statusFilteredPollMs }
   );
 
   const isValidating = slotsValidating || demandValidating || unassignedValidating;
@@ -355,6 +361,25 @@ export default function SummerArrangementPage() {
   const mutateCalendar = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar"), [globalMutate]);
   const mutateStudentLessons = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-student-lessons"), [globalMutate]);
   const mutateFindSlot = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-find-slot"), [globalMutate]);
+
+  // Since polling is scoped per-tab, revalidate the entering tab's feed on
+  // switch so the user sees fresh data instead of whatever was last cached.
+  // Gate on prevTab so this only fires on real tab changes — not on mount
+  // (SWR's own initial fetch covers that) or on configId/location-driven
+  // mutator-identity changes.
+  const prevTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (prevTabRef.current === activeTab) return;
+    prevTabRef.current = activeTab;
+    if (activeTab === "slots") {
+      mutateSlots();
+      mutateDemand();
+    } else if (activeTab === "calendar") {
+      mutateCalendar();
+    } else if (activeTab === "students") {
+      mutateStudentLessons();
+    }
+  }, [activeTab, mutateSlots, mutateDemand, mutateCalendar, mutateStudentLessons]);
 
   // Handlers
   const refreshAll = useCallback(() => {
@@ -1004,6 +1029,7 @@ export default function SummerArrangementPage() {
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
                     slots={slots ?? []}
+                    loading={slots === undefined || demand === undefined}
                     grades={grades}
                     onCreateSlot={handleCreateSlot}
                     onUpdateSlot={handleUpdateSlot}
