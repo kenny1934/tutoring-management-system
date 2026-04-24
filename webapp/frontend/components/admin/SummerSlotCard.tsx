@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, sessionStatusBg } from "@/lib/summer-utils";
+import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, sessionStatusBg, getMismatchedSessionGrades } from "@/lib/summer-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WorkflowStatusIcon } from "@/components/admin/SummerApplicationCard";
 import type { AvailableTutor } from "@/types";
@@ -57,12 +57,12 @@ export function SummerSlotCard({
   const rootRef = useRef<HTMLDivElement>(null);
   const isFull = slot.session_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.session_count / slot.max_students : 0;
-  // Sessions whose student grade doesn't match the slot's grade. Placement
-  // is allowed, but Find Slot/auto-suggest/grade stats treat slot.grade as
-  // authoritative, so surface the divergence.
-  const mismatchedGrades = slot.grade
-    ? Array.from(new Set(slot.sessions.filter((s) => s.grade && s.grade !== slot.grade).map((s) => s.grade)))
-    : [];
+  // Find Slot / auto-suggest / grid grouping treat slot.grade as
+  // authoritative, so surface any session whose student grade diverges.
+  const mismatchedGrades = useMemo(
+    () => getMismatchedSessionGrades(slot.grade, slot.sessions),
+    [slot.grade, slot.sessions],
+  );
   const hasGradeMismatch = mismatchedGrades.length > 0;
 
   // Search-jump highlight. Deps exclude slot.sessions on purpose: SWR

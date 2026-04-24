@@ -599,3 +599,17 @@ export function compareSummerSlots(
   if (byTutor) return byTutor;
   return (a.slot_id ?? a.id ?? 0) - (b.slot_id ?? b.id ?? 0);
 }
+
+export function getMismatchedSessionGrades(
+  ownerGrade: string | null | undefined,
+  sessions: { grade?: string | null }[],
+): string[] {
+  if (!ownerGrade) return [];
+  return Array.from(
+    new Set(
+      sessions
+        .filter((s) => s.grade && s.grade !== ownerGrade)
+        .map((s) => s.grade as string),
+    ),
+  );
+}

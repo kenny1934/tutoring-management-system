@@ -109,13 +109,12 @@ export default function SummerArrangementPage() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
-  const [pendingGradeMismatch, setPendingGradeMismatch] = useState<{
-    appId: number; slotId: number; studentName: string; appGrade: string; slotGrade: string;
-  } | null>(null);
-  const [pendingCalendarGradeMismatch, setPendingCalendarGradeMismatch] = useState<{
-    applicationId: number; slotId: number; lessonId: number; lessonNumber?: number | null;
-    studentName: string; appGrade: string; slotGrade: string;
-  } | null>(null);
+  const [pendingGradeMismatch, setPendingGradeMismatch] = useState<
+    | { kind: "slot"; appId: number; slotId: number; studentName: string; appGrade: string; slotGrade: string }
+    | { kind: "calendar"; applicationId: number; slotId: number; lessonId: number; lessonNumber?: number | null;
+        studentName: string; appGrade: string; slotGrade: string }
+    | null
+  >(null);
   const [findSlotTarget, setFindSlotTarget] = useState<{
     applicationId: number; studentName: string; grade: string;
     lessonNumber: number; afterDate?: string; beforeDate?: string;
@@ -498,16 +497,15 @@ export default function SummerArrangementPage() {
     });
   }, [slots]);
 
-  // Slot Setup drop → open mode selector. If the student's grade differs from
-  // the slot's grade, interrupt with a confirm first — placement is allowed
-  // (real tutors sometimes absorb a neighbour-grade student), but several
-  // views (Find Slot, auto-suggest, grade stats) treat the slot's grade as
-  // authoritative, so admins should know before proceeding.
+  // Placement across grades is allowed (tutors sometimes absorb a
+  // neighbour-grade student), but Find Slot / auto-suggest / grid grouping
+  // treat slot.grade as authoritative — prompt first so admins know.
   const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
       setPendingGradeMismatch({
+        kind: "slot",
         appId: applicationId,
         slotId,
         studentName: app.student_name,
@@ -570,7 +568,8 @@ export default function SummerArrangementPage() {
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
-      setPendingCalendarGradeMismatch({
+      setPendingGradeMismatch({
+        kind: "calendar",
         applicationId, slotId, lessonId, lessonNumber,
         studentName: app.student_name,
         appGrade: app.grade,
@@ -1162,46 +1161,25 @@ export default function SummerArrangementPage() {
           onNavigateToLesson={handleNavigateToLesson}
         />
 
-        {/* Grade mismatch warning — shown before placement mode selector when
-            the student's grade differs from the slot's grade. */}
         <ConfirmDialog
           isOpen={!!pendingGradeMismatch}
           onConfirm={() => {
-            if (!pendingGradeMismatch) return;
-            const { appId, slotId } = pendingGradeMismatch;
+            const m = pendingGradeMismatch;
+            if (!m) return;
             setPendingGradeMismatch(null);
-            setPendingDrop({ appId, slotId });
+            if (m.kind === "slot") {
+              setPendingDrop({ appId: m.appId, slotId: m.slotId });
+            } else {
+              void executeCalendarDrop(m.applicationId, m.slotId, m.lessonId, m.lessonNumber);
+            }
           }}
           onCancel={() => setPendingGradeMismatch(null)}
           title="Different grade"
           message={pendingGradeMismatch
-            ? `Place ${pendingGradeMismatch.studentName} (${pendingGradeMismatch.appGrade}) in a ${pendingGradeMismatch.slotGrade} slot?`
+            ? `Place ${pendingGradeMismatch.studentName} (${pendingGradeMismatch.appGrade}) in a ${pendingGradeMismatch.slotGrade} ${pendingGradeMismatch.kind === "calendar" ? "lesson" : "slot"}?`
             : ""}
           consequences={pendingGradeMismatch
             ? [`The slot will stay in the ${pendingGradeMismatch.slotGrade} row of the grid`]
-            : []}
-          confirmText="Place anyway"
-          variant="warning"
-        />
-
-        {/* Grade mismatch warning — calendar drop path. Single-lesson drops
-            bypass the placement-mode modal and go straight to createSession,
-            so we gate that call on a confirm too. */}
-        <ConfirmDialog
-          isOpen={!!pendingCalendarGradeMismatch}
-          onConfirm={() => {
-            if (!pendingCalendarGradeMismatch) return;
-            const { applicationId, slotId, lessonId, lessonNumber } = pendingCalendarGradeMismatch;
-            setPendingCalendarGradeMismatch(null);
-            void executeCalendarDrop(applicationId, slotId, lessonId, lessonNumber);
-          }}
-          onCancel={() => setPendingCalendarGradeMismatch(null)}
-          title="Different grade"
-          message={pendingCalendarGradeMismatch
-            ? `Place ${pendingCalendarGradeMismatch.studentName} (${pendingCalendarGradeMismatch.appGrade}) in a ${pendingCalendarGradeMismatch.slotGrade} lesson?`
-            : ""}
-          consequences={pendingCalendarGradeMismatch
-            ? [`The slot will stay in the ${pendingCalendarGradeMismatch.slotGrade} row of the grid`]
             : []}
           confirmText="Place anyway"
           variant="warning"

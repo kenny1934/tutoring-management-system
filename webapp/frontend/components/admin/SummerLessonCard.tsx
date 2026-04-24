@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { ChevronDown, ChevronUp, X, AlertTriangle, Loader2, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg } from "@/lib/summer-utils";
+import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, LESSON_BADGE_COLORS, isNonAttending, sessionStatusBg, getMismatchedSessionGrades } from "@/lib/summer-utils";
 import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
@@ -131,20 +131,10 @@ export function SummerLessonCard({
   );
   const hasMixedSessions = divergentLessonNumbers.length > 0;
 
-  // Sessions whose student grade doesn't match the lesson's slot grade.
-  // Mirrors SummerSlotCard — ad-hoc Make-up lessons have no canonical grade
-  // so divergence there is noise.
+  // Ad-hoc Make-up lessons have no canonical grade, so divergence there is
+  // noise.
   const mismatchedGrades = useMemo(
-    () =>
-      !isAdhoc && lesson.grade
-        ? Array.from(
-            new Set(
-              activeSessions
-                .filter((s) => s.grade && s.grade !== lesson.grade)
-                .map((s) => s.grade),
-            ),
-          )
-        : [],
+    () => (isAdhoc ? [] : getMismatchedSessionGrades(lesson.grade, activeSessions)),
     [isAdhoc, lesson.grade, activeSessions],
   );
   const hasGradeMismatch = mismatchedGrades.length > 0;
