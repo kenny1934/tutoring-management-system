@@ -39,6 +39,27 @@ const SESSIONS_PILL: Record<string, string> = {
 
 // ── Shared components ──────────────────────────────────────────────────────
 
+type BreakdownTone = "default" | "emerald" | "blue" | "amber";
+
+const BREAKDOWN_TONE_CLASSES: Record<BreakdownTone, { outer: string; inner: string }> = {
+  default: {
+    outer: "bg-gray-100 dark:bg-gray-800 text-muted-foreground",
+    inner: "bg-gray-200/70 dark:bg-gray-700 text-foreground",
+  },
+  emerald: {
+    outer: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+    inner: "bg-emerald-200/60 dark:bg-emerald-500/25 text-emerald-900 dark:text-emerald-100",
+  },
+  blue: {
+    outer: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+    inner: "bg-blue-200/60 dark:bg-blue-500/25 text-blue-900 dark:text-blue-100",
+  },
+  amber: {
+    outer: "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
+    inner: "bg-amber-200/60 dark:bg-amber-500/25 text-amber-900 dark:text-amber-100",
+  },
+};
+
 function BreakdownPill({
   label,
   count,
@@ -47,28 +68,10 @@ function BreakdownPill({
 }: {
   label: string;
   count: number;
-  tone?: "default" | "emerald" | "blue" | "amber";
+  tone?: BreakdownTone;
   labelMono?: boolean;
 }) {
-  const toneClasses: Record<string, { outer: string; inner: string }> = {
-    default: {
-      outer: "bg-gray-100 dark:bg-gray-800 text-muted-foreground",
-      inner: "bg-gray-200/70 dark:bg-gray-700 text-foreground",
-    },
-    emerald: {
-      outer: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-      inner: "bg-emerald-200/60 dark:bg-emerald-500/25 text-emerald-900 dark:text-emerald-100",
-    },
-    blue: {
-      outer: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-      inner: "bg-blue-200/60 dark:bg-blue-500/25 text-blue-900 dark:text-blue-100",
-    },
-    amber: {
-      outer: "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
-      inner: "bg-amber-200/60 dark:bg-amber-500/25 text-amber-900 dark:text-amber-100",
-    },
-  };
-  const t = toneClasses[tone];
+  const t = BREAKDOWN_TONE_CLASSES[tone];
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-[11px] pl-2 pr-1 py-0.5 rounded-full", t.outer)}>
       <span className={cn(labelMono && "font-mono font-medium")}>{label}</span>
@@ -76,6 +79,26 @@ function BreakdownPill({
         {count}
       </span>
     </span>
+  );
+}
+
+function BreakdownStrip({
+  title,
+  trailing,
+  children,
+}: {
+  title: string;
+  trailing?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-baseline justify-between mb-2">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{title}</span>
+        {trailing}
+      </div>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
   );
 }
 
@@ -568,17 +591,14 @@ export function SummerApplicationStats({ applications, filters, config, discount
           <div className="text-sm text-muted-foreground py-6 text-center">No active applications</div>
         )}
         {receiptBreakdown && (receiptBreakdown.entries.length > 0 || receiptBreakdown.unresolved > 0) && (
-          <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Receipt codes</div>
-            <div className="flex flex-wrap gap-1.5">
-              {receiptBreakdown.entries.map(([code, count]) => (
-                <BreakdownPill key={code} label={code} count={count} tone="blue" labelMono />
-              ))}
-              {receiptBreakdown.unresolved > 0 && (
-                <BreakdownPill label="No code" count={receiptBreakdown.unresolved} />
-              )}
-            </div>
-          </div>
+          <BreakdownStrip title="Receipt codes">
+            {receiptBreakdown.entries.map(([code, count]) => (
+              <BreakdownPill key={code} label={code} count={count} tone="blue" labelMono />
+            ))}
+            {receiptBreakdown.unresolved > 0 && (
+              <BreakdownPill label="No code" count={receiptBreakdown.unresolved} />
+            )}
+          </BreakdownStrip>
         )}
       </ChartCard>
 
@@ -630,33 +650,30 @@ export function SummerApplicationStats({ applications, filters, config, discount
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("below") : undefined} />
         </div>
         {discountBreakdown && discountBreakdown.entries.length > 0 && (
-          <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Locked discount tier</span>
-              {discountBreakdown.totalSaved > 0 && (
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  −${discountBreakdown.totalSaved.toLocaleString()} total
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {discountBreakdown.entries.map(([code, count]) => {
-                const isNone = code === "None";
-                return (
-                  <BreakdownPill
-                    key={code}
-                    label={isNone ? "No discount" : code}
-                    count={count}
-                    tone={isNone ? "default" : "emerald"}
-                    labelMono={!isNone}
-                  />
-                );
-              })}
-              {discountBreakdown.nearMiss > 0 && (
-                <BreakdownPill label="Near miss" count={discountBreakdown.nearMiss} tone="amber" />
-              )}
-            </div>
-          </div>
+          <BreakdownStrip
+            title="Locked discount tier"
+            trailing={discountBreakdown.totalSaved > 0 && (
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                −${discountBreakdown.totalSaved.toLocaleString()} total
+              </span>
+            )}
+          >
+            {discountBreakdown.entries.map(([code, count]) => {
+              const isNone = code === "None";
+              return (
+                <BreakdownPill
+                  key={code}
+                  label={isNone ? "No discount" : code}
+                  count={count}
+                  tone={isNone ? "default" : "emerald"}
+                  labelMono={!isNone}
+                />
+              );
+            })}
+            {discountBreakdown.nearMiss > 0 && (
+              <BreakdownPill label="Near miss" count={discountBreakdown.nearMiss} tone="amber" />
+            )}
+          </BreakdownStrip>
         )}
       </ChartCard>
     </div>
