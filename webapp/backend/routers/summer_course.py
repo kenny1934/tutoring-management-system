@@ -1388,8 +1388,30 @@ def _application_search_clause(search: str):
     )
 
 
+def _extract_academic_year_window(
+    config: Optional[SummerCourseConfig],
+) -> Optional[tuple[date_type, date_type]]:
+    """Return (start, end_exclusive) from pricing_config.academic_year_start/end.
+
+    Used to decide whether a linked Secondary student has already re-enrolled
+    in CSM during the current academic year. Returns None when either bound
+    is missing or malformed — the caller should treat the flag as unknown.
+    """
+    from utils.summer_discounts import _parse_date
+    if config is None:
+        return None
+    pc = config.pricing_config or {}
+    start = _parse_date(pc.get("academic_year_start"))
+    end = _parse_date(pc.get("academic_year_end"))
+    if not start or not end:
+        return None
+    return (start, end)
+
+
 def _get_linked_students_bulk(
-    db: Session, student_ids: list[int]
+    db: Session,
+    student_ids: list[int],
+    academic_year_window: Optional[tuple[date_type, date_type]] = None,
 ) -> dict[int, LinkedSecondaryStudentInfo]:
     """Return {student_id: LinkedSecondaryStudentInfo} for admin list cards."""
     if not student_ids:
@@ -1404,12 +1426,30 @@ def _get_linked_students_bulk(
         .filter(Student.id.in_(student_ids))
         .all()
     )
+    has_current: set[int] = set()
+    if academic_year_window:
+        start, end = academic_year_window
+        enrollment_rows = (
+            db.query(Enrollment.student_id)
+            .filter(
+                Enrollment.student_id.in_(student_ids),
+                Enrollment.enrollment_type != "Summer",
+                Enrollment.first_lesson_date >= start,
+                Enrollment.first_lesson_date < end,
+            )
+            .distinct()
+            .all()
+        )
+        has_current = {sid for (sid,) in enrollment_rows}
     return {
         r.id: LinkedSecondaryStudentInfo(
             id=r.id,
             student_name=r.student_name,
             school_student_id=r.school_student_id,
             home_location=r.home_location,
+            has_current_year_regular_enrollment=(
+                (r.id in has_current) if academic_year_window else None
+            ),
         )
         for r in rows
     }
@@ -1661,7 +1701,10 @@ def _build_application_responses(
     siblings_by_group = _get_buddy_siblings_bulk(db, group_ids)
     group_sizes = _get_buddy_group_sizes(db, group_ids)
     student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
-    linked_students = _get_linked_students_bulk(db, student_ids)
+    # Assumes one config per request batch (true in practice — admin pages
+    # view a single summer year at a time). Falls back to None if absent.
+    window = _extract_academic_year_window(apps[0].config if apps else None)
+    linked_students = _get_linked_students_bulk(db, student_ids, window)
     linked_prospects = _get_linked_prospects_bulk(db, [a.id for a in apps])
     # Bulk-fetch slot session counts for capacity display
     slot_ids = list({
@@ -3378,7 +3421,8 @@ def get_student_lessons(
     # Bulk-fetch linked student/prospect info for branch chips
     student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
     app_ids = [a.id for a in apps]
-    linked_students = _get_linked_students_bulk(db, student_ids) if student_ids else {}
+    window = _extract_academic_year_window(config)
+    linked_students = _get_linked_students_bulk(db, student_ids, window) if student_ids else {}
     linked_prospects = _get_linked_prospects_bulk(db, app_ids) if app_ids else {}
 
     # Bulk-fetch active session_log per SummerSession so published placements

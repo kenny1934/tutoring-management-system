@@ -2360,6 +2360,10 @@ class LinkedSecondaryStudentInfo(BaseModel):
     student_name: str
     school_student_id: Optional[str] = None
     home_location: Optional[str] = None
+    # True if the student has any non-Summer enrollment whose first_lesson_date
+    # falls within the summer config's academic-year window. Drives receipt-code
+    # suggestion (RT(a) only fires when this is False). None = not computed.
+    has_current_year_regular_enrollment: Optional[bool] = None
 
 
 class LinkedPrimaryProspectInfo(BaseModel):

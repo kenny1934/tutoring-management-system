@@ -21,6 +21,14 @@ export const BRANCH_INFO: Record<string, { district: string; dot: string; badge:
   KC:  { district: "KidsConcept", dot: "bg-pink-500", badge: "bg-pink-500/15 text-pink-600 dark:text-pink-400" },
 };
 
+/** Primary branch codes (excludes KC — not offered in the verified_branch_origin dropdown). */
+export const PRIMARY_BRANCH_CODES: ReadonlySet<string> = new Set(
+  Object.keys(BRANCH_INFO).filter((c) => c !== "KC"),
+);
+
+/** Secondary branch codes (former CSM-era locations). */
+export const SECONDARY_BRANCH_CODES: ReadonlySet<string> = new Set(["MSA", "MSB"]);
+
 /** Bilingual text selector. */
 export const t = (zh: string, en: string, lang: Lang) =>
   lang === "zh" ? zh : en;

@@ -12,17 +12,20 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
+import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
+import { suggestReceiptCode } from "@/lib/summer-receipt-codes";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   Copy, Check, Loader2, ChevronLeft, ChevronRight, ChevronDown, X, Search, UserCheck, Unlink,
   User, Phone, MapPin, FileText, Users, ExternalLink, Link2, ArrowRight, AlertTriangle,
   Clock, Grid3X3, Pencil, History, DollarSign, RotateCcw, CalendarClock, Send, CheckCircle2, Trash2,
+  Ticket,
 } from "lucide-react";
 import type {
   SummerApplication,
@@ -30,6 +33,7 @@ import type {
   SummerApplicationEditEntry,
   SummerCourseConfig,
   SummerLocation,
+  SummerPricingConfig,
   SiblingVerificationStatus,
   Enrollment,
 } from "@/types";
@@ -53,24 +57,56 @@ const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Paid":                ["Enrolled"],
 };
 
-function FieldValue({ label, value, mono, copyable }: { label: React.ReactNode; value?: string | null; mono?: boolean; copyable?: boolean }) {
-  const { showToast } = useToast();
-  const [copied, setCopied] = useState(false);
-  if (!value) return null;
+function ReceiptCodeBlock({
+  app,
+  pricingConfig,
+}: {
+  app: SummerApplication;
+  pricingConfig?: SummerPricingConfig | null;
+}) {
+  const { copied, copy } = useCopyToClipboard();
+  const result = suggestReceiptCode(app, pricingConfig ?? null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value);
-    showToast("Copied", "success");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  return (
+    <div className="flex items-start gap-3">
+      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg shrink-0">
+        <Ticket className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-gray-500 dark:text-gray-400">Receipt code</div>
+        {result.code ? (
+          <>
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <span className="font-mono font-semibold text-base text-foreground">{result.code}</span>
+              <button
+                type="button"
+                onClick={() => copy(result.code!)}
+                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
+                title="Copy to clipboard"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{result.reason}</div>
+          </>
+        ) : (
+          <div className="mt-1 text-xs text-muted-foreground italic">{result.hint}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FieldValue({ label, value, mono, copyable }: { label: React.ReactNode; value?: string | null; mono?: boolean; copyable?: boolean }) {
+  const { copied, copy } = useCopyToClipboard();
+  if (!value) return null;
 
   return (
     <div className="flex items-baseline gap-2 py-0.5">
       <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
       <span className={`text-sm text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
       {copyable && (
-        <button onClick={handleCopy} className="p-0.5 text-muted-foreground hover:text-foreground">
+        <button onClick={() => copy(value)} className="p-0.5 text-muted-foreground hover:text-foreground">
           {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
         </button>
       )}
@@ -2563,6 +2599,9 @@ export function SummerApplicationDetailModal({
               </div>
             </div>
           )}
+
+          {/* Receipt code — deterministically suggested from applicant state */}
+          <ReceiptCodeBlock app={app} pricingConfig={config?.pricing_config} />
 
           {/* Application Meta */}
           <div className="flex items-start gap-3">

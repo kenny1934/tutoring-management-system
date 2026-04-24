@@ -2054,6 +2054,19 @@ export interface SummerPricingConfig {
   // Per-lesson rate used for partial-plan apps (lessons_paid < total_lessons).
   // Defaults to 400 on the frontend when absent.
   partial_per_lesson_rate?: number;
+  // Receipt-code suggestions shown in the application detail modal. Keys are
+  // rule identifiers, values are the code strings copied to receipts.
+  receipt_codes?: {
+    partial?: string;
+    new?: string;
+    f1_primary_prospect?: string;
+    returning_secondary?: string;
+    returning_primary_no_prospect?: string;
+  };
+  // Non-Summer enrollment window used to decide whether a linked Secondary
+  // student has already re-enrolled in CSM this academic year.
+  academic_year_start?: string;
+  academic_year_end?: string;
 }
 
 export interface SummerLocation {
@@ -2303,6 +2316,7 @@ export interface LinkedSecondaryStudentInfo {
   student_name: string;
   school_student_id?: string | null;
   home_location?: string | null;
+  has_current_year_regular_enrollment?: boolean | null;
 }
 
 export interface LinkedPrimaryProspectInfo {
