@@ -749,15 +749,15 @@ export default function SummerArrangementPage() {
     [],
   );
 
-  const handleGridDemandBarClick = useCallback((f: DemandBarFilter) => {
+  const handleGridDemandBarClick = useCallback((filter: DemandBarFilter) => {
     setDemandPrefFilter((prev) =>
       prev &&
-      prev.day === f.day &&
-      prev.timeSlot === f.timeSlot &&
-      prev.grade === f.grade &&
-      prev.tier === f.tier
+      prev.day === filter.day &&
+      prev.timeSlot === filter.timeSlot &&
+      prev.grade === filter.grade &&
+      prev.tier === filter.tier
         ? null
-        : f,
+        : filter,
     );
   }, []);
 
@@ -863,8 +863,7 @@ export default function SummerArrangementPage() {
     setSelectedAppId(entry.applicationId);
   }, [activeTab, bumpStudentsTarget, slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
-  // Stats — single pass over slots, memoized so unrelated re-renders don't
-  // re-walk all sessions.
+  // Stats
   const { totalIncomplete, totalTentative, totalConfirmed } = useMemo(() => {
     let tentative = 0;
     let confirmed = 0;

@@ -105,6 +105,16 @@ export function SummerSessionCalendar({
     if (navigateToWeek) setWeekStart(getWeekStartStr(navigateToWeek.date));
   }, [navigateToWeek]);
 
+  // Stable prop for memo'd lesson cards — otherwise a fresh object literal
+  // per render would bust memo on every card.
+  const lessonHighlightTarget = useMemo(
+    () =>
+      navigateToWeek?.highlightSessionId
+        ? { sessionId: navigateToWeek.highlightSessionId, seq: navigateToWeek.seq }
+        : null,
+    [navigateToWeek?.highlightSessionId, navigateToWeek?.seq],
+  );
+
   // Day-visibility toggle: persists across week nav, resets when the set of
   // open days changes (e.g. location switch). openDays is a fresh array on
   // every parent render, so key the effect off a stable joined string to
@@ -429,14 +439,7 @@ export function SummerSessionCalendar({
                           onOpenSessionPopover={handleOpenSessionPopover}
                           onDeleted={handleCreated}
                           totalLessons={totalLessons}
-                          highlightTarget={
-                            navigateToWeek?.highlightSessionId
-                              ? {
-                                  sessionId: navigateToWeek.highlightSessionId,
-                                  seq: navigateToWeek.seq,
-                                }
-                              : null
-                          }
+                          highlightTarget={lessonHighlightTarget}
                         />
                       ))}
                       {isEmptyCell && (
