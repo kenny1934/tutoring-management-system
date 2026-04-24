@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.62](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.62) (2026-04-25)
+
+### New Features
+
+* **Receipt code suggestion on application modals**: the Fee section of the application detail modal now proposes a receipt code with a copy button next to it, matching the existing discount-code copy flow.
+* **Discount tier and receipt code breakdowns on applications stats**: the applications stats view now shows how applications break down by discount tier and by receipt code, alongside the existing strips.
+* **Grade mismatch warning on placement**: dropping a student into a slot whose grade doesn't match the student's grade prompts for confirmation before placing, so mixed-grade assignments stay intentional.
+
+### Performance
+
+* **Snappier arrangement page**: skeleton placeholders now cover the loading windows on the slot grid and calendar, polling pauses on tabs you aren't viewing, and the grid only re-renders cells whose state actually changed during drag or edit. Large timetables feel noticeably faster during active edits.
+
 ## [2.0.61](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.61) (2026-04-24)
 
 ### New Features
