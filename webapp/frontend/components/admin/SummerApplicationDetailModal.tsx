@@ -57,6 +57,20 @@ const NEXT_STATUS_MAP: Record<string, string[]> = {
   "Paid":                ["Enrolled"],
 };
 
+function CopyButton({ value, className = "p-0.5", iconClassName = "h-3 w-3" }: { value: string; className?: string; iconClassName?: string }) {
+  const { copied, copy } = useCopyToClipboard();
+  return (
+    <button
+      type="button"
+      onClick={() => copy(value)}
+      className={cn(className, "text-muted-foreground hover:text-foreground")}
+      title="Copy to clipboard"
+    >
+      {copied ? <Check className={cn(iconClassName, "text-green-500")} /> : <Copy className={iconClassName} />}
+    </button>
+  );
+}
+
 function ReceiptCodeBlock({
   app,
   pricingConfig,
@@ -2566,9 +2580,10 @@ export function SummerApplicationDetailModal({
                   )}
                 </div>
                 {effectiveDiscount.best ? (
-                  <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  <div className="mt-1 flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
                     <span className="font-mono font-semibold">{effectiveDiscount.best.code}</span>
-                    <span className="text-muted-foreground"> · {effectiveDiscount.best.name_en}</span>
+                    <CopyButton value={effectiveDiscount.best.code} />
+                    <span className="text-muted-foreground">· {effectiveDiscount.best.name_en}</span>
                   </div>
                 ) : (
                   <div className="mt-1 text-xs text-muted-foreground">No discount applied · pays full price</div>
