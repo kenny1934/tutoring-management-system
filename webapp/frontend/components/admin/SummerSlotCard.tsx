@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_COLORS, sessionStatusBg } from "@/lib/summer-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -57,6 +57,13 @@ export function SummerSlotCard({
   const rootRef = useRef<HTMLDivElement>(null);
   const isFull = slot.session_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.session_count / slot.max_students : 0;
+  // Sessions whose student grade doesn't match the slot's grade. Placement
+  // is allowed, but Find Slot/auto-suggest/grade stats treat slot.grade as
+  // authoritative, so surface the divergence.
+  const mismatchedGrades = slot.grade
+    ? Array.from(new Set(slot.sessions.filter((s) => s.grade && s.grade !== slot.grade).map((s) => s.grade)))
+    : [];
+  const hasGradeMismatch = mismatchedGrades.length > 0;
 
   // Search-jump highlight. Deps exclude slot.sessions on purpose: SWR
   // revalidates every 30s and returns a fresh array — including it would
@@ -166,6 +173,15 @@ export function SummerSlotCard({
         >
           {slot.course_type || "·"}
         </button>
+
+        {hasGradeMismatch && (
+          <span
+            title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${slot.grade} slot`}
+            className="shrink-0 flex items-center"
+          >
+            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+          </span>
+        )}
 
         <div className="flex-1" />
 
@@ -287,6 +303,7 @@ export function SummerSlotCard({
             const nameTooltip = nameDiverges
               ? `Application form name: ${p.student_name}`
               : "View application details";
+            const gradeMismatch = !!slot.grade && !!p.grade && p.grade !== slot.grade;
             return (
             <div
               key={p.id}
@@ -309,6 +326,14 @@ export function SummerSlotCard({
                   onNameClick={() => onClickStudent?.(p.application_id)}
                 />
               </div>
+              {gradeMismatch && (
+                <span
+                  title={`${p.grade} student in a ${slot.grade} slot`}
+                  className="shrink-0 flex items-center"
+                >
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                </span>
+              )}
               <WorkflowStatusIcon status={p.application_status} />
               <button
                 onClick={() => onRemoveSession(p.id, p.student_name)}

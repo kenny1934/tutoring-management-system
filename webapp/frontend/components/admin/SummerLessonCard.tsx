@@ -131,6 +131,24 @@ export function SummerLessonCard({
   );
   const hasMixedSessions = divergentLessonNumbers.length > 0;
 
+  // Sessions whose student grade doesn't match the lesson's slot grade.
+  // Mirrors SummerSlotCard — ad-hoc Make-up lessons have no canonical grade
+  // so divergence there is noise.
+  const mismatchedGrades = useMemo(
+    () =>
+      !isAdhoc && lesson.grade
+        ? Array.from(
+            new Set(
+              activeSessions
+                .filter((s) => s.grade && s.grade !== lesson.grade)
+                .map((s) => s.grade),
+            ),
+          )
+        : [],
+    [isAdhoc, lesson.grade, activeSessions],
+  );
+  const hasGradeMismatch = mismatchedGrades.length > 0;
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!canDrop) return;
     e.preventDefault();
@@ -330,6 +348,15 @@ export function SummerLessonCard({
                 {lesson.course_type}
               </span>
             )}
+
+            {hasGradeMismatch && (
+              <span
+                title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${lesson.grade} lesson`}
+                className="shrink-0 flex items-center"
+              >
+                <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+              </span>
+            )}
           </>
         )}
 
@@ -393,6 +420,11 @@ export function SummerLessonCard({
               !isResolved &&
               s.lesson_number != null &&
               s.lesson_number !== lesson.lesson_number;
+            const gradeMismatch =
+              !isAdhoc &&
+              !!lesson.grade &&
+              !!s.grade &&
+              s.grade !== lesson.grade;
             // Prefer the linked CSM student's canonical name; surface the
             // self-filled form value as a tooltip when the two diverge so
             // admins can still spot mismatches.
@@ -455,6 +487,14 @@ export function SummerLessonCard({
                   onNameClick={() => onClickStudent?.(s.application_id)}
                 />
               </div>
+              {gradeMismatch && (
+                <span
+                  title={`${s.grade} student in a ${lesson.grade} lesson`}
+                  className="shrink-0 flex items-center"
+                >
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                </span>
+              )}
               <WorkflowStatusIcon status={s.application_status} />
               {isDivergent && (
                 <button

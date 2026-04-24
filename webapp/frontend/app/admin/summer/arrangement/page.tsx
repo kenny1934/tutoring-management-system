@@ -109,6 +109,13 @@ export default function SummerArrangementPage() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
+  const [pendingGradeMismatch, setPendingGradeMismatch] = useState<{
+    appId: number; slotId: number; studentName: string; appGrade: string; slotGrade: string;
+  } | null>(null);
+  const [pendingCalendarGradeMismatch, setPendingCalendarGradeMismatch] = useState<{
+    applicationId: number; slotId: number; lessonId: number; lessonNumber?: number | null;
+    studentName: string; appGrade: string; slotGrade: string;
+  } | null>(null);
   const [findSlotTarget, setFindSlotTarget] = useState<{
     applicationId: number; studentName: string; grade: string;
     lessonNumber: number; afterDate?: string; beforeDate?: string;
@@ -491,10 +498,26 @@ export default function SummerArrangementPage() {
     });
   }, [slots]);
 
-  // Slot Setup drop → open mode selector
+  // Slot Setup drop → open mode selector. If the student's grade differs from
+  // the slot's grade, interrupt with a confirm first — placement is allowed
+  // (real tutors sometimes absorb a neighbour-grade student), but several
+  // views (Find Slot, auto-suggest, grade stats) treat the slot's grade as
+  // authoritative, so admins should know before proceeding.
   const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
+    const app = unassigned?.find((a) => a.id === applicationId);
+    const slot = slots?.find((s) => s.id === slotId);
+    if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
+      setPendingGradeMismatch({
+        appId: applicationId,
+        slotId,
+        studentName: app.student_name,
+        appGrade: app.grade,
+        slotGrade: slot.grade,
+      });
+      return;
+    }
     setPendingDrop({ appId: applicationId, slotId });
-  }, []);
+  }, [unassigned, slots]);
 
   // Mode selector confirmed → create sessions
   const handleConfirmPlacement = useCallback(async (mode: "all" | "first_half" | "single") => {
@@ -515,7 +538,7 @@ export default function SummerArrangementPage() {
   // Calendar drop → single session for a specific lesson. `lessonNumber` is
   // supplied only by ad-hoc Make-up Slot drops (collected via the in-card
   // prompt); regular drops leave it undefined and inherit from SummerLesson.
-  const handleDropStudentCalendar = useCallback(async (
+  const executeCalendarDrop = useCallback(async (
     applicationId: number,
     slotId: number,
     lessonId: number,
@@ -537,6 +560,26 @@ export default function SummerArrangementPage() {
       showToast(formatError(e, "Failed to place student"), "error");
     }
   }, [refreshAll, showToast]);
+
+  const handleDropStudentCalendar = useCallback((
+    applicationId: number,
+    slotId: number,
+    lessonId: number,
+    lessonNumber?: number | null,
+  ) => {
+    const app = unassigned?.find((a) => a.id === applicationId);
+    const slot = slots?.find((s) => s.id === slotId);
+    if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
+      setPendingCalendarGradeMismatch({
+        applicationId, slotId, lessonId, lessonNumber,
+        studentName: app.student_name,
+        appGrade: app.grade,
+        slotGrade: slot.grade,
+      });
+      return;
+    }
+    void executeCalendarDrop(applicationId, slotId, lessonId, lessonNumber);
+  }, [unassigned, slots, executeCalendarDrop]);
 
   // Slot Setup removal — cascade delete all sessions for student+slot
   const handleRemoveSession = useCallback((sessionId: number, studentName?: string) => {
@@ -1117,6 +1160,51 @@ export default function SummerArrangementPage() {
           config={activeConfig ?? null}
           baseFee={activeConfig?.pricing_config?.base_fee}
           onNavigateToLesson={handleNavigateToLesson}
+        />
+
+        {/* Grade mismatch warning — shown before placement mode selector when
+            the student's grade differs from the slot's grade. */}
+        <ConfirmDialog
+          isOpen={!!pendingGradeMismatch}
+          onConfirm={() => {
+            if (!pendingGradeMismatch) return;
+            const { appId, slotId } = pendingGradeMismatch;
+            setPendingGradeMismatch(null);
+            setPendingDrop({ appId, slotId });
+          }}
+          onCancel={() => setPendingGradeMismatch(null)}
+          title="Different grade"
+          message={pendingGradeMismatch
+            ? `Place ${pendingGradeMismatch.studentName} (${pendingGradeMismatch.appGrade}) in a ${pendingGradeMismatch.slotGrade} slot?`
+            : ""}
+          consequences={pendingGradeMismatch
+            ? [`The slot will stay in the ${pendingGradeMismatch.slotGrade} row of the grid`]
+            : []}
+          confirmText="Place anyway"
+          variant="warning"
+        />
+
+        {/* Grade mismatch warning — calendar drop path. Single-lesson drops
+            bypass the placement-mode modal and go straight to createSession,
+            so we gate that call on a confirm too. */}
+        <ConfirmDialog
+          isOpen={!!pendingCalendarGradeMismatch}
+          onConfirm={() => {
+            if (!pendingCalendarGradeMismatch) return;
+            const { applicationId, slotId, lessonId, lessonNumber } = pendingCalendarGradeMismatch;
+            setPendingCalendarGradeMismatch(null);
+            void executeCalendarDrop(applicationId, slotId, lessonId, lessonNumber);
+          }}
+          onCancel={() => setPendingCalendarGradeMismatch(null)}
+          title="Different grade"
+          message={pendingCalendarGradeMismatch
+            ? `Place ${pendingCalendarGradeMismatch.studentName} (${pendingCalendarGradeMismatch.appGrade}) in a ${pendingCalendarGradeMismatch.slotGrade} lesson?`
+            : ""}
+          consequences={pendingCalendarGradeMismatch
+            ? [`The slot will stay in the ${pendingCalendarGradeMismatch.slotGrade} row of the grid`]
+            : []}
+          confirmText="Place anyway"
+          variant="warning"
         />
 
         {/* Placement mode selector */}
