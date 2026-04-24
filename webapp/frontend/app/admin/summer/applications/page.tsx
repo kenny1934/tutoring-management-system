@@ -1508,6 +1508,8 @@ export default function SummerApplicationsPage() {
               ) : viewMode === "stats" ? (
                 <SummerApplicationStats
                   applications={applications ?? []}
+                  config={activeConfig}
+                  discountByAppId={discountByAppId}
                   filters={{
                     onStatusFilter: (status) => { setStatusFilter(status); setViewMode("list"); },
                     onGradeFilter: (grade) => { setGradeFilter(grade); setViewMode("list"); },

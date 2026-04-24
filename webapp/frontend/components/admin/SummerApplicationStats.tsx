@@ -8,7 +8,9 @@ import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
 import { Users, User, Send, Loader2, ExternalLink } from "lucide-react";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import type { SummerApplication, SummerMarketingSnapshotResponse } from "@/types";
+import type { SummerApplication, SummerCourseConfig, SummerMarketingSnapshotResponse } from "@/types";
+import type { DiscountResult } from "@/lib/summer-discounts";
+import { suggestReceiptCode } from "@/lib/summer-receipt-codes";
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -36,6 +38,46 @@ const SESSIONS_PILL: Record<string, string> = {
 };
 
 // ── Shared components ──────────────────────────────────────────────────────
+
+function BreakdownPill({
+  label,
+  count,
+  tone = "default",
+  labelMono = false,
+}: {
+  label: string;
+  count: number;
+  tone?: "default" | "emerald" | "blue" | "amber";
+  labelMono?: boolean;
+}) {
+  const toneClasses: Record<string, { outer: string; inner: string }> = {
+    default: {
+      outer: "bg-gray-100 dark:bg-gray-800 text-muted-foreground",
+      inner: "bg-gray-200/70 dark:bg-gray-700 text-foreground",
+    },
+    emerald: {
+      outer: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+      inner: "bg-emerald-200/60 dark:bg-emerald-500/25 text-emerald-900 dark:text-emerald-100",
+    },
+    blue: {
+      outer: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+      inner: "bg-blue-200/60 dark:bg-blue-500/25 text-blue-900 dark:text-blue-100",
+    },
+    amber: {
+      outer: "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
+      inner: "bg-amber-200/60 dark:bg-amber-500/25 text-amber-900 dark:text-amber-100",
+    },
+  };
+  const t = toneClasses[tone];
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 text-[11px] pl-2 pr-1 py-0.5 rounded-full", t.outer)}>
+      <span className={cn(labelMono && "font-mono font-medium")}>{label}</span>
+      <span className={cn("inline-flex items-center justify-center min-w-[1.375rem] h-[18px] px-1.5 rounded-full text-[11px] font-semibold tabular-nums", t.inner)}>
+        {count}
+      </span>
+    </span>
+  );
+}
 
 function BarRow({ label, labelClass, barColor, count, total, maxCount, labelWidth = "w-20", onClick }: {
   label: string;
@@ -243,9 +285,11 @@ interface StatsFilterHandler {
 interface Props {
   applications: SummerApplication[];
   filters?: StatsFilterHandler;
+  config?: SummerCourseConfig | null;
+  discountByAppId?: Map<number, DiscountResult>;
 }
 
-export function SummerApplicationStats({ applications, filters }: Props) {
+export function SummerApplicationStats({ applications, filters, config, discountByAppId }: Props) {
   const activeApps = useMemo(
     () => applications.filter((a) => !EXIT_STATUSES.has(a.application_status)),
     [applications],
@@ -342,6 +386,48 @@ export function SummerApplicationStats({ applications, filters }: Props) {
     const grouped = activeApps.length - solo;
     return { solo, grouped, groupCount: groupIds.size, discountEligible, needMore };
   }, [activeApps]);
+
+  // ── Discount tier breakdown (for Buddy Groups card) ──
+  // Counts each active app by the tier it currently locks. Partial plans are
+  // ineligible, so they don't appear; "None" collects non-partial apps that
+  // didn't meet any tier. `nearMiss` counts applicants whose group is exactly
+  // one member short of a better tier — matches the applicant unit of the
+  // neighbouring pills.
+  const discountBreakdown = useMemo(() => {
+    if (!discountByAppId || discountByAppId.size === 0) return null;
+    const counts = new Map<string, number>();
+    let nearMiss = 0;
+    let totalSaved = 0;
+    for (const app of activeApps) {
+      const r = discountByAppId.get(app.id);
+      if (!r) continue;
+      const key = r.best?.code ?? "None";
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (r.nearMiss && r.nearMiss.neededMembers === 1) nearMiss++;
+      totalSaved += r.amount;
+    }
+    const entries = Array.from(counts.entries()).sort((a, b) => {
+      if (a[0] === "None") return 1;
+      if (b[0] === "None") return -1;
+      return b[1] - a[1];
+    });
+    return { entries, nearMiss, totalSaved };
+  }, [activeApps, discountByAppId]);
+
+  // ── Receipt code breakdown (for Branch Origin card) ──
+  const receiptBreakdown = useMemo(() => {
+    const pricing = config?.pricing_config;
+    if (!pricing?.receipt_codes) return null;
+    const counts = new Map<string, number>();
+    let unresolved = 0;
+    for (const app of activeApps) {
+      const r = suggestReceiptCode(app, pricing);
+      if (r.code) counts.set(r.code, (counts.get(r.code) ?? 0) + 1);
+      else unresolved++;
+    }
+    const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+    return { entries, unresolved };
+  }, [activeApps, config]);
 
   // ── Submission timeline (daily, continuous) ──
   const timelineData = useMemo(() => {
@@ -481,6 +567,19 @@ export function SummerApplicationStats({ applications, filters }: Props) {
         ) : (
           <div className="text-sm text-muted-foreground py-6 text-center">No active applications</div>
         )}
+        {receiptBreakdown && (receiptBreakdown.entries.length > 0 || receiptBreakdown.unresolved > 0) && (
+          <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Receipt codes</div>
+            <div className="flex flex-wrap gap-1.5">
+              {receiptBreakdown.entries.map(([code, count]) => (
+                <BreakdownPill key={code} label={code} count={count} tone="blue" labelMono />
+              ))}
+              {receiptBreakdown.unresolved > 0 && (
+                <BreakdownPill label="No code" count={receiptBreakdown.unresolved} />
+              )}
+            </div>
+          </div>
+        )}
       </ChartCard>
 
       <ChartCard title="Preferred Location" badge={`${locationData.total} active`}>
@@ -530,6 +629,35 @@ export function SummerApplicationStats({ applications, filters }: Props) {
             colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
             onClick={filters?.onBuddyFilter ? () => filters.onBuddyFilter!("below") : undefined} />
         </div>
+        {discountBreakdown && discountBreakdown.entries.length > 0 && (
+          <div className="pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Locked discount tier</span>
+              {discountBreakdown.totalSaved > 0 && (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  −${discountBreakdown.totalSaved.toLocaleString()} total
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {discountBreakdown.entries.map(([code, count]) => {
+                const isNone = code === "None";
+                return (
+                  <BreakdownPill
+                    key={code}
+                    label={isNone ? "No discount" : code}
+                    count={count}
+                    tone={isNone ? "default" : "emerald"}
+                    labelMono={!isNone}
+                  />
+                );
+              })}
+              {discountBreakdown.nearMiss > 0 && (
+                <BreakdownPill label="Near miss" count={discountBreakdown.nearMiss} tone="amber" />
+              )}
+            </div>
+          </div>
+        )}
       </ChartCard>
     </div>
   );
