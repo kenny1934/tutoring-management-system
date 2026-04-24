@@ -107,6 +107,11 @@ export default function SummerArrangementPage() {
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [workloadOpen, setWorkloadOpen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  // Defer the first mount of the mobile unassigned panel so desktop sessions
+  // don't pay for a never-visible second copy. The outer slide container stays
+  // mounted for the close animation once the panel has been opened once.
+  const hasOpenedMobileRef = useRef(false);
+  if (mobilePanelOpen) hasOpenedMobileRef.current = true;
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
   const [pendingGradeMismatch, setPendingGradeMismatch] = useState<
@@ -858,16 +863,23 @@ export default function SummerArrangementPage() {
     setSelectedAppId(entry.applicationId);
   }, [activeTab, bumpStudentsTarget, slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
-  // Stats
-  const totalIncomplete = unassigned?.length ?? 0;
-  const totalTentative = slots?.reduce(
-    (sum, s) => sum + s.sessions.filter((p) => p.session_status === "Tentative").length,
-    0
-  ) ?? 0;
-  const totalConfirmed = slots?.reduce(
-    (sum, s) => sum + s.sessions.filter((p) => p.session_status === "Confirmed").length,
-    0
-  ) ?? 0;
+  // Stats — single pass over slots, memoized so unrelated re-renders don't
+  // re-walk all sessions.
+  const { totalIncomplete, totalTentative, totalConfirmed } = useMemo(() => {
+    let tentative = 0;
+    let confirmed = 0;
+    for (const s of slots ?? []) {
+      for (const p of s.sessions) {
+        if (p.session_status === "Tentative") tentative++;
+        else if (p.session_status === "Confirmed") confirmed++;
+      }
+    }
+    return {
+      totalIncomplete: unassigned?.length ?? 0,
+      totalTentative: tentative,
+      totalConfirmed: confirmed,
+    };
+  }, [slots, unassigned]);
 
   if (!canView) {
     return (
@@ -1151,22 +1163,24 @@ export default function SummerArrangementPage() {
                 "fixed top-14 right-0 bottom-0 w-[min(20rem,85vw)] z-50 shadow-xl transition-transform duration-300 ease-out",
                 mobilePanelOpen ? "translate-x-0" : "translate-x-full"
               )}>
-                <SummerUnassignedPanel
-                  className="w-full h-full rounded-none border-0 border-l"
-                  hideCollapse
-                  applications={panelApplications}
-                  grades={grades}
-                  loading={panelLoading}
-                  onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  totalLessons={activeConfig?.total_lessons ?? 8}
-                  onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
-                  prefFilter={demandPrefFilter}
-                  onClearPrefFilter={() => setDemandPrefFilter(null)}
-                  statusFilter={demandPrefFilter ? null : statusFilter}
-                  onClearStatusFilter={() => setStatusFilter(null)}
-                />
+                {hasOpenedMobileRef.current && (
+                  <SummerUnassignedPanel
+                    className="w-full h-full rounded-none border-0 border-l"
+                    hideCollapse
+                    applications={panelApplications}
+                    grades={grades}
+                    loading={panelLoading}
+                    onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    totalLessons={activeConfig?.total_lessons ?? 8}
+                    onSuggestStudent={(id, name) => { setSuggestForStudent({ id, name }); setMobilePanelOpen(false); }}
+                    prefFilter={demandPrefFilter}
+                    onClearPrefFilter={() => setDemandPrefFilter(null)}
+                    statusFilter={demandPrefFilter ? null : statusFilter}
+                    onClearStatusFilter={() => setStatusFilter(null)}
+                  />
+                )}
               </div>
             </div>
           </>
