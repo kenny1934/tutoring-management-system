@@ -48,7 +48,6 @@ interface SummerArrangementGridProps {
     scrollSlotId: number | null;
     seq: number;
   } | null;
-  /** Mobile tap-to-place: forwarded to every cell. */
   pendingPlacementAppId?: number | null;
 }
 

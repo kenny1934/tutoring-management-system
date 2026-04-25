@@ -48,9 +48,7 @@ interface SummerSessionCalendarProps {
     seq: number;
     highlightSessionId?: number | null;
   } | null;
-  /** Mobile tap-to-place: forwarded to every lesson card. */
   pendingPlacementAppId?: number | null;
-  /** Toast surface for tap-to-place rejections (full / cancelled). */
   onTapPlaceFailed?: (reason: string) => void;
 }
 

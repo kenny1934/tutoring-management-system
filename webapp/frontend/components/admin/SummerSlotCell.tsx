@@ -165,8 +165,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
     [slots, onDropStudent, onDropFailed]
   );
 
-  // Mobile tap-to-place: cell-level tap (on empty area, not on a slot card or
-  // the Add-slot button) mirrors the cell-level drop fallback.
+  // Cell-level tap mirrors the cell-level drop fallback (first non-full slot).
   const tapPlaceActive = pendingPlacementAppId != null;
   const handleTapPlace = useCallback(
     (e: React.MouseEvent) => {

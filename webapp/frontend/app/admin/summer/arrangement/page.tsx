@@ -543,6 +543,9 @@ export default function SummerArrangementPage() {
   // neighbour-grade student), but Find Slot / auto-suggest / grid grouping
   // treat slot.grade as authoritative — prompt first so admins know.
   const handleDropStudent = useCallback((applicationId: number, slotId: number) => {
+    // Tap-to-place is single-shot: consume the selection now so a second tap
+    // during the placement-mode modal or async createSession can't fire again.
+    setPendingPlacementAppId(null);
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
@@ -566,7 +569,6 @@ export default function SummerArrangementPage() {
     setPendingDrop(null);
     try {
       await summerAPI.createSession({ application_id: appId, slot_id: slotId, mode });
-      setPendingPlacementAppId(null);
       refreshAll();
       if (mode === "single") {
         showToast("Lessons ready — switch to Calendar to place individually", "success");
@@ -596,7 +598,6 @@ export default function SummerArrangementPage() {
     try {
       const result = await confirmDuplicateOrRetry(trySave);
       if (result === DUPLICATE_CANCELLED) return;
-      setPendingPlacementAppId(null);
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
@@ -609,6 +610,9 @@ export default function SummerArrangementPage() {
     lessonId: number,
     lessonNumber?: number | null,
   ) => {
+    // See handleDropStudent: consume tap-to-place selection at entry so the
+    // async createSession path can't be tapped twice for the same student.
+    setPendingPlacementAppId(null);
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
@@ -1154,31 +1158,27 @@ export default function SummerArrangementPage() {
               </div>
             </div>
 
-            {/* Mobile: floating placing pill — visible while a tap-to-place
-                selection is active. Sits above the Unassigned FAB. */}
-            {pendingPlacementAppId !== null && (() => {
-              const placingApp = unassigned?.find((a) => a.id === pendingPlacementAppId);
-              const rawName = placingApp?.student_name ?? "student";
-              const displayName = rawName.length > 20 ? rawName.slice(0, 19) + "…" : rawName;
-              return (
-                <div
-                  className="md:hidden fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-4 pr-2 py-2 shadow-lg text-sm"
-                  role="status"
-                  aria-live="polite"
+            {/* Mobile placing pill, sits above the Unassigned FAB. */}
+            {pendingPlacementAppId !== null && (
+              <div
+                className="md:hidden fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-4 pr-2 py-2 shadow-lg text-sm max-w-[16rem]"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="font-medium truncate">
+                  Placing {unassigned?.find((a) => a.id === pendingPlacementAppId)?.student_name ?? "student"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPendingPlacementAppId(null)}
+                  className="shrink-0 rounded-full p-1 hover:bg-primary-foreground/20"
+                  title="Cancel placement"
+                  aria-label="Cancel placement"
                 >
-                  <span className="font-medium">Placing {displayName}</span>
-                  <button
-                    type="button"
-                    onClick={() => setPendingPlacementAppId(null)}
-                    className="rounded-full p-1 hover:bg-primary-foreground/20"
-                    title="Cancel placement"
-                    aria-label="Cancel placement"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              );
-            })()}
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Mobile: floating toggle button */}
             <button
