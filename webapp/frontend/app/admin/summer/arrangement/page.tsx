@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3 } from "lucide-react";
+import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
@@ -113,6 +113,10 @@ export default function SummerArrangementPage() {
   const hasOpenedMobileRef = useRef(false);
   if (mobilePanelOpen) hasOpenedMobileRef.current = true;
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  // Mobile tap-to-place: an Unassigned-panel tap on mobile sets this; slot /
+  // lesson cards then accept taps that funnel into the same drop handlers the
+  // drag path uses. Cleared on placement, ✕ on the pill, and tab change.
+  const [pendingPlacementAppId, setPendingPlacementAppId] = useState<number | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ appId: number; slotId: number } | null>(null);
   const [pendingGradeMismatch, setPendingGradeMismatch] = useState<
     | { kind: "slot"; appId: number; slotId: number; studentName: string; appGrade: string; slotGrade: string }
@@ -562,6 +566,7 @@ export default function SummerArrangementPage() {
     setPendingDrop(null);
     try {
       await summerAPI.createSession({ application_id: appId, slot_id: slotId, mode });
+      setPendingPlacementAppId(null);
       refreshAll();
       if (mode === "single") {
         showToast("Lessons ready — switch to Calendar to place individually", "success");
@@ -591,6 +596,7 @@ export default function SummerArrangementPage() {
     try {
       const result = await confirmDuplicateOrRetry(trySave);
       if (result === DUPLICATE_CANCELLED) return;
+      setPendingPlacementAppId(null);
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
@@ -740,9 +746,21 @@ export default function SummerArrangementPage() {
   }, []);
 
   const handleGridDropFailed = useCallback(
-    (reason: string) => showToast(reason, "error"),
+    (reason: string) => {
+      // A tap-to-place rejection clears selection so the user isn't stuck with
+      // the pill after a "slot full" toast. Drag rejections also pass through
+      // here but pendingPlacementAppId is null in that case, so it's a no-op.
+      setPendingPlacementAppId(null);
+      showToast(reason, "error");
+    },
     [showToast],
   );
+
+  // Tab change clears tap-to-place selection — a student selected on the slots
+  // tab shouldn't bleed into the calendar tab's tap targets.
+  useEffect(() => {
+    setPendingPlacementAppId(null);
+  }, [activeTab]);
 
   const handleGridConfirmSlot = useCallback(
     (slotId: number) => setBulkConfirmPending({ slotId }),
@@ -1085,6 +1103,7 @@ export default function SummerArrangementPage() {
                     dragBuddySlots={dragBuddySlots}
                     onDemandBarClick={handleGridDemandBarClick}
                     slotHighlightTarget={slotTarget}
+                    pendingPlacementAppId={pendingPlacementAppId}
                   />
                 ) : activeTab === "calendar" ? (
                   <SummerSessionCalendar
@@ -1100,6 +1119,8 @@ export default function SummerArrangementPage() {
                     onClickStudent={setSelectedAppId}
                     dragPrefs={dragPrefs}
                     navigateToWeek={calendarTarget}
+                    pendingPlacementAppId={pendingPlacementAppId}
+                    onTapPlaceFailed={handleGridDropFailed}
                   />
                 ) : (
                   <SummerStudentLessonsTable
@@ -1132,6 +1153,32 @@ export default function SummerArrangementPage() {
                 />
               </div>
             </div>
+
+            {/* Mobile: floating placing pill — visible while a tap-to-place
+                selection is active. Sits above the Unassigned FAB. */}
+            {pendingPlacementAppId !== null && (() => {
+              const placingApp = unassigned?.find((a) => a.id === pendingPlacementAppId);
+              const rawName = placingApp?.student_name ?? "student";
+              const displayName = rawName.length > 20 ? rawName.slice(0, 19) + "…" : rawName;
+              return (
+                <div
+                  className="md:hidden fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-4 pr-2 py-2 shadow-lg text-sm"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="font-medium">Placing {displayName}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingPlacementAppId(null)}
+                    className="rounded-full p-1 hover:bg-primary-foreground/20"
+                    title="Cancel placement"
+                    aria-label="Cancel placement"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Mobile: floating toggle button */}
             <button
@@ -1169,7 +1216,15 @@ export default function SummerArrangementPage() {
                     applications={panelApplications}
                     grades={grades}
                     loading={panelLoading}
-                    onClickStudent={(id) => { setSelectedAppId(id); setMobilePanelOpen(false); }}
+                    tapMode="select"
+                    onClickStudent={(id) => {
+                      setPendingPlacementAppId(id);
+                      setMobilePanelOpen(false);
+                    }}
+                    onShowDetail={(id) => {
+                      setSelectedAppId(id);
+                      setMobilePanelOpen(false);
+                    }}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     totalLessons={activeConfig?.total_lessons ?? 8}

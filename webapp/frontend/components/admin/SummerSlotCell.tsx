@@ -40,6 +40,9 @@ interface SummerSlotCellProps {
     scrollSlotId: number | null;
     seq: number;
   } | null;
+  /** Mobile tap-to-place: when set, the cell + each inner slot card become
+   * tap targets that fire onDropStudent with this appId. */
+  pendingPlacementAppId?: number | null;
 }
 
 // Solid fill (1st pref) and light fill (2nd pref) for demand sparklines per grade
@@ -78,6 +81,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
   onConfirmSlot,
   onDemandBarClick,
   slotHighlightTarget,
+  pendingPlacementAppId,
 }: SummerSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -161,6 +165,27 @@ export const SummerSlotCell = memo(function SummerSlotCell({
     [slots, onDropStudent, onDropFailed]
   );
 
+  // Mobile tap-to-place: cell-level tap (on empty area, not on a slot card or
+  // the Add-slot button) mirrors the cell-level drop fallback.
+  const tapPlaceActive = pendingPlacementAppId != null;
+  const handleTapPlace = useCallback(
+    (e: React.MouseEvent) => {
+      if (!tapPlaceActive) return;
+      const target = e.target as HTMLElement;
+      // Slot cards and the Add-slot button stop or own this tap themselves.
+      if (target.closest("button")) return;
+      const slot = slots.find((s) => s.session_count < s.max_students);
+      if (slot) {
+        onDropStudent(pendingPlacementAppId!, slot.id);
+      } else if (slots.length > 0) {
+        onDropFailed?.("All slots in this cell are full");
+      } else {
+        onDropFailed?.("Create a slot first");
+      }
+    },
+    [tapPlaceActive, pendingPlacementAppId, slots, onDropStudent, onDropFailed]
+  );
+
   return (
     <div
       className={cn(
@@ -175,6 +200,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
       onDrop={handleDrop}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={tapPlaceActive ? handleTapPlace : undefined}
     >
       {buddyHighlight && (
         <div className="absolute top-0.5 right-0.5 z-10" title="Buddy placed here">
@@ -257,6 +283,8 @@ export const SummerSlotCell = memo(function SummerSlotCell({
               availableTutors={availableTutors}
               onConfirmSlot={onConfirmSlot}
               highlightTarget={slotHighlightTarget}
+              pendingPlacementAppId={pendingPlacementAppId}
+              onTapPlaceFailed={onDropFailed}
             />
           </motion.div>
         ))}

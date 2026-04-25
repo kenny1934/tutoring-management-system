@@ -46,6 +46,11 @@ interface SummerLessonCardProps {
     sessionId: number;
     seq: number;
   } | null;
+  /** Mobile tap-to-place: when set, a tap on the card body funnels into the
+   * same code paths the drop handler uses (real ad-hoc opens the lesson-number
+   * prompt; regular cards call onDropStudent directly). */
+  pendingPlacementAppId?: number | null;
+  onTapPlaceFailed?: (reason: string) => void;
 }
 
 function fillBarColor(pct: number): string {
@@ -66,6 +71,8 @@ export const SummerLessonCard = memo(function SummerLessonCard({
   onDeleted,
   totalLessons = 8,
   highlightTarget,
+  pendingPlacementAppId,
+  onTapPlaceFailed,
 }: SummerLessonCardProps) {
   const { showToast } = useToast();
   const [dragOver, setDragOver] = useState(false);
@@ -173,6 +180,32 @@ export const SummerLessonCard = memo(function SummerLessonCard({
     setPendingAdhocDrop(null);
   };
 
+  const tapPlaceActive = pendingPlacementAppId != null && canDrop;
+  const handleTapPlace = useCallback(
+    (e: React.MouseEvent) => {
+      if (!tapPlaceActive || !onDropStudent) return;
+      const target = e.target as HTMLElement;
+      // Inner controls (delete, expand, lesson-number badge, per-student
+      // buttons) must keep working in tap-place mode.
+      if (target.closest("button, input")) return;
+      e.stopPropagation();
+      if (isFull) {
+        onTapPlaceFailed?.("This lesson is full");
+        return;
+      }
+      if (isCancelled) {
+        onTapPlaceFailed?.("This lesson is cancelled");
+        return;
+      }
+      if (isRealAdhoc) {
+        setPendingAdhocDrop(pendingPlacementAppId!);
+      } else {
+        onDropStudent(pendingPlacementAppId!, lesson.slot_id, lesson.lesson_id);
+      }
+    },
+    [tapPlaceActive, onDropStudent, isFull, isCancelled, isRealAdhoc, pendingPlacementAppId, lesson.slot_id, lesson.lesson_id, onTapPlaceFailed]
+  );
+
   const commitLessonNumber = () => {
     const raw = lessonRef.current?.value ?? "";
     const trimmed = raw.trim();
@@ -248,10 +281,13 @@ export const SummerLessonCard = memo(function SummerLessonCard({
         isCancelled && "opacity-50",
         containerClass,
         isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
+        tapPlaceActive && !isFull && !isCancelled && "ring-2 ring-primary/60 ring-offset-1 cursor-pointer",
+        tapPlaceActive && (isFull || isCancelled) && "ring-2 ring-red-300/60 ring-offset-1 cursor-not-allowed",
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onClick={tapPlaceActive ? handleTapPlace : undefined}
     >
       {/* Row 1: Lesson badge + grade + course type + expand */}
       <div className="flex items-center gap-1 px-1 py-0.5 min-w-0">

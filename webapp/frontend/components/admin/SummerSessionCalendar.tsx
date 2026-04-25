@@ -48,6 +48,10 @@ interface SummerSessionCalendarProps {
     seq: number;
     highlightSessionId?: number | null;
   } | null;
+  /** Mobile tap-to-place: forwarded to every lesson card. */
+  pendingPlacementAppId?: number | null;
+  /** Toast surface for tap-to-place rejections (full / cancelled). */
+  onTapPlaceFailed?: (reason: string) => void;
 }
 
 const DAY_NAME_FROM_NUM: Record<number, string> = {
@@ -86,6 +90,8 @@ export function SummerSessionCalendar({
   onClickStudent,
   dragPrefs,
   navigateToWeek,
+  pendingPlacementAppId,
+  onTapPlaceFailed,
 }: SummerSessionCalendarProps) {
   const { showToast } = useToast();
   const { mutate: globalMutate } = useSWRConfig();
@@ -440,6 +446,8 @@ export function SummerSessionCalendar({
                           onDeleted={handleCreated}
                           totalLessons={totalLessons}
                           highlightTarget={lessonHighlightTarget}
+                          pendingPlacementAppId={pendingPlacementAppId}
+                          onTapPlaceFailed={onTapPlaceFailed}
                         />
                       ))}
                       {isEmptyCell && (

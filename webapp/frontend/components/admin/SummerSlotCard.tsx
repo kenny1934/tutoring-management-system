@@ -19,6 +19,10 @@ interface SummerSlotCardProps {
   onClickStudent?: (applicationId: number) => void;
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
+  /** Mobile tap-to-place: when set, a tap anywhere on the card body funnels
+   * into onDropStudent with this appId (or onTapPlaceFailed when full). */
+  pendingPlacementAppId?: number | null;
+  onTapPlaceFailed?: (reason: string) => void;
   /** Briefly ring + auto-expand the card if one of its sessions matches the
    * given application. The matching student row also rings. Only the card
    * whose id equals `scrollSlotId` scrolls into view. `seq` re-fires the
@@ -47,6 +51,8 @@ export const SummerSlotCard = memo(function SummerSlotCard({
   availableTutors,
   onConfirmSlot,
   highlightTarget,
+  pendingPlacementAppId,
+  onTapPlaceFailed,
 }: SummerSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -107,6 +113,24 @@ export const SummerSlotCard = memo(function SummerSlotCard({
     [isFull, onDropStudent]
   );
 
+  const tapPlaceActive = pendingPlacementAppId != null;
+  const handleTapPlace = useCallback(
+    (e: React.MouseEvent) => {
+      if (!tapPlaceActive) return;
+      // Skip when the tap landed on an inner control (delete, expand,
+      // grade/tutor selects, label edit) so those keep working in tap mode.
+      const target = e.target as HTMLElement;
+      if (target.closest("button, select, input")) return;
+      e.stopPropagation();
+      if (isFull) {
+        onTapPlaceFailed?.("This slot is full");
+        return;
+      }
+      onDropStudent(pendingPlacementAppId!);
+    },
+    [tapPlaceActive, isFull, pendingPlacementAppId, onDropStudent, onTapPlaceFailed]
+  );
+
   const commitMax = () => {
     const val = parseInt(maxRef.current?.value ?? "");
     if (!isNaN(val) && val >= 1 && val <= 20 && val !== slot.max_students) {
@@ -133,11 +157,14 @@ export const SummerSlotCard = memo(function SummerSlotCard({
           : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
-        isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg"
+        isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
+        tapPlaceActive && !isFull && "ring-2 ring-primary/60 ring-offset-1 cursor-pointer",
+        tapPlaceActive && isFull && "ring-2 ring-red-300/60 ring-offset-1 cursor-not-allowed"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onClick={tapPlaceActive ? handleTapPlace : undefined}
     >
       {/* Row 1: Identity + actions */}
       <div className="flex items-center gap-0.5 px-1 py-0.5 min-w-0">
