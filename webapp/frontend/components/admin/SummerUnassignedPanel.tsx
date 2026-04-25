@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef } from "react";
-import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
+import { Search, Users, User, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, CheckCircle2, Clock, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, MIN_GROUP_SIZE, PlacementDotStrip, DAY_ABBREV, getLinkedStudentId } from "@/lib/summer-utils";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
@@ -28,6 +28,12 @@ interface SummerUnassignedPanelProps {
    * than the default incomplete list. Heading + banner reflect the active chip. */
   statusFilter?: string | null;
   onClearStatusFilter?: () => void;
+  /** "detail" (default): card tap opens detail modal. "select": card tap selects
+   * for tap-to-place; a separate info button reveals the detail modal. */
+  tapMode?: "detail" | "select";
+  /** In "select" mode, the per-card info button calls this. Falls back to
+   * `onClickStudent` when omitted. */
+  onShowDetail?: (applicationId: number) => void;
 }
 
 type SortMode = "name" | "grade" | "pref" | "completion";
@@ -81,6 +87,8 @@ export function SummerUnassignedPanel({
   onClearPrefFilter,
   statusFilter,
   onClearStatusFilter,
+  tapMode = "detail",
+  onShowDetail,
 }: SummerUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -374,6 +382,23 @@ export function SummerUnassignedPanel({
                         }
                       />
                     </div>
+                    {/* In tap-to-place mode, the card surface tap selects for
+                        placement, so the detail modal needs its own affordance. */}
+                    {tapMode === "select" && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          (onShowDetail ?? onClickStudent)?.(app.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="shrink-0 p-0.5 -m-0.5 text-muted-foreground/70 hover:text-foreground"
+                        title="View application details"
+                        aria-label="View application details"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {/* Status dot — compact version of the full status badge */}
                     <span
                       className={cn("shrink-0 w-2 h-2 rounded-full", statusColors.dot)}

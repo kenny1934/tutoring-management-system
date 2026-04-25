@@ -48,6 +48,8 @@ interface SummerSessionCalendarProps {
     seq: number;
     highlightSessionId?: number | null;
   } | null;
+  pendingPlacementAppId?: number | null;
+  onTapPlaceFailed?: (reason: string) => void;
 }
 
 const DAY_NAME_FROM_NUM: Record<number, string> = {
@@ -86,6 +88,8 @@ export function SummerSessionCalendar({
   onClickStudent,
   dragPrefs,
   navigateToWeek,
+  pendingPlacementAppId,
+  onTapPlaceFailed,
 }: SummerSessionCalendarProps) {
   const { showToast } = useToast();
   const { mutate: globalMutate } = useSWRConfig();
@@ -440,6 +444,8 @@ export function SummerSessionCalendar({
                           onDeleted={handleCreated}
                           totalLessons={totalLessons}
                           highlightTarget={lessonHighlightTarget}
+                          pendingPlacementAppId={pendingPlacementAppId}
+                          onTapPlaceFailed={onTapPlaceFailed}
                         />
                       ))}
                       {isEmptyCell && (

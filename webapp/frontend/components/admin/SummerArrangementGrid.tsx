@@ -48,6 +48,7 @@ interface SummerArrangementGridProps {
     scrollSlotId: number | null;
     seq: number;
   } | null;
+  pendingPlacementAppId?: number | null;
 }
 
 
@@ -71,6 +72,7 @@ export function SummerArrangementGrid({
   dragBuddySlots,
   onDemandBarClick,
   slotHighlightTarget,
+  pendingPlacementAppId,
 }: SummerArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -255,6 +257,7 @@ export function SummerArrangementGrid({
                   onConfirmSlot={onConfirmSlot}
                   onDemandBarClick={onDemandBarClick}
                   slotHighlightTarget={slotHighlightTarget}
+                  pendingPlacementAppId={pendingPlacementAppId}
                 />
               );
             })}
