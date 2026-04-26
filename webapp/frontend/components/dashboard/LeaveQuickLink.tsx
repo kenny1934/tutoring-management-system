@@ -116,6 +116,30 @@ function classifyRange(
 const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
 
 
+type ExcludedDay = { date: string; reason: "holiday" | "rdo"; label: string };
+
+function ExcludedDaysList({ excluded, header, limit = 4 }: { excluded: ExcludedDay[]; header: string; limit?: number }) {
+  if (excluded.length === 0) return null;
+  return (
+    <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-2 py-1.5 text-[11px] text-blue-700 dark:text-blue-300">
+      <div className="font-medium">{header}</div>
+      <ul className="mt-0.5 ml-2 space-y-0.5">
+        {excluded.slice(0, limit).map(x => (
+          <li key={x.date}>
+            <span className="font-mono">{formatDateCompact(x.date)}</span>
+            {" — "}
+            {x.reason === "holiday" ? x.label : "regular day off"}
+          </li>
+        ))}
+        {excluded.length > limit && (
+          <li className="text-blue-500/80">+{excluded.length - limit} more</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+
 // ─── Balance row ───
 
 function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
@@ -207,8 +231,8 @@ function FileLeaveForm({
   const isSameDay = startDate && endDate && startDate === endDate;
   const hasTimeRange = isSameDay && startTime && endTime;
 
-  // Holidays for the FY containing start_date (and end_date if it differs).
-  // Falls back to current FY before any date is picked so the SWR key is stable.
+  // Two FYs: range can cross fiscal year boundary. Fall back to current FY
+  // before dates are picked so the SWR keys stay stable.
   const today = new Date();
   const currentFY = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
   const fyStart = startDate ? fiscalYearOf(startDate) : currentFY;
@@ -241,14 +265,10 @@ function FileLeaveForm({
     [startDate, endDate, holidayMap, rdos]
   );
 
-  // Auto-calc days: hours-based for single-day-with-times, otherwise count
-  // working days only (skip holidays + RDO so balance isn't wasted on days
-  // the staff wouldn't work anyway).
+  // Multi-day requests count working days only so holidays/RDO don't burn balance.
   useEffect(() => {
     if (daysManual) return;
     if (hasTimeRange) {
-      // Single-day request with a time range. If that day is itself excluded,
-      // setting days to 0 prevents balance waste.
       if (excluded.length > 0) {
         setDays(0);
         return;
@@ -352,25 +372,11 @@ function FileLeaveForm({
         </div>
       </div>
 
-      {/* Holiday / RDO advisory */}
-      {excluded.length > 0 && !daysManual && (
-        <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-2 py-1.5 text-[11px] text-blue-700 dark:text-blue-300">
-          <div className="font-medium">
-            Skipped {excluded.length} day{excluded.length > 1 ? "s" : ""} that won't consume your balance:
-          </div>
-          <ul className="mt-0.5 ml-2 space-y-0.5">
-            {excluded.slice(0, 4).map(x => (
-              <li key={x.date}>
-                <span className="font-mono">{formatDateCompact(x.date)}</span>
-                {" — "}
-                {x.reason === "holiday" ? x.label : "regular day off"}
-              </li>
-            ))}
-            {excluded.length > 4 && (
-              <li className="text-blue-500/80">+{excluded.length - 4} more</li>
-            )}
-          </ul>
-        </div>
+      {!daysManual && (
+        <ExcludedDaysList
+          excluded={excluded}
+          header={`Skipped ${excluded.length} day${excluded.length > 1 ? "s" : ""} that won't consume your balance:`}
+        />
       )}
 
       {/* Balance warning */}
@@ -720,11 +726,8 @@ function RequestCard({
     ? formatDateCompact(request.start_date)
     : `${formatDateCompact(request.start_date)} – ${formatDateCompact(request.end_date)}`;
 
-  // Holiday + RDO context for the expanded card and approve modal. Lazy-fetched
-  // only when the user expands a card or opens the approve dialog, so the
-  // pending-list page doesn't fan out one fetch per card on first paint.
-  // RDO source depends on whether the viewer is admin: own card uses /me/rdo,
-  // admin reviewing someone else's request uses /staff/{id}/rdo.
+  // Lazy-fetch only when the card is expanded or the approve dialog is open,
+  // so the pending list doesn't fan out one fetch per card on first paint.
   const needsContext = expanded || showApproveConfirm;
   const fyStart = fiscalYearOf(request.start_date);
   const fyEnd = fiscalYearOf(request.end_date);
@@ -819,25 +822,10 @@ function RequestCard({
             {request.reviewer_name && (
               <div>{request.status === "approved" ? "Approved" : "Reviewed"} by {request.reviewer_name}</div>
             )}
-            {approveExcluded.length > 0 && (
-              <div className="mt-1.5 rounded border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-1.5 py-1 text-blue-700 dark:text-blue-300">
-                <div className="font-medium">
-                  {approveExcluded.length} non-working day{approveExcluded.length > 1 ? "s" : ""} in range:
-                </div>
-                <ul className="mt-0.5 ml-2 space-y-0.5">
-                  {approveExcluded.slice(0, 4).map(x => (
-                    <li key={x.date}>
-                      <span className="font-mono">{formatDateCompact(x.date)}</span>
-                      {" — "}
-                      {x.reason === "holiday" ? x.label : "regular day off"}
-                    </li>
-                  ))}
-                  {approveExcluded.length > 4 && (
-                    <li className="text-blue-500/80">+{approveExcluded.length - 4} more</li>
-                  )}
-                </ul>
-              </div>
-            )}
+            <ExcludedDaysList
+              excluded={approveExcluded}
+              header={`${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""} in range:`}
+            />
             {approveOverCount && (
               <div className="rounded border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-1.5 py-1 text-amber-700 dark:text-amber-300">
                 Filed {request.days_requested} but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} in range.
@@ -879,25 +867,12 @@ function RequestCard({
         message={
           <div className="space-y-2">
             <p>Approve {request.staff_name || "this"}&apos;s {request.leave_type.name_en} request ({request.days_requested} day{request.days_requested !== 1 ? "s" : ""})?</p>
-            {approveExcluded.length > 0 && (
-              <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-2 py-1.5 text-[11px] text-blue-700 dark:text-blue-300">
-                <div className="font-medium">
-                  Range includes {approveExcluded.length} non-working day{approveExcluded.length > 1 ? "s" : ""}:
-                </div>
-                <ul className="mt-0.5 ml-2 space-y-0.5">
-                  {approveExcluded.slice(0, 5).map(x => (
-                    <li key={x.date}>
-                      <span className="font-mono">{formatDateCompact(x.date)}</span>
-                      {" — "}
-                      {x.reason === "holiday" ? x.label : "regular day off"}
-                    </li>
-                  ))}
-                  {approveExcluded.length > 5 && (
-                    <li className="text-blue-500/80">+{approveExcluded.length - 5} more</li>
-                  )}
-                </ul>
-              </div>
-            )}
+            <ExcludedDaysList
+              excluded={approveExcluded}
+              limit={5}
+              header={`Range includes ${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""}:`}
+            />
+
             {approveOverCount && (
               <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
                 Filed {request.days_requested} day{Number(request.days_requested) !== 1 ? "s" : ""}, but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} fall in the range.
