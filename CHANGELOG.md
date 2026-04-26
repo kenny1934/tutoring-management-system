@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
+
+### New Features
+
+* **Smarter leave day calculation**: the dashboard leave calendar now tints public holidays and shows their names. Filing leave automatically excludes holidays and your own regular days off from the requested days, so a 5-day request that overlaps Labour Day plus a Sunday off submits as 3 days instead of 5. The approve and detail modals list the non-working days inside the range, and warn when the filed days exceed working days.
+
 ## [2.0.62](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.62) (2026-04-25)
 
 ### New Features
