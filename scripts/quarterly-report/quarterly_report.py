@@ -430,9 +430,9 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
                 spreadsheetId=sheet_id,
                 range="'Term Rate'!I3:J3",
                 valueInputOption='RAW',
-                body={'values': [[location_totals["opening"], location_totals["terminated"]]]}
+                body={'values': [[location_totals["opening"], -location_totals["terminated"]]]}
             ).execute()
-            print(f"    Opening={location_totals['opening']}, Terminated={location_totals['terminated']}")
+            print(f"    Opening={location_totals['opening']}, Terminated={-location_totals['terminated']}")
         except Exception as e:
             print(f"  Error writing location totals: {e}")
 
