@@ -375,7 +375,7 @@ function FileLeaveForm({
       {!daysManual && (
         <ExcludedDaysList
           excluded={excluded}
-          header={`Skipped ${excluded.length} day${excluded.length > 1 ? "s" : ""} that won't consume your balance:`}
+          header={`Excluded ${excluded.length} day${excluded.length > 1 ? "s" : ""}, no balance used:`}
         />
       )}
 
