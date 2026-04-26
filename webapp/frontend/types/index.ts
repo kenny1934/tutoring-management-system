@@ -3173,6 +3173,7 @@ export interface ArkLeaveBalance {
 
 export interface ArkLeaveRequest {
   id: number;
+  staff_id: number;
   staff_name: string | null;
   leave_type: ArkLeaveType;
   start_date: string;
@@ -3223,6 +3224,24 @@ export interface ArkCreateOvertime {
   date: string;
   hours: number;
   description?: string | null;
+}
+
+export interface ArkHolidayEntry {
+  id: number;
+  holiday_date: string;
+  name: string;
+  name_zh?: string | null;
+  holiday_type: string;
+  fiscal_year: number;
+  notes?: string | null;
+}
+
+export interface ArkStaffRDO {
+  id: number;
+  staff_id: number;
+  day_of_week: number;
+  effective_from: string;
+  effective_until?: string | null;
 }
 
 export interface ArkStaffLeaveSummary {

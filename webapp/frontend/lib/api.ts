@@ -2180,6 +2180,12 @@ export const arkLeaveAPI = {
     fetchAPI<import("@/types").ArkLeaveRequest>(`/ark/leave/my-requests/${id}/cancel`, { method: "PUT" }),
   getCalendar: (year: number, month: number) =>
     fetchAPI<import("@/types").ArkCalendarEntry[]>(`/ark/leave/calendar?year=${year}&month=${month}`),
+  getHolidays: (fy?: number) =>
+    fetchAPI<import("@/types").ArkHolidayEntry[]>(`/ark/leave/holidays${arkLeaveQuery({ fy })}`),
+  getMyRDO: (asTutorId?: number) =>
+    fetchAPI<import("@/types").ArkStaffRDO[]>(`/ark/leave/my-rdo${arkLeaveQuery({ as_tutor_id: asTutorId })}`),
+  getStaffRDO: (staffId: number) =>
+    fetchAPI<import("@/types").ArkStaffRDO[]>(`/ark/leave/staff-rdo?staff_id=${staffId}`),
   getAllBalancesSummary: (year?: number) =>
     fetchAPI<import("@/types").ArkStaffLeaveSummary[]>(
       `/ark/leave/all-balances-summary${arkLeaveQuery({ year })}`

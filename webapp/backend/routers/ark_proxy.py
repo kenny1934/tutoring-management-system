@@ -198,6 +198,34 @@ async def ark_cancel_request(
     )
 
 
+@router.get("/ark/leave/holidays")
+async def ark_holidays(
+    fy: Optional[int] = Query(None),
+    current_user: Tutor = Depends(get_current_user),
+):
+    """Holiday calendar entries for a fiscal year. Used by the dashboard calendar
+    and the leave request form to flag holiday overlaps."""
+    params = {"fy": fy} if fy else {}
+    return await _ark_request(
+        "GET", "/me/holiday-calendar", current_user.user_email, params=params,
+    )
+
+
+@router.get("/ark/leave/my-rdo")
+async def ark_my_rdo(
+    as_tutor_id: Optional[int] = Query(None),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Current user's own Regular Day Off pattern (or another tutor's, for Super Admin).
+
+    Used by the leave request form to exclude RDO days from the auto-calculated
+    days_requested — staff don't consume balance for days they wouldn't work anyway.
+    """
+    acting_email = _resolve_acting_email(current_user, as_tutor_id, db)
+    return await _ark_request("GET", "/me/rdo", acting_email)
+
+
 # ─── Overtime endpoints ───
 
 @router.get("/ark/overtime/my")
@@ -272,6 +300,19 @@ async def ark_pending_requests(
     return await _ark_request(
         "GET", "/leave-requests", current_user.user_email,
         params={"status": "pending"},
+    )
+
+
+@router.get("/ark/leave/staff-rdo")
+async def ark_staff_rdo(
+    staff_id: int = Query(...),
+    current_user: Tutor = Depends(require_admin_or_supervisor),
+):
+    """Another staff member's Regular Day Off pattern. Admin/supervisor only —
+    used by the approve-leave modal to flag days_requested that includes
+    the applicant's RDO or holidays."""
+    return await _ark_request(
+        "GET", f"/staff/{staff_id}/rdo", current_user.user_email,
     )
 
 

@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ARK_BASE_URL } from "@/config/leave-records";
 import { mutate } from "swr";
 import useSWR from "swr";
-import type { ArkLeaveBalance, ArkLeaveRequest, ArkCalendarEntry, ArkStaffLeaveSummary } from "@/types";
+import type { ArkLeaveBalance, ArkLeaveRequest, ArkCalendarEntry, ArkStaffLeaveSummary, ArkHolidayEntry, ArkStaffRDO } from "@/types";
 import {
   getMonthCalendarDates,
   getMonthName,
@@ -61,6 +61,56 @@ function ArkIcon({ className }: { className?: string }) {
 
 function totalEntitlement(b: ArkLeaveBalance): number {
   return Number(b.entitlement_days) + Number(b.carry_over_days) + Number(b.adjusted_days);
+}
+
+/** ARK fiscal year: April-March, identified by start year. */
+function fiscalYearOf(dateStr: string): number {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+}
+
+/** Is a given staff RDO record active on the supplied date (inclusive). */
+function rdoActiveOn(rdo: ArkStaffRDO, dateStr: string): boolean {
+  if (rdo.effective_from > dateStr) return false;
+  if (rdo.effective_until && rdo.effective_until < dateStr) return false;
+  return true;
+}
+
+/**
+ * Walk every date in [start, end] and split it into "working" vs "excluded"
+ * (excluded = holiday or staff RDO). Used to auto-deduct from days_requested
+ * so staff don't burn balance for days they wouldn't work anyway.
+ */
+function classifyRange(
+  startDate: string,
+  endDate: string,
+  holidayMap: Map<string, ArkHolidayEntry>,
+  rdos: ArkStaffRDO[],
+): { workingDays: number; excluded: { date: string; reason: "holiday" | "rdo"; label: string }[] } {
+  if (!startDate || !endDate || endDate < startDate) {
+    return { workingDays: 0, excluded: [] };
+  }
+  const excluded: { date: string; reason: "holiday" | "rdo"; label: string }[] = [];
+  let workingDays = 0;
+  const cursor = new Date(startDate + "T00:00:00");
+  const stop = new Date(endDate + "T00:00:00");
+  while (cursor <= stop) {
+    const key = toDateString(cursor);
+    const holiday = holidayMap.get(key);
+    if (holiday) {
+      excluded.push({ date: key, reason: "holiday", label: holiday.name });
+    } else {
+      const dow = cursor.getDay();
+      const onRdo = rdos.some(r => r.day_of_week === dow && rdoActiveOn(r, key));
+      if (onRdo) {
+        excluded.push({ date: key, reason: "rdo", label: "Regular day off" });
+      } else {
+        workingDays += 1;
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { workingDays, excluded };
 }
 
 const inputCls = "w-full text-sm border border-[#d4a574]/40 dark:border-[#6b5a4a] rounded-md px-2 py-1.5 bg-[#f0e8dc] dark:bg-[#231d14] text-gray-800 dark:text-gray-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)] focus:outline-none focus:ring-1 focus:ring-[#a0704b]";
@@ -122,14 +172,6 @@ function BalanceRow({ balance }: { balance: ArkLeaveBalance }) {
 
 // ─── Helpers ───
 
-function countDays(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const s = new Date(start + "T00:00:00");
-  const e = new Date(end + "T00:00:00");
-  if (e < s) return 0;
-  return Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
-}
-
 const HOURS_PER_DAY = 9;
 
 function timeToMinutes(t: string): number {
@@ -165,18 +207,60 @@ function FileLeaveForm({
   const isSameDay = startDate && endDate && startDate === endDate;
   const hasTimeRange = isSameDay && startTime && endTime;
 
-  // Auto-calc days from time range or weekday count
+  // Holidays for the FY containing start_date (and end_date if it differs).
+  // Falls back to current FY before any date is picked so the SWR key is stable.
+  const today = new Date();
+  const currentFY = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const fyStart = startDate ? fiscalYearOf(startDate) : currentFY;
+  const fyEnd = endDate ? fiscalYearOf(endDate) : fyStart;
+  const { data: holidaysStartFY } = useSWR(
+    `ark-holidays-${fyStart}`,
+    () => arkLeaveAPI.getHolidays(fyStart),
+    { revalidateOnFocus: false }
+  );
+  const { data: holidaysEndFY } = useSWR(
+    fyEnd !== fyStart ? `ark-holidays-${fyEnd}` : null,
+    () => arkLeaveAPI.getHolidays(fyEnd),
+    { revalidateOnFocus: false }
+  );
+  const { data: rdos } = useSWR(
+    "ark-my-rdo",
+    () => arkLeaveAPI.getMyRDO(),
+    { revalidateOnFocus: false }
+  );
+
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, ArkHolidayEntry>();
+    for (const h of holidaysStartFY ?? []) map.set(h.holiday_date, h);
+    for (const h of holidaysEndFY ?? []) map.set(h.holiday_date, h);
+    return map;
+  }, [holidaysStartFY, holidaysEndFY]);
+
+  const { workingDays, excluded } = useMemo(
+    () => classifyRange(startDate, endDate, holidayMap, rdos ?? []),
+    [startDate, endDate, holidayMap, rdos]
+  );
+
+  // Auto-calc days: hours-based for single-day-with-times, otherwise count
+  // working days only (skip holidays + RDO so balance isn't wasted on days
+  // the staff wouldn't work anyway).
   useEffect(() => {
     if (daysManual) return;
     if (hasTimeRange) {
+      // Single-day request with a time range. If that day is itself excluded,
+      // setting days to 0 prevents balance waste.
+      if (excluded.length > 0) {
+        setDays(0);
+        return;
+      }
       const mins = timeToMinutes(endTime) - timeToMinutes(startTime);
       if (mins > 0) {
         setDays(Math.round((mins / 60 / HOURS_PER_DAY) * 100) / 100);
       }
     } else if (startDate && endDate) {
-      setDays(countDays(startDate, endDate));
+      setDays(workingDays);
     }
-  }, [startDate, endDate, startTime, endTime, daysManual, hasTimeRange]);
+  }, [startDate, endDate, startTime, endTime, daysManual, hasTimeRange, workingDays, excluded.length]);
 
   // Auto-set end date when start changes
   useEffect(() => {
@@ -267,6 +351,27 @@ function FileLeaveForm({
           <input id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional" className={cn(inputCls, "placeholder-gray-400")} />
         </div>
       </div>
+
+      {/* Holiday / RDO advisory */}
+      {excluded.length > 0 && !daysManual && (
+        <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-2 py-1.5 text-[11px] text-blue-700 dark:text-blue-300">
+          <div className="font-medium">
+            Skipped {excluded.length} day{excluded.length > 1 ? "s" : ""} that won't consume your balance:
+          </div>
+          <ul className="mt-0.5 ml-2 space-y-0.5">
+            {excluded.slice(0, 4).map(x => (
+              <li key={x.date}>
+                <span className="font-mono">{formatDateCompact(x.date)}</span>
+                {" — "}
+                {x.reason === "holiday" ? x.label : "regular day off"}
+              </li>
+            ))}
+            {excluded.length > 4 && (
+              <li className="text-blue-500/80">+{excluded.length - 4} more</li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* Balance warning */}
       {remaining !== null && days && Number(days) > remaining && (
@@ -420,6 +525,19 @@ function LeaveCalendarView() {
     { revalidateOnFocus: false }
   );
 
+  // Holidays for the displayed month's fiscal year (Apr-Mar)
+  const displayedFY = month >= 4 ? year : year - 1;
+  const { data: holidays } = useSWR(
+    `ark-holidays-${displayedFY}`,
+    () => arkLeaveAPI.getHolidays(displayedFY),
+    { revalidateOnFocus: false }
+  );
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, ArkHolidayEntry>();
+    for (const h of holidays ?? []) map.set(h.holiday_date, h);
+    return map;
+  }, [holidays]);
+
   // Build a map: dateStr → entries for that day
   const dayMap = useMemo(() => {
     const map = new Map<string, ArkCalendarEntry[]>();
@@ -485,22 +603,27 @@ function LeaveCalendarView() {
             const isToday = isSameDay(date, today);
             const dateKey = toDateString(date);
             const dayEntries = dayMap.get(dateKey) ?? [];
+            const holiday = holidayMap.get(dateKey);
+            const clickable = dayEntries.length > 0 || !!holiday;
 
             return (
               <div
                 key={dateKey}
+                title={holiday ? holiday.name : undefined}
                 className={cn(
                   "h-10 flex flex-col items-center justify-start pt-0.5 relative",
                   !isCurrentMonth && "opacity-30",
-                  dayEntries.length > 0 && "cursor-pointer",
+                  holiday && "bg-red-50 dark:bg-red-900/15",
+                  clickable && "cursor-pointer",
                   selectedDay === dateKey && "bg-[#f5ede3] dark:bg-[#3d3628] rounded",
                 )}
-                onClick={() => dayEntries.length > 0 && setSelectedDay(selectedDay === dateKey ? null : dateKey)}
+                onClick={() => clickable && setSelectedDay(selectedDay === dateKey ? null : dateKey)}
               >
                 <span className={cn(
                   "text-[10px] leading-none",
                   isToday && "font-bold text-[#a0704b]",
-                  !isToday && "text-gray-600 dark:text-gray-400",
+                  !isToday && holiday && "text-red-600 dark:text-red-400 font-medium",
+                  !isToday && !holiday && "text-gray-600 dark:text-gray-400",
                 )}>
                   {date.getDate()}
                 </span>
@@ -514,6 +637,9 @@ function LeaveCalendarView() {
                     )}
                   </div>
                 )}
+                {holiday && dayEntries.length === 0 && (
+                  <div className="w-1 h-1 mt-0.5 rounded-full bg-red-400" />
+                )}
               </div>
             );
           })}
@@ -521,13 +647,24 @@ function LeaveCalendarView() {
       )}
 
       {/* Day detail panel */}
-      {selectedDay && dayMap.get(selectedDay) && (
+      {selectedDay && (dayMap.get(selectedDay) || holidayMap.get(selectedDay)) && (
         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
           <div className="text-[11px] font-medium text-gray-600 dark:text-gray-300 mb-1">
             {new Date(selectedDay + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           </div>
           <div className="space-y-1">
-            {dayMap.get(selectedDay)!.map((e, i) => (
+            {holidayMap.get(selectedDay) && (
+              <div className="flex items-center gap-2 text-[11px]">
+                <div className="w-2 h-2 rounded-full flex-shrink-0 bg-red-400" />
+                <span className="text-red-700 dark:text-red-400 font-medium truncate">
+                  {holidayMap.get(selectedDay)!.name}
+                </span>
+                <span className="text-gray-400 dark:text-gray-500 ml-auto flex-shrink-0">
+                  {holidayMap.get(selectedDay)!.holiday_type === "public_holiday" ? "PH" : "SH"}
+                </span>
+              </div>
+            )}
+            {(dayMap.get(selectedDay) ?? []).map((e, i) => (
               <div key={i} className="flex items-center gap-2 text-[11px]">
                 <div className={cn("w-2 h-2 rounded-full flex-shrink-0", leaveTypeColor(e.leave_type))} />
                 <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{e.staff_name}</span>
@@ -582,6 +719,43 @@ function RequestCard({
   const dateStr = request.start_date === request.end_date
     ? formatDateCompact(request.start_date)
     : `${formatDateCompact(request.start_date)} – ${formatDateCompact(request.end_date)}`;
+
+  // Holiday + RDO context for the expanded card and approve modal. Lazy-fetched
+  // only when the user expands a card or opens the approve dialog, so the
+  // pending-list page doesn't fan out one fetch per card on first paint.
+  // RDO source depends on whether the viewer is admin: own card uses /me/rdo,
+  // admin reviewing someone else's request uses /staff/{id}/rdo.
+  const needsContext = expanded || showApproveConfirm;
+  const fyStart = fiscalYearOf(request.start_date);
+  const fyEnd = fiscalYearOf(request.end_date);
+  const { data: holidaysStartFY } = useSWR(
+    needsContext ? `ark-holidays-${fyStart}` : null,
+    () => arkLeaveAPI.getHolidays(fyStart),
+    { revalidateOnFocus: false }
+  );
+  const { data: holidaysEndFY } = useSWR(
+    needsContext && fyEnd !== fyStart ? `ark-holidays-${fyEnd}` : null,
+    () => arkLeaveAPI.getHolidays(fyEnd),
+    { revalidateOnFocus: false }
+  );
+  const { data: staffRdos } = useSWR(
+    needsContext
+      ? (isAdmin ? `ark-staff-rdo-${request.staff_id}` : "ark-my-rdo")
+      : null,
+    () => (isAdmin ? arkLeaveAPI.getStaffRDO(request.staff_id) : arkLeaveAPI.getMyRDO()),
+    { revalidateOnFocus: false }
+  );
+  const approveHolidayMap = useMemo(() => {
+    const map = new Map<string, ArkHolidayEntry>();
+    for (const h of holidaysStartFY ?? []) map.set(h.holiday_date, h);
+    for (const h of holidaysEndFY ?? []) map.set(h.holiday_date, h);
+    return map;
+  }, [holidaysStartFY, holidaysEndFY]);
+  const { workingDays: approveWorkingDays, excluded: approveExcluded } = useMemo(
+    () => classifyRange(request.start_date, request.end_date, approveHolidayMap, staffRdos ?? []),
+    [request.start_date, request.end_date, approveHolidayMap, staffRdos]
+  );
+  const approveOverCount = Number(request.days_requested) > approveWorkingDays + 0.001;
 
   return (
     <>
@@ -645,6 +819,30 @@ function RequestCard({
             {request.reviewer_name && (
               <div>{request.status === "approved" ? "Approved" : "Reviewed"} by {request.reviewer_name}</div>
             )}
+            {approveExcluded.length > 0 && (
+              <div className="mt-1.5 rounded border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-1.5 py-1 text-blue-700 dark:text-blue-300">
+                <div className="font-medium">
+                  {approveExcluded.length} non-working day{approveExcluded.length > 1 ? "s" : ""} in range:
+                </div>
+                <ul className="mt-0.5 ml-2 space-y-0.5">
+                  {approveExcluded.slice(0, 4).map(x => (
+                    <li key={x.date}>
+                      <span className="font-mono">{formatDateCompact(x.date)}</span>
+                      {" — "}
+                      {x.reason === "holiday" ? x.label : "regular day off"}
+                    </li>
+                  ))}
+                  {approveExcluded.length > 4 && (
+                    <li className="text-blue-500/80">+{approveExcluded.length - 4} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {approveOverCount && (
+              <div className="rounded border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-1.5 py-1 text-amber-700 dark:text-amber-300">
+                Filed {request.days_requested} but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} in range.
+              </div>
+            )}
           </div>
         )}
 
@@ -681,6 +879,31 @@ function RequestCard({
         message={
           <div className="space-y-2">
             <p>Approve {request.staff_name || "this"}&apos;s {request.leave_type.name_en} request ({request.days_requested} day{request.days_requested !== 1 ? "s" : ""})?</p>
+            {approveExcluded.length > 0 && (
+              <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/60 dark:bg-blue-900/15 px-2 py-1.5 text-[11px] text-blue-700 dark:text-blue-300">
+                <div className="font-medium">
+                  Range includes {approveExcluded.length} non-working day{approveExcluded.length > 1 ? "s" : ""}:
+                </div>
+                <ul className="mt-0.5 ml-2 space-y-0.5">
+                  {approveExcluded.slice(0, 5).map(x => (
+                    <li key={x.date}>
+                      <span className="font-mono">{formatDateCompact(x.date)}</span>
+                      {" — "}
+                      {x.reason === "holiday" ? x.label : "regular day off"}
+                    </li>
+                  ))}
+                  {approveExcluded.length > 5 && (
+                    <li className="text-blue-500/80">+{approveExcluded.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {approveOverCount && (
+              <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                Filed {request.days_requested} day{Number(request.days_requested) !== 1 ? "s" : ""}, but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} fall in the range.
+                Approving will deduct {request.days_requested} from balance as filed.
+              </div>
+            )}
             <textarea
               value={reviewerNote}
               onChange={(e) => setReviewerNote(e.target.value)}
