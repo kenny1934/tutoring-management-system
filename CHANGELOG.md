@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.64](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.63...v2.0.64) (2026-04-26)
+
+
+### Bug Fixes
+
+* **leave:** align advisory wording with ARK ([1694192](https://github.com/kenny1934/tutoring-management-system/commit/1694192371b888ac18f5d537e636bcd9d733b3e6))
+* **leave:** hide approve/reject from supervisors and gate advisory while loading ([0fb0d94](https://github.com/kenny1934/tutoring-management-system/commit/0fb0d944f257797011786426e5576bee0fcead23))
+
 ## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
 
 ### New Features
