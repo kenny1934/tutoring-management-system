@@ -416,7 +416,7 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
             continue
 
         enrollment_transfer = closing - opening + termination
-        stats_data.append([tutor_name, opening, enrollment_transfer, termination, closing])
+        stats_data.append([tutor_name, opening, enrollment_transfer, -termination, closing])
 
     cells = write_to_sheet(service, sheet_id, "Term Rate", stats_headers, stats_data,
                            columns=['A', 'B', 'C', 'D', 'E'])
