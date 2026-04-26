@@ -237,17 +237,17 @@ function FileLeaveForm({
   const currentFY = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
   const fyStart = startDate ? fiscalYearOf(startDate) : currentFY;
   const fyEnd = endDate ? fiscalYearOf(endDate) : fyStart;
-  const { data: holidaysStartFY } = useSWR(
+  const { data: holidaysStartFY, error: holStartErr } = useSWR(
     `ark-holidays-${fyStart}`,
     () => arkLeaveAPI.getHolidays(fyStart),
     { revalidateOnFocus: false }
   );
-  const { data: holidaysEndFY } = useSWR(
+  const { data: holidaysEndFY, error: holEndErr } = useSWR(
     fyEnd !== fyStart ? `ark-holidays-${fyEnd}` : null,
     () => arkLeaveAPI.getHolidays(fyEnd),
     { revalidateOnFocus: false }
   );
-  const { data: rdos } = useSWR(
+  const { data: rdos, error: rdosErr } = useSWR(
     "ark-my-rdo",
     () => arkLeaveAPI.getMyRDO(),
     { revalidateOnFocus: false }
@@ -265,10 +265,19 @@ function FileLeaveForm({
     [startDate, endDate, holidayMap, rdos]
   );
 
-  // Multi-day requests count working days only so holidays/RDO don't burn balance.
+  // Don't auto-set days or show the advisory until holidays + RDOs have loaded:
+  // an in-flight fetch would silently treat missing entries as "no exclusions"
+  // and write the wrong days_requested.
+  const ctxReady = !!(startDate && endDate)
+    && rdos !== undefined
+    && holidaysStartFY !== undefined
+    && (fyEnd === fyStart || holidaysEndFY !== undefined)
+    && !rdosErr && !holStartErr && !holEndErr;
+
   useEffect(() => {
     if (daysManual) return;
     if (hasTimeRange) {
+      if (!ctxReady) return;
       if (excluded.length > 0) {
         setDays(0);
         return;
@@ -277,10 +286,10 @@ function FileLeaveForm({
       if (mins > 0) {
         setDays(Math.round((mins / 60 / HOURS_PER_DAY) * 100) / 100);
       }
-    } else if (startDate && endDate) {
+    } else if (ctxReady) {
       setDays(workingDays);
     }
-  }, [startDate, endDate, startTime, endTime, daysManual, hasTimeRange, workingDays, excluded.length]);
+  }, [ctxReady, startDate, endDate, startTime, endTime, daysManual, hasTimeRange, workingDays, excluded.length]);
 
   // Auto-set end date when start changes
   useEffect(() => {
@@ -372,7 +381,7 @@ function FileLeaveForm({
         </div>
       </div>
 
-      {!daysManual && (
+      {!daysManual && ctxReady && (
         <ExcludedDaysList
           excluded={excluded}
           header={`Excluded ${excluded.length} day${excluded.length > 1 ? "s" : ""}, no balance used:`}
@@ -731,21 +740,23 @@ function RequestCard({
   const needsContext = expanded || showApproveConfirm;
   const fyStart = fiscalYearOf(request.start_date);
   const fyEnd = fiscalYearOf(request.end_date);
-  const { data: holidaysStartFY } = useSWR(
+  const { data: holidaysStartFY, error: holStartErr } = useSWR(
     needsContext ? `ark-holidays-${fyStart}` : null,
     () => arkLeaveAPI.getHolidays(fyStart),
     { revalidateOnFocus: false }
   );
-  const { data: holidaysEndFY } = useSWR(
+  const { data: holidaysEndFY, error: holEndErr } = useSWR(
     needsContext && fyEnd !== fyStart ? `ark-holidays-${fyEnd}` : null,
     () => arkLeaveAPI.getHolidays(fyEnd),
     { revalidateOnFocus: false }
   );
-  const { data: staffRdos } = useSWR(
+  // showStaffName ⇔ "this is someone else's request"; pick the right RDO source
+  // based on that, not on isAdmin (which only governs approve/reject buttons).
+  const { data: staffRdos, error: rdosError } = useSWR(
     needsContext
-      ? (isAdmin ? `ark-staff-rdo-${request.staff_id}` : "ark-my-rdo")
+      ? (showStaffName ? `ark-staff-rdo-${request.staff_id}` : "ark-my-rdo")
       : null,
-    () => (isAdmin ? arkLeaveAPI.getStaffRDO(request.staff_id) : arkLeaveAPI.getMyRDO()),
+    () => (showStaffName ? arkLeaveAPI.getStaffRDO(request.staff_id) : arkLeaveAPI.getMyRDO()),
     { revalidateOnFocus: false }
   );
   const approveHolidayMap = useMemo(() => {
@@ -759,6 +770,13 @@ function RequestCard({
     [request.start_date, request.end_date, approveHolidayMap, staffRdos]
   );
   const approveOverCount = Number(request.days_requested) > approveWorkingDays + 0.001;
+  // Suppress the advisory until all context fetches have settled successfully,
+  // so a transient loading flash doesn't show fewer non-working days than reality.
+  const ctxReady = needsContext
+    && staffRdos !== undefined
+    && holidaysStartFY !== undefined
+    && (fyEnd === fyStart || holidaysEndFY !== undefined)
+    && !rdosError && !holStartErr && !holEndErr;
 
   return (
     <>
@@ -822,14 +840,18 @@ function RequestCard({
             {request.reviewer_name && (
               <div>{request.status === "approved" ? "Approved" : "Reviewed"} by {request.reviewer_name}</div>
             )}
-            <ExcludedDaysList
-              excluded={approveExcluded}
-              header={`${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""} in range:`}
-            />
-            {approveOverCount && (
-              <div className="rounded border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-1.5 py-1 text-amber-700 dark:text-amber-300">
-                Filed {request.days_requested} but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} in range.
-              </div>
+            {ctxReady && (
+              <>
+                <ExcludedDaysList
+                  excluded={approveExcluded}
+                  header={`${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""} in range:`}
+                />
+                {approveOverCount && (
+                  <div className="rounded border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-1.5 py-1 text-amber-700 dark:text-amber-300">
+                    Filed {request.days_requested} but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} in range.
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -867,17 +889,20 @@ function RequestCard({
         message={
           <div className="space-y-2">
             <p>Approve {request.staff_name || "this"}&apos;s {request.leave_type.name_en} request ({request.days_requested} day{request.days_requested !== 1 ? "s" : ""})?</p>
-            <ExcludedDaysList
-              excluded={approveExcluded}
-              limit={5}
-              header={`Range includes ${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""}:`}
-            />
-
-            {approveOverCount && (
-              <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
-                Filed {request.days_requested} day{Number(request.days_requested) !== 1 ? "s" : ""}, but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} fall in the range.
-                Approving will deduct {request.days_requested} from balance as filed.
-              </div>
+            {ctxReady && (
+              <>
+                <ExcludedDaysList
+                  excluded={approveExcluded}
+                  limit={5}
+                  header={`Range includes ${approveExcluded.length} non-working day${approveExcluded.length > 1 ? "s" : ""}:`}
+                />
+                {approveOverCount && (
+                  <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/15 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                    Filed {request.days_requested} day{Number(request.days_requested) !== 1 ? "s" : ""}, but only {approveWorkingDays} working day{approveWorkingDays !== 1 ? "s" : ""} fall in the range.
+                    Approving will deduct {request.days_requested} from balance as filed.
+                  </div>
+                )}
+              </>
             )}
             <textarea
               value={reviewerNote}
@@ -1535,7 +1560,7 @@ export function LeaveQuickLink({ className }: { className?: string }) {
                         key={r.id}
                         request={r}
                         showStaffName={true}
-                        isAdmin={true}
+                        isAdmin={isAdmin}
                         onReview={handleReview}
                         isActing={reviewingId}
                       />
