@@ -107,6 +107,7 @@ from constants import (
     SummerApplicationStatus,
     SummerSiblingVerificationStatus,
     SUMMER_NON_ATTENDING_STATUSES,
+    SUMMER_INACTIVE_PLACEMENT_STATUSES,
     PRIMARY_BRANCH_OPTIONS,
     PRIMARY_BRANCH_CODES,
     PENDING_MAKEUP_STATUSES,
@@ -1627,7 +1628,9 @@ def _build_application_response(
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
     data["sessions"] = sessions
-    data["placed_count"] = len(sessions)
+    data["placed_count"] = sum(
+        1 for s in sessions if s.session_status not in SUMMER_INACTIVE_PLACEMENT_STATUSES
+    )
     data["buddy_code"] = app.buddy_code  # @property, not a column
     data["total_lessons"] = app.config.total_lessons if app.config else app.lessons_paid
 
@@ -2062,7 +2065,8 @@ def update_application(
     # the surplus first.
     if "lessons_paid" in updates and updates["lessons_paid"] is not None:
         placed_count = sum(
-            1 for s in (app.sessions or []) if s.session_status != "Cancelled"
+            1 for s in (app.sessions or [])
+            if s.session_status not in SUMMER_INACTIVE_PLACEMENT_STATUSES
         )
         if updates["lessons_paid"] < placed_count:
             excess = placed_count - updates["lessons_paid"]
@@ -2461,6 +2465,46 @@ def create_session(
     now = hk_now()
     placed_by = admin.tutor_name or "admin"
 
+    # Compute new-session count up front so the cap guard (run after the more
+    # specific dedupe checks below) can reject overshoots in one place. Mode
+    # "single" creates no sessions and is always cap-safe.
+    if data.lesson_id:
+        new_session_count = 1
+    elif data.mode == "single":
+        new_session_count = 0
+    else:
+        _ensure_lessons_for_slot(slot, db)
+        slot_lesson_count = (
+            db.query(SummerLesson)
+            .filter(SummerLesson.slot_id == data.slot_id)
+            .count()
+        )
+        new_session_count = (
+            slot_lesson_count // 2 if data.mode == "first_half" else slot_lesson_count
+        )
+
+    def _check_plan_cap() -> None:
+        plan_cap = app.lessons_paid or 0
+        if plan_cap <= 0 or new_session_count == 0:
+            return
+        active_placed = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.application_id == data.application_id,
+                SummerSession.session_status.not_in(SUMMER_INACTIVE_PLACEMENT_STATUSES),
+            )
+            .count()
+        )
+        projected = active_placed + new_session_count
+        if projected > plan_cap:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Would exceed session plan ({projected} of {plan_cap} paid lessons). "
+                    f"Cancel or reschedule existing placements before adding more."
+                ),
+            )
+
     if data.lesson_id:
         # Calendar drop — per-lesson duplicate + capacity check (single query)
         lesson_sessions = (
@@ -2476,6 +2520,7 @@ def create_session(
         attending = [s for s in lesson_sessions if s.session_status not in SUMMER_NON_ATTENDING_STATUSES]
         if len(attending) >= slot.max_students:
             raise HTTPException(status_code=400, detail="Lesson is full")
+        _check_plan_cap()
 
         # Bulk modes leave lesson_number=None so this guard naturally skips
         # them; it only trips on ad-hoc drops that pass an explicit override.
@@ -2503,6 +2548,7 @@ def create_session(
             raise HTTPException(status_code=400, detail="Slot is full")
         if data.application_id in active_students:
             raise HTTPException(status_code=400, detail="Application already placed in this slot")
+        _check_plan_cap()
 
         # Create sessions based on mode
         _ensure_lessons_for_slot(slot, db)

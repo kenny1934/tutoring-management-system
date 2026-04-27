@@ -14,7 +14,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
@@ -1811,8 +1811,10 @@ export function SummerApplicationDetailModal({
                 const planCurrent = app.lessons_paid ?? planTotal;
                 const isPartialPlan = planCurrent < planTotal;
                 const placedCount = app.placed_count ?? app.sessions?.filter(
-                  (s) => s.session_status !== "Cancelled",
+                  (s) => !isNonAttending(s.session_status),
                 ).length ?? 0;
+                const isOverPlan = placedCount > planCurrent;
+                const isAtPlan = placedCount === planCurrent && placedCount > 0;
                 const planOptions: number[] = [];
                 for (let i = 4; i <= planTotal; i++) planOptions.push(i);
                 const handleSavePlan = async () => {
@@ -1909,6 +1911,26 @@ export function SummerApplicationDetailModal({
                         Partial
                       </span>
                     )}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border",
+                        isOverPlan
+                          ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                          : isAtPlan
+                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                            : "text-muted-foreground bg-muted/40 border-border"
+                      )}
+                      title={
+                        isOverPlan
+                          ? `Over plan — ${placedCount - planCurrent} extra session(s). Cancel or reschedule before adding more.`
+                          : isAtPlan
+                            ? "All paid sessions placed."
+                            : `${planCurrent - placedCount} session(s) still to place.`
+                      }
+                    >
+                      {isOverPlan ? "Over plan: " : "Placed: "}
+                      <span className="tabular-nums">{placedCount} / {planCurrent}</span>
+                    </span>
                     {canEdit && (
                       <button
                         type="button"

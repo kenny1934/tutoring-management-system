@@ -111,6 +111,8 @@ def application_2x(db_session, summer_config):
         preferred_location="MSA",
         application_status="Submitted",
         sessions_per_week=2,
+        # 2x/week pays for two slots × total_lessons; cap guard expects this.
+        lessons_paid=summer_config.total_lessons * 2,
     )
     db_session.add(app)
     db_session.commit()
@@ -299,6 +301,201 @@ class TestSessionCreation:
         )
         assert len(sessions) == 1
         assert sessions[0].lesson_id == lesson.id
+
+
+class TestSessionPlanCap:
+    """Cap guard: create_session must reject placements that would push an
+    application past its session plan (lessons_paid)."""
+
+    def _generate_lessons(self, db_session, slot):
+        from routers.summer_course import _ensure_lessons_for_slot
+        _ensure_lessons_for_slot(slot, db_session)
+        db_session.commit()
+
+    def test_calendar_drop_blocked_when_at_cap(self, db_session, summer_config, slot_type_a, application, admin_tutor):
+        """A calendar drop must fail once placed_count >= lessons_paid."""
+        self._generate_lessons(db_session, slot_type_a)
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+        from fastapi import HTTPException
+
+        # Lower the plan to 1, place once → at cap
+        application.lessons_paid = 1
+        db_session.commit()
+        lessons = (
+            db_session.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot_type_a.id)
+            .order_by(SummerLesson.lesson_date)
+            .all()
+        )
+        admin = db_session.query(Tutor).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lessons[0].id,
+            ),
+            admin=admin,
+            db=db_session,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_session(
+                data=SummerSessionCreate(
+                    application_id=application.id,
+                    slot_id=slot_type_a.id,
+                    lesson_id=lessons[1].id,
+                ),
+                admin=admin,
+                db=db_session,
+            )
+        assert exc_info.value.status_code == 400
+        assert "session plan" in exc_info.value.detail.lower()
+
+    def test_mode_all_blocked_when_overshoots(self, db_session, summer_config, slot_type_a, application, admin_tutor):
+        """Mode 'all' (8 sessions) must fail when plan is 4."""
+        self._generate_lessons(db_session, slot_type_a)
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+        from fastapi import HTTPException
+
+        application.lessons_paid = 4
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+        with pytest.raises(HTTPException) as exc_info:
+            create_session(
+                data=SummerSessionCreate(
+                    application_id=application.id,
+                    slot_id=slot_type_a.id,
+                    mode="all",
+                ),
+                admin=admin,
+                db=db_session,
+            )
+        assert exc_info.value.status_code == 400
+        assert "session plan" in exc_info.value.detail.lower()
+
+    def test_mode_first_half_allowed_at_plan(self, db_session, summer_config, slot_type_a, application, admin_tutor):
+        """Mode 'first_half' (4 sessions) must succeed when plan is exactly 4."""
+        self._generate_lessons(db_session, slot_type_a)
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+
+        application.lessons_paid = 4
+        db_session.commit()
+        admin = db_session.query(Tutor).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                mode="first_half",
+            ),
+            admin=admin,
+            db=db_session,
+        )
+        sessions = (
+            db_session.query(SummerSession)
+            .filter(SummerSession.application_id == application.id)
+            .all()
+        )
+        assert len(sessions) == 4
+
+    def test_mode_single_allowed_when_at_cap(self, db_session, summer_config, slot_type_a, slot_type_b, application, admin_tutor):
+        """Mode 'single' creates 0 sessions and must always be allowed."""
+        self._generate_lessons(db_session, slot_type_a)
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+
+        # Place all 8 lessons → at cap (default plan = 8)
+        admin = db_session.query(Tutor).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                mode="all",
+            ),
+            admin=admin,
+            db=db_session,
+        )
+
+        # Manual mode on a different slot must still work
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_b.id,
+                mode="single",
+            ),
+            admin=admin,
+            db=db_session,
+        )
+        # No new sessions (single only readies lessons)
+        sessions = (
+            db_session.query(SummerSession)
+            .filter(SummerSession.application_id == application.id)
+            .all()
+        )
+        assert len(sessions) == 8
+
+    def test_rescheduled_session_excluded_from_count(self, db_session, summer_config, slot_type_a, slot_type_b, application, admin_tutor):
+        """A 'Rescheduled - Pending Make-up' session must not count toward the cap."""
+        self._generate_lessons(db_session, slot_type_a)
+        self._generate_lessons(db_session, slot_type_b)
+        from routers.summer_course import create_session
+        from schemas import SummerSessionCreate
+
+        application.lessons_paid = 1
+        db_session.commit()
+
+        slot_a_lesson = (
+            db_session.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot_type_a.id)
+            .order_by(SummerLesson.lesson_date)
+            .first()
+        )
+        admin = db_session.query(Tutor).first()
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=slot_a_lesson.id,
+            ),
+            admin=admin,
+            db=db_session,
+        )
+
+        # Mark the placement as rescheduled-pending so it no longer counts
+        existing = db_session.query(SummerSession).filter(
+            SummerSession.application_id == application.id
+        ).first()
+        existing.session_status = "Rescheduled - Pending Make-up"
+        db_session.commit()
+
+        # Now a make-up placement on a different slot should be allowed even
+        # though plan is 1 — the rescheduled origin doesn't count.
+        slot_b_lesson = (
+            db_session.query(SummerLesson)
+            .filter(SummerLesson.slot_id == slot_type_b.id)
+            .order_by(SummerLesson.lesson_date)
+            .first()
+        )
+        create_session(
+            data=SummerSessionCreate(
+                application_id=application.id,
+                slot_id=slot_type_b.id,
+                lesson_id=slot_b_lesson.id,
+            ),
+            admin=admin,
+            db=db_session,
+        )
+        active = (
+            db_session.query(SummerSession)
+            .filter(
+                SummerSession.application_id == application.id,
+                SummerSession.session_status == "Tentative",
+            )
+            .count()
+        )
+        assert active == 1
 
 
 class TestDeleteCascade:

@@ -154,6 +154,15 @@ SUMMER_NON_ATTENDING_STATUSES = (
     *PENDING_MAKEUP_STATUSES,
 )
 
+# Sessions that don't count toward an application's "active placements" used
+# in session-plan vs placed comparisons. Excludes both pending and booked
+# make-up origin rows (the booked make-up itself lives on a different row and
+# is counted there).
+SUMMER_INACTIVE_PLACEMENT_STATUSES = (
+    *SUMMER_NON_ATTENDING_STATUSES,
+    *MAKEUP_BOOKED_STATUSES,
+)
+
 
 class SummerSiblingVerificationStatus(str, Enum):
     """Verification status for self-declared primary-branch sibling members of a buddy group."""

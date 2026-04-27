@@ -538,6 +538,40 @@ export default function SummerArrangementPage() {
     });
   }, [slots]);
 
+  // Lookup for the session-plan cap warning. A student dragged into a slot can
+  // come from `unassigned` (incomplete), `statusFilteredApps` (filter chip),
+  // or `studentLessonsData` (already-placed students being moved). Pick the
+  // freshest record — placed_count rises as drops complete, so prefer the
+  // largest count when the same id is in multiple sources.
+  const appCapInfo = useMemo(() => {
+    const map = new Map<number, { placed_count: number; lessons_paid: number }>();
+    const note = (
+      id: number | undefined | null,
+      placed: number | undefined | null,
+      paid: number | undefined | null,
+    ) => {
+      if (!id) return;
+      const incoming = { placed_count: placed ?? 0, lessons_paid: paid ?? 0 };
+      const existing = map.get(id);
+      if (!existing) {
+        map.set(id, incoming);
+        return;
+      }
+      if (incoming.placed_count > existing.placed_count) {
+        existing.placed_count = incoming.placed_count;
+      }
+      if (existing.lessons_paid <= 0 && incoming.lessons_paid > 0) {
+        existing.lessons_paid = incoming.lessons_paid;
+      }
+    };
+    for (const a of unassigned ?? []) note(a.id, a.placed_count, a.lessons_paid);
+    for (const a of statusFilteredApps ?? []) note(a.id, a.placed_count, a.lessons_paid);
+    for (const s of studentLessonsData?.students ?? []) {
+      note(s.application_id, s.placed_count, s.lessons_paid);
+    }
+    return map;
+  }, [unassigned, statusFilteredApps, studentLessonsData]);
+
   // Placement across grades is allowed (tutors sometimes absorb a
   // neighbour-grade student), but Find Slot / auto-suggest / grid grouping
   // treat slot.grade as authoritative — prompt first so admins know.
@@ -614,6 +648,22 @@ export default function SummerArrangementPage() {
     setPendingPlacementAppId(null);
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
+    // Block over-placement before hitting the server. Backend enforces the
+    // same cap; this keeps the error fast and specific. Look up cap info
+    // across all panels — a moved student may not be in `unassigned`.
+    const cap_info = appCapInfo.get(applicationId);
+    if (cap_info) {
+      const cap = cap_info.lessons_paid || activeConfig?.total_lessons || 8;
+      const placed = cap_info.placed_count;
+      if (placed + 1 > cap) {
+        const name = app?.student_name ?? "Student";
+        showToast(
+          `${name} is at their session plan (${placed}/${cap}). Cancel or reschedule an existing placement first.`,
+          "error",
+        );
+        return;
+      }
+    }
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
       setPendingGradeMismatch({
         kind: "calendar",
@@ -625,7 +675,7 @@ export default function SummerArrangementPage() {
       return;
     }
     void executeCalendarDrop(applicationId, slotId, lessonId, lessonNumber);
-  }, [unassigned, slots, executeCalendarDrop]);
+  }, [unassigned, slots, executeCalendarDrop, activeConfig, showToast, appCapInfo]);
 
   // Slot Setup removal — cascade delete all sessions for student+slot
   const handleRemoveSession = useCallback((sessionId: number, studentName?: string) => {
@@ -1336,6 +1386,12 @@ export default function SummerArrangementPage() {
             return `${DAY_ABBREV[slot.slot_day] || slot.slot_day} ${slot.time_slot}${slot.grade ? ` ${slot.grade}` : ""}`;
           })()}
           totalLessons={activeConfig?.total_lessons ?? 8}
+          placedCount={pendingDrop ? (appCapInfo.get(pendingDrop.appId)?.placed_count ?? 0) : 0}
+          lessonsPaid={
+            pendingDrop
+              ? (appCapInfo.get(pendingDrop.appId)?.lessons_paid || activeConfig?.total_lessons || 8)
+              : activeConfig?.total_lessons ?? 8
+          }
         />
 
         {/* Find Slot dialog */}
