@@ -1208,7 +1208,7 @@ export function StudentProgressDrawer({
   const latestEnrollmentStart = enrollment_timeline[0]?.first_lesson_date || null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Overview</h3>

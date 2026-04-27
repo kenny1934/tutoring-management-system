@@ -185,7 +185,9 @@ export default function DashboardPage() {
         {/* Distribution Charts */}
         {showAdminTutorFilter && (
           <div className="flex items-center justify-end gap-2 -mb-2">
-            <span className="text-xs text-[#8b6f47] dark:text-[#d4a574]">Filter charts:</span>
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] text-xs font-medium text-[#5a3d1f] dark:text-[#d4a574] shadow-sm">
+              Filter charts:
+            </span>
             <TutorSelector
               value={chartTutorId}
               onChange={setChartTutorId}
