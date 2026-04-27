@@ -27,6 +27,9 @@ const changelogData = [
           },
           {
             "description": "**Session plan cap on summer placements**: dragging a student into a slot or calendar lesson now refuses to overshoot their paid lesson count. The application detail modal shows a Placed N/N badge that turns green when full and red when over plan. The slot placement dialog previews each option's resulting total, disables choices that would overshoot, and explains when there's no room left. Rescheduled and made-up sessions free their original spot, so the count stays accurate after a reschedule."
+          },
+          {
+            "description": "**Summer Course sidebar status**: the Summer Course nav loses its Beta tag and gains a live status indicator. While applications are open the icon shows a green \"Open\" pill (or a small green dot when the sidebar is collapsed). When there are applications still in the active workflow at your selected branch (Submitted through Paid, excluding closed and Enrolled), the pill is replaced by an orange count badge so the triage queue is visible at a glance."
           }
         ]
       },

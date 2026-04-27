@@ -11,6 +11,7 @@
 * **Click a chart slice to jump to the matching students**: clicking a grade, school, or stream segment opens the students list filtered to that selection and carries any active tutor and stream filter into the URL. The students page surfaces those filters as clearable chips in the toolbar.
 * **Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the "Others" bucket into the full ranked list.
 * **Session plan cap on summer placements**: dragging a student into a slot or calendar lesson now refuses to overshoot their paid lesson count. The application detail modal shows a Placed N/N badge that turns green when full and red when over plan. The slot placement dialog previews each option's resulting total, disables choices that would overshoot, and explains when there's no room left. Rescheduled and made-up sessions free their original spot, so the count stays accurate after a reschedule.
+* **Summer Course sidebar status**: the Summer Course nav loses its Beta tag and gains a live status indicator. While applications are open the icon shows a green "Open" pill (or a small green dot when the sidebar is collapsed). When there are applications still in the active workflow at your selected branch (Submitted through Paid, excluding closed and Enrolled), the pill is replaced by an orange count badge so the triage queue is visible at a glance.
 
 ### Bug Fixes
 
