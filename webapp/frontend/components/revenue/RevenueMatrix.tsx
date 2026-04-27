@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { Crown, Loader2, Search } from "lucide-react";
-import { useTutorYearMatrix } from "@/lib/hooks";
+import { useTutorYearMatrix, useTutors } from "@/lib/hooks";
 import { StickyNote } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
@@ -61,18 +61,32 @@ function heatColor(intensity: number, isDark: boolean): string {
 
 interface HoverState {
   tutorName: string;
+  tutorRole?: string | null;
   period: string;
   cell: TutorYearMatrixCell;
   rect: DOMRect;
 }
 
+// Mirrors the detail page: Admin / Super Admin tutors don't earn basic
+// salary or bonuses, so the salary rows are hidden in the tooltip too.
+function tutorEarnsSalary(role: string | null | undefined): boolean {
+  return !!role && !["Admin", "Super Admin"].includes(role);
+}
+
 export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortDir, onSortChange, onCellClick }: RevenueMatrixProps) {
   const { data, isLoading, error } = useTutorYearMatrix(year, location);
+  const { data: tutorMeta = [] } = useTutors();
   const [hover, setHover] = useState<HoverState | null>(null);
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState("");
 
   useEffect(() => setMounted(true), []);
+
+  const roleById = useMemo(() => {
+    const m = new Map<number, string | null | undefined>();
+    for (const t of tutorMeta) m.set(t.id, t.role);
+    return m;
+  }, [tutorMeta]);
 
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -303,7 +317,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                             return;
                           }
                           const rect = e.currentTarget.getBoundingClientRect();
-                          setHover({ tutorName: tutor.name, period, cell, rect });
+                          setHover({ tutorName: tutor.name, tutorRole: roleById.get(tutor.id), period, cell, rect });
                         }}
                         onMouseLeave={() => setHover(null)}
                       >
@@ -352,13 +366,18 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
   );
 }
 
-function CellTooltip({ tutorName, period, cell, rect }: HoverState) {
+function CellTooltip({ tutorName, tutorRole, period, cell, rect }: HoverState) {
+  const showSalary = tutorEarnsSalary(tutorRole);
   const rows: Array<{ label: string; value: string; bold?: boolean }> = [
     { label: "Sessions", value: String(cell.sessions_count) },
-    { label: "Session revenue", value: formatMOPDetailed(cell.session_revenue) },
-    { label: "Basic salary", value: formatMOPDetailed(cell.basic_salary) },
-    { label: "Monthly bonus", value: formatMOPDetailed(cell.monthly_bonus) },
-    { label: "Total salary", value: formatMOPDetailed(cell.total_salary), bold: true },
+    { label: "Session revenue", value: formatMOPDetailed(cell.session_revenue), bold: !showSalary },
+    ...(showSalary
+      ? [
+          { label: "Basic salary", value: formatMOPDetailed(cell.basic_salary) },
+          { label: "Monthly bonus", value: formatMOPDetailed(cell.monthly_bonus) },
+          { label: "Total salary", value: formatMOPDetailed(cell.total_salary), bold: true },
+        ]
+      : []),
   ];
   // Place below + right-aligned to the cell. If the cell is in the lower
   // half of the viewport, flip above so the tooltip never goes off-screen.
