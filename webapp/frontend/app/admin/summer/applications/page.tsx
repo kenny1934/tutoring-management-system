@@ -29,15 +29,11 @@ import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { displayLocation, LOCATION_TO_CODE, MIN_GROUP_SIZE, isPlaced, EXIT_STATUSES } from "@/lib/summer-utils";
+import { displayLocation, CODE_TO_LOCATION, MIN_GROUP_SIZE, isPlaced, EXIT_STATUSES } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
 import { formatTimeAgo } from "@/lib/formatters";
 import type { SummerApplication, SummerPublishResult } from "@/types";
-
-const CODE_TO_LOCATION = Object.fromEntries(
-  Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k])
-);
 
 // Resolve the branch an application belongs to, in priority order:
 // confirmed link first (secondary student, then primary prospect), then the

@@ -455,6 +455,17 @@ export const CODE_TO_LOCATION: Record<string, string> = Object.fromEntries(
   Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k]),
 );
 
+/** Statuses where an application has left the active workflow:
+ *  side-exits (Waitlisted/Withdrawn/Rejected) plus Enrolled (the terminal
+ *  success state). Used by the sidebar badge to count "still actionable"
+ *  applications. */
+export const INACTIVE_APP_STATUSES = new Set([
+  "Waitlisted",
+  "Withdrawn",
+  "Rejected",
+  "Enrolled",
+]);
+
 /** Display a location as its system code (MSA/MSB) for admin use. */
 export function displayLocation(location: string | null | undefined): string {
   if (!location) return "";

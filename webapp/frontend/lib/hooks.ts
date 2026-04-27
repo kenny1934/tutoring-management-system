@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
-import { CODE_TO_LOCATION } from './summer-utils';
+import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
@@ -944,13 +944,6 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
  * The public form-config endpoint is unauthenticated; the stats call only fires
  * for admins.
  */
-const SUMMER_INACTIVE_APP_STATUSES = new Set([
-  "Waitlisted",
-  "Withdrawn",
-  "Rejected",
-  "Enrolled",
-]);
-
 export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
   const refreshInterval = useVisibilityAwareInterval(120000); // 2 min
   // "All Locations" is the unscoped sentinel from LocationContext. Summer
@@ -962,7 +955,7 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
   const { data: formConfig } = useSWR(
     isAdmin ? "summer-public-config" : null,
     () => summerAPI.getFormConfig(),
-    { refreshInterval: 30 * 60 * 1000, revalidateOnFocus: false },
+    { revalidateOnFocus: false },
   );
   const { data: stats } = useSWR(
     isAdmin ? ["summer-app-stats-sidebar", scopedLocation ?? "all"] : null,
@@ -978,7 +971,7 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
 
   const actionableCount = stats
     ? Object.entries(stats.by_status).reduce(
-        (sum, [status, n]) => (SUMMER_INACTIVE_APP_STATUSES.has(status) ? sum : sum + n),
+        (sum, [status, n]) => (INACTIVE_APP_STATUSES.has(status) ? sum : sum + n),
         0,
       )
     : 0;

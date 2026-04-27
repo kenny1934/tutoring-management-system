@@ -81,6 +81,25 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     selectedLocation,
   );
 
+  // Per-item badge state for the admin nav. Renewals turns red when any
+  // enrollment has expired; Overdue Payments is always red. Summer Course
+  // shows an "Open" pill (or a dot when collapsed) during the application
+  // window when there's nothing to triage.
+  const adminBadgeFor = (name: string) => {
+    const count =
+      name === "Renewals" ? renewalCounts?.total
+      : name === "Overdue Payments" ? pendingPayments
+      : name === "Extensions" ? extensionCount?.count
+      : name === "Summer Course" ? summerActionable
+      : 0;
+    const color =
+      name === "Overdue Payments" ? "bg-red-500"
+      : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? "bg-red-500"
+      : "bg-orange-500";
+    const showOpen = name === "Summer Course" && summerIsOpen && (count ?? 0) <= 0;
+    return { count, color, showOpen };
+  };
+
   // App-wide new message notification toast
   const router = useRouter();
   const { showToast } = useToast();
@@ -425,23 +444,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <div className="mt-1 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
-                    // Get badge count for each admin item
-                    const badgeCount = item.name === "Renewals"
-                      ? renewalCounts?.total
-                      : item.name === "Overdue Payments"
-                        ? pendingPayments
-                        : item.name === "Extensions"
-                          ? extensionCount?.count
-                          : item.name === "Summer Course"
-                            ? summerActionable
-                            : 0;
-                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
-                    const badgeColor = item.name === "Overdue Payments"
-                      ? "bg-red-500"
-                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
-                        ? "bg-red-500"
-                        : "bg-orange-500";
-                    const showSummerOpen = item.name === "Summer Course" && summerIsOpen && (!badgeCount || badgeCount <= 0);
+                    const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
                     return (
                       <Link
                         key={item.name}
@@ -456,12 +459,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.name}</span>
-                        {showSummerOpen && (
+                        {showOpen && (
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                             Open
                           </span>
                         )}
-                        {badgeCount > 0 && (
+                        {badgeCount && badgeCount > 0 && (
                           <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
@@ -500,23 +503,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <div className="mt-1 pt-0.5 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
-                    // Get badge count for each admin item
-                    const badgeCount = item.name === "Renewals"
-                      ? renewalCounts?.total
-                      : item.name === "Overdue Payments"
-                        ? pendingPayments
-                        : item.name === "Extensions"
-                          ? extensionCount?.count
-                          : item.name === "Summer Course"
-                            ? summerActionable
-                            : 0;
-                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
-                    const badgeColor = item.name === "Overdue Payments"
-                      ? "bg-red-500"
-                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
-                        ? "bg-red-500"
-                        : "bg-orange-500";
-                    const showSummerOpen = item.name === "Summer Course" && summerIsOpen && (!badgeCount || badgeCount <= 0);
+                    const { count: badgeCount, color: badgeColor, showOpen } = adminBadgeFor(item.name);
                     return (
                       <div
                         key={item.name}
@@ -543,12 +530,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         >
                           <item.icon className="h-5 w-5" />
                         </Link>
-                        {badgeCount > 0 && (
+                        {badgeCount && badgeCount > 0 && (
                           <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}
-                        {showSummerOpen && (
+                        {showOpen && (
                           <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" aria-label="Applications open" />
                         )}
                       </div>
