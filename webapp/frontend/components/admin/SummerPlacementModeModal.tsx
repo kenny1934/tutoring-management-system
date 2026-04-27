@@ -33,8 +33,8 @@ function getModes(total: number): { value: PlacementMode; label: string; descrip
     },
     {
       value: "first_half",
-      label: `First ${half} lessons`,
-      description: `Place in weeks 1-${half} only (for 2x/week students needing a second slot)`,
+      label: `${half} lessons`,
+      description: `Place in ${half} of the ${total} weekly slots (for 2x/week students needing a second slot)`,
     },
     {
       value: "single",
