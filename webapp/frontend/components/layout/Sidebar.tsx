@@ -464,7 +464,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             Open
                           </span>
                         )}
-                        {badgeCount && badgeCount > 0 && (
+                        {(badgeCount ?? 0) > 0 && (
                           <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
@@ -530,7 +530,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         >
                           <item.icon className="h-5 w-5" />
                         </Link>
-                        {badgeCount && badgeCount > 0 && (
+                        {(badgeCount ?? 0) > 0 && (
                           <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
