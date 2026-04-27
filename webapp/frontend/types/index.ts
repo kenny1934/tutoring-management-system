@@ -508,6 +508,27 @@ export interface SessionRevenueDetail {
   enrollment_id: number;
 }
 
+export interface TutorYearMatrixCell {
+  session_revenue: number;
+  sessions_count: number;
+  basic_salary: number;
+  monthly_bonus: number;
+  total_salary: number;
+}
+
+export interface TutorYearMatrixTutor {
+  id: number;
+  name: string;
+  default_location?: string | null;
+}
+
+export interface TutorYearMatrixResponse {
+  year: number;
+  periods: string[];
+  tutors: TutorYearMatrixTutor[];
+  cells: Record<string, Record<string, TutorYearMatrixCell>>;
+}
+
 // Courseware types
 export interface CoursewarePopularity {
   filename: string;

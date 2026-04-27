@@ -53,6 +53,30 @@ class LocationSummaryResponse(BaseModel):
     avg_revenue_per_session: float
 
 
+class TutorYearMatrixCell(BaseModel):
+    """Single tutor-month cell in the year matrix."""
+    session_revenue: float
+    sessions_count: int
+    basic_salary: float
+    monthly_bonus: float
+    total_salary: float
+
+
+class TutorYearMatrixTutor(BaseModel):
+    """Tutor metadata for matrix rows."""
+    id: int
+    name: str
+    default_location: Optional[str] = None
+
+
+class TutorYearMatrixResponse(BaseModel):
+    """Tutor x month revenue matrix for a single year."""
+    year: int
+    periods: List[str]
+    tutors: List[TutorYearMatrixTutor]
+    cells: dict[str, dict[str, TutorYearMatrixCell]]
+
+
 def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
     """
     Calculate tiered monthly bonus based on total revenue.
@@ -272,4 +296,98 @@ async def get_location_monthly_summary(
         "total_revenue": float(result.total_revenue or 0),
         "sessions_count": result.sessions_count or 0,
         "avg_revenue_per_session": float(result.avg_revenue_per_session or 0)
+    }
+
+
+@router.get("/revenue/tutor-year-matrix", response_model=TutorYearMatrixResponse)
+async def get_tutor_year_matrix(
+    request: Request,
+    year: int = Query(..., ge=2000, le=2100, description="Calendar year"),
+    location: Optional[str] = Query(None, description="Optional location filter (matches tutor's default_location)"),
+    current_user: Tutor = Depends(reject_guest),
+    response: Response = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Tutor x month revenue matrix for a single calendar year.
+
+    Rows = tutors with at least one attended session in the window.
+    Columns = the 12 periods YYYY-01..YYYY-12.
+    Each cell carries session_revenue, sessions_count, basic_salary,
+    monthly_bonus and total_salary so the UI can show one metric and
+    surface the rest in a tooltip.
+
+    Admin only. Location filter narrows rows to tutors whose
+    default_location matches (mirrors the per-tutor view's behaviour).
+    """
+    effective_role = get_effective_role(request, current_user)
+    if not can_view_admin_data(effective_role):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if response:
+        response.headers["Cache-Control"] = "private, max-age=300"
+
+    start_period = f"{year}-01"
+    end_period = f"{year}-12"
+    periods = [f"{year}-{m:02d}" for m in range(1, 13)]
+
+    rows = db.execute(
+        text(
+            """
+            SELECT tutor_id, session_period, sessions_count, total_revenue
+            FROM tutor_monthly_revenue
+            WHERE session_period BETWEEN :start AND :end
+            """
+        ),
+        {"start": start_period, "end": end_period},
+    ).fetchall()
+
+    if not rows:
+        return {"year": year, "periods": periods, "tutors": [], "cells": {}}
+
+    tutor_ids = {row.tutor_id for row in rows}
+    tutor_query = db.query(Tutor).filter(Tutor.id.in_(tutor_ids))
+    if location:
+        tutor_query = tutor_query.filter(Tutor.default_location == location)
+    tutors_by_id = {t.id: t for t in tutor_query.all()}
+
+    cells: dict[str, dict[str, dict]] = {}
+    row_totals: dict[int, float] = {}
+    for row in rows:
+        tutor = tutors_by_id.get(row.tutor_id)
+        if tutor is None:
+            continue  # filtered out by location
+        session_revenue = Decimal(str(row.total_revenue)) if row.total_revenue else Decimal("0.00")
+        sessions_count = row.sessions_count or 0
+        if sessions_count == 0 and session_revenue == 0:
+            continue
+        basic_salary = tutor.basic_salary or Decimal("0.00")
+        monthly_bonus = calculate_monthly_bonus(session_revenue)
+        total_salary = basic_salary + monthly_bonus
+
+        tutor_cells = cells.setdefault(str(tutor.id), {})
+        tutor_cells[row.session_period] = {
+            "session_revenue": float(session_revenue),
+            "sessions_count": sessions_count,
+            "basic_salary": float(basic_salary),
+            "monthly_bonus": float(monthly_bonus),
+            "total_salary": float(total_salary),
+        }
+        row_totals[tutor.id] = row_totals.get(tutor.id, 0.0) + float(session_revenue)
+
+    ordered_tutor_ids = sorted(row_totals.keys(), key=lambda tid: row_totals[tid], reverse=True)
+    tutor_list = [
+        {
+            "id": tid,
+            "name": tutors_by_id[tid].tutor_name,
+            "default_location": tutors_by_id[tid].default_location,
+        }
+        for tid in ordered_tutor_ids
+    ]
+
+    return {
+        "year": year,
+        "periods": periods,
+        "tutors": tutor_list,
+        "cells": cells,
     }

@@ -11,8 +11,9 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSelector";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { RevenueMatrix } from "@/components/revenue/RevenueMatrix";
 import { sessionsAPI } from "@/lib/api";
-import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot } from "lucide-react";
+import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot, LayoutGrid, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
@@ -78,6 +79,21 @@ export default function RevenuePage() {
     return searchParams.get('period') || getCurrentPeriod();
   });
 
+  // Table view (matrix) defaults to true for admins in center-view, off otherwise.
+  // Single source of truth from URL; falls back to role-based default.
+  const tableViewAvailable = canViewAdminPages && viewMode === 'center-view';
+  const [view, setView] = useState<'table' | 'detail'>(() => {
+    const v = searchParams.get('view');
+    if (v === 'table' || v === 'detail') return v;
+    return tableViewAvailable ? 'table' : 'detail';
+  });
+
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    const y = searchParams.get('year');
+    if (y && /^\d{4}$/.test(y)) return parseInt(y, 10);
+    return new Date().getFullYear();
+  });
+
   const [isMobile, setIsMobile] = useState(false);
 
   // Popover state for session details
@@ -138,26 +154,51 @@ export default function RevenuePage() {
     setDisplayCount(30);
   }, [selectedPeriod, selectedTutorId]);
 
+  // Force detail view if the user can't access the table (non-admin or my-view).
+  useEffect(() => {
+    if (!tableViewAvailable && view === 'table') {
+      setView('detail');
+    }
+  }, [tableViewAvailable, view]);
+
   // Sync state to URL (only for admins who can change tutor selection)
   useEffect(() => {
     if (!canViewAdminPages) return; // Non-admins don't need URL sync for tutor
     const params = new URLSearchParams();
-    if (selectedTutorId && typeof selectedTutorId === 'number') {
-      params.set('tutor', selectedTutorId.toString());
+    if (tableViewAvailable && view !== (tableViewAvailable ? 'table' : 'detail')) {
+      params.set('view', view);
     }
-    if (selectedPeriod !== getCurrentPeriod()) {
-      params.set('period', selectedPeriod);
+    if (view === 'table') {
+      if (selectedYear !== new Date().getFullYear()) {
+        params.set('year', selectedYear.toString());
+      }
+    } else {
+      if (selectedTutorId && typeof selectedTutorId === 'number') {
+        params.set('tutor', selectedTutorId.toString());
+      }
+      if (selectedPeriod !== getCurrentPeriod()) {
+        params.set('period', selectedPeriod);
+      }
     }
     const query = params.toString();
     router.replace(`/revenue${query ? `?${query}` : ''}`, { scroll: false });
-  }, [canViewAdminPages, selectedTutorId, selectedPeriod, router]);
+  }, [canViewAdminPages, tableViewAvailable, view, selectedYear, selectedTutorId, selectedPeriod, router]);
 
-  // Fetch data - use effectiveTutorId which respects role-based access
-  const tutorIdForQuery = typeof effectiveTutorId === 'number' ? effectiveTutorId : null;
+  // Fetch data - use effectiveTutorId which respects role-based access.
+  // Skip detail fetches entirely when the table view is active so we don't
+  // hammer the per-tutor endpoints on initial load.
+  const tutorIdForQuery = typeof effectiveTutorId === 'number' && view === 'detail' ? effectiveTutorId : null;
+  const periodForQuery = view === 'detail' ? selectedPeriod : null;
   const { data: summary, isLoading: loadingSummary, error: summaryError } =
-    useMonthlyRevenueSummary(tutorIdForQuery, selectedPeriod);
+    useMonthlyRevenueSummary(tutorIdForQuery, periodForQuery);
   const { data: sessions = [], isLoading: loadingSessions } =
-    useSessionRevenueDetails(tutorIdForQuery, selectedPeriod);
+    useSessionRevenueDetails(tutorIdForQuery, periodForQuery);
+
+  const handleMatrixCellClick = (tutorId: number, period: string) => {
+    setSelectedTutorId(tutorId);
+    setSelectedPeriod(period);
+    setView('detail');
+  };
 
   // Determine if salary should be shown (hide for Admin and Super Admin roles)
   const viewedTutor = tutors.find(t => t.id === effectiveTutorId);
@@ -192,12 +233,12 @@ export default function RevenuePage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4">
+        <div className="flex flex-col gap-3 p-2 sm:p-4 min-h-full">
           {/* Toolbar - outer div is sticky container, inner div has visual styling */}
           <div className="sticky top-0 z-30">
             <div className={toolbarInnerClasses}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-              {/* Top row: Title + Tutor Selector */}
+              {/* Top row: Title + view-specific controls */}
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Title */}
                 <div className="flex items-center gap-2">
@@ -209,8 +250,42 @@ export default function RevenuePage() {
 
                 <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-                {/* Tutor Selector - show for admins in center-view only */}
-                {viewMode === 'center-view' && canViewAdminPages && (
+                {/* View toggle - admin/center-view only */}
+                {tableViewAvailable && (
+                  <div className="inline-flex rounded-md border border-[#d4a574] dark:border-[#6b5a4a] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setView('table')}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors",
+                        view === 'table'
+                          ? "bg-[#a0704b] text-white"
+                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                      )}
+                      title="Tutor x Month table"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Table</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView('detail')}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors border-l border-[#d4a574] dark:border-[#6b5a4a]",
+                        view === 'detail'
+                          ? "bg-[#a0704b] text-white"
+                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                      )}
+                      title="Single tutor / single month detail"
+                    >
+                      <List className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Detail</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Detail view: Tutor Selector */}
+                {view === 'detail' && viewMode === 'center-view' && canViewAdminPages && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -220,65 +295,104 @@ export default function RevenuePage() {
                 )}
               </div>
 
-              {/* Month Navigator */}
-              <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
-              <button
-                onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, -1))}
-                className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                title="Previous month"
-              >
-                <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-              </button>
+              {/* Right side: month navigator (detail) or year selector (table) */}
+              {view === 'detail' ? (
+                <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
+                <button
+                  onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, -1))}
+                  className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  title="Previous month"
+                >
+                  <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                </button>
 
-              <div className="relative flex items-center">
-                <Calendar className="absolute left-2.5 h-4 w-4 text-[#a0704b] pointer-events-none" />
-                <input
-                  type="month"
-                  value={selectedPeriod}
-                  onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
-                  max={getCurrentPeriod()}
+                <div className="relative flex items-center">
+                  <Calendar className="absolute left-2.5 h-4 w-4 text-[#a0704b] pointer-events-none" />
+                  <input
+                    type="month"
+                    value={selectedPeriod}
+                    onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
+                    max={getCurrentPeriod()}
+                    className={cn(
+                      "pl-8 pr-3 py-1.5 text-sm font-medium",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                      "text-gray-900 dark:text-gray-100",
+                      "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                      "cursor-pointer"
+                    )}
+                  />
+                </div>
+
+                <button
+                  onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, 1))}
                   className={cn(
-                    "pl-8 pr-3 py-1.5 text-sm font-medium",
-                    "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "text-gray-900 dark:text-gray-100",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
-                    "cursor-pointer"
+                    "p-1.5 rounded transition-colors",
+                    selectedPeriod >= getCurrentPeriod()
+                      ? "cursor-not-allowed"
+                      : "hover:bg-gray-200 dark:hover:bg-gray-700"
                   )}
-                />
-              </div>
-
-              <button
-                onClick={() => setSelectedPeriod(adjustPeriod(selectedPeriod, 1))}
-                className={cn(
-                  "p-1.5 rounded transition-colors",
-                  selectedPeriod >= getCurrentPeriod()
-                    ? "cursor-not-allowed"
-                    : "hover:bg-gray-200 dark:hover:bg-gray-700"
-                )}
-                title="Next month"
-                disabled={selectedPeriod >= getCurrentPeriod()}
-              >
-                <ChevronRight className={cn(
-                  "h-4 w-4",
-                  selectedPeriod >= getCurrentPeriod()
-                    ? "text-gray-300 dark:text-gray-600"
-                    : "text-gray-600 dark:text-gray-400"
-                )} />
-              </button>
-              </div>
+                  title="Next month"
+                  disabled={selectedPeriod >= getCurrentPeriod()}
+                >
+                  <ChevronRight className={cn(
+                    "h-4 w-4",
+                    selectedPeriod >= getCurrentPeriod()
+                      ? "text-gray-300 dark:text-gray-600"
+                      : "text-gray-600 dark:text-gray-400"
+                  )} />
+                </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center sm:justify-start gap-1 sm:ml-auto">
+                  <button
+                    onClick={() => setSelectedYear(y => y - 1)}
+                    className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    title="Previous year"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <div className="relative flex items-center">
+                    <Calendar className="absolute left-2.5 h-4 w-4 text-[#a0704b] pointer-events-none" />
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                      className={cn(
+                        "pl-8 pr-3 py-1.5 text-sm font-medium",
+                        "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                        "text-gray-900 dark:text-gray-100",
+                        "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                        "cursor-pointer"
+                      )}
+                    >
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        const y = new Date().getFullYear() - i;
+                        return <option key={y} value={y}>{y}</option>;
+                      })}
+                    </select>
+                  </div>
+                  <button
+                    onClick={() => setSelectedYear(y => y + 1)}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      selectedYear >= new Date().getFullYear()
+                        ? "cursor-not-allowed"
+                        : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                    )}
+                    title="Next year"
+                    disabled={selectedYear >= new Date().getFullYear()}
+                  >
+                    <ChevronRight className={cn(
+                      "h-4 w-4",
+                      selectedYear >= new Date().getFullYear()
+                        ? "text-gray-300 dark:text-gray-600"
+                        : "text-gray-600 dark:text-gray-400"
+                    )} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           </div>
-
-          {/* Loading state */}
-          {isLoading && !summary && (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Loading revenue data...</p>
-              </div>
-            </div>
-          )}
 
           {/* Auth loading state */}
           {authLoading && (
@@ -290,8 +404,28 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* No tutor selected message - only show for admins */}
-          {!authLoading && canViewAdminPages && !effectiveTutorId && !isLoading && (
+          {/* Table view */}
+          {!authLoading && view === 'table' && (
+            <RevenueMatrix
+              year={selectedYear}
+              location={selectedLocation}
+              isMobile={isMobile}
+              onCellClick={handleMatrixCellClick}
+            />
+          )}
+
+          {/* Loading state (detail view) */}
+          {view === 'detail' && isLoading && !summary && (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                <p className="text-sm text-gray-600 dark:text-gray-400">Loading revenue data...</p>
+              </div>
+            </div>
+          )}
+
+          {/* No tutor selected message - only show for admins in detail view */}
+          {view === 'detail' && !authLoading && canViewAdminPages && !effectiveTutorId && !isLoading && (
             <div className="flex justify-center py-12">
               <StickyNote variant="yellow" size="lg" showTape>
                 <div className="text-center">
@@ -305,8 +439,8 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* Error state */}
-          {summaryError && (
+          {/* Error state (detail) */}
+          {view === 'detail' && summaryError && (
             <div className="flex justify-center py-12">
               <StickyNote variant="pink" size="lg" showTape>
                 <div className="text-center">
@@ -319,8 +453,8 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* Summary Card */}
-          {summary && (
+          {/* Summary Card (detail) */}
+          {view === 'detail' && summary && (
             <div className={cn(
               "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
               !isMobile && "paper-texture"
@@ -409,8 +543,8 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* Session Details Table */}
-          {sessions.length > 0 && (
+          {/* Session Details Table (detail) */}
+          {view === 'detail' && sessions.length > 0 && (
             <div className={cn(
               "bg-white dark:bg-[#1a1a1a] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
               !isMobile && "paper-texture"
@@ -498,8 +632,8 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* No sessions message */}
-          {effectiveTutorId && sessions.length === 0 && !isLoading && summary && (
+          {/* No sessions message (detail) */}
+          {view === 'detail' && effectiveTutorId && sessions.length === 0 && !isLoading && summary && (
             <div className="flex justify-center py-8">
               <StickyNote variant="blue" size="md" showTape>
                 <div className="text-center">

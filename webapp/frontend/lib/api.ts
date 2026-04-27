@@ -72,6 +72,7 @@ import type {
   NextIdResponse,
   CheckDuplicatesResponse,
   LocationRevenueSummary,
+  TutorYearMatrixResponse,
   ActiveStudent,
   ToggleLikeResponse,
   ArchiveResponse,
@@ -960,6 +961,12 @@ export const revenueAPI = {
     const params = new URLSearchParams({ period });
     if (location) params.set("location", location);
     return fetchAPI<LocationRevenueSummary>(`/revenue/location-monthly-summary?${params.toString()}`);
+  },
+
+  getTutorYearMatrix: (year: number, location?: string | null) => {
+    const params = new URLSearchParams({ year: year.toString() });
+    if (location && location !== "All Locations") params.set("location", location);
+    return fetchAPI<TutorYearMatrixResponse>(`/revenue/tutor-year-matrix?${params.toString()}`);
   },
 };
 
