@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -76,6 +76,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // Fetch admin badge counts (renewal, extension)
   const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);
   const { data: extensionCount } = usePendingExtensionCount(isAdminOrAbove, selectedLocation);
+  const { isOpen: summerIsOpen, actionableCount: summerActionable } = useSummerSidebarBadge(
+    isAdminOrAbove,
+    selectedLocation,
+  );
 
   // App-wide new message notification toast
   const router = useRouter();
@@ -428,13 +432,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         ? pendingPayments
                         : item.name === "Extensions"
                           ? extensionCount?.count
-                          : 0;
+                          : item.name === "Summer Course"
+                            ? summerActionable
+                            : 0;
                     // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
                     const badgeColor = item.name === "Overdue Payments"
                       ? "bg-red-500"
                       : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
                         ? "bg-red-500"
                         : "bg-orange-500";
+                    const showSummerOpen = item.name === "Summer Course" && summerIsOpen && (!badgeCount || badgeCount <= 0);
                     return (
                       <Link
                         key={item.name}
@@ -449,9 +456,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.name}</span>
-                        {item.name === "Summer Course" && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                            Beta
+                        {showSummerOpen && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            Open
                           </span>
                         )}
                         {badgeCount > 0 && (
@@ -500,13 +507,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         ? pendingPayments
                         : item.name === "Extensions"
                           ? extensionCount?.count
-                          : 0;
+                          : item.name === "Summer Course"
+                            ? summerActionable
+                            : 0;
                     // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
                     const badgeColor = item.name === "Overdue Payments"
                       ? "bg-red-500"
                       : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
                         ? "bg-red-500"
                         : "bg-orange-500";
+                    const showSummerOpen = item.name === "Summer Course" && summerIsOpen && (!badgeCount || badgeCount <= 0);
                     return (
                       <div
                         key={item.name}
@@ -538,10 +548,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}
-                        {item.name === "Summer Course" && (
-                          <span className="absolute -top-1 -right-1 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
-                            Beta
-                          </span>
+                        {showSummerOpen && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" aria-label="Applications open" />
                         )}
                       </div>
                     );

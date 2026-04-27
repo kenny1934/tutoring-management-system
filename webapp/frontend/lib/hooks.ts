@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, api, type ParentCommunication } from './api';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
+import { CODE_TO_LOCATION } from './summer-utils';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
@@ -933,6 +934,56 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
     () => enrollmentsAPI.getRenewalCounts(location),
     { refreshInterval, revalidateOnFocus: false }
   );
+}
+
+/**
+ * Sidebar Summer Course badge state.
+ * - `isOpen`: today falls between application_open_date and application_close_date.
+ * - `actionableCount`: applications still in the active workflow at the given
+ *   location (excludes Withdrawn / Rejected / Waitlisted / Enrolled).
+ * The public form-config endpoint is unauthenticated; the stats call only fires
+ * for admins.
+ */
+const SUMMER_INACTIVE_APP_STATUSES = new Set([
+  "Waitlisted",
+  "Withdrawn",
+  "Rejected",
+  "Enrolled",
+]);
+
+export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(120000); // 2 min
+  // "All Locations" is the unscoped sentinel from LocationContext. Summer
+  // applications store the Chinese branch name in preferred_location, so
+  // translate the sidebar's short code (MSA/MSB) before querying.
+  const scopedLocation = location && location !== "All Locations"
+    ? (CODE_TO_LOCATION[location] ?? location)
+    : undefined;
+  const { data: formConfig } = useSWR(
+    isAdmin ? "summer-public-config" : null,
+    () => summerAPI.getFormConfig(),
+    { refreshInterval: 30 * 60 * 1000, revalidateOnFocus: false },
+  );
+  const { data: stats } = useSWR(
+    isAdmin ? ["summer-app-stats-sidebar", scopedLocation ?? "all"] : null,
+    () => summerAPI.getApplicationStats({ location: scopedLocation }),
+    { refreshInterval, revalidateOnFocus: false },
+  );
+
+  const isOpen = (() => {
+    if (!formConfig) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return formConfig.application_open_date <= today && today <= formConfig.application_close_date;
+  })();
+
+  const actionableCount = stats
+    ? Object.entries(stats.by_status).reduce(
+        (sum, [status, n]) => (SUMMER_INACTIVE_APP_STATUSES.has(status) ? sum : sum + n),
+        0,
+      )
+    : 0;
+
+  return { isOpen, actionableCount };
 }
 
 /**

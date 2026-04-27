@@ -449,6 +449,12 @@ export const LOCATION_TO_CODE: Record<string, string> = {
   "二龍喉分校": "MSB",
 };
 
+/** Inverse of LOCATION_TO_CODE — for translating sidebar branch codes back
+ *  into the Chinese names that summer applications store in preferred_location. */
+export const CODE_TO_LOCATION: Record<string, string> = Object.fromEntries(
+  Object.entries(LOCATION_TO_CODE).map(([k, v]) => [v, k]),
+);
+
 /** Display a location as its system code (MSA/MSB) for admin use. */
 export function displayLocation(location: string | null | undefined): string {
   if (!location) return "";
