@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.64](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.64) (2026-04-27)
+
+### New Features
+
+* **Tutor x month revenue table**: a new Table view on the Revenue page (admins, center mode) shows every tutor as a row and the year's months as columns, shaded as a heatmap by session revenue. Click a cell to drill into the detail, hover for a breakdown, and watch for the crown that marks each month's top earner.
+* **Sort and filter the matrix**: click any column header to sort by that month, by year total, or by tutor first name; the sort persists in the URL. A small filter box narrows the rows to a tutor name search.
+
+### Bug Fixes
+
+* **Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects, and Config now open in read-only mode for Supervisors instead of denying access. Write controls (status changes, drag-drop placement, link/unlink, save buttons) are hidden, and a "(Read-only)" badge sits in the header.
+
 ## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
 
 ### New Features
