@@ -82,9 +82,8 @@ function StatusFilterChip({
 
 export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
-  const canView = isAdmin || isSuperAdmin;
 
   const { mutate: globalMutate } = useSWRConfig();
   const router = useRouter();
@@ -928,7 +927,10 @@ export default function SummerArrangementPage() {
               <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold text-foreground">Timetable Arrangement</h1>
+              <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
+                <span>Timetable Arrangement</span>
+                {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+              </h1>
               <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
             <SummerStudentSearch
@@ -962,7 +964,7 @@ export default function SummerArrangementPage() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{totalIncomplete} incomplete</span>
-              {totalTentative > 0 ? (
+              {totalTentative > 0 && !readOnly ? (
                 <button
                   onClick={() => setBulkConfirmPending({ label: `${LOCATION_TO_CODE[location] || location}` })}
                   className="text-yellow-600 dark:text-yellow-400 hover:underline cursor-pointer"
@@ -995,15 +997,17 @@ export default function SummerArrangementPage() {
             </div>
 
             <div className="flex-1" />
-            <button
-              onClick={() => setDutyModalOpen(true)}
-              disabled={!location}
-              title="Tutor Duties"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Users2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Tutor Duties</span>
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setDutyModalOpen(true)}
+                disabled={!location}
+                title="Tutor Duties"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Users2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tutor Duties</span>
+              </button>
+            )}
             {activeTab === "slots" && (
               <button
                 onClick={() => setWorkloadOpen((v) => !v)}
@@ -1020,15 +1024,17 @@ export default function SummerArrangementPage() {
                 <span className="hidden sm:inline">Workload</span>
               </button>
             )}
-            <button
-              onClick={() => setAutoSuggestOpen(true)}
-              disabled={!unassigned?.length || !slots?.length}
-              title="Auto-Suggest"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Auto-Suggest</span>
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setAutoSuggestOpen(true)}
+                disabled={!unassigned?.length || !slots?.length}
+                title="Auto-Suggest"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Auto-Suggest</span>
+              </button>
+            )}
           </div>
 
           <SummerTutorWorkloadPanel
@@ -1094,6 +1100,7 @@ export default function SummerArrangementPage() {
                     slots={slots ?? []}
                     loading={slots === undefined || demand === undefined}
                     grades={grades}
+                    readOnly={readOnly}
                     onCreateSlot={handleCreateSlot}
                     onUpdateSlot={handleUpdateSlot}
                     onDeleteSlot={handleDeleteSlot}
@@ -1118,6 +1125,7 @@ export default function SummerArrangementPage() {
                     openDays={openDays}
                     timeSlots={timeSlots}
                     totalLessons={activeConfig!.total_lessons}
+                    readOnly={readOnly}
                     onDropStudent={handleDropStudentCalendar}
                     onRemoveSession={handleRemoveSessionFromCalendar}
                     onClickStudent={setSelectedAppId}
@@ -1133,6 +1141,7 @@ export default function SummerArrangementPage() {
                     totalLessons={activeConfig!.total_lessons}
                     statusFilter={demandPrefFilter ? null : statusFilter}
                     highlightTarget={studentsTarget}
+                    readOnly={readOnly}
                     onClickStudent={setSelectedAppId}
                     onFindSlot={setFindSlotTarget}
                     onNavigateToLesson={handleNavigateToLesson}
@@ -1145,6 +1154,7 @@ export default function SummerArrangementPage() {
                   applications={panelApplications}
                   grades={grades}
                   loading={panelLoading}
+                  readOnly={readOnly}
                   onClickStudent={setSelectedAppId}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -1216,8 +1226,14 @@ export default function SummerArrangementPage() {
                     applications={panelApplications}
                     grades={grades}
                     loading={panelLoading}
+                    readOnly={readOnly}
                     tapMode="select"
                     onClickStudent={(id) => {
+                      if (readOnly) {
+                        setSelectedAppId(id);
+                        setMobilePanelOpen(false);
+                        return;
+                      }
                       setPendingPlacementAppId(id);
                       setMobilePanelOpen(false);
                     }}
@@ -1280,6 +1296,7 @@ export default function SummerArrangementPage() {
           config={activeConfig ?? null}
           baseFee={activeConfig?.pricing_config?.base_fee}
           onNavigateToLesson={handleNavigateToLesson}
+          readOnly={readOnly}
         />
 
         <ConfirmDialog

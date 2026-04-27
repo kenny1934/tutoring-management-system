@@ -27,6 +27,8 @@ interface SummerSessionCalendarProps {
   timeSlots: string[];
   /** Upper bound for the lesson-number UIs, sourced from config.total_lessons. */
   totalLessons?: number;
+  /** Hides write affordances (drag-drop, make-up creation, lesson edits). */
+  readOnly?: boolean;
   onDropStudent?: (
     applicationId: number,
     slotId: number,
@@ -83,6 +85,7 @@ export function SummerSessionCalendar({
   openDays,
   timeSlots,
   totalLessons = 8,
+  readOnly = false,
   onDropStudent,
   onRemoveSession,
   onClickStudent,
@@ -348,14 +351,16 @@ export function SummerSessionCalendar({
           )}
         </div>
 
-        <button
-          onClick={() => setMakeupModal({})}
-          className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-          title="Create a one-off Make-up Slot"
-        >
-          <CalendarPlus className="h-3.5 w-3.5" />
-          Make-up Slot
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setMakeupModal({})}
+            className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            title="Create a one-off Make-up Slot"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Make-up Slot
+          </button>
+        )}
       </div>
 
       {/* Grid (always rendered so the + affordance works on empty weeks) */}
@@ -436,6 +441,7 @@ export function SummerSessionCalendar({
                         <SummerLessonCard
                           key={l.lesson_id}
                           lesson={l}
+                          readOnly={readOnly}
                           onUpdateLesson={handleUpdateLesson}
                           onDropStudent={onDropStudent}
                           onRemoveSession={onRemoveSession}
@@ -448,7 +454,7 @@ export function SummerSessionCalendar({
                           onTapPlaceFailed={onTapPlaceFailed}
                         />
                       ))}
-                      {isEmptyCell && (
+                      {isEmptyCell && !readOnly && (
                         <button
                           onClick={() => setMakeupModal({ date: dateStr, time: ts })}
                           className="absolute inset-0 flex items-center justify-center text-[10px] text-amber-700/70 dark:text-amber-300/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
@@ -469,7 +475,9 @@ export function SummerSessionCalendar({
 
       {isEmpty && (
         <p className="mt-2 text-xs text-muted-foreground text-center">
-          No lessons this week. Hover an empty cell to add a Make-up Slot.
+          {readOnly
+            ? "No lessons this week."
+            : "No lessons this week. Hover an empty cell to add a Make-up Slot."}
         </p>
       )}
 

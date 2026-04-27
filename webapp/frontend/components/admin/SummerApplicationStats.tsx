@@ -310,9 +310,11 @@ interface Props {
   filters?: StatsFilterHandler;
   config?: SummerCourseConfig | null;
   discountByAppId?: Map<number, DiscountResult>;
+  /** Hides write affordances (marketing snapshot push). */
+  readOnly?: boolean;
 }
 
-export function SummerApplicationStats({ applications, filters, config, discountByAppId }: Props) {
+export function SummerApplicationStats({ applications, filters, config, discountByAppId, readOnly = false }: Props) {
   const activeApps = useMemo(
     () => applications.filter((a) => !EXIT_STATUSES.has(a.application_status)),
     [applications],
@@ -489,7 +491,7 @@ export function SummerApplicationStats({ applications, filters, config, discount
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <MarketingSnapshotCard className="lg:col-span-2" />
+      {!readOnly && <MarketingSnapshotCard className="lg:col-span-2" />}
 
       {/* Row 1: Status Pipeline + Placement (full width) */}
       <ChartCard title="Status Pipeline" badge={`${statusData.total} total`} className="lg:col-span-2">

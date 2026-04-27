@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
+import { useAuth } from "@/contexts/AuthContext";
 import { prospectsAPI, summerAPI } from "@/lib/api";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
@@ -126,6 +127,7 @@ function compareValues(a: string | number | null | undefined, b: string | number
 export default function AdminProspectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isReadOnly: readOnly } = useAuth();
 
   // URL-backed state
   const [year, setYear] = useState<number | null>(() => {
@@ -520,6 +522,7 @@ export default function AdminProspectsPage() {
             onAutoMatch={handleAutoMatch}
             tab={tab}
             onTabChange={setTab}
+            readOnly={readOnly}
           />
 
           {/* Content */}
@@ -731,6 +734,7 @@ export default function AdminProspectsPage() {
                   selected={selectedIds.has(p.id)}
                   onToggleSelect={() => toggleSelect(p.id)}
                   onOpen={() => setSelectedProspect(p)}
+                  readOnly={readOnly}
                 />
               ))}
               <div className="px-1 pt-2 text-xs text-muted-foreground font-medium">
@@ -748,12 +752,14 @@ export default function AdminProspectsPage() {
                   <thead className="bg-primary/5 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                     <tr>
                       <th className="px-2 py-2 w-8">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.size === displayedProspects.length && displayedProspects.length > 0}
-                          onChange={toggleSelectAll}
-                          className="rounded"
-                        />
+                        {!readOnly && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.size === displayedProspects.length && displayedProspects.length > 0}
+                            onChange={toggleSelectAll}
+                            className="rounded"
+                          />
+                        )}
                       </th>
                       {colVisible("id") && <SortTh label="ID" sortKey="primary_student_id" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />}
                       <SortTh label="Name" sortKey="student_name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -783,6 +789,7 @@ export default function AdminProspectsPage() {
                         onOpen={setSelectedProspect}
                         onInlineUpdate={handleInlineUpdate}
                         onRefresh={refresh}
+                        readOnly={readOnly}
                       />
                     ))}
                   </tbody>
@@ -830,6 +837,7 @@ export default function AdminProspectsPage() {
           onSave={refresh}
           siblings={displayedProspects}
           onNavigate={(next) => setSelectedProspect(next)}
+          readOnly={readOnly}
         />
       )}
 
@@ -846,7 +854,7 @@ export default function AdminProspectsPage() {
         />
       )}
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && !readOnly && (
         <BulkActionBar
           count={selectedIds.size}
           onClear={() => setSelectedIds(new Set())}
@@ -1068,11 +1076,13 @@ function ProspectCard({
   selected,
   onToggleSelect,
   onOpen,
+  readOnly,
 }: {
   prospect: PrimaryProspect;
   selected: boolean;
   onToggleSelect: () => void;
   onOpen: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div
@@ -1083,13 +1093,15 @@ function ProspectCard({
       }`}
     >
       <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelect}
-          onClick={(e) => e.stopPropagation()}
-          className="rounded mt-1"
-        />
+        {!readOnly && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded mt-1"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-2">
             <div className="font-semibold text-foreground truncate">{p.student_name}</div>
@@ -1129,6 +1141,7 @@ const ProspectRow = memo(function ProspectRow({
   onOpen,
   onInlineUpdate,
   onRefresh,
+  readOnly,
 }: {
   p: PrimaryProspect;
   selected: boolean;
@@ -1137,6 +1150,7 @@ const ProspectRow = memo(function ProspectRow({
   onOpen: (p: PrimaryProspect) => void;
   onInlineUpdate: (id: number, patch: { outreach_status?: ProspectOutreachStatus; status?: ProspectStatus }) => void;
   onRefresh: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <tr
@@ -1145,12 +1159,14 @@ const ProspectRow = memo(function ProspectRow({
       onClick={() => onOpen(p)}
     >
       <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect(p.id)}
-          className="rounded"
-        />
+        {!readOnly && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(p.id)}
+            className="rounded"
+          />
+        )}
       </td>
       {colVisible("id") && <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{p.primary_student_id || "-"}</td>}
       <td className="px-2 py-2 font-medium text-foreground max-w-[180px]">
@@ -1200,20 +1216,28 @@ const ProspectRow = memo(function ProspectRow({
         </td>
       )}
       <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        <InlineSelect
-          value={p.outreach_status}
-          options={OUTREACH_OPTIONS}
-          onChange={(v) => onInlineUpdate(p.id, { outreach_status: v as ProspectOutreachStatus })}
-          renderTrigger={(v) => <OutreachBadge status={v as ProspectOutreachStatus} />}
-        />
+        {readOnly ? (
+          <OutreachBadge status={p.outreach_status} />
+        ) : (
+          <InlineSelect
+            value={p.outreach_status}
+            options={OUTREACH_OPTIONS}
+            onChange={(v) => onInlineUpdate(p.id, { outreach_status: v as ProspectOutreachStatus })}
+            renderTrigger={(v) => <OutreachBadge status={v as ProspectOutreachStatus} />}
+          />
+        )}
       </td>
       <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        <InlineSelect
-          value={p.status}
-          options={STATUS_OPTIONS}
-          onChange={(v) => onInlineUpdate(p.id, { status: v as ProspectStatus })}
-          renderTrigger={(v) => <ProspectStatusBadge status={v as ProspectStatus} />}
-        />
+        {readOnly ? (
+          <ProspectStatusBadge status={p.status} />
+        ) : (
+          <InlineSelect
+            value={p.status}
+            options={STATUS_OPTIONS}
+            onChange={(v) => onInlineUpdate(p.id, { status: v as ProspectStatus })}
+            renderTrigger={(v) => <ProspectStatusBadge status={v as ProspectStatus} />}
+          />
+        )}
       </td>
       <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
         {p.summer_application_id ? (
@@ -1226,8 +1250,10 @@ const ProspectRow = memo(function ProspectRow({
           >
             <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
           </a>
-        ) : (
+        ) : !readOnly ? (
           <QuickLinkButton prospectId={p.id} onLinked={onRefresh} />
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
         )}
       </td>
       <td
@@ -1294,6 +1320,7 @@ function HeaderBar({
   onAutoMatch,
   tab,
   onTabChange,
+  readOnly,
 }: {
   year: number | null;
   availableYears: number[];
@@ -1302,6 +1329,7 @@ function HeaderBar({
   onAutoMatch: () => void;
   tab: "list" | "dashboard";
   onTabChange: (t: "list" | "dashboard") => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1315,6 +1343,7 @@ function HeaderBar({
             <a href="/summer/prospect" target="_blank" rel="noopener noreferrer" title="Open public prospect page" className="text-muted-foreground hover:text-primary transition-colors">
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
+            {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
           </h1>
           <p className="hidden sm:block text-xs text-muted-foreground">Track and manage P6 student feeder list</p>
         </div>
@@ -1332,17 +1361,19 @@ function HeaderBar({
               ))}
             </select>
           </label>
-          <button
-            onClick={onAutoMatch}
-            disabled={autoMatching}
-            title="Preview which unlinked prospects would be linked to summer applications by phone number."
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-primary/10 text-primary hover:bg-primary/20"
-          >
-            {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">
-              {autoMatching ? "Loading..." : "Auto-Match"}
-            </span>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={onAutoMatch}
+              disabled={autoMatching}
+              title="Preview which unlinked prospects would be linked to summer applications by phone number."
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-primary/10 text-primary hover:bg-primary/20"
+            >
+              {autoMatching ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary/30 border-t-primary" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">
+                {autoMatching ? "Loading..." : "Auto-Match"}
+              </span>
+            </button>
+          )}
           <div className="flex bg-muted rounded-full p-0.5">
             <button
               onClick={() => onTabChange("list")}

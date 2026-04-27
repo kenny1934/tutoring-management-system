@@ -258,7 +258,7 @@ export default function AdminSummerConfigPage() {
                         className="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                        Edit
+                        {isReadOnly ? "View" : "Edit"}
                       </button>
                       {!isReadOnly && (
                         <>

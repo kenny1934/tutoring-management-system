@@ -232,7 +232,7 @@ interface VirtualAppRowProps {
   showCheckboxes: boolean;
   onSelect: (app: SummerApplication) => void;
   onToggleCheck: (id: number) => void;
-  onStatusChange: (id: number, status: string) => void;
+  onStatusChange: ((id: number, status: string) => void) | undefined;
   onProspectClick: (prospectId: number) => void;
   totalLessons?: number;
   setRowHeight: (index: number, size: number) => void;
@@ -287,11 +287,10 @@ function VirtualAppRow({
 
 export default function SummerApplicationsPage() {
   usePageTitle("Summer Applications");
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
   const { selectedLocation } = useLocation();
-  const canViewAdminPages = isAdmin || isSuperAdmin;
-  const readOnly = !isAdmin && !isSuperAdmin;
+  const readOnly = isReadOnly;
 
   // URL state (read once on mount for initial values)
   const router = useRouter();
@@ -1510,6 +1509,7 @@ export default function SummerApplicationsPage() {
                   applications={applications ?? []}
                   config={activeConfig}
                   discountByAppId={discountByAppId}
+                  readOnly={readOnly}
                   filters={{
                     onStatusFilter: (status) => { setStatusFilter(status); setViewMode("list"); },
                     onGradeFilter: (grade) => { setGradeFilter(grade); setViewMode("list"); },
@@ -1598,7 +1598,7 @@ export default function SummerApplicationsPage() {
                               isChecked={checkedIds.has(app.id)}
                               onToggleCheck={toggleCheck}
                               showCheckbox={showCheckboxes}
-                              onStatusChange={handleStatusChange}
+                              onStatusChange={readOnly ? undefined : handleStatusChange}
                               onProspectClick={handleProspectClick}
                               totalLessons={activeConfig?.total_lessons}
                             />
@@ -1621,7 +1621,7 @@ export default function SummerApplicationsPage() {
                     showCheckboxes,
                     onSelect: openDetail,
                     onToggleCheck: toggleCheck,
-                    onStatusChange: handleStatusChange,
+                    onStatusChange: readOnly ? undefined : handleStatusChange,
                     onProspectClick: handleProspectClick,
                     totalLessons: activeConfig?.total_lessons,
                     setRowHeight: dynamicRowHeight.setRowHeight,
@@ -1641,7 +1641,7 @@ export default function SummerApplicationsPage() {
                       isChecked={checkedIds.has(app.id)}
                       onToggleCheck={toggleCheck}
                       showCheckbox={showCheckboxes}
-                      onStatusChange={handleStatusChange}
+                      onStatusChange={readOnly ? undefined : handleStatusChange}
                       onProspectClick={handleProspectClick}
                       totalLessons={activeConfig?.total_lessons}
                     />
@@ -1840,6 +1840,7 @@ export default function SummerApplicationsPage() {
                 mutate(["prospect-preview", previewProspect.id]);
                 handleRefresh();
               }}
+              readOnly={readOnly}
             />
           )}
 

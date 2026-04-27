@@ -15,6 +15,8 @@ interface SummerUnassignedPanelProps {
   applications: SummerApplication[];
   grades: string[];
   loading?: boolean;
+  /** Hides write affordances (drag handles, Suggest button). */
+  readOnly?: boolean;
   onClickStudent?: (applicationId: number) => void;
   onDragStart?: (app: SummerApplication) => void;
   onDragEnd?: () => void;
@@ -76,6 +78,7 @@ export function SummerUnassignedPanel({
   applications,
   grades,
   loading,
+  readOnly = false,
   onClickStudent,
   onDragStart,
   onDragEnd,
@@ -313,18 +316,22 @@ export function SummerUnassignedPanel({
               return (
                 <div
                   key={app.id}
-                  draggable
-                  onPointerDown={(e) => {
+                  draggable={!readOnly}
+                  onPointerDown={readOnly ? undefined : (e) => {
                     pointerStartRef.current = { x: e.clientX, y: e.clientY };
                   }}
-                  onDragStart={(e) => {
+                  onDragStart={readOnly ? undefined : (e) => {
                     pointerStartRef.current = null;
                     e.dataTransfer.setData("application-id", String(app.id));
                     e.dataTransfer.effectAllowed = "move";
                     onDragStart?.(app);
                   }}
-                  onDragEnd={() => onDragEnd?.()}
+                  onDragEnd={readOnly ? undefined : () => onDragEnd?.()}
                   onClick={(e) => {
+                    if (readOnly) {
+                      onClickStudent?.(app.id);
+                      return;
+                    }
                     const start = pointerStartRef.current;
                     pointerStartRef.current = null;
                     if (!start) return;
@@ -334,7 +341,8 @@ export function SummerUnassignedPanel({
                     onClickStudent?.(app.id);
                   }}
                   className={cn(
-                    "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                    "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
+                    readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                     SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                   )}
                 >
@@ -454,7 +462,7 @@ export function SummerUnassignedPanel({
                         <AlertTriangle className="h-3 w-3 text-amber-500" />
                       </span>
                     )}
-                    {onSuggestStudent && (
+                    {!readOnly && onSuggestStudent && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onSuggestStudent(app.id, app.student_name); }}
                         className="ml-auto text-[9px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline"

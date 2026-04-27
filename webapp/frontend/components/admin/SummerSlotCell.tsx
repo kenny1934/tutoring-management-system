@@ -22,6 +22,8 @@ interface SummerSlotCellProps {
   demandCell?: SummerDemandCell;
   slots: SummerSlot[];
   grades: string[];
+  /** Hides write affordances (add slot, drag-drop, edit/delete). */
+  readOnly?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
@@ -67,6 +69,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
   demandCell,
   slots,
   grades,
+  readOnly = false,
   onCreateSlot,
   onUpdateSlot,
   onDeleteSlot,
@@ -137,9 +140,10 @@ export const SummerSlotCell = memo(function SummerSlotCell({
 
   // Drop target for the whole cell (assigns to first non-full slot)
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (readOnly) return;
     e.preventDefault();
     setDragOver(true);
-  }, []);
+  }, [readOnly]);
 
   const handleDragLeave = useCallback(() => {
     setDragOver(false);
@@ -147,6 +151,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
+      if (readOnly) return;
       e.preventDefault();
       setDragOver(false);
       const appId = parseInt(e.dataTransfer.getData("application-id"));
@@ -162,11 +167,11 @@ export const SummerSlotCell = memo(function SummerSlotCell({
         onDropFailed?.("Create a slot first");
       }
     },
-    [slots, onDropStudent, onDropFailed]
+    [readOnly, slots, onDropStudent, onDropFailed]
   );
 
   // Cell-level tap mirrors the cell-level drop fallback (first non-full slot).
-  const tapPlaceActive = pendingPlacementAppId != null;
+  const tapPlaceActive = pendingPlacementAppId != null && !readOnly;
   const handleTapPlace = useCallback(
     (e: React.MouseEvent) => {
       if (!tapPlaceActive) return;
@@ -271,6 +276,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
             <SummerSlotCard
               slot={slot}
               grades={grades}
+              readOnly={readOnly}
               onUpdate={(data) => {
                 setLastEditedId(slot.id);
                 onUpdateSlot(slot.id, data);
@@ -290,18 +296,20 @@ export const SummerSlotCell = memo(function SummerSlotCell({
       </div>
 
       {/* Add slot button — more prominent when no slots yet */}
-      <button
-        onClick={() => onCreateSlot(day, timeSlot)}
-        className={cn(
-          "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
-          slots.length === 0
-            ? "py-2 text-xs border border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
-            : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
-        )}
-      >
-        <Plus className={slots.length === 0 ? "h-3.5 w-3.5" : "h-3 w-3"} />
-        {slots.length === 0 ? "Add slot" : "slot"}
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => onCreateSlot(day, timeSlot)}
+          className={cn(
+            "mt-1 w-full flex items-center justify-center gap-1 rounded transition-colors",
+            slots.length === 0
+              ? "py-2 text-xs border border-dashed border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10"
+              : "py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-primary/10"
+          )}
+        >
+          <Plus className={slots.length === 0 ? "h-3.5 w-3.5" : "h-3 w-3"} />
+          {slots.length === 0 ? "Add slot" : "slot"}
+        </button>
+      )}
     </div>
   );
 });

@@ -12,6 +12,8 @@ import type { SummerSlot, SummerSlotUpdate } from "@/types";
 interface SummerSlotCardProps {
   slot: SummerSlot;
   grades: string[];
+  /** Hides write affordances (selects, delete, confirm, drag-drop, label edit). */
+  readOnly?: boolean;
   onUpdate: (data: SummerSlotUpdate) => void;
   onDelete: () => void;
   onDropStudent: (applicationId: number) => void;
@@ -43,6 +45,7 @@ function fillBarColor(pct: number): string {
 export const SummerSlotCard = memo(function SummerSlotCard({
   slot,
   grades,
+  readOnly = false,
   onUpdate,
   onDelete,
   onDropStudent,
@@ -91,10 +94,11 @@ export const SummerSlotCard = memo(function SummerSlotCard({
   const isHighlighted = highlightedAppId != null;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
     if (!isFull) setDragOver(true);
-  }, [isFull]);
+  }, [readOnly, isFull]);
 
   const handleDragLeave = useCallback(() => {
     setDragOver(false);
@@ -102,6 +106,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
+      if (readOnly) return;
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
@@ -110,10 +115,10 @@ export const SummerSlotCard = memo(function SummerSlotCard({
         onDropStudent(appId);
       }
     },
-    [isFull, onDropStudent]
+    [readOnly, isFull, onDropStudent]
   );
 
-  const tapPlaceActive = pendingPlacementAppId != null;
+  const tapPlaceActive = pendingPlacementAppId != null && !readOnly;
   const handleTapPlace = useCallback(
     (e: React.MouseEvent) => {
       if (!tapPlaceActive) return;
@@ -169,37 +174,63 @@ export const SummerSlotCard = memo(function SummerSlotCard({
       {/* Row 1: Identity + actions */}
       <div className="flex items-center gap-0.5 px-1 py-0.5 min-w-0">
         {/* Grade badge */}
-        <select
-          value={slot.grade || ""}
-          onChange={(e) => onUpdate({ grade: e.target.value || null })}
-          className={cn(
-            "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
-            slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
-          )}
-          title="Grade"
-        >
-          <option value="">--</option>
-          {grades.map((g) => (
-            <option key={g} value={g} className={SUMMER_GRADE_TEXT[g] || ""}>{g}</option>
-          ))}
-        </select>
+        {readOnly ? (
+          <span
+            className={cn(
+              "text-[10px] font-bold px-1 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618]",
+              slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
+            )}
+            title="Grade"
+          >
+            {slot.grade || "--"}
+          </span>
+        ) : (
+          <select
+            value={slot.grade || ""}
+            onChange={(e) => onUpdate({ grade: e.target.value || null })}
+            className={cn(
+              "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
+              slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
+            )}
+            title="Grade"
+          >
+            <option value="">--</option>
+            {grades.map((g) => (
+              <option key={g} value={g} className={SUMMER_GRADE_TEXT[g] || ""}>{g}</option>
+            ))}
+          </select>
+        )}
 
         {/* Course type toggle */}
-        <button
-          onClick={() => {
-            const next = slot.course_type === "A" ? "B" : slot.course_type === "B" ? null : "A";
-            onUpdate({ course_type: next });
-          }}
-          className={cn(
-            "text-[9px] font-bold px-1 rounded transition-colors",
-            slot.course_type
-              ? COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
-              : "bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground hover:text-foreground"
-          )}
-          title="Course type (click to toggle A/B)"
-        >
-          {slot.course_type || "·"}
-        </button>
+        {readOnly ? (
+          slot.course_type && (
+            <span
+              className={cn(
+                "text-[9px] font-bold px-1 rounded",
+                COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
+              )}
+              title={`Course type ${slot.course_type}`}
+            >
+              {slot.course_type}
+            </span>
+          )
+        ) : (
+          <button
+            onClick={() => {
+              const next = slot.course_type === "A" ? "B" : slot.course_type === "B" ? null : "A";
+              onUpdate({ course_type: next });
+            }}
+            className={cn(
+              "text-[9px] font-bold px-1 rounded transition-colors",
+              slot.course_type
+                ? COURSE_TYPE_COLORS[slot.course_type] || "bg-primary/10 text-primary"
+                : "bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground hover:text-foreground"
+            )}
+            title="Course type (click to toggle A/B)"
+          >
+            {slot.course_type || "·"}
+          </button>
+        )}
 
         {hasGradeMismatch && (
           <span
@@ -221,20 +252,24 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
 
-          <button
-            onClick={onDelete}
-            className="p-0.5 text-muted-foreground hover:text-red-500"
-            title="Delete slot"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={onDelete}
+              className="p-0.5 text-muted-foreground hover:text-red-500"
+              title="Delete slot"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Row 2: Label + Tutor picker */}
       <div className="px-1 pb-0.5 flex items-center gap-1">
         {(slot.slot_label || editingLabel) && (
-          editingLabel ? (
+          readOnly ? (
+            <span className="text-[9px] text-muted-foreground shrink-0">{slot.slot_label}</span>
+          ) : editingLabel ? (
             <input
               ref={labelRef}
               defaultValue={slot.slot_label ?? ""}
@@ -254,22 +289,28 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             </button>
           )
         )}
-        <select
-          value={slot.tutor_id ?? ""}
-          onChange={(e) => {
-            const val = e.target.value;
-            onUpdate({ tutor_id: val ? parseInt(val) : null });
-          }}
-          className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
-          title="Assign tutor"
-        >
-          <option value="">— tutor —</option>
-          {availableTutors?.filter((t) => t.onDuty).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+        {readOnly ? (
+          <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 text-center truncate">
+            {availableTutors?.find((t) => t.id === slot.tutor_id)?.name || "— tutor —"}
+          </span>
+        ) : (
+          <select
+            value={slot.tutor_id ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              onUpdate({ tutor_id: val ? parseInt(val) : null });
+            }}
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded border-0 bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 cursor-pointer appearance-none text-center"
+            title="Assign tutor"
+          >
+            <option value="">— tutor —</option>
+            {availableTutors?.filter((t) => t.onDuty).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Row 3: Capacity bar */}
@@ -280,7 +321,11 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
           />
         </div>
-        {editingMax ? (
+        {readOnly ? (
+          <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+            {slot.session_count}/{slot.max_students}
+          </span>
+        ) : editingMax ? (
           <input
             ref={maxRef}
             type="number"
@@ -306,20 +351,22 @@ export const SummerSlotCard = memo(function SummerSlotCard({
       {/* Expanded: student list */}
       {expanded && (
         <div className="px-1.5 pb-1 space-y-0.5">
-          <input
-            defaultValue={slot.slot_label ?? ""}
-            key={slot.slot_label}
-            className="text-[9px] w-full px-1 py-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800"
-            onBlur={(e) => {
-              const val = e.target.value.trim();
-              if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });
-            }}
-            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
-            placeholder="Add label..."
-          />
+          {!readOnly && (
+            <input
+              defaultValue={slot.slot_label ?? ""}
+              key={slot.slot_label}
+              className="text-[9px] w-full px-1 py-0.5 rounded border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-gray-800"
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val !== (slot.slot_label ?? "")) onUpdate({ slot_label: val || null });
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") (e.target as HTMLInputElement).blur(); }}
+              placeholder="Add label..."
+            />
+          )}
           {slot.sessions.length === 0 && (
             <div className="text-[9px] text-muted-foreground italic py-1">
-              No students placed yet. Drag here to assign.
+              {readOnly ? "No students placed." : "No students placed yet. Drag here to assign."}
             </div>
           )}
           {slot.sessions.map((p) => {
@@ -362,17 +409,19 @@ export const SummerSlotCard = memo(function SummerSlotCard({
                 </span>
               )}
               <WorkflowStatusIcon status={p.application_status} />
-              <button
-                onClick={() => onRemoveSession(p.id, p.student_name)}
-                className="p-0 text-muted-foreground hover:text-red-500"
-                title="Remove"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => onRemoveSession(p.id, p.student_name)}
+                  className="p-0 text-muted-foreground hover:text-red-500"
+                  title="Remove"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
             </div>
             );
           })}
-          {onConfirmSlot && slot.sessions.some((p) => p.session_status === "Tentative") && (
+          {!readOnly && onConfirmSlot && slot.sessions.some((p) => p.session_status === "Tentative") && (
             <button
               onClick={() => onConfirmSlot(slot.id)}
               className="w-full text-[9px] font-medium text-green-700 dark:text-green-400 hover:underline mt-1 text-center"

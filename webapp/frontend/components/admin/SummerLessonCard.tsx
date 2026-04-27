@@ -14,6 +14,8 @@ import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
   lesson: SummerLessonCalendarEntry;
+  /** Hides write affordances (drag-drop, edit/delete, per-session remove). */
+  readOnly?: boolean;
   onUpdateLesson: (lessonId: number, data: SummerLessonUpdate) => void;
   /** Regular drops pass undefined for lessonNumber (backend inherits from
    * the SummerLesson). Ad-hoc drops pass the admin-picked value (or null to
@@ -63,6 +65,7 @@ const AMBER_BADGE = "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-
 
 export const SummerLessonCard = memo(function SummerLessonCard({
   lesson,
+  readOnly = false,
   onUpdateLesson,
   onDropStudent,
   onRemoveSession,
@@ -117,10 +120,10 @@ export const SummerLessonCard = memo(function SummerLessonCard({
   const isAdhoc = lesson.is_adhoc === true;
   const isSyntheticAdhoc = isAdhoc && lesson.lesson_id < 0;
   const isRealAdhoc = isAdhoc && lesson.lesson_id > 0;
-  const canEditBadge = !isCancelled && !isSyntheticAdhoc;
-  const canDrop = !!onDropStudent && !isSyntheticAdhoc;
+  const canEditBadge = !readOnly && !isCancelled && !isSyntheticAdhoc;
+  const canDrop = !readOnly && !!onDropStudent && !isSyntheticAdhoc;
   const showCapacity = !isSyntheticAdhoc;
-  const canDelete = isRealAdhoc && activeSessions.length === 0 && !!onDeleted;
+  const canDelete = !readOnly && isRealAdhoc && activeSessions.length === 0 && !!onDeleted;
 
   // Ad-hoc cards have no meaningful default, so divergence there is noise.
   const divergentLessonNumbers = useMemo(
@@ -522,7 +525,35 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 </span>
               )}
               <WorkflowStatusIcon status={s.application_status} />
-              {isDivergent && (
+              {isDivergent && (readOnly ? (
+                s.session_log_id != null ? (
+                  <button
+                    onClick={(e) =>
+                      onOpenSessionPopover?.(s.session_log_id!, {
+                        x: e.clientX,
+                        y: e.clientY,
+                      })
+                    }
+                    className={cn(
+                      "text-[8px] font-bold px-1 rounded shrink-0 transition-opacity hover:opacity-80",
+                      AMBER_BADGE,
+                    )}
+                    title={`Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number}) — click for session details`}
+                  >
+                    L{s.lesson_number}
+                  </button>
+                ) : (
+                  <span
+                    className={cn(
+                      "text-[8px] font-bold px-1 rounded shrink-0",
+                      AMBER_BADGE,
+                    )}
+                    title={`Covering Lesson ${s.lesson_number} (slot default: L${lesson.lesson_number})`}
+                  >
+                    L{s.lesson_number}
+                  </span>
+                )
+              ) : (
                 <button
                   onClick={handleDivergentClick}
                   className={cn(
@@ -537,7 +568,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 >
                   L{s.lesson_number}
                 </button>
-              )}
+              ))}
               {s.session_log_id != null && (
                 <button
                   onClick={(e) =>
@@ -552,7 +583,19 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                   <Eye className="h-3 w-3" />
                 </button>
               )}
-              {isRealAdhoc && (
+              {isRealAdhoc && (readOnly ? (
+                s.lesson_number != null && (
+                  <span
+                    className={cn(
+                      "text-[8px] font-bold px-1 rounded shrink-0",
+                      AMBER_BADGE,
+                    )}
+                    title={`Lesson ${s.lesson_number}`}
+                  >
+                    L{s.lesson_number}
+                  </span>
+                )
+              ) : (
                 <button
                   onClick={() =>
                     setEditingSession({ id: s.id, current: s.lesson_number ?? null })
@@ -569,8 +612,8 @@ export const SummerLessonCard = memo(function SummerLessonCard({
                 >
                   L{s.lesson_number ?? "—"}
                 </button>
-              )}
-              {onRemoveSession && (
+              ))}
+              {!readOnly && onRemoveSession && (
                 <button
                   onClick={() => onRemoveSession(s.id, s.student_name)}
                   className="p-0 text-muted-foreground hover:text-red-500 shrink-0"

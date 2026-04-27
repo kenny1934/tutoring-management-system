@@ -26,6 +26,7 @@ import { BRANCH_INFO } from "@/lib/summer-utils";
 import {
   IntentionBadge,
   BranchBadges,
+  OutreachBadge,
   ProspectStatusBadge,
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
@@ -47,12 +48,14 @@ export function ProspectDetailModal({
   onSave,
   siblings,
   onNavigate,
+  readOnly = false,
 }: {
   prospect: PrimaryProspect;
   onClose: () => void;
   onSave: () => void;
   siblings?: PrimaryProspect[];
   onNavigate?: (next: PrimaryProspect) => void;
+  readOnly?: boolean;
 }) {
   const idx = siblings ? siblings.findIndex((p) => p.id === prospect.id) : -1;
   const canNavigate = siblings && onNavigate && idx >= 0;
@@ -237,42 +240,58 @@ export function ProspectDetailModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Outreach Status</label>
-                <select
-                  value={outreachStatus}
-                  onChange={(e) => setOutreachStatus(e.target.value as ProspectOutreachStatus)}
-                  className={`w-full ${inputSmall}`}
-                >
-                  {OUTREACH_OPTIONS.map((o) => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
+                {readOnly ? (
+                  <div className="py-1"><OutreachBadge status={outreachStatus} /></div>
+                ) : (
+                  <select
+                    value={outreachStatus}
+                    onChange={(e) => setOutreachStatus(e.target.value as ProspectOutreachStatus)}
+                    className={`w-full ${inputSmall}`}
+                  >
+                    {OUTREACH_OPTIONS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                )}
                 <p className="text-xs text-muted-foreground mt-1 italic">
                   {OUTREACH_STATUS_HINTS[outreachStatus as ProspectOutreachStatus]}
                 </p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as ProspectStatus)}
-                  className={`w-full ${inputSmall}`}
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                {readOnly ? (
+                  <div className="py-1"><ProspectStatusBadge status={status} /></div>
+                ) : (
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as ProspectStatus)}
+                    className={`w-full ${inputSmall}`}
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Contact Notes</label>
-              <textarea
-                value={contactNotes}
-                onChange={(e) => setContactNotes(e.target.value)}
-                className={`w-full ${inputSmall} resize-y`}
-                rows={2}
-                placeholder="Internal notes about contacting this parent..."
-              />
+              {readOnly ? (
+                contactNotes ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{contactNotes}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No contact notes.</p>
+                )
+              ) : (
+                <textarea
+                  value={contactNotes}
+                  onChange={(e) => setContactNotes(e.target.value)}
+                  className={`w-full ${inputSmall} resize-y`}
+                  rows={2}
+                  placeholder="Internal notes about contacting this parent..."
+                />
+              )}
             </div>
 
             {saveError && (
@@ -285,13 +304,15 @@ export function ProspectDetailModal({
               </div>
             )}
 
-            <button
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-              className="w-full py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-medium transition-colors duration-200"
-            >
-              {saving ? "Saving..." : hasChanges ? "Save Changes" : "No Changes"}
-            </button>
+            {!readOnly && (
+              <button
+                onClick={handleSave}
+                disabled={saving || !hasChanges}
+                className="w-full py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-medium transition-colors duration-200"
+              >
+                {saving ? "Saving..." : hasChanges ? "Save Changes" : "No Changes"}
+              </button>
+            )}
           </div>
 
           {prospect.summer_application_id ? (
@@ -312,29 +333,31 @@ export function ProspectDetailModal({
                   >
                     View &rarr;
                   </a>
-                  <button
-                    onClick={async () => {
-                      if (!confirmingUnlink) {
-                        setConfirmingUnlink(true);
+                  {!readOnly && (
+                    <button
+                      onClick={async () => {
+                        if (!confirmingUnlink) {
+                          setConfirmingUnlink(true);
+                          clearTimeout(unlinkTimerRef.current);
+                          unlinkTimerRef.current = setTimeout(() => setConfirmingUnlink(false), 3000);
+                          return;
+                        }
                         clearTimeout(unlinkTimerRef.current);
-                        unlinkTimerRef.current = setTimeout(() => setConfirmingUnlink(false), 3000);
-                        return;
-                      }
-                      clearTimeout(unlinkTimerRef.current);
-                      setConfirmingUnlink(false);
-                      setSaveError(null);
-                      try {
-                        await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
-                        onSave();
-                        onClose();
-                      } catch (err) {
-                        setSaveError(err instanceof Error ? err.message : "Unlink failed");
-                      }
-                    }}
-                    className={`text-xs font-medium transition-colors ${confirmingUnlink ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
-                  >
-                    {confirmingUnlink ? "Sure? Click again" : "Unlink"}
-                  </button>
+                        setConfirmingUnlink(false);
+                        setSaveError(null);
+                        try {
+                          await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
+                          onSave();
+                          onClose();
+                        } catch (err) {
+                          setSaveError(err instanceof Error ? err.message : "Unlink failed");
+                        }
+                      }}
+                      className={`text-xs font-medium transition-colors ${confirmingUnlink ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
+                    >
+                      {confirmingUnlink ? "Sure? Click again" : "Unlink"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -355,13 +378,15 @@ export function ProspectDetailModal({
                         {m.reference_code} &middot; {m.contact_phone} &middot; {m.match_type}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleLink(m.application_id)}
-                      className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
-                    >
-                      <Link2 className="h-3 w-3" />
-                      Link
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => handleLink(m.application_id)}
+                        className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        Link
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

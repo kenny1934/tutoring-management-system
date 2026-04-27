@@ -24,6 +24,8 @@ interface SummerStudentLessonsTableProps {
     applicationId: number;
     seq: number;
   } | null;
+  /** Hides write affordances (Find Slot button). */
+  readOnly?: boolean;
   onClickStudent?: (applicationId: number) => void;
   onFindSlot?: (target: {
     applicationId: number;
@@ -149,6 +151,7 @@ export function SummerStudentLessonsTable({
   totalLessons,
   statusFilter = null,
   highlightTarget,
+  readOnly = false,
   onClickStudent,
   onFindSlot,
   onNavigateToLesson,
@@ -620,7 +623,7 @@ export function SummerStudentLessonsTable({
 
                       return (
                         <td key={n} className="text-center px-1 py-1">
-                          {onFindSlot ? (
+                          {onFindSlot && !readOnly ? (
                             <button
                               onClick={() => handleFindSlot(student, n)}
                               className="text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 rounded px-1.5 py-0.5 transition-colors"

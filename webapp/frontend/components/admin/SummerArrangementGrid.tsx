@@ -28,6 +28,9 @@ interface SummerArrangementGridProps {
    * pulsing skeleton cells and suppresses the getting-started banner so the
    * empty grid isn't mistaken for a legit empty state. */
   loading?: boolean;
+  /** Hides write affordances (add slot, drag-drop, edit/delete) — used for
+   * Supervisor view-only access. */
+  readOnly?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;
   onDeleteSlot: (slotId: number) => void;
@@ -59,6 +62,7 @@ export function SummerArrangementGrid({
   slots,
   grades,
   loading = false,
+  readOnly = false,
   onCreateSlot,
   onUpdateSlot,
   onDeleteSlot,
@@ -243,6 +247,7 @@ export function SummerArrangementGrid({
                   demandCell={demandMap.get(key)}
                   slots={slotsMap.get(key) ?? EMPTY_SLOTS}
                   grades={grades}
+                  readOnly={readOnly}
                   onCreateSlot={onCreateSlot}
                   onUpdateSlot={onUpdateSlot}
                   onDeleteSlot={onDeleteSlot}
