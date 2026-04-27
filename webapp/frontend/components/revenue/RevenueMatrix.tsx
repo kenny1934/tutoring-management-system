@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTheme } from "next-themes";
 import { Crown, Loader2, Search } from "lucide-react";
 import { useTutorYearMatrix } from "@/lib/hooks";
 import { StickyNote } from "@/lib/design-system";
@@ -10,14 +11,16 @@ import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { TutorYearMatrixCell } from "@/types";
 
 type SortDir = "asc" | "desc";
+// "total" or "tutor" or a "YYYY-MM" period string.
+export type MatrixSortKey = "total" | "tutor" | string;
 
 interface RevenueMatrixProps {
   year: number;
   location: string | null;
   isMobile?: boolean;
-  sortKey: string; // "total" | "tutor" | "YYYY-MM"
+  sortKey: MatrixSortKey;
   sortDir: SortDir;
-  onSortChange: (key: string, dir: SortDir) => void;
+  onSortChange: (key: MatrixSortKey, dir: SortDir) => void;
   onCellClick: (tutorId: number, period: string) => void;
 }
 
@@ -71,7 +74,8 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
 
   useEffect(() => setMounted(true), []);
 
-  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const { rowTotals, colTotals, grandTotal, maxCell, maxByPeriod } = useMemo(() => {
     const rt: Record<number, number> = {};
@@ -125,7 +129,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
     return tutors;
   }, [data, sortKey, sortDir, rowTotals, filter]);
 
-  const handleHeaderClick = (key: string) => {
+  const handleHeaderClick = (key: MatrixSortKey) => {
     if (key === sortKey) {
       onSortChange(key, sortDir === "desc" ? "asc" : "desc");
     } else {
@@ -134,7 +138,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
     }
   };
 
-  const sortArrow = (key: string) => {
+  const sortArrow = (key: MatrixSortKey) => {
     if (key !== sortKey) return null;
     return <span className="ml-0.5 text-[#a0704b] dark:text-[#cd853f]">{sortDir === "asc" ? "↑" : "↓"}</span>;
   };

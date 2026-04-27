@@ -184,7 +184,7 @@ export default function RevenuePage() {
   useEffect(() => {
     if (!canViewAdminPages) return; // Non-admins don't need URL sync for tutor
     const params = new URLSearchParams();
-    if (tableViewAvailable && view !== (tableViewAvailable ? 'table' : 'detail')) {
+    if (tableViewAvailable && view !== 'table') {
       params.set('view', view);
     }
     if (view === 'table') {
