@@ -14,7 +14,6 @@ import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
   lesson: SummerLessonCalendarEntry;
-  /** Hides write affordances (drag-drop, edit/delete, per-session remove). */
   readOnly?: boolean;
   onUpdateLesson: (lessonId: number, data: SummerLessonUpdate) => void;
   /** Regular drops pass undefined for lessonNumber (backend inherits from

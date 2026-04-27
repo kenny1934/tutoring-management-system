@@ -12,7 +12,6 @@ import type { SummerSlot, SummerSlotUpdate } from "@/types";
 interface SummerSlotCardProps {
   slot: SummerSlot;
   grades: string[];
-  /** Hides write affordances (selects, delete, confirm, drag-drop, label edit). */
   readOnly?: boolean;
   onUpdate: (data: SummerSlotUpdate) => void;
   onDelete: () => void;

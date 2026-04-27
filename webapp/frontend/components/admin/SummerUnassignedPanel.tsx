@@ -15,7 +15,6 @@ interface SummerUnassignedPanelProps {
   applications: SummerApplication[];
   grades: string[];
   loading?: boolean;
-  /** Hides write affordances (drag handles, Suggest button). */
   readOnly?: boolean;
   onClickStudent?: (applicationId: number) => void;
   onDragStart?: (app: SummerApplication) => void;

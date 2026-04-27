@@ -24,7 +24,6 @@ interface SummerStudentLessonsTableProps {
     applicationId: number;
     seq: number;
   } | null;
-  /** Hides write affordances (Find Slot button). */
   readOnly?: boolean;
   onClickStudent?: (applicationId: number) => void;
   onFindSlot?: (target: {

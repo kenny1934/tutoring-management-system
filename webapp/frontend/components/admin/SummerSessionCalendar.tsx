@@ -27,7 +27,6 @@ interface SummerSessionCalendarProps {
   timeSlots: string[];
   /** Upper bound for the lesson-number UIs, sourced from config.total_lessons. */
   totalLessons?: number;
-  /** Hides write affordances (drag-drop, make-up creation, lesson edits). */
   readOnly?: boolean;
   onDropStudent?: (
     applicationId: number,

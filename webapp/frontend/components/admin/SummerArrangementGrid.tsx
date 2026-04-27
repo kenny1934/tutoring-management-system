@@ -28,8 +28,6 @@ interface SummerArrangementGridProps {
    * pulsing skeleton cells and suppresses the getting-started banner so the
    * empty grid isn't mistaken for a legit empty state. */
   loading?: boolean;
-  /** Hides write affordances (add slot, drag-drop, edit/delete) — used for
-   * Supervisor view-only access. */
   readOnly?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;

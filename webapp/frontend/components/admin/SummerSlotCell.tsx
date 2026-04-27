@@ -22,7 +22,6 @@ interface SummerSlotCellProps {
   demandCell?: SummerDemandCell;
   slots: SummerSlot[];
   grades: string[];
-  /** Hides write affordances (add slot, drag-drop, edit/delete). */
   readOnly?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
   onUpdateSlot: (slotId: number, data: SummerSlotUpdate) => void;

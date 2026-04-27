@@ -310,7 +310,6 @@ interface Props {
   filters?: StatsFilterHandler;
   config?: SummerCourseConfig | null;
   discountByAppId?: Map<number, DiscountResult>;
-  /** Hides write affordances (marketing snapshot push). */
   readOnly?: boolean;
 }
 
