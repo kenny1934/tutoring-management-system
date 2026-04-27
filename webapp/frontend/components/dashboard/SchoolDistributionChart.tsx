@@ -19,6 +19,7 @@ import { SchoolAccent } from "@/components/illustrations/CardAccents";
 import { PieChart as PieIcon, BarChart3, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActiveStudent } from "@/types";
+import { CopyDataButton } from "@/components/dashboard/CopyDataButton";
 
 type ViewType = "donut" | "bar" | "radial";
 const STORAGE_KEY = "dashboard-school-chart-view";
@@ -397,7 +398,21 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
           <SchoolAccent className="w-8 h-6" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">School Distribution</h3>
         </div>
-        <ViewToggle view={viewType} onChange={handleViewChange} />
+        <div className="flex items-center gap-1.5">
+          <CopyDataButton
+            title="Copy chart data (TSV)"
+            build={() => {
+              // Expand "Others" so the copy is the full ranked list, not the
+              // truncated visualization. Already sorted desc by value.
+              const fullList = [
+                ...chartData.filter((d) => d.name !== "Others"),
+                ...othersBreakdown,
+              ].sort((a, b) => b.value - a.value);
+              return ["School\tCount", ...fullList.map((d) => `${d.name}\t${d.value}`)].join("\n");
+            }}
+          />
+          <ViewToggle view={viewType} onChange={handleViewChange} />
+        </div>
       </div>
 
       {/* Chart */}

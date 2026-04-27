@@ -80,12 +80,14 @@ export default function DashboardPage() {
   }, [allStudents, effectiveTutorId]);
 
   // Additional admin-only narrowing for the analytics charts only.
+  // The selector is hidden for non-admins / my-view, so chartTutorId never
+  // moves off ALL_TUTORS in those cases — no need to check the gate here.
   const chartStudents = useMemo(() => {
-    if (!showAdminTutorFilter || chartTutorId === ALL_TUTORS || chartTutorId === null) {
+    if (chartTutorId === ALL_TUTORS || chartTutorId === null) {
       return filteredStudents;
     }
     return filteredStudents.filter(s => s.tutor_id === chartTutorId);
-  }, [filteredStudents, showAdminTutorFilter, chartTutorId]);
+  }, [filteredStudents, chartTutorId]);
 
   // Tutor scope to propagate when a chart slice is clicked. Admin selector
   // wins; otherwise fall back to my-view's effective tutor (own id, or

@@ -19,6 +19,7 @@ import { GradeAccent } from "@/components/illustrations/CardAccents";
 import { PieChart as PieIcon, BarChart3, Target, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActiveStudent } from "@/types";
+import { CopyDataButton } from "@/components/dashboard/CopyDataButton";
 
 type ViewType = "donut" | "bar" | "radial";
 const STORAGE_KEY = "dashboard-grade-chart-view";
@@ -38,6 +39,11 @@ const COLORS = [
 // tint of the grade's hue (see `shadeHex` below). STREAM_ORDER pins the
 // segment ordering so each grade's pair stays adjacent.
 const STREAM_ORDER: Record<string, number> = { C: 0, E: 1, Other: 2 };
+// Lightness deltas applied to a grade's base color to derive its C/E
+// shades. Wide enough gap (~50% combined) that the split reads clearly.
+const STREAM_SHADE_C = -0.18;
+const STREAM_SHADE_E = 0.32;
+const STREAM_SHADE_OTHER = "#9ca3af";
 const STREAM_KEYS = ["C", "E", "Other"] as const;
 type StreamKey = (typeof STREAM_KEYS)[number];
 
@@ -272,9 +278,9 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
     chartData.forEach((row) => {
       const base = row.gradeColor;
       const streamFill: Record<StreamKey, string> = {
-        C: shadeHex(base, -0.18),  // darker
-        E: shadeHex(base, 0.32),   // lighter
-        Other: "#9ca3af",          // neutral gray, grade-agnostic
+        C: shadeHex(base, STREAM_SHADE_C),
+        E: shadeHex(base, STREAM_SHADE_E),
+        Other: STREAM_SHADE_OTHER,
       };
       (STREAM_KEYS as readonly StreamKey[]).forEach((stream) => {
         const count = row[stream];
@@ -377,9 +383,9 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
             {splitByStream ? (
               activeStreamKeys.map((stream, i) => {
                 const tintFor = (base: string): string => {
-                  if (stream === "C") return shadeHex(base, -0.18);
-                  if (stream === "E") return shadeHex(base, 0.32);
-                  return "#9ca3af"; // Other: neutral, grade-agnostic
+                  if (stream === "C") return shadeHex(base, STREAM_SHADE_C);
+                  if (stream === "E") return shadeHex(base, STREAM_SHADE_E);
+                  return STREAM_SHADE_OTHER;
                 };
                 return (
                   <Bar
@@ -471,6 +477,24 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Grade Distribution</h3>
         </div>
         <div className="flex items-center gap-1.5">
+          <CopyDataButton
+            title="Copy chart data (TSV)"
+            build={() => {
+              if (splitByStream) {
+                const header = ["Grade", "C", "E"];
+                if (hasOtherStream) header.push("Other");
+                header.push("Total");
+                const rows = chartData.map((r) => {
+                  const cells = [r.grade, String(r.C), String(r.E)];
+                  if (hasOtherStream) cells.push(String(r.Other));
+                  cells.push(String(r.total));
+                  return cells.join("\t");
+                });
+                return [header.join("\t"), ...rows].join("\n");
+              }
+              return ["Grade\tCount", ...chartData.map((r) => `${r.grade}\t${r.value}`)].join("\n");
+            }}
+          />
           <button
             onClick={handleSplitToggle}
             title={splitByStream ? "Showing C/E split" : "Split by language stream"}
