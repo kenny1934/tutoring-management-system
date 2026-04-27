@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePageTitle } from "@/lib/hooks";
+import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePageTitle, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Student, StudentFilters } from "@/types";
@@ -49,6 +49,11 @@ export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [gradeFilter, setGradeFilter] = useState(searchParams.get('grade') || '');
   const [schoolFilter, setSchoolFilter] = useState(searchParams.get('school') || '');
+  const [tutorIdFilter, setTutorIdFilter] = useState<number | null>(() => {
+    const v = searchParams.get('tutor_id');
+    return v ? parseInt(v, 10) : null;
+  });
+  const [langStreamFilter, setLangStreamFilter] = useState<string>(searchParams.get('lang_stream') || '');
   const [sortOption, setSortOption] = useState(searchParams.get('sort') || 'id_desc');
   const [currentPage, setCurrentPage] = useState(() => {
     const page = searchParams.get('page');
@@ -148,11 +153,20 @@ export default function StudentsPage() {
     grade: gradeFilter || undefined,
     school: schoolFilter || undefined,
     location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
+    tutor_id: tutorIdFilter ?? undefined,
+    lang_stream: langStreamFilter || undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
     limit: STUDENTS_PER_PAGE,
     offset: (currentPage - 1) * STUDENTS_PER_PAGE,
-  }), [searchTerm, gradeFilter, schoolFilter, selectedLocation, sortBy, sortOrder, currentPage]);
+  }), [searchTerm, gradeFilter, schoolFilter, tutorIdFilter, langStreamFilter, selectedLocation, sortBy, sortOrder, currentPage]);
+
+  // Resolve a display name for the tutor chip; falls back to id if tutors haven't loaded.
+  const { data: allTutors } = useTutors();
+  const tutorFilterName = useMemo(() => {
+    if (!tutorIdFilter) return null;
+    return allTutors?.find(t => t.id === tutorIdFilter)?.tutor_name ?? null;
+  }, [allTutors, tutorIdFilter]);
 
   // SWR hook for data fetching
   const { data: students = [], error, isLoading: loading } = useStudents(filters);
@@ -202,13 +216,25 @@ export default function StudentsPage() {
       if (searchTerm) params.set('search', searchTerm);
       if (gradeFilter) params.set('grade', gradeFilter);
       if (schoolFilter) params.set('school', schoolFilter);
+      if (tutorIdFilter) params.set('tutor_id', tutorIdFilter.toString());
+      if (langStreamFilter) params.set('lang_stream', langStreamFilter);
       if (sortOption !== 'id_desc') params.set('sort', sortOption);
       if (currentPage > 1) params.set('page', currentPage.toString());
     }
 
     const query = params.toString();
     router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
-  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, myMobileTab, myGroups, mySort, mySortDirection, router]);
+  }, [searchTerm, gradeFilter, schoolFilter, tutorIdFilter, langStreamFilter, sortOption, currentPage, viewMode, selectedTutorId, myMobileTab, myGroups, mySort, mySortDirection, router]);
+
+  // When the user switches to "My Students" view, drop the all-view tutor
+  // and stream filters — `selectedTutorId` takes over narrowing there, and
+  // my-view doesn't honor lang_stream at all, so leaving it set would be
+  // a silent ghost filter waiting to surprise on the next view-switch.
+  useEffect(() => {
+    if (viewMode !== 'my') return;
+    if (tutorIdFilter !== null) setTutorIdFilter(null);
+    if (langStreamFilter) setLangStreamFilter('');
+  }, [viewMode, tutorIdFilter, langStreamFilter]);
 
   // Restore scroll position
   useEffect(() => {
@@ -479,6 +505,35 @@ export default function StudentsPage() {
               <option value="name_desc">Name Z-A</option>
               <option value="school_asc">School A-Z</option>
             </select>
+
+            {/* Tutor filter chip — appears when navigated here from a dashboard chart with a tutor selected */}
+            {tutorIdFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] text-xs text-gray-700 dark:text-gray-200">
+                <User className="h-3 w-3 text-[#a0704b] dark:text-[#cd853f]" />
+                <span>Tutor: {tutorFilterName ?? `#${tutorIdFilter}`}</span>
+                <button
+                  onClick={() => { setTutorIdFilter(null); setCurrentPage(1); }}
+                  aria-label="Clear tutor filter"
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                >
+                  <X className="h-3 w-3 text-gray-400" />
+                </button>
+              </span>
+            )}
+
+            {/* Language-stream filter chip — set when a stream segment of the grade chart is clicked */}
+            {langStreamFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#d4a574] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] text-xs text-gray-700 dark:text-gray-200">
+                <span>Stream: {langStreamFilter}</span>
+                <button
+                  onClick={() => { setLangStreamFilter(''); setCurrentPage(1); }}
+                  aria-label="Clear stream filter"
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                >
+                  <X className="h-3 w-3 text-gray-400" />
+                </button>
+              </span>
+            )}
               </>
             )}
 

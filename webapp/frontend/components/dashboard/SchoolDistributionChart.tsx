@@ -187,13 +187,16 @@ interface SchoolDistributionChartProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  /** When set, click-throughs append `&tutor_id=...` so the students list is narrowed to match the chart's tutor scope. */
+  tutorFilterId?: number;
 }
 
 export const SchoolDistributionChart = memo(function SchoolDistributionChart({
   students = [],
   isLoading = false,
   error = null,
-  onRetry
+  onRetry,
+  tutorFilterId,
 }: SchoolDistributionChartProps) {
   const router = useRouter();
   const [viewType, setViewType] = useState<ViewType>("donut");
@@ -220,7 +223,10 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
       setShowOthersPopover(true);
       return;
     }
-    router.push(`/students?school=${encodeURIComponent(data.name)}`);
+    const params = new URLSearchParams();
+    params.set("school", data.name);
+    if (tutorFilterId) params.set("tutor_id", String(tutorFilterId));
+    router.push(`/students?${params.toString()}`);
   };
 
   const { chartData, totalSchools, totalStudents, othersBreakdown } = useMemo(() => {

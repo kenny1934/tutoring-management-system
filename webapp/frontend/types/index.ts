@@ -420,6 +420,8 @@ export interface StudentFilters {
   school?: string;
   location?: string;
   academic_stream?: string;
+  lang_stream?: string;
+  tutor_id?: number;
   sort_by?: string;
   sort_order?: "asc" | "desc";
   limit?: number;

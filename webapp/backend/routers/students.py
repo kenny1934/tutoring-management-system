@@ -11,6 +11,7 @@ from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
+from routers.enrollments import get_active_enrollment_objects
 
 router = APIRouter()
 
@@ -189,6 +190,8 @@ async def get_students(
     school: Optional[str] = Query(None, description="Filter by school"),
     location: Optional[str] = Query(None, description="Filter by home location"),
     academic_stream: Optional[str] = Query(None, description="Filter by academic stream (Science/Arts)"),
+    lang_stream: Optional[str] = Query(None, description="Filter by language stream (e.g. 'C' or 'E')"),
+    tutor_id: Optional[int] = Query(None, description="Filter to students whose latest active Regular enrollment is with this tutor (matches dashboard charts)"),
     sort_by: Optional[str] = Query(None, description="Sort field: id, name, school, grade"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
@@ -202,8 +205,15 @@ async def get_students(
     - **search**: Search by student name or school_student_id
     - **grade**: Filter by grade (e.g., 'P6', 'F1', 'F2')
     - **school**: Filter by school name
-    - **location**: Filter by home location
+    - **location**: Filter by home location (student.home_location)
     - **academic_stream**: Filter by academic stream for F4-F6 students
+    - **tutor_id**: Filter to students whose *latest active Regular* enrollment
+      is with this tutor — same active-enrollment logic as
+      `/enrollments/active`, intersected with the tutor. When `location` is
+      also supplied with `tutor_id`, location is matched against the
+      *enrollment* location (mirrors the dashboard's `useAllStudents` data
+      source) rather than `student.home_location`, so chart click-throughs
+      land on the same set the chart was visualizing.
     - **sort_by**: Sort field (id, name, school, grade)
     - **sort_order**: Sort order (asc or desc, default desc)
     - **limit**: Maximum number of results (default 100, max 500)
@@ -259,11 +269,26 @@ async def get_students(
     if school:
         query = query.filter(Student.school == school)
 
-    if location:
+    # When tutor_id is set, location scopes the *enrollment* location via
+    # the active-enrollment helper (mirrors useAllStudents(selectedLocation))
+    # — skip the student.home_location filter so the result matches the
+    # dashboard chart exactly. Without tutor_id, location keeps its existing
+    # home_location semantics.
+    if location and tutor_id is None:
         query = query.filter(Student.home_location == location)
 
     if academic_stream:
         query = query.filter(Student.academic_stream == academic_stream)
+
+    if lang_stream:
+        query = query.filter(Student.lang_stream == lang_stream)
+
+    if tutor_id is not None:
+        active, _, _ = get_active_enrollment_objects(db, location=location)
+        matching_ids = {e.student_id for e in active if e.tutor_id == tutor_id}
+        if not matching_ids:
+            return []
+        query = query.filter(Student.id.in_(matching_ids))
 
     # Apply sorting
     sort_columns = {

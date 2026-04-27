@@ -7,6 +7,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useDashboardStats, useAllStudents, usePageTitle } from "@/lib/hooks";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
+import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
 
 // Lazy load chart components - Recharts adds ~30kb to bundle
 const GradeDistributionChart = dynamic(
@@ -29,7 +30,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { user, impersonatedTutor, isGuest } = useAuth();
+  const { user, impersonatedTutor, isGuest, canViewAdminPages } = useAuth();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
@@ -40,6 +41,11 @@ export default function DashboardPage() {
   const effectiveTutorId = viewMode === 'my-view'
     ? impersonatedTutor?.id ?? user?.id
     : undefined;
+
+  // Admin-only chart filter: narrows the analytics charts to a single tutor.
+  // Hidden for non-admins and in my-view (where effectiveTutorId already filters).
+  const showAdminTutorFilter = canViewAdminPages && viewMode !== 'my-view';
+  const [chartTutorId, setChartTutorId] = useState<TutorValue>(ALL_TUTORS);
 
   const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId, !isGuest);
 
@@ -72,6 +78,23 @@ export default function DashboardPage() {
     if (!effectiveTutorId) return allStudents;  // Center View: show all
     return allStudents.filter(s => s.tutor_id === effectiveTutorId);  // My View: filter by tutor
   }, [allStudents, effectiveTutorId]);
+
+  // Additional admin-only narrowing for the analytics charts only.
+  const chartStudents = useMemo(() => {
+    if (!showAdminTutorFilter || chartTutorId === ALL_TUTORS || chartTutorId === null) {
+      return filteredStudents;
+    }
+    return filteredStudents.filter(s => s.tutor_id === chartTutorId);
+  }, [filteredStudents, showAdminTutorFilter, chartTutorId]);
+
+  // Tutor scope to propagate when a chart slice is clicked. Admin selector
+  // wins; otherwise fall back to my-view's effective tutor (own id, or
+  // impersonated tutor for Super Admin). Undefined means "All", no filter.
+  const adminPickedTutorId =
+    showAdminTutorFilter && chartTutorId !== ALL_TUTORS && chartTutorId !== null
+      ? chartTutorId
+      : undefined;
+  const chartTutorIdNumeric = adminPickedTutorId ?? effectiveTutorId;
 
   usePageTitle("Dashboard");
 
@@ -158,6 +181,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Distribution Charts */}
+        {showAdminTutorFilter && (
+          <div className="flex items-center justify-end gap-2 -mb-2">
+            <span className="text-xs text-[#8b6f47] dark:text-[#d4a574]">Filter charts:</span>
+            <TutorSelector
+              value={chartTutorId}
+              onChange={setChartTutorId}
+              location={selectedLocation}
+              showAllTutors
+            />
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Student analytics">
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: -0.3 }}
@@ -174,10 +208,11 @@ export default function DashboardPage() {
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
               <CompactErrorBoundary>
                 <GradeDistributionChart
-                  students={filteredStudents}
+                  students={chartStudents}
                   isLoading={studentsLoading}
                   error={studentsError}
                   onRetry={mutateStudents}
+                  tutorFilterId={chartTutorIdNumeric}
                 />
               </CompactErrorBoundary>
             </LazySection>
@@ -197,10 +232,11 @@ export default function DashboardPage() {
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
               <CompactErrorBoundary>
                 <SchoolDistributionChart
-                  students={filteredStudents}
+                  students={chartStudents}
                   isLoading={studentsLoading}
                   error={studentsError}
                   onRetry={mutateStudents}
+                  tutorFilterId={chartTutorIdNumeric}
                 />
               </CompactErrorBoundary>
             </LazySection>

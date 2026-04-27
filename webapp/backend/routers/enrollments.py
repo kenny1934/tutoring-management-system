@@ -1018,20 +1018,19 @@ async def get_enrollments(
     return result
 
 
-@router.get("/enrollments/active", response_model=List[EnrollmentResponse])
-async def get_active_enrollments(
-    location: Optional[str] = Query(None, description="Filter by location"),
-    db: Session = Depends(get_db)
-):
+def get_active_enrollment_objects(db: Session, location: Optional[str] = None):
     """
-    Get active enrollments - latest enrollment per student that is still active.
+    Single source of truth for "active enrollments" — returns the latest
+    Regular enrollment per student that's still within its effective end
+    date (with grace period). Used by the /enrollments/active endpoint and
+    the /students tutor_id filter so click-throughs from the dashboard land
+    on the same student set the chart was showing.
 
-    Logic: For each student, returns only their most recent enrollment based on first_lesson_date,
-    excluding cancelled enrollments and those with effective_end_date < today.
-
-    effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
-
-    - **location**: Filter by location (optional, omit for all locations)
+    Returns:
+        (latest_enrollments, holidays, summer_end_dates) — the holiday and
+        summer-end-date maps are returned so callers that need to recompute
+        per-enrollment effective_end_date for response shaping can reuse the
+        bulk-loaded data instead of re-querying.
     """
     today = hk_now().date()
 
@@ -1091,6 +1090,26 @@ async def get_active_enrollments(
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
             latest_enrollments.append(latest)
+
+    return latest_enrollments, holidays, summer_end_dates
+
+
+@router.get("/enrollments/active", response_model=List[EnrollmentResponse])
+async def get_active_enrollments(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get active enrollments - latest enrollment per student that is still active.
+
+    Logic: For each student, returns only their most recent enrollment based on first_lesson_date,
+    excluding cancelled enrollments and those with effective_end_date < today.
+
+    effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
+
+    - **location**: Filter by location (optional, omit for all locations)
+    """
+    latest_enrollments, holidays, summer_end_dates = get_active_enrollment_objects(db, location=location)
 
     # Sort by student name for easier viewing
     latest_enrollments = sorted(latest_enrollments, key=lambda e: e.student.student_name if e.student else "")
