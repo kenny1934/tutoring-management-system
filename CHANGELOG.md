@@ -6,10 +6,15 @@
 
 * **Tutor x month revenue table**: a new Table view on the Revenue page (admins, center mode) shows every tutor as a row and the year's months as columns, shaded as a heatmap by session revenue. Click a cell to drill into the detail, hover for a breakdown, and watch for the crown that marks each month's top earner.
 * **Sort and filter the matrix**: click any column header to sort by that month, by year total, or by tutor first name; the sort persists in the URL. A small filter box narrows the rows to a tutor name search.
+* **Tutor filter for the dashboard charts**: admins, super admins, and supervisors get a tutor selector above the Grade and School distribution charts that narrows both to one tutor at a time. Tutors in My View see only their own students automatically.
+* **Grade chart split by language stream**: a new Languages toggle next to the chart view buttons breaks each grade into C and E parts. Bar view stacks them, donut and radial show separate slices, and each grade keeps its own colour so you can still tell F1 from F2 at a glance.
+* **Click a chart slice to jump to the matching students**: clicking a grade, school, or stream segment opens the students list filtered to that selection and carries any active tutor and stream filter into the URL. The students page surfaces those filters as clearable chips in the toolbar.
+* **Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the "Others" bucket into the full ranked list.
 
 ### Bug Fixes
 
 * **Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects, and Config now open in read-only mode for Supervisors instead of denying access. Write controls (status changes, drag-drop placement, link/unlink, save buttons) are hidden, and a "(Read-only)" badge sits in the header.
+* **Readable section labels on the dashboard and Progress drawer**: the "Filter charts:" tag on the dashboard and the Overview / History row in the Student detail Progress drawer now sit on a paper card, so the text no longer washes into the wooden desk background in light mode.
 
 ## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
 

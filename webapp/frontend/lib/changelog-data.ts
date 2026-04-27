@@ -12,6 +12,18 @@ const changelogData = [
           },
           {
             "description": "**Sort and filter the matrix**: click any column header to sort by that month, by year total, or by tutor first name; the sort persists in the URL. A small filter box narrows the rows to a tutor name search."
+          },
+          {
+            "description": "**Tutor filter for the dashboard charts**: admins, super admins, and supervisors get a tutor selector above the Grade and School distribution charts that narrows both to one tutor at a time. Tutors in My View see only their own students automatically."
+          },
+          {
+            "description": "**Grade chart split by language stream**: a new Languages toggle next to the chart view buttons breaks each grade into C and E parts. Bar view stacks them, donut and radial show separate slices, and each grade keeps its own colour so you can still tell F1 from F2 at a glance."
+          },
+          {
+            "description": "**Click a chart slice to jump to the matching students**: clicking a grade, school, or stream segment opens the students list filtered to that selection and carries any active tutor and stream filter into the URL. The students page surfaces those filters as clearable chips in the toolbar."
+          },
+          {
+            "description": "**Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the \"Others\" bucket into the full ranked list."
           }
         ]
       },
@@ -20,6 +32,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects, and Config now open in read-only mode for Supervisors instead of denying access. Write controls (status changes, drag-drop placement, link/unlink, save buttons) are hidden, and a \"(Read-only)\" badge sits in the header."
+          },
+          {
+            "description": "**Readable section labels on the dashboard and Progress drawer**: the \"Filter charts:\" tag on the dashboard and the Overview / History row in the Student detail Progress drawer now sit on a paper card, so the text no longer washes into the wooden desk background in light mode."
           }
         ]
       }
