@@ -24,6 +24,9 @@ const changelogData = [
           },
           {
             "description": "**Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the \"Others\" bucket into the full ranked list."
+          },
+          {
+            "description": "**Session plan cap on summer placements**: dragging a student into a slot or calendar lesson now refuses to overshoot their paid lesson count. The application detail modal shows a Placed N/N badge that turns green when full and red when over plan. The slot placement dialog previews each option's resulting total, disables choices that would overshoot, and explains when there's no room left. Rescheduled and made-up sessions free their original spot, so the count stays accurate after a reschedule."
           }
         ]
       },
@@ -35,6 +38,9 @@ const changelogData = [
           },
           {
             "description": "**Readable section labels on the dashboard and Progress drawer**: the \"Filter charts:\" tag on the dashboard and the Overview / History row in the Student detail Progress drawer now sit on a paper card, so the text no longer washes into the wooden desk background in light mode."
+          },
+          {
+            "description": "**Half-placement option label no longer assumes Type A**: the slot placement dialog's half option now reads \"4 lessons\" instead of \"First 4 lessons\", since slot type A or B determines whether those four sessions fall in the early or late half of the term."
           }
         ]
       }

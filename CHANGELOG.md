@@ -10,11 +10,13 @@
 * **Grade chart split by language stream**: a new Languages toggle next to the chart view buttons breaks each grade into C and E parts. Bar view stacks them, donut and radial show separate slices, and each grade keeps its own colour so you can still tell F1 from F2 at a glance.
 * **Click a chart slice to jump to the matching students**: clicking a grade, school, or stream segment opens the students list filtered to that selection and carries any active tutor and stream filter into the URL. The students page surfaces those filters as clearable chips in the toolbar.
 * **Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the "Others" bucket into the full ranked list.
+* **Session plan cap on summer placements**: dragging a student into a slot or calendar lesson now refuses to overshoot their paid lesson count. The application detail modal shows a Placed N/N badge that turns green when full and red when over plan. The slot placement dialog previews each option's resulting total, disables choices that would overshoot, and explains when there's no room left. Rescheduled and made-up sessions free their original spot, so the count stays accurate after a reschedule.
 
 ### Bug Fixes
 
 * **Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects, and Config now open in read-only mode for Supervisors instead of denying access. Write controls (status changes, drag-drop placement, link/unlink, save buttons) are hidden, and a "(Read-only)" badge sits in the header.
 * **Readable section labels on the dashboard and Progress drawer**: the "Filter charts:" tag on the dashboard and the Overview / History row in the Student detail Progress drawer now sit on a paper card, so the text no longer washes into the wooden desk background in light mode.
+* **Half-placement option label no longer assumes Type A**: the slot placement dialog's half option now reads "4 lessons" instead of "First 4 lessons", since slot type A or B determines whether those four sessions fall in the early or late half of the term.
 
 ## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
 
