@@ -572,6 +572,18 @@ export default function SummerArrangementPage() {
     return map;
   }, [unassigned, statusFilteredApps, studentLessonsData]);
 
+  const getAppCap = useCallback(
+    (appId: number | undefined | null) => {
+      const info = appId ? appCapInfo.get(appId) : undefined;
+      const fallbackCap = activeConfig?.total_lessons ?? 8;
+      return {
+        placed: info?.placed_count ?? 0,
+        cap: info?.lessons_paid || fallbackCap,
+      };
+    },
+    [appCapInfo, activeConfig],
+  );
+
   // Placement across grades is allowed (tutors sometimes absorb a
   // neighbour-grade student), but Find Slot / auto-suggest / grid grouping
   // treat slot.grade as authoritative — prompt first so admins know.
@@ -648,21 +660,16 @@ export default function SummerArrangementPage() {
     setPendingPlacementAppId(null);
     const app = unassigned?.find((a) => a.id === applicationId);
     const slot = slots?.find((s) => s.id === slotId);
-    // Block over-placement before hitting the server. Backend enforces the
-    // same cap; this keeps the error fast and specific. Look up cap info
-    // across all panels — a moved student may not be in `unassigned`.
-    const cap_info = appCapInfo.get(applicationId);
-    if (cap_info) {
-      const cap = cap_info.lessons_paid || activeConfig?.total_lessons || 8;
-      const placed = cap_info.placed_count;
-      if (placed + 1 > cap) {
-        const name = app?.student_name ?? "Student";
-        showToast(
-          `${name} is at their session plan (${placed}/${cap}). Cancel or reschedule an existing placement first.`,
-          "error",
-        );
-        return;
-      }
+    // Look up cap info across all panels — a moved student may not be in
+    // `unassigned`. Backend enforces the same cap; this just fails fast.
+    const { placed, cap } = getAppCap(applicationId);
+    if (placed + 1 > cap) {
+      const name = app?.student_name ?? "Student";
+      showToast(
+        `${name} is at their session plan (${placed}/${cap}). Cancel or reschedule an existing placement first.`,
+        "error",
+      );
+      return;
     }
     if (app && slot && slot.grade && app.grade && app.grade !== slot.grade) {
       setPendingGradeMismatch({
@@ -675,7 +682,7 @@ export default function SummerArrangementPage() {
       return;
     }
     void executeCalendarDrop(applicationId, slotId, lessonId, lessonNumber);
-  }, [unassigned, slots, executeCalendarDrop, activeConfig, showToast, appCapInfo]);
+  }, [unassigned, slots, executeCalendarDrop, showToast, getAppCap]);
 
   // Slot Setup removal — cascade delete all sessions for student+slot
   const handleRemoveSession = useCallback((sessionId: number, studentName?: string) => {
@@ -1386,12 +1393,8 @@ export default function SummerArrangementPage() {
             return `${DAY_ABBREV[slot.slot_day] || slot.slot_day} ${slot.time_slot}${slot.grade ? ` ${slot.grade}` : ""}`;
           })()}
           totalLessons={activeConfig?.total_lessons ?? 8}
-          placedCount={pendingDrop ? (appCapInfo.get(pendingDrop.appId)?.placed_count ?? 0) : 0}
-          lessonsPaid={
-            pendingDrop
-              ? (appCapInfo.get(pendingDrop.appId)?.lessons_paid || activeConfig?.total_lessons || 8)
-              : activeConfig?.total_lessons ?? 8
-          }
+          placedCount={getAppCap(pendingDrop?.appId).placed}
+          lessonsPaid={getAppCap(pendingDrop?.appId).cap}
         />
 
         {/* Find Slot dialog */}

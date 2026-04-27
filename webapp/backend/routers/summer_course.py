@@ -239,6 +239,19 @@ def _find_conflicting_summer_session(
     return None
 
 
+def _count_active_placements(db: Session, application_id: int) -> int:
+    """Sessions that count toward an application's session plan. Excludes
+    cancelled, pending-make-up, and make-up-booked origin rows."""
+    return (
+        db.query(SummerSession)
+        .filter(
+            SummerSession.application_id == application_id,
+            SummerSession.session_status.not_in(SUMMER_INACTIVE_PLACEMENT_STATUSES),
+        )
+        .count()
+    )
+
+
 def _raise_duplicate_lesson_number(lesson_number: int, conflict: "SummerSession") -> None:
     other_date = conflict.lesson.lesson_date if conflict.lesson else None
     raise HTTPException(
@@ -2465,9 +2478,6 @@ def create_session(
     now = hk_now()
     placed_by = admin.tutor_name or "admin"
 
-    # Compute new-session count up front so the cap guard (run after the more
-    # specific dedupe checks below) can reject overshoots in one place. Mode
-    # "single" creates no sessions and is always cap-safe.
     if data.lesson_id:
         new_session_count = 1
     elif data.mode == "single":
@@ -2487,15 +2497,7 @@ def create_session(
         plan_cap = app.lessons_paid or 0
         if plan_cap <= 0 or new_session_count == 0:
             return
-        active_placed = (
-            db.query(SummerSession)
-            .filter(
-                SummerSession.application_id == data.application_id,
-                SummerSession.session_status.not_in(SUMMER_INACTIVE_PLACEMENT_STATUSES),
-            )
-            .count()
-        )
-        projected = active_placed + new_session_count
+        projected = _count_active_placements(db, data.application_id) + new_session_count
         if projected > plan_cap:
             raise HTTPException(
                 status_code=400,

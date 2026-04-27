@@ -793,7 +793,7 @@ export function SummerApplicationDetailModal({
     if (tentativeCount > 0) {
       return `${tentativeCount} session${tentativeCount !== 1 ? "s" : ""} still tentative — confirm them on the Arrangement page first.`;
     }
-    const placedCount = app.placed_count ?? sessions.length;
+    const placedCount = app.placed_count ?? sessions.filter((s) => !isNonAttending(s.session_status)).length;
     if (placedCount !== app.lessons_paid) {
       const diff = app.lessons_paid - placedCount;
       return diff > 0
@@ -1911,26 +1911,35 @@ export function SummerApplicationDetailModal({
                         Partial
                       </span>
                     )}
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border",
-                        isOverPlan
-                          ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                          : isAtPlan
-                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
-                            : "text-muted-foreground bg-muted/40 border-border"
-                      )}
-                      title={
-                        isOverPlan
-                          ? `Over plan — ${placedCount - planCurrent} extra session(s). Cancel or reschedule before adding more.`
-                          : isAtPlan
-                            ? "All paid sessions placed."
-                            : `${planCurrent - placedCount} session(s) still to place.`
-                      }
-                    >
-                      {isOverPlan ? "Over plan: " : "Placed: "}
-                      <span className="tabular-nums">{placedCount} / {planCurrent}</span>
-                    </span>
+                    {(() => {
+                      const planState = isOverPlan ? "over" : isAtPlan ? "full" : "partial";
+                      const PLAN_BADGE = {
+                        over: {
+                          classes: "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
+                          label: "Over plan: ",
+                          title: `Over plan — ${placedCount - planCurrent} extra session(s). Cancel or reschedule before adding more.`,
+                        },
+                        full: {
+                          classes: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800",
+                          label: "Placed: ",
+                          title: "All paid sessions placed.",
+                        },
+                        partial: {
+                          classes: "text-muted-foreground bg-muted/40 border-border",
+                          label: "Placed: ",
+                          title: `${planCurrent - placedCount} session(s) still to place.`,
+                        },
+                      }[planState];
+                      return (
+                        <span
+                          className={cn("inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border", PLAN_BADGE.classes)}
+                          title={PLAN_BADGE.title}
+                        >
+                          {PLAN_BADGE.label}
+                          <span className="tabular-nums">{placedCount} / {planCurrent}</span>
+                        </span>
+                      );
+                    })()}
                     {canEdit && (
                       <button
                         type="button"
