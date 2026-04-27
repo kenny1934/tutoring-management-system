@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { Crown, Loader2, Search } from "lucide-react";
 import { useTutorYearMatrix } from "@/lib/hooks";
 import { StickyNote } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
@@ -67,17 +67,19 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
   const { data, isLoading, error } = useTutorYearMatrix(year, location);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [filter, setFilter] = useState("");
 
   useEffect(() => setMounted(true), []);
 
   const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
-  const { rowTotals, colTotals, grandTotal, maxCell } = useMemo(() => {
+  const { rowTotals, colTotals, grandTotal, maxCell, maxByPeriod } = useMemo(() => {
     const rt: Record<number, number> = {};
     const ct: Record<string, number> = {};
+    const mp: Record<string, number> = {};
     let gt = 0;
     let mx = 0;
-    if (!data) return { rowTotals: rt, colTotals: ct, grandTotal: gt, maxCell: mx };
+    if (!data) return { rowTotals: rt, colTotals: ct, grandTotal: gt, maxCell: mx, maxByPeriod: mp };
     for (const tutor of data.tutors) {
       const cells = data.cells[String(tutor.id)] ?? {};
       let rowSum = 0;
@@ -86,17 +88,21 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
         const val = cell?.session_revenue ?? 0;
         rowSum += val;
         ct[period] = (ct[period] ?? 0) + val;
+        if (val > (mp[period] ?? 0)) mp[period] = val;
         if (val > mx) mx = val;
       }
       rt[tutor.id] = rowSum;
       gt += rowSum;
     }
-    return { rowTotals: rt, colTotals: ct, grandTotal: gt, maxCell: mx };
+    return { rowTotals: rt, colTotals: ct, grandTotal: gt, maxCell: mx, maxByPeriod: mp };
   }, [data]);
 
   const sortedTutors = useMemo(() => {
     if (!data) return [];
-    const tutors = [...data.tutors];
+    const q = filter.trim().toLowerCase();
+    const tutors = q
+      ? data.tutors.filter((t) => t.name.toLowerCase().includes(q))
+      : [...data.tutors];
     const dirMul = sortDir === "asc" ? 1 : -1;
     const nameKey = (n: string) => getTutorFirstName(n).toLowerCase();
     if (sortKey === "tutor") {
@@ -117,7 +123,7 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
       });
     }
     return tutors;
-  }, [data, sortKey, sortDir, rowTotals]);
+  }, [data, sortKey, sortDir, rowTotals, filter]);
 
   const handleHeaderClick = (key: string) => {
     if (key === sortKey) {
@@ -186,15 +192,32 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
             <tr>
               <th
                 scope="col"
-                onClick={() => handleHeaderClick("tutor")}
-                className={cn(
-                  "sticky top-0 left-0 z-30 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-r border-[#d4a574]/40 px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[160px]",
-                  "cursor-pointer select-none hover:bg-[#efe3d3] dark:hover:bg-[#4a3f2c]",
-                )}
+                className="sticky top-0 left-0 z-30 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-r border-[#d4a574]/40 px-2 sm:px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[120px] sm:min-w-[200px]"
               >
-                <div>Tutor{sortArrow("tutor")}</div>
-                <div className="text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Session revenue · MOP
+                <div
+                  onClick={() => handleHeaderClick("tutor")}
+                  className="flex items-baseline gap-1.5 cursor-pointer select-none rounded hover:bg-[#efe3d3]/60 dark:hover:bg-[#4a3f2c]/60 -mx-1 px-1"
+                >
+                  <span>Tutor{sortArrow("tutor")}</span>
+                  <span className="hidden sm:inline text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Session revenue · MOP
+                  </span>
+                </div>
+                <div className="relative mt-1">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500 dark:text-gray-400" />
+                  <input
+                    type="search"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Filter…"
+                    className={cn(
+                      "w-full pl-7 pr-2 py-1 text-xs font-normal",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574]/60 dark:border-[#6b5a4a] rounded",
+                      "text-gray-900 dark:text-gray-100 placeholder:text-gray-400",
+                      "focus:outline-none focus:ring-1 focus:ring-[#a0704b]/50 focus:border-[#a0704b]",
+                    )}
+                  />
                 </div>
               </th>
               {data.periods.map((period) => (
@@ -226,6 +249,16 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
             </tr>
           </thead>
           <tbody>
+            {sortedTutors.length === 0 && (
+              <tr>
+                <td
+                  colSpan={data.periods.length + 2}
+                  className="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400"
+                >
+                  No tutors match &ldquo;{filter}&rdquo;
+                </td>
+              </tr>
+            )}
             {sortedTutors.map((tutor) => {
               const tutorCells = data.cells[String(tutor.id)] ?? {};
               return (
@@ -247,14 +280,16 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                     const intensity = maxCell > 0 ? value / maxCell : 0;
                     const bg = heatColor(intensity, isDark);
                     const hasValue = value > 0;
+                    const isColMax = hasValue && value === maxByPeriod[period];
                     return (
                       <td
                         key={period}
                         className={cn(
-                          "border-b border-[#d4a574]/20 px-2 py-1.5 text-right tabular-nums whitespace-nowrap transition-shadow",
+                          "relative border-b border-[#d4a574]/20 px-2 py-1.5 text-right tabular-nums whitespace-nowrap transition-shadow",
                           hasValue
                             ? "cursor-pointer text-gray-900 dark:text-gray-100 hover:shadow-[inset_0_0_0_2px_#a0704b] dark:hover:shadow-[inset_0_0_0_2px_#cd853f]"
                             : "text-gray-400 dark:text-gray-600",
+                          isColMax && "font-semibold",
                         )}
                         style={{ backgroundColor: bg }}
                         onClick={hasValue ? () => onCellClick(tutor.id, period) : undefined}
@@ -268,6 +303,12 @@ export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortD
                         }}
                         onMouseLeave={() => setHover(null)}
                       >
+                        {isColMax && (
+                          <Crown
+                            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#a0704b] dark:text-[#cd853f]"
+                            aria-label="Top earner for this month"
+                          />
+                        )}
                         {formatNumber(value)}
                       </td>
                     );
