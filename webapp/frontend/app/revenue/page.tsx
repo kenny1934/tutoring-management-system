@@ -94,6 +94,25 @@ export default function RevenuePage() {
     return new Date().getFullYear();
   });
 
+  // Matrix sort: "total" | "tutor" | YYYY-MM, plus direction.
+  // Persisted as ?sort=<key>:<dir>; omitted when default (total:desc).
+  const [matrixSortKey, setMatrixSortKey] = useState<string>(() => {
+    const s = searchParams.get('sort');
+    if (s) {
+      const [key] = s.split(':');
+      if (key === 'total' || key === 'tutor' || /^\d{4}-\d{2}$/.test(key)) return key;
+    }
+    return 'total';
+  });
+  const [matrixSortDir, setMatrixSortDir] = useState<'asc' | 'desc'>(() => {
+    const s = searchParams.get('sort');
+    if (s) {
+      const [, dir] = s.split(':');
+      if (dir === 'asc' || dir === 'desc') return dir;
+    }
+    return 'desc';
+  });
+
   const [isMobile, setIsMobile] = useState(false);
 
   // Popover state for session details
@@ -172,6 +191,9 @@ export default function RevenuePage() {
       if (selectedYear !== new Date().getFullYear()) {
         params.set('year', selectedYear.toString());
       }
+      if (!(matrixSortKey === 'total' && matrixSortDir === 'desc')) {
+        params.set('sort', `${matrixSortKey}:${matrixSortDir}`);
+      }
     } else {
       if (selectedTutorId && typeof selectedTutorId === 'number') {
         params.set('tutor', selectedTutorId.toString());
@@ -182,7 +204,7 @@ export default function RevenuePage() {
     }
     const query = params.toString();
     router.replace(`/revenue${query ? `?${query}` : ''}`, { scroll: false });
-  }, [canViewAdminPages, tableViewAvailable, view, selectedYear, selectedTutorId, selectedPeriod, router]);
+  }, [canViewAdminPages, tableViewAvailable, view, selectedYear, matrixSortKey, matrixSortDir, selectedTutorId, selectedPeriod, router]);
 
   // Fetch data - use effectiveTutorId which respects role-based access.
   // Skip detail fetches entirely when the table view is active so we don't
@@ -410,6 +432,9 @@ export default function RevenuePage() {
               year={selectedYear}
               location={selectedLocation}
               isMobile={isMobile}
+              sortKey={matrixSortKey}
+              sortDir={matrixSortDir}
+              onSortChange={(key, dir) => { setMatrixSortKey(key); setMatrixSortDir(dir); }}
               onCellClick={handleMatrixCellClick}
             />
           )}

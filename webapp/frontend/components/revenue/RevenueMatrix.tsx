@@ -6,12 +6,18 @@ import { Loader2 } from "lucide-react";
 import { useTutorYearMatrix } from "@/lib/hooks";
 import { StickyNote } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { TutorYearMatrixCell } from "@/types";
+
+type SortDir = "asc" | "desc";
 
 interface RevenueMatrixProps {
   year: number;
   location: string | null;
   isMobile?: boolean;
+  sortKey: string; // "total" | "tutor" | "YYYY-MM"
+  sortDir: SortDir;
+  onSortChange: (key: string, dir: SortDir) => void;
   onCellClick: (tutorId: number, period: string) => void;
 }
 
@@ -57,7 +63,7 @@ interface HoverState {
   rect: DOMRect;
 }
 
-export function RevenueMatrix({ year, location, isMobile = false, onCellClick }: RevenueMatrixProps) {
+export function RevenueMatrix({ year, location, isMobile = false, sortKey, sortDir, onSortChange, onCellClick }: RevenueMatrixProps) {
   const { data, isLoading, error } = useTutorYearMatrix(year, location);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -87,6 +93,45 @@ export function RevenueMatrix({ year, location, isMobile = false, onCellClick }:
     }
     return { rowTotals: rt, colTotals: ct, grandTotal: gt, maxCell: mx };
   }, [data]);
+
+  const sortedTutors = useMemo(() => {
+    if (!data) return [];
+    const tutors = [...data.tutors];
+    const dirMul = sortDir === "asc" ? 1 : -1;
+    const nameKey = (n: string) => getTutorFirstName(n).toLowerCase();
+    if (sortKey === "tutor") {
+      tutors.sort((a, b) => nameKey(a.name).localeCompare(nameKey(b.name)) * dirMul);
+    } else if (sortKey === "total") {
+      tutors.sort((a, b) => {
+        const diff = (rowTotals[a.id] ?? 0) - (rowTotals[b.id] ?? 0);
+        if (diff !== 0) return diff * dirMul;
+        return nameKey(a.name).localeCompare(nameKey(b.name));
+      });
+    } else {
+      // Period sort key: "YYYY-MM"
+      tutors.sort((a, b) => {
+        const va = data.cells[String(a.id)]?.[sortKey]?.session_revenue ?? 0;
+        const vb = data.cells[String(b.id)]?.[sortKey]?.session_revenue ?? 0;
+        if (va !== vb) return (va - vb) * dirMul;
+        return nameKey(a.name).localeCompare(nameKey(b.name));
+      });
+    }
+    return tutors;
+  }, [data, sortKey, sortDir, rowTotals]);
+
+  const handleHeaderClick = (key: string) => {
+    if (key === sortKey) {
+      onSortChange(key, sortDir === "desc" ? "asc" : "desc");
+    } else {
+      // New column: tutor defaults to asc (alphabetical), numerics to desc.
+      onSortChange(key, key === "tutor" ? "asc" : "desc");
+    }
+  };
+
+  const sortArrow = (key: string) => {
+    if (key !== sortKey) return null;
+    return <span className="ml-0.5 text-[#a0704b] dark:text-[#cd853f]">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  };
 
   if (isLoading && !data) {
     return (
@@ -141,9 +186,13 @@ export function RevenueMatrix({ year, location, isMobile = false, onCellClick }:
             <tr>
               <th
                 scope="col"
-                className="sticky top-0 left-0 z-30 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-r border-[#d4a574]/40 px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[160px]"
+                onClick={() => handleHeaderClick("tutor")}
+                className={cn(
+                  "sticky top-0 left-0 z-30 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-r border-[#d4a574]/40 px-3 py-2 text-left font-semibold text-gray-900 dark:text-gray-100 min-w-[160px]",
+                  "cursor-pointer select-none hover:bg-[#efe3d3] dark:hover:bg-[#4a3f2c]",
+                )}
               >
-                <div>Tutor</div>
+                <div>Tutor{sortArrow("tutor")}</div>
                 <div className="text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Session revenue · MOP
                 </div>
@@ -152,24 +201,32 @@ export function RevenueMatrix({ year, location, isMobile = false, onCellClick }:
                 <th
                   key={period}
                   scope="col"
-                  className="sticky top-0 z-20 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/40 px-2 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[88px]"
+                  onClick={() => handleHeaderClick(period)}
+                  className={cn(
+                    "sticky top-0 z-20 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/40 px-2 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[88px]",
+                    "cursor-pointer select-none hover:bg-[#efe3d3] dark:hover:bg-[#4a3f2c]",
+                  )}
                 >
-                  {formatPeriodLabel(period)}
+                  {formatPeriodLabel(period)}{sortArrow(period)}
                 </th>
               ))}
               <th
                 scope="col"
-                className="sticky top-0 z-20 border-b border-l border-[#d4a574]/40 px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[110px] bg-[#efe3d3] dark:bg-[#4a3f2c]"
+                onClick={() => handleHeaderClick("total")}
+                className={cn(
+                  "sticky top-0 z-20 border-b border-l border-[#d4a574]/40 px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap min-w-[110px] bg-[#efe3d3] dark:bg-[#4a3f2c]",
+                  "cursor-pointer select-none hover:bg-[#e3d2b8] dark:hover:bg-[#5a4d36]",
+                )}
               >
-                <div>Total</div>
+                <div>Total{sortArrow("total")}</div>
                 <div className="text-[10px] font-normal uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  ↓ sorted
+                  click to sort
                 </div>
               </th>
             </tr>
           </thead>
           <tbody>
-            {data.tutors.map((tutor) => {
+            {sortedTutors.map((tutor) => {
               const tutorCells = data.cells[String(tutor.id)] ?? {};
               return (
                 <tr key={tutor.id} className="hover:bg-[#fbf6ee] dark:hover:bg-[#2a2418]">
