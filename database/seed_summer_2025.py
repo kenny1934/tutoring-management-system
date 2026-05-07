@@ -76,6 +76,7 @@ CONFIG_2025 = {
         {"name": "中一", "name_en": "Form 1", "value": "F1"},
         {"name": "中二", "name_en": "Form 2", "value": "F2"},
         {"name": "中三", "name_en": "Form 3", "value": "F3"},
+        {"name": "中四", "name_en": "Form 4", "value": "F4", "admin_only": True},
     ]),
     "time_slots": json.dumps([
         "10:00 - 11:30",

@@ -447,7 +447,7 @@ export function StudentInfoStep({
             <RequiredMark />
           </label>
           <div className={radioGroupClass}>
-            {config.available_grades.map((g) => {
+            {config.available_grades.filter((g) => !g.admin_only).map((g) => {
               const value = g.value || g.name_en;
               const label = lang === "zh" ? g.name : g.name_en;
               return (

@@ -1197,7 +1197,7 @@ export function SummerConfigEditor({
         {grades.map((g, i) => (
           <ReorderableItem key={g._id} value={g._id} disabled={isReadOnly}>
           {(dragControls) => (
-          <div className="grid grid-cols-[auto_1fr_1fr_100px_auto] gap-2 items-end">
+          <div className="grid grid-cols-[auto_1fr_1fr_100px_auto_auto] gap-2 items-end">
             <DragHandle controls={dragControls} />
             <div>
               {i === 0 && <span className="text-[10px] text-muted-foreground">Name (ZH)</span>}
@@ -1237,6 +1237,23 @@ export function SummerConfigEditor({
                 className={inputClass}
                 disabled={isReadOnly}
               />
+            </div>
+            <div title="Hide from the public application form; admins can still pick it">
+              {i === 0 && <span className="text-[10px] text-muted-foreground whitespace-nowrap">Admin only</span>}
+              <div className="flex items-center justify-center h-9">
+                <input
+                  type="checkbox"
+                  checked={!!g.admin_only}
+                  onChange={(e) => {
+                    const next = [...grades];
+                    next[i] = { ...g, admin_only: e.target.checked };
+                    setGrades(next);
+                  }}
+                  className="rounded"
+                  disabled={isReadOnly}
+                  aria-label="Admin only"
+                />
+              </div>
             </div>
             {!isReadOnly && (
               <button

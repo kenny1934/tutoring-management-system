@@ -223,6 +223,7 @@ export const SUMMER_GRADE_BG: Record<string, string> = {
   F1: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   F2: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   F3: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  F4: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
 };
 
 /** Course type A/B color scheme. */
@@ -236,6 +237,7 @@ export const LESSON_BADGE_COLORS: Record<string, string> = {
   F1: "bg-blue-500 text-white dark:bg-blue-600",
   F2: "bg-purple-500 text-white dark:bg-purple-600",
   F3: "bg-orange-500 text-white dark:bg-orange-600",
+  F4: "bg-emerald-500 text-white dark:bg-emerald-600",
 };
 
 /** Grade left-border colors for table rows. */
@@ -243,6 +245,7 @@ export const SUMMER_GRADE_BORDER: Record<string, string> = {
   F1: "border-l-blue-400",
   F2: "border-l-purple-400",
   F3: "border-l-orange-400",
+  F4: "border-l-emerald-400",
 };
 
 /** Grade text-only colors for demand breakdowns. */
@@ -250,6 +253,7 @@ export const SUMMER_GRADE_TEXT: Record<string, string> = {
   F1: "text-blue-600 dark:text-blue-400",
   F2: "text-purple-600 dark:text-purple-400",
   F3: "text-orange-600 dark:text-orange-400",
+  F4: "text-emerald-600 dark:text-emerald-400",
 };
 
 export const DAY_ABBREV: Record<string, string> = {

@@ -2050,6 +2050,7 @@ export interface SummerBilingualOption {
   name: string;
   name_en: string;
   value?: string;
+  admin_only?: boolean;
 }
 
 export interface SummerPricingConfig {
