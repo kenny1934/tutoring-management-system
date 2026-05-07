@@ -388,7 +388,7 @@ export default function SummerLandingPage() {
   const philosophy = intro?.philosophy?.zh ?? "";
   const philosophyEn = intro?.philosophy?.en ?? "";
 
-  const gradeNames = config.available_grades.map((g) => g.name);
+  const gradeNames = config.available_grades.filter((g) => !g.admin_only).map((g) => g.name);
   const gradeRange = gradeNames.length
     ? `升${gradeNames[0]} 至 升${gradeNames[gradeNames.length - 1]}`
     : "升中一 至 升中三";
