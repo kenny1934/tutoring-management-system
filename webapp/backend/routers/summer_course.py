@@ -1237,6 +1237,14 @@ def update_config(
         raise HTTPException(status_code=404, detail="Config not found")
 
     updates = data.model_dump(exclude_unset=True)
+    # pricing_config is a JSON blob with keys the editor UI doesn't render
+    # (receipt_codes, academic_year_start/end, partial_per_lesson_rate, promo).
+    # Merge instead of replace so a partial payload from the editor doesn't
+    # silently wipe those keys.
+    if "pricing_config" in updates and updates["pricing_config"] is not None:
+        merged = dict(config.pricing_config or {})
+        merged.update(updates["pricing_config"])
+        updates["pricing_config"] = merged
     for field, value in updates.items():
         setattr(config, field, value)
 
@@ -1508,7 +1516,8 @@ def _get_buddy_group_sizes(
     """Return {buddy_group_id: applicant_count} for the given groups.
 
     Counts actual SummerApplication rows sharing each group — not declared
-    siblings. Used for the buddy people-meter in the admin list card.
+    siblings. Excludes Withdrawn/Rejected so the people-meter agrees with
+    the discount math (which drops exited apps from the active count).
     """
     if not group_ids:
         return {}
@@ -1521,6 +1530,7 @@ def _get_buddy_group_sizes(
         .filter(
             SummerApplication.buddy_group_id.in_(group_ids),
             SummerApplication.lessons_paid >= SummerCourseConfig.total_lessons,
+            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
         )
         .group_by(SummerApplication.buddy_group_id)
         .all()
@@ -2109,15 +2119,26 @@ def update_application(
     for field, value in updates.items():
         setattr(app, field, value)
 
-    # Auto-fill verified_branch_origin when linking to a Secondary student,
-    # unless the admin explicitly set it in the same request.
+    # Auto-fill verified_branch_origin when linking to a CSM Student,
+    # unless the admin explicitly set it in the same request. If a P6
+    # prospect is linked, prefer prospect.source_branch — the prospect is
+    # the true origin (a primary-branch student transitioning to secondary);
+    # the linked CSM Student record is the destination, not the origin.
+    # Without this, F1 + MTA → MSA/MSB transitions silently lose the
+    # 26SummerMC receipt code the moment the new CSM Student is linked.
     if "existing_student_id" in data.model_fields_set and "verified_branch_origin" not in data.model_fields_set:
-        if app.existing_student_id:
+        prospect_branch = (
+            db.query(PrimaryProspect.source_branch)
+            .filter(PrimaryProspect.summer_application_id == app.id)
+            .scalar()
+        )
+        if prospect_branch:
+            app.verified_branch_origin = prospect_branch
+        elif app.existing_student_id:
             student = db.query(Student).filter(Student.id == app.existing_student_id).first()
             if student and student.home_location:
                 app.verified_branch_origin = student.home_location
         else:
-            # Unlinked — clear auto-set origin (admin can re-verify manually)
             app.verified_branch_origin = None
 
     # If paid_at shifted (direct edit, or a status→Paid transition auto-stamped

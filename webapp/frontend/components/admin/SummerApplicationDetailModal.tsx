@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
@@ -673,7 +673,17 @@ export function SummerApplicationDetailModal({
 
   const buddyMembers = useMemo(() => {
     if (!app?.buddy_group_id || !fetchedBuddyMembers) return [];
-    return fetchedBuddyMembers.filter(a => a.id !== app.id);
+    const others = fetchedBuddyMembers.filter(a => a.id !== app.id);
+    // Active first, then exited (Withdrawn/Rejected) — sorted to the bottom
+    // so the meter and the list match: active members lead, exited members
+    // are visually de-emphasized below.
+    const active: typeof others = [];
+    const exited: typeof others = [];
+    for (const m of others) {
+      if (EXIT_STATUSES.has(m.application_status)) exited.push(m);
+      else active.push(m);
+    }
+    return [...active, ...exited];
   }, [app?.buddy_group_id, app?.id, fetchedBuddyMembers]);
 
   const effectiveDiscount = useMemo((): DiscountResult | null => {
@@ -2460,35 +2470,47 @@ export function SummerApplicationDetailModal({
                 {buddyMembers.length > 0 ? (
                   <div className="mt-1 space-y-0.5">
                     <span className="text-[10px] text-muted-foreground">Members:</span>
-                    {buddyMembers.map(b => (
-                      <div
-                        key={b.id}
-                        className="flex items-center gap-2 py-1 text-sm px-1 -mx-1"
-                      >
-                        <span className="text-foreground">{b.student_name}</span>
-                        {b.reference_code && (
-                          <span className="text-[10px] font-mono text-muted-foreground">{b.reference_code}</span>
-                        )}
-                        {b.school && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                            {b.school}
-                          </span>
-                        )}
-                        {b.grade && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
-                            {b.grade}
-                          </span>
-                        )}
-                        <StatusBadge status={b.application_status} />
-                        <button
-                          onClick={() => onSelectApplication?.(b)}
-                          className="ml-auto p-0.5 text-muted-foreground hover:text-foreground shrink-0"
-                          title="View application"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                    {buddyMembers.map((b, i) => {
+                      const isExited = EXIT_STATUSES.has(b.application_status);
+                      const prevExited = i > 0 && EXIT_STATUSES.has(buddyMembers[i - 1].application_status);
+                      const showDivider = isExited && !prevExited && i > 0;
+                      return (
+                        <Fragment key={b.id}>
+                          {showDivider && <div className="border-t border-border/60 my-1" />}
+                          <div
+                            className={cn(
+                              "flex items-center gap-2 py-1 text-sm px-1 -mx-1",
+                              isExited && "opacity-50",
+                            )}
+                          >
+                            <span className={cn("text-foreground", isExited && "line-through")}>
+                              {b.student_name}
+                            </span>
+                            {b.reference_code && (
+                              <span className="text-[10px] font-mono text-muted-foreground">{b.reference_code}</span>
+                            )}
+                            {b.school && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                                {b.school}
+                              </span>
+                            )}
+                            {b.grade && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
+                                {b.grade}
+                              </span>
+                            )}
+                            <StatusBadge status={b.application_status} />
+                            <button
+                              onClick={() => onSelectApplication?.(b)}
+                              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                              title="View application"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </Fragment>
+                      );
+                    })}
                   </div>
                 ) : app.buddy_group_id && visibleSiblings.length === 0 ? (
                   <div className="text-xs text-muted-foreground mt-1">No other members yet</div>

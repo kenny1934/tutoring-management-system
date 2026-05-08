@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
+type LinkedStudent = NonNullable<SummerApplication["linked_student"]>;
+type LinkedProspect = NonNullable<SummerApplication["linked_prospect"]>;
+
 type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student" | "verified_branch_origin">;
 
 /** True if the applicant has any signal of being an existing student — linked
@@ -18,6 +21,83 @@ export function isExistingOrigin(app: BranchChipApp): boolean {
     return true;
   }
   return false;
+}
+
+function StudentChip({ student }: { student: LinkedStudent }) {
+  return (
+    <a
+      href={`/students/${student.id}?tab=profile`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors"
+      title={`Linked to ${student.student_name}`}
+    >
+      <BadgeCheck className="h-3 w-3" />
+      {student.home_location && student.school_student_id
+        ? `${student.home_location}-${student.school_student_id}`
+        : student.school_student_id || `#${student.id}`}
+    </a>
+  );
+}
+
+function ProspectChip({
+  prospect,
+  asFrom,
+  onProspectClick,
+}: {
+  prospect: LinkedProspect;
+  asFrom?: boolean;
+  onProspectClick?: (prospectId: number) => void;
+}) {
+  const raw = prospect.primary_student_id;
+  const stripped = raw
+    ? raw.startsWith(prospect.source_branch)
+      ? raw.slice(prospect.source_branch.length)
+      : raw
+    : "";
+  const code = stripped
+    ? `${prospect.source_branch}-${stripped}`
+    : prospect.source_branch;
+  const chipClass = cn(
+    "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded transition-opacity hover:opacity-80",
+    BRANCH_INFO[prospect.source_branch]?.badge ||
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  );
+  // When rendered alongside a student chip, prefix with "from" so admins read
+  // it as the primary-branch origin, not a redundant second branch claim.
+  const title = asFrom
+    ? `Came from prospect: ${prospect.student_name}`
+    : `Linked to prospect: ${prospect.student_name}`;
+  const inner = (
+    <>
+      <BadgeCheck className="h-3 w-3" />
+      {asFrom && <span className="font-normal opacity-70">from</span>}
+      {code}
+    </>
+  );
+  if (onProspectClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onProspectClick(prospect.id); }}
+        className={chipClass}
+        title={title}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <Link
+      href={`/admin/summer/prospects?focus=${prospect.id}`}
+      onClick={(e) => e.stopPropagation()}
+      className={chipClass}
+      title={title}
+    >
+      {inner}
+    </Link>
+  );
 }
 
 export function PrimaryBranchChip({
@@ -36,64 +116,23 @@ export function PrimaryBranchChip({
     !!app.is_existing_student &&
     app.is_existing_student !== "None";
 
-  if (linkedStudent) {
+  // Both linked: surface origin (prospect) alongside destination (student) so
+  // admins don't have to dig into the prospects page to see the P6 origin.
+  if (linkedStudent && linkedProspect) {
     return (
-      <a
-        href={`/students/${linkedStudent.id}?tab=profile`}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors"
-        title={`Linked to ${linkedStudent.student_name}`}
-      >
-        <BadgeCheck className="h-3 w-3" />
-        {linkedStudent.home_location && linkedStudent.school_student_id
-          ? `${linkedStudent.home_location}-${linkedStudent.school_student_id}`
-          : linkedStudent.school_student_id || `#${linkedStudent.id}`}
-      </a>
+      <>
+        <StudentChip student={linkedStudent} />
+        <ProspectChip prospect={linkedProspect} asFrom onProspectClick={onProspectClick} />
+      </>
     );
   }
 
+  if (linkedStudent) {
+    return <StudentChip student={linkedStudent} />;
+  }
+
   if (linkedProspect) {
-    const raw = linkedProspect.primary_student_id;
-    const stripped = raw
-      ? raw.startsWith(linkedProspect.source_branch)
-        ? raw.slice(linkedProspect.source_branch.length)
-        : raw
-      : "";
-    const label = stripped
-      ? `${linkedProspect.source_branch}-${stripped}`
-      : linkedProspect.source_branch;
-    const chipClass = cn(
-      "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded transition-opacity hover:opacity-80",
-      BRANCH_INFO[linkedProspect.source_branch]?.badge ||
-        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-    );
-    const title = `Linked to prospect: ${linkedProspect.student_name}`;
-    if (onProspectClick) {
-      return (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onProspectClick(linkedProspect.id); }}
-          className={chipClass}
-          title={title}
-        >
-          <BadgeCheck className="h-3 w-3" />
-          {label}
-        </button>
-      );
-    }
-    return (
-      <Link
-        href={`/admin/summer/prospects?focus=${linkedProspect.id}`}
-        onClick={(e) => e.stopPropagation()}
-        className={chipClass}
-        title={title}
-      >
-        <BadgeCheck className="h-3 w-3" />
-        {label}
-      </Link>
-    );
+    return <ProspectChip prospect={linkedProspect} onProspectClick={onProspectClick} />;
   }
 
   // Verified branch origin overrides the claim
