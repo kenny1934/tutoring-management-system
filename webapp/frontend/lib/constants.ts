@@ -57,9 +57,6 @@ export const FLOATING_UI_MIDDLEWARE_CONFIG = {
   shiftPadding: 10,
 } as const;
 
-// Current user constant (will be replaced with OAuth)
-export const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
-
 // Time slot constants for scheduling
 export const WEEKDAY_TIME_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"] as const;
 export const WEEKEND_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"] as const;

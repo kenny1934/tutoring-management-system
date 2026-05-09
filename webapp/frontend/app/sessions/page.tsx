@@ -85,7 +85,7 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
-import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
@@ -270,11 +270,13 @@ export default function SessionsPage() {
   }, [searchParams, loading, sessions.length]);
 
 
-  // Get current user's tutor ID for proposal actions
+  // Current user's tutor ID for proposal actions (respects impersonation)
   const currentTutorId = useMemo(() => {
-    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id ?? 0;
-  }, [tutors]);
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id ?? 0;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   const isAdminRole = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const { data: pendingMemoData } = usePendingMemoCount(isAdminRole ? undefined : currentTutorId || undefined, !isGuest);

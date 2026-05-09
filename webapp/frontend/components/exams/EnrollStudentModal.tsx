@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { CURRENT_USER_TUTOR } from "@/lib/constants";
-import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
+import { useEligibleStudents, useFilteredList } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { examRevisionAPI } from "@/lib/api";
@@ -41,18 +40,14 @@ export function EnrollStudentModal({
   showLocationPrefix,
 }: EnrollStudentModalProps) {
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
+  const { user, effectiveRole } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
   );
-  const { data: tutors = [] } = useTutors();
 
-  // Get current user's email for audit trail
-  const currentUserEmail = useMemo(() => {
-    const tutor = tutors.find(t => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.user_email;
-  }, [tutors]);
+  // Current user's email for audit trail
+  const currentUserEmail = user?.email;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);

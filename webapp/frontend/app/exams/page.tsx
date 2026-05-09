@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } from "@/lib/calendar-utils";
-import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { useExamsWithSlots, usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useBackNavigation } from "@/lib/ui-hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +23,6 @@ const CalendarEventModal = dynamic(
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ExamWithRevisionSlots, SlotDefaults, CalendarEvent } from "@/types";
 import {
@@ -264,8 +263,8 @@ function ExamCalendarView({
 }
 
 export default function ExamsPage() {
-  const { data: tutors = [] } = useTutors();
   const { selectedLocation } = useLocation();
+  const { user, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const searchParams = useSearchParams();
   const goBack = useBackNavigation();
   const highlightExamId = searchParams.get('exam');
@@ -279,11 +278,13 @@ export default function ExamsPage() {
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
 
-  // Get current tutor ID
+  // Default tutor for new revision slots: the logged-in user (or impersonated tutor)
   const currentTutorId = useMemo(() => {
-    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id;
-  }, [tutors]);
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
@@ -298,7 +299,6 @@ export default function ExamsPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 
   // Edit event modal state
-  const { user, isReadOnly } = useAuth();
   const canManageEvents = !!user && !isReadOnly;
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>(undefined);

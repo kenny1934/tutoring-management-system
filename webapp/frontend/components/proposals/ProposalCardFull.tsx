@@ -9,7 +9,7 @@ import { useActiveTutors, useSessions, useLocations } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
-import { getGradeColor, CURRENT_USER_TUTOR, ALL_TIME_SLOTS } from "@/lib/constants";
+import { getGradeColor, ALL_TIME_SLOTS } from "@/lib/constants";
 import { formatProposalDate, formatTimeAgo } from "@/lib/formatters";
 import type { MakeupProposal, MakeupProposalSlot, Session, Tutor } from "@/types";
 import {

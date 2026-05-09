@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, memo } from "react";
 import Link from "next/link";
-import { useSessions, useProposalsInDateRange, useTutors, usePendingMemoCount } from "@/lib/hooks";
+import { useSessions, useProposalsInDateRange, usePendingMemoCount } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -18,7 +18,7 @@ import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session, MakeupProposal } from "@/types";
-import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { getGradeColor } from "@/lib/constants";
 import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
@@ -43,7 +43,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
-  const { effectiveRole, isGuest } = useAuth();
+  const { user, effectiveRole, isGuest, isImpersonating, impersonatedTutor } = useAuth();
 
   // Fetch ALL sessions for today (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -63,14 +63,13 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   // Fetch proposals for today (only proposals with slots on today's date)
   const { data: proposals = [] } = useProposalsInDateRange(todayString, todayString);
 
-  // Fetch tutors for currentTutorId
-  const { data: tutors = [] } = useTutors();
-
-  // Get current user's tutor ID for proposal actions
+  // Current user's tutor ID for proposal actions (respects impersonation)
   const currentTutorId = useMemo(() => {
-    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id ?? 0;
-  }, [tutors]);
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id ?? 0;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined, !isGuest);

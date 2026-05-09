@@ -6,12 +6,11 @@ import { Modal } from "@/components/ui/modal";
 import { StarRating } from "@/components/ui/star-rating";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { MemoModal } from "./MemoModal";
-import { useMemos, useTutors } from "@/lib/hooks";
+import { useMemos } from "@/lib/hooks";
 import { memosAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
-import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import type { TutorMemo } from "@/types";
 import {
   StickyNote,
@@ -32,14 +31,16 @@ interface MemoListDrawerProps {
 
 export function MemoListDrawer({ isOpen, onClose }: MemoListDrawerProps) {
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
-  const { data: tutors } = useTutors();
+  const { user, effectiveRole, isImpersonating, impersonatedTutor } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
+  // Current user's tutor ID (respects impersonation)
   const currentTutorId = useMemo(() => {
-    const tutor = tutors?.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id ?? 0;
-  }, [tutors]);
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id ?? 0;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   const [filter, setFilter] = useState<Filter>("pending");
   const [editingMemo, setEditingMemo] = useState<TutorMemo | null>(null);

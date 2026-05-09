@@ -4,13 +4,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useTutors, useProposals, usePageTitle } from "@/lib/hooks";
+import { useProposals, usePageTitle } from "@/lib/hooks";
 import { ProposalCardFull } from "@/components/proposals/ProposalCardFull";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { EmptyCloud } from "@/components/illustrations/EmptyStates";
-import { CURRENT_USER_TUTOR } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 import type { MakeupProposal, ProposalStatus } from "@/types";
 import {
   CalendarClock,
@@ -79,17 +79,17 @@ const statusFilters: { value: ProposalStatus | "all"; label: string; icon: React
 export default function ProposalsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { data: tutors = [] } = useTutors();
+  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
   usePageTitle("Make-up Proposals");
 
-  // Get current tutor
-  const currentTutor = useMemo(() => {
-    return tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-  }, [tutors]);
-
-  const currentTutorId = currentTutor?.id;
-  const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
+  // Current tutor ID for proposal actions (respects impersonation)
+  const currentTutorId = useMemo(() => {
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   // State
   const [activeTab, setActiveTab] = useState<TabType>("for-me");

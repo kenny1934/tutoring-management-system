@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
+import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect } from "@/types";
 import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
@@ -25,7 +25,7 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
-import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
@@ -80,7 +80,7 @@ export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAdmin, isReadOnly } = useAuth();
+  const { user, isAdmin, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const studentId = params.id ? parseInt(params.id as string) : null;
 
   // Read initial tab from URL, default to "profile"
@@ -152,14 +152,13 @@ export default function StudentDetailPage() {
   // Fetch all pending proposals and filter for this student's sessions
   const { data: allProposals = [] } = useProposals({ status: 'pending', includeSession: true });
 
-  // Fetch tutors for current user ID lookup
-  const { data: tutors = [] } = useTutors();
-
-  // Get current user's tutor ID for proposal actions
+  // Current user's tutor ID for proposal actions (respects impersonation)
   const currentTutorId = useMemo(() => {
-    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return tutor?.id ?? 0;
-  }, [tutors]);
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id ?? 0;
+  }, [user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
 
   // Create map of session ID to proposal for sessions with pending proposals
   const sessionProposalMap = useMemo(() => {
