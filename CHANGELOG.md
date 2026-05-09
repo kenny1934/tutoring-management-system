@@ -4,7 +4,13 @@
 
 ### New Features
 
+* **Annual grade auto-progression**: stored grades now advance one step on Sept 1 each year (F1 to F2, F6 to Graduated). During the summer transition window the grade badge shows "Pre-Fx" so tutors see next term's curriculum without flipping the underlying value early. Creating a CSM Student from a summer application before Sept 1 stores the pre-promotion grade so the upcoming auto-promotion lifts them to the target.
 * **Copy past and all session dates from a student page**: the Copy pill in the Sessions tab now offers Past and All scopes in the dropdown alongside Upcoming, so you can hand a parent a full attendance history. Past rows include the session status next to each date so attended classes and absences read at a glance. The same scope picker is available on each enrollment header.
+
+### Bug Fixes
+
+* **Tutor-scoped features now follow the logged-in user**: proposals, memos, exam enrollment audit trails, and the exam revision slot default tutor were resolving against a hardcoded tutor lookup. They now read the actually-logged-in user (and respect Super-Admin impersonation), so every account sees its own data.
+* **Create student from a summer application prefills the right branch**: the Create new student dialog now seeds the home location from the application's preferred branch (MSA or MSB) instead of the sidebar's current filter. The dropdown stays editable.
 
 ## [2.0.65](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.65) (2026-05-09)
 
