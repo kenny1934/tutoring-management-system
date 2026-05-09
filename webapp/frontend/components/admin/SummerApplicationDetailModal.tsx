@@ -10,6 +10,7 @@ import { PrimaryBranchChip } from "./PrimaryBranchChip";
 import { summerAPI, studentsAPI, enrollmentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
+import { applyTargetToPreGrade } from "@/lib/grade-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
@@ -2894,7 +2895,11 @@ export function SummerApplicationDetailModal({
         initialData={{
           student_name: app.student_name,
           school: app.school ?? undefined,
-          grade: app.grade,
+          // app.grade is the *target* grade (post-summer). Before Sept 1 of
+          // the config year, store the current grade one step below so the
+          // Sept 1 promotion lifts them to the target. After promotion the
+          // target IS the current grade — pass through unchanged.
+          grade: applyTargetToPreGrade(app.grade, config?.year),
           lang_stream: app.lang_stream ?? undefined,
           phone: app.contact_phone ?? undefined,
         }}

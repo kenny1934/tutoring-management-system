@@ -2301,6 +2301,8 @@ class SummerCourseConfigCreate(BaseModel):
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
+    pre_grade_window_start: Optional[date] = None
+    pre_grade_window_end: Optional[date] = None
     is_active: bool = False
 
 
@@ -2323,6 +2325,8 @@ class SummerCourseConfigUpdate(BaseModel):
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
+    pre_grade_window_start: Optional[date] = None
+    pre_grade_window_end: Optional[date] = None
     is_active: Optional[bool] = None
 
 
@@ -2347,6 +2351,8 @@ class SummerCourseConfigResponse(BaseModel):
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
+    pre_grade_window_start: Optional[date] = None
+    pre_grade_window_end: Optional[date] = None
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

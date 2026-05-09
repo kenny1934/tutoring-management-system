@@ -10,6 +10,8 @@ import { studentsAPI, StudentCreate } from "@/lib/api";
 import type { Student, StudentContact } from "@/types";
 
 const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6"];
+// P6 is admin-only and only surfaces when prefilled (e.g. by the summer
+// pre-grade flow). Keep it out of the default option list.
 const ACADEMIC_STREAMS = ["Arts", "Science", "Commerce"];
 const SENIOR_GRADES = ["F4", "F5", "F6"];
 const CONTACT_LABEL_PRESETS = ["Mother", "Father", "Grandparent", "Student", "Guardian"];
@@ -268,6 +270,7 @@ export function AddStudentModal({
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="">Select grade</option>
+              {grade === "P6" && <option value="P6">P6</option>}
               {GRADES.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}

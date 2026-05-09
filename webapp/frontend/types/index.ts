@@ -2124,6 +2124,8 @@ export interface SummerCourseFormConfig {
   text_content?: Record<string, string> | null;
   course_intro?: SummerCourseIntro | null;
   banner_image_url?: string | null;
+  pre_grade_window_start?: string | null;
+  pre_grade_window_end?: string | null;
   primary_branch_options?: SummerPrimaryBranchOption[];
 }
 
@@ -2272,6 +2274,8 @@ export interface SummerCourseConfig {
   text_content?: Record<string, string> | null;
   course_intro?: SummerCourseIntro | null;
   banner_image_url?: string | null;
+  pre_grade_window_start?: string | null;
+  pre_grade_window_end?: string | null;
   is_active: boolean;
   created_at?: string | null;
   updated_at?: string | null;
