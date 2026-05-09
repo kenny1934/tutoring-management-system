@@ -2902,6 +2902,7 @@ export function SummerApplicationDetailModal({
           grade: applyTargetToPreGrade(app.grade, config?.year),
           lang_stream: app.lang_stream ?? undefined,
           phone: app.contact_phone ?? undefined,
+          home_location: systemLocation || undefined,
         }}
       />
     </Modal>

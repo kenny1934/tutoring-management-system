@@ -35,6 +35,7 @@ interface AddStudentModalProps {
     grade?: string;
     lang_stream?: string;
     phone?: string;
+    home_location?: string;
   };
 }
 
@@ -105,15 +106,18 @@ export function AddStudentModal({
       if (initialData.grade) setGrade(initialData.grade);
       if (initialData.lang_stream) setLangStream(initialData.lang_stream);
       if (initialData.phone) setContacts([{ phone: initialData.phone, label: '' }]);
+      if (initialData.home_location) setHomeLocation(initialData.home_location);
     }
   }, [isOpen, isLocationLocked, appLocation, initialData]);
 
-  // Set location from app context when modal opens (if locked)
+  // Set location from app context when modal opens (if locked).
+  // Skipped when initialData.home_location is provided — the caller's
+  // explicit location wins over the sidebar filter.
   useEffect(() => {
-    if (isOpen && isLocationLocked) {
+    if (isOpen && isLocationLocked && !initialData?.home_location) {
       setHomeLocation(appLocation);
     }
-  }, [isOpen, isLocationLocked, appLocation]);
+  }, [isOpen, isLocationLocked, appLocation, initialData?.home_location]);
 
   // Fetch next ID when location changes
   useEffect(() => {
@@ -286,10 +290,10 @@ export function AddStudentModal({
             <select
               value={homeLocation}
               onChange={(e) => setHomeLocation(e.target.value)}
-              disabled={isLocationLocked}
+              disabled={isLocationLocked && !initialData?.home_location}
               className={cn(
                 "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50",
-                isLocationLocked && "opacity-60 cursor-not-allowed"
+                isLocationLocked && !initialData?.home_location && "opacity-60 cursor-not-allowed"
               )}
             >
               {availableLocations.map((loc) => (
