@@ -885,10 +885,7 @@ function ProfileTab({
 
   return (
     <div className="space-y-4">
-      {/* Handover from P6 (only renders when a linked prospect exists) */}
-      {student.handover_prospect && (
-        <HandoverFromP6Card prospect={student.handover_prospect} studentId={student.id} />
-      )}
+      {student.handover_prospect && <HandoverFromP6Card prospect={student.handover_prospect} />}
 
       <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
@@ -1340,16 +1337,12 @@ function ProfileTab({
   );
 }
 
-function HandoverFromP6Card({ prospect, studentId }: { prospect: HandoverProspect; studentId: number }) {
-  const storageKey = `handover-card-collapsed:${studentId}`;
-  // Default expanded; once the user has interacted at least once, persist their choice.
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(storageKey);
-    if (stored === 'true') setCollapsed(true);
-    else if (stored === 'false') setCollapsed(false);
-  }, [storageKey]);
+function HandoverFromP6Card({ prospect }: { prospect: HandoverProspect }) {
+  const storageKey = `handover-card-collapsed:${prospect.id}`;
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(storageKey) === 'true';
+  });
 
   const toggle = () => {
     const next = !collapsed;
@@ -1359,17 +1352,14 @@ function HandoverFromP6Card({ prospect, studentId }: { prospect: HandoverProspec
     }
   };
 
-  const submittedDate = prospect.submitted_at
-    ? new Date(prospect.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : null;
-
-  const sections: Array<{ label: string; value?: string | null }> = [
+  const sections = [
     { label: "Handover note", value: prospect.tutor_remark },
     { label: "Sibling info", value: prospect.sibling_info },
     { label: "Preferred tutor", value: prospect.preferred_tutor_note },
     { label: "Preferred time", value: prospect.preferred_time_note },
-  ];
-  const visibleSections = sections.filter(s => s.value && s.value.trim().length > 0);
+  ].filter(s => s.value && s.value.trim().length > 0);
+
+  if (sections.length === 0) return null;
 
   return (
     <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg">
@@ -1387,7 +1377,7 @@ function HandoverFromP6Card({ prospect, studentId }: { prospect: HandoverProspec
         </span>
         <span className="text-xs text-gray-600 dark:text-gray-400 ml-1 truncate">
           {prospect.tutor_name && `by ${prospect.tutor_name}`}
-          {submittedDate && ` · ${submittedDate}`}
+          {prospect.submitted_at && ` · ${formatShortDate(prospect.submitted_at)}`}
         </span>
         <ChevronDown className={cn(
           "h-4 w-4 text-amber-700 dark:text-amber-300 ml-auto transition-transform",
@@ -1396,22 +1386,16 @@ function HandoverFromP6Card({ prospect, studentId }: { prospect: HandoverProspec
       </button>
       {!collapsed && (
         <div className="px-4 pb-3 space-y-3">
-          {visibleSections.length === 0 ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-              No handover notes recorded.
-            </p>
-          ) : (
-            visibleSections.map(s => (
-              <div key={s.label}>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 mb-0.5">
-                  {s.label}
-                </p>
-                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                  {s.value}
-                </p>
-              </div>
-            ))
-          )}
+          {sections.map(s => (
+            <div key={s.label}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 mb-0.5">
+                {s.label}
+              </p>
+              <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                {s.value}
+              </p>
+            </div>
+          ))}
         </div>
       )}
     </div>

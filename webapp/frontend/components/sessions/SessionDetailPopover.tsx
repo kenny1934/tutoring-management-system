@@ -39,6 +39,7 @@ import {
 } from "@/lib/file-system";
 import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { formatShortDate } from "@/lib/formatters";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
@@ -752,7 +753,6 @@ export function SessionDetailPopover({
           </Link>
         </div>
 
-        {/* P6 handover hint — first lesson with this tutor */}
         {detailedSession?.show_handover_first_lesson && detailedSession?.handover_prospect && (
           <div className="mb-3 flex gap-2.5 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
             <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
@@ -767,7 +767,7 @@ export function SessionDetailPopover({
               )}
               <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
                 {detailedSession.handover_prospect.tutor_name && `— ${detailedSession.handover_prospect.tutor_name}`}
-                {detailedSession.handover_prospect.submitted_at && ` · ${new Date(detailedSession.handover_prospect.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+                {detailedSession.handover_prospect.submitted_at && ` · ${formatShortDate(detailedSession.handover_prospect.submitted_at)}`}
               </p>
             </div>
           </div>

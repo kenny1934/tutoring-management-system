@@ -8,6 +8,9 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
+            "description": "**P6 handover note follows the student**: when a former P6 prospect walks into their first lesson with a tutor, the session popover now shows the handover note that the primary-branch tutor wrote, with the author and source branch. The same note (plus sibling info and parent preferences) lives permanently on the Profile tab of the student detail page so it stays accessible later."
+          },
+          {
             "description": "**Admin-only grades on summer config**: a new admin-only checkbox in the Summer Config editor lets you hide a grade option from the public application form while keeping it selectable inside admin UIs (slot card dropdown, application detail modal). F4 ships marked admin-only, so the public landing page still advertises 升中一 至 升中三 while admins can still place F4 students."
           },
           {

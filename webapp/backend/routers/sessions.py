@@ -12,13 +12,13 @@ from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from utils.query_helpers import session_with_relations
-from sqlalchemy import func, or_, text
+from utils.query_helpers import session_with_relations, get_handover_prospect
+from sqlalchemy import func, or_, text, exists
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, PrimaryProspect, SummerApplication
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
@@ -634,30 +634,19 @@ async def get_session_detail(
         SessionLog.session_status.in_(['Attended', 'Attended (Make-up)'])
     ).order_by(SessionLog.session_date.desc()).first()
 
-    # P6 handover prospect (1:1 link via SummerApplication.existing_student_id)
     if session.student_id:
-        prospect = (
-            db.query(PrimaryProspect)
-            .join(SummerApplication, PrimaryProspect.summer_application_id == SummerApplication.id)
-            .filter(SummerApplication.existing_student_id == session.student_id)
-            .first()
-        )
+        prospect = get_handover_prospect(db, session.student_id)
         if prospect:
             session_data.handover_prospect = HandoverProspectInfo.model_validate(prospect)
-            # First lesson with this tutor: no prior Attended session for (student, tutor)
-            # Excluding the current session lets the hint persist after marking it Attended.
-            prior_attended = (
-                db.query(SessionLog.id)
-                .filter(
-                    SessionLog.student_id == session.student_id,
-                    SessionLog.tutor_id == session.tutor_id,
-                    SessionLog.id != session.id,
-                    SessionLog.session_date <= session.session_date,
-                    SessionLog.session_status.in_(['Attended', 'Attended (Make-up)']),
-                )
-                .first()
-            )
-            session_data.show_handover_first_lesson = prior_attended is None
+            # Excluding the current session lets the hint persist after the tutor marks it Attended.
+            has_prior_attended = db.query(exists().where(
+                SessionLog.student_id == session.student_id,
+                SessionLog.tutor_id == session.tutor_id,
+                SessionLog.id != session.id,
+                SessionLog.session_date <= session.session_date,
+                SessionLog.session_status.in_(COMPLETED_STATUSES),
+            )).scalar()
+            session_data.show_handover_first_lesson = not has_prior_attended
 
     # Batch load linked sessions (rescheduled_to and make_up_for) in a single query
     linked_ids = [id for id in [session.rescheduled_to_id, session.make_up_for_id] if id]

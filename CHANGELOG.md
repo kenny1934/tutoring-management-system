@@ -4,6 +4,7 @@
 
 ### New Features
 
+* **P6 handover note follows the student**: when a former P6 prospect walks into their first lesson with a tutor, the session popover now shows the handover note that the primary-branch tutor wrote, with the author and source branch. The same note (plus sibling info and parent preferences) lives permanently on the Profile tab of the student detail page so it stays accessible later.
 * **Admin-only grades on summer config**: a new admin-only checkbox in the Summer Config editor lets you hide a grade option from the public application form while keeping it selectable inside admin UIs (slot card dropdown, application detail modal). F4 ships marked admin-only, so the public landing page still advertises 升中一 至 升中三 while admins can still place F4 students.
 * **Linked prospect badge on summer applications**: the application card and detail modal now show a "from P6 prospect" badge alongside the linked CSM Student badge when both exist, so the primary-branch origin is visible without bouncing to the prospects page.
 * **Added-at timestamp on waitlist entries**: opening a waitlist entry now shows when (and by whom) it was added, right under the modal title.

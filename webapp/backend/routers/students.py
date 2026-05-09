@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select, or_, cast, Integer
 from typing import List, Optional
 from database import get_db
-from models import Student, Enrollment, Tutor, StudentCoupon, PrimaryProspect, SummerApplication
+from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse, HandoverProspectInfo
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
+from utils.query_helpers import get_handover_prospect
 from routers.enrollments import get_active_enrollment_objects
 
 router = APIRouter()
@@ -344,13 +345,7 @@ async def get_student_detail(
     for i, enrollment in enumerate(student.enrollments):
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
 
-    # P6 handover prospect (1:1 link via SummerApplication.existing_student_id)
-    prospect = (
-        db.query(PrimaryProspect)
-        .join(SummerApplication, PrimaryProspect.summer_application_id == SummerApplication.id)
-        .filter(SummerApplication.existing_student_id == student_id)
-        .first()
-    )
+    prospect = get_handover_prospect(db, student_id)
     if prospect:
         response.handover_prospect = HandoverProspectInfo.model_validate(prospect)
 

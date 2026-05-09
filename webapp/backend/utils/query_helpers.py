@@ -4,8 +4,8 @@ Shared query helper functions.
 Centralizes common SQLAlchemy query patterns like joinedload options
 to reduce duplication across routers.
 """
-from sqlalchemy.orm import joinedload
-from models import Enrollment, SessionLog, MakeupProposal, MakeupProposalSlot
+from sqlalchemy.orm import Session, joinedload
+from models import Enrollment, SessionLog, MakeupProposal, MakeupProposalSlot, PrimaryProspect, SummerApplication
 
 
 def enrollment_with_relations():
@@ -71,3 +71,16 @@ def proposal_with_slots():
         joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
         joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
     ]
+
+
+def get_handover_prospect(db: Session, student_id: int) -> PrimaryProspect | None:
+    """Return the P6 prospect linked to this student via summer application, if any.
+
+    Link is 1:1 — only unambiguous matches stored on PrimaryProspect.summer_application_id.
+    """
+    return (
+        db.query(PrimaryProspect)
+        .join(SummerApplication, PrimaryProspect.summer_application_id == SummerApplication.id)
+        .filter(SummerApplication.existing_student_id == student_id)
+        .first()
+    )
