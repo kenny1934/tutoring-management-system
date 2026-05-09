@@ -9,6 +9,7 @@ import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useActiveTutors } from "@/lib/hooks";
+import { formatTimeAgo } from "@/lib/formatters";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { getGradeColor, GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
 import type {
@@ -276,9 +277,32 @@ export function WaitlistEntryModal({
       <div ref={modalScrollRef} className="relative bg-white dark:bg-[#1e1e1e] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-[#1e1e1e] border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between rounded-t-xl z-10">
-          <h2 id="waitlist-modal-title" className="text-lg font-semibold text-foreground">
-            {entry ? "Edit Waitlist Entry" : "Add to Waitlist"}
-          </h2>
+          <div className="min-w-0">
+            <h2 id="waitlist-modal-title" className="text-lg font-semibold text-foreground">
+              {entry ? "Edit Waitlist Entry" : "Add to Waitlist"}
+            </h2>
+            {entry?.created_at && (() => {
+              const utcTs = entry.created_at.endsWith("Z") ? entry.created_at : entry.created_at + "Z";
+              const date = new Date(utcTs);
+              const absDate = date.toLocaleString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <p
+                  className="mt-0.5 text-xs text-foreground/50"
+                  title={absDate}
+                >
+                  Added {formatTimeAgo(utcTs)}
+                  {entry.created_by_name ? ` by ${entry.created_by_name}` : ""}
+                  <span className="text-foreground/40"> · {absDate}</span>
+                </p>
+              );
+            })()}
+          </div>
           <button
             onClick={handleClose}
             className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
