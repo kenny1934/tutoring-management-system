@@ -26,7 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
-import { getExerciseDisplayName } from "@/lib/exercise-utils";
+import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getToday } from "@/lib/calendar-utils";

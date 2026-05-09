@@ -23,6 +23,9 @@ const changelogData = [
           },
           {
             "description": "**Create student from a summer application prefills the right branch**: the Create new student dialog now seeds the home location from the application's preferred branch (MSA or MSB) instead of the sidebar's current filter. The dropdown stays editable."
+          },
+          {
+            "description": "**Courseware tab no longer crashes when grouped by PDF**: the student detail Courseware tab's \"Group by PDF\" view was throwing a ReferenceError on render. The shared display-name helper is now wired up correctly."
           }
         ]
       }
