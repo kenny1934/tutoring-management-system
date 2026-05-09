@@ -97,6 +97,17 @@ export interface StudentCreate {
  * Student response - full student record from API
  * Used in: API responses, component props
  */
+export interface HandoverProspect {
+  id: number;
+  tutor_remark?: string | null;
+  sibling_info?: string | null;
+  preferred_tutor_note?: string | null;
+  preferred_time_note?: string | null;
+  tutor_name?: string | null;
+  source_branch: string;
+  submitted_at?: string | null;
+}
+
 export interface Student {
   id: number;
   school_student_id?: string;
@@ -112,6 +123,7 @@ export interface Student {
   staff_referral_notes?: string;
   enrollment_count?: number;
   enrollments?: Enrollment[];
+  handover_prospect?: HandoverProspect | null;
 }
 
 // =============================================================================
@@ -378,6 +390,8 @@ export interface Session {
   previous_session?: Session;
   nav_previous_id?: number;
   nav_next_id?: number;
+  handover_prospect?: HandoverProspect | null;
+  show_handover_first_lesson?: boolean;
 }
 
 // Dashboard stats types

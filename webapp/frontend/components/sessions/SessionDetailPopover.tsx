@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, Presentation } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, Presentation, StickyNote } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -751,6 +751,27 @@ export function SessionDetailPopover({
             {session.student_name || "Unknown Student"}
           </Link>
         </div>
+
+        {/* P6 handover hint — first lesson with this tutor */}
+        {detailedSession?.show_handover_first_lesson && detailedSession?.handover_prospect && (
+          <div className="mb-3 flex gap-2.5 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
+            <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                First lesson — handover note from {detailedSession.handover_prospect.source_branch}
+              </p>
+              {detailedSession.handover_prospect.tutor_remark && (
+                <p className="mt-1 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {detailedSession.handover_prospect.tutor_remark}
+                </p>
+              )}
+              <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                {detailedSession.handover_prospect.tutor_name && `— ${detailedSession.handover_prospect.tutor_name}`}
+                {detailedSession.handover_prospect.submitted_at && ` · ${new Date(detailedSession.handover_prospect.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Details */}
         <div className="space-y-2 text-sm mb-4">

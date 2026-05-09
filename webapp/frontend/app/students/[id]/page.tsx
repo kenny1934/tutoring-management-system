@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse } from "@/types";
+import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
 import useSWR from "swr";
@@ -15,7 +15,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download, TrendingUp
+Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download, TrendingUp, StickyNote as StickyNoteIcon
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -884,7 +884,13 @@ function ProfileTab({
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-4">
+      {/* Handover from P6 (only renders when a linked prospect exists) */}
+      {student.handover_prospect && (
+        <HandoverFromP6Card prospect={student.handover_prospect} studentId={student.id} />
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
       <div className={cn(
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 transition-all",
@@ -1327,6 +1333,85 @@ function ProfileTab({
               New Trial
             </button>
           </div>
+        </div>
+      )}
+      </div>
+    </div>
+  );
+}
+
+function HandoverFromP6Card({ prospect, studentId }: { prospect: HandoverProspect; studentId: number }) {
+  const storageKey = `handover-card-collapsed:${studentId}`;
+  // Default expanded; once the user has interacted at least once, persist their choice.
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored === 'true') setCollapsed(true);
+    else if (stored === 'false') setCollapsed(false);
+  }, [storageKey]);
+
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(storageKey, String(next));
+    }
+  };
+
+  const submittedDate = prospect.submitted_at
+    ? new Date(prospect.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
+  const sections: Array<{ label: string; value?: string | null }> = [
+    { label: "Handover note", value: prospect.tutor_remark },
+    { label: "Sibling info", value: prospect.sibling_info },
+    { label: "Preferred tutor", value: prospect.preferred_tutor_note },
+    { label: "Preferred time", value: prospect.preferred_time_note },
+  ];
+  const visibleSections = sections.filter(s => s.value && s.value.trim().length > 0);
+
+  return (
+    <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg">
+      <button
+        type="button"
+        onClick={toggle}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left"
+      >
+        <StickyNoteIcon className="h-4 w-4 text-amber-700 dark:text-amber-300 shrink-0" />
+        <h3 className="text-sm font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">
+          Handover from P6
+        </h3>
+        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-medium">
+          {prospect.source_branch}
+        </span>
+        <span className="text-xs text-gray-600 dark:text-gray-400 ml-1 truncate">
+          {prospect.tutor_name && `by ${prospect.tutor_name}`}
+          {submittedDate && ` · ${submittedDate}`}
+        </span>
+        <ChevronDown className={cn(
+          "h-4 w-4 text-amber-700 dark:text-amber-300 ml-auto transition-transform",
+          collapsed && "-rotate-90"
+        )} />
+      </button>
+      {!collapsed && (
+        <div className="px-4 pb-3 space-y-3">
+          {visibleSections.length === 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+              No handover notes recorded.
+            </p>
+          ) : (
+            visibleSections.map(s => (
+              <div key={s.label}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 mb-0.5">
+                  {s.label}
+                </p>
+                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                  {s.value}
+                </p>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

@@ -43,9 +43,24 @@ class StudentResponse(StudentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class HandoverProspectInfo(BaseModel):
+    """P6 prospect handover info surfaced on student detail and first-lesson popover."""
+    id: int
+    tutor_remark: Optional[str] = None
+    sibling_info: Optional[str] = None
+    preferred_tutor_note: Optional[str] = None
+    preferred_time_note: Optional[str] = None
+    tutor_name: Optional[str] = None
+    source_branch: str
+    submitted_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StudentDetailResponse(StudentResponse):
     """Detailed student response with enrollment history"""
     enrollments: List['EnrollmentResponse'] = []
+    handover_prospect: Optional[HandoverProspectInfo] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -690,6 +705,8 @@ class DetailedSessionResponse(SessionResponse):
     previous_session: Optional['DetailedSessionResponse'] = None
     nav_previous_id: Optional[int] = None
     nav_next_id: Optional[int] = None
+    handover_prospect: Optional[HandoverProspectInfo] = None
+    show_handover_first_lesson: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
