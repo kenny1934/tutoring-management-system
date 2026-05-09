@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.66](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.66) (2026-05-09)
+
+### New Features
+
+* **Copy past and all session dates from a student page**: the Copy pill in the Sessions tab now offers Past and All scopes in the dropdown alongside Upcoming, so you can hand a parent a full attendance history. Past rows include the session status next to each date so attended classes and absences read at a glance. The same scope picker is available on each enrollment header.
+
 ## [2.0.65](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.65) (2026-05-09)
 
 ### New Features
