@@ -4,6 +4,8 @@ import Link from "next/link";
 import { getGradeColor } from "@/lib/constants";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { displayGrade } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 interface StudentInfoBadgesProps {
   student: {
@@ -45,6 +47,12 @@ export function StudentInfoBadges({
   const studentIdDisplay = showLocationPrefix && student.home_location
     ? `${student.home_location}-${student.school_student_id || ""}`
     : student.school_student_id;
+
+  // During the summer transitional window, render the next grade ("Pre-F2")
+  // so tutors can pick the correct curriculum even though the stored grade
+  // (still F1) only flips on the Sept 1 promotion.
+  const preGradeWindow = useSummerPreGradeWindow();
+  const gradeForDisplay = displayGrade(student.grade, preGradeWindow);
 
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",
@@ -90,7 +98,7 @@ export function StudentInfoBadges({
           )}
           style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
         >
-          {student.grade}{student.lang_stream || ''}
+          {gradeForDisplay}{student.lang_stream || ''}
         </span>
       )}
       {student.school && (

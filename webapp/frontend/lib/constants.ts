@@ -19,6 +19,8 @@ export const DAY_NAME_TO_INDEX: Record<string, number> = {
 // Grade + language stream color mapping
 // Keys are grade + lang_stream combinations (e.g., "F1C" = Form 1 Chinese stream)
 export const GRADE_COLORS: Record<string, string> = {
+  "P6C": "#fdd8a3",
+  "P6E": "#a8d8b9",
   "F1C": "#c2dfce",
   "F1E": "#cedaf5",
   "F2C": "#fbf2d0",
@@ -27,13 +29,17 @@ export const GRADE_COLORS: Record<string, string> = {
   "F3E": "#ebb26e",
   "F4C": "#7dc347",
   "F4E": "#a590e6",
+  "Graduated": "#cbd5e1",
+  "GraduatedC": "#cbd5e1",
+  "GraduatedE": "#cbd5e1",
 };
 
 // Default color when grade/stream not found
 export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 
-// Grade levels
-export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6"] as const;
+// Grade levels (regular). P6 is admin-only (summer create-student flow);
+// Graduated is the auto-promotion target for F6 students.
+export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;
 
 /**
  * Get the color for a grade + language stream combination

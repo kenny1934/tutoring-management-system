@@ -50,6 +50,7 @@ class Student(Base):
     academic_stream = Column(String(50), comment='Academic stream for F4-F6: Science, Arts, or NULL for junior forms')
     is_staff_referral = Column(Boolean, default=False, comment='TRUE if student is staff relative (unlimited $500 discount)')
     staff_referral_notes = Column(Text, comment='Which staff member, relationship, etc.')
+    last_promoted_year = Column(Integer, comment='Calendar year of last applied grade promotion. NULL means never promoted.')
 
     # Relationships
     enrollments = relationship("Enrollment", back_populates="student")
@@ -1157,6 +1158,8 @@ class SummerCourseConfig(Base):
     lang_stream_options = Column(JSON, default=list)
     course_intro = Column(JSON, nullable=True)
     banner_image_url = Column(String(500))
+    pre_grade_window_start = Column(Date, comment='Start of pre-grade display window. NULL falls back to course_start_date.')
+    pre_grade_window_end = Column(Date, comment='End of pre-grade display window (inclusive). NULL falls back to Sept 1 of (year+1).')
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

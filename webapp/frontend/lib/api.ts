@@ -2281,6 +2281,9 @@ export const summerAPI = {
   getFormConfig: () =>
     fetchAPI<SummerCourseFormConfig>("/summer/public/config"),
 
+  getPreGradeWindow: () =>
+    fetchAPI<{ start: string | null; end: string | null }>("/summer/pre-grade-window"),
+
   submitApplication: (data: SummerApplicationCreate) =>
     fetchAPI<SummerApplicationSubmitResponse>("/summer/public/apply", {
       method: "POST",

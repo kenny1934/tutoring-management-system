@@ -634,6 +634,33 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/summer/pre-grade-window")
+def get_pre_grade_window(db: Session = Depends(get_db)):
+    """Return the active pre-grade display window.
+
+    Frontend uses this to render "Pre-Fx" labels on grade badges and to
+    back-translate target grades when admin creates a Student record from a
+    SummerApplication during the summer transitional period.
+
+    Defaults: (course_start_date, Aug 31 of course year). Explicit values on
+    the config override the defaults.
+    """
+    from utils.grades import resolve_pre_grade_window
+    config = _get_active_config(db)
+    if not config:
+        return {"start": None, "end": None}
+    window = resolve_pre_grade_window(
+        course_start_date=config.course_start_date,
+        course_year=config.year,
+        explicit_start=config.pre_grade_window_start,
+        explicit_end=config.pre_grade_window_end,
+    )
+    if window is None:
+        return {"start": None, "end": None}
+    start, end = window
+    return {"start": start.isoformat(), "end": end.isoformat()}
+
+
 @router.post("/summer/public/apply", response_model=SummerApplicationSubmitResponse)
 def submit_application(
     request: Request,

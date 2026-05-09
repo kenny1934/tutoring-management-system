@@ -766,14 +766,25 @@ export default function StudentDetailPage() {
 }
 
 // Profile Tab Component
-const GRADE_OPTIONS = [
+const BASE_GRADE_OPTIONS = [
   { value: "F1", label: "F1" },
   { value: "F2", label: "F2" },
   { value: "F3", label: "F3" },
   { value: "F4", label: "F4" },
   { value: "F5", label: "F5" },
   { value: "F6", label: "F6" },
+  { value: "Graduated", label: "Graduated" },
 ];
+
+// Build grade options for the edit dropdown. P6 is admin/summer-only — only
+// surface it when the student already has P6 (e.g. created via the summer
+// pre-grade flow) so admins can edit the value without losing it.
+function buildGradeOptions(currentGrade: string | undefined | null) {
+  if (currentGrade === "P6") {
+    return [{ value: "P6", label: "P6" }, ...BASE_GRADE_OPTIONS];
+  }
+  return BASE_GRADE_OPTIONS;
+}
 
 const STREAM_OPTIONS = [
   { value: "C", label: "C" },
@@ -1004,7 +1015,7 @@ function ProfileTab({
           {isEditingAcademic ? (
             <>
               <EditableInfoRow label="School" field="school" value={editForm.school} onChange={onFormChange} type="autocomplete" suggestions={allSchools} />
-              <EditableInfoRow label="Grade" field="grade" value={editForm.grade} onChange={onFormChange} type="select" options={GRADE_OPTIONS} />
+              <EditableInfoRow label="Grade" field="grade" value={editForm.grade} onChange={onFormChange} type="select" options={buildGradeOptions(student.grade)} />
               <EditableInfoRow label="Lang Stream" field="lang_stream" value={editForm.lang_stream} onChange={onFormChange} type="select" options={STREAM_OPTIONS} />
               <EditableInfoRow label="Acad. Stream" field="academic_stream" value={editForm.academic_stream} onChange={onFormChange} type="icon-select" iconOptions={ACADEMIC_STREAM_OPTIONS} />
             </>

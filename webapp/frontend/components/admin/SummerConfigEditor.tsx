@@ -389,6 +389,11 @@ export function SummerConfigEditor({
   const [appCloseDate, setAppCloseDate] = useState("");
   const [courseStartDate, setCourseStartDate] = useState("");
   const [courseEndDate, setCourseEndDate] = useState("");
+  // Pre-grade display window — overrides default (course_start_date, Aug 31).
+  // Optional. Used by frontend grade badges and the summer create-student
+  // flow to render "Pre-Fx" and back-translate target -> current grade.
+  const [preGradeStart, setPreGradeStart] = useState("");
+  const [preGradeEnd, setPreGradeEnd] = useState("");
   const [totalLessons, setTotalLessons] = useState(8);
   const [baseFee, setBaseFee] = useState(0);
   const [registrationFee, setRegistrationFee] = useState(0);
@@ -485,6 +490,8 @@ export function SummerConfigEditor({
       application_close_date: appCloseDate || "",
       course_start_date: courseStartDate || "",
       course_end_date: courseEndDate || "",
+      pre_grade_window_start: preGradeStart || null,
+      pre_grade_window_end: preGradeEnd || null,
       total_lessons: totalLessons,
       pricing_config: {
         base_fee: baseFee,
@@ -503,7 +510,7 @@ export function SummerConfigEditor({
     }),
     [
       year, title, appOpenDate, appCloseDate,
-      courseStartDate, courseEndDate, totalLessons, baseFee,
+      courseStartDate, courseEndDate, preGradeStart, preGradeEnd, totalLessons, baseFee,
       registrationFee, discounts, locations, grades,
       existingStudentOptions, centerOptions, langStreamOptions, textContent, normalizedCourseIntro, bannerImageUrl,
     ]
@@ -543,6 +550,8 @@ export function SummerConfigEditor({
                 setAppCloseDate(parsed.application_close_date || "");
                 setCourseStartDate(parsed.course_start_date || "");
                 setCourseEndDate(parsed.course_end_date || "");
+                setPreGradeStart(parsed.pre_grade_window_start || "");
+                setPreGradeEnd(parsed.pre_grade_window_end || "");
                 setTotalLessons(parsed.total_lessons);
                 setBaseFee(parsed.pricing_config?.base_fee || 0);
                 setRegistrationFee(parsed.pricing_config?.registration_fee || 0);
@@ -596,6 +605,8 @@ export function SummerConfigEditor({
         setAppCloseDate(toDatetimeInput(config.application_close_date));
         setCourseStartDate(toDateInput(config.course_start_date));
         setCourseEndDate(toDateInput(config.course_end_date));
+        setPreGradeStart(config.pre_grade_window_start ? toDateInput(config.pre_grade_window_start) : "");
+        setPreGradeEnd(config.pre_grade_window_end ? toDateInput(config.pre_grade_window_end) : "");
         setTotalLessons(config.total_lessons);
         setBaseFee(config.pricing_config.base_fee);
         setRegistrationFee(config.pricing_config.registration_fee || 0);
@@ -764,6 +775,8 @@ export function SummerConfigEditor({
       application_close_date: appCloseDate,
       course_start_date: courseStartDate,
       course_end_date: courseEndDate,
+      pre_grade_window_start: preGradeStart || null,
+      pre_grade_window_end: preGradeEnd || null,
       total_lessons: totalLessons,
       pricing_config: {
         base_fee: baseFee,
@@ -1052,6 +1065,30 @@ export function SummerConfigEditor({
           </div>
         </div>
         <ValidationHint message={validationErrors.dates ?? null} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Pre-grade Window Start (optional)</Label>
+            <input
+              type="date"
+              value={preGradeStart}
+              onChange={(e) => setPreGradeStart(e.target.value)}
+              className={inputClass}
+              disabled={isReadOnly}
+            />
+            <p className="text-[11px] text-foreground/60 mt-1">Defaults to Course Start.</p>
+          </div>
+          <div>
+            <Label>Pre-grade Window End (optional)</Label>
+            <input
+              type="date"
+              value={preGradeEnd}
+              onChange={(e) => setPreGradeEnd(e.target.value)}
+              className={inputClass}
+              disabled={isReadOnly}
+            />
+            <p className="text-[11px] text-foreground/60 mt-1">Defaults to Aug 31 — promotion fires Sept 1.</p>
+          </div>
+        </div>
         <div className="max-w-xs">
           <Label>Total Lessons</Label>
           <input
