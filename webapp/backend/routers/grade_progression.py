@@ -41,6 +41,18 @@ def _authorize(
     require_admin_write(request, user)
 
 
+class GradePromotionRequest(BaseModel):
+    """Request body for the promotion endpoint.
+
+    Modeled as a Pydantic BaseModel (not loose function args) so dry_run and
+    target_year are unambiguously parsed from the JSON body. An earlier bug
+    treated them as query params and silently dropped body values, causing
+    a "dry-run" smoke test to actually promote students.
+    """
+    target_year: Optional[int] = None
+    dry_run: bool = False
+
+
 class GradePromotionResponse(BaseModel):
     target_year: int
     promoted_count: int
@@ -51,8 +63,7 @@ class GradePromotionResponse(BaseModel):
 
 @router.post("/admin/promote-grades", response_model=GradePromotionResponse)
 def promote_grades(
-    target_year: Optional[int] = None,
-    dry_run: bool = False,
+    body: GradePromotionRequest = GradePromotionRequest(),
     _auth: None = Depends(_authorize),
     db: Session = Depends(get_db),
 ) -> GradePromotionResponse:
@@ -61,6 +72,8 @@ def promote_grades(
     target_year defaults to today's HK year. A student is promoted iff
     last_promoted_year IS NULL OR last_promoted_year < target_year.
     """
+    target_year = body.target_year
+    dry_run = body.dry_run
     current_hk_year = datetime.now(HK_TZ).year
     if target_year is None:
         target_year = current_hk_year
