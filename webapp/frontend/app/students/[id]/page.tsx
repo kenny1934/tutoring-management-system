@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect } from "@/types";
+import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
 import useSWR from "swr";
@@ -28,6 +29,7 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
+import { getToday } from "@/lib/calendar-utils";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
@@ -1717,54 +1719,59 @@ function EditableInfoRow({
 
 // Copy Lesson Dates Button Component
 type DateFormat = 'compact' | 'detailed';
+type CopyScope = 'upcoming' | 'past' | 'all';
 
-const COPYABLE_STATUSES = ['Scheduled', 'Make-up Class', 'Trial Class'];
+const SCOPE_ORDER: CopyScope[] = ['upcoming', 'past', 'all'];
+const ATTENDABLE_SET = new Set<string>(ATTENDABLE_STATUSES);
 
-function formatSessionDate(session: Session, format: DateFormat): string {
+const FORMAT_OPTIONS: { key: DateFormat; label: string; example: string }[] = [
+  { key: 'compact', label: 'Compact', example: '15/2 (Sat) 09:00-10:00' },
+  { key: 'detailed', label: 'Detailed', example: 'Feb 15, 2026 (Saturday) 09:00 - 10:00' },
+];
+
+function isPastSession(session: Session, today: Date): boolean {
+  return new Date(session.session_date + 'T00:00:00') < today;
+}
+
+function formatSessionDate(session: Session, format: DateFormat, includeStatus: boolean): string {
   const date = new Date(session.session_date + 'T00:00:00');
-
+  let base: string;
   if (format === 'compact') {
-    return formatCompactDateTimeSlot(date, session.time_slot);
+    base = formatCompactDateTimeSlot(date, session.time_slot);
   } else {
-    // Format: Feb 15, 2026 (Saturday) 09:00 - 10:00
     const monthName = date.toLocaleDateString('en-US', { month: 'short' });
     const day = date.getDate();
     const year = date.getFullYear();
     const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
-    return `${monthName} ${day}, ${year} (${weekday}) ${session.time_slot}`;
+    base = `${monthName} ${day}, ${year} (${weekday}) ${session.time_slot}`;
   }
+  if (!includeStatus) return base;
+  return `${base} — ${getDisplayStatus(session)}`;
 }
 
-function getUpcomingSessions(sessions: Session[]): Session[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return sessions
-    .filter(session => {
-      const sessionDate = new Date(session.session_date + 'T00:00:00');
-      const status = getDisplayStatus(session);
-      return sessionDate >= today && COPYABLE_STATUSES.includes(status);
-    })
-    .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
+function shouldIncludeStatus(session: Session, scope: CopyScope, today: Date): boolean {
+  if (scope === 'upcoming') return false;
+  // For 'all', preserve clean upcoming rows (no suffix on future sessions).
+  if (scope === 'all' && !isPastSession(session, today)) return false;
+  // Past Scheduled rows are usually data-hygiene gaps — skip the noisy "— Scheduled" suffix.
+  return getDisplayStatus(session) !== SessionStatus.SCHEDULED;
 }
 
 function CopyLessonDatesButton({
   sessions,
   showToast,
-  label = "Copy upcoming",
   inEnrollment = false,
 }: {
   sessions: Session[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-  label?: string;
   inEnrollment?: boolean;
 }) {
   const [dateFormat, setDateFormat] = useState<DateFormat>('compact');
+  const [scope, setScope] = useState<CopyScope>('upcoming');
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -1777,51 +1784,84 @@ function CopyLessonDatesButton({
     }
   }, [isOpen]);
 
-  const upcomingSessions = useMemo(() => getUpcomingSessions(sessions), [sessions]);
+  const sessionsByScope = useMemo<Record<CopyScope, Session[]>>(() => {
+    const today = getToday();
+    const upcoming: Session[] = [];
+    const past: Session[] = [];
+    const all: Session[] = [];
+    for (const session of sessions) {
+      const status = getDisplayStatus(session);
+      if (status === SessionStatus.CANCELLED) continue;
+      all.push(session);
+      if (isPastSession(session, today)) {
+        past.push(session);
+      } else if (ATTENDABLE_SET.has(status)) {
+        upcoming.push(session);
+      }
+    }
+    const byDate = (a: Session, b: Session) =>
+      new Date(a.session_date).getTime() - new Date(b.session_date).getTime();
+    upcoming.sort(byDate);
+    past.sort(byDate);
+    all.sort(byDate);
+    return { upcoming, past, all };
+  }, [sessions]);
 
-  const handleCopy = async (format: DateFormat = dateFormat) => {
-    if (upcomingSessions.length === 0) {
-      showToast('No upcoming lessons to copy', 'info');
+  const handleCopy = async (
+    targetScope: CopyScope = scope,
+    targetFormat: DateFormat = dateFormat,
+  ) => {
+    const target = sessionsByScope[targetScope];
+    if (target.length === 0) {
+      showToast(`No ${targetScope} lessons to copy`, 'info');
       return;
     }
 
-    const formattedDates = upcomingSessions
-      .map(session => formatSessionDate(session, format))
+    const today = getToday();
+    const formattedDates = target
+      .map(session => formatSessionDate(session, targetFormat, shouldIncludeStatus(session, targetScope, today)))
       .join('\n');
 
     try {
       await navigator.clipboard.writeText(formattedDates);
       setCopied(true);
-      setDateFormat(format); // Remember the last used format
-      setIsOpen(false); // Close dropdown
-      showToast(`Copied ${upcomingSessions.length} lesson${upcomingSessions.length !== 1 ? 's' : ''} to clipboard`, 'success');
+      setDateFormat(targetFormat);
+      setScope(targetScope);
+      setIsOpen(false);
+      showToast(`Copied ${target.length} lesson${target.length !== 1 ? 's' : ''} to clipboard`, 'success');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       showToast('Failed to copy to clipboard', 'error');
     }
   };
 
-  if (upcomingSessions.length === 0) {
+  if (sessionsByScope.all.length === 0) {
     return null;
   }
+
+  const pillCount = sessionsByScope[scope].length;
+  const pillTitle = `Copy ${pillCount} ${scope} lesson${pillCount !== 1 ? 's' : ''}${inEnrollment ? ' in this enrollment' : ''}`;
+  const previewSuffix = scope === 'upcoming' ? '' : ' — Attended';
 
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex items-stretch">
         <button
           onClick={() => handleCopy()}
+          disabled={pillCount === 0}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-full transition-colors",
             "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
-            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
+            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]",
+            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#f5ede3] dark:disabled:hover:bg-[#2d2820] disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
           )}
-          title={`Copy ${upcomingSessions.length} upcoming lesson date${upcomingSessions.length !== 1 ? 's' : ''}${inEnrollment ? ' in this enrollment' : ''}`}
+          title={pillTitle}
         >
           {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-          <span className="hidden sm:inline">{label}</span>
+          <span className="hidden sm:inline">Copy {scope}</span>
           <span className="text-[10px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-            {upcomingSessions.length}
+            {pillCount}
           </span>
         </button>
         <button
@@ -1838,34 +1878,50 @@ function CopyLessonDatesButton({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 z-50 min-w-[180px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+        <div className="absolute right-0 mt-1 z-50 min-w-[200px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Scope</div>
+          {SCOPE_ORDER.map((s) => {
+            const count = sessionsByScope[s].length;
+            const disabled = count === 0;
+            return (
+              <button
+                key={s}
+                onClick={() => !disabled && handleCopy(s)}
+                disabled={disabled}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between gap-2",
+                  !disabled && "hover:bg-[#f5ede3] dark:hover:bg-[#2d2820]",
+                  scope === s && !disabled && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]",
+                  disabled && "opacity-40 cursor-not-allowed"
+                )}
+              >
+                <span className="font-medium capitalize">{s}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          <div className="my-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+
           <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Copy as</div>
-          <button
-            onClick={() => handleCopy('compact')}
-            className={cn(
-              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
-              dateFormat === 'compact' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
-            )}
-          >
-            <div className="font-medium flex items-center gap-1.5">
-              <Copy className="h-3 w-3" />
-              Compact
-            </div>
-            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">15/2 (Sat) 09:00-10:00</div>
-          </button>
-          <button
-            onClick={() => handleCopy('detailed')}
-            className={cn(
-              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
-              dateFormat === 'detailed' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
-            )}
-          >
-            <div className="font-medium flex items-center gap-1.5">
-              <Copy className="h-3 w-3" />
-              Detailed
-            </div>
-            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">Feb 15, 2026 (Saturday) 09:00 - 10:00</div>
-          </button>
+          {FORMAT_OPTIONS.map(({ key, label, example }) => (
+            <button
+              key={key}
+              onClick={() => handleCopy(scope, key)}
+              className={cn(
+                "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
+                dateFormat === key && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+              )}
+            >
+              <div className="font-medium flex items-center gap-1.5">
+                <Copy className="h-3 w-3" />
+                {label}
+              </div>
+              <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">{example}{previewSuffix}</div>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -2122,11 +2178,10 @@ function SessionsTab({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Copy All Upcoming Dates Button */}
+          {/* Copy lesson dates (Upcoming / Past / All) */}
           <CopyLessonDatesButton
             sessions={sessions}
             showToast={showToast}
-            label="Copy upcoming"
           />
 
           {/* Sort Order Toggle (shown in both modes) */}
@@ -2196,7 +2251,6 @@ function SessionsTab({
                   <CopyLessonDatesButton
                     sessions={enrollmentSessions}
                     showToast={showToast}
-                    label="Copy upcoming"
                     inEnrollment
                   />
                 </div>
