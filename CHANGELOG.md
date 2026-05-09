@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.65](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.65) (2026-05-09)
+
+### New Features
+
+* **Admin-only grades on summer config**: a new admin-only checkbox in the Summer Config editor lets you hide a grade option from the public application form while keeping it selectable inside admin UIs (slot card dropdown, application detail modal). F4 ships marked admin-only, so the public landing page still advertises 升中一 至 升中三 while admins can still place F4 students.
+* **Linked prospect badge on summer applications**: the application card and detail modal now show a "from P6 prospect" badge alongside the linked CSM Student badge when both exist, so the primary-branch origin is visible without bouncing to the prospects page.
+* **Added-at timestamp on waitlist entries**: opening a waitlist entry now shows when (and by whom) it was added, right under the modal title.
+* **Exited buddy members sink to the bottom**: the buddy member list in the application detail modal now sorts Withdrawn and Rejected members to the bottom, separated by a thin divider and rendered with a line-through. Click-through to those applications still works.
+
+### Bug Fixes
+
+* **Receipt code stays attached after linking a P6 prospect**: linking a CSM Student to an F1 application that came from a P6 prospect no longer overwrites the verified branch origin with the destination branch, so the 26SummerMC receipt code remains valid. A one-shot repair script restores rows already affected by the prior behavior.
+* **Summer config save no longer wipes receipt codes and pricing extras**: saving the Summer Config now merges pricing keys instead of replacing the whole JSON, so receipt codes, academic year dates, partial per-lesson rate, and promo settings survive a Discounts edit.
+* **Buddy people-meter ignores closed applications**: the buddy count on the application card now excludes Withdrawn and Rejected entries, matching the discount math and the buddy tracker.
+* **Sidebar nav no longer shows a literal "0"**: nav items with a zero count (Waitlist, Extensions, etc.) stop rendering "0" next to the label.
+
 ## [2.0.64](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.64) (2026-04-27)
 
 ### New Features
