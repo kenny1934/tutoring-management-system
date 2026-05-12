@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.67](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.67) (2026-05-12)
+
+### New Features
+
+* **Confirm placement and move lessons from the application detail modal**: a new Confirm placement button appears when this student's sessions are still tentative, scoped to just this one application so you don't have to confirm a whole slot. Setting the status to Placement Confirmed now flips the tentative sessions to Confirmed in the same save. Each session row gets a Move action that opens a small popover where you pick a new date, time, and tutor; a matching existing slot is reused when one is found, otherwise a Make-up Slot is created for that tutor. The modal now shows a confirmation step before grade-mismatch reuse or new Make-up Slot creation, so the side effect is never a surprise.
+* **Time inputs use the summer config's preset slots**: the Move popover and the Create Make-up Slot modal now show the summer time slots from your config as a dropdown, with a "Use custom time" toggle for one-off times. The dropdown shows the same options on every day (no weekday/weekend split), matching summer scheduling.
+* **Publish-status filter on Applications and Arrangement**: a compact filter dropdown on both pages narrows the list to Published, Unpublished, or All applications. A built-in "Ready to publish" preset is one click and surfaces paid customers who still need to be published, the cohort that needs admin action before tutors can mark attendance.
+* **Persistent hint under the Publish button**: the application detail modal now spells out what publishing actually does (live enrollment created, student appears in the tutor's calendar, attendance opens up, placements lock) so admins know what to expect before clicking.
+
+### Bug Fixes
+
+* **Rescheduled lessons no longer falsely block publish**: applications with a Rescheduled - Pending Make-up placement could not be published because the gate counted "active placements" instead of "non-cancelled placements". Publish now accepts these and carries the Rescheduled status forward into the live enrollment, where the regular make-up booking flow can resolve it.
+* **Publish refuses when a placement has no tutor**: publishing a student whose slot had no tutor assigned previously produced an enrollment with no tutor, which then broke the student detail page and the enrollment view. Publish now refuses up front with a clear message pointing to the Arrangement page's Slot Setup tab to assign a tutor first.
+* **Move preserves the lesson number on a new Make-up Slot**: moving L6 onto a freshly-created Make-up Slot used to render as "L-" because the new slot's lesson had no default number. The session now keeps the original lesson number through the move.
+
 ## [2.0.66](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.66) (2026-05-09)
 
 ### New Features
