@@ -2493,10 +2493,35 @@ export const summerAPI = {
   deleteSession: (id: number, cascade = true) =>
     fetchAPI<{ success: boolean }>(`/summer/sessions/${id}?cascade=${cascade}`, { method: "DELETE" }),
 
-  bulkConfirmSessions: (configId: number, location?: string, slotId?: number) => {
+  moveSession: (
+    id: number,
+    payload: {
+      target_lesson_id?: number;
+      target_date?: string;
+      time_slot?: string;
+      tutor_id?: number;
+      force_create_adhoc?: boolean;
+      dry_run?: boolean;
+    },
+  ) =>
+    fetchAPI<{
+      session_id: number;
+      action: "reused_slot" | "created_adhoc";
+      slot_id: number;
+      lesson_id: number;
+      grade_warning?: string | null;
+      tutor_conflict_note?: string | null;
+      is_preview?: boolean;
+    }>(`/summer/sessions/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  bulkConfirmSessions: (configId: number, location?: string, slotId?: number, applicationId?: number) => {
     const params = new URLSearchParams({ config_id: String(configId) });
     if (location) params.set("location", location);
     if (slotId) params.set("slot_id", String(slotId));
+    if (applicationId) params.set("application_id", String(applicationId));
     return fetchAPI<{ confirmed: number; apps_advanced: number }>(`/summer/sessions/bulk-confirm?${params}`, {
       method: "POST",
     });

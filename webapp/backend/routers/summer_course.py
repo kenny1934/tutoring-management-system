@@ -58,6 +58,8 @@ from schemas import (
     SummerSessionCreate,
     SummerSessionStatusUpdate,
     SummerSessionLessonNumberUpdate,
+    SummerSessionMove,
+    SummerSessionMoveResponse,
     SummerSessionResponse,
     SummerLessonResponse,
     SummerLessonUpdate,
@@ -2793,15 +2795,378 @@ def delete_session(
     return {"success": True}
 
 
+# Application statuses at or beyond which moved sessions land as Confirmed
+# (instead of Tentative). Mirrors the modal flow: once placement is locked in
+# with the parent, every subsequent placement decision is also locked in.
+_CONFIRMED_ON_MOVE_STATUSES = frozenset({
+    SummerApplicationStatus.PLACEMENT_CONFIRMED.value,
+    SummerApplicationStatus.FEE_SENT.value,
+    SummerApplicationStatus.PAID.value,
+    SummerApplicationStatus.ENROLLED.value,
+})
+
+
+def _find_matching_lesson_for_move(
+    db: Session,
+    *,
+    config_id: int,
+    location: str,
+    target_date: date_type,
+    time_slot: str,
+    tutor_id: int,
+    grade: Optional[str],
+    application_id: int,
+) -> tuple[Optional[SummerLesson], Optional[SummerCourseSlot], Optional[str]]:
+    """Find an existing lesson matching (date, time, tutor, location) that this
+    application can move into.
+
+    Returns (lesson, slot, grade_warning):
+      - Prefers regular slots whose grade matches `grade` exactly (no warning).
+      - Falls back to ad-hoc slots, which are grade-agnostic by design (no warning).
+      - Falls back to regular slots with a different grade (returns warning text).
+      - (None, None, None) if no candidate has capacity / the student is already there.
+
+    Capacity = active sessions (non-cancelled, attending) below slot.max_students.
+    Excludes any candidate where this application is already on that lesson.
+    """
+    rows = (
+        db.query(SummerLesson, SummerCourseSlot)
+        .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
+        .filter(
+            SummerCourseSlot.config_id == config_id,
+            SummerCourseSlot.location == location,
+            SummerCourseSlot.tutor_id == tutor_id,
+            SummerCourseSlot.time_slot == time_slot,
+            SummerLesson.lesson_date == target_date,
+            SummerLesson.lesson_status != "Cancelled",
+        )
+        .all()
+    )
+    if not rows:
+        return None, None, None
+
+    def _has_room(lesson: SummerLesson, slot: SummerCourseSlot) -> bool:
+        # Block if the student is already on this lesson (any non-cancelled row).
+        existing = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == lesson.id,
+                SummerSession.application_id == application_id,
+                SummerSession.session_status != "Cancelled",
+            )
+            .first()
+        )
+        if existing:
+            return False
+        attending = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == lesson.id,
+                SummerSession.session_status.notin_(SUMMER_NON_ATTENDING_STATUSES),
+                SummerSession.session_status != "Cancelled",
+            )
+            .count()
+        )
+        return attending < slot.max_students
+
+    grade_match: Optional[tuple[SummerLesson, SummerCourseSlot]] = None
+    adhoc_match: Optional[tuple[SummerLesson, SummerCourseSlot]] = None
+    grade_mismatch: Optional[tuple[SummerLesson, SummerCourseSlot]] = None
+    for lesson, slot in rows:
+        if not _has_room(lesson, slot):
+            continue
+        if slot.is_adhoc:
+            if adhoc_match is None:
+                adhoc_match = (lesson, slot)
+            continue
+        if grade and slot.grade and slot.grade == grade:
+            grade_match = (lesson, slot)
+            break
+        if grade_mismatch is None:
+            grade_mismatch = (lesson, slot)
+
+    if grade_match:
+        lesson, slot = grade_match
+        return lesson, slot, None
+    if adhoc_match:
+        lesson, slot = adhoc_match
+        return lesson, slot, None
+    if grade_mismatch:
+        lesson, slot = grade_mismatch
+        warn = (
+            f"Reusing slot for grade {slot.grade or 'n/a'} but this student is grade "
+            f"{grade or 'n/a'}. Confirm the slot suits this student."
+        )
+        return lesson, slot, warn
+    return None, None, None
+
+
+@router.post(
+    "/summer/sessions/{session_id}/move",
+    response_model=SummerSessionMoveResponse,
+)
+def move_session(
+    session_id: int,
+    data: SummerSessionMove,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Relocate a pre-publish session to a different lesson/slot.
+
+    Two modes:
+      (A) target_lesson_id — move directly onto an existing lesson.
+      (B) (target_date, time_slot, tutor_id) — find a matching slot at that
+          (date, time, tutor) and reuse it; create a new ad-hoc slot if no
+          regular/ad-hoc match exists OR if force_create_adhoc is set.
+
+    Side effects:
+      - session.slot_id and session.lesson_id are updated.
+      - If session was Rescheduled - Pending Make-up, status is reset to
+        Confirmed/Tentative based on the application's current status.
+      - The dup-lesson-number guard runs against the destination lesson's
+        effective number to keep the per-app one-row-per-lesson invariant.
+    """
+    session = (
+        db.query(SummerSession)
+        .options(
+            joinedload(SummerSession.application),
+            joinedload(SummerSession.slot),
+            joinedload(SummerSession.lesson),
+        )
+        .filter(SummerSession.id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    app = session.application
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found for session")
+
+    # Pre-publish only — once published, moves go through the SessionLog flow.
+    published = (
+        db.query(Enrollment.id)
+        .filter(Enrollment.summer_application_id == app.id)
+        .first()
+    )
+    if published:
+        raise HTTPException(
+            status_code=400,
+            detail="This application is already published. Edit the live enrollment instead.",
+        )
+
+    # Capture the source's effective lesson_number BEFORE we touch anything.
+    # Used below to preserve the displayed L# across the move — without this,
+    # moving an L6 onto a freshly-created Make-up Slot (whose lesson has
+    # lesson_number=NULL) would render as L-.
+    source_effective_ln = (
+        session.lesson_number
+        if session.lesson_number is not None
+        else (session.lesson.lesson_number if session.lesson else None)
+    )
+
+    grade_warning: Optional[str] = None
+    tutor_conflict_note: Optional[str] = None
+    action: str
+
+    if data.target_lesson_id is not None:
+        # Mode A: explicit lesson.
+        target_lesson = (
+            db.query(SummerLesson)
+            .options(joinedload(SummerLesson.slot))
+            .filter(SummerLesson.id == data.target_lesson_id)
+            .first()
+        )
+        if not target_lesson or not target_lesson.slot:
+            raise HTTPException(status_code=404, detail="Target lesson not found")
+        target_slot = target_lesson.slot
+        if target_slot.tutor_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Target slot has no tutor assigned. Assign a tutor before placing.",
+            )
+        if target_lesson.lesson_status == "Cancelled":
+            raise HTTPException(status_code=400, detail="Target lesson is cancelled")
+        # Don't move onto a lesson the student is already on.
+        existing_here = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == target_lesson.id,
+                SummerSession.application_id == app.id,
+                SummerSession.session_status != "Cancelled",
+                SummerSession.id != session.id,
+            )
+            .first()
+        )
+        if existing_here:
+            raise HTTPException(status_code=400, detail="Student already placed in this lesson")
+        # Capacity (counts attending sessions only, mirroring the create path).
+        attending = (
+            db.query(SummerSession)
+            .filter(
+                SummerSession.lesson_id == target_lesson.id,
+                SummerSession.session_status.notin_(SUMMER_NON_ATTENDING_STATUSES),
+                SummerSession.session_status != "Cancelled",
+                SummerSession.id != session.id,
+            )
+            .count()
+        )
+        if attending >= target_slot.max_students:
+            raise HTTPException(status_code=400, detail="Target lesson is full")
+        action = "reused_slot"
+    else:
+        # Mode B: find-or-create.
+        if not (data.target_date and data.time_slot and data.tutor_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Provide target_lesson_id OR (target_date, time_slot, tutor_id).",
+            )
+        tutor = db.query(Tutor).filter(Tutor.id == data.tutor_id).first()
+        if not tutor:
+            raise HTTPException(status_code=404, detail="Tutor not found")
+        config = app.config
+        if not config:
+            raise HTTPException(status_code=400, detail="Application has no config")
+        if not (config.course_start_date <= data.target_date <= config.course_end_date):
+            raise HTTPException(
+                status_code=400,
+                detail="Date must fall within the course's start and end dates",
+            )
+
+        time_slot_norm = data.time_slot.strip()
+        location = session.slot.location if session.slot else app.preferred_location
+        if not location:
+            raise HTTPException(status_code=400, detail="Cannot determine location for move")
+
+        match_lesson: Optional[SummerLesson] = None
+        match_slot: Optional[SummerCourseSlot] = None
+        if not data.force_create_adhoc:
+            match_lesson, match_slot, grade_warning = _find_matching_lesson_for_move(
+                db,
+                config_id=app.config_id,
+                location=location,
+                target_date=data.target_date,
+                time_slot=time_slot_norm,
+                tutor_id=data.tutor_id,
+                grade=app.grade,
+                application_id=app.id,
+            )
+
+        if match_lesson and match_slot:
+            target_lesson, target_slot = match_lesson, match_slot
+            action = "reused_slot"
+        else:
+            action = "created_adhoc"
+            # Compute the conflict note from existing slots — works for both
+            # dry-run preview and real creation. The dry-run path stops here
+            # and returns the preview without persisting anything.
+            tutor_conflict_note = _tutor_conflict_note(
+                db, app.config_id, data.tutor_id, data.target_date, time_slot_norm,
+                exclude_slot_id=None,
+            )
+            if data.dry_run:
+                return SummerSessionMoveResponse(
+                    session_id=session.id,
+                    action="created_adhoc",
+                    slot_id=0,
+                    lesson_id=0,
+                    grade_warning=None,
+                    tutor_conflict_note=tutor_conflict_note,
+                    is_preview=True,
+                )
+            # Create a new ad-hoc slot, mirroring create_makeup_slot.
+            target_slot = SummerCourseSlot(
+                config_id=app.config_id,
+                location=location,
+                slot_day=data.target_date.strftime("%A"),
+                time_slot=time_slot_norm,
+                tutor_id=data.tutor_id,
+                max_students=8,
+                is_adhoc=True,
+                adhoc_date=data.target_date,
+            )
+            db.add(target_slot)
+            db.flush()
+            _ensure_lessons_for_slot(target_slot, db)
+            target_lesson = (
+                db.query(SummerLesson)
+                .filter(SummerLesson.slot_id == target_slot.id)
+                .first()
+            )
+            if not target_lesson:
+                raise HTTPException(status_code=500, detail="Failed to materialize ad-hoc lesson")
+
+    # Pin the per-session lesson_number override when the destination lesson's
+    # natural number differs from the source's effective number. This preserves
+    # the L# the admin sees: L6 stays L6 even after moving onto a new ad-hoc
+    # Make-up Slot (whose lesson_number is NULL) or onto a regular slot whose
+    # week-based number happens to be different.
+    new_session_ln = session.lesson_number
+    if (
+        source_effective_ln is not None
+        and target_lesson.lesson_number != source_effective_ln
+    ):
+        new_session_ln = source_effective_ln
+
+    # Effective lesson number after the move = session override (preserved) OR
+    # destination lesson's number. Re-run the dup guard so we don't introduce
+    # two active sessions at the same lesson_number for this app.
+    effective_ln = new_session_ln if new_session_ln is not None else target_lesson.lesson_number
+    if effective_ln is not None:
+        conflict = _find_conflicting_summer_session(
+            db, app.id, effective_ln, exclude_session_id=session.id,
+        )
+        if conflict is not None:
+            db.rollback()
+            _raise_duplicate_lesson_number(effective_ln, conflict)
+
+    # Dry-run reused-slot path returns here after validations pass — no mutation.
+    if data.dry_run:
+        return SummerSessionMoveResponse(
+            session_id=session.id,
+            action=action,
+            slot_id=target_slot.id,
+            lesson_id=target_lesson.id,
+            grade_warning=grade_warning,
+            tutor_conflict_note=tutor_conflict_note,
+            is_preview=True,
+        )
+
+    # Apply the move.
+    session.slot_id = target_slot.id
+    session.lesson_id = target_lesson.id
+    session.lesson_number = new_session_ln
+    session.placed_by = admin.tutor_name or "admin"
+    session.placed_at = hk_now()
+
+    # Status transition: clear Pending Make-up and set based on app gate.
+    # Apps already at Placement Confirmed or beyond expect Confirmed sessions.
+    if app.application_status in _CONFIRMED_ON_MOVE_STATUSES:
+        session.session_status = "Confirmed"
+    else:
+        session.session_status = "Tentative"
+
+    db.commit()
+    db.refresh(session)
+    return SummerSessionMoveResponse(
+        session_id=session.id,
+        action=action,
+        slot_id=target_slot.id,
+        lesson_id=target_lesson.id,
+        grade_warning=grade_warning,
+        tutor_conflict_note=tutor_conflict_note,
+    )
+
+
 @router.post("/summer/sessions/bulk-confirm")
 def bulk_confirm_sessions(
     config_id: int = Query(...),
     location: Optional[str] = None,
     slot_id: Optional[int] = None,
+    application_id: Optional[int] = None,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
-    """Confirm all tentative sessions for a config (optionally filtered by location and/or slot)."""
+    """Confirm all tentative sessions for a config (optionally filtered by location, slot, and/or application)."""
     q = (
         db.query(SummerSession)
         .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
@@ -2814,6 +3179,8 @@ def bulk_confirm_sessions(
         q = q.filter(SummerCourseSlot.location == location)
     if slot_id:
         q = q.filter(SummerSession.slot_id == slot_id)
+    if application_id:
+        q = q.filter(SummerSession.application_id == application_id)
 
     # Collect matching IDs through the joined query, then update by primary key
     # — SQLAlchemy rejects Query.update() when the query has a join.
@@ -3060,6 +3427,20 @@ def _publish_application_inner(
     publishable = [p for p in placements if p.session_status != "Cancelled"]
     if not publishable:
         raise _publish_error("no_placements", "All placements are Cancelled. Nothing to publish.")
+
+    # Block: every publishable placement must sit on a slot that has a tutor.
+    # SummerCourseSlot.tutor_id is nullable so admins can pre-create empty
+    # slots, but Enrollment.tutor_id must be a real id — without this guard
+    # the publish writes a NULL tutor_id, which then breaks any read path
+    # that validates the enrollment via the int-typed tutor_id schema.
+    no_tutor = [p for p in publishable if not p.slot or p.slot.tutor_id is None]
+    if no_tutor:
+        raise _publish_error(
+            "slot_no_tutor",
+            f"{len(no_tutor)} placement(s) sit on a slot with no tutor assigned. "
+            "Assign a tutor to the slot on the Arrangement page before publishing.",
+            placement_ids=[p.id for p in no_tutor],
+        )
 
     # Block: count must equal app.lessons_paid (force alignment up front so
     # numbers don't drift between summer and native systems).

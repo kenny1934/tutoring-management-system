@@ -490,6 +490,7 @@ export function SummerSessionCalendar({
         courseEndDate={courseEndDate}
         initialDate={makeupModal?.date}
         initialTime={makeupModal?.time}
+        presetTimeSlots={timeSlots}
       />
 
       {sessionPopover && (

@@ -4,7 +4,7 @@
 
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { SummerApplicationSessionInfo, SummerPricingConfig, SummerSiblingInfo } from "@/types";
+import type { SummerApplicationSessionInfo, SummerCourseConfig, SummerCourseFormConfig, SummerPricingConfig, SummerSiblingInfo } from "@/types";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 export type Lang = "zh" | "en";
@@ -109,6 +109,32 @@ export function labelForOption(
 }
 
 /** Format a date string like "2025-07-05" to compact "Jul 5". */
+/** Build the dropdown list of summer time slots for a given location. Summer
+ *  uses a single day-agnostic list (unlike regular term which splits weekday
+ *  vs weekend), so we union the location's per-day lists and fall back to the
+ *  config-level `time_slots` array when the location has no per-day override.
+ *  Callers that don't know the location still get the global list. */
+export function getSummerTimeSlots(
+  config: SummerCourseConfig | SummerCourseFormConfig | null | undefined,
+  locationName?: string | null,
+): string[] {
+  if (!config) return [];
+  if (locationName) {
+    const loc = config.locations.find((l) => l.name === locationName);
+    if (loc?.time_slots) {
+      const union = new Set<string>();
+      for (const day of (loc.open_days ?? [])) {
+        for (const slot of (loc.time_slots[day] ?? [])) {
+          union.add(slot);
+        }
+      }
+      if (union.size > 0) return Array.from(union).sort();
+    }
+  }
+  return config.time_slots ?? [];
+}
+
+
 export function formatCompactDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });

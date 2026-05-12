@@ -9,7 +9,7 @@ import {
   FloatingFocusManager,
   FloatingPortal,
 } from "@floating-ui/react";
-import { CalendarPlus, Loader2, AlertCircle } from "lucide-react";
+import { CalendarPlus, Loader2, AlertCircle, Clock, ChevronDown } from "lucide-react";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
@@ -27,6 +27,8 @@ interface CreateMakeupSlotModalProps {
   /** Prefilled when opened from an empty calendar cell. */
   initialDate?: string;
   initialTime?: string;
+  /** Preset time-slot dropdown options (summer config-driven). */
+  presetTimeSlots: readonly string[];
 }
 
 export function CreateMakeupSlotModal({
@@ -39,19 +41,43 @@ export function CreateMakeupSlotModal({
   courseEndDate,
   initialDate,
   initialTime,
+  presetTimeSlots,
 }: CreateMakeupSlotModalProps) {
   const { showToast } = useToast();
   const [date, setDate] = useState(initialDate ?? "");
-  const [time, setTime] = useState(initialTime ?? "");
+  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [presetTime, setPresetTime] = useState<string>("");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [maxStudents, setMaxStudents] = useState(8);
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset whenever the modal opens so stale state doesn't carry over.
+  // Seed time inputs. If initialTime matches a known preset, default to
+  // dropdown mode showing that slot. If it's a free-text range, fall back to
+  // custom mode. Otherwise leave preset blank for the day-of-week auto-pick
+  // effect below to populate.
   useEffect(() => {
     if (isOpen) {
       setDate(initialDate ?? "");
-      setTime(initialTime ?? "");
+      const src = initialTime ?? "";
+      if (src && presetTimeSlots.includes(src)) {
+        setUseCustomTime(false);
+        setPresetTime(src);
+        setCustomStart("");
+        setCustomEnd("");
+      } else if (src && src.includes(" - ")) {
+        const [start, end] = src.split(" - ");
+        setUseCustomTime(true);
+        setCustomStart(start ?? "");
+        setCustomEnd(end ?? "");
+        setPresetTime("");
+      } else {
+        setUseCustomTime(false);
+        setPresetTime("");
+        setCustomStart("");
+        setCustomEnd("");
+      }
       setTutorId(null);
       setMaxStudents(8);
     }
@@ -77,11 +103,30 @@ export function CreateMakeupSlotModal({
   const dismiss = useDismiss(context, { outsidePressEvent: "mousedown" });
   const { getFloatingProps } = useInteractions([dismiss]);
 
+  // Summer uses a single day-agnostic preset list, passed in from the parent.
+  // Keep the dropdown selection in the list when the prop changes.
+  useEffect(() => {
+    if (useCustomTime) return;
+    if (presetTime && !presetTimeSlots.includes(presetTime)) {
+      setPresetTime(presetTimeSlots[0] ?? "");
+    } else if (!presetTime && presetTimeSlots.length > 0) {
+      setPresetTime(presetTimeSlots[0]);
+    }
+  }, [useCustomTime, presetTimeSlots, presetTime]);
+
   if (!isOpen) return null;
+
+  const effectiveTime = useCustomTime
+    ? `${customStart} - ${customEnd}`
+    : presetTime;
+  const isCustomValid =
+    !useCustomTime ||
+    (!!customStart && !!customEnd && customEnd > customStart);
 
   const canSubmit =
     !!date &&
-    !!time.trim() &&
+    !!effectiveTime.trim() &&
+    isCustomValid &&
     tutorId !== null &&
     maxStudents > 0 &&
     date >= courseStartDate &&
@@ -95,7 +140,7 @@ export function CreateMakeupSlotModal({
         config_id: configId,
         location,
         date,
-        time_slot: time.trim(),
+        time_slot: effectiveTime.trim(),
         tutor_id: tutorId,
         max_students: maxStudents,
       });
@@ -154,13 +199,70 @@ export function CreateMakeupSlotModal({
 
                 <div>
                   <label className="block text-xs font-medium mb-1">Time</label>
-                  <input
-                    type="text"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    placeholder="e.g. 14:00 - 15:30"
-                    className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
-                  />
+                  {!useCustomTime ? (
+                    <div className="space-y-1">
+                      <div className="relative">
+                        <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
+                        <select
+                          value={presetTime}
+                          onChange={(e) => setPresetTime(e.target.value)}
+                          className="w-full pl-8 pr-7 py-1.5 text-sm border border-border rounded-md bg-background appearance-none"
+                        >
+                          {presetTimeSlots.map((slot) => (
+                            <option key={slot} value={slot}>{slot}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUseCustomTime(true)}
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        Use custom time
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          aria-label="Start time"
+                          className={cn(
+                            "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
+                            !isCustomValid && customStart && customEnd ? "border-red-400" : "border-border",
+                          )}
+                        />
+                        <span className="text-foreground/50 text-xs">to</span>
+                        <input
+                          type="time"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          aria-label="End time"
+                          className={cn(
+                            "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
+                            !isCustomValid && customStart && customEnd ? "border-red-400" : "border-border",
+                          )}
+                        />
+                      </div>
+                      {!isCustomValid && customStart && customEnd && (
+                        <p className="text-[11px] text-red-500">End time must be after start time.</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseCustomTime(false);
+                          setCustomStart("");
+                          setCustomEnd("");
+                        }}
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        Use preset time slots
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>

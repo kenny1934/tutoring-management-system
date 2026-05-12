@@ -2618,6 +2618,38 @@ class SummerSessionStatusUpdate(BaseModel):
     session_status: Literal["Tentative", "Confirmed", "Cancelled", "Rescheduled - Pending Make-up"]
 
 
+class SummerSessionMove(BaseModel):
+    """Relocate a session to a different lesson (and slot).
+    Caller picks ONE of two modes:
+      (A) target_lesson_id — point straight at an existing lesson.
+      (B) target_date + time_slot + tutor_id — find a matching slot at that
+          (date, time, tutor); create an ad-hoc if no match exists.
+    """
+    target_lesson_id: Optional[int] = Field(None, gt=0)
+    target_date: Optional[date] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    tutor_id: Optional[int] = Field(None, gt=0)
+    # Forces ad-hoc creation even if a matching regular slot exists. Useful
+    # when admin explicitly wants a one-off context for this lesson.
+    force_create_adhoc: bool = False
+    # When true, run matching logic but skip mutation. Caller uses the
+    # preview to confirm grade mismatch or ad-hoc creation with the admin.
+    dry_run: bool = False
+
+
+class SummerSessionMoveResponse(BaseModel):
+    """Result of a session move. `action` describes what the server did so the
+    UI can show an honest confirmation. When `is_preview=True` no mutation
+    happened — slot_id/lesson_id may be 0 for an ad-hoc that would be created."""
+    session_id: int
+    action: Literal["reused_slot", "created_adhoc"]
+    slot_id: int
+    lesson_id: int
+    grade_warning: Optional[str] = None
+    tutor_conflict_note: Optional[str] = None
+    is_preview: bool = False
+
+
 class SummerSessionLessonNumberUpdate(BaseModel):
     """Narrow PATCH payload for pre-publish SummerSession.lesson_number edits.
     Used by ad-hoc Make-up Slot per-student badges. Clearing is explicit

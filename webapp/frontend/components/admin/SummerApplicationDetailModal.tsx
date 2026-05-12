@@ -15,7 +15,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDebouncedValue } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
-import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending } from "@/lib/summer-utils";
+import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
@@ -45,7 +45,8 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
-import { UserPlus } from "lucide-react";
+import { MoveSessionPopover } from "@/components/admin/MoveSessionPopover";
+import { UserPlus, ArrowRightLeft } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
 
@@ -446,6 +447,20 @@ export function SummerApplicationDetailModal({
     { kind: "reschedule" | "delete"; id: number; lessonNumber: number; dateLabel: string } | null
   >(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [movingSession, setMovingSession] = useState<{
+    id: number;
+    lessonNumber: number | null;
+    lessonDate: string | null;
+    timeSlot: string | null;
+    location: string | null;
+    tutorName: string | null;
+  } | null>(null);
+  // Memo so the popover's seed effect doesn't re-fire on every modal render.
+  const moveSessionTimeSlots = useMemo(
+    () => getSummerTimeSlots(config, movingSession?.location ?? null),
+    [config, movingSession?.location],
+  );
 
   const { data: formConfig } = useSWR(
     editingDetails ? "summer-form-config" : null,
@@ -774,7 +789,23 @@ export function SummerApplicationDetailModal({
   const doSave = async () => {
     setSaving(true);
     try {
-      await summerAPI.updateApplication(app.id, buildUpdate());
+      const update = buildUpdate();
+      await summerAPI.updateApplication(app.id, update);
+      // When the admin moves the app to "Placement Confirmed", also flip
+      // any tentative sessions to Confirmed so the label matches reality.
+      // Without this, sessions stay Tentative and publish blocks later.
+      if (
+        update.application_status === "Placement Confirmed" &&
+        app.config_id != null &&
+        (app.sessions ?? []).some((s) => s.session_status === "Tentative")
+      ) {
+        try {
+          await summerAPI.bulkConfirmSessions(app.config_id, undefined, undefined, app.id);
+        } catch (confirmErr) {
+          const msg = confirmErr instanceof Error ? confirmErr.message : "session confirm failed";
+          showToast(`Status saved but sessions not confirmed: ${msg}`, "error");
+        }
+      }
       showToast("Application updated", "success");
       onUpdated();
       onClose();
@@ -782,6 +813,71 @@ export function SummerApplicationDetailModal({
       showToast(e instanceof Error ? e.message : "Update failed", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const previewMoveSession = async (
+    sessionId: number,
+    payload: {
+      target_date: string;
+      time_slot: string;
+      tutor_id: number;
+      force_create_adhoc?: boolean;
+    },
+  ) => {
+    const result = await summerAPI.moveSession(sessionId, { ...payload, dry_run: true });
+    return {
+      action: result.action,
+      grade_warning: result.grade_warning,
+      tutor_conflict_note: result.tutor_conflict_note,
+    };
+  };
+
+  const executeMoveSession = async (
+    sessionId: number,
+    payload: {
+      target_date: string;
+      time_slot: string;
+      tutor_id: number;
+      force_create_adhoc?: boolean;
+    },
+  ) => {
+    const result = await summerAPI.moveSession(sessionId, payload);
+    await Promise.all([
+      globalMutate(appCachesMatcher(app.id)),
+      onUpdated(),
+    ]);
+    const notes: string[] = [];
+    if (result.action === "created_adhoc") notes.push("Created a new Make-up Slot.");
+    if (result.tutor_conflict_note) notes.push(result.tutor_conflict_note);
+    showToast(
+      notes.length ? `Lesson moved. ${notes.join(" ")}` : "Lesson moved.",
+      "success",
+    );
+  };
+
+  const handleConfirmPlacement = async () => {
+    if (!app || confirming || app.config_id == null) return;
+    setConfirming(true);
+    try {
+      const result = await summerAPI.bulkConfirmSessions(
+        app.config_id, undefined, undefined, app.id,
+      );
+      await Promise.all([
+        globalMutate(appCachesMatcher(app.id)),
+        onUpdated(),
+      ]);
+      const n = result.confirmed;
+      showToast(
+        n > 0
+          ? `Confirmed ${n} session${n === 1 ? "" : "s"}.`
+          : "No tentative sessions to confirm.",
+        "success",
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to confirm sessions", "error");
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -804,12 +900,26 @@ export function SummerApplicationDetailModal({
     if (tentativeCount > 0) {
       return `${tentativeCount} session${tentativeCount !== 1 ? "s" : ""} still tentative — confirm them on the Arrangement page first.`;
     }
-    const placedCount = app.placed_count ?? sessions.filter((s) => !isNonAttending(s.session_status)).length;
-    if (placedCount !== app.lessons_paid) {
-      const diff = app.lessons_paid - placedCount;
+    // Mirror backend's slot_no_tutor block: any non-cancelled placement on a
+    // tutor-less slot will fail publish, since Enrollment requires a tutor_id.
+    const missingTutor = sessions.filter(
+      (s) => s.session_status !== "Cancelled" && !s.tutor_name,
+    ).length;
+    if (missingTutor > 0) {
+      return `${missingTutor} session${missingTutor !== 1 ? "s" : ""} sit on a slot with no tutor — assign one on the Arrangement page (Slot Setup) first.`;
+    }
+    // Mirror the backend's publishable rule (summer_course.py): every
+    // non-Cancelled placement is publishable, including Rescheduled - Pending
+    // Make-up rows (publish carries that status forward into session_log).
+    // Don't use `placed_count` here — it excludes Pending Make-up rows for
+    // the Arrangement-page "occupies a slot" view, which would falsely block
+    // publish when the make-up will be booked post-publish.
+    const publishableCount = sessions.filter((s) => s.session_status !== "Cancelled").length;
+    if (publishableCount !== app.lessons_paid) {
+      const diff = app.lessons_paid - publishableCount;
       return diff > 0
-        ? `Paid for ${app.lessons_paid} lessons but only ${placedCount} scheduled — add ${diff} more on the Arrangement page.`
-        : `Scheduled ${placedCount} lessons but only ${app.lessons_paid} paid for — remove ${-diff} or update lessons paid.`;
+        ? `Paid for ${app.lessons_paid} lessons but only ${publishableCount} placed — add ${diff} more on the Arrangement page.`
+        : `Placed ${publishableCount} lessons but only ${app.lessons_paid} paid for — remove ${-diff} or update lessons paid.`;
     }
     return null;
   })();
@@ -1484,27 +1594,37 @@ export function SummerApplicationDetailModal({
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={doPublish}
-                    disabled={!!publishBlocker || publishing}
-                    title={publishBlocker ?? "Create the summer enrollment so tutors can start marking attendance for these sessions."}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                      publishBlocker
-                        ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90",
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={doPublish}
+                      disabled={!!publishBlocker || publishing}
+                      title={publishBlocker ?? "Create the summer enrollment so tutors can start marking attendance for these sessions."}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                        publishBlocker
+                          ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90",
+                      )}
+                    >
+                      {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Publish
+                    </button>
+                    {publishBlocker && (
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {publishBlocker}
+                      </span>
                     )}
-                  >
-                    {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    Publish
-                  </button>
-                  {publishBlocker && (
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      {publishBlocker}
-                    </span>
+                  </div>
+                  {!publishBlocker && (
+                    <p className="text-[11px] leading-snug text-muted-foreground">
+                      Publishing turns these placements into a live enrollment. The student
+                      appears in the tutor&rsquo;s calendar, tutors can start marking attendance,
+                      and the placements lock — further changes go through the enrollment or
+                      require Unpublish.
+                    </p>
                   )}
                 </div>
               )}
@@ -2018,6 +2138,29 @@ export function SummerApplicationDetailModal({
                   </div>
                 )}
               </div>
+              {(() => {
+                const tentativeCount = (app.sessions ?? []).filter(
+                  (s) => s.session_status === "Tentative",
+                ).length;
+                if (!canEdit || tentativeCount === 0) return null;
+                return (
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-900/15 px-2.5 py-1.5">
+                    <span className="text-[11px] text-amber-800 dark:text-amber-200">
+                      {tentativeCount} session{tentativeCount === 1 ? "" : "s"} still tentative — confirm before sending fee or publishing.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleConfirmPlacement}
+                      disabled={confirming}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 shrink-0"
+                      title="Mark all of this application's tentative sessions as Confirmed"
+                    >
+                      {confirming ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Confirm placement
+                    </button>
+                  </div>
+                );
+              })()}
               {app.sessions && app.sessions.length > 0 ? (() => {
                 const sorted = sortSessionsByDate(app.sessions);
                 return (
@@ -2171,6 +2314,24 @@ export function SummerApplicationDetailModal({
                               };
                               return (
                                 <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMovingSession({
+                                        id: p.id,
+                                        lessonNumber: p.lesson_number ?? null,
+                                        lessonDate: p.lesson_date ?? null,
+                                        timeSlot: p.time_slot ?? null,
+                                        location: p.location ?? null,
+                                        tutorName: p.tutor_name ?? null,
+                                      });
+                                    }}
+                                    title="Move to a different date/time/tutor"
+                                    className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                                  >
+                                    <ArrowRightLeft className="h-3 w-3" />
+                                  </button>
                                   {p.session_status !== RESCHEDULED_STATUS && (
                                     <button
                                       type="button"
@@ -2874,6 +3035,25 @@ export function SummerApplicationDetailModal({
         }
         variant={pendingAction?.kind === "reschedule" ? "warning" : "danger"}
       />
+
+      {config && movingSession && (
+        <MoveSessionPopover
+          isOpen={!!movingSession}
+          onClose={() => setMovingSession(null)}
+          onPreview={(payload) => previewMoveSession(movingSession.id, payload)}
+          onExecute={(payload) => executeMoveSession(movingSession.id, payload)}
+          source={{
+            lessonNumber: movingSession.lessonNumber,
+            lessonDate: movingSession.lessonDate,
+            timeSlot: movingSession.timeSlot,
+            location: movingSession.location,
+            tutorName: movingSession.tutorName,
+          }}
+          courseStartDate={config.course_start_date}
+          courseEndDate={config.course_end_date}
+          presetTimeSlots={moveSessionTimeSlots}
+        />
+      )}
 
       <AddStudentModal
         isOpen={createStudentOpen}
