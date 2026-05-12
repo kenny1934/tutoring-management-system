@@ -23,6 +23,7 @@ import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components
 import { SummerApplicationStats } from "@/components/admin/SummerApplicationStats";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
+import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
 import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
 import { computeDiscountsForAll } from "@/lib/summer-discounts";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
@@ -301,6 +302,7 @@ export default function SummerApplicationsPage() {
     branch: searchParams.get("branch"),
     placement: searchParams.get("placement") as "placed" | "unplaced" | null,
     buddy: searchParams.get("buddy") as "solo" | "grouped" | "threshold" | "below" | null,
+    published: searchParams.get("published") as "published" | "unpublished" | null,
     view: (searchParams.get("view") as ViewPreset | null),
     dir: (searchParams.get("dir") as "asc" | "desc" | null),
     legacyBuddyView: searchParams.get("view") === "by_buddy",
@@ -329,6 +331,7 @@ export default function SummerApplicationsPage() {
   const [branchFilter, setBranchFilter] = useState<string | null>(urlInit.branch);
   const [placementFilter, setPlacementFilter] = useState<"placed" | "unplaced" | null>(urlInit.placement);
   const [buddyFilter, setBuddyFilter] = useState<"solo" | "grouped" | "threshold" | "below" | null>(urlInit.buddy);
+  const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(urlInit.published);
   const [searchQuery, setSearchQuery] = useState(urlInit.q);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
@@ -400,13 +403,14 @@ export default function SummerApplicationsPage() {
       grade: gradeFilter || undefined,
       location: locationFilter || undefined,
       search: debouncedSearch || undefined,
+      published: publishedFilter || undefined,
     }),
-    [configId, gradeFilter, locationFilter, debouncedSearch]
+    [configId, gradeFilter, locationFilter, debouncedSearch, publishedFilter]
   );
 
   // Fetch stats — keyed off everything that affects the numbers.
   const statsKey = configId
-    ? ["summer-app-stats", configId, gradeFilter, locationFilter, debouncedSearch]
+    ? ["summer-app-stats", configId, gradeFilter, locationFilter, debouncedSearch, publishedFilter]
     : null;
   const { data: stats } = useSWR(
     statsKey,
@@ -415,7 +419,7 @@ export default function SummerApplicationsPage() {
 
   // Fetch applications
   const swrKey = configId
-    ? ["summer-apps", configId, statusFilter, gradeFilter, locationFilter, debouncedSearch]
+    ? ["summer-apps", configId, statusFilter, gradeFilter, locationFilter, debouncedSearch, publishedFilter]
     : null;
   const {
     data: applications,
@@ -428,6 +432,7 @@ export default function SummerApplicationsPage() {
       grade: gradeFilter || undefined,
       location: locationFilter || undefined,
       search: debouncedSearch || undefined,
+      published: publishedFilter || undefined,
     }),
     {
       refreshInterval: 60000,
@@ -547,7 +552,7 @@ export default function SummerApplicationsPage() {
   }, [handleRefresh, showToast]);
 
   // Filters active?
-  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || unverifiedBranchOnly || branchFilter || placementFilter || buddyFilter;
+  const hasFilters = statusFilter || gradeFilter || locationFilter || debouncedSearch || pendingSiblingOnly || unverifiedBranchOnly || branchFilter || placementFilter || buddyFilter || publishedFilter;
   // Count of filters that live in the "More" menu.
   // Location lives in the header scope, status has its own dropdown, search is visible.
   const moreFilterCount = [
@@ -568,6 +573,7 @@ export default function SummerApplicationsPage() {
     setBranchFilter(null);
     setPlacementFilter(null);
     setBuddyFilter(null);
+    setPublishedFilter(null);
   }, []);
 
   // Sync state → URL (replace, not push)
@@ -582,12 +588,13 @@ export default function SummerApplicationsPage() {
     if (branchFilter) params.set("branch", branchFilter);
     if (placementFilter) params.set("placement", placementFilter);
     if (buddyFilter) params.set("buddy", buddyFilter);
+    if (publishedFilter) params.set("published", publishedFilter);
     if (viewMode !== "list") params.set("mode", viewMode);
     if (viewPreset !== "latest" && viewMode !== "board") params.set("view", viewPreset);
     if (sortDirection !== VIEW_PRESET_CONFIG[viewPreset].defaultDirection && viewMode !== "board") params.set("dir", sortDirection);
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
-  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, viewPreset, sortDirection, viewMode, router]);
+  }, [statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, publishedFilter, viewPreset, sortDirection, viewMode, router]);
 
   // Grade options from stats (stats is scoped by location, which is fine here).
   const gradeOptions = useMemo(() => Object.keys(stats?.by_grade || {}).sort(), [stats]);
@@ -954,7 +961,7 @@ export default function SummerApplicationsPage() {
   // Reset selection when sort/filter/group changes
   useEffect(() => {
     setSelectedAppIndex(null);
-  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, collapsedGroups]);
+  }, [viewPreset, sortDirection, statusFilter, gradeFilter, locationFilter, debouncedSearch, pendingSiblingOnly, unverifiedBranchOnly, branchFilter, placementFilter, buddyFilter, publishedFilter, collapsedGroups]);
 
   // Scroll focused card into view. In virtualized mode the row may not be in
   // the DOM, so fall back to the list's imperative scrollToRow.
@@ -1235,6 +1242,13 @@ export default function SummerApplicationsPage() {
                     <X className="h-3 w-3" />
                   </button>
                 )}
+
+                <PublishFilterDropdown
+                  publishedFilter={publishedFilter}
+                  onChangePublished={setPublishedFilter}
+                  statusFilter={statusFilter}
+                  onChangeStatus={setStatusFilter}
+                />
                 {buddyFilter && (
                   <button
                     type="button"

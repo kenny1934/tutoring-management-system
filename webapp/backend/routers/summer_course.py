@@ -1896,10 +1896,15 @@ def list_applications(
     location: Optional[str] = None,
     search: Optional[str] = None,
     buddy_group_id: Optional[int] = None,
+    published: Optional[str] = None,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List summer applications with optional filters."""
+    """List summer applications with optional filters.
+
+    `published` accepts "published" (apps with a linked Enrollment) or
+    "unpublished" (no Enrollment yet). Anything else is treated as no filter.
+    """
     q = db.query(SummerApplication).options(
         joinedload(SummerApplication.config),
         joinedload(SummerApplication.buddy_group),
@@ -1922,6 +1927,15 @@ def list_applications(
         q = q.filter(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
         q = q.filter(_application_search_clause(search))
+    if published in ("published", "unpublished"):
+        pub_subq = (
+            db.query(Enrollment.summer_application_id)
+            .filter(Enrollment.summer_application_id.isnot(None))
+        )
+        if published == "published":
+            q = q.filter(SummerApplication.id.in_(pub_subq))
+        else:
+            q = q.filter(~SummerApplication.id.in_(pub_subq))
 
     apps = q.order_by(SummerApplication.submitted_at.desc()).all()
     return _build_application_responses(db, apps)
@@ -1935,6 +1949,7 @@ def get_application_stats(
     location: Optional[str] = None,
     search: Optional[str] = None,
     buddy_group_id: Optional[int] = None,
+    published: Optional[str] = None,
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
@@ -1954,6 +1969,15 @@ def get_application_stats(
         filters.append(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
         filters.append(_application_search_clause(search))
+    if published in ("published", "unpublished"):
+        pub_subq = (
+            db.query(Enrollment.summer_application_id)
+            .filter(Enrollment.summer_application_id.isnot(None))
+        )
+        if published == "published":
+            filters.append(SummerApplication.id.in_(pub_subq))
+        else:
+            filters.append(~SummerApplication.id.in_(pub_subq))
 
     total = db.query(func.count(SummerApplication.id)).filter(*filters).scalar() or 0
 

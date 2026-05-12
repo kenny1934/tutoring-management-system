@@ -19,6 +19,7 @@ import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
 import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
@@ -100,6 +101,7 @@ export default function SummerArrangementPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [demandPrefFilter, setDemandPrefFilter] = useState<DemandBarFilter | null>(null);
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
@@ -306,14 +308,18 @@ export default function SummerArrangementPage() {
 
   // Demand takes precedence, so this hook stays idle while the demand-bar filter
   // is active to avoid two competing scopes fighting over the panel.
+  // Fires when either status OR published filter is active (demand still wins).
+  // The variable keeps its "statusFiltered" name for cross-call-site continuity,
+  // but the scope now covers any combination of (status, published).
   const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
-    statusFilter && !demandPrefFilter && configId && location
-      ? ["summer-apps-status", configId, location, statusFilter]
+    (statusFilter || publishedFilter) && !demandPrefFilter && configId && location
+      ? ["summer-apps-status", configId, location, statusFilter, publishedFilter]
       : null,
     () => summerAPI.getApplications({
       config_id: configId!,
       location,
-      application_status: statusFilter!,
+      application_status: statusFilter || undefined,
+      published: publishedFilter || undefined,
     }),
     { refreshInterval: statusFilteredPollMs }
   );
@@ -839,17 +845,19 @@ export default function SummerArrangementPage() {
     );
   }, []);
 
-  // Precedence: demand-bar filter > workflow chip > default incomplete list.
+  // Precedence: demand-bar filter > workflow chip / published filter > default
+  // incomplete list. Either workflow chip (status) or the published toggle
+  // surfaces the corresponding filtered cohort in the panel.
   const panelApplications = useMemo(
     () =>
       demandPrefFilter ? (demandFilteredApps ?? [])
-      : statusFilter ? (statusFilteredApps ?? [])
+      : (statusFilter || publishedFilter) ? (statusFilteredApps ?? [])
       : (unassigned ?? []),
-    [demandPrefFilter, demandFilteredApps, statusFilter, statusFilteredApps, unassigned]
+    [demandPrefFilter, demandFilteredApps, statusFilter, publishedFilter, statusFilteredApps, unassigned]
   );
   const panelLoading =
     demandPrefFilter ? !demandFilterApps
-    : statusFilter ? !statusFilteredApps
+    : (statusFilter || publishedFilter) ? !statusFilteredApps
     : (!unassigned && !!configId);
 
   // Build global search index: placed students (via studentLessons) + unplaced
@@ -1052,6 +1060,15 @@ export default function SummerArrangementPage() {
                 </Fragment>
               ))}
             </div>
+
+            <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+            <PublishFilterDropdown
+              publishedFilter={publishedFilter}
+              onChangePublished={setPublishedFilter}
+              statusFilter={statusFilter}
+              onChangeStatus={setStatusFilter}
+            />
 
             <div className="flex-1" />
             {!readOnly && (

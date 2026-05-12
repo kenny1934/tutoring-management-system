@@ -2388,6 +2388,7 @@ export const summerAPI = {
     location?: string;
     search?: string;
     buddy_group_id?: number;
+    published?: "published" | "unpublished";
   }) => {
     const searchParams = new URLSearchParams();
     if (params) {
@@ -2429,6 +2430,7 @@ export const summerAPI = {
     location?: string;
     search?: string;
     buddy_group_id?: number;
+    published?: "published" | "unpublished";
   }) => {
     const searchParams = new URLSearchParams();
     if (params) {
