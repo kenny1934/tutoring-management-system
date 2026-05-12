@@ -108,7 +108,6 @@ export function labelForOption(
   return lang === "zh" ? opt.name : opt.name_en;
 }
 
-/** Format a date string like "2025-07-05" to compact "Jul 5". */
 /** Build the dropdown list of summer time slots for a given location. Summer
  *  uses a single day-agnostic list (unlike regular term which splits weekday
  *  vs weekend), so we union the location's per-day lists and fall back to the
@@ -134,7 +133,7 @@ export function getSummerTimeSlots(
   return config.time_slots ?? [];
 }
 
-
+/** Format a date string like "2025-07-05" to compact "Jul 5". */
 export function formatCompactDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });

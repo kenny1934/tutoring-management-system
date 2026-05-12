@@ -10,10 +10,17 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import useSWR from "swr";
-import { Loader2, AlertCircle, ArrowRightLeft, AlertTriangle, Clock, ChevronDown } from "lucide-react";
+import { Loader2, AlertCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { LOCATION_TO_CODE, formatShortDate } from "@/lib/summer-utils";
+import {
+  TimeSlotPicker,
+  seedTimeSlotState,
+  effectiveTimeSlot,
+  isTimeSlotValid,
+  type TimeSlotState,
+} from "@/components/admin/TimeSlotPicker";
 
 type MovePreview = {
   action: "reused_slot" | "created_adhoc";
@@ -68,10 +75,9 @@ export function MoveSessionPopover({
   presetTimeSlots,
 }: MoveSessionPopoverProps) {
   const [date, setDate] = useState("");
-  const [useCustomTime, setUseCustomTime] = useState(false);
-  const [presetTime, setPresetTime] = useState<string>("");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const [timeState, setTimeState] = useState<TimeSlotState>({
+    useCustom: false, preset: "", start: "", end: "",
+  });
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [step, setStep] = useState<Step>("form");
   const [preview, setPreview] = useState<MovePreview | null>(null);
@@ -81,26 +87,7 @@ export function MoveSessionPopover({
   useEffect(() => {
     if (isOpen) {
       setDate(source.lessonDate ?? "");
-      // Seed the preset/custom inputs from the source time slot. If the source
-      // matches a known preset we use that; otherwise fall back to custom mode.
-      const src = source.timeSlot ?? "";
-      if (src && presetTimeSlots.includes(src)) {
-        setUseCustomTime(false);
-        setPresetTime(src);
-        setCustomStart("");
-        setCustomEnd("");
-      } else if (src && src.includes(" - ")) {
-        const [start, end] = src.split(" - ");
-        setUseCustomTime(true);
-        setCustomStart(start ?? "");
-        setCustomEnd(end ?? "");
-        setPresetTime("");
-      } else {
-        setUseCustomTime(false);
-        setPresetTime("");
-        setCustomStart("");
-        setCustomEnd("");
-      }
+      setTimeState(seedTimeSlotState(source.timeSlot, presetTimeSlots));
       setTutorId(null);
       setStep("form");
       setPreview(null);
@@ -124,17 +111,6 @@ export function MoveSessionPopover({
     [allTutors, locationCode],
   );
 
-  // Summer uses a single day-agnostic list — no weekday/weekend split. The
-  // list comes from the location's config and is passed in via props.
-  useEffect(() => {
-    if (useCustomTime) return;
-    if (presetTime && !presetTimeSlots.includes(presetTime)) {
-      setPresetTime(presetTimeSlots[0] ?? "");
-    } else if (!presetTime && presetTimeSlots.length > 0) {
-      setPresetTime(presetTimeSlots[0]);
-    }
-  }, [useCustomTime, presetTimeSlots, presetTime]);
-
   const { refs, context } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
@@ -146,20 +122,15 @@ export function MoveSessionPopover({
 
   if (!isOpen) return null;
 
-  const effectiveTimeSlot = useCustomTime
-    ? `${customStart} - ${customEnd}`
-    : presetTime;
-  const isCustomValid =
-    !useCustomTime ||
-    (!!customStart && !!customEnd && customEnd > customStart);
+  const timeSlot = effectiveTimeSlot(timeState).trim();
   const dateValid =
     !!date && date >= courseStartDate && date <= courseEndDate;
   const canSubmit =
-    dateValid && !!effectiveTimeSlot.trim() && isCustomValid && tutorId !== null && !submitting;
+    dateValid && !!timeSlot && isTimeSlotValid(timeState) && tutorId !== null && !submitting;
 
   const payload = () => ({
     target_date: date,
-    time_slot: effectiveTimeSlot.trim(),
+    time_slot: timeSlot,
     tutor_id: tutorId!,
   });
 
@@ -233,70 +204,11 @@ export function MoveSessionPopover({
 
         <div>
           <label className="block text-xs font-medium mb-1">Time</label>
-          {!useCustomTime ? (
-            <div className="space-y-1">
-              <div className="relative">
-                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
-                <select
-                  value={presetTime}
-                  onChange={(e) => setPresetTime(e.target.value)}
-                  className="w-full pl-8 pr-7 py-1.5 text-sm border border-border rounded-md bg-background appearance-none"
-                >
-                  {presetTimeSlots.map((slot) => (
-                    <option key={slot} value={slot}>{slot}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
-              </div>
-              <button
-                type="button"
-                onClick={() => setUseCustomTime(true)}
-                className="text-[11px] text-primary hover:underline"
-              >
-                Use custom time
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <input
-                  type="time"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  aria-label="Start time"
-                  className={cn(
-                    "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-                    !isCustomValid && customStart && customEnd ? "border-red-400" : "border-border",
-                  )}
-                />
-                <span className="text-foreground/50 text-xs">to</span>
-                <input
-                  type="time"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  aria-label="End time"
-                  className={cn(
-                    "flex-1 px-2 py-1.5 text-sm border rounded-md bg-background",
-                    !isCustomValid && customStart && customEnd ? "border-red-400" : "border-border",
-                  )}
-                />
-              </div>
-              {!isCustomValid && customStart && customEnd && (
-                <p className="text-[11px] text-red-500">End time must be after start time.</p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setUseCustomTime(false);
-                  setCustomStart("");
-                  setCustomEnd("");
-                }}
-                className="text-[11px] text-primary hover:underline"
-              >
-                Use preset time slots
-              </button>
-            </div>
-          )}
+          <TimeSlotPicker
+            state={timeState}
+            onChange={setTimeState}
+            presetTimeSlots={presetTimeSlots}
+          />
         </div>
 
         <div>
@@ -370,7 +282,7 @@ export function MoveSessionPopover({
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
               {isAdhoc
-                ? `${tutorName} doesn’t have a class at ${friendlyDate}, ${effectiveTimeSlot} in this branch yet. A new Make-up Slot will be created with ${tutorName} as the tutor and this student placed into it.`
+                ? `${tutorName} doesn’t have a class at ${friendlyDate}, ${timeSlot} in this branch yet. A new Make-up Slot will be created with ${tutorName} as the tutor and this student placed into it.`
                 : preview.grade_warning}
             </p>
             {preview.tutor_conflict_note && (

@@ -1410,6 +1410,21 @@ def _resolve_claimed_branch_code(
     )
 
 
+def _published_filter_clause(db: Session, published: Optional[str]):
+    """Build a clause that filters SummerApplication by publish state, or None
+    when the argument isn't a recognized choice. `"published"` keeps apps with
+    a linked Enrollment; `"unpublished"` keeps those without."""
+    if published not in ("published", "unpublished"):
+        return None
+    subq = (
+        db.query(Enrollment.summer_application_id)
+        .filter(Enrollment.summer_application_id.isnot(None))
+    )
+    if published == "published":
+        return SummerApplication.id.in_(subq)
+    return ~SummerApplication.id.in_(subq)
+
+
 def _application_search_clause(search: str):
     """Search clause matching name, ref code, phone, or linked student/prospect
     school IDs. Uses correlated EXISTS so linkage joins don't inflate row counts."""
@@ -1927,15 +1942,9 @@ def list_applications(
         q = q.filter(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
         q = q.filter(_application_search_clause(search))
-    if published in ("published", "unpublished"):
-        pub_subq = (
-            db.query(Enrollment.summer_application_id)
-            .filter(Enrollment.summer_application_id.isnot(None))
-        )
-        if published == "published":
-            q = q.filter(SummerApplication.id.in_(pub_subq))
-        else:
-            q = q.filter(~SummerApplication.id.in_(pub_subq))
+    pub_clause = _published_filter_clause(db, published)
+    if pub_clause is not None:
+        q = q.filter(pub_clause)
 
     apps = q.order_by(SummerApplication.submitted_at.desc()).all()
     return _build_application_responses(db, apps)
@@ -1969,15 +1978,9 @@ def get_application_stats(
         filters.append(SummerApplication.buddy_group_id == buddy_group_id)
     if search:
         filters.append(_application_search_clause(search))
-    if published in ("published", "unpublished"):
-        pub_subq = (
-            db.query(Enrollment.summer_application_id)
-            .filter(Enrollment.summer_application_id.isnot(None))
-        )
-        if published == "published":
-            filters.append(SummerApplication.id.in_(pub_subq))
-        else:
-            filters.append(~SummerApplication.id.in_(pub_subq))
+    pub_clause = _published_filter_clause(db, published)
+    if pub_clause is not None:
+        filters.append(pub_clause)
 
     total = db.query(func.count(SummerApplication.id)).filter(*filters).scalar() or 0
 
@@ -2840,6 +2843,7 @@ def _find_matching_lesson_for_move(
     tutor_id: int,
     grade: Optional[str],
     application_id: int,
+    exclude_session_id: Optional[int] = None,
 ) -> tuple[Optional[SummerLesson], Optional[SummerCourseSlot], Optional[str]]:
     """Find an existing lesson matching (date, time, tutor, location) that this
     application can move into.
@@ -2869,27 +2873,30 @@ def _find_matching_lesson_for_move(
     if not rows:
         return None, None, None
 
-    def _has_room(lesson: SummerLesson, slot: SummerCourseSlot) -> bool:
-        # Block if the student is already on this lesson (any non-cancelled row).
-        existing = (
-            db.query(SummerSession)
-            .filter(
-                SummerSession.lesson_id == lesson.id,
-                SummerSession.application_id == application_id,
-                SummerSession.session_status != "Cancelled",
-            )
-            .first()
+    # Single batched fetch for all candidate lessons' sessions. Avoids 2N
+    # round trips that would otherwise fire one existence + one count per
+    # candidate row inside the Python loop below.
+    lesson_ids = [lesson.id for lesson, _ in rows]
+    sessions_by_lesson: dict[int, list[SummerSession]] = {lid: [] for lid in lesson_ids}
+    for s in (
+        db.query(SummerSession)
+        .filter(
+            SummerSession.lesson_id.in_(lesson_ids),
+            SummerSession.session_status != "Cancelled",
         )
-        if existing:
+        .all()
+    ):
+        sessions_by_lesson.setdefault(s.lesson_id, []).append(s)
+
+    def _has_room(lesson: SummerLesson, slot: SummerCourseSlot) -> bool:
+        peers = sessions_by_lesson.get(lesson.id, [])
+        # Skip the session being moved when measuring its own destination,
+        # mirroring Mode A's `SummerSession.id != session.id` guard.
+        peers = [p for p in peers if p.id != exclude_session_id]
+        if any(p.application_id == application_id for p in peers):
             return False
-        attending = (
-            db.query(SummerSession)
-            .filter(
-                SummerSession.lesson_id == lesson.id,
-                SummerSession.session_status.notin_(SUMMER_NON_ATTENDING_STATUSES),
-                SummerSession.session_status != "Cancelled",
-            )
-            .count()
+        attending = sum(
+            1 for p in peers if p.session_status not in SUMMER_NON_ATTENDING_STATUSES
         )
         return attending < slot.max_students
 
@@ -2993,7 +3000,6 @@ def move_session(
     action: str
 
     if data.target_lesson_id is not None:
-        # Mode A: explicit lesson.
         target_lesson = (
             db.query(SummerLesson)
             .options(joinedload(SummerLesson.slot))
@@ -3038,7 +3044,6 @@ def move_session(
             raise HTTPException(status_code=400, detail="Target lesson is full")
         action = "reused_slot"
     else:
-        # Mode B: find-or-create.
         if not (data.target_date and data.time_slot and data.tutor_id):
             raise HTTPException(
                 status_code=400,
@@ -3073,6 +3078,7 @@ def move_session(
                 tutor_id=data.tutor_id,
                 grade=app.grade,
                 application_id=app.id,
+                exclude_session_id=session.id,
             )
 
         if match_lesson and match_slot:
@@ -3155,7 +3161,6 @@ def move_session(
             is_preview=True,
         )
 
-    # Apply the move.
     session.slot_id = target_slot.id
     session.lesson_id = target_lesson.id
     session.lesson_number = new_session_ln

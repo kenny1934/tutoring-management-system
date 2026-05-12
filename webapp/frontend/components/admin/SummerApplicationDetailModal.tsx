@@ -800,7 +800,7 @@ export function SummerApplicationDetailModal({
         (app.sessions ?? []).some((s) => s.session_status === "Tentative")
       ) {
         try {
-          await summerAPI.bulkConfirmSessions(app.config_id, undefined, undefined, app.id);
+          await summerAPI.bulkConfirmSessions({ configId: app.config_id, applicationId: app.id });
         } catch (confirmErr) {
           const msg = confirmErr instanceof Error ? confirmErr.message : "session confirm failed";
           showToast(`Status saved but sessions not confirmed: ${msg}`, "error");
@@ -860,9 +860,10 @@ export function SummerApplicationDetailModal({
     if (!app || confirming || app.config_id == null) return;
     setConfirming(true);
     try {
-      const result = await summerAPI.bulkConfirmSessions(
-        app.config_id, undefined, undefined, app.id,
-      );
+      const result = await summerAPI.bulkConfirmSessions({
+        configId: app.config_id,
+        applicationId: app.id,
+      });
       await Promise.all([
         globalMutate(appCachesMatcher(app.id)),
         onUpdated(),

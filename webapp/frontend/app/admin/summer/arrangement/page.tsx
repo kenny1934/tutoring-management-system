@@ -308,9 +308,8 @@ export default function SummerArrangementPage() {
 
   // Demand takes precedence, so this hook stays idle while the demand-bar filter
   // is active to avoid two competing scopes fighting over the panel.
-  // Fires when either status OR published filter is active (demand still wins).
-  // The variable keeps its "statusFiltered" name for cross-call-site continuity,
-  // but the scope now covers any combination of (status, published).
+  // Fires when either the status chip or the publish toggle is active; the
+  // demand-bar filter still wins over both.
   const { data: statusFilteredApps, mutate: mutateStatusFilteredApps } = useSWR(
     (statusFilter || publishedFilter) && !demandPrefFilter && configId && location
       ? ["summer-apps-status", configId, location, statusFilter, publishedFilter]
@@ -739,9 +738,11 @@ export default function SummerArrangementPage() {
     if (!configId || !bulkConfirmPending) return;
     setBulkConfirmPending(null);
     try {
-      const { confirmed, apps_advanced } = await summerAPI.bulkConfirmSessions(
-        configId, location, bulkConfirmPending.slotId,
-      );
+      const { confirmed, apps_advanced } = await summerAPI.bulkConfirmSessions({
+        configId,
+        location,
+        slotId: bulkConfirmPending.slotId,
+      });
       const appsMsg = apps_advanced > 0
         ? ` · ${apps_advanced} application${apps_advanced !== 1 ? "s" : ""} → Placement Offered`
         : "";

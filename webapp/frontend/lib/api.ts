@@ -2519,7 +2519,12 @@ export const summerAPI = {
       body: JSON.stringify(payload),
     }),
 
-  bulkConfirmSessions: (configId: number, location?: string, slotId?: number, applicationId?: number) => {
+  bulkConfirmSessions: ({ configId, location, slotId, applicationId }: {
+    configId: number;
+    location?: string;
+    slotId?: number;
+    applicationId?: number;
+  }) => {
     const params = new URLSearchParams({ config_id: String(configId) });
     if (location) params.set("location", location);
     if (slotId) params.set("slot_id", String(slotId));
