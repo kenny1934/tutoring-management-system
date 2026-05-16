@@ -811,7 +811,6 @@ export default function SessionsPage() {
       return;
     }
     setSelectedIds(new Set(markableIds));
-    showToast(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
   }, [sessions, showToast]);
 
   // Select only markable sessions within a specific timeslot
@@ -826,7 +825,6 @@ export default function SessionsPage() {
       markableIds.forEach(id => next.add(id));
       return next;
     });
-    showToast(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
   }, [showToast]);
 
   // Select only attended sessions (for CW/HW/rating actions)
@@ -837,7 +835,6 @@ export default function SessionsPage() {
       return;
     }
     setSelectedIds(new Set(attendedIds));
-    showToast(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
   }, [sessions, showToast]);
 
   // Select only attended sessions within a specific timeslot
@@ -852,7 +849,6 @@ export default function SessionsPage() {
       attendedIds.forEach(id => next.add(id));
       return next;
     });
-    showToast(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
   }, [showToast]);
 
   const clearSelection = useCallback(() => {
@@ -1200,13 +1196,10 @@ export default function SessionsPage() {
 
         if (!allMarkableSelected && markableIds.length > 0) {
           setSelectedIds(new Set(markableIds));
-          showToastRef.current(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
         } else if (!allAttendedSelected && attendedIds.length > 0) {
           setSelectedIds(new Set(attendedIds));
-          showToastRef.current(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
         } else if (currentSelectedIds.size > 0) {
           setSelectedIds(new Set());
-          showToastRef.current('Selection cleared', 'info');
         } else {
           showToastRef.current('No sessions to select', 'info');
         }

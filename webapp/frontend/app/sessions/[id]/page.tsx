@@ -41,7 +41,7 @@ import { MemoImportModal } from "@/components/sessions/MemoImportModal";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, type PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -332,8 +332,9 @@ export default function SessionDetailPage() {
         try {
           const updatedSession = await sessionsAPI.markAttended(session.id);
           updateSessionInCache(updatedSession);
+          showToast("Marked as attended");
         } catch (error) {
-          // Failed to mark attended silently
+          showToast(formatError(error, "Failed to mark as attended"), "error");
         } finally {
           setLoadingActionId(null);
         }
@@ -347,8 +348,9 @@ export default function SessionDetailPage() {
         try {
           const updatedSession = await sessionsAPI.markNoShow(session.id);
           updateSessionInCache(updatedSession);
+          showToast("Marked as no-show");
         } catch (error) {
-          // Failed to mark no show silently
+          showToast(formatError(error, "Failed to mark as no-show"), "error");
         } finally {
           setLoadingActionId(null);
         }
@@ -478,7 +480,7 @@ export default function SessionDetailPage() {
   if (error || !session) {
     return (
       <PageTransition className="flex h-full items-center justify-center">
-        <div className="text-destructive">Error: {error instanceof Error ? error.message : "Session not found"}</div>
+        <div className="text-destructive">{formatError(error, "Session not found")}</div>
       </PageTransition>
     );
   }

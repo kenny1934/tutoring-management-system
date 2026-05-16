@@ -65,6 +65,15 @@
   --color-input: #e8d4b8;
   --color-ring: #a0704b;
 
+  /* ===== SEMANTIC PAPER / OAK ALIASES =====
+   * Dark-aware tokens for the cream/oak palette. Use these instead of
+   * arbitrary hex strings (bg-[#fef9f3] dark:bg-[#2d2618] -> bg-paper-cream)
+   * so dark-mode parity is centralised. Dark overrides live in `.dark`. */
+  --color-paper-cream: #fef9f3; /* Warm cream surface */
+  --color-paper-border: #e8d4b8; /* Soft tan card border */
+  --color-oak-soft: #d4a574; /* Lighter oak accent border */
+  --color-oak-strong: #5a3d1f; /* Deep oak text */
+
   /* ===== GLASSMORPHISM ===== */
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
@@ -176,6 +185,12 @@
   --color-border: #2a2a2a;
   --color-border-subtle: #333333;
   --color-input: #2a2a2a;
+
+  /* Paper / oak dark-mode parity */
+  --color-paper-cream: #2d2618;
+  --color-paper-border: #6b5a4a;
+  --color-oak-soft: #8b6f47;
+  --color-oak-strong: #d4a574;
 }
 
 /* Force light mode for summer public pages (neutralises .dark overrides) */
@@ -198,6 +213,10 @@
   --color-border: #e8d4b8;
   --color-border-subtle: #f5e6d3;
   --color-input: #e8d4b8;
+  --color-paper-cream: #fef9f3;
+  --color-paper-border: #e8d4b8;
+  --color-oak-soft: #d4a574;
+  --color-oak-strong: #5a3d1f;
   color-scheme: light;
 }
 

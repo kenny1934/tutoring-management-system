@@ -85,13 +85,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   return (
     <div className={cn(
       "@container/header",
-      "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+      "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-paper-border overflow-hidden",
       // Thin top border accent (cleaner than the original 4px)
       "shadow-md border-t-2 border-t-[#a0704b] dark:border-t-[#8b6f47]",
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
-      <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-4 sm:px-6 py-2 border-b border-paper-border bg-[#f5ede3] dark:bg-[#3d3628]">
         <div className="flex items-center justify-between gap-3">
           {/* Welcome message */}
           <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -105,7 +105,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               onClick={openCommandPalette}
               className={cn(
                 "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
-                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full",
+                "bg-card border border-paper-border rounded-full",
                 "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors",
                 "text-gray-500 dark:text-gray-400"
               )}
@@ -134,13 +134,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       </div>
 
       {/* Stats Row with Bell */}
-      <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center justify-between border-b border-paper-border">
         {isStatsLoading && !stats ? (
           <div className="px-4 sm:px-6 py-2">
             <div className="flex items-center gap-4 sm:gap-8">
               {/* Skeleton pills matching HeaderStats layout */}
               {[1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div key={i} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 border border-paper-border">
                   <div className="w-4 h-4 rounded shimmer-sepia" />
                   <div className="w-6 h-4 rounded shimmer-sepia" />
                   <div className="hidden sm:block w-14 h-4 rounded shimmer-sepia" />
@@ -173,7 +173,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       </div>
 
       {/* Daily Puzzle */}
-      <DailyPuzzle className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]" />
+      <DailyPuzzle className="border-b border-paper-border" />
 
       {/* Bottom section: Quick Links (hidden for Guest role) */}
       {!isGuest && <div className="px-4 sm:px-6 py-3">
@@ -191,7 +191,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     {...getReferenceProps()}
                     className={cn(
                       "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "bg-card border border-oak-soft",
                       "text-[#a0704b] dark:text-[#cd853f]",
                       "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
                       toolsOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
@@ -286,7 +286,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     disabled
                     className={cn(
                       "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium",
-                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "bg-card border border-oak-soft",
                       "text-[#a0704b]/50 dark:text-[#cd853f]/50 cursor-wait"
                     )}
                   >
@@ -316,7 +316,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 href={link.href || '#'}
                 className={cn(
                   "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                  "bg-card border border-oak-soft",
                   "text-[#a0704b] dark:text-[#cd853f]",
                   "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
                   link.href === '#' && "opacity-70 cursor-not-allowed"

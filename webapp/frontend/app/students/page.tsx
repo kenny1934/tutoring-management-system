@@ -262,7 +262,7 @@ export default function StudentsPage() {
 
   // Toolbar classes
   const toolbarClasses = cn(
-    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3 bg-paper-cream border-2 border-oak-soft rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
 
@@ -284,7 +284,7 @@ export default function StudentsPage() {
           <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className={cn(
-                "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "flex rounded-lg overflow-hidden bg-card border border-paper-border",
                 !isMobile && "paper-texture"
               )}>
                 <div className="flex-1 p-3 space-y-2">
@@ -1102,7 +1102,7 @@ const StudentCard = memo(function StudentCard({
       }}
       whileHover={!isMobile ? { scale: 1.01, y: -2, transition: { duration: 0.15 } } : {}}
       className={cn(
-        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-card border border-paper-border",
         !isMobile && "paper-texture",
         isSelected && "ring-2 ring-[#a0704b]"
       )}
@@ -1240,7 +1240,7 @@ function StudentDetailPopover({
         style={floatingStyles}
         {...getFloatingProps()}
         className={cn(
-          "z-[9999] w-80 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl",
+          "z-[9999] w-80 bg-paper-cream border-2 border-oak-soft rounded-lg shadow-xl",
           !isMobile && "paper-texture"
         )}
       >

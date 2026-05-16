@@ -25,7 +25,6 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { LazySection } from "@/components/ui/lazy-section";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
-import { BinderClip, PaperClip, Pushpin } from "@/components/ui/stationery-accents";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -161,8 +160,8 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule">
           <motion.div
             className="min-w-0"
-            initial={{ opacity: 0, y: 16, rotate: isMobile ? 0 : -0.5 }}
-            animate={{ opacity: 1, y: 0, rotate: isMobile ? 0 : -0.5 }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
           >
             <CompactErrorBoundary>
@@ -171,8 +170,8 @@ export default function DashboardPage() {
           </motion.div>
           <motion.div
             className="min-w-0"
-            initial={{ opacity: 0, y: 16, rotate: isMobile ? 0 : 0.7 }}
-            animate={{ opacity: 1, y: 0, rotate: isMobile ? 0 : 0.7 }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
             id="tests-calendar"
           >
@@ -185,7 +184,7 @@ export default function DashboardPage() {
         {/* Distribution Charts */}
         {showAdminTutorFilter && (
           <div className="flex items-center justify-end gap-2 -mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-[#fef9f3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] text-xs font-medium text-[#5a3d1f] dark:text-[#d4a574] shadow-sm">
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-paper-cream border border-paper-border text-xs font-medium text-oak-strong shadow-sm">
               Filter charts:
             </span>
             <TutorSelector
@@ -198,17 +197,14 @@ export default function DashboardPage() {
         )}
         <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Student analytics">
           <motion.div
-            initial={{ opacity: 0, y: 16, rotate: -0.3 }}
-            animate={{ opacity: 1, y: 0, rotate: -0.3 }}
-            whileHover={{ y: -2, rotate: -0.3, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative min-w-0 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative min-w-0 bg-paper-cream rounded-xl border border-paper-border p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
-            {/* Stationery accent */}
-            <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
               <CompactErrorBoundary>
                 <GradeDistributionChart
@@ -222,17 +218,14 @@ export default function DashboardPage() {
             </LazySection>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 16, rotate: 0.5 }}
-            animate={{ opacity: 1, y: 0, rotate: 0.5 }}
-            whileHover={{ y: -2, rotate: 0.5, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "relative min-w-0 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative min-w-0 bg-paper-cream rounded-xl border border-paper-border p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
-            {/* Stationery accent */}
-            <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
             <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
               <CompactErrorBoundary>
                 <SchoolDistributionChart
@@ -250,9 +243,8 @@ export default function DashboardPage() {
         {/* Activity Feed (hidden for guests — endpoint is guest-blocked) */}
         {!isGuest && (
           <motion.div
-            initial={{ opacity: 0, y: 16, rotate: -0.4 }}
-            animate={{ opacity: 1, y: 0, rotate: -0.4 }}
-            whileHover={{ y: -2, rotate: -0.4, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
             role="complementary"
             aria-label="Recent activity"
