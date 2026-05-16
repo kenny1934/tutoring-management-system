@@ -11,7 +11,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle } from "@/lib/hooks";
 import { waitlistAPI, enrollmentsAPI, studentsAPI } from "@/lib/api";
 import { getGradeColor, GRADES } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WaitlistEntryModal } from "@/components/admin/WaitlistEntryModal";
@@ -114,6 +114,10 @@ export default function AdminWaitlistPage() {
   const [closeReason, setCloseReason] = useState("");
   const [closingInProgress, setClosingInProgress] = useState(false);
   const closingRef = useRef(false);
+
+  // Delete confirmation dialog
+  const [deletingEntry, setDeletingEntry] = useState<WaitlistEntry | null>(null);
+  const [deletingInProgress, setDeletingInProgress] = useState(false);
 
   // Paste zone
   const [pasteExpanded, setPasteExpanded] = useState(false);
@@ -948,15 +952,7 @@ export default function AdminWaitlistPage() {
                           );
                         }
                       }}
-                      onDelete={async () => {
-                        try {
-                          await waitlistAPI.remove(entry.id);
-                          showToast("Entry deleted");
-                          mutate();
-                        } catch {
-                          showError("Failed to delete");
-                        }
-                      }}
+                      onDelete={() => setDeletingEntry(entry)}
                     />
                   ))}
                   </AnimatePresence>
@@ -1084,6 +1080,34 @@ export default function AdminWaitlistPage() {
         loading={closingInProgress}
         onConfirm={handleConfirmClose}
         onCancel={() => setClosingEntry(null)}
+      />
+      <ConfirmDialog
+        isOpen={!!deletingEntry}
+        title="Delete waitlist entry?"
+        message={
+          <p>
+            This will permanently remove <strong>{deletingEntry?.student_name || "this entry"}</strong> from the waitlist. This cannot be undone.
+          </p>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deletingInProgress}
+        onConfirm={async () => {
+          if (!deletingEntry) return;
+          setDeletingInProgress(true);
+          try {
+            await waitlistAPI.remove(deletingEntry.id);
+            showToast("Entry deleted");
+            mutate();
+            setDeletingEntry(null);
+          } catch (err) {
+            showError(formatError(err, "Failed to delete"));
+          } finally {
+            setDeletingInProgress(false);
+          }
+        }}
+        onCancel={() => setDeletingEntry(null)}
       />
       <ScrollToTopButton />
     </DeskSurface>
@@ -1338,9 +1362,7 @@ function WaitlistRow({
                     <button
                       onClick={() => {
                         setShowActions(false);
-                        if (confirm(`Delete "${entry.student_name}" from waitlist?`)) {
-                          onDelete();
-                        }
+                        onDelete();
                       }}
                       className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                     >

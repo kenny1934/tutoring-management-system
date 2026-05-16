@@ -20,7 +20,7 @@ import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideCo
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
@@ -161,8 +161,9 @@ export default function EnrollmentDetailPage() {
       setIsEditingPayment(false);
       setEditForm({});
       setSelectedDiscountId(null);
+      showToast("Enrollment updated");
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
+      setSaveError(formatError(error, 'Failed to save changes'));
     } finally {
       setIsSaving(false);
     }
@@ -183,7 +184,7 @@ export default function EnrollmentDetailPage() {
       showToast("Fee message copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      showToast("Failed to copy to clipboard", "error");
+      showToast(formatError(err, "Failed to copy to clipboard"), "error");
     }
   };
 
@@ -195,7 +196,7 @@ export default function EnrollmentDetailPage() {
       mutate(['enrollment', enrollment.id]);
       showToast("Marked as sent!");
     } catch (err) {
-      showToast("Failed to mark as sent", "error");
+      showToast(formatError(err, "Failed to mark as sent"), "error");
     } finally {
       setMarkingSent(false);
     }
@@ -209,7 +210,7 @@ export default function EnrollmentDetailPage() {
       mutate(['enrollment', enrollment.id]);
       showToast("Unmarked as sent");
     } catch (err) {
-      showToast("Failed to unmark", "error");
+      showToast(formatError(err, "Failed to unmark"), "error");
     } finally {
       setMarkingSent(false);
     }
@@ -224,7 +225,7 @@ export default function EnrollmentDetailPage() {
       showToast("Payment confirmed!");
       setConfirmPayment(false);
     } catch (err) {
-      showToast("Failed to confirm payment", "error");
+      showToast(formatError(err, "Failed to confirm payment"), "error");
     } finally {
       setMarkingPaid(false);
     }
@@ -239,7 +240,7 @@ export default function EnrollmentDetailPage() {
       showToast("Enrollment cancelled");
       setConfirmCancel(false);
     } catch (err) {
-      showToast("Failed to cancel enrollment", "error");
+      showToast(formatError(err, "Failed to cancel enrollment"), "error");
     } finally {
       setIsCancelling(false);
     }
@@ -264,7 +265,7 @@ export default function EnrollmentDetailPage() {
       setIsEditingExtension(false);
       setExtensionForm({ weeks: 0, reason: "" });
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save extension');
+      setSaveError(formatError(error, 'Failed to save extension'));
     } finally {
       setIsSavingExtension(false);
     }
