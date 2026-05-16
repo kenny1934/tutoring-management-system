@@ -23,7 +23,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
@@ -113,12 +113,16 @@ export default function StudentDetailPage() {
   const [popoverEnrollment, setPopoverEnrollment] = useState<Enrollment | null>(null);
   const [enrollmentClickPosition, setEnrollmentClickPosition] = useState<{ x: number; y: number } | null>(null);
 
-  // Edit mode state
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingAcademic, setIsEditingAcademic] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<Student>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [personalForm, setPersonalForm] = useState<Partial<Student>>({});
+  const [academicForm, setAcademicForm] = useState<Partial<Student>>({});
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
+  const [isSavingAcademic, setIsSavingAcademic] = useState(false);
+  const [isSavingStaffReferral, setIsSavingStaffReferral] = useState(false);
+  const [personalSaveError, setPersonalSaveError] = useState<string | null>(null);
+  const [academicSaveError, setAcademicSaveError] = useState<string | null>(null);
+  const [staffReferralSaveError, setStaffReferralSaveError] = useState<string | null>(null);
   const [allSchools, setAllSchools] = useState<string[]>([]);
 
   // New Trial modal state (for students with no enrollments)
@@ -256,53 +260,99 @@ export default function StudentDetailPage() {
     });
   }, [enrollments]);
 
-  // Edit handlers
   const handleEditPersonal = () => {
-    if (student) {
-      setEditForm({ ...student });
-      setIsEditingPersonal(true);
-    }
+    if (!student) return;
+    setPersonalForm({
+      student_name: student.student_name,
+      phone: student.phone,
+      contacts: student.contacts,
+    });
+    setPersonalSaveError(null);
+    setIsEditingPersonal(true);
   };
 
   const handleEditAcademic = () => {
-    if (student) {
-      setEditForm({ ...student });
-      setIsEditingAcademic(true);
+    if (!student) return;
+    setAcademicForm({
+      school: student.school,
+      grade: student.grade,
+      lang_stream: student.lang_stream,
+      academic_stream: student.academic_stream,
+    });
+    setAcademicSaveError(null);
+    setIsEditingAcademic(true);
+  };
+
+  const handleCancelPersonal = () => {
+    setIsEditingPersonal(false);
+    setPersonalForm({});
+    setPersonalSaveError(null);
+  };
+
+  const handleCancelAcademic = () => {
+    setIsEditingAcademic(false);
+    setAcademicForm({});
+    setAcademicSaveError(null);
+  };
+
+  const handlePersonalFormChange = (field: string, value: string | boolean | StudentContact[] | null) => {
+    setPersonalForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAcademicFormChange = (field: string, value: string | boolean | StudentContact[] | null) => {
+    setAcademicForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const persistStudentUpdate = async (data: Partial<Student>) => {
+    if (!student) return;
+    const updatedStudent = await studentsAPI.update(student.id, data);
+    mutate(['student', student.id], { ...student, ...updatedStudent }, false);
+  };
+
+  const handleSavePersonal = async () => {
+    if (!student) return;
+    setIsSavingPersonal(true);
+    setPersonalSaveError(null);
+    try {
+      const { student_name, phone, contacts } = personalForm;
+      await persistStudentUpdate({ student_name, phone, contacts });
+      setIsEditingPersonal(false);
+      setPersonalForm({});
+    } catch (error) {
+      setPersonalSaveError(formatError(error, 'Failed to save changes'));
+    } finally {
+      setIsSavingPersonal(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    setIsEditingPersonal(false);
-    setIsEditingAcademic(false);
-    setEditForm({});
-  };
-
-  const handleFormChange = (field: string, value: string | boolean | StudentContact[] | null) => {
-    setEditForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async (data?: Partial<Student>) => {
+  const handleSaveAcademic = async () => {
     if (!student) return;
-    setIsSaving(true);
-    setSaveError(null);
-
+    setIsSavingAcademic(true);
+    setAcademicSaveError(null);
     try {
-      const source = data ?? editForm;
-      // Only send fields the backend StudentUpdate schema accepts — avoid serializing
-      // nested objects (e.g. enrollments) which cause "Converting circular structure to JSON"
-      const { student_name, phone, contacts, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes } = source;
-      const dataToSave = { student_name, phone, contacts, school, grade, lang_stream, academic_stream, is_staff_referral, staff_referral_notes };
-      const updatedStudent = await studentsAPI.update(student.id, dataToSave);
-      // Optimistic update - set new data immediately, skip revalidation
-      mutate(['student', student.id], { ...student, ...updatedStudent }, false);
-      setIsEditingPersonal(false);
+      const { school, grade, lang_stream, academic_stream } = academicForm;
+      await persistStudentUpdate({ school, grade, lang_stream, academic_stream });
       setIsEditingAcademic(false);
-      setEditForm({});
+      setAcademicForm({});
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
-      // Don't close edit mode on error - let user fix and retry
+      setAcademicSaveError(formatError(error, 'Failed to save changes'));
     } finally {
-      setIsSaving(false);
+      setIsSavingAcademic(false);
+    }
+  };
+
+  const handleSaveStaffReferral = async (data: Pick<Student, 'is_staff_referral' | 'staff_referral_notes'>): Promise<boolean> => {
+    if (!student) return false;
+    setIsSavingStaffReferral(true);
+    setStaffReferralSaveError(null);
+    try {
+      await persistStudentUpdate(data);
+      return true;
+    } catch (error) {
+      setStaffReferralSaveError(formatError(error, 'Failed to save changes'));
+      return false;
+    } finally {
+      setIsSavingStaffReferral(false);
     }
   };
 
@@ -598,17 +648,25 @@ export default function StudentDetailPage() {
                   couponInfo={couponInfo}
                   couponLoading={couponLoading}
                   onEnrollmentStatusChange={handleEnrollmentStatusChange}
-                  // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
-                  editForm={editForm}
+                  personalForm={personalForm}
+                  academicForm={academicForm}
                   onEditPersonal={handleEditPersonal}
                   onEditAcademic={handleEditAcademic}
-                  onCancelEdit={handleCancelEdit}
-                  onSave={handleSave}
-                  onFormChange={handleFormChange}
-                  isSaving={isSaving}
-                  saveError={saveError}
+                  onCancelPersonal={handleCancelPersonal}
+                  onCancelAcademic={handleCancelAcademic}
+                  onSavePersonal={handleSavePersonal}
+                  onSaveAcademic={handleSaveAcademic}
+                  onSaveStaffReferral={handleSaveStaffReferral}
+                  onPersonalFormChange={handlePersonalFormChange}
+                  onAcademicFormChange={handleAcademicFormChange}
+                  isSavingPersonal={isSavingPersonal}
+                  isSavingAcademic={isSavingAcademic}
+                  isSavingStaffReferral={isSavingStaffReferral}
+                  personalSaveError={personalSaveError}
+                  academicSaveError={academicSaveError}
+                  staffReferralSaveError={staffReferralSaveError}
                   allSchools={allSchools}
                   onNewTrial={() => setNewTrialModalOpen(true)}
                   onNewEnrollment={() => setNewEnrollmentModalOpen(true)}
@@ -808,17 +866,25 @@ function ProfileTab({
   couponInfo,
   couponLoading,
   onEnrollmentStatusChange,
-  // Edit props
   isEditingPersonal,
   isEditingAcademic,
-  editForm,
+  personalForm,
+  academicForm,
   onEditPersonal,
   onEditAcademic,
-  onCancelEdit,
-  onSave,
-  onFormChange,
-  isSaving,
-  saveError,
+  onCancelPersonal,
+  onCancelAcademic,
+  onSavePersonal,
+  onSaveAcademic,
+  onSaveStaffReferral,
+  onPersonalFormChange,
+  onAcademicFormChange,
+  isSavingPersonal,
+  isSavingAcademic,
+  isSavingStaffReferral,
+  personalSaveError,
+  academicSaveError,
+  staffReferralSaveError,
   allSchools,
   onNewTrial,
   onNewEnrollment,
@@ -834,17 +900,25 @@ function ProfileTab({
   couponInfo?: StudentCouponResponse;
   couponLoading?: boolean;
   onEnrollmentStatusChange?: () => void;
-  // Edit props
   isEditingPersonal: boolean;
   isEditingAcademic: boolean;
-  editForm: Partial<Student>;
+  personalForm: Partial<Student>;
+  academicForm: Partial<Student>;
   onEditPersonal: () => void;
   onEditAcademic: () => void;
-  onCancelEdit: () => void;
-  onSave: (data?: Partial<Student>) => void;
-  onFormChange: (field: string, value: string | boolean | StudentContact[] | null) => void;
-  isSaving: boolean;
-  saveError: string | null;
+  onCancelPersonal: () => void;
+  onCancelAcademic: () => void;
+  onSavePersonal: () => void;
+  onSaveAcademic: () => void;
+  onSaveStaffReferral: (data: Pick<Student, 'is_staff_referral' | 'staff_referral_notes'>) => Promise<boolean>;
+  onPersonalFormChange: (field: string, value: string | boolean | StudentContact[] | null) => void;
+  onAcademicFormChange: (field: string, value: string | boolean | StudentContact[] | null) => void;
+  isSavingPersonal: boolean;
+  isSavingAcademic: boolean;
+  isSavingStaffReferral: boolean;
+  personalSaveError: string | null;
+  academicSaveError: string | null;
+  staffReferralSaveError: string | null;
   allSchools: string[];
   onNewTrial: () => void;
   onNewEnrollment: () => void;
@@ -876,12 +950,12 @@ function ProfileTab({
     });
   };
 
-  const handleSaveStaffReferral = () => {
-    onSave({
+  const handleSaveStaffReferral = async () => {
+    const ok = await onSaveStaffReferral({
       is_staff_referral: staffReferralForm.is_staff_referral,
       staff_referral_notes: staffReferralForm.staff_referral_notes,
     });
-    setIsEditingStaffReferral(false);
+    if (ok) setIsEditingStaffReferral(false);
   };
 
   return (
@@ -902,24 +976,24 @@ function ProfileTab({
           </h3>
           {isEditingPersonal ? (
             <div className="flex items-center gap-2">
-              {saveError && (
-                <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
-                  {saveError}
+              {personalSaveError && (
+                <span className="text-xs text-red-500 max-w-[120px] truncate" title={personalSaveError}>
+                  {personalSaveError}
                 </span>
               )}
               <button
-                onClick={onCancelEdit}
-                disabled={isSaving}
+                onClick={onCancelPersonal}
+                disabled={isSavingPersonal}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => onSave()}
-                disabled={isSaving}
+                onClick={onSavePersonal}
+                disabled={isSavingPersonal}
                 className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSavingPersonal ? 'Saving...' : 'Save'}
               </button>
             </div>
           ) : (
@@ -944,11 +1018,11 @@ function ProfileTab({
         <div className="space-y-3">
           {isEditingPersonal ? (
             <>
-              <EditableInfoRow label="Name" field="student_name" value={editForm.student_name} onChange={onFormChange} required />
+              <EditableInfoRow label="Name" field="student_name" value={personalForm.student_name} onChange={onPersonalFormChange} required />
               <InfoRow label="Student ID" value={student.school_student_id} mono />
               <ContactsEditor
-                contacts={editForm.contacts || [{ phone: editForm.phone || '', label: '' }]}
-                onChange={(contacts) => onFormChange('contacts', contacts)}
+                contacts={personalForm.contacts || [{ phone: personalForm.phone || '', label: '' }]}
+                onChange={(contacts) => onPersonalFormChange('contacts', contacts)}
               />
               <InfoRow label="Location" value={student.home_location} icon={MapPin} />
             </>
@@ -976,24 +1050,24 @@ function ProfileTab({
           </h3>
           {isEditingAcademic ? (
             <div className="flex items-center gap-2">
-              {saveError && (
-                <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
-                  {saveError}
+              {academicSaveError && (
+                <span className="text-xs text-red-500 max-w-[120px] truncate" title={academicSaveError}>
+                  {academicSaveError}
                 </span>
               )}
               <button
-                onClick={onCancelEdit}
-                disabled={isSaving}
+                onClick={onCancelAcademic}
+                disabled={isSavingAcademic}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => onSave()}
-                disabled={isSaving}
+                onClick={onSaveAcademic}
+                disabled={isSavingAcademic}
                 className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSavingAcademic ? 'Saving...' : 'Save'}
               </button>
             </div>
           ) : (
@@ -1018,10 +1092,10 @@ function ProfileTab({
         <div className="space-y-3">
           {isEditingAcademic ? (
             <>
-              <EditableInfoRow label="School" field="school" value={editForm.school} onChange={onFormChange} type="autocomplete" suggestions={allSchools} />
-              <EditableInfoRow label="Grade" field="grade" value={editForm.grade} onChange={onFormChange} type="select" options={buildGradeOptions(student.grade)} />
-              <EditableInfoRow label="Lang Stream" field="lang_stream" value={editForm.lang_stream} onChange={onFormChange} type="select" options={STREAM_OPTIONS} />
-              <EditableInfoRow label="Acad. Stream" field="academic_stream" value={editForm.academic_stream} onChange={onFormChange} type="icon-select" iconOptions={ACADEMIC_STREAM_OPTIONS} />
+              <EditableInfoRow label="School" field="school" value={academicForm.school} onChange={onAcademicFormChange} type="autocomplete" suggestions={allSchools} />
+              <EditableInfoRow label="Grade" field="grade" value={academicForm.grade} onChange={onAcademicFormChange} type="select" options={buildGradeOptions(student.grade)} />
+              <EditableInfoRow label="Lang Stream" field="lang_stream" value={academicForm.lang_stream} onChange={onAcademicFormChange} type="select" options={STREAM_OPTIONS} />
+              <EditableInfoRow label="Acad. Stream" field="academic_stream" value={academicForm.academic_stream} onChange={onAcademicFormChange} type="icon-select" iconOptions={ACADEMIC_STREAM_OPTIONS} />
             </>
           ) : (
             <>
@@ -1071,19 +1145,24 @@ function ProfileTab({
             )}
             {isEditingStaffReferral && (
               <div className="flex items-center gap-2">
+                {staffReferralSaveError && (
+                  <span className="text-xs text-red-500 max-w-[120px] truncate" title={staffReferralSaveError}>
+                    {staffReferralSaveError}
+                  </span>
+                )}
                 <button
                   onClick={handleCancelStaffReferralEdit}
-                  disabled={isSaving}
+                  disabled={isSavingStaffReferral}
                   className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveStaffReferral}
-                  disabled={isSaving}
+                  disabled={isSavingStaffReferral}
                   className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
                 >
-                  {isSaving ? 'Saving...' : 'Save'}
+                  {isSavingStaffReferral ? 'Saving...' : 'Save'}
                 </button>
               </div>
             )}
