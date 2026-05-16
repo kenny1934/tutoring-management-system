@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.68](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.68) (2026-05-16)
+
+### Bug Fixes
+
+* **Editing both info cards on a student profile no longer loses one of the edits**: opening edit mode on the second card used to reset the first card's draft to the original values, so saving silently discarded the edits you'd just made. Personal Info and Academic Info now each keep their own draft, saving flag, and error message. Save on one card persists only that card and leaves the other card's in-progress edits intact, and Cancel only closes the card you clicked.
+
 ## [2.0.67](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.67) (2026-05-12)
 
 ### New Features
