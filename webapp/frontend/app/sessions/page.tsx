@@ -1196,10 +1196,13 @@ export default function SessionsPage() {
 
         if (!allMarkableSelected && markableIds.length > 0) {
           setSelectedIds(new Set(markableIds));
+          showToastRef.current(`Selected ${markableIds.length} markable session${markableIds.length !== 1 ? 's' : ''}`, 'info');
         } else if (!allAttendedSelected && attendedIds.length > 0) {
           setSelectedIds(new Set(attendedIds));
+          showToastRef.current(`Selected ${attendedIds.length} attended session${attendedIds.length !== 1 ? 's' : ''}`, 'info');
         } else if (currentSelectedIds.size > 0) {
           setSelectedIds(new Set());
+          showToastRef.current('Selection cleared', 'info');
         } else {
           showToastRef.current('No sessions to select', 'info');
         }
