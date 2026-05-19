@@ -559,6 +559,17 @@ function StudentRow({
         <div className="text-xs text-ink-500">
           {student.code} · {student.grade}
         </div>
+        {student.hwLoad !== "Normal" && (
+          <div className="mt-0.5">
+            <span
+              className="text-[10px] rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700 font-medium"
+              data-hw-load={student.hwLoad}
+              title="Preferred homework load — informs the HW assignment workflow"
+            >
+              HW: {student.hwLoad}
+            </span>
+          </div>
+        )}
         {nextSuggestion && (
           <Link
             href={`/checktables?student=${student.id}`}
