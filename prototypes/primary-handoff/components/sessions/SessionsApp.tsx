@@ -110,6 +110,19 @@ export function SessionsApp() {
     return map;
   }, [assignments, itemMeta]);
 
+  const filterCounts = useMemo(() => {
+    let today = 0;
+    let upcoming = 0;
+    let past = 0;
+    for (const s of sessionState) {
+      const day = s.startAt.slice(0, 10);
+      if (day === DEMO_DAY) today += 1;
+      else if (day > DEMO_DAY) upcoming += 1;
+      else past += 1;
+    }
+    return { today, upcoming, past };
+  }, [sessionState]);
+
   const filtered = useMemo(
     () =>
       sessionState.filter((s) => {
@@ -173,7 +186,11 @@ export function SessionsApp() {
 
   return (
     <div className="space-y-4">
-      <FilterBar filter={filter} onChange={setFilter} />
+      <FilterBar
+        filter={filter}
+        onChange={setFilter}
+        counts={filterCounts}
+      />
 
       <div className="space-y-4">
         {filtered.length === 0 && (
@@ -259,30 +276,40 @@ export function SessionsApp() {
 function FilterBar({
   filter,
   onChange,
+  counts,
 }: {
   filter: "today" | "upcoming" | "past";
   onChange: (v: "today" | "upcoming" | "past") => void;
+  counts: { today: number; upcoming: number; past: number };
 }) {
-  const items: { id: typeof filter; label: string }[] = [
-    { id: "today", label: "Today" },
-    { id: "upcoming", label: "Upcoming" },
-    { id: "past", label: "Past" },
+  const items: { id: typeof filter; label: string; count: number }[] = [
+    { id: "today", label: "Today", count: counts.today },
+    { id: "upcoming", label: "Upcoming", count: counts.upcoming },
+    { id: "past", label: "Past", count: counts.past },
   ];
   return (
     <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-sm">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          onClick={() => onChange(it.id)}
-          className={`px-3 py-1 rounded-md ${
-            filter === it.id
-              ? "bg-ink-800 text-white"
-              : "text-ink-600 hover:bg-ink-100"
-          }`}
-        >
-          {it.label}
-        </button>
-      ))}
+      {items.map((it) => {
+        const active = filter === it.id;
+        return (
+          <button
+            key={it.id}
+            onClick={() => onChange(it.id)}
+            className={`px-3 py-1 rounded-md ${
+              active
+                ? "bg-ink-800 text-white"
+                : "text-ink-600 hover:bg-ink-100"
+            }`}
+          >
+            {it.label}
+            <span
+              className={`ml-1 ${active ? "opacity-80" : "text-ink-400"}`}
+            >
+              ({it.count})
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
