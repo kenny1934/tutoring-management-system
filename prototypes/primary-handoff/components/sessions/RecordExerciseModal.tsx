@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, PenTool, Home as HomeIcon, Plus, Search } from "lucide-react";
 import type {
+  AssignmentStatus,
   Checktable,
   ChecktableItem,
   ClassSession,
-  RecordedExercise,
   SessionStudent,
   Student,
 } from "@/lib/types";
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 type Props = {
   session: ClassSession;
@@ -27,6 +28,27 @@ type Props = {
   onRemove: (id: string) => void;
 };
 
+type StatusFilter = "all" | "pending" | "untouched" | "hide-done";
+
+const FILTER_OPTIONS: { id: StatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "untouched", label: "Untouched" },
+  { id: "hide-done", label: "Hide done" },
+];
+
+function statusDotClasses(status: AssignmentStatus | null): string {
+  if (status === "done") return "bg-emerald-500";
+  if (status === "assigned") return "bg-amber-400";
+  return "bg-ink-200";
+}
+
+function statusLabel(status: AssignmentStatus | null): string {
+  if (status === "done") return "Done";
+  if (status === "assigned") return "Assigned";
+  return "Untouched";
+}
+
 export function RecordExerciseModal({
   session,
   student,
@@ -37,10 +59,12 @@ export function RecordExerciseModal({
   onAdd,
   onRemove,
 }: Props) {
+  const { assignments } = usePrimaryStore();
   const [checktableId, setChecktableId] = useState(checktables[0].id);
   const [search, setSearch] = useState("");
   const [pageRange, setPageRange] = useState("");
   const [note, setNote] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -51,6 +75,16 @@ export function RecordExerciseModal({
   }, [onClose]);
 
   const table = checktables.find((c) => c.id === checktableId)!;
+
+  const statusByItemId = useMemo(() => {
+    const map: Record<string, AssignmentStatus | null> = {};
+    for (const a of assignments) {
+      if (a.studentId === student.id && a.checktableId === checktableId) {
+        map[a.itemId] = a.status;
+      }
+    }
+    return map;
+  }, [assignments, student.id, checktableId]);
 
   // Flatten all items in this checktable for picker
   const allItems = useMemo(() => {
@@ -70,17 +104,36 @@ export function RecordExerciseModal({
     return items;
   }, [table]);
 
+  const counts = useMemo(() => {
+    let done = 0;
+    let assigned = 0;
+    let untouched = 0;
+    for (const { item } of allItems) {
+      const s = statusByItemId[item.id] ?? null;
+      if (s === "done") done += 1;
+      else if (s === "assigned") assigned += 1;
+      else untouched += 1;
+    }
+    return { done, assigned, untouched, total: allItems.length };
+  }, [allItems, statusByItemId]);
+
   const filtered = useMemo(() => {
-    if (!search) return allItems.slice(0, 60);
     const s = search.toLowerCase();
-    return allItems
-      .filter(
-        ({ item, chapter }) =>
+    const matches = allItems.filter(({ item, chapter }) => {
+      const status = statusByItemId[item.id] ?? null;
+      if (statusFilter === "pending" && status !== "assigned") return false;
+      if (statusFilter === "untouched" && status !== null) return false;
+      if (statusFilter === "hide-done" && status === "done") return false;
+      if (s) {
+        return (
           item.code.toLowerCase().includes(s) ||
           chapter.toLowerCase().includes(s)
-      )
-      .slice(0, 60);
-  }, [allItems, search]);
+        );
+      }
+      return true;
+    });
+    return matches.slice(0, 60);
+  }, [allItems, search, statusFilter, statusByItemId]);
 
   const items = kind === "CW" ? sessionStudent.cw : sessionStudent.hw;
   const isCW = kind === "CW";
@@ -203,17 +256,55 @@ export function RecordExerciseModal({
           </div>
         </div>
 
-        <div className="px-5 py-2 border-b border-ink-100 flex items-center gap-2">
+        <div className="px-5 py-2 border-b border-ink-100 flex flex-wrap items-center gap-2">
           <Search className="h-4 w-4 text-ink-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by code or chapter (e.g. 609, 圓周, supplementary)"
-            className="flex-1 text-sm focus:outline-none"
+            className="flex-1 min-w-[160px] text-sm focus:outline-none"
           />
+          <div
+            className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs"
+            role="tablist"
+            aria-label="Filter items by status"
+          >
+            {FILTER_OPTIONS.map((opt) => {
+              const active = statusFilter === opt.id;
+              const count =
+                opt.id === "all"
+                  ? counts.total
+                  : opt.id === "pending"
+                    ? counts.assigned
+                    : opt.id === "untouched"
+                      ? counts.untouched
+                      : counts.total - counts.done;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setStatusFilter(opt.id)}
+                  className={`px-2 py-0.5 rounded-md ${
+                    active
+                      ? "bg-ink-800 text-white"
+                      : "text-ink-600 hover:bg-ink-100"
+                  }`}
+                >
+                  {opt.label}
+                  <span
+                    className={`ml-1 ${active ? "opacity-80" : "text-ink-400"}`}
+                  >
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <span className="text-xs text-ink-400">
-            Showing {filtered.length} of {allItems.length}
+            Showing {filtered.length}
           </span>
         </div>
 
@@ -225,28 +316,49 @@ export function RecordExerciseModal({
           )}
           {filtered.length > 0 && (
             <ul className="divide-y divide-ink-100">
-              {filtered.map(({ item, chapter }) => (
-                <li
-                  key={item.id}
-                  className="py-2 flex items-center justify-between gap-3 hover:bg-ink-50 -mx-2 px-2 rounded-md"
-                >
-                  <div className="min-w-0">
-                    <div className="font-mono text-sm text-ink-800">
-                      {item.code}
-                    </div>
-                    <div className="text-xs text-ink-500 truncate">
-                      {chapter}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => submit(item)}
-                    className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap"
+              {filtered.map(({ item, chapter }) => {
+                const status = statusByItemId[item.id] ?? null;
+                return (
+                  <li
+                    key={item.id}
+                    className="py-2 flex items-center justify-between gap-3 hover:bg-ink-50 -mx-2 px-2 rounded-md"
                   >
-                    <Plus className="h-3 w-3" />
-                    Record
-                  </button>
-                </li>
-              ))}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
+                        title={statusLabel(status)}
+                        aria-label={statusLabel(status)}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-mono text-sm text-ink-800">
+                          {item.code}
+                        </div>
+                        <div className="text-xs text-ink-500 truncate">
+                          {chapter}
+                          {status && (
+                            <span
+                              className={`ml-1.5 font-medium ${
+                                status === "done"
+                                  ? "text-emerald-700"
+                                  : "text-amber-700"
+                              }`}
+                            >
+                              · {statusLabel(status)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => submit(item)}
+                      className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Record
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -254,7 +366,7 @@ export function RecordExerciseModal({
         <footer className="border-t border-ink-200 px-5 py-3 bg-ink-50 flex items-center justify-between text-xs text-ink-500">
           <div>
             Adds to the {kind} record for this student in this session. Also
-            creates a checktable assignment so it shows up in the student's
+            creates a checktable assignment so it shows up in the student&apos;s
             history.
           </div>
           <button
