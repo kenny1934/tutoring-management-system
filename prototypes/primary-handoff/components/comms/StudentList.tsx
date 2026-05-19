@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import type { ParentContact, Student, ContactStatus } from "@/lib/types";
 import { ContactStatusDot } from "./ContactStatusBadge";
-import { contactStatusFor } from "@/lib/mock-data/parent-contacts";
+import {
+  contactStatusFor,
+  DEMO_NOW,
+} from "@/lib/mock-data/parent-contacts";
 
 type Props = {
   students: Student[];
@@ -62,7 +65,7 @@ export function StudentList({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const rows: Row[] = useMemo(() => {
-    const now = Date.now();
+    const now = new Date(DEMO_NOW).getTime();
     return students
       .filter(
         (s) =>
@@ -151,6 +154,16 @@ export function StudentList({
       (r) => r.status === "Contact Needed" || r.status === "Never Contacted"
     ).length;
 
+  const renderGroupIcon = (key: string) => {
+    if (groupMode === "grade") {
+      return <GraduationCap className="h-3.5 w-3.5 text-accent-700" />;
+    }
+    if (key === "Contact Needed" || key === "Never Contacted") {
+      return <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />;
+    }
+    return <ContactStatusDot status={key as ContactStatus} />;
+  };
+
   return (
     <div className="surface flex flex-col h-full overflow-hidden">
       <div className="px-3 py-2 border-b border-ink-100 space-y-2">
@@ -237,14 +250,7 @@ export function StudentList({
                 ) : (
                   <ChevronRight className="h-3.5 w-3.5 text-ink-400" />
                 )}
-                {groupMode === "grade" ? (
-                  <GraduationCap className="h-3.5 w-3.5 text-accent-700" />
-                ) : group.key === "Contact Needed" ||
-                  group.key === "Never Contacted" ? (
-                  <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
-                ) : (
-                  <ContactStatusDot status={group.key as ContactStatus} />
-                )}
+                {renderGroupIcon(group.key)}
                 <span className="flex-1 text-sm font-medium text-ink-800">
                   {group.label}
                 </span>

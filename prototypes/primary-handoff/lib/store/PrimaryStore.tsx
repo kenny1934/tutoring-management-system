@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import type {
   Checktable,
@@ -28,12 +35,17 @@ type ExerciseInput = {
   note?: string;
 };
 
+type ItemMeta = { item: ChecktableItem; checktableId: string };
+
 type Store = {
   students: Student[];
   checktables: Checktable[];
   sessions: ClassSession[];
   assignments: ChecktableAssignment[];
   contacts: ParentContact[];
+
+  /** Lookup any item by id; carries its checktable id too. */
+  itemMeta: Map<string, ItemMeta>;
 
   setSessions: (updater: (s: ClassSession[]) => ClassSession[]) => void;
   setAssignments: (
@@ -52,9 +64,6 @@ type Store = {
     exerciseId: string
   ) => void;
 
-  /** Helper — find which checktable contains a given item id. */
-  findChecktableForItem: (itemId: string) => string | null;
-  /** Helper — format a session as a human label. */
   sessionLabel: (sessionId: string) => string;
 };
 
@@ -71,12 +80,11 @@ function formatSessionLabel(session: ClassSession): string {
   return `${date} ${weekday} ${time}`;
 }
 
-function buildItemIndex(
-  checktables: Checktable[]
-): Map<string, string> {
-  const index = new Map<string, string>();
+function buildItemMeta(checktables: Checktable[]): Map<string, ItemMeta> {
+  const map = new Map<string, ItemMeta>();
   for (const t of checktables) {
-    const collect = (item: ChecktableItem) => index.set(item.id, t.id);
+    const collect = (item: ChecktableItem) =>
+      map.set(item.id, { item, checktableId: t.id });
     for (const sec of t.sections) {
       for (const ch of sec.chapters) {
         for (const sId of Object.keys(ch.cells)) {
@@ -86,28 +94,31 @@ function buildItemIndex(
     }
     t.supplementary.forEach(collect);
   }
-  return index;
+  return map;
 }
 
 export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [students] = useState<Student[]>(seedStudents);
   const [checktables] = useState<Checktable[]>(seedChecktables);
-  const [sessions, setSessionsState] = useState<ClassSession[]>(seedSessions);
-  const [assignments, setAssignmentsState] =
+  const [sessions, setSessions] = useState<ClassSession[]>(seedSessions);
+  const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
-  const [contacts, setContactsState] = useState<ParentContact[]>(seedContacts);
+  const [contacts, setContacts] = useState<ParentContact[]>(seedContacts);
 
-  const itemIndex = useMemo(() => buildItemIndex(checktables), [checktables]);
+  const itemMeta = useMemo(() => buildItemMeta(checktables), [checktables]);
 
-  const findChecktableForItem = (itemId: string) =>
-    itemIndex.get(itemId) ?? null;
+  // Keep recordExercise stable while still reading fresh sessions/itemMeta
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const itemMetaRef = useRef(itemMeta);
+  itemMetaRef.current = itemMeta;
 
-  const sessionLabel = (sessionId: string) => {
-    const s = sessions.find((x) => x.id === sessionId);
+  const sessionLabel = useCallback((sessionId: string) => {
+    const s = sessionsRef.current.find((x) => x.id === sessionId);
     return s ? formatSessionLabel(s) : "";
-  };
+  }, []);
 
-  const recordExercise = (input: ExerciseInput) => {
+  const recordExercise = useCallback((input: ExerciseInput) => {
     const recordedId = `rec-${Math.random().toString(36).slice(2, 8)}`;
     const newExercise: RecordedExercise = {
       id: recordedId,
@@ -119,7 +130,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       sessionId: input.sessionId,
     };
 
-    setSessionsState((prev) =>
+    setSessions((prev) =>
       prev.map((s) =>
         s.id !== input.sessionId
           ? s
@@ -135,15 +146,18 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     );
 
     if (!input.itemId) return;
-    const checktableId = findChecktableForItem(input.itemId);
-    if (!checktableId) return;
+    const meta = itemMetaRef.current.get(input.itemId);
+    if (!meta) return;
+    const checktableId = meta.checktableId;
 
-    const sourceSession = sessions.find((s) => s.id === input.sessionId);
+    const sourceSession = sessionsRef.current.find(
+      (s) => s.id === input.sessionId
+    );
     const label = sourceSession ? formatSessionLabel(sourceSession) : "";
     const nowIso = new Date().toISOString();
     const status = input.kind === "CW" ? "done" : "assigned";
 
-    setAssignmentsState((prev) => {
+    setAssignments((prev) => {
       const existing = prev.find(
         (a) =>
           a.studentId === input.studentId &&
@@ -182,50 +196,66 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       };
       return [...prev, newAssignment];
     });
-  };
+  }, []);
 
-  const removeExercise = (
-    sessionId: string,
-    studentId: string,
-    kind: ExerciseKind,
-    exerciseId: string
-  ) => {
-    setSessionsState((prev) =>
-      prev.map((s) =>
-        s.id !== sessionId
-          ? s
-          : {
-              ...s,
-              students: s.students.map((st) => {
-                if (st.studentId !== studentId) return st;
-                const key = kind === "CW" ? "cw" : "hw";
-                return {
-                  ...st,
-                  [key]: st[key].filter((e) => e.id !== exerciseId),
-                };
-              }),
-            }
-      )
-    );
-    setAssignmentsState((prev) =>
-      prev.filter((a) => a.sourceRecordedExerciseId !== exerciseId)
-    );
-  };
+  const removeExercise = useCallback(
+    (
+      sessionId: string,
+      studentId: string,
+      kind: ExerciseKind,
+      exerciseId: string
+    ) => {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id !== sessionId
+            ? s
+            : {
+                ...s,
+                students: s.students.map((st) => {
+                  if (st.studentId !== studentId) return st;
+                  const key = kind === "CW" ? "cw" : "hw";
+                  return {
+                    ...st,
+                    [key]: st[key].filter((e) => e.id !== exerciseId),
+                  };
+                }),
+              }
+        )
+      );
+      setAssignments((prev) =>
+        prev.filter((a) => a.sourceRecordedExerciseId !== exerciseId)
+      );
+    },
+    []
+  );
 
-  const value: Store = {
-    students,
-    checktables,
-    sessions,
-    assignments,
-    contacts,
-    setSessions: setSessionsState,
-    setAssignments: setAssignmentsState,
-    setContacts: setContactsState,
-    recordExercise,
-    removeExercise,
-    findChecktableForItem,
-    sessionLabel,
-  };
+  const value = useMemo<Store>(
+    () => ({
+      students,
+      checktables,
+      sessions,
+      assignments,
+      contacts,
+      itemMeta,
+      setSessions,
+      setAssignments,
+      setContacts,
+      recordExercise,
+      removeExercise,
+      sessionLabel,
+    }),
+    [
+      students,
+      checktables,
+      sessions,
+      assignments,
+      contacts,
+      itemMeta,
+      recordExercise,
+      removeExercise,
+      sessionLabel,
+    ]
+  );
 
   return (
     <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

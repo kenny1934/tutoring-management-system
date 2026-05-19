@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { History } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import type {
@@ -11,6 +11,7 @@ import type {
   Student,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { ChecktableGrid } from "./ChecktableGrid";
 import { AssignDialog } from "./AssignDialog";
 import { PrintTray } from "./PrintTray";
@@ -22,6 +23,7 @@ export function ChecktableApp() {
     checktables,
     assignments,
     sessions,
+    itemMeta,
     setAssignments,
     sessionLabel: formatSessionLabel,
   } = usePrimaryStore();
@@ -29,26 +31,21 @@ export function ChecktableApp() {
   const searchParams = useSearchParams();
   const studentParam = searchParams.get("student");
 
-  const [studentId, setStudentId] = useState(
-    studentParam && students.some((s) => s.id === studentParam)
+  const [studentOverride, setStudentOverride] = useState<string | null>(null);
+  const studentId =
+    studentOverride ??
+    (studentParam && students.some((s) => s.id === studentParam)
       ? studentParam
-      : students[0].id
-  );
+      : students[0].id);
+
   const [checktableId, setChecktableId] = useState(checktables[0].id);
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const [printBatchIds, setPrintBatchIds] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  useEffect(() => {
-    if (studentParam && students.some((s) => s.id === studentParam)) {
-      setStudentId(studentParam);
-    }
-  }, [studentParam, students]);
-
   const student = students.find((s) => s.id === studentId)!;
   const table = checktables.find((c) => c.id === checktableId)!;
 
-  // Per-student status map for the active checktable
   const statusByItemId = useMemo(() => {
     const map: Record<string, AssignmentStatus | null> = {};
     for (const a of assignments) {
@@ -65,22 +62,13 @@ export function ChecktableApp() {
     (a) => a.studentId === studentId
   );
 
-  const printBatchItems = useMemo(() => {
-    const allItems: ChecktableItem[] = [];
-    for (const t of checktables) {
-      for (const sec of t.sections) {
-        for (const ch of sec.chapters) {
-          for (const sId of Object.keys(ch.cells)) {
-            allItems.push(...ch.cells[sId].items);
-          }
-        }
-      }
-      allItems.push(...t.supplementary);
-    }
-    return printBatchIds
-      .map((id) => allItems.find((i) => i.id === id))
-      .filter((i): i is ChecktableItem => Boolean(i));
-  }, [printBatchIds, checktables]);
+  const printBatchItems = useMemo(
+    () =>
+      printBatchIds
+        .map((id) => itemMeta.get(id)?.item)
+        .filter((i): i is ChecktableItem => Boolean(i)),
+    [printBatchIds, itemMeta]
+  );
 
   const existingAssignmentFor = (item: ChecktableItem) =>
     assignments.find(
@@ -90,17 +78,18 @@ export function ChecktableApp() {
         a.itemId === item.id
     );
 
-  const upcomingSessionsForStudent = useMemo(() => {
-    const today = "2026-05-19";
-    return sessions
-      .filter(
-        (s) =>
-          s.startAt.slice(0, 10) >= today &&
-          s.students.some((st) => st.studentId === studentId)
-      )
-      .sort((a, b) => a.startAt.localeCompare(b.startAt))
-      .slice(0, 8);
-  }, [sessions, studentId]);
+  const upcomingSessionsForStudent = useMemo(
+    () =>
+      sessions
+        .filter(
+          (s) =>
+            s.startAt.slice(0, 10) >= DEMO_DAY &&
+            s.students.some((st) => st.studentId === studentId)
+        )
+        .sort((a, b) => a.startAt.localeCompare(b.startAt))
+        .slice(0, 8),
+    [sessions, studentId]
+  );
 
   const handleAssign = (
     item: ChecktableItem,
@@ -186,7 +175,7 @@ export function ChecktableApp() {
       <Header
         students={students}
         student={student}
-        onStudentChange={setStudentId}
+        onStudentChange={setStudentOverride}
         checktables={checktables}
         table={table}
         onChecktableChange={setChecktableId}

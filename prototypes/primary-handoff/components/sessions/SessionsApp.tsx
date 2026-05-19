@@ -23,6 +23,7 @@ import type {
   SessionStudent,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
 
@@ -38,9 +39,10 @@ export function SessionsApp() {
     students,
     checktables,
     assignments,
+    itemMeta,
     setSessions,
     recordExercise,
-    removeExercise: removeExerciseFromStore,
+    removeExercise,
   } = usePrimaryStore();
 
   const [exerciseEditor, setExerciseEditor] =
@@ -55,19 +57,18 @@ export function SessionsApp() {
   const highlightSessionId = searchParams.get("session");
   const highlightedRef = useRef<HTMLDivElement | null>(null);
 
-  // When arriving via ?session=<id>, switch the filter so the session is visible
   useEffect(() => {
     if (!highlightSessionId) return;
     const target = sessionState.find((s) => s.id === highlightSessionId);
     if (!target) return;
     const day = target.startAt.slice(0, 10);
-    const today = "2026-05-19";
-    if (day === today) setFilter("today");
-    else if (day > today) setFilter("upcoming");
+    if (day === DEMO_DAY) setFilter("today");
+    else if (day > DEMO_DAY) setFilter("upcoming");
     else setFilter("past");
   }, [highlightSessionId, sessionState]);
 
   useEffect(() => {
+    if (!highlightSessionId) return;
     if (highlightedRef.current) {
       highlightedRef.current.scrollIntoView({
         behavior: "smooth",
@@ -81,43 +82,32 @@ export function SessionsApp() {
     [students]
   );
 
-  // Map of studentId → up to 3 most-recently-done checktable item codes
   const recentlyCoveredByStudent = useMemo(() => {
     const map = new Map<string, { code: string; doneAt: string }[]>();
-    const itemCodeIndex = new Map<string, string>();
-    for (const t of checktables) {
-      for (const sec of t.sections) {
-        for (const ch of sec.chapters) {
-          for (const sId of Object.keys(ch.cells)) {
-            for (const it of ch.cells[sId].items) {
-              itemCodeIndex.set(it.id, it.code);
-            }
-          }
-        }
-      }
-      for (const it of t.supplementary) itemCodeIndex.set(it.id, it.code);
-    }
     const doneSorted = assignments
       .filter((a) => a.status === "done" && a.doneAt)
       .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""));
     for (const a of doneSorted) {
       const existing = map.get(a.studentId) ?? [];
       if (existing.length >= 3) continue;
-      const code = itemCodeIndex.get(a.itemId);
+      const code = itemMeta.get(a.itemId)?.item.code;
       if (!code) continue;
       existing.push({ code, doneAt: a.doneAt! });
       map.set(a.studentId, existing);
     }
     return map;
-  }, [assignments, checktables]);
+  }, [assignments, itemMeta]);
 
-  const today = "2026-05-19";
-  const filtered = sessionState.filter((s) => {
-    const day = s.startAt.slice(0, 10);
-    if (filter === "today") return day === today;
-    if (filter === "upcoming") return day > today;
-    return day < today;
-  });
+  const filtered = useMemo(
+    () =>
+      sessionState.filter((s) => {
+        const day = s.startAt.slice(0, 10);
+        if (filter === "today") return day === DEMO_DAY;
+        if (filter === "upcoming") return day > DEMO_DAY;
+        return day < DEMO_DAY;
+      }),
+    [sessionState, filter]
+  );
 
   const setAttendance = (
     sessionId: string,
@@ -157,8 +147,6 @@ export function SessionsApp() {
     );
   };
 
-  const removeExercise = removeExerciseFromStore;
-
   const editorSession = exerciseEditor
     ? sessionState.find((s) => s.id === exerciseEditor.sessionId)
     : null;
@@ -190,7 +178,7 @@ export function SessionsApp() {
             >
               <SessionCard
                 session={session}
-                students={students}
+                studentById={studentById}
                 highlighted={isHighlighted}
                 recentlyCoveredByStudent={recentlyCoveredByStudent}
                 onAttendance={(studentId, attendance) =>
@@ -292,7 +280,7 @@ function FilterBar({
 
 function SessionCard({
   session,
-  students,
+  studentById,
   highlighted,
   recentlyCoveredByStudent,
   onAttendance,
@@ -302,7 +290,7 @@ function SessionCard({
   onRemoveExercise,
 }: {
   session: ClassSession;
-  students: Student[];
+  studentById: Map<string, Student>;
   highlighted?: boolean;
   recentlyCoveredByStudent: Map<string, { code: string; doneAt: string }[]>;
   onAttendance: (studentId: string, a: AttendanceStatus) => void;
@@ -315,7 +303,6 @@ function SessionCard({
     exerciseId: string
   ) => void;
 }) {
-  const studentById = new Map(students.map((s) => [s.id, s]));
   const start = new Date(session.startAt);
 
   return (
