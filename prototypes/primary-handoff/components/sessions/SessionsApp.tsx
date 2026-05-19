@@ -39,8 +39,6 @@ export function SessionsApp() {
     sessions: sessionState,
     students,
     checktables,
-    assignments,
-    itemMeta,
     setSessions,
     recordExercise,
     removeExercise,
@@ -93,22 +91,6 @@ export function SessionsApp() {
     }
     return map;
   }, [students, primaryChecktableId, nextSuggestedItem]);
-
-  const recentlyCoveredByStudent = useMemo(() => {
-    const map = new Map<string, { code: string; doneAt: string }[]>();
-    const doneSorted = assignments
-      .filter((a) => a.status === "done" && a.doneAt)
-      .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""));
-    for (const a of doneSorted) {
-      const existing = map.get(a.studentId) ?? [];
-      if (existing.length >= 3) continue;
-      const code = itemMeta.get(a.itemId)?.item.code;
-      if (!code) continue;
-      existing.push({ code, doneAt: a.doneAt! });
-      map.set(a.studentId, existing);
-    }
-    return map;
-  }, [assignments, itemMeta]);
 
   const filterCounts = useMemo(() => {
     let today = 0;
@@ -209,7 +191,6 @@ export function SessionsApp() {
                 session={session}
                 studentById={studentById}
                 highlighted={isHighlighted}
-                recentlyCoveredByStudent={recentlyCoveredByStudent}
                 nextByStudent={nextByStudent}
                 onAttendance={(studentId, attendance) =>
                   setAttendance(session.id, studentId, attendance)
@@ -318,7 +299,6 @@ function SessionCard({
   session,
   studentById,
   highlighted,
-  recentlyCoveredByStudent,
   nextByStudent,
   onAttendance,
   onPerformance,
@@ -329,7 +309,6 @@ function SessionCard({
   session: ClassSession;
   studentById: Map<string, Student>;
   highlighted?: boolean;
-  recentlyCoveredByStudent: Map<string, { code: string; doneAt: string }[]>;
   nextByStudent: Map<string, NextSuggestion | null>;
   onAttendance: (studentId: string, a: AttendanceStatus) => void;
   onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
@@ -416,7 +395,6 @@ function SessionCard({
               key={ss.studentId}
               sessionStudent={ss}
               student={student}
-              recentlyCovered={recentlyCoveredByStudent.get(ss.studentId) ?? []}
               nextSuggestion={nextByStudent.get(ss.studentId) ?? null}
               onAttendance={(a) => onAttendance(ss.studentId, a)}
               onPerformance={(p) => onPerformance(ss.studentId, p)}
@@ -436,7 +414,6 @@ function SessionCard({
 function StudentRow({
   sessionStudent,
   student,
-  recentlyCovered,
   nextSuggestion,
   onAttendance,
   onPerformance,
@@ -446,7 +423,6 @@ function StudentRow({
 }: {
   sessionStudent: SessionStudent;
   student: Student;
-  recentlyCovered: { code: string; doneAt: string }[];
   nextSuggestion: NextSuggestion | null;
   onAttendance: (a: AttendanceStatus) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
@@ -461,32 +437,6 @@ function StudentRow({
         <div className="text-xs text-ink-500">
           {student.code} · {student.grade}
         </div>
-        <Link
-          href={`/checktables?student=${student.id}`}
-          className="text-xs text-accent-700 hover:underline mt-1 inline-flex items-center gap-1"
-          title="Open this student's checktable"
-        >
-          <Table2 className="h-3 w-3" />
-          Open checktable
-        </Link>
-        {recentlyCovered.length > 0 && (
-          <div
-            className="mt-1.5 flex flex-wrap items-center gap-1"
-            title="Most recent checktable items marked done — avoid double-assigning"
-          >
-            <span className="text-[10px] uppercase tracking-wide text-ink-400">
-              Recent
-            </span>
-            {recentlyCovered.map((r) => (
-              <span
-                key={`${r.code}-${r.doneAt}`}
-                className="font-mono text-[10px] rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1"
-              >
-                {r.code}
-              </span>
-            ))}
-          </div>
-        )}
         {nextSuggestion && (
           <Link
             href={`/checktables?student=${student.id}`}
@@ -542,10 +492,20 @@ function StudentRow({
         />
       </div>
 
-      <PerformanceRater
-        value={sessionStudent.performance}
-        onChange={onPerformance}
-      />
+      <div className="flex flex-col items-end gap-1.5">
+        <PerformanceRater
+          value={sessionStudent.performance}
+          onChange={onPerformance}
+        />
+        <Link
+          href={`/checktables?student=${student.id}`}
+          className="text-[11px] text-accent-700 hover:underline inline-flex items-center gap-1"
+          title="Open this student's checktable"
+        >
+          <Table2 className="h-3 w-3" />
+          Checktable
+        </Link>
+      </div>
     </div>
   );
 }
