@@ -67,6 +67,20 @@ export function ChecktableApp() {
     return map;
   }, [assignments, studentId, checktableId]);
 
+  const noteByItemId = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const a of assignments) {
+      if (
+        a.studentId === studentId &&
+        a.checktableId === checktableId &&
+        a.tutorNote
+      ) {
+        map[a.itemId] = a.tutorNote;
+      }
+    }
+    return map;
+  }, [assignments, studentId, checktableId]);
+
   const selectedIds = new Set(printBatchIds);
 
   const studentAssignments = assignments.filter(
@@ -204,6 +218,7 @@ export function ChecktableApp() {
       <ChecktableGrid
         table={table}
         statusByItemId={statusByItemId}
+        noteByItemId={noteByItemId}
         selectedItemIds={selectedIds}
         statusFilter={gridStatus}
         sectionFilter={gridSection}

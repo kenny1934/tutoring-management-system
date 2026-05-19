@@ -14,6 +14,7 @@ export type GridSectionFilter = "all" | "supp" | string;
 type Props = {
   table: Checktable;
   statusByItemId: Record<string, AssignmentStatus | null>;
+  noteByItemId?: Record<string, string | undefined>;
   selectedItemIds: Set<string>;
   statusFilter?: GridStatusFilter;
   sectionFilter?: GridSectionFilter;
@@ -35,6 +36,7 @@ function itemMatchesStatus(
 export function ChecktableGrid({
   table,
   statusByItemId,
+  noteByItemId,
   selectedItemIds,
   statusFilter = "all",
   sectionFilter = "all",
@@ -102,6 +104,7 @@ export function ChecktableGrid({
                   table={table}
                   section={section}
                   statusByItemId={statusByItemId}
+                  noteByItemId={noteByItemId}
                   selectedItemIds={selectedItemIds}
                   statusFilter={statusFilter}
                   onItemClick={onItemClick}
@@ -123,6 +126,7 @@ export function ChecktableGrid({
                 key={item.id}
                 item={item}
                 status={statusByItemId[item.id] ?? null}
+                tutorNote={noteByItemId?.[item.id]}
                 isSelected={selectedItemIds.has(item.id)}
                 onClick={() => onItemClick(item)}
               />
@@ -144,6 +148,7 @@ function SectionRows({
   table,
   section,
   statusByItemId,
+  noteByItemId,
   selectedItemIds,
   statusFilter,
   onItemClick,
@@ -151,6 +156,7 @@ function SectionRows({
   table: Checktable;
   section: Checktable["sections"][number];
   statusByItemId: Record<string, AssignmentStatus | null>;
+  noteByItemId?: Record<string, string | undefined>;
   selectedItemIds: Set<string>;
   statusFilter: GridStatusFilter;
   onItemClick: (item: ChecktableItem) => void;
@@ -204,6 +210,7 @@ function SectionRows({
                         key={item.id}
                         item={item}
                         status={statusByItemId[item.id] ?? null}
+                        tutorNote={noteByItemId?.[item.id]}
                         isSelected={selectedItemIds.has(item.id)}
                         onClick={() => onItemClick(item)}
                       />
