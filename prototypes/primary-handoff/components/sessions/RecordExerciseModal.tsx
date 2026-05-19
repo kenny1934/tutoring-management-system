@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, PenTool, Home as HomeIcon, Plus, Search } from "lucide-react";
+import {
+  X,
+  PenTool,
+  Home as HomeIcon,
+  Plus,
+  Search,
+  List as ListIcon,
+  LayoutGrid,
+} from "lucide-react";
 import type {
   AssignmentStatus,
   Checktable,
@@ -11,6 +19,10 @@ import type {
   Student,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import {
+  ChecktableGrid,
+  type GridStatusFilter,
+} from "@/components/checktable/ChecktableGrid";
 
 type Props = {
   session: ClassSession;
@@ -29,6 +41,7 @@ type Props = {
 };
 
 type StatusFilter = "all" | "pending" | "untouched" | "hide-done";
+type ViewMode = "list" | "grid";
 
 const FILTER_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -49,6 +62,14 @@ function statusLabel(status: AssignmentStatus | null): string {
   return "Untouched";
 }
 
+function toGridStatusFilter(f: StatusFilter): GridStatusFilter {
+  // The grid's filter has three modes; "hide-done" collapses to "all" since
+  // done items are still rendered (just visually marked) and the row-level
+  // filter wouldn't hide them.
+  if (f === "pending" || f === "untouched") return f;
+  return "all";
+}
+
 export function RecordExerciseModal({
   session,
   student,
@@ -65,6 +86,7 @@ export function RecordExerciseModal({
   const [pageRange, setPageRange] = useState("");
   const [note, setNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -81,6 +103,20 @@ export function RecordExerciseModal({
     for (const a of assignments) {
       if (a.studentId === student.id && a.checktableId === checktableId) {
         map[a.itemId] = a.status;
+      }
+    }
+    return map;
+  }, [assignments, student.id, checktableId]);
+
+  const noteByItemId = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const a of assignments) {
+      if (
+        a.studentId === student.id &&
+        a.checktableId === checktableId &&
+        a.tutorNote
+      ) {
+        map[a.itemId] = a.tutorNote;
       }
     }
     return map;
@@ -137,6 +173,7 @@ export function RecordExerciseModal({
 
   const items = kind === "CW" ? sessionStudent.cw : sessionStudent.hw;
   const isCW = kind === "CW";
+  const isGrid = viewMode === "grid";
 
   const submit = (item: ChecktableItem) => {
     onAdd({
@@ -174,13 +211,49 @@ export function RecordExerciseModal({
               {student.name} · {student.code} · {session.className}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-ink-400 hover:text-ink-700 -mr-2 p-2"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <div
+              className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs"
+              role="tablist"
+              aria-label="Picker view mode"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isGrid}
+                onClick={() => setViewMode("list")}
+                className={`px-2 py-1 rounded-md flex items-center gap-1 ${
+                  !isGrid
+                    ? "bg-ink-800 text-white"
+                    : "text-ink-600 hover:bg-ink-100"
+                }`}
+              >
+                <ListIcon className="h-3 w-3" />
+                List
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isGrid}
+                onClick={() => setViewMode("grid")}
+                className={`px-2 py-1 rounded-md flex items-center gap-1 ${
+                  isGrid
+                    ? "bg-ink-800 text-white"
+                    : "text-ink-600 hover:bg-ink-100"
+                }`}
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Grid
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-ink-400 hover:text-ink-700 -mr-2 p-2"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {/* Already recorded */}
@@ -257,20 +330,33 @@ export function RecordExerciseModal({
         </div>
 
         <div className="px-5 py-2 border-b border-ink-100 flex flex-wrap items-center gap-2">
-          <Search className="h-4 w-4 text-ink-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by code or chapter (e.g. 609, 圓周, supplementary)"
-            className="flex-1 min-w-[160px] text-sm focus:outline-none"
-          />
+          {!isGrid && (
+            <>
+              <Search className="h-4 w-4 text-ink-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by code or chapter (e.g. 609, 圓周, supplementary)"
+                className="flex-1 min-w-[160px] text-sm focus:outline-none"
+              />
+            </>
+          )}
+          {isGrid && (
+            <span className="text-xs text-ink-500">
+              Tap any chip to record it. Page range and note apply to each
+              record.
+            </span>
+          )}
           <div
-            className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs"
+            className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs ml-auto"
             role="tablist"
             aria-label="Filter items by status"
           >
             {FILTER_OPTIONS.map((opt) => {
+              // "Hide done" only changes list visibility — skip it in grid
+              // mode where rows still render done items for context.
+              if (isGrid && opt.id === "hide-done") return null;
               const active = statusFilter === opt.id;
               const count =
                 opt.id === "all"
@@ -303,63 +389,80 @@ export function RecordExerciseModal({
               );
             })}
           </div>
-          <span className="text-xs text-ink-400">
-            Showing {filtered.length}
-          </span>
+          {!isGrid && (
+            <span className="text-xs text-ink-400">
+              Showing {filtered.length}
+            </span>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
-          {filtered.length === 0 && (
-            <div className="text-center text-sm text-ink-500 py-8">
-              No items match.
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {isGrid ? (
+            <div className="px-5 py-3">
+              <ChecktableGrid
+                table={table}
+                statusByItemId={statusByItemId}
+                noteByItemId={noteByItemId}
+                selectedItemIds={EMPTY_SELECTION}
+                statusFilter={toGridStatusFilter(statusFilter)}
+                onItemClick={submit}
+              />
             </div>
-          )}
-          {filtered.length > 0 && (
-            <ul className="divide-y divide-ink-100">
-              {filtered.map(({ item, chapter }) => {
-                const status = statusByItemId[item.id] ?? null;
-                return (
-                  <li
-                    key={item.id}
-                    className="py-2 flex items-center justify-between gap-3 hover:bg-ink-50 -mx-2 px-2 rounded-md"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
-                        title={statusLabel(status)}
-                        aria-label={statusLabel(status)}
-                      />
-                      <div className="min-w-0">
-                        <div className="font-mono text-sm text-ink-800">
-                          {item.code}
+          ) : (
+            <div className="px-5 py-3">
+              {filtered.length === 0 && (
+                <div className="text-center text-sm text-ink-500 py-8">
+                  No items match.
+                </div>
+              )}
+              {filtered.length > 0 && (
+                <ul className="divide-y divide-ink-100">
+                  {filtered.map(({ item, chapter }) => {
+                    const status = statusByItemId[item.id] ?? null;
+                    return (
+                      <li
+                        key={item.id}
+                        className="py-2 flex items-center justify-between gap-3 hover:bg-ink-50 -mx-2 px-2 rounded-md"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
+                            title={statusLabel(status)}
+                            aria-label={statusLabel(status)}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-mono text-sm text-ink-800">
+                              {item.code}
+                            </div>
+                            <div className="text-xs text-ink-500 truncate">
+                              {chapter}
+                              {status && (
+                                <span
+                                  className={`ml-1.5 font-medium ${
+                                    status === "done"
+                                      ? "text-emerald-700"
+                                      : "text-amber-700"
+                                  }`}
+                                >
+                                  · {statusLabel(status)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-ink-500 truncate">
-                          {chapter}
-                          {status && (
-                            <span
-                              className={`ml-1.5 font-medium ${
-                                status === "done"
-                                  ? "text-emerald-700"
-                                  : "text-amber-700"
-                              }`}
-                            >
-                              · {statusLabel(status)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => submit(item)}
-                      className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Record
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                        <button
+                          onClick={() => submit(item)}
+                          className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Record
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           )}
         </div>
 
@@ -380,3 +483,5 @@ export function RecordExerciseModal({
     </div>
   );
 }
+
+const EMPTY_SELECTION: Set<string> = new Set();
