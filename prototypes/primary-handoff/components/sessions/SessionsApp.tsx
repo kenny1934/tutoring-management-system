@@ -37,6 +37,7 @@ export function SessionsApp() {
     sessions: sessionState,
     students,
     checktables,
+    assignments,
     setSessions,
     recordExercise,
     removeExercise: removeExerciseFromStore,
@@ -79,6 +80,36 @@ export function SessionsApp() {
     () => new Map(students.map((s) => [s.id, s])),
     [students]
   );
+
+  // Map of studentId → up to 3 most-recently-done checktable item codes
+  const recentlyCoveredByStudent = useMemo(() => {
+    const map = new Map<string, { code: string; doneAt: string }[]>();
+    const itemCodeIndex = new Map<string, string>();
+    for (const t of checktables) {
+      for (const sec of t.sections) {
+        for (const ch of sec.chapters) {
+          for (const sId of Object.keys(ch.cells)) {
+            for (const it of ch.cells[sId].items) {
+              itemCodeIndex.set(it.id, it.code);
+            }
+          }
+        }
+      }
+      for (const it of t.supplementary) itemCodeIndex.set(it.id, it.code);
+    }
+    const doneSorted = assignments
+      .filter((a) => a.status === "done" && a.doneAt)
+      .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""));
+    for (const a of doneSorted) {
+      const existing = map.get(a.studentId) ?? [];
+      if (existing.length >= 3) continue;
+      const code = itemCodeIndex.get(a.itemId);
+      if (!code) continue;
+      existing.push({ code, doneAt: a.doneAt! });
+      map.set(a.studentId, existing);
+    }
+    return map;
+  }, [assignments, checktables]);
 
   const today = "2026-05-19";
   const filtered = sessionState.filter((s) => {
@@ -161,6 +192,7 @@ export function SessionsApp() {
                 session={session}
                 students={students}
                 highlighted={isHighlighted}
+                recentlyCoveredByStudent={recentlyCoveredByStudent}
                 onAttendance={(studentId, attendance) =>
                   setAttendance(session.id, studentId, attendance)
                 }
@@ -262,6 +294,7 @@ function SessionCard({
   session,
   students,
   highlighted,
+  recentlyCoveredByStudent,
   onAttendance,
   onPerformance,
   onOpenExercise,
@@ -271,6 +304,7 @@ function SessionCard({
   session: ClassSession;
   students: Student[];
   highlighted?: boolean;
+  recentlyCoveredByStudent: Map<string, { code: string; doneAt: string }[]>;
   onAttendance: (studentId: string, a: AttendanceStatus) => void;
   onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (studentId: string, kind: "CW" | "HW") => void;
@@ -357,6 +391,7 @@ function SessionCard({
               key={ss.studentId}
               sessionStudent={ss}
               student={student}
+              recentlyCovered={recentlyCoveredByStudent.get(ss.studentId) ?? []}
               onAttendance={(a) => onAttendance(ss.studentId, a)}
               onPerformance={(p) => onPerformance(ss.studentId, p)}
               onOpenExercise={(k) => onOpenExercise(ss.studentId, k)}
@@ -375,6 +410,7 @@ function SessionCard({
 function StudentRow({
   sessionStudent,
   student,
+  recentlyCovered,
   onAttendance,
   onPerformance,
   onOpenExercise,
@@ -383,6 +419,7 @@ function StudentRow({
 }: {
   sessionStudent: SessionStudent;
   student: Student;
+  recentlyCovered: { code: string; doneAt: string }[];
   onAttendance: (a: AttendanceStatus) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
@@ -404,6 +441,24 @@ function StudentRow({
           <Table2 className="h-3 w-3" />
           Open checktable
         </Link>
+        {recentlyCovered.length > 0 && (
+          <div
+            className="mt-1.5 flex flex-wrap items-center gap-1"
+            title="Most recent checktable items marked done — avoid double-assigning"
+          >
+            <span className="text-[10px] uppercase tracking-wide text-ink-400">
+              Recent
+            </span>
+            {recentlyCovered.map((r) => (
+              <span
+                key={`${r.code}-${r.doneAt}`}
+                className="font-mono text-[10px] rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1"
+              >
+                {r.code}
+              </span>
+            ))}
+          </div>
+        )}
         {sessionStudent.note && (
           <div className="text-xs text-ink-600 mt-1 italic">
             &ldquo;{sessionStudent.note}&rdquo;
