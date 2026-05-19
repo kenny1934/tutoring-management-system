@@ -73,12 +73,12 @@ export const sessions: Session[] = [
     notes: "Struggled on word problems, revisit next week",
     class_wide_note: "Cover percentage word problems thoroughly today.",
     cw: [
-      { id: "rec-1", session_id: "sess-001-s-001", kind: "CW", itemCode: "609A", pageRange: "1-2" },
-      { id: "rec-2", session_id: "sess-001-s-001", kind: "CW", itemCode: "609B" },
+      { id: "rec-1", session_id: "sess-001-s-001", exercise_type: "CW", pdf_name: "609A", page_start: 1, page_end: 2 },
+      { id: "rec-2", session_id: "sess-001-s-001", exercise_type: "CW", pdf_name: "609B" },
     ],
     hw: [
-      { id: "rec-3", session_id: "sess-001-s-001", kind: "HW", itemCode: "609C" },
-      { id: "rec-4", session_id: "sess-001-s-001", kind: "HW", itemCode: "609D" },
+      { id: "rec-3", session_id: "sess-001-s-001", exercise_type: "HW", pdf_name: "609C" },
+      { id: "rec-4", session_id: "sess-001-s-001", exercise_type: "HW", pdf_name: "609D" },
     ],
   },
   {
@@ -97,11 +97,11 @@ export const sessions: Session[] = [
     performance_rating: 5,
     class_wide_note: "Cover percentage word problems thoroughly today.",
     cw: [
-      { id: "rec-5", session_id: "sess-001-s-002", kind: "CW", itemCode: "516A" },
-      { id: "rec-6", session_id: "sess-001-s-002", kind: "CW", itemCode: "516B" },
+      { id: "rec-5", session_id: "sess-001-s-002", exercise_type: "CW", pdf_name: "516A" },
+      { id: "rec-6", session_id: "sess-001-s-002", exercise_type: "CW", pdf_name: "516B" },
     ],
     hw: [
-      { id: "rec-7", session_id: "sess-001-s-002", kind: "HW", itemCode: "C_Rev_6F_A02" },
+      { id: "rec-7", session_id: "sess-001-s-002", exercise_type: "HW", pdf_name: "C_Rev_6F_A02" },
     ],
   },
   {
@@ -121,7 +121,7 @@ export const sessions: Session[] = [
     performance_rating: 3,
     notes: "Arrived 15 min late, sibling pickup issue",
     class_wide_note: "Cover percentage word problems thoroughly today.",
-    cw: [{ id: "rec-8", session_id: "sess-001-s-003", kind: "CW", itemCode: "607A" }],
+    cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", pdf_name: "607A" }],
     hw: [],
   },
 
@@ -199,10 +199,10 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
-    cw: [{ id: "rec-h1", session_id: "sess-004-s-001", kind: "CW", itemCode: "608A" }],
+    cw: [{ id: "rec-h1", session_id: "sess-004-s-001", exercise_type: "CW", pdf_name: "608A" }],
     hw: [
-      { id: "rec-h2", session_id: "sess-004-s-001", kind: "HW", itemCode: "608B" },
-      { id: "rec-h3", session_id: "sess-004-s-001", kind: "HW", itemCode: "extra/602" },
+      { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "608B" },
+      { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "extra/602" },
     ],
   },
   {
@@ -236,7 +236,7 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 3,
-    cw: [{ id: "rec-h4", session_id: "sess-004-s-003", kind: "CW", itemCode: "607B" }],
+    cw: [{ id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", pdf_name: "607B" }],
     hw: [],
   },
 ];

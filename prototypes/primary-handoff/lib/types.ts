@@ -137,19 +137,20 @@ export interface Enrollment {
 
 export type ExerciseKind = "CW" | "HW";
 
-/** Exercise recorded against a specific session for a specific student.
- *  Field names will align fully with CSM's SessionExercise in the next
- *  commit; for now keeps the existing prototype shape but is referenced
- *  per-session instead of nested inside a class-wide record. */
-export type RecordedExercise = {
+/** Exercise recorded against a specific session, mirroring CSM's
+ *  SessionExercise. exercise_type is typed loosely (string) in CSM; the
+ *  prototype constrains it to CW/HW which is the seed convention. */
+export interface SessionExercise {
   id: string;
   session_id: string;
-  kind: ExerciseKind;
-  itemCode: string;
-  itemId?: string;
-  pageRange?: string;
-  note?: string;
-};
+  exercise_type: ExerciseKind;
+  pdf_name: string;
+  /** Prototype-only link back to a ChecktableItem (CSM has no checktable). */
+  item_id?: string;
+  page_start?: number;
+  page_end?: number;
+  remarks?: string;
+}
 
 /** A scheduled occurrence of an enrollment for a single student. Mirrors
  *  CSM's Session: one row per student per occurrence. Sessions sharing
@@ -185,8 +186,8 @@ export interface Session {
   /** For make-up sessions: the date of the root original session, used by
    *  the 60-day rule in CSM. */
   root_original_session_date?: string;
-  cw: RecordedExercise[];
-  hw: RecordedExercise[];
+  cw: SessionExercise[];
+  hw: SessionExercise[];
 }
 
 // Parent communications types

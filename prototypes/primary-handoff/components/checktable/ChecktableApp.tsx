@@ -218,8 +218,8 @@ export function ChecktableApp() {
           sessionId: prepSession.id,
           studentId,
           kind: "HW",
-          itemCode: item.code,
-          itemId: item.id,
+          pdf_name: item.code,
+          item_id: item.id,
         });
       }
       clearPrintBatch(studentId);

@@ -17,8 +17,8 @@ import type {
   Enrollment,
   ExerciseKind,
   ParentContact,
-  RecordedExercise,
   Session,
+  SessionExercise,
   SessionStatusValue,
   Student,
 } from "@/lib/types";
@@ -36,11 +36,37 @@ type ExerciseInput = {
   sessionId: string;
   studentId: string;
   kind: ExerciseKind;
-  itemCode: string;
-  itemId?: string;
-  pageRange?: string;
-  note?: string;
+  pdf_name: string;
+  item_id?: string;
+  page_start?: number;
+  page_end?: number;
+  remarks?: string;
 };
+
+/** Page-range UI strings ("1-2" or "5") parse to start/end numbers; empty
+ *  strings yield both undefined. */
+export function parsePageRange(raw?: string): {
+  page_start?: number;
+  page_end?: number;
+} {
+  if (!raw) return {};
+  const m = raw.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+  if (!m) return {};
+  const start = Number(m[1]);
+  const end = m[2] ? Number(m[2]) : undefined;
+  return { page_start: start, page_end: end };
+}
+
+/** Inverse of parsePageRange — render a page-range for display. */
+export function formatPageRange(
+  page_start?: number,
+  page_end?: number
+): string {
+  if (page_start === undefined) return "";
+  if (page_end === undefined || page_end === page_start)
+    return String(page_start);
+  return `${page_start}-${page_end}`;
+}
 
 type ItemMeta = {
   item: ChecktableItem;
@@ -208,14 +234,15 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
 
   const recordExercise = useCallback((input: ExerciseInput) => {
     const recordedId = `rec-${Math.random().toString(36).slice(2, 8)}`;
-    const newExercise: RecordedExercise = {
+    const newExercise: SessionExercise = {
       id: recordedId,
       session_id: input.sessionId,
-      kind: input.kind,
-      itemCode: input.itemCode,
-      itemId: input.itemId,
-      pageRange: input.pageRange,
-      note: input.note,
+      exercise_type: input.kind,
+      pdf_name: input.pdf_name,
+      item_id: input.item_id,
+      page_start: input.page_start,
+      page_end: input.page_end,
+      remarks: input.remarks,
     };
 
     setSessions((prev) =>
@@ -228,8 +255,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       })
     );
 
-    if (!input.itemId) return;
-    const meta = itemMetaRef.current.get(input.itemId);
+    if (!input.item_id) return;
+    const meta = itemMetaRef.current.get(input.item_id);
     if (!meta) return;
     const checktableId = meta.checktableId;
 
@@ -239,13 +266,14 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     const label = sourceSession ? formatSessionLabel(sourceSession) : "";
     const nowIso = new Date().toISOString();
     const status = input.kind === "CW" ? "done" : "assigned";
+    const pageRangeStr = formatPageRange(input.page_start, input.page_end);
 
     setAssignments((prev) => {
       const existing = prev.find(
         (a) =>
           a.studentId === input.studentId &&
           a.checktableId === checktableId &&
-          a.itemId === input.itemId
+          a.itemId === input.item_id
       );
       if (existing) {
         return prev.map((a) =>
@@ -253,8 +281,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
             ? {
                 ...a,
                 status,
-                pageRange: input.pageRange ?? a.pageRange,
-                tutorNote: input.note ?? a.tutorNote,
+                pageRange: pageRangeStr || a.pageRange,
+                tutorNote: input.remarks ?? a.tutorNote,
                 sessionLabel: label || a.sessionLabel,
                 sessionId: input.sessionId,
                 sourceRecordedExerciseId: recordedId,
@@ -267,12 +295,12 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         id: `a-${Math.random().toString(36).slice(2, 8)}`,
         studentId: input.studentId,
         checktableId,
-        itemId: input.itemId,
+        itemId: input.item_id,
         status,
         assignedAt: nowIso,
         doneAt: status === "done" ? nowIso : undefined,
-        pageRange: input.pageRange,
-        tutorNote: input.note,
+        pageRange: pageRangeStr || undefined,
+        tutorNote: input.remarks,
         sessionLabel: label,
         sessionId: input.sessionId,
         sourceRecordedExerciseId: recordedId,

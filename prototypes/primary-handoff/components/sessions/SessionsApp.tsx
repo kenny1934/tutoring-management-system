@@ -18,13 +18,17 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
-  RecordedExercise,
   Session,
+  SessionExercise,
   SessionStatusValue,
   Student,
 } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
-import { usePrimaryStore, type NextSuggestion } from "@/lib/store/PrimaryStore";
+import {
+  usePrimaryStore,
+  formatPageRange,
+  type NextSuggestion,
+} from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
@@ -704,7 +708,7 @@ function ExerciseRow({
   onRemove,
 }: {
   kind: "CW" | "HW";
-  items: RecordedExercise[];
+  items: SessionExercise[];
   onOpen: () => void;
   onRemove: (id: string) => void;
 }) {
@@ -729,25 +733,26 @@ function ExerciseRow({
         {items.length === 0 && (
           <span className="text-xs text-ink-400 italic">none recorded</span>
         )}
-        {items.map((it) => (
-          <span
-            key={it.id}
-            className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
-            title={it.pageRange ? `pp. ${it.pageRange}` : undefined}
-          >
-            <span className="font-mono text-ink-700">{it.itemCode}</span>
-            {it.pageRange && (
-              <span className="text-ink-400">·{it.pageRange}</span>
-            )}
-            <button
-              onClick={() => onRemove(it.id)}
-              className="text-ink-400 hover:text-ink-800 -mr-0.5"
-              aria-label={`Remove ${it.itemCode}`}
+        {items.map((it) => {
+          const range = formatPageRange(it.page_start, it.page_end);
+          return (
+            <span
+              key={it.id}
+              className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
+              title={range ? `pp. ${range}` : undefined}
             >
-              ×
-            </button>
-          </span>
-        ))}
+              <span className="font-mono text-ink-700">{it.pdf_name}</span>
+              {range && <span className="text-ink-400">·{range}</span>}
+              <button
+                onClick={() => onRemove(it.id)}
+                className="text-ink-400 hover:text-ink-800 -mr-0.5"
+                aria-label={`Remove ${it.pdf_name}`}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
       </div>
     </div>
   );

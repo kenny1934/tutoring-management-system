@@ -17,7 +17,11 @@ import type {
   Session,
   Student,
 } from "@/lib/types";
-import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import {
+  usePrimaryStore,
+  parsePageRange,
+  formatPageRange,
+} from "@/lib/store/PrimaryStore";
 import {
   ChecktableGrid,
   type GridStatusFilter,
@@ -30,10 +34,11 @@ type Props = {
   checktables: Checktable[];
   onClose: () => void;
   onAdd: (input: {
-    itemCode: string;
-    itemId?: string;
-    pageRange?: string;
-    note?: string;
+    pdf_name: string;
+    item_id?: string;
+    page_start?: number;
+    page_end?: number;
+    remarks?: string;
   }) => void;
   onRemove: (id: string) => void;
 };
@@ -173,11 +178,13 @@ export function RecordExerciseModal({
   const isGrid = viewMode === "grid";
 
   const submit = (item: ChecktableItem) => {
+    const { page_start, page_end } = parsePageRange(pageRange);
     onAdd({
-      itemCode: item.code,
-      itemId: item.id,
-      pageRange: pageRange || undefined,
-      note: note || undefined,
+      pdf_name: item.code,
+      item_id: item.id,
+      page_start,
+      page_end,
+      remarks: note || undefined,
     });
     setPageRange("");
     setNote("");
@@ -260,24 +267,25 @@ export function RecordExerciseModal({
               Recorded so far ({items.length})
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {items.map((it) => (
-                <span
-                  key={it.id}
-                  className="inline-flex items-center gap-1 text-xs bg-ink-100 text-ink-700 rounded-md pl-2 pr-1 py-1"
-                >
-                  <span className="font-mono">{it.itemCode}</span>
-                  {it.pageRange && (
-                    <span className="text-ink-500">·{it.pageRange}</span>
-                  )}
-                  <button
-                    onClick={() => onRemove(it.id)}
-                    className="text-ink-400 hover:text-ink-800"
-                    aria-label={`Remove ${it.itemCode}`}
+              {items.map((it) => {
+                const range = formatPageRange(it.page_start, it.page_end);
+                return (
+                  <span
+                    key={it.id}
+                    className="inline-flex items-center gap-1 text-xs bg-ink-100 text-ink-700 rounded-md pl-2 pr-1 py-1"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+                    <span className="font-mono">{it.pdf_name}</span>
+                    {range && <span className="text-ink-500">·{range}</span>}
+                    <button
+                      onClick={() => onRemove(it.id)}
+                      className="text-ink-400 hover:text-ink-800"
+                      aria-label={`Remove ${it.pdf_name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
