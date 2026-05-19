@@ -127,30 +127,49 @@ export const sessions: ClassSession[] = [
   },
 ];
 
-// Mock makeup suggestions for the "Schedule makeup" panel
+// Mock makeup suggestions for the "Schedule makeup" panel.
+// Each carries a session template so confirming the makeup can spin up a
+// new ClassSession with realistic class/room/tutor inheritance.
 export const makeupSuggestions = [
   {
     id: "ms-1",
-    day: "Wed 22 May",
+    day: "Wed 20 May",
     time: "4:00pm",
     fit: "best",
     rationale: "Same tutor (Ms. Wong), class has 2 free seats",
     classCode: "P6-MA-WED",
+    startAt: "2026-05-20T08:00:00.000Z", // 4pm HKT
+    className: "P6 Math · Wed",
+    room: "201",
+    tutorName: "Ms. Wong",
+    durationMins: 90,
   },
   {
     id: "ms-2",
-    day: "Fri 24 May",
+    day: "Fri 22 May",
     time: "5:30pm",
     fit: "good",
     rationale: "Different tutor (Mr. Lee), same level",
     classCode: "P6-MA-FRI",
+    startAt: "2026-05-22T09:30:00.000Z", // 5:30pm HKT
+    className: "P6 Math · Fri",
+    room: "104",
+    tutorName: "Mr. Lee",
+    durationMins: 90,
   },
   {
     id: "ms-3",
-    day: "Sat 25 May",
+    day: "Sat 23 May",
     time: "11:00am",
     fit: "stretch",
     rationale: "Outside student's usual window",
     classCode: "P6-MA-SAT",
+    startAt: "2026-05-23T03:00:00.000Z", // 11am HKT
+    className: "P6 Math · Sat",
+    room: "204",
+    tutorName: "Ms. Chan",
+    durationMins: 90,
   },
 ] as const;
+
+export type MakeupSuggestion = (typeof makeupSuggestions)[number];

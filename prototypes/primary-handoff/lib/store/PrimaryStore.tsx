@@ -85,6 +85,23 @@ type Store = {
   removeFromPrintBatch: (studentId: string, itemId: string) => void;
   clearPrintBatch: (studentId: string) => void;
 
+  /** Spawn a makeup ClassSession for a student missing a source session.
+   *  Marks the source session's attendance for the student as "makeup" and
+   *  returns the new session id. */
+  createMakeupSession: (input: {
+    fromSessionId: string;
+    studentId: string;
+    template: {
+      classCode: string;
+      className: string;
+      startAt: string;
+      durationMins: number;
+      room: string;
+      tutorName: string;
+    };
+    reason?: string;
+  }) => string;
+
   /** Checktable the student is most actively working in (most assignments),
    *  or the first checktable as a fallback. */
   primaryChecktableId: (studentId: string) => string;
@@ -313,6 +330,75 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const createMakeupSession = useCallback(
+    (input: {
+      fromSessionId: string;
+      studentId: string;
+      template: {
+        classCode: string;
+        className: string;
+        startAt: string;
+        durationMins: number;
+        room: string;
+        tutorName: string;
+      };
+      reason?: string;
+    }) => {
+      const newId = `s-mu-${Math.random().toString(36).slice(2, 8)}`;
+      const source = sessionsRef.current.find(
+        (s) => s.id === input.fromSessionId
+      );
+      const fromLabel = source ? formatSessionLabel(source) : "";
+      const rescheduledFrom = fromLabel
+        ? `Makeup for ${source?.className ?? ""} on ${fromLabel}${
+            input.reason ? ` (${input.reason})` : ""
+          }`
+        : input.reason
+          ? `Makeup (${input.reason})`
+          : "Makeup";
+
+      const newSession: ClassSession = {
+        id: newId,
+        className: input.template.className,
+        classCode: input.template.classCode,
+        startAt: input.template.startAt,
+        durationMins: input.template.durationMins,
+        room: input.template.room,
+        tutorName: input.template.tutorName,
+        lessonNumber: 0,
+        isMakeup: true,
+        rescheduledFrom,
+        students: [
+          {
+            studentId: input.studentId,
+            attendance: "pending",
+            cw: [],
+            hw: [],
+          },
+        ],
+      };
+
+      setSessions((prev) => [
+        ...prev.map((s) =>
+          s.id !== input.fromSessionId
+            ? s
+            : {
+                ...s,
+                students: s.students.map((st) =>
+                  st.studentId === input.studentId
+                    ? { ...st, attendance: "makeup" as const }
+                    : st
+                ),
+              }
+        ),
+        newSession,
+      ]);
+
+      return newId;
+    },
+    []
+  );
+
   const primaryChecktableId = useCallback(
     (studentId: string) => {
       const counts = new Map<string, number>();
@@ -389,6 +475,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      createMakeupSession,
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,
@@ -406,6 +493,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      createMakeupSession,
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,

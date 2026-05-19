@@ -250,10 +250,6 @@ export function SessionsApp() {
             sessionState.find((s) => s.id === makeupOpen.sessionId) ?? null
           }
           onClose={() => setMakeupOpen(null)}
-          onConfirm={() => {
-            setMakeupOpen(null);
-            alert("Demo only — makeup would be scheduled and student notified.");
-          }}
         />
       )}
     </div>
