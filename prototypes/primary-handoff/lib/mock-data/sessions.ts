@@ -13,7 +13,7 @@ export const enrollments: Enrollment[] = [
     class_code: "P6-MA-WED",
     class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
-    tutor_name: "Ms. Wong",
+    tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-03-04",
   },
@@ -23,7 +23,7 @@ export const enrollments: Enrollment[] = [
     class_code: "P6-MA-WED",
     class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
-    tutor_name: "Ms. Wong",
+    tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-03-04",
   },
@@ -33,7 +33,7 @@ export const enrollments: Enrollment[] = [
     class_code: "P6-MA-WED",
     class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
-    tutor_name: "Ms. Wong",
+    tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-04-08",
   },
@@ -43,14 +43,14 @@ export const enrollments: Enrollment[] = [
     class_code: "P5-MB-WED",
     class_name: "P5 Math · Group B",
     tutor_id: "t-wong",
-    tutor_name: "Ms. Wong",
+    tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-04-01",
   },
 ];
 
-const wong = { tutor_id: "t-wong", tutor_name: "Ms. Wong" };
-const lee = { tutor_id: "t-lee", tutor_name: "Mr. Lee" };
+const wong = { tutor_id: "t-wong", tutor_name: "Ms Wendy Wong" };
+const lee = { tutor_id: "t-lee", tutor_name: "Mr Lawrence Lee" };
 
 // One Session row per student per occurrence. Rows sharing (class_code,
 // session_date, start_time) form one class meeting that the UI groups.
@@ -254,14 +254,14 @@ export const makeupSuggestions = [
     day: "Wed 20 May",
     time: "4:00pm",
     fit: "best",
-    rationale: "Same tutor (Ms. Wong), class has 2 free seats",
+    rationale: "Same tutor (Ms Wendy Wong), class has 2 free seats",
     class_code: "P6-MA-WED",
     session_date: "2026-05-20",
     start_time: "16:00",
     class_name: "P6 Math · Wed",
     room: "201",
     tutor_id: "t-wong",
-    tutor_name: "Ms. Wong",
+    tutor_name: "Ms Wendy Wong",
     duration_mins: 90,
   },
   {
@@ -269,14 +269,14 @@ export const makeupSuggestions = [
     day: "Fri 22 May",
     time: "5:30pm",
     fit: "good",
-    rationale: "Different tutor (Mr. Lee), same level",
+    rationale: "Different tutor (Mr Lawrence Lee), same level",
     class_code: "P6-MA-FRI",
     session_date: "2026-05-22",
     start_time: "17:30",
     class_name: "P6 Math · Fri",
     room: "104",
     tutor_id: "t-lee",
-    tutor_name: "Mr. Lee",
+    tutor_name: "Mr Lawrence Lee",
     duration_mins: 90,
   },
   {
@@ -291,7 +291,7 @@ export const makeupSuggestions = [
     class_name: "P6 Math · Sat",
     room: "204",
     tutor_id: "t-chan",
-    tutor_name: "Ms. Chan",
+    tutor_name: "Ms Cathy Chan",
     duration_mins: 90,
   },
 ] as const;

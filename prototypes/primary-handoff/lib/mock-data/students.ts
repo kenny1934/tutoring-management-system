@@ -4,7 +4,7 @@ export const students: Student[] = [
   {
     id: "s-001",
     name: "Chan Ho Yin",
-    code: "A12",
+    code: "1001",
     grade: "P6",
     school: "PCMS",
     hwLoad: "Normal",
@@ -12,7 +12,7 @@ export const students: Student[] = [
   {
     id: "s-002",
     name: "Wong Mei Ling",
-    code: "B04",
+    code: "1002",
     grade: "P6",
     school: "SPCS",
     hwLoad: "Many",
@@ -20,7 +20,7 @@ export const students: Student[] = [
   {
     id: "s-003",
     name: "Lee Tsz Kit",
-    code: "C09",
+    code: "1003",
     grade: "P6",
     school: "DGS",
     hwLoad: "Little",
@@ -28,7 +28,7 @@ export const students: Student[] = [
   {
     id: "s-004",
     name: "Ng Wing Yan",
-    code: "A22",
+    code: "1004",
     grade: "P5",
     school: "MCS",
     hwLoad: "Normal",

@@ -79,7 +79,7 @@ export function RecordContactModal({
     onSave({
       id: editing?.id,
       studentId,
-      tutorName: editing?.tutorName ?? "Ms. Wong",
+      tutorName: editing?.tutorName ?? "Ms Wendy Wong",
       method,
       type,
       contactedAt,

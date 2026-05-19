@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Clock,
-  MapPin,
-  User,
   PenTool,
   Home as HomeIcon,
   Star,
@@ -22,7 +20,6 @@ import {
   Ambulance,
   CloudRain,
   CalendarPlus,
-  Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -380,12 +377,16 @@ function FilterBar({
   );
 }
 
-function formatTime(start_time: string): string {
-  const d = new Date(`2026-01-01T${start_time}:00+08:00`);
-  return d.toLocaleTimeString("en-HK", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+/** "16:00 - 17:30" — 24-hour zero-padded, space-dash-space. Matches CSM's
+ *  stored time_slot format (database/seed_summer_2025.py). */
+function formatTimeSlot(start_time: string, duration_mins: number): string {
+  const [hStr, mStr] = start_time.split(":");
+  const startMins = Number(hStr) * 60 + Number(mStr);
+  const endMins = startMins + duration_mins;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const end = `${pad(Math.floor(endMins / 60) % 24)}:${pad(endMins % 60)}`;
+  const start = `${pad(Number(hStr))}:${pad(Number(mStr))}`;
+  return `${start} - ${end}`;
 }
 
 /** Lightweight color map for primary grade badges. Just enough variety to
@@ -457,7 +458,7 @@ function MeetingCard({
     month: "short",
     day: "numeric",
   });
-  const timeLabel = formatTime(meeting.start_time);
+  const slotLabel = formatTimeSlot(meeting.start_time, meeting.duration_mins);
 
   return (
     <div
@@ -465,51 +466,25 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Time-slot header — fixed two-row layout (title + meta) so chips
-       *  never stack vertically. Thick red left rule mirrors CSM; yellow
-       *  rule + tint when the meeting is a make-up. */}
+      {/* Slot header — date + CSM-format time_slot only. No class name,
+       *  no room, no tutor, no lesson# (those live on each student row
+       *  per CSM's list view). Thick red left rule; yellow rule + cream
+       *  tint when the meeting is a make-up. */}
       <div
-        className={`px-4 py-2 border-l-4 border-b border-b-ink-200 ${
+        className={`px-4 py-2 border-l-4 border-b border-b-ink-200 flex items-center justify-between gap-3 ${
           meeting.is_makeup
             ? "bg-mc-yellow-50 border-l-mc-yellow-500"
             : "bg-white border-l-mc-red-600"
         }`}
       >
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-ink-900 text-sm">
-            {meeting.class_name}
+        <span className="text-base font-semibold text-ink-900">
+          {dateLabel} · {slotLabel}
+        </span>
+        {meeting.is_makeup && (
+          <span className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold shrink-0">
+            Make-up
           </span>
-          {meeting.lesson_number > 0 && (
-            <span
-              className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5 font-medium"
-              title="Lesson number"
-            >
-              <Hash className="h-2.5 w-2.5" />
-              {meeting.lesson_number}
-            </span>
-          )}
-          {meeting.is_makeup && (
-            <span className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold">
-              Make-up
-            </span>
-          )}
-        </div>
-        <div className="mt-0.5 text-xs text-ink-500 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {dateLabel} · {timeLabel} · {meeting.duration_mins} min
-          </span>
-          <span className="text-ink-300">·</span>
-          <span className="inline-flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            {meeting.room}
-          </span>
-          <span className="text-ink-300">·</span>
-          <span className="inline-flex items-center gap-1">
-            <User className="h-3 w-3" />
-            {meeting.tutor_name}
-          </span>
-        </div>
+        )}
       </div>
 
       {meeting.class_wide_note && (
@@ -630,7 +605,7 @@ function StudentRow({
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
             <span
-              className={`text-xs text-ink-500 whitespace-nowrap font-mono ${
+              className={`text-sm text-ink-700 whitespace-nowrap flex-shrink-0 ${
                 statusConfig.strikethrough ? "line-through" : ""
               }`}
             >
@@ -645,11 +620,10 @@ function StudentRow({
             </span>
             {session.lesson_number > 0 && (
               <span
-                className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5"
+                className="text-[9px] leading-[14px] px-1 py-0 min-w-[16px] rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-semibold inline-flex items-center justify-center"
                 title="Lesson number within this enrollment"
               >
-                <Hash className="h-2.5 w-2.5" />
-                {session.lesson_number}
+                L{session.lesson_number}
               </span>
             )}
             <span
@@ -659,7 +633,7 @@ function StudentRow({
             >
               {student.grade}
             </span>
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-mc-yellow-100 text-mc-yellow-600 font-medium whitespace-nowrap">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium whitespace-nowrap">
               {student.school}
             </span>
             {student.hwLoad !== "Normal" && (

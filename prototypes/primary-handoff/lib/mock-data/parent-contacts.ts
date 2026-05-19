@@ -8,7 +8,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-001",
     studentId: "s-001",
-    tutorName: "Ms. Wong",
+    tutorName: "Ms Wendy Wong",
     method: "WhatsApp",
     type: "Progress Update",
     contactedAt: "2026-05-15T15:30:00+08:00",
@@ -19,7 +19,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-002",
     studentId: "s-001",
-    tutorName: "Ms. Wong",
+    tutorName: "Ms Wendy Wong",
     method: "Phone",
     type: "General",
     contactedAt: "2026-04-22T18:00:00+08:00",
@@ -31,7 +31,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-101",
     studentId: "s-002",
-    tutorName: "Ms. Wong",
+    tutorName: "Ms Wendy Wong",
     method: "WhatsApp",
     type: "Concern",
     contactedAt: "2026-05-08T10:00:00+08:00",
@@ -46,7 +46,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-201",
     studentId: "s-003",
-    tutorName: "Mr. Lee",
+    tutorName: "Mr Lawrence Lee",
     method: "WhatsApp",
     type: "General",
     contactedAt: "2026-03-28T14:00:00+08:00",
@@ -58,7 +58,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-301",
     studentId: "s-004",
-    tutorName: "Mr. Lee",
+    tutorName: "Mr Lawrence Lee",
     method: "In-Person",
     type: "Concern",
     contactedAt: "2026-05-17T17:00:00+08:00",
@@ -71,7 +71,7 @@ export const parentContacts: ParentContact[] = [
   {
     id: "pc-302",
     studentId: "s-004",
-    tutorName: "Mr. Lee",
+    tutorName: "Mr Lawrence Lee",
     method: "Phone",
     type: "Progress Update",
     contactedAt: "2026-04-10T16:00:00+08:00",
