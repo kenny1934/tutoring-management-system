@@ -12,7 +12,11 @@ import type {
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
-import { ChecktableGrid } from "./ChecktableGrid";
+import {
+  ChecktableGrid,
+  type GridSectionFilter,
+  type GridStatusFilter,
+} from "./ChecktableGrid";
 import { AssignDialog } from "./AssignDialog";
 import { PrintTray } from "./PrintTray";
 import { HistoryDrawer } from "./HistoryDrawer";
@@ -45,6 +49,8 @@ export function ChecktableApp() {
   const [checktableId, setChecktableId] = useState(checktables[0].id);
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
+  const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
 
   const student = students.find((s) => s.id === studentId)!;
   const table = checktables.find((c) => c.id === checktableId)!;
@@ -186,10 +192,21 @@ export function ChecktableApp() {
 
       <Legend />
 
+      <GridFilterBar
+        table={table}
+        statusByItemId={statusByItemId}
+        status={gridStatus}
+        section={gridSection}
+        onStatusChange={setGridStatus}
+        onSectionChange={setGridSection}
+      />
+
       <ChecktableGrid
         table={table}
         statusByItemId={statusByItemId}
         selectedItemIds={selectedIds}
+        statusFilter={gridStatus}
+        sectionFilter={gridSection}
         onItemClick={setActiveItem}
       />
 
@@ -305,6 +322,124 @@ function Header({
         <History className="h-4 w-4" />
         History ({historyCount})
       </button>
+    </div>
+  );
+}
+
+function GridFilterBar({
+  table,
+  statusByItemId,
+  status,
+  section,
+  onStatusChange,
+  onSectionChange,
+}: {
+  table: Checktable;
+  statusByItemId: Record<string, AssignmentStatus | null>;
+  status: GridStatusFilter;
+  section: GridSectionFilter;
+  onStatusChange: (v: GridStatusFilter) => void;
+  onSectionChange: (v: GridSectionFilter) => void;
+}) {
+  const counts = useMemo(() => {
+    let total = 0;
+    let pending = 0;
+    let untouched = 0;
+    const visit = (id: string) => {
+      total += 1;
+      const s = statusByItemId[id] ?? null;
+      if (s === "assigned") pending += 1;
+      else if (s === null) untouched += 1;
+    };
+    for (const sec of table.sections) {
+      for (const ch of sec.chapters) {
+        for (const sId of Object.keys(ch.cells)) {
+          ch.cells[sId].items.forEach((i) => visit(i.id));
+        }
+      }
+    }
+    table.supplementary.forEach((i) => visit(i.id));
+    return { total, pending, untouched };
+  }, [table, statusByItemId]);
+
+  const statusOptions: { id: GridStatusFilter; label: string; count: number }[] =
+    [
+      { id: "all", label: "All", count: counts.total },
+      { id: "pending", label: "Pending", count: counts.pending },
+      { id: "untouched", label: "Untouched", count: counts.untouched },
+    ];
+
+  const sectionOptions: { id: GridSectionFilter; label: string }[] = [
+    { id: "all", label: "All sections" },
+    ...table.sections.map((s) => ({
+      id: s.id as GridSectionFilter,
+      label: s.label,
+    })),
+  ];
+  if (table.supplementary.length > 0) {
+    sectionOptions.push({ id: "supp", label: "補充" });
+  }
+
+  return (
+    <div className="surface flex flex-wrap items-center gap-2 px-3 py-2">
+      <span className="text-xs uppercase tracking-wide text-ink-500 mr-1">
+        Filter
+      </span>
+      <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
+        {statusOptions.map((opt) => {
+          const active = status === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onStatusChange(opt.id)}
+              className={`px-2 py-0.5 rounded-md ${
+                active
+                  ? "bg-ink-800 text-white"
+                  : "text-ink-600 hover:bg-ink-100"
+              }`}
+            >
+              {opt.label}
+              <span
+                className={`ml-1 ${active ? "opacity-80" : "text-ink-400"}`}
+              >
+                ({opt.count})
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
+        {sectionOptions.map((opt) => {
+          const active = section === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSectionChange(opt.id)}
+              className={`px-2 py-0.5 rounded-md ${
+                active
+                  ? "bg-ink-800 text-white"
+                  : "text-ink-600 hover:bg-ink-100"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {(status !== "all" || section !== "all") && (
+        <button
+          type="button"
+          onClick={() => {
+            onStatusChange("all");
+            onSectionChange("all");
+          }}
+          className="text-xs text-ink-500 hover:text-ink-800 ml-auto"
+        >
+          Reset
+        </button>
+      )}
     </div>
   );
 }
