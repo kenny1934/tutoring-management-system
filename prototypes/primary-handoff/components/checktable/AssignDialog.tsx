@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, FileText, Check, Printer, CalendarClock } from "lucide-react";
+import {
+  X,
+  FileText,
+  Check,
+  Printer,
+  CalendarClock,
+  AlertTriangle,
+} from "lucide-react";
 import type {
   AssignmentStatus,
   ChecktableAssignment,
@@ -16,6 +23,9 @@ type Props = {
   basePath: string;
   existingAssignment?: ChecktableAssignment;
   upcomingSessions: ClassSession[];
+  /** How many assigned-not-done items the student currently has across all
+   *  checktables — used for the low-HW-load warning. */
+  openAssignmentCount: number;
   formatSessionLabel: (sessionId: string) => string;
   onClose: () => void;
   onAssign: (input: {
@@ -38,6 +48,7 @@ export function AssignDialog({
   basePath,
   existingAssignment,
   upcomingSessions,
+  openAssignmentCount,
   formatSessionLabel,
   onClose,
   onAssign,
@@ -72,6 +83,12 @@ export function AssignDialog({
   }, [onClose]);
 
   const status: AssignmentStatus | null = existingAssignment?.status ?? null;
+
+  // Adding a brand-new assignment bumps the open count by 1; updating an
+  // already-assigned item keeps it where it is.
+  const projectedOpen = openAssignmentCount + (status === null ? 1 : 0);
+  const showLowLoadWarning =
+    student.hwLoad === "Little" && status !== "done" && projectedOpen >= 3;
 
   const submitAssign = () =>
     onAssign({
@@ -108,7 +125,16 @@ export function AssignDialog({
               )}
             </div>
             <div className="text-xs text-ink-500 mt-0.5 truncate">
-              {student.name} · {student.code} · HW load: {student.hwLoad}
+              {student.name} · {student.code} · HW load:{" "}
+              <span
+                className="rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700"
+                data-hw-load={student.hwLoad}
+              >
+                {student.hwLoad}
+              </span>
+              <span className="ml-2 text-ink-400">
+                Open assignments: {openAssignmentCount}
+              </span>
             </div>
           </div>
           <button
@@ -119,6 +145,21 @@ export function AssignDialog({
             <X className="h-5 w-5" />
           </button>
         </header>
+
+        {showLowLoadWarning && (
+          <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <span className="font-medium">Heads up:</span> {student.name}{" "}
+              prefers a light homework load (
+              <span data-hw-load={student.hwLoad}>{student.hwLoad}</span>
+              ).{" "}
+              {status === null
+                ? `Assigning this would bring them to ${projectedOpen} open items.`
+                : `They already have ${projectedOpen} open items.`}
+            </div>
+          </div>
+        )}
 
         <div className="grid sm:grid-cols-5 gap-0">
           {/* PDF preview placeholder */}

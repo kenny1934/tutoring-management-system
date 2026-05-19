@@ -87,6 +87,12 @@ export function ChecktableApp() {
     (a) => a.studentId === studentId
   );
 
+  const openAssignmentCount = useMemo(
+    () =>
+      studentAssignments.filter((a) => a.status === "assigned").length,
+    [studentAssignments]
+  );
+
   const printBatchItems = useMemo(
     () =>
       printBatchIds
@@ -241,6 +247,7 @@ export function ChecktableApp() {
           basePath={table.basePath}
           existingAssignment={existingAssignmentFor(activeItem)}
           upcomingSessions={upcomingSessionsForStudent}
+          openAssignmentCount={openAssignmentCount}
           formatSessionLabel={formatSessionLabel}
           onClose={() => setActiveItem(null)}
           onAssign={(input) => handleAssign(activeItem, input)}
