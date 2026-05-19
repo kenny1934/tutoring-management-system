@@ -198,14 +198,22 @@ function SectionRows({
           </td>
           {table.series.map((s) => {
             const cell = ch.cells[s.id];
+            // Apply the status filter at the chip level too — earlier
+            // versions only filtered chapter rows, so "Untouched" still
+            // surfaced done/assigned chips inside visible rows.
+            const visibleItems = cell
+              ? cell.items.filter((it) =>
+                  itemMatchesStatus(it, statusByItemId, statusFilter)
+                )
+              : [];
             return (
               <td
                 key={s.id}
                 className="border-r border-ink-100 px-2 py-2 last:border-r-0 align-top"
               >
-                {cell && cell.items.length > 0 ? (
+                {visibleItems.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
-                    {cell.items.map((item) => (
+                    {visibleItems.map((item) => (
                       <ItemChip
                         key={item.id}
                         item={item}

@@ -151,7 +151,7 @@ function MeetingChip({
             {slot}
           </div>
           <div className="text-[11px] font-semibold text-ink-900 truncate">
-            {meeting.class_name}
+            {meeting.tutor_name}
           </div>
           <div className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-500">
             <Users className="h-2.5 w-2.5" />

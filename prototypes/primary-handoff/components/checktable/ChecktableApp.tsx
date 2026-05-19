@@ -437,7 +437,7 @@ function Header({
   );
 }
 
-function GridFilterBar({
+export function GridFilterBar({
   table,
   statusByItemId,
   status,
@@ -581,9 +581,9 @@ function PrepBanner({
         <Printer className="h-4 w-4 text-accent-600" />
         <span>
           Prepping HW for{" "}
-          <span className="font-medium">{session.class_name}</span> ·{" "}
+          <span className="font-medium">{student.name}</span> ·{" "}
           <span className="font-medium">{label}</span> ·{" "}
-          <span className="font-medium">{student.name}</span>
+          <span className="font-medium">{session.tutor_name}</span>
         </span>
       </div>
       <span className="text-xs text-accent-700">
@@ -602,7 +602,7 @@ function PrepBanner({
   );
 }
 
-function Legend() {
+export function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
       <span className="flex items-center gap-1.5">

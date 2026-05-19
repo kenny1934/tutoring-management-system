@@ -200,7 +200,8 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="text-xs text-ink-500 truncate">
-                      {s.class_name} · {s.tutor_name}
+                      {s.tutor_name}
+                      {s.lesson_number > 0 && ` · Lesson ${s.lesson_number}`}
                     </div>
                   </div>
                   <div className={`text-xs font-medium ${cfg.textClass} shrink-0`}>

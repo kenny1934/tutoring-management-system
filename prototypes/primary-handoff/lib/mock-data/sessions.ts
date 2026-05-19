@@ -4,14 +4,13 @@ import { SessionStatus } from "../types";
 // Demo "today" used for headers
 export const DEMO_DAY = "2026-05-19";
 
-// Each student is enrolled in one class. Real CSM students can have multiple
-// concurrent enrollments — keeping it simple for the prototype seed.
+// Each student has one enrollment with their primary tutor. CSM enrollments
+// don't carry a "class" — they're just (student, tutor, term) plus session
+// rows slotted into recurring time_slots.
 export const enrollments: Enrollment[] = [
   {
     id: "enr-001",
     student_id: "s-001",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
@@ -20,8 +19,6 @@ export const enrollments: Enrollment[] = [
   {
     id: "enr-002",
     student_id: "s-002",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
@@ -30,8 +27,6 @@ export const enrollments: Enrollment[] = [
   {
     id: "enr-003",
     student_id: "s-003",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     tutor_id: "t-wong",
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
@@ -40,8 +35,6 @@ export const enrollments: Enrollment[] = [
   {
     id: "enr-004",
     student_id: "s-004",
-    class_code: "P5-MB-WED",
-    class_name: "P5 Math · Group B",
     tutor_id: "t-wong",
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
@@ -52,10 +45,12 @@ export const enrollments: Enrollment[] = [
 const wong = { tutor_id: "t-wong", tutor_name: "Ms Wendy Wong" };
 const lee = { tutor_id: "t-lee", tutor_name: "Mr Lawrence Lee" };
 
-// One Session row per student per occurrence. Rows sharing (class_code,
-// session_date, start_time) form one class meeting that the UI groups.
+// One Session row per student per occurrence. Rows sharing
+// (tutor_id, session_date, start_time) form one class meeting that the
+// UI groups — mirrors how CSM identifies a "class meeting" without ever
+// storing a class entity.
 export const sessions: Session[] = [
-  // === Today (2026-05-19 16:00) — P6 Math Group A, lesson 12 ===
+  // === Today (2026-05-19 16:00) — Ms Wong P6 meeting, lesson 12 ===
   {
     id: "sess-001-s-001",
     enrollment_id: "enr-001",
@@ -65,8 +60,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 12,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
@@ -90,8 +83,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 12,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 5,
@@ -113,8 +104,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 12,
     session_status: SessionStatus.ATTENDED,
     attendance_status: "Late",
@@ -125,7 +114,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Today (2026-05-19 17:30) — P5 Math Group B, lesson 9 ===
+  // === Today (2026-05-19 17:30) — Ms Wong P5 meeting, lesson 9 ===
   {
     id: "sess-002-s-004",
     enrollment_id: "enr-004",
@@ -135,8 +124,6 @@ export const sessions: Session[] = [
     start_time: "17:30",
     duration_mins: 90,
     room: "Room 1",
-    class_code: "P5-MB-WED",
-    class_name: "P5 Math · Group B",
     lesson_number: 9,
     session_status: SessionStatus.SCHEDULED,
     cw: [],
@@ -154,8 +141,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 60,
     room: "Room 2",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A (Make-up)",
     lesson_number: 0,
     session_status: SessionStatus.MAKEUP_CLASS,
     make_up_for_id: "sess-old-typhoon",
@@ -174,8 +159,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 0,
     session_status: SessionStatus.WEATHER_BOOKED,
     rescheduled_to_id: "sess-003-makeup",
@@ -184,7 +167,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Last week (2026-05-12 16:00) — P6 Math Group A, lesson 11 ===
+  // === Last week (2026-05-12 16:00) — Ms Wong P6 meeting, lesson 11 ===
   {
     id: "sess-004-s-001",
     enrollment_id: "enr-001",
@@ -194,8 +177,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
@@ -215,8 +196,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 11,
     session_status: SessionStatus.SICK_LEAVE_PENDING,
     notes: "Sick leave, owed makeup",
@@ -232,8 +211,6 @@ export const sessions: Session[] = [
     start_time: "16:00",
     duration_mins: 90,
     room: "Room 3",
-    class_code: "P6-MA-WED",
-    class_name: "P6 Math · Group A",
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 3,
@@ -247,18 +224,16 @@ export const sessions: Session[] = [
 
 // Mock makeup suggestions for the "Schedule makeup" panel.
 // Each carries a session template so confirming the makeup can spin up a
-// new Session with realistic class/room/tutor inheritance.
+// new Session with realistic time-slot/room/tutor inheritance.
 export const makeupSuggestions = [
   {
     id: "ms-1",
     day: "Wed 20 May",
     time: "4:00pm",
     fit: "best",
-    rationale: "Same tutor (Ms Wendy Wong), class has 2 free seats",
-    class_code: "P6-MA-WED",
+    rationale: "Same tutor (Ms Wendy Wong), 2 free seats in that slot",
     session_date: "2026-05-20",
     start_time: "16:00",
-    class_name: "P6 Math · Wed",
     room: "201",
     tutor_id: "t-wong",
     tutor_name: "Ms Wendy Wong",
@@ -270,10 +245,8 @@ export const makeupSuggestions = [
     time: "5:30pm",
     fit: "good",
     rationale: "Different tutor (Mr Lawrence Lee), same level",
-    class_code: "P6-MA-FRI",
     session_date: "2026-05-22",
     start_time: "17:30",
-    class_name: "P6 Math · Fri",
     room: "104",
     tutor_id: "t-lee",
     tutor_name: "Mr Lawrence Lee",
@@ -285,10 +258,8 @@ export const makeupSuggestions = [
     time: "11:00am",
     fit: "stretch",
     rationale: "Outside student's usual window",
-    class_code: "P6-MA-SAT",
     session_date: "2026-05-23",
     start_time: "11:00",
-    class_name: "P6 Math · Sat",
     room: "204",
     tutor_id: "t-chan",
     tutor_name: "Ms Cathy Chan",

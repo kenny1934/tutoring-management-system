@@ -56,8 +56,6 @@ export function MakeupModal({
       studentId: student.id,
       reason: reason || undefined,
       template: {
-        class_code: suggestion.class_code,
-        class_name: suggestion.class_name,
         session_date: suggestion.session_date,
         start_time: suggestion.start_time,
         duration_mins: suggestion.duration_mins,
@@ -90,14 +88,15 @@ export function MakeupModal({
               For {student.name} ({student.code})
               {session && (
                 <>
-                  {" "}· Missed {session.class_name} on{" "}
+                  {" "}· Missed{" "}
                   {new Date(
                     `${session.session_date}T${session.start_time}:00+08:00`
                   ).toLocaleDateString("en-HK", {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
-                  })}
+                  })}{" "}
+                  {session.start_time} with {session.tutor_name}
                 </>
               )}
             </div>
@@ -173,8 +172,8 @@ export function MakeupModal({
                       <div className="text-xs text-ink-600 mt-1">
                         {s.rationale}
                       </div>
-                      <div className="text-xs text-ink-400 mt-0.5 font-mono">
-                        {s.class_code} · {s.tutor_name} · Room {s.room}
+                      <div className="text-xs text-ink-400 mt-0.5">
+                        {s.tutor_name} · Room {s.room}
                       </div>
                     </button>
                   );
@@ -237,17 +236,18 @@ function ConfirmationView({
             Makeup scheduled
           </div>
           <div className="text-sm text-ink-600">
-            {student.name} is booked into {suggestion.class_name} on{" "}
+            {student.name} is booked into{" "}
             <span className="font-medium">{suggestion.day}</span> at{" "}
-            <span className="font-medium">{suggestion.time}</span>. The original
-            session is now <em>Make-up Booked</em> and the new make-up class is
-            linked back to it.
+            <span className="font-medium">{suggestion.time}</span> with{" "}
+            <span className="font-medium">{suggestion.tutor_name}</span>. The
+            original session is now <em>Make-up Booked</em> and the new make-up
+            session is linked back to it.
           </div>
         </div>
       </div>
       <div className="rounded-md border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-600">
-        <div className="font-mono text-ink-700">
-          {suggestion.class_code} · Room {suggestion.room} · {suggestion.tutor_name}
+        <div className="text-ink-700">
+          {suggestion.tutor_name} · Room {suggestion.room}
         </div>
         <Link
           href={`/sessions?session=${sessionId}`}

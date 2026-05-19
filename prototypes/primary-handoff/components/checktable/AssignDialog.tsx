@@ -192,7 +192,7 @@ export function AssignDialog({
                 >
                   {upcomingSessions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {formatSessionLabel(s.id)} · {s.class_name}
+                      {formatSessionLabel(s.id)} · {s.tutor_name}
                     </option>
                   ))}
                   <option value={UNLINKED}>

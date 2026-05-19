@@ -122,13 +122,13 @@ export const SessionStatus = {
 export type SessionStatusValue =
   (typeof SessionStatus)[keyof typeof SessionStatus];
 
-/** A student's enrollment in a class. One student → many enrollments;
- *  each enrollment → many sessions (typically lessons_total of them). */
+/** A student's enrollment with a tutor. One student → many enrollments;
+ *  each enrollment → many sessions (typically lessons_total of them). CSM
+ *  has no "class" concept — an enrollment is just (student, tutor, term)
+ *  with sessions slotted into recurring time_slots. */
 export interface Enrollment {
   id: string;
   student_id: string;
-  class_code: string;
-  class_name: string;
   tutor_id: string;
   tutor_name: string;
   lessons_total: number;
@@ -154,8 +154,9 @@ export interface SessionExercise {
 
 /** A scheduled occurrence of an enrollment for a single student. Mirrors
  *  CSM's Session: one row per student per occurrence. Sessions sharing
- *  (class_code, session_date, start_time) form a single "class meeting"
- *  that the UI groups into one card. */
+ *  (tutor_id, session_date, start_time) form a single "class meeting"
+ *  that the UI groups into one card — there is no class entity in CSM,
+ *  so meeting identity is derived purely from who is teaching when. */
 export interface Session {
   id: string;
   enrollment_id: string;
@@ -166,8 +167,6 @@ export interface Session {
   start_time: string; // "HH:MM" 24-hour, treated as HKT
   duration_mins: number;
   room: string;
-  class_code: string;
-  class_name: string;
   lesson_number: number; // 0 means "not numbered" (e.g. ad-hoc make-up)
   session_status: SessionStatusValue;
   /** Free-form attendance qualifier (e.g. "Late"). session_status is the

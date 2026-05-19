@@ -1,13 +1,12 @@
 import type { Session } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
 
-/** UI-only grouping: many per-student Session rows that share class+date+time
- *  display as one card. Kept as a derived view; not stored. Mirrors CSM's
- *  "time slot" grouping. */
+/** UI-only grouping: many per-student Session rows that share
+ *  (tutor, date, time_slot) display as one card. CSM has no class entity,
+ *  so meeting identity is derived purely from "who is teaching when".
+ *  Kept as a derived view; not stored. */
 export type ClassMeeting = {
   key: string;
-  class_code: string;
-  class_name: string;
   session_date: string;
   start_time: string;
   duration_mins: number;
@@ -23,7 +22,7 @@ export type ClassMeeting = {
 export function groupByMeeting(sessions: Session[]): ClassMeeting[] {
   const map = new Map<string, ClassMeeting>();
   for (const s of sessions) {
-    const key = `${s.class_code}|${s.session_date}|${s.start_time}`;
+    const key = `${s.tutor_id}|${s.session_date}|${s.start_time}`;
     const existing = map.get(key);
     if (existing) {
       existing.members.push(s);
@@ -39,8 +38,6 @@ export function groupByMeeting(sessions: Session[]): ClassMeeting[] {
     } else {
       map.set(key, {
         key,
-        class_code: s.class_code,
-        class_name: s.class_name,
         session_date: s.session_date,
         start_time: s.start_time,
         duration_mins: s.duration_mins,

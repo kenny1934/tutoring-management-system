@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Clock,
   PenTool,
@@ -20,6 +21,8 @@ import {
   Ambulance,
   CloudRain,
   CalendarPlus,
+  ChevronDown,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -41,6 +44,7 @@ import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
+import { ChecktableDrawer } from "./ChecktableDrawer";
 import {
   SessionsToolbar,
   type StatusFilter,
@@ -83,6 +87,14 @@ export function SessionsApp() {
   const [makeupOpen, setMakeupOpen] = useState<{
     sessionId: string;
     studentId: string;
+  } | null>(null);
+  // Drawer keeps the session row visible underneath so the tutor never
+  // loses context while assigning from a checktable. focusItemId is set
+  // when arriving via the "Next" pill so the assign dialog opens straight
+  // on the suggested item.
+  const [drawerOpen, setDrawerOpen] = useState<{
+    studentId: string;
+    focusItemId?: string;
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
   const [tutorFilter, setTutorFilter] = useState<string>("all");
@@ -286,6 +298,9 @@ export function SessionsApp() {
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
+                  onOpenChecktable={(studentId, focusItemId) =>
+                    setDrawerOpen({ studentId, focusItemId })
+                  }
                   onRemoveExercise={removeExercise}
                   onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
                     recordHomeworkCompletion({
@@ -341,6 +356,14 @@ export function SessionsApp() {
           onClose={() => setMakeupOpen(null)}
         />
       )}
+
+      {drawerOpen && studentById.get(drawerOpen.studentId) && (
+        <ChecktableDrawer
+          student={studentById.get(drawerOpen.studentId)!}
+          focusItemId={drawerOpen.focusItemId}
+          onClose={() => setDrawerOpen(null)}
+        />
+      )}
     </div>
   );
 }
@@ -357,6 +380,7 @@ function MeetingCard({
   onPerformance,
   onOpenExercise,
   onScheduleMakeup,
+  onOpenChecktable,
   onRemoveExercise,
   onMarkPreviousHw,
 }: {
@@ -378,6 +402,7 @@ function MeetingCard({
     kind: "CW" | "HW"
   ) => void;
   onScheduleMakeup: (sessionId: string, studentId: string) => void;
+  onOpenChecktable: (studentId: string, focusItemId?: string) => void;
   onRemoveExercise: (
     sessionId: string,
     kind: "CW" | "HW",
@@ -463,6 +488,9 @@ function MeetingCard({
               onScheduleMakeup={() =>
                 onScheduleMakeup(session.id, session.student_id)
               }
+              onOpenChecktable={(focusItemId) =>
+                onOpenChecktable(session.student_id, focusItemId)
+              }
               onMarkPreviousHw={(exerciseId, choice) =>
                 onMarkPreviousHw(
                   session.id,
@@ -510,6 +538,7 @@ function StudentRow({
   onOpenExercise,
   onRemoveExercise,
   onScheduleMakeup,
+  onOpenChecktable,
   onMarkPreviousHw,
 }: {
   session: Session;
@@ -526,6 +555,7 @@ function StudentRow({
   onOpenExercise: (k: "CW" | "HW") => void;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
+  onOpenChecktable: (focusItemId?: string) => void;
   onMarkPreviousHw: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
   const statusConfig = getSessionStatusConfig(session.session_status);
@@ -543,11 +573,14 @@ function StudentRow({
       }`}
       style={{ opacity: statusConfig.opacity ?? 1 }}
     >
-      {/* Main content */}
-      <div className="flex-1 p-3 sm:p-4 min-w-0 space-y-2.5">
-        {/* ── Top: student identity + status text ── */}
+      {/* Main content. Padding deliberately kept tight (p-2.5) and the
+       *  internal sections are separated by space-y-1.5 instead of the
+       *  earlier 2.5 — the row was previously much taller than CSM's
+       *  reference. */}
+      <div className="flex-1 p-2.5 min-w-0 space-y-1.5">
+        {/* ── Top: student identity + status pill (single line each) ── */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
             <span
               className={`text-sm text-ink-700 whitespace-nowrap flex-shrink-0 ${
                 statusConfig.strikethrough ? "line-through" : ""
@@ -556,7 +589,7 @@ function StudentRow({
               {student.code}
             </span>
             <span
-              className={`text-base font-bold ${
+              className={`text-sm font-bold ${
                 statusConfig.strikethrough ? "line-through text-ink-500" : "text-ink-900"
               }`}
             >
@@ -571,13 +604,13 @@ function StudentRow({
               </span>
             )}
             <span
-              className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${gradeBadgeStyle(
+              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${gradeBadgeStyle(
                 student.grade
               )}`}
             >
               {student.grade}
             </span>
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium whitespace-nowrap">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium whitespace-nowrap">
               {student.school}
             </span>
             {student.hwLoad !== "Normal" && (
@@ -590,63 +623,49 @@ function StudentRow({
             )}
           </div>
 
-          {/* Right: status text + tutor (no buttons here — CSM keeps
-           *  status display read-only on the card itself, mutations live
-           *  in the action buttons row below). */}
-          <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
-            <p
-              className={`text-sm font-medium ${statusConfig.textClass} ${
+          {/* Right: status + tutor on one line. Was previously stacked
+           *  vertically; collapsing saves ~16px of height per row. */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 text-right whitespace-nowrap">
+            <span
+              className={`text-xs font-medium ${statusConfig.textClass} ${
                 statusConfig.strikethrough ? "line-through" : ""
               }`}
             >
               {session.session_status}
               {session.attendance_status === "Late" && (
-                <span className="text-xs text-mc-yellow-600 font-semibold ml-1">
+                <span className="text-[11px] text-mc-yellow-600 font-semibold ml-1">
                   · Late
                 </span>
               )}
-            </p>
-            <p className="text-xs text-ink-500">{session.tutor_name}</p>
+            </span>
+            <span className="text-[11px] text-ink-400">·</span>
+            <span className="text-[11px] text-ink-500">{session.tutor_name}</span>
           </div>
         </div>
 
-        {/* ── Next suggestion + notes ── */}
-        {(nextSuggestion || session.notes) && (
-          <div className="space-y-1">
-            {nextSuggestion && (
-              <Link
-                href={`/checktables?student=${student.id}`}
-                className="inline-flex items-center gap-1 text-[11px] rounded-md border border-mc-red-200 bg-mc-red-50 text-mc-red-700 px-1.5 py-0.5 hover:bg-mc-red-100"
-                title={`Next untouched item · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
-              >
-                <ArrowRight className="h-3 w-3" />
-                <span className="uppercase tracking-wide text-[9px] opacity-80">
-                  Next
-                </span>
-                <span className="font-mono">{nextSuggestion.item.code}</span>
-                <span className="opacity-80">
-                  · Ch.{nextSuggestion.chapter.number}{" "}
-                  {nextSuggestion.chapter.title}
-                </span>
-              </Link>
-            )}
-            {session.notes && (
-              <div className="text-xs text-ink-600 italic">
-                &ldquo;{session.notes}&rdquo;
-              </div>
-            )}
+        {/* ── Notes only — the "Next" suggestion has moved onto the HW
+         *  row since it represents "what to assign as HW next". ── */}
+        {session.notes && (
+          <div className="text-[11px] text-ink-600 italic">
+            &ldquo;{session.notes}&rdquo;
           </div>
         )}
 
-        {/* ── Previous HW to check + today's CW/HW ── */}
-        <div className="space-y-2">
-          {pendingHw && (
-            <PreviousHomeworkToCheck
-              pending={pendingHw}
-              sourceLabel={sessionLabel(pendingHw.session.id)}
-              onMark={onMarkPreviousHw}
-            />
-          )}
+        {/* ── Previous HW to check (kept as its own block because it's
+         *  interactive). ── */}
+        {pendingHw && (
+          <PreviousHomeworkToCheck
+            pending={pendingHw}
+            sourceLabel={sessionLabel(pendingHw.session.id)}
+            onMark={onMarkPreviousHw}
+          />
+        )}
+
+        {/* ── CW + HW on one row to halve the vertical footprint. The
+         *  HW side also surfaces the "Next" suggestion as a dashed chip
+         *  at the end of its chip list — it's the most natural place
+         *  for "what to assign as HW next". ── */}
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
           <ExerciseRow
             kind="CW"
             items={session.cw}
@@ -658,6 +677,10 @@ function StudentRow({
             items={session.hw}
             onOpen={() => onOpenExercise("HW")}
             onRemove={(id) => onRemoveExercise("HW", id)}
+            nextSuggestion={nextSuggestion}
+            onOpenSuggestion={() =>
+              nextSuggestion && onOpenChecktable(nextSuggestion.item.id)
+            }
           />
         </div>
 
@@ -671,6 +694,7 @@ function StudentRow({
           onSetStatus={onSetStatus}
           onPerformance={onPerformance}
           onScheduleMakeup={onScheduleMakeup}
+          onOpenChecktable={() => onOpenChecktable()}
           studentId={student.id}
           sessionId={session.id}
         />
@@ -702,6 +726,7 @@ function ActionButtonsRow({
   onSetStatus,
   onPerformance,
   onScheduleMakeup,
+  onOpenChecktable,
   studentId,
   sessionId,
 }: {
@@ -716,86 +741,14 @@ function ActionButtonsRow({
   }) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onScheduleMakeup: () => void;
+  onOpenChecktable: () => void;
   studentId: string;
   sessionId: string;
 }) {
-  // Decide which state-change actions appear inline based on current
-  // status. Matches CSM's session-actions config.
-  const stateActions: { id: string; label: string; Icon: typeof CheckCircle2; cls: string; onClick: () => void }[] = [];
-
-  if (showAttendanceActions) {
-    const attendedTarget =
-      session.session_status === SessionStatus.MAKEUP_CLASS
-        ? SessionStatus.ATTENDED_MAKEUP
-        : SessionStatus.ATTENDED;
-    stateActions.push(
-      {
-        id: "attended",
-        label: "Attended",
-        Icon: CheckCircle2,
-        cls: "bg-green-100 text-green-700 hover:bg-green-200",
-        onClick: () =>
-          onSetStatus({
-            session_status: attendedTarget,
-            attendance_status: undefined,
-          }),
-      },
-      {
-        id: "no-show",
-        label: "No Show",
-        Icon: UserX,
-        cls: "bg-red-100 text-red-700 hover:bg-red-200",
-        onClick: () =>
-          onSetStatus({
-            session_status: SessionStatus.NO_SHOW,
-            attendance_status: undefined,
-          }),
-      },
-      {
-        id: "reschedule",
-        label: "Reschedule",
-        Icon: CalendarClock,
-        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
-        onClick: () =>
-          onSetStatus({
-            session_status: SessionStatus.RESCHEDULED_PENDING,
-            attendance_status: undefined,
-          }),
-      },
-      {
-        id: "sick-leave",
-        label: "Sick",
-        Icon: Ambulance,
-        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
-        onClick: () =>
-          onSetStatus({
-            session_status: SessionStatus.SICK_LEAVE_PENDING,
-            attendance_status: undefined,
-          }),
-      },
-      {
-        id: "weather",
-        label: "Weather",
-        Icon: CloudRain,
-        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
-        onClick: () =>
-          onSetStatus({
-            session_status: SessionStatus.WEATHER_PENDING,
-            attendance_status: undefined,
-          }),
-      }
-    );
-  }
-
-  if (showMakeupAction) {
-    stateActions.push({
-      id: "schedule-makeup",
-      label: "Schedule Make-up",
-      Icon: CalendarPlus,
-      cls: "bg-teal-100 text-teal-700 hover:bg-teal-200",
-      onClick: onScheduleMakeup,
-    });
-  }
+  const attendedTarget =
+    session.session_status === SessionStatus.MAKEUP_CLASS
+      ? SessionStatus.ATTENDED_MAKEUP
+      : SessionStatus.ATTENDED;
 
   // For Attended sessions, surface a Late toggle so the Late attendance
   // attribute can still be set/cleared without an edit modal.
@@ -803,17 +756,45 @@ function ActionButtonsRow({
   const isLate = session.attendance_status === "Late";
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-ink-200">
-      {stateActions.map(({ id, label, Icon, cls, onClick }) => (
+    <div className="flex flex-wrap items-center gap-1 pt-1.5 border-t border-ink-200">
+      {showAttendanceActions && (
+        <>
+          <button
+            onClick={() =>
+              onSetStatus({
+                session_status: attendedTarget,
+                attendance_status: undefined,
+              })
+            }
+            className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200"
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            Attended
+          </button>
+          <button
+            onClick={() =>
+              onSetStatus({
+                session_status: SessionStatus.NO_SHOW,
+                attendance_status: undefined,
+              })
+            }
+            className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-red-100 text-red-700 hover:bg-red-200"
+          >
+            <UserX className="h-3 w-3" />
+            No Show
+          </button>
+          <CantAttendMenu onSetStatus={onSetStatus} />
+        </>
+      )}
+      {showMakeupAction && (
         <button
-          key={id}
-          onClick={onClick}
-          className={`text-xs rounded-md px-2 py-1 font-medium transition-colors inline-flex items-center gap-1 ${cls}`}
+          onClick={onScheduleMakeup}
+          className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-teal-100 text-teal-700 hover:bg-teal-200"
         >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
+          <CalendarPlus className="h-3 w-3" />
+          Schedule Make-up
         </button>
-      ))}
+      )}
       {showLateToggle && (
         <button
           onClick={() =>
@@ -822,36 +803,36 @@ function ActionButtonsRow({
               attendance_status: isLate ? undefined : "Late",
             })
           }
-          className={`text-xs rounded-md px-2 py-1 font-medium transition-colors inline-flex items-center gap-1 border ${
+          className={`text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 border ${
             isLate
               ? "bg-mc-yellow-500 text-ink-900 border-transparent"
               : "bg-white text-ink-600 border-ink-300 hover:bg-mc-yellow-50"
           }`}
           title="Toggle Late attendance qualifier"
         >
-          <Clock className="h-3.5 w-3.5" />
+          <Clock className="h-3 w-3" />
           Late
         </button>
       )}
 
       {/* Right-aligned: rate, checktable, print */}
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-2">
         <PerformanceRater value={performanceValue} onChange={onPerformance} />
-        <Link
-          href={`/checktables?student=${studentId}`}
+        <button
+          onClick={onOpenChecktable}
           className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
           title="Open this student's checktable"
         >
           <Table2 className="h-3 w-3" />
           Checktable
-        </Link>
+        </button>
         <Link
           href={`/checktables?student=${studentId}&prep-session=${sessionId}`}
           className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
           title="Pick items in the checktable, then print them as this session's HW in one shot"
         >
           <Printer className="h-3 w-3" />
-          Prep print batch
+          Prep print
         </Link>
       </div>
     </div>
@@ -867,24 +848,25 @@ function PreviousHomeworkToCheck({
   sourceLabel: string;
   onMark: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
+  // One-line layout: label + source folded onto the same wrap-line as the
+  // entries so the whole block collapses to a single row when there's
+  // only one HW to check (the common case).
   return (
-    <div className="rounded-md border border-mc-red-200 bg-mc-red-50/60 p-2 space-y-1.5">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-mc-red-700">
+    <div className="rounded-md border border-mc-red-200 bg-mc-red-50/60 px-2 py-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-mc-red-700 font-semibold whitespace-nowrap">
         <ClipboardCheck className="h-3 w-3" />
-        <span>Previous HW to check</span>
-        <span className="normal-case tracking-normal text-mc-red-700/70">
-          · from {sourceLabel}
+        Prev HW
+        <span className="normal-case tracking-normal font-normal text-mc-red-700/70">
+          · {sourceLabel}
         </span>
-      </div>
-      <div className="space-y-1">
-        {pending.entries.map((entry) => (
-          <PreviousHomeworkLine
-            key={entry.exercise.id}
-            entry={entry}
-            onMark={(choice) => onMark(entry.exercise.id, choice)}
-          />
-        ))}
-      </div>
+      </span>
+      {pending.entries.map((entry) => (
+        <PreviousHomeworkLine
+          key={entry.exercise.id}
+          entry={entry}
+          onMark={(choice) => onMark(entry.exercise.id, choice)}
+        />
+      ))}
     </div>
   );
 }
@@ -932,56 +914,51 @@ function PreviousHwChoiceButtons({
   selected: PreviousHwChoice | null;
   onMark: (choice: PreviousHwChoice) => void;
 }) {
+  // Icon-only segmented control — labels live in the title for screen
+  // readers / hover. The three meanings (✓ ~ ✗) read well enough as glyphs
+  // when sitting next to a PDF chip.
   const options: {
     id: PreviousHwChoice;
     label: string;
     selectedCls: string;
-    hoverCls: string;
     Icon: typeof Check;
   }[] = [
     {
       id: "complete",
       label: "Complete",
       selectedCls: "bg-green-600 text-white border-transparent",
-      hoverCls: "hover:bg-green-100 hover:text-green-700 hover:border-green-200",
       Icon: Check,
     },
     {
       id: "partial",
       label: "Partial",
       selectedCls: "bg-mc-yellow-500 text-ink-900 border-transparent",
-      hoverCls: "hover:bg-mc-yellow-100 hover:text-mc-yellow-600 hover:border-mc-yellow-200",
       Icon: CircleDashed,
     },
     {
       id: "not-done",
       label: "Not done",
       selectedCls: "bg-mc-red-600 text-white border-transparent",
-      hoverCls: "hover:bg-mc-red-100 hover:text-mc-red-700 hover:border-mc-red-200",
       Icon: CircleSlash,
     },
   ];
   return (
-    <div className="flex flex-wrap gap-1">
-      {options.map(({ id, label, selectedCls, hoverCls, Icon }) => {
+    <div className="inline-flex rounded-md border border-ink-200 bg-white p-[1px]">
+      {options.map(({ id, label, selectedCls, Icon }) => {
         const isSelected = selected === id;
         return (
           <button
             key={id}
             onClick={() => onMark(id)}
-            className={`text-[11px] rounded-md px-1.5 py-0.5 border transition-colors inline-flex items-center gap-1 ${
+            className={`rounded-md px-1 py-0.5 transition-colors inline-flex items-center justify-center ${
               isSelected
                 ? `${selectedCls} font-semibold`
-                : `border-ink-200 text-ink-600 ${hoverCls}`
+                : "text-ink-500 hover:bg-ink-100"
             }`}
-            title={
-              isSelected
-                ? `Marked as ${label} — click another to change`
-                : `Mark as ${label}`
-            }
+            aria-label={isSelected ? `Marked as ${label}` : `Mark as ${label}`}
+            title={isSelected ? `Marked as ${label}` : `Mark as ${label}`}
           >
             <Icon className="h-3 w-3" />
-            {label}
           </button>
         );
       })}
@@ -994,11 +971,18 @@ function ExerciseRow({
   items,
   onOpen,
   onRemove,
+  nextSuggestion,
+  onOpenSuggestion,
 }: {
   kind: "CW" | "HW";
   items: SessionExercise[];
   onOpen: () => void;
   onRemove: (id: string) => void;
+  /** Only the HW variant uses this; renders a dashed "+ Next: …" chip
+   *  after the chips list so the tutor can jump to the suggested next
+   *  item without leaving the row. */
+  nextSuggestion?: NextSuggestion | null;
+  onOpenSuggestion?: () => void;
 }) {
   const isCW = kind === "CW";
   const tone = isCW
@@ -1008,7 +992,7 @@ function ExerciseRow({
     <div className="flex items-start gap-2">
       <button
         onClick={onOpen}
-        className={`text-xs rounded-md px-2 py-1 border flex items-center gap-1 font-medium shrink-0 ${tone}`}
+        className={`text-[11px] rounded-md px-1.5 py-0.5 border flex items-center gap-1 font-medium shrink-0 ${tone}`}
       >
         {isCW ? (
           <PenTool className="h-3 w-3" />
@@ -1018,15 +1002,15 @@ function ExerciseRow({
         {kind} <span className="opacity-70">({items.length})</span>
       </button>
       <div className="flex flex-wrap gap-1">
-        {items.length === 0 && (
-          <span className="text-xs text-ink-400 italic">none recorded</span>
+        {items.length === 0 && !nextSuggestion && (
+          <span className="text-[11px] text-ink-400 italic">none recorded</span>
         )}
         {items.map((it) => {
           const range = formatPageRange(it.page_start, it.page_end);
           return (
             <span
               key={it.id}
-              className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
+              className="inline-flex items-center gap-1 text-[11px] bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
               title={range ? `pp. ${range}` : undefined}
             >
               <span className="font-mono text-ink-700">{it.pdf_name}</span>
@@ -1041,8 +1025,133 @@ function ExerciseRow({
             </span>
           );
         })}
+        {nextSuggestion && onOpenSuggestion && (
+          <button
+            onClick={onOpenSuggestion}
+            className="inline-flex items-center gap-1 text-[11px] rounded-md border border-dashed border-mc-red-300 bg-mc-red-50/60 text-mc-red-700 px-1.5 py-0.5 hover:bg-mc-red-100"
+            title={`Suggested next · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
+          >
+            <ArrowRight className="h-3 w-3" />
+            <span className="uppercase tracking-wide text-[9px] opacity-80">
+              Next
+            </span>
+            <span className="font-mono">{nextSuggestion.item.code}</span>
+          </button>
+        )}
       </div>
     </div>
+  );
+}
+
+function CantAttendMenu({
+  onSetStatus,
+}: {
+  onSetStatus: (next: {
+    session_status: SessionStatusValue;
+    attendance_status?: string;
+  }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Portal-rendered, fixed-positioned popover. Rendering into <body> is the
+  // only way to escape ancestor CSS opacity (e.g. Pending/Booked Make-up
+  // tints) which would otherwise cascade onto the menu — opacity cannot
+  // be restored from a descendant. It also frees the popover from any
+  // overflow-hidden clipping on the meeting card.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const updatePosition = () => {
+    if (!buttonRef.current) return;
+    const r = buttonRef.current.getBoundingClientRect();
+    setPos({ top: r.top, left: r.left });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (buttonRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScrollOrResize() {
+      updatePosition();
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open]);
+
+  const items: {
+    id: string;
+    label: string;
+    Icon: typeof CalendarClock;
+    next: SessionStatusValue;
+  }[] = [
+    { id: "reschedule", label: "Reschedule", Icon: CalendarClock, next: SessionStatus.RESCHEDULED_PENDING },
+    { id: "sick", label: "Sick leave", Icon: Ambulance, next: SessionStatus.SICK_LEAVE_PENDING },
+    { id: "weather", label: "Weather", Icon: CloudRain, next: SessionStatus.WEATHER_PENDING },
+  ];
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-orange-100 text-orange-700 hover:bg-orange-200"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <XCircle className="h-3 w-3" />
+        Can't attend
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              transform: "translateY(calc(-100% - 4px))",
+            }}
+            className="z-50 w-40 bg-white border border-mc-line rounded-md shadow-lg p-1"
+          >
+            {items.map(({ id, label, Icon, next }) => (
+              <button
+                key={id}
+                role="menuitem"
+                onClick={() => {
+                  onSetStatus({
+                    session_status: next,
+                    attendance_status: undefined,
+                  });
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-ink-700 hover:bg-ink-100"
+              >
+                <Icon className="h-3.5 w-3.5 text-orange-600" />
+                {label}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 

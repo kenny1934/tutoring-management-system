@@ -158,8 +158,6 @@ type Store = {
     fromSessionId: string;
     studentId: string;
     template: {
-      class_code: string;
-      class_name: string;
       session_date: string;
       start_time: string;
       duration_mins: number;
@@ -475,8 +473,6 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       fromSessionId: string;
       studentId: string;
       template: {
-        class_code: string;
-        class_name: string;
         session_date: string;
         start_time: string;
         duration_mins: number;
@@ -493,7 +489,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       const enrollmentId = source?.enrollment_id ?? "";
       const rootDate = source?.session_date;
       const noteParts = [
-        source ? `Makeup for ${source.class_name} on ${formatSessionLabel(source)}` : null,
+        source
+          ? `Makeup for ${formatSessionLabel(source)} with ${source.tutor_name}`
+          : null,
         input.reason ? `(${input.reason})` : null,
       ].filter(Boolean);
 
@@ -507,8 +505,6 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         start_time: input.template.start_time,
         duration_mins: input.template.duration_mins,
         room: input.template.room,
-        class_code: input.template.class_code,
-        class_name: `${input.template.class_name} (Make-up)`,
         lesson_number: 0,
         session_status: SessionStatus.MAKEUP_CLASS,
         make_up_for_id: input.fromSessionId,

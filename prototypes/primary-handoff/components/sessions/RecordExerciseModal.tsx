@@ -83,12 +83,26 @@ export function RecordExerciseModal({
   onRemove,
 }: Props) {
   const { assignments } = usePrimaryStore();
-  const [checktableId, setChecktableId] = useState(checktables[0].id);
+  // Auto-pick a checktable that matches the student's grade. Falls back to
+  // the first one (CSM has no "primary checktable" link on the student
+  // record itself; the prototype just heuristics on grade text match).
+  const initialChecktableId = useMemo(() => {
+    const match = checktables.find((c) => c.grade === student.grade);
+    return (match ?? checktables[0]).id;
+  }, [checktables, student.grade]);
+  const [checktableId, setChecktableId] = useState(initialChecktableId);
   const [search, setSearch] = useState("");
   const [pageRange, setPageRange] = useState("");
   const [note, setNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // Empty input ⇒ no range (valid). Non-empty input that doesn't match the
+  // simple "12" or "1-3" form ⇒ silently dropped today; surface a hint so
+  // typos like "p.1-2" or "1–3" (em-dash) don't quietly land as no range.
+  const pageRangeIsInvalid =
+    pageRange.trim().length > 0 &&
+    !/^\d+\s*-\s*\d+$|^\d+$/.test(pageRange.trim());
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -178,6 +192,7 @@ export function RecordExerciseModal({
   const isGrid = viewMode === "grid";
 
   const submit = (item: ChecktableItem) => {
+    if (pageRangeIsInvalid) return;
     const { page_start, page_end } = parsePageRange(pageRange);
     onAdd({
       pdf_name: item.code,
@@ -186,8 +201,9 @@ export function RecordExerciseModal({
       page_end,
       remarks: note || undefined,
     });
-    setPageRange("");
-    setNote("");
+    // Keep pageRange and note so the tutor can record several PDFs from
+    // the same range in one go without retyping. Clear via the field
+    // itself when they're ready to move on.
   };
 
   return (
@@ -212,7 +228,8 @@ export function RecordExerciseModal({
               </span>
             </div>
             <div className="text-xs text-ink-500 mt-0.5 truncate">
-              {student.name} · {student.code} · {session.class_name}
+              {student.name} · {student.code} · {session.session_date}{" "}
+              {session.start_time} · {session.tutor_name}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -317,8 +334,18 @@ export function RecordExerciseModal({
               value={pageRange}
               onChange={(e) => setPageRange(e.target.value)}
               placeholder="1-2"
-              className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm"
+              aria-invalid={pageRangeIsInvalid || undefined}
+              className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                pageRangeIsInvalid
+                  ? "border-mc-red-500 focus:border-mc-red-600"
+                  : "border-ink-200"
+              }`}
             />
+            {pageRangeIsInvalid && (
+              <div className="text-[10px] text-mc-red-600 mt-1">
+                Use "5" or "1-3"
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
@@ -457,7 +484,13 @@ export function RecordExerciseModal({
                         </div>
                         <button
                           onClick={() => submit(item)}
-                          className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap"
+                          disabled={pageRangeIsInvalid}
+                          title={
+                            pageRangeIsInvalid
+                              ? "Fix the page range first"
+                              : undefined
+                          }
+                          className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
                         >
                           <Plus className="h-3 w-3" />
                           Record
