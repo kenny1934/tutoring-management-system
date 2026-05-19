@@ -36,7 +36,14 @@ type ExerciseInput = {
   note?: string;
 };
 
-type ItemMeta = { item: ChecktableItem; checktableId: string };
+type ItemMeta = {
+  item: ChecktableItem;
+  checktableId: string;
+  /** Undefined for supplementary items (no chapter). */
+  chapter?: ChecktableChapter;
+  /** Section label such as "上學期" or "補充教材". */
+  sectionLabel: string;
+};
 
 export type NextSuggestion = {
   item: ChecktableItem;
@@ -109,16 +116,27 @@ function formatSessionLabel(session: ClassSession): string {
 function buildItemMeta(checktables: Checktable[]): Map<string, ItemMeta> {
   const map = new Map<string, ItemMeta>();
   for (const t of checktables) {
-    const collect = (item: ChecktableItem) =>
-      map.set(item.id, { item, checktableId: t.id });
     for (const sec of t.sections) {
       for (const ch of sec.chapters) {
         for (const sId of Object.keys(ch.cells)) {
-          ch.cells[sId].items.forEach(collect);
+          for (const item of ch.cells[sId].items) {
+            map.set(item.id, {
+              item,
+              checktableId: t.id,
+              chapter: ch,
+              sectionLabel: sec.label,
+            });
+          }
         }
       }
     }
-    t.supplementary.forEach(collect);
+    for (const item of t.supplementary) {
+      map.set(item.id, {
+        item,
+        checktableId: t.id,
+        sectionLabel: "補充教材",
+      });
+    }
   }
   return map;
 }
