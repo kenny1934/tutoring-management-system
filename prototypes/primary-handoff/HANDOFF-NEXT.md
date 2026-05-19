@@ -1,6 +1,6 @@
 # Primary Prototypes — Next Session Handoff
 
-Status: the previous session's punch list (Tier 1 + Tier 2 + Tier 3 + the two optional items) all landed. Next session's job is the **CSM-alignment audit findings** below — most are naming/shape mismatches the prototypes will need to fix before any real integration.
+Status: the previous session's CSM-alignment audit landed in full. The prototypes' session/exercise/completion data model now mirrors CSM in shape and field names; the deliberate prototype-only abstractions (Checktable, Assessment) stay as-is and are verified internally consistent.
 
 ---
 
@@ -8,152 +8,119 @@ Status: the previous session's punch list (Tier 1 + Tier 2 + Tier 3 + the two op
 
 - **Branch:** `feature/primary-prototypes`
 - **Worktree:** `.claude/worktrees/feature-primary-prototypes/`
-- **App:** `prototypes/primary-handoff/` — standalone Next.js 15 + Tailwind v4, mock data only, no backend, intentionally not sharing code with main CSM
+- **App:** `prototypes/primary-handoff/` — standalone Next.js 15 + Tailwind v4, mock data only, no backend
 - **No `npm run build` / `npm run dev`** — hot reload runs on the user's side (per CLAUDE.md)
-- **Commits:** conventional (`feat(prototypes):`, `fix(prototypes):`), no Claude footer, do not push without explicit ask
+- **Commits:** conventional (`feat(prototypes):`, `fix(prototypes):`, `refactor(prototypes):`), no Claude footer, do not push without explicit ask
 
-### Shipped this session (14 commits)
+### Shipped this session
+
+The audit-driven refactor came in four commits on top of the prior 13:
 
 ```
-1a97c11e feat(prototypes): scope print batch to a session via Prep print batch
-7e74f7c1 feat(prototypes): add List/Grid view toggle to record modal
-4aac3849 feat(prototypes): tighten session row by collapsing recent chips
-acf08abd feat(prototypes): make Makeup attendance system-set, not a manual pick
-1af9b3d8 feat(prototypes): show session counts on sessions filter bar
-7087e495 feat(prototypes): warn when assigning to a low-HW-load student
-ab130b84 feat(prototypes): show tutor-note badge on checktable item chips
-6413efd0 feat(prototypes): MakeupModal creates a real makeup session
-d8755395 feat(prototypes): group HistoryDrawer entries by date, chapter, or session
-c3a9b47a feat(prototypes): suggest next checktable item on session rows
-0d7ac8ce feat(prototypes): add status and section filters to checktable grid
-f2df2d46 fix(prototypes): scope checktable print batch per student
-f7c898ed feat(prototypes): show per-student status in record modal picker
-(plus the previous handoff doc commit)
+ed6b997e feat(prototypes): surface hwLoad as a chip on session student rows
+af76bd37 feat(prototypes): add HomeworkCompletion as a separate entity
+725c1942 refactor(prototypes): rename RecordedExercise to SessionExercise with CSM-aligned fields
+4d406280 refactor(prototypes): enrollment-bound Session, SessionStatus, makeup linkage
 ```
 
-### What works today (don't redo)
+### Data model — now CSM-aligned where it counts
 
-- Shared store at `lib/store/PrimaryStore.tsx` — sessions, assignments, contacts, students, checktables; `itemMeta: Map<itemId, {item, checktableId, chapter?, sectionLabel}>` lookup; per-student print batch; `nextSuggestedItem(studentId, checktableId)`; `primaryChecktableId(studentId)`; `createMakeupSession(...)`.
-- Recording CW/HW in a session auto-creates a `ChecktableAssignment` (CW=done, HW=assigned). Grid chips reflect it.
-- Cross-nav: session row → `/checktables?student=<id>`; "Prep print batch" → `/checktables?student=X&prep-session=Y`; history drawer → `/sessions?session=<id>` with ring highlight + scroll.
-- HW modal picker shows per-student status dots + `All | Pending | Untouched | Hide done` filter and a `List | Grid` view toggle.
-- Checktable grid has `All | Pending | Untouched` × `All | section… | 補充` filter strip; tutor-note badges; AssignDialog warns when assigning to a `hwLoad: Little` student would push them to ≥3 open items.
-- Makeup modal actually creates a new `ClassSession` (with `isMakeup`, `rescheduledFrom`, the moved student) and flips the source attendance.
-- "Prep print batch" mode on the checktable: accent banner + tray, "Print & record" loops the batch into `recordExercise` as HW and lands the user back on the session.
+| Concept | Prototype before | Prototype now | CSM equivalent |
+|---|---|---|---|
+| Session | `ClassSession` (class-wide, `students: SessionStudent[]`) | `Session` (per-student row, enrollment-bound) | `Session` |
+| Enrollment | implicit | `Enrollment { student_id, class_code, lessons_total, … }` | `Enrollment` |
+| Attendance | `AttendanceStatus` enum (5 values) | `session_status: SessionStatusValue` (13 values) + `attendance_status?: string` for Late | `session_status` + `attendance_status` |
+| Makeup | `isMakeup: boolean` + `rescheduledFrom: string` label | `make_up_for_id` / `rescheduled_to_id` / `root_original_session_date` | same |
+| Exercise record | `RecordedExercise { kind, itemCode, pageRange, note }` | `SessionExercise { exercise_type, pdf_name, page_start, page_end, remarks, item_id? }` | `SessionExercise` |
+| HW completion | implicit (`ChecktableAssignment.status = "done"`) | separate `HomeworkCompletion` entity recorded in a later session | `HomeworkCompletion` |
+
+Field naming: types that mirror CSM use snake_case. Prototype-only types (`Checktable`, `ChecktableAssignment`, `Assessment`, `ParentContact`, `Student`) keep their existing camelCase.
+
+### UI changes you should know about
+
+- **SessionsApp** now derives `ClassMeeting` groups from per-student `Session` rows by `(class_code, session_date, start_time)`. The visible card UX is unchanged; the data under the hood is N rows per meeting instead of 1 with N students inside.
+- **AttendancePicker** writes `session_status` (and `attendance_status="Late"` for the Late button). System-set sub-chips render for `Make-up Class`, `Attended (Make-up)`, `Make-up Booked`, and `Cancelled`.
+- **MakeupModal**'s confirm now calls `createMakeupSession` which:
+  1. Creates a new `Session` with `session_status = "Make-up Class"`, `make_up_for_id = source.id`, `root_original_session_date = source.session_date`.
+  2. Transitions the source's status via `statusAfterMakeupBooked` — `SICK_LEAVE_PENDING → SICK_LEAVE_BOOKED`, `WEATHER_PENDING → WEATHER_BOOKED`, else `RESCHEDULED_BOOKED` — and sets its `rescheduled_to_id = newSession.id`.
+- **AssignDialog**'s "Mark done" routes through `recordHomeworkCompletion`, which picks the student's next session after the assignment as `current_session_id` (mirroring CSM's next-session-checks-previous-HW pattern), creates the completion row, and flips the matching `ChecktableAssignment` to done as a side effect.
+- **HistoryDrawer** surfaces completion info on each assignment card with a deep link to the session where the HW was checked.
+- **hwLoad** now appears as a chip on session student rows (when non-Normal), in addition to the existing checktable header and AssignDialog warning.
+
+### Verified
+
+- All seeded `ChecktableAssignment.itemId`s resolve to real `ChecktableItem`s in the seeded checktables (sanity-checked manually).
+- All session-id references in seeds (including `make_up_for_id`, `rescheduled_to_id`, `source_recorded_exercise_id`, `current_session_id`) resolve to existing session/exercise rows.
+- ItemIDs are unique by construction — `${scope}/${seriesId}/${code}` where scope is per-cell.
+- Supplementary items use a different scope prefix (`supp-01`, `supp-02`, …) and series (`supp`) — no collision with chapter items.
+
+The **Checktable + ChecktableAssignment** model is internally consistent. It remains a deliberate prototype-only abstraction with no CSM counterpart; if it ever lands, the integration design will need to spec (a) a backend table for the curriculum inventory with versioning, and (b) uniqueness constraint on `(checktable_id, scope, series_id, code)`.
 
 ---
 
-## Audit: deviations from CSM
+## What works today (end-to-end)
 
-The prototypes are intentionally a separate app, but several places diverge from CSM in ways the next integration will trip on. Citations are file + line.
-
-### Breaks the mental model (decision needed before integrating)
-
-**1. `ClassSession` is class-wide; CSM's `Session` is enrollment-bound (1:1 with a student's lesson).**
-- Prototype: `lib/types.ts:124–137` has `ClassSession` with `students: SessionStudent[]` — one record per scheduled class.
-- CSM: `webapp/frontend/types/index.ts:354–395` has `Session` with `enrollment_id`, `student_id`, `tutor_id` — one record *per student per occurrence*.
-- Consequence: every interaction in the prototypes that says "find the student inside this session" doesn't map onto CSM's data — there's no inside. A class meeting is N rows in CSM.
-- Decision needed: do we keep the class-wide `ClassSession` view as a derived UI grouping (with N CSM `Session` rows underneath), or rebuild around CSM's per-student session?
-
-**2. `AttendanceStatus` enum vs `session_status` state machine.**
-- Prototype: `lib/types.ts:96–101` — `"pending" | "present" | "absent" | "late" | "makeup"`.
-- CSM: `webapp/frontend/types/index.ts:16–43` exports `SessionStatus` with 15+ values including `Make-up Class`, `Attended (Make-up)`, `Rescheduled - Pending Make-up`, `Rescheduled - Make-up Booked`, `Sick Leave - Pending Make-up`, `Weather Cancelled - …`. Attendance is *not* a separate enum — it's part of the session-status state machine. `attendance_status` exists as a free-form string field but the state lives in `session_status`.
-- Consequence: the prototype's attendance picker, the makeup workflow, and the "Makeup" pill all model state CSM tracks through transitions, not flags.
-
-**3. Makeup is a flag in prototypes, a status + linkage chain in CSM.**
-- Prototype: `lib/types.ts:135` — `isMakeup?: boolean`, with `rescheduledFrom: string` (a human label).
-- CSM: `webapp/frontend/types/index.ts:376–381` — `rescheduled_to_id`, `make_up_for_id`, `root_original_session_date` (for the 60-day rule), `rescheduled_to` / `make_up_for` linked-session info.
-- The prototype's `createMakeupSession` action stores `rescheduledFrom` as a label string; CSM expects a foreign-key chain that supports walking source ↔ makeup and enforcing the 60-day rule.
-
-### Data-shape mismatches (silent rename risk on integration)
-
-**4. `RecordedExercise.kind: "CW" | "HW"` vs `SessionExercise.exercise_type: string`.**
-- Prototype: `lib/types.ts:103–113` — `RecordedExercise { kind, itemCode, pageRange?, note? }`.
-- CSM: `webapp/frontend/types/index.ts:221–238` — `SessionExercise { exercise_type, pdf_name, page_start, page_end, remarks, … }` plus answer-key fields. CW/HW is encoded in `exercise_type` (string), not a closed enum. Page is split into start/end numbers, not a free-form range string.
-- Prototype's `note` ↔ CSM's `remarks`. Prototype's `itemCode` ↔ CSM's `pdf_name`.
-
-**5. Homework completion is a separate entity in CSM, implicit in prototypes.**
-- Prototype: a `ChecktableAssignment.status` of `"done"` represents completion.
-- CSM: `webapp/frontend/types/index.ts:254+` — `HomeworkCompletion { current_session_id, session_exercise_id, submitted, completion_status, tutor_comments, checked_by, checked_at, … }`. Completion is tracked separately from the exercise record, and the *next* session is the one that marks completion of the previous.
-- The prototype's tidy CW=done / HW=assigned auto-link doesn't map onto CSM's "exercise assigned in session N, completion recorded in session N+1" model.
-
-**6. Field-naming convention: camelCase vs snake_case.**
-- Prototype: `lessonNumber`, `studentId`, `checktableId`, `pageRange`, `tutorNote`.
-- CSM: `lesson_number`, `student_id`, `pdf_name`, `page_start`, `remarks`.
-- Mechanical to fix at integration, but worth noting now so the prototype types match an eventual API client.
-
-**7. `hwLoad: "NO" | "Little" | "Normal" | "Many"` has no CSM equivalent.**
-- Prototype: `lib/types.ts:3,11`. The new HW-load warning in `AssignDialog` reads from it.
-- CSM: `webapp/frontend/types/index.ts:111+` — `Student` carries no homework-load property. Either this is a real product extension the prototype is proposing, or it should be derived from CSM data (e.g., from recent assignment density).
-
-**8. `Checktable` + `ChecktableAssignment` are net-new abstractions; intentional.**
-- Prototype: `lib/types.ts:14–71`. Curriculum-aligned exercise inventory + per-student progress on it.
-- CSM: no equivalent — exercises are ad-hoc per session.
-- This is the *point* of the prototypes (proposing a curriculum-map model), so flag it as a deliberate design proposal rather than a fix. Just make sure the next integration step has a real backend design before this part lands.
-
-**9. `Assessment` kanban pipeline doesn't exist in CSM.**
-- Prototype: `lib/types.ts:74–93`, stages `booked | attended | follow-up | enrolled | lost`.
-- CSM: has `HandoverProspect` (`webapp/frontend/types/index.ts:100+`) for the trial→enrollment handover, but no kanban view or staged pipeline.
-- Same call as Checktable — intentional product proposal, but flag the gap.
-
-**10. `ParentContact` invents a shape CSM doesn't expose as a type.**
-- Prototype: `lib/types.ts:148–159`.
-- CSM: parent contacts are accessed through `useStudentParentContacts` and `ZenContactForm`, but the response type isn't a named export in `types/index.ts`. The prototype's shape (method, type, follow-up fields) may or may not match the backend — needs verification next session.
-
-### Visual / UI conventions (cosmetic, mostly intentional)
-
-**11. Color palette: `ink-*` neutrals vs CSM's warm `oak`/`paper-cream`.**
-- Prototype: `app/globals.css:4–24` defines a custom `ink-*` scale.
-- CSM: `webapp/frontend/app/globals.css:28–76` uses warm cream backgrounds, oak primary (`#a0704b`), and semantic tokens (`--color-success: #16a34a`).
-- Intentional per the prototype's framing ("doesn't read as CSM"). No action needed unless these eventually merge.
-
-**12. Drawer for exercise history; everything else in CSM is a modal.**
-- Prototype: `components/checktable/HistoryDrawer.tsx` uses a right-side drawer.
-- CSM: no drawer pattern in the frontend — overlays are uniformly `Modal` (e.g., `webapp/frontend/components/sessions/EditSessionModal.tsx`).
-- Cosmetic but inconsistent. If the prototype's UX is right, this is a pattern CSM should adopt; if not, swap to a modal at integration.
-
-**13. ESC handling is hand-rolled in each modal.**
-- Prototype: every modal has its own `useEffect` for ESC (`RecordExerciseModal.tsx`, `AssignDialog.tsx`, `MakeupModal.tsx`).
-- CSM: shared modal component handles this once.
-- Trivial to consolidate when the prototypes converge with CSM's Modal primitive.
+- Per-student session rows under class-meeting groupings on `/sessions`, with `Today / Upcoming / Past` filter and counts.
+- Mark attendance via `Present | Late | Absent`; system-set Makeup chips display when the session is in a makeup-related status.
+- Schedule a make-up from an absent/sick/weather-pending session → new linked `Session`, source transitions to the matching `*_BOOKED` status.
+- Record CW/HW from the session row → `SessionExercise` is added to the session, auto-linked `ChecktableAssignment` flips to `done` (CW) or `assigned` (HW).
+- Picker shows per-student status (green/amber/neutral dots), `All | Pending | Untouched | Hide done` filter, and a `List | Grid` view toggle reusing `<ChecktableGrid>`.
+- Checktable page has a status × section filter strip; tutor-note badges on chips; per-student print batch (Fix A); session-prep mode via `?prep-session=<id>` that records HW in one shot (Fix B).
+- HistoryDrawer groups by date / chapter / session and shows completion info pulled from `HomeworkCompletion`.
+- "Next suggested item" chip on session rows pointing at the lowest-numbered chapter the student has touched.
+- HW-load warning fires in AssignDialog when assigning to a `hwLoad: Little` student would push them to ≥3 open items.
 
 ---
 
 ## Suggested next-session priorities
 
-Ordered by impact-per-commit; each = one commit (don't bundle).
+Most of the alignment work is done. Remaining items below are scoped narrow.
 
-1. **Decide the `ClassSession` vs `Session` question (#1).** Either rewrite the prototype's data model to CSM's per-student session, or document explicitly that `ClassSession` is a UI grouping that flattens to N `Session` rows. The current prototype hides the question.
-2. **Replace `AttendanceStatus` with the real `SessionStatus` values (#2).** Wire the attendance picker and makeup flow to the right state values (`Attended`, `No Show`, `Rescheduled - Pending Make-up`, etc.). The picker will need to surface fewer manual options and more system-driven ones — the work done in 2c (`createMakeupSession`) already moves in this direction.
-3. **Switch makeup to id-based linkage (#3).** Replace `rescheduledFrom: string` with `make_up_for_id` / `rescheduled_to_id`, and add `root_original_session_date` so the 60-day rule has a place to live. Update `createMakeupSession` to set the link on both sides.
-4. **Align `RecordedExercise` field names with `SessionExercise` (#4 + #6).** Rename `kind` → `exercise_type`, `itemCode` → `pdf_name`, split `pageRange` into `page_start`/`page_end`, `note` → `remarks`. Keep the value space (`CW` / `HW`) as the seed but type it as a string.
-5. **Decide where homework-completion lives (#5).** Either keep the implicit "assignment.status = done" model and document it as a prototype-only simplification, or model `HomeworkCompletion` as a separate entity and have the *next* session's record write it.
-6. **Verify or remove `hwLoad` (#7).** If it's a real proposal, document it in the project memory and write a backend schema sketch. If it's only there because the warning needed something to read, derive it instead.
-7. **Verify the `ParentContact` shape against the real backend response (#10).** A 10-minute check now that prevents a rename later.
+1. **Wire previous-session-HW-check into the session view.** Now that `HomeworkCompletion` exists, the most natural place to mark HW complete is the *next* session row, not the checktable's AssignDialog. Add a "Previous HW to check" affordance per student row on session cards that lists HW assigned in their last attended session and lets the tutor mark each as Complete / Partial / Not done. The store action (`recordHomeworkCompletion`) is already in place.
+2. **Surface `session_status` more richly.** Today the picker only writes `ATTENDED / NO_SHOW`. Add sub-pickers for "Absent — why?" (Sick Leave / Weather / No Show / Generic Reschedule) so the right pending-status transitions fire. The makeup workflow already handles the *_BOOKED side correctly.
+3. **Verify ParentContact shape against CSM's real backend response.** The prototype invents the type (`lib/types.ts:213+`). CSM exposes parent contacts via `useStudentParentContacts` + `ZenContactForm` but doesn't have a named exported type in `types/index.ts`. A 15-minute backend check before this part lands would prevent a rename later.
+4. **Item code uniqueness within a cell.** Defensive: a tutor adding the same code twice to the same cell would create an id collision (since id is `${scope}/${seriesId}/${code}`). Either dedupe at seed time or make the id include an index suffix. Low risk today, worth flagging.
+5. **Cosmetic alignment with CSM palette** (low priority, intentional divergence per original spec).
 
-Items #8 (Checktable model) and #9 (Assessment) are deliberate product proposals — leave them as-is, but flag in the project memory that they don't exist in CSM yet.
+### Deliberately out of scope
 
-Cosmetic items #11 / #12 / #13 can wait until the prototypes converge with CSM proper.
+- `Checktable` and `ChecktableAssignment` types: net-new prototype concepts. Keep camelCase, no CSM rename required.
+- `Assessment` kanban: net-new prototype concept; CSM has `HandoverProspect` but no kanban view.
+- Drawer-vs-modal pattern: stylistic difference; CSM uses Modal throughout, prototype uses Drawer for read-only history. Cosmetic.
+- Hand-rolled ESC handling in each modal: trivial to consolidate when converging with CSM's `Modal` primitive.
 
 ---
 
 ## Architecture pointers (still current)
 
-- **All shared state lives in `PrimaryStoreProvider`** (`lib/store/PrimaryStore.tsx`). When adding selectors, follow the existing pattern: data on the value, ref-backed callbacks for actions, `useMemo` keyed on the data dependencies. Refs are how `recordExercise` / `removeExercise` / `createMakeupSession` read fresh state without becoming new function identities each render.
-- **Use `itemMeta`** for any item-id lookup. It now carries `chapter` and `sectionLabel` (added during 2a), so chapter grouping is a direct read instead of a re-walk.
-- **`DEMO_DAY`** (`lib/mock-data/sessions.ts`) and **`DEMO_NOW`** (`lib/mock-data/parent-contacts.ts`) are the pinned "today" anchors. Do not introduce new `"2026-05-19"` literals.
-- **`sessionLabel(sessionId)`** from the store is the canonical human-readable session label formatter. Reuse rather than reimplementing date formatting.
-- **`primaryChecktableId(studentId)`** picks the checktable a student is most active in — use this when the calling site needs "the" checktable for a student.
-- **URL params owned by the prototypes:** `?student=<id>` (selects current student on checktables page), `?session=<id>` (highlights a session on sessions page), `?prep-session=<id>` (puts checktables into session-prep mode).
+- **All shared state lives in `PrimaryStoreProvider`** (`lib/store/PrimaryStore.tsx`). Selectors follow the same pattern: data on the value, ref-backed callbacks for actions, `useMemo` keyed on the data dependencies.
+- **`itemMeta`** (`Map<itemId, {item, checktableId, chapter?, sectionLabel}>`) is the canonical item lookup. Don't re-walk the checktable structure.
+- **`DEMO_DAY`** (`lib/mock-data/sessions.ts`) is the pinned "today" anchor. No new `"2026-05-19"` literals.
+- **`sessionLabel(sessionId)`** is the canonical human-readable session label formatter.
+- **`primaryChecktableId(studentId)`** picks the checktable a student is most active in.
+- **`parsePageRange` / `formatPageRange`** in the store convert between the "1-2" UI string and the `page_start / page_end` numbers on `SessionExercise`.
+- **URL params owned by the prototypes:**
+  - `/checktables?student=<id>` — selects current student
+  - `/checktables?student=<id>&prep-session=<sessionId>` — session-prep mode
+  - `/sessions?session=<id>` — highlights and scrolls to a session row
+
+### Mock-data layout
+
+- `lib/mock-data/students.ts` — `students[]`
+- `lib/mock-data/sessions.ts` — `enrollments[]`, `sessions[]` (per-student), `makeupSuggestions[]`
+- `lib/mock-data/assignments.ts` — `seedAssignments[]` (ChecktableAssignment)
+- `lib/mock-data/homework-completions.ts` — `seedHomeworkCompletions[]`
+- `lib/mock-data/checktables.ts` — `checktables[]`
+- `lib/mock-data/parent-contacts.ts` — `parentContacts[]`
+- `lib/mock-data/assessments.ts` — assessment kanban seed
 
 ---
 
 ## Demo script
 
-1. Open `/sessions`. Filter chips show counts: `Today (N) · Upcoming (N) · Past (N)`.
-2. Click HW on a student in tonight's session → modal opens with per-student status dots in the picker. Flip to `List | Grid` view; the grid uses the same chips as the checktable page.
-3. Record 2 items; close modal; HW chips appear on the row.
-4. Click **Prep print batch** on the row → checktable opens with an accent banner ("Prepping HW for …"). Add 3 chips, click **Print & record 3** → records HW + lands back on the session showing 5 HW chips.
-5. On the same student, mark a different session **Absent** → **Schedule makeup** → pick a slot → modal confirms inline with a link to the new makeup session. The source row's attendance shows `Makeup · scheduled` (read-only chip).
-6. Open the new makeup session via the link → it's marked `Makeup`, scheduled correctly, and links back to the original.
-7. Open the History drawer on the checktable → switch grouping `By date | By chapter | By session`. Click a session label → navigates to `/sessions` with that session ring-highlighted.
+1. Open `/sessions` — three filter tabs show counts. Today's 4pm class shows three per-student rows under a single card; Lee Tsz Kit has a `HW: Little` chip next to his grade.
+2. Click HW on a student → modal opens with per-student status dots; flip to `Grid` view to use the checktable grid for picking.
+3. Record 2 items → HW chips appear on the session row; status `Attended` is preserved.
+4. Click **Prep print batch** → checktables page opens with accent banner ("Prepping HW for …"); add 3 chips, click **Print & record 3** → returns to `/sessions?session=<id>` with the new HW visible.
+5. On another student, click **Absent** → **Schedule makeup** → pick a slot → confirmation panel links through to the newly-created `Session`. The source row now shows `Make-up booked` and the new session shows `Make-up class` with `make_up_for_id` linking back.
+6. Open History drawer on the checktable; pick an entry that has a completion → see `Complete in <next session>` line + the tutor comment.
