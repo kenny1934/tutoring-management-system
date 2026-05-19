@@ -190,6 +190,23 @@ export interface Session {
   hw: SessionExercise[];
 }
 
+/** Record of homework being checked/submitted, mirroring CSM's
+ *  HomeworkCompletion (webapp/frontend/types/index.ts:254+). In CSM the
+ *  completion is typically recorded in the *next* session after the HW
+ *  was assigned — current_session_id is where the check happened,
+ *  session_exercise_id points back to the HW that was assigned. */
+export interface HomeworkCompletion {
+  id: string;
+  current_session_id: string;
+  session_exercise_id: string;
+  student_id: string;
+  submitted: boolean;
+  completion_status?: string; // "Complete", "Partial", "Not done", etc.
+  tutor_comments?: string;
+  checked_by?: string;
+  checked_at?: string; // ISO datetime
+}
+
 // Parent communications types
 export type ContactMethod = "WhatsApp" | "Phone" | "In-Person";
 export type ContactType = "Progress Update" | "Concern" | "General";

@@ -1,9 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X, Check, ExternalLink } from "lucide-react";
+import { X, Check, ExternalLink, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
-import type { ChecktableAssignment, Student, Checktable } from "@/lib/types";
+import type {
+  ChecktableAssignment,
+  HomeworkCompletion,
+  Student,
+  Checktable,
+} from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 type Props = {
@@ -29,8 +34,18 @@ export function HistoryDrawer({
   assignments,
   checktables,
 }: Props) {
-  const { itemMeta } = usePrimaryStore();
+  const { itemMeta, homeworkCompletions, sessionLabel } = usePrimaryStore();
   const [groupBy, setGroupBy] = useState<GroupMode>("date");
+
+  /** Map a ChecktableAssignment's source exercise id to its completion. */
+  const completionByExerciseId = useMemo(() => {
+    const map = new Map<string, HomeworkCompletion>();
+    for (const c of homeworkCompletions) {
+      if (c.student_id !== student.id) continue;
+      map.set(c.session_exercise_id, c);
+    }
+    return map;
+  }, [homeworkCompletions, student.id]);
 
   const tableLabel = (id: string) => {
     const t = checktables.find((c) => c.id === id);
@@ -152,6 +167,14 @@ export function HistoryDrawer({
                     key={a.id}
                     assignment={a}
                     tableLabel={tableLabel}
+                    sessionLabel={sessionLabel}
+                    completion={
+                      a.sourceRecordedExerciseId
+                        ? completionByExerciseId.get(
+                            a.sourceRecordedExerciseId
+                          )
+                        : undefined
+                    }
                     itemCode={
                       itemMeta.get(a.itemId)?.item.code ??
                       a.itemId.split("/").pop()
@@ -170,10 +193,14 @@ export function HistoryDrawer({
 function AssignmentCard({
   assignment: a,
   tableLabel,
+  sessionLabel,
+  completion,
   itemCode,
 }: {
   assignment: ChecktableAssignment;
   tableLabel: (id: string) => string;
+  sessionLabel: (sessionId: string) => string;
+  completion?: HomeworkCompletion;
   itemCode: string | undefined;
 }) {
   return (
@@ -212,6 +239,27 @@ function AssignmentCard({
       {a.tutorNote && (
         <div className="text-xs text-ink-600 mt-1.5 italic">
           &ldquo;{a.tutorNote}&rdquo;
+        </div>
+      )}
+      {completion && (
+        <div className="text-xs text-emerald-700 mt-1.5 flex items-start gap-1.5">
+          <ClipboardCheck className="h-3 w-3 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <Link
+              href={`/sessions?session=${completion.current_session_id}`}
+              className="hover:underline"
+              title="Open the session where this was checked"
+            >
+              {completion.completion_status ?? "Submitted"} in{" "}
+              {sessionLabel(completion.current_session_id) ||
+                "previous session"}
+            </Link>
+            {completion.tutor_comments && (
+              <div className="text-ink-500 italic mt-0.5">
+                &ldquo;{completion.tutor_comments}&rdquo;
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -37,6 +37,8 @@ export function ChecktableApp() {
     removeFromPrintBatch,
     clearPrintBatch,
     recordExercise,
+    recordHomeworkCompletion,
+    homeworkCompletions,
   } = usePrimaryStore();
 
   const router = useRouter();
@@ -185,13 +187,47 @@ export function ChecktableApp() {
   const handleMarkDone = (item: ChecktableItem) => {
     const existing = existingAssignmentFor(item);
     if (!existing) return;
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === existing.id
-          ? { ...a, status: "done", doneAt: new Date().toISOString() }
-          : a
-      )
-    );
+
+    // If this assignment came from a recorded session exercise, record a
+    // HomeworkCompletion in the student's next session after assignment
+    // (mirrors CSM's "next session checks previous HW" pattern). The store
+    // action handles flipping the assignment's status; otherwise we fall
+    // back to flipping it ourselves so non-source-linked assignments still
+    // work.
+    if (existing.sourceRecordedExerciseId) {
+      const assignmentDate =
+        sessions.find((s) => s.id === existing.sessionId)?.session_date ??
+        existing.assignedAt.slice(0, 10);
+      const nextSession = sessions
+        .filter(
+          (s) =>
+            s.student_id === studentId && s.session_date >= assignmentDate
+        )
+        .sort((a, b) => {
+          if (a.session_date !== b.session_date)
+            return a.session_date.localeCompare(b.session_date);
+          return a.start_time.localeCompare(b.start_time);
+        })
+        .find((s) => s.id !== existing.sessionId);
+      const currentSessionId =
+        nextSession?.id ?? existing.sessionId ?? "manual";
+      recordHomeworkCompletion({
+        current_session_id: currentSessionId,
+        session_exercise_id: existing.sourceRecordedExerciseId,
+        student_id: studentId,
+        submitted: true,
+        completion_status: "Complete",
+        checked_by: nextSession?.tutor_id,
+      });
+    } else {
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === existing.id
+            ? { ...a, status: "done", doneAt: new Date().toISOString() }
+            : a
+        )
+      );
+    }
     setActiveItem(null);
   };
 

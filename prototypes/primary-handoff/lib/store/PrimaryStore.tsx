@@ -16,6 +16,7 @@ import type {
   ChecktableItem,
   Enrollment,
   ExerciseKind,
+  HomeworkCompletion,
   ParentContact,
   Session,
   SessionExercise,
@@ -30,6 +31,7 @@ import {
   enrollments as seedEnrollments,
   sessions as seedSessions,
 } from "@/lib/mock-data/sessions";
+import { seedHomeworkCompletions } from "@/lib/mock-data/homework-completions";
 import { parentContacts as seedContacts } from "@/lib/mock-data/parent-contacts";
 
 type ExerciseInput = {
@@ -89,6 +91,7 @@ type Store = {
   checktables: Checktable[];
   sessions: Session[];
   assignments: ChecktableAssignment[];
+  homeworkCompletions: HomeworkCompletion[];
   contacts: ParentContact[];
 
   /** Lookup any item by id; carries its checktable id too. */
@@ -116,6 +119,19 @@ type Store = {
   togglePrintBatch: (studentId: string, itemId: string) => void;
   removeFromPrintBatch: (studentId: string, itemId: string) => void;
   clearPrintBatch: (studentId: string) => void;
+
+  /** Record that a homework SessionExercise was checked in a (later) session.
+   *  Creates a HomeworkCompletion row and also flips any matching
+   *  ChecktableAssignment to status=done. */
+  recordHomeworkCompletion: (input: {
+    current_session_id: string;
+    session_exercise_id: string;
+    student_id: string;
+    submitted: boolean;
+    completion_status?: string;
+    tutor_comments?: string;
+    checked_by?: string;
+  }) => void;
 
   /** Spawn a make-up Session for a student. Sets make_up_for_id on the new
    *  session, rescheduled_to_id on the source, and transitions the source's
@@ -214,6 +230,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
+  const [homeworkCompletions, setHomeworkCompletions] = useState<
+    HomeworkCompletion[]
+  >(seedHomeworkCompletions);
   const [contacts, setContacts] = useState<ParentContact[]>(seedContacts);
   const [printBatchByStudent, setPrintBatchByStudent] = useState<
     Record<string, string[]>
@@ -365,6 +384,47 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const recordHomeworkCompletion = useCallback(
+    (input: {
+      current_session_id: string;
+      session_exercise_id: string;
+      student_id: string;
+      submitted: boolean;
+      completion_status?: string;
+      tutor_comments?: string;
+      checked_by?: string;
+    }) => {
+      const nowIso = new Date().toISOString();
+      const id = `hc-${Math.random().toString(36).slice(2, 8)}`;
+      const completion: HomeworkCompletion = {
+        id,
+        current_session_id: input.current_session_id,
+        session_exercise_id: input.session_exercise_id,
+        student_id: input.student_id,
+        submitted: input.submitted,
+        completion_status: input.completion_status,
+        tutor_comments: input.tutor_comments,
+        checked_by: input.checked_by,
+        checked_at: nowIso,
+      };
+      setHomeworkCompletions((prev) => [...prev, completion]);
+
+      // Flip any matching ChecktableAssignment to done (the prototype's
+      // existing source of truth for grid chip state) when the completion
+      // is "submitted".
+      if (!input.submitted) return;
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.sourceRecordedExerciseId === input.session_exercise_id &&
+          a.studentId === input.student_id
+            ? { ...a, status: "done", doneAt: nowIso }
+            : a
+        )
+      );
+    },
+    []
+  );
+
   const createMakeupSession = useCallback(
     (input: {
       fromSessionId: string;
@@ -497,6 +557,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       checktables,
       sessions,
       assignments,
+      homeworkCompletions,
       contacts,
       itemMeta,
       setSessions,
@@ -504,6 +565,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       setContacts,
       recordExercise,
       removeExercise,
+      recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
       removeFromPrintBatch,
@@ -519,10 +581,12 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       checktables,
       sessions,
       assignments,
+      homeworkCompletions,
       contacts,
       itemMeta,
       recordExercise,
       removeExercise,
+      recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
       removeFromPrintBatch,
