@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, FileText, Check, Printer } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { X, FileText, Check, Printer, CalendarClock } from "lucide-react";
 import type {
   AssignmentStatus,
   ChecktableAssignment,
   ChecktableItem,
+  ClassSession,
   Student,
 } from "@/lib/types";
 
@@ -14,11 +15,14 @@ type Props = {
   student: Student;
   basePath: string;
   existingAssignment?: ChecktableAssignment;
+  upcomingSessions: ClassSession[];
+  formatSessionLabel: (sessionId: string) => string;
   onClose: () => void;
   onAssign: (input: {
     pageRange?: string;
     tutorNote?: string;
     sessionLabel: string;
+    sessionId?: string;
   }) => void;
   onMarkDone: () => void;
   onUnassign: () => void;
@@ -26,11 +30,15 @@ type Props = {
   isInPrintBatch: boolean;
 };
 
+const UNLINKED = "__none__";
+
 export function AssignDialog({
   item,
   student,
   basePath,
   existingAssignment,
+  upcomingSessions,
+  formatSessionLabel,
   onClose,
   onAssign,
   onMarkDone,
@@ -44,9 +52,16 @@ export function AssignDialog({
   const [tutorNote, setTutorNote] = useState(
     existingAssignment?.tutorNote ?? ""
   );
-  const [sessionLabel, setSessionLabel] = useState(
-    existingAssignment?.sessionLabel ?? defaultSessionLabel()
+  const [sessionId, setSessionId] = useState<string>(
+    existingAssignment?.sessionId ??
+      upcomingSessions[0]?.id ??
+      UNLINKED
   );
+
+  const sessionLabel = useMemo(() => {
+    if (sessionId === UNLINKED) return "";
+    return formatSessionLabel(sessionId);
+  }, [sessionId, formatSessionLabel]);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -57,6 +72,14 @@ export function AssignDialog({
   }, [onClose]);
 
   const status: AssignmentStatus | null = existingAssignment?.status ?? null;
+
+  const submitAssign = () =>
+    onAssign({
+      pageRange,
+      tutorNote,
+      sessionLabel,
+      sessionId: sessionId === UNLINKED ? undefined : sessionId,
+    });
 
   return (
     <div
@@ -120,14 +143,30 @@ export function AssignDialog({
               <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
                 Session
               </label>
-              <input
-                type="text"
-                value={sessionLabel}
-                onChange={(e) => setSessionLabel(e.target.value)}
-                className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm focus:outline-none focus:border-accent-500"
-              />
-              <p className="text-xs text-ink-400 mt-1">
-                Records the item under this session for the student.
+              {upcomingSessions.length > 0 ? (
+                <select
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value)}
+                  className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-accent-500"
+                >
+                  {upcomingSessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {formatSessionLabel(s.id)} · {s.className}
+                    </option>
+                  ))}
+                  <option value={UNLINKED}>
+                    — Assign without a session —
+                  </option>
+                </select>
+              ) : (
+                <div className="rounded-md border border-dashed border-ink-200 px-3 py-2 text-xs text-ink-500 bg-ink-50">
+                  No upcoming sessions for {student.name}. Assignment will be
+                  recorded without a session link.
+                </div>
+              )}
+              <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
+                <CalendarClock className="h-3 w-3" />
+                Picker is restricted to this student's upcoming sessions.
               </p>
             </div>
 
@@ -166,6 +205,9 @@ export function AssignDialog({
                     {new Date(existingAssignment.doneAt).toLocaleDateString()}
                   </>
                 )}
+                {existingAssignment.sourceRecordedExerciseId && (
+                  <span className="ml-1 italic">· recorded in session</span>
+                )}
               </div>
             )}
           </div>
@@ -175,12 +217,10 @@ export function AssignDialog({
           <div className="flex flex-wrap gap-2">
             {status === null && (
               <button
-                onClick={() =>
-                  onAssign({ pageRange, tutorNote, sessionLabel })
-                }
+                onClick={submitAssign}
                 className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700"
               >
-                Assign to session
+                Assign{sessionId !== UNLINKED ? " to session" : ""}
               </button>
             )}
             {status === "assigned" && (
@@ -193,9 +233,7 @@ export function AssignDialog({
                   Mark done
                 </button>
                 <button
-                  onClick={() =>
-                    onAssign({ pageRange, tutorNote, sessionLabel })
-                  }
+                  onClick={submitAssign}
                   className="rounded-md border border-ink-300 text-ink-700 px-3 py-1.5 text-sm hover:bg-white"
                 >
                   Update
@@ -232,11 +270,4 @@ export function AssignDialog({
       </div>
     </div>
   );
-}
-
-function defaultSessionLabel() {
-  const d = new Date();
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const day = days[d.getDay()];
-  return `${d.toISOString().slice(0, 10)} ${day}`;
 }

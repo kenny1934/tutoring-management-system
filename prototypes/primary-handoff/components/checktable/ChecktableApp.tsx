@@ -21,7 +21,9 @@ export function ChecktableApp() {
     students,
     checktables,
     assignments,
+    sessions,
     setAssignments,
+    sessionLabel: formatSessionLabel,
   } = usePrimaryStore();
 
   const searchParams = useSearchParams();
@@ -88,12 +90,25 @@ export function ChecktableApp() {
         a.itemId === item.id
     );
 
+  const upcomingSessionsForStudent = useMemo(() => {
+    const today = "2026-05-19";
+    return sessions
+      .filter(
+        (s) =>
+          s.startAt.slice(0, 10) >= today &&
+          s.students.some((st) => st.studentId === studentId)
+      )
+      .sort((a, b) => a.startAt.localeCompare(b.startAt))
+      .slice(0, 8);
+  }, [sessions, studentId]);
+
   const handleAssign = (
     item: ChecktableItem,
     input: {
       pageRange?: string;
       tutorNote?: string;
       sessionLabel: string;
+      sessionId?: string;
     }
   ) => {
     const existing = existingAssignmentFor(item);
@@ -105,7 +120,7 @@ export function ChecktableApp() {
                 ...a,
                 pageRange: input.pageRange || undefined,
                 tutorNote: input.tutorNote || undefined,
-                sessionLabel: input.sessionLabel,
+                sessionLabel: input.sessionLabel || undefined,
                 sessionId: input.sessionId,
               }
             : a
@@ -122,6 +137,7 @@ export function ChecktableApp() {
         pageRange: input.pageRange || undefined,
         tutorNote: input.tutorNote || undefined,
         sessionLabel: input.sessionLabel || undefined,
+        sessionId: input.sessionId,
       };
       setAssignments((prev) => [...prev, newA]);
     }
@@ -204,6 +220,8 @@ export function ChecktableApp() {
           student={student}
           basePath={table.basePath}
           existingAssignment={existingAssignmentFor(activeItem)}
+          upcomingSessions={upcomingSessionsForStudent}
+          formatSessionLabel={formatSessionLabel}
           onClose={() => setActiveItem(null)}
           onAssign={(input) => handleAssign(activeItem, input)}
           onMarkDone={() => handleMarkDone(activeItem)}
