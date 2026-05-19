@@ -1,0 +1,576 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  Clock,
+  MapPin,
+  User,
+  PenTool,
+  Home as HomeIcon,
+  Star,
+  StickyNote,
+  CalendarClock,
+  Sparkles,
+} from "lucide-react";
+import type {
+  AttendanceStatus,
+  ClassSession,
+  RecordedExercise,
+  Student,
+  SessionStudent,
+  Checktable,
+} from "@/lib/types";
+import { RecordExerciseModal } from "./RecordExerciseModal";
+import { MakeupModal } from "./MakeupModal";
+
+type Props = {
+  sessions: ClassSession[];
+  students: Student[];
+  checktables: Checktable[];
+};
+
+type ExerciseEditor = {
+  sessionId: string;
+  studentId: string;
+  kind: "CW" | "HW";
+};
+
+export function SessionsApp({ sessions, students, checktables }: Props) {
+  const [sessionState, setSessionState] = useState(sessions);
+  const [exerciseEditor, setExerciseEditor] =
+    useState<ExerciseEditor | null>(null);
+  const [makeupOpen, setMakeupOpen] = useState<{
+    sessionId: string;
+    studentId: string;
+  } | null>(null);
+  const [filter, setFilter] = useState<"today" | "upcoming" | "past">("today");
+
+  const studentById = useMemo(
+    () => new Map(students.map((s) => [s.id, s])),
+    [students]
+  );
+
+  const today = "2026-05-19";
+  const filtered = sessionState.filter((s) => {
+    const day = s.startAt.slice(0, 10);
+    if (filter === "today") return day === today;
+    if (filter === "upcoming") return day > today;
+    return day < today;
+  });
+
+  const setAttendance = (
+    sessionId: string,
+    studentId: string,
+    attendance: AttendanceStatus
+  ) => {
+    setSessionState((prev) =>
+      prev.map((s) =>
+        s.id !== sessionId
+          ? s
+          : {
+              ...s,
+              students: s.students.map((st) =>
+                st.studentId === studentId ? { ...st, attendance } : st
+              ),
+            }
+      )
+    );
+  };
+
+  const setPerformance = (
+    sessionId: string,
+    studentId: string,
+    performance: 1 | 2 | 3 | 4 | 5
+  ) => {
+    setSessionState((prev) =>
+      prev.map((s) =>
+        s.id !== sessionId
+          ? s
+          : {
+              ...s,
+              students: s.students.map((st) =>
+                st.studentId === studentId ? { ...st, performance } : st
+              ),
+            }
+      )
+    );
+  };
+
+  const addExercise = (input: {
+    sessionId: string;
+    studentId: string;
+    kind: "CW" | "HW";
+    itemCode: string;
+    itemId?: string;
+    pageRange?: string;
+    note?: string;
+  }) => {
+    const newExercise: RecordedExercise = {
+      id: `rec-${Math.random().toString(36).slice(2, 8)}`,
+      kind: input.kind,
+      itemCode: input.itemCode,
+      itemId: input.itemId,
+      pageRange: input.pageRange,
+      note: input.note,
+    };
+    setSessionState((prev) =>
+      prev.map((s) =>
+        s.id !== input.sessionId
+          ? s
+          : {
+              ...s,
+              students: s.students.map((st) => {
+                if (st.studentId !== input.studentId) return st;
+                const key = input.kind === "CW" ? "cw" : "hw";
+                return { ...st, [key]: [...st[key], newExercise] };
+              }),
+            }
+      )
+    );
+  };
+
+  const removeExercise = (
+    sessionId: string,
+    studentId: string,
+    kind: "CW" | "HW",
+    exerciseId: string
+  ) => {
+    setSessionState((prev) =>
+      prev.map((s) =>
+        s.id !== sessionId
+          ? s
+          : {
+              ...s,
+              students: s.students.map((st) => {
+                if (st.studentId !== studentId) return st;
+                const key = kind === "CW" ? "cw" : "hw";
+                return {
+                  ...st,
+                  [key]: st[key].filter((e) => e.id !== exerciseId),
+                };
+              }),
+            }
+      )
+    );
+  };
+
+  const editorSession = exerciseEditor
+    ? sessionState.find((s) => s.id === exerciseEditor.sessionId)
+    : null;
+  const editorStudent =
+    exerciseEditor && editorSession
+      ? editorSession.students.find(
+          (st) => st.studentId === exerciseEditor.studentId
+        )
+      : null;
+  const editorStudentInfo =
+    exerciseEditor && studentById.get(exerciseEditor.studentId);
+
+  return (
+    <div className="space-y-4">
+      <FilterBar filter={filter} onChange={setFilter} />
+
+      <div className="space-y-4">
+        {filtered.length === 0 && (
+          <div className="surface p-8 text-center text-ink-500">
+            No sessions in this window.
+          </div>
+        )}
+        {filtered.map((session) => (
+          <SessionCard
+            key={session.id}
+            session={session}
+            students={students}
+            onAttendance={(studentId, attendance) =>
+              setAttendance(session.id, studentId, attendance)
+            }
+            onPerformance={(studentId, perf) =>
+              setPerformance(session.id, studentId, perf)
+            }
+            onOpenExercise={(studentId, kind) =>
+              setExerciseEditor({ sessionId: session.id, studentId, kind })
+            }
+            onScheduleMakeup={(studentId) =>
+              setMakeupOpen({ sessionId: session.id, studentId })
+            }
+            onRemoveExercise={(studentId, kind, exerciseId) =>
+              removeExercise(session.id, studentId, kind, exerciseId)
+            }
+          />
+        ))}
+      </div>
+
+      {exerciseEditor && editorSession && editorStudent && editorStudentInfo && (
+        <RecordExerciseModal
+          session={editorSession}
+          student={editorStudentInfo}
+          sessionStudent={editorStudent}
+          kind={exerciseEditor.kind}
+          checktables={checktables}
+          onClose={() => setExerciseEditor(null)}
+          onAdd={(input) => {
+            addExercise({
+              sessionId: exerciseEditor.sessionId,
+              studentId: exerciseEditor.studentId,
+              kind: exerciseEditor.kind,
+              ...input,
+            });
+          }}
+          onRemove={(exerciseId) =>
+            removeExercise(
+              exerciseEditor.sessionId,
+              exerciseEditor.studentId,
+              exerciseEditor.kind,
+              exerciseId
+            )
+          }
+        />
+      )}
+
+      {makeupOpen && (
+        <MakeupModal
+          student={studentById.get(makeupOpen.studentId)!}
+          fromSessionId={makeupOpen.sessionId}
+          session={
+            sessionState.find((s) => s.id === makeupOpen.sessionId) ?? null
+          }
+          onClose={() => setMakeupOpen(null)}
+          onConfirm={() => {
+            setMakeupOpen(null);
+            alert("Demo only — makeup would be scheduled and student notified.");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilterBar({
+  filter,
+  onChange,
+}: {
+  filter: "today" | "upcoming" | "past";
+  onChange: (v: "today" | "upcoming" | "past") => void;
+}) {
+  const items: { id: typeof filter; label: string }[] = [
+    { id: "today", label: "Today" },
+    { id: "upcoming", label: "Upcoming" },
+    { id: "past", label: "Past" },
+  ];
+  return (
+    <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-sm">
+      {items.map((it) => (
+        <button
+          key={it.id}
+          onClick={() => onChange(it.id)}
+          className={`px-3 py-1 rounded-md ${
+            filter === it.id
+              ? "bg-ink-800 text-white"
+              : "text-ink-600 hover:bg-ink-100"
+          }`}
+        >
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SessionCard({
+  session,
+  students,
+  onAttendance,
+  onPerformance,
+  onOpenExercise,
+  onScheduleMakeup,
+  onRemoveExercise,
+}: {
+  session: ClassSession;
+  students: Student[];
+  onAttendance: (studentId: string, a: AttendanceStatus) => void;
+  onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
+  onOpenExercise: (studentId: string, kind: "CW" | "HW") => void;
+  onScheduleMakeup: (studentId: string) => void;
+  onRemoveExercise: (
+    studentId: string,
+    kind: "CW" | "HW",
+    exerciseId: string
+  ) => void;
+}) {
+  const studentById = new Map(students.map((s) => [s.id, s]));
+  const start = new Date(session.startAt);
+
+  return (
+    <div className="surface overflow-hidden">
+      <div
+        className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${
+          session.isMakeup
+            ? "bg-amber-50 border-b border-amber-200"
+            : "bg-ink-50 border-b border-ink-200"
+        }`}
+      >
+        <div className="font-semibold text-ink-900">{session.className}</div>
+        <div className="text-xs text-ink-500 flex items-center gap-1">
+          <CalendarDays className="h-3 w-3" />
+          {start.toLocaleDateString("en-HK", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })}
+        </div>
+        <div className="text-xs text-ink-500 flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {start.toLocaleTimeString("en-HK", {
+            hour: "numeric",
+            minute: "2-digit",
+          })}{" "}
+          · {session.durationMins} min
+        </div>
+        <div className="text-xs text-ink-500 flex items-center gap-1">
+          <MapPin className="h-3 w-3" />
+          {session.room}
+        </div>
+        <div className="text-xs text-ink-500 flex items-center gap-1">
+          <User className="h-3 w-3" />
+          {session.tutorName}
+        </div>
+        {session.lessonNumber > 0 && (
+          <div className="text-xs rounded-md bg-white border border-ink-200 px-1.5 py-0.5 text-ink-600">
+            Lesson #{session.lessonNumber}
+          </div>
+        )}
+        {session.isMakeup && (
+          <div className="text-xs rounded-md bg-amber-100 text-amber-700 px-2 py-0.5 font-medium">
+            Makeup
+          </div>
+        )}
+      </div>
+
+      {session.rescheduledFrom && (
+        <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+          <CalendarClock className="h-3 w-3" />
+          {session.rescheduledFrom}
+        </div>
+      )}
+
+      {session.classWideNote && (
+        <div className="px-4 py-2 text-xs text-ink-600 bg-accent-50 border-b border-accent-100 flex items-start gap-2">
+          <StickyNote className="h-3 w-3 mt-0.5" />
+          {session.classWideNote}
+        </div>
+      )}
+
+      <div className="divide-y divide-ink-100">
+        {session.students.map((ss) => {
+          const student = studentById.get(ss.studentId);
+          if (!student) return null;
+          return (
+            <StudentRow
+              key={ss.studentId}
+              sessionStudent={ss}
+              student={student}
+              onAttendance={(a) => onAttendance(ss.studentId, a)}
+              onPerformance={(p) => onPerformance(ss.studentId, p)}
+              onOpenExercise={(k) => onOpenExercise(ss.studentId, k)}
+              onRemoveExercise={(k, id) =>
+                onRemoveExercise(ss.studentId, k, id)
+              }
+              onScheduleMakeup={() => onScheduleMakeup(ss.studentId)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StudentRow({
+  sessionStudent,
+  student,
+  onAttendance,
+  onPerformance,
+  onOpenExercise,
+  onRemoveExercise,
+  onScheduleMakeup,
+}: {
+  sessionStudent: SessionStudent;
+  student: Student;
+  onAttendance: (a: AttendanceStatus) => void;
+  onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
+  onOpenExercise: (k: "CW" | "HW") => void;
+  onRemoveExercise: (k: "CW" | "HW", id: string) => void;
+  onScheduleMakeup: () => void;
+}) {
+  return (
+    <div className="px-4 py-3 grid grid-cols-1 lg:grid-cols-[200px_140px_1fr_auto] gap-3 lg:items-start">
+      <div>
+        <div className="font-medium text-ink-900">{student.name}</div>
+        <div className="text-xs text-ink-500">
+          {student.code} · {student.grade}
+        </div>
+        {sessionStudent.note && (
+          <div className="text-xs text-ink-600 mt-1 italic">
+            &ldquo;{sessionStudent.note}&rdquo;
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <AttendancePicker
+          value={sessionStudent.attendance}
+          onChange={onAttendance}
+        />
+        {(sessionStudent.attendance === "absent" ||
+          sessionStudent.attendance === "late") && (
+          <button
+            onClick={onScheduleMakeup}
+            className="text-xs text-accent-700 hover:underline flex items-center gap-1"
+          >
+            <CalendarClock className="h-3 w-3" />
+            Schedule makeup
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <ExerciseRow
+          kind="CW"
+          items={sessionStudent.cw}
+          onOpen={() => onOpenExercise("CW")}
+          onRemove={(id) => onRemoveExercise("CW", id)}
+        />
+        <ExerciseRow
+          kind="HW"
+          items={sessionStudent.hw}
+          onOpen={() => onOpenExercise("HW")}
+          onRemove={(id) => onRemoveExercise("HW", id)}
+        />
+      </div>
+
+      <PerformanceRater
+        value={sessionStudent.performance}
+        onChange={onPerformance}
+      />
+    </div>
+  );
+}
+
+function AttendancePicker({
+  value,
+  onChange,
+}: {
+  value: AttendanceStatus;
+  onChange: (v: AttendanceStatus) => void;
+}) {
+  const options: {
+    id: AttendanceStatus;
+    label: string;
+    cls: string;
+  }[] = [
+    { id: "present", label: "Present", cls: "bg-emerald-100 text-emerald-700" },
+    { id: "late", label: "Late", cls: "bg-amber-100 text-amber-700" },
+    { id: "absent", label: "Absent", cls: "bg-rose-100 text-rose-700" },
+    { id: "makeup", label: "Makeup", cls: "bg-accent-100 text-accent-700" },
+  ];
+  const current = options.find((o) => o.id === value);
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={`text-xs rounded-md px-2 py-0.5 border transition-colors ${
+            current?.id === o.id
+              ? `${o.cls} border-transparent font-medium`
+              : "border-ink-200 text-ink-500 hover:bg-ink-50"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ExerciseRow({
+  kind,
+  items,
+  onOpen,
+  onRemove,
+}: {
+  kind: "CW" | "HW";
+  items: RecordedExercise[];
+  onOpen: () => void;
+  onRemove: (id: string) => void;
+}) {
+  const isCW = kind === "CW";
+  const tone = isCW
+    ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+    : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100";
+  return (
+    <div className="flex items-start gap-2">
+      <button
+        onClick={onOpen}
+        className={`text-xs rounded-md px-2 py-1 border flex items-center gap-1 font-medium shrink-0 ${tone}`}
+      >
+        {isCW ? (
+          <PenTool className="h-3 w-3" />
+        ) : (
+          <HomeIcon className="h-3 w-3" />
+        )}
+        {kind}{" "}
+        <span className="opacity-70">({items.length})</span>
+      </button>
+      <div className="flex flex-wrap gap-1">
+        {items.length === 0 && (
+          <span className="text-xs text-ink-400 italic">none recorded</span>
+        )}
+        {items.map((it) => (
+          <span
+            key={it.id}
+            className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
+            title={it.pageRange ? `pp. ${it.pageRange}` : undefined}
+          >
+            <span className="font-mono text-ink-700">{it.itemCode}</span>
+            {it.pageRange && (
+              <span className="text-ink-400">·{it.pageRange}</span>
+            )}
+            <button
+              onClick={() => onRemove(it.id)}
+              className="text-ink-400 hover:text-ink-800 -mr-0.5"
+              aria-label={`Remove ${it.itemCode}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PerformanceRater({
+  value,
+  onChange,
+}: {
+  value?: number;
+  onChange: (v: 1 | 2 | 3 | 4 | 5) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          onClick={() => onChange(n as 1 | 2 | 3 | 4 | 5)}
+          className={`p-0.5 ${
+            value && n <= value ? "text-amber-500" : "text-ink-200"
+          } hover:text-amber-400`}
+          aria-label={`${n} stars`}
+        >
+          <Star className="h-4 w-4 fill-current" />
+        </button>
+      ))}
+    </div>
+  );
+}

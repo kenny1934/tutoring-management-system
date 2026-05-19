@@ -8,8 +8,10 @@ import {
   Quote,
   TrendingUp,
   CheckCircle2,
-  XCircle,
   AlertCircle,
+  ArrowRight,
+  Plus,
+  X,
 } from "lucide-react";
 import type { Assessment, AssessmentStage } from "@/lib/types";
 
@@ -51,10 +53,38 @@ const LANE_TINT: Record<AssessmentStage, string> = {
   lost: "bg-rose-50",
 };
 
+const NEXT_STAGE: Partial<Record<AssessmentStage, AssessmentStage>> = {
+  booked: "attended",
+  attended: "follow-up",
+  "follow-up": "enrolled",
+};
+
+const SOURCES = ["Referral", "Walk-in", "Online"] as const;
+const GRADES = ["P1", "P2", "P3", "P4", "P5", "P6"] as const;
+
 export function AssessmentKanban({ initial }: Props) {
   const [items, setItems] = useState(initial);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverLane, setHoverLane] = useState<AssessmentStage | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+
+  // Conversion rate: enrolled / (enrolled + lost)
+  const stats = useMemo(() => {
+    const enrolled = items.filter((a) => a.stage === "enrolled").length;
+    const lost = items.filter((a) => a.stage === "lost").length;
+    const settled = enrolled + lost;
+    const conversion = settled > 0 ? Math.round((enrolled / settled) * 100) : null;
+    return { enrolled, lost, conversion, total: items.length };
+  }, [items]);
+
+  const visible = useMemo(() => {
+    return items.filter((a) => {
+      if (sourceFilter && !a.source.includes(sourceFilter)) return false;
+      if (gradeFilter && a.childGrade !== gradeFilter) return false;
+      return true;
+    });
+  }, [items, sourceFilter, gradeFilter]);
 
   const grouped = useMemo(() => {
     const map: Record<AssessmentStage, Assessment[]> = {
@@ -64,8 +94,7 @@ export function AssessmentKanban({ initial }: Props) {
       enrolled: [],
       lost: [],
     };
-    for (const a of items) map[a.stage].push(a);
-    // Sort each lane by date (booked: ascending, others: most recent first)
+    for (const a of visible) map[a.stage].push(a);
     map.booked.sort((a, b) => a.bookedFor.localeCompare(b.bookedFor));
     map.attended.sort((a, b) => b.bookedFor.localeCompare(a.bookedFor));
     map["follow-up"].sort((a, b) =>
@@ -74,7 +103,7 @@ export function AssessmentKanban({ initial }: Props) {
     map.enrolled.sort((a, b) => b.bookedFor.localeCompare(a.bookedFor));
     map.lost.sort((a, b) => b.bookedFor.localeCompare(a.bookedFor));
     return map;
-  }, [items]);
+  }, [visible]);
 
   const handleDrop = (laneId: AssessmentStage) => {
     if (!draggingId) return;
@@ -85,60 +114,217 @@ export function AssessmentKanban({ initial }: Props) {
     setHoverLane(null);
   };
 
+  const moveNext = (id: string) => {
+    setItems((prev) =>
+      prev.map((a) => {
+        if (a.id !== id) return a;
+        const next = NEXT_STAGE[a.stage];
+        return next ? { ...a, stage: next } : a;
+      })
+    );
+  };
+
+  const addBooking = () => {
+    alert(
+      "Demo only — would open a 'new booking' form (child name, grade, guardian contact, preferred slot)."
+    );
+  };
+
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-      {LANES.map((lane) => {
-        const cards = grouped[lane.id];
-        const isHover = hoverLane === lane.id;
-        return (
-          <div
-            key={lane.id}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setHoverLane(lane.id);
-            }}
-            onDragLeave={() => setHoverLane((v) => (v === lane.id ? null : v))}
-            onDrop={() => handleDrop(lane.id)}
-            className={`rounded-lg border ${
-              isHover
-                ? "border-accent-500 ring-2 ring-accent-200"
-                : "border-ink-200"
-            } ${LANE_TINT[lane.id]} flex flex-col min-h-[200px]`}
-          >
-            <div className="px-3 py-2 border-b border-ink-200/70 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-ink-800">
-                  {lane.label}
+    <div className="space-y-3">
+      <Toolbar
+        stats={stats}
+        sourceFilter={sourceFilter}
+        gradeFilter={gradeFilter}
+        onSource={setSourceFilter}
+        onGrade={setGradeFilter}
+        onAdd={addBooking}
+      />
+
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        {LANES.map((lane) => {
+          const cards = grouped[lane.id];
+          const isHover = hoverLane === lane.id;
+          return (
+            <div
+              key={lane.id}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setHoverLane(lane.id);
+              }}
+              onDragLeave={() => setHoverLane((v) => (v === lane.id ? null : v))}
+              onDrop={() => handleDrop(lane.id)}
+              className={`rounded-lg border ${
+                isHover
+                  ? "border-accent-500 ring-2 ring-accent-200"
+                  : "border-ink-200"
+              } ${LANE_TINT[lane.id]} flex flex-col min-h-[200px]`}
+            >
+              <div className="px-3 py-2 border-b border-ink-200/70 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-ink-800">
+                    {lane.label}
+                  </div>
+                  <div className="text-xs text-ink-500">{lane.hint}</div>
                 </div>
-                <div className="text-xs text-ink-500">{lane.hint}</div>
+                <span className="text-xs rounded-full bg-white border border-ink-200 px-2 py-0.5 text-ink-700">
+                  {cards.length}
+                </span>
               </div>
-              <span className="text-xs rounded-full bg-white border border-ink-200 px-2 py-0.5 text-ink-700">
-                {cards.length}
-              </span>
+              <div className="flex-1 p-2 space-y-2">
+                {cards.length === 0 && (
+                  <div className="text-xs text-ink-400 text-center py-6">
+                    Empty
+                  </div>
+                )}
+                {cards.map((a) => (
+                  <Card
+                    key={a.id}
+                    a={a}
+                    onDragStart={() => setDraggingId(a.id)}
+                    onDragEnd={() => {
+                      setDraggingId(null);
+                      setHoverLane(null);
+                    }}
+                    dragging={draggingId === a.id}
+                    onMoveNext={() => moveNext(a.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="flex-1 p-2 space-y-2">
-              {cards.length === 0 && (
-                <div className="text-xs text-ink-400 text-center py-6">
-                  Empty
-                </div>
-              )}
-              {cards.map((a) => (
-                <Card
-                  key={a.id}
-                  a={a}
-                  onDragStart={() => setDraggingId(a.id)}
-                  onDragEnd={() => {
-                    setDraggingId(null);
-                    setHoverLane(null);
-                  }}
-                  dragging={draggingId === a.id}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+function Toolbar({
+  stats,
+  sourceFilter,
+  gradeFilter,
+  onSource,
+  onGrade,
+  onAdd,
+}: {
+  stats: { total: number; enrolled: number; lost: number; conversion: number | null };
+  sourceFilter: string | null;
+  gradeFilter: string | null;
+  onSource: (v: string | null) => void;
+  onGrade: (v: string | null) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="surface p-3 flex flex-wrap items-center gap-3 text-sm">
+      <div className="flex items-center gap-4 flex-1 min-w-[200px]">
+        <Stat label="Total" value={stats.total} />
+        <Stat label="Enrolled" value={stats.enrolled} tone="good" />
+        <Stat label="Lost" value={stats.lost} tone="bad" />
+        <Stat
+          label="Conversion"
+          value={stats.conversion === null ? "—" : `${stats.conversion}%`}
+          tone={
+            stats.conversion === null
+              ? undefined
+              : stats.conversion >= 70
+                ? "good"
+                : stats.conversion >= 50
+                  ? "warn"
+                  : "bad"
+          }
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FilterPill
+          label="Source"
+          value={sourceFilter}
+          options={SOURCES as readonly string[]}
+          onChange={onSource}
+        />
+        <FilterPill
+          label="Grade"
+          value={gradeFilter}
+          options={GRADES as readonly string[]}
+          onChange={onGrade}
+        />
+      </div>
+
+      <button
+        onClick={onAdd}
+        className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700 flex items-center gap-1 whitespace-nowrap"
+      >
+        <Plus className="h-4 w-4" />
+        New booking
+      </button>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone?: "good" | "warn" | "bad";
+}) {
+  const cls =
+    tone === "good"
+      ? "text-emerald-700"
+      : tone === "warn"
+        ? "text-amber-700"
+        : tone === "bad"
+          ? "text-rose-700"
+          : "text-ink-900";
+  return (
+    <div>
+      <div className={`text-lg font-semibold leading-none ${cls}`}>{value}</div>
+      <div className="text-xs text-ink-500 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function FilterPill({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  options: readonly string[];
+  onChange: (v: string | null) => void;
+}) {
+  if (value) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md border border-ink-300 bg-white pl-2 pr-1 py-1 text-xs">
+        <span className="text-ink-500">{label}:</span>
+        <span className="font-medium text-ink-800">{value}</span>
+        <button
+          onClick={() => onChange(null)}
+          className="text-ink-400 hover:text-ink-800 p-0.5"
+          aria-label="Clear filter"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </span>
+    );
+  }
+  return (
+    <select
+      value=""
+      onChange={(e) => onChange(e.target.value || null)}
+      className="text-xs rounded-md border border-ink-300 bg-white px-2 py-1"
+    >
+      <option value="">{label}: any</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -147,23 +333,27 @@ function Card({
   onDragStart,
   onDragEnd,
   dragging,
+  onMoveNext,
 }: {
   a: Assessment;
   onDragStart: () => void;
   onDragEnd: () => void;
   dragging: boolean;
+  onMoveNext: () => void;
 }) {
   const followUpFlag =
     a.stage === "follow-up" && a.followUpDue
       ? followUpUrgency(a.followUpDue)
       : null;
 
+  const canMoveNext = a.stage in NEXT_STAGE;
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`bg-white rounded-md border border-ink-200 p-3 text-sm shadow-sm cursor-grab active:cursor-grabbing ${
+      className={`bg-white rounded-md border border-ink-200 p-3 text-sm shadow-sm cursor-grab active:cursor-grabbing relative group ${
         dragging ? "opacity-50" : ""
       }`}
     >
@@ -220,6 +410,16 @@ function Card({
           {a.notes}
         </div>
       )}
+
+      {canMoveNext && (
+        <button
+          onClick={onMoveNext}
+          title={`Move to ${NEXT_STAGE[a.stage]}`}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-md border border-ink-300 bg-white hover:bg-ink-100 p-1"
+        >
+          <ArrowRight className="h-3.5 w-3.5 text-ink-600" />
+        </button>
+      )}
     </div>
   );
 }
@@ -237,7 +437,7 @@ function formatDateTime(iso: string) {
 
 function followUpUrgency(dueIso: string) {
   const due = new Date(dueIso).getTime();
-  const now = new Date("2026-05-19T00:00:00+08:00").getTime(); // pinned demo date
+  const now = new Date("2026-05-19T00:00:00+08:00").getTime();
   const days = Math.floor((due - now) / 86400000);
   if (days < 0) {
     return {
