@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { History } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { History, ArrowLeft, Printer } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type {
   AssignmentStatus,
   Checktable,
   ChecktableAssignment,
   ChecktableItem,
+  ClassSession,
   Student,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
@@ -34,10 +36,13 @@ export function ChecktableApp() {
     togglePrintBatch: togglePrintBatchForStudent,
     removeFromPrintBatch,
     clearPrintBatch,
+    recordExercise,
   } = usePrimaryStore();
 
+  const router = useRouter();
   const searchParams = useSearchParams();
   const studentParam = searchParams.get("student");
+  const prepSessionParam = searchParams.get("prep-session");
 
   const [studentOverride, setStudentOverride] = useState<string | null>(null);
   const studentId =
@@ -54,6 +59,15 @@ export function ChecktableApp() {
 
   const student = students.find((s) => s.id === studentId)!;
   const table = checktables.find((c) => c.id === checktableId)!;
+
+  const prepSession = useMemo(() => {
+    if (!prepSessionParam) return null;
+    const s = sessions.find((x) => x.id === prepSessionParam);
+    if (!s) return null;
+    // Only prep for sessions this student is actually in
+    if (!s.students.some((st) => st.studentId === studentId)) return null;
+    return s;
+  }, [prepSessionParam, sessions, studentId]);
 
   const printBatchIds = getPrintBatch(studentId);
 
@@ -189,16 +203,48 @@ export function ChecktableApp() {
   };
 
   const handlePrint = () => {
-    alert(
-      `Demo only.\n\nWould resolve ${printBatchItems.length} PDFs from:\n${table.basePath}\n\nFiles:\n${printBatchItems
-        .map((i) => i.pdfPath ?? `${table.basePath}\\${i.code}.pdf`)
-        .join("\n")}\n\nAnd send to default printer.`
-    );
-    clearPrintBatch(studentId);
+    if (prepSession) {
+      // Session-scoped: record every item as HW for this student in that
+      // session in one shot. recordExercise also creates the linked
+      // checktable assignment, so the grid chips flip to "assigned"
+      // automatically.
+      const count = printBatchItems.length;
+      for (const item of printBatchItems) {
+        recordExercise({
+          sessionId: prepSession.id,
+          studentId,
+          kind: "HW",
+          itemCode: item.code,
+          itemId: item.id,
+        });
+      }
+      clearPrintBatch(studentId);
+      alert(
+        `Recorded ${count} HW item${
+          count === 1 ? "" : "s"
+        } against ${formatSessionLabel(prepSession.id)} — ${student.name}. (Demo: would also send PDFs to the printer.)`
+      );
+      router.push(`/sessions?session=${prepSession.id}`);
+    } else {
+      alert(
+        `Demo only.\n\nWould resolve ${printBatchItems.length} PDFs from:\n${table.basePath}\n\nFiles:\n${printBatchItems
+          .map((i) => i.pdfPath ?? `${table.basePath}\\${i.code}.pdf`)
+          .join("\n")}\n\nAnd send to default printer.`
+      );
+      clearPrintBatch(studentId);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {prepSession && (
+        <PrepBanner
+          session={prepSession}
+          student={student}
+          batchSize={printBatchItems.length}
+        />
+      )}
+
       <Header
         students={students}
         student={student}
@@ -235,6 +281,9 @@ export function ChecktableApp() {
         items={printBatchItems}
         student={student}
         basePath={table.basePath}
+        prepSessionLabel={
+          prepSession ? formatSessionLabel(prepSession.id) : undefined
+        }
         onRemove={(id) => removeFromPrintBatch(studentId, id)}
         onClear={() => clearPrintBatch(studentId)}
         onPrint={handlePrint}
@@ -462,6 +511,51 @@ function GridFilterBar({
           Reset
         </button>
       )}
+    </div>
+  );
+}
+
+function PrepBanner({
+  session,
+  student,
+  batchSize,
+}: {
+  session: ClassSession;
+  student: Student;
+  batchSize: number;
+}) {
+  const start = new Date(session.startAt);
+  const label = `${start.toLocaleDateString("en-HK", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })} ${start.toLocaleTimeString("en-HK", {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+  return (
+    <div className="surface bg-accent-50 border-accent-200 px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <div className="flex items-center gap-2 text-sm text-accent-800">
+        <Printer className="h-4 w-4 text-accent-600" />
+        <span>
+          Prepping HW for{" "}
+          <span className="font-medium">{session.className}</span> ·{" "}
+          <span className="font-medium">{label}</span> ·{" "}
+          <span className="font-medium">{student.name}</span>
+        </span>
+      </div>
+      <span className="text-xs text-accent-700">
+        {batchSize === 0
+          ? "Pick items below — Print records them as HW on this session."
+          : `${batchSize} item${batchSize === 1 ? "" : "s"} ready to print.`}
+      </span>
+      <Link
+        href={`/sessions?session=${session.id}`}
+        className="ml-auto text-xs text-accent-700 hover:underline inline-flex items-center gap-1"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to session
+      </Link>
     </div>
   );
 }

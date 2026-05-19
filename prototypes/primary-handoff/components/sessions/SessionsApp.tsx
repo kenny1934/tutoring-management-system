@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Table2,
   ArrowRight,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -395,6 +396,7 @@ function SessionCard({
               key={ss.studentId}
               sessionStudent={ss}
               student={student}
+              sessionId={session.id}
               nextSuggestion={nextByStudent.get(ss.studentId) ?? null}
               onAttendance={(a) => onAttendance(ss.studentId, a)}
               onPerformance={(p) => onPerformance(ss.studentId, p)}
@@ -414,6 +416,7 @@ function SessionCard({
 function StudentRow({
   sessionStudent,
   student,
+  sessionId,
   nextSuggestion,
   onAttendance,
   onPerformance,
@@ -423,6 +426,7 @@ function StudentRow({
 }: {
   sessionStudent: SessionStudent;
   student: Student;
+  sessionId: string;
   nextSuggestion: NextSuggestion | null;
   onAttendance: (a: AttendanceStatus) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
@@ -504,6 +508,14 @@ function StudentRow({
         >
           <Table2 className="h-3 w-3" />
           Checktable
+        </Link>
+        <Link
+          href={`/checktables?student=${student.id}&prep-session=${sessionId}`}
+          className="text-[11px] text-accent-700 hover:underline inline-flex items-center gap-1"
+          title="Pick items in the checktable, then print them as this session's HW in one shot"
+        >
+          <Printer className="h-3 w-3" />
+          Prep print batch
         </Link>
       </div>
     </div>
