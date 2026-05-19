@@ -19,6 +19,34 @@
   --color-accent-600: #3a55d4;
   --color-accent-700: #2c41a6;
 
+  /* MathConcept brand palette — red / white / black dominate, with yellow
+   * and peach as warm accents. Mirrors mathconcept.com.mo. */
+  --color-mc-red-50: #fff1f1;
+  --color-mc-red-100: #ffdedd;
+  --color-mc-red-200: #ffb3b1;
+  --color-mc-red-500: #ec0000;
+  --color-mc-red-600: #e00000;
+  --color-mc-red-700: #b30000;
+
+  --color-mc-yellow-50: #fffaeb;
+  --color-mc-yellow-100: #fef3c7;
+  --color-mc-yellow-200: #ffe88a;
+  --color-mc-yellow-500: #ffc200;
+  --color-mc-yellow-600: #d99e00;
+
+  --color-mc-peach-50: #fff5ec;
+  --color-mc-peach-100: #ffe0c2;
+  --color-mc-peach-500: #ffbc7d;
+  --color-mc-peach-600: #f59e4a;
+
+  /* Page surfaces — mostly white with a near-black text and hairline
+   * gray borders. Cream is reserved for hero / banner moments. */
+  --color-mc-paper: #ffffff;
+  --color-mc-cream: #fef7e5;
+  --color-mc-ink: #212121;
+  --color-mc-line: #e5e5e5;
+  --color-mc-line-strong: #1a1a1a;
+
   --color-good: #2f9e6a;
   --color-warn: #c98a2b;
   --color-bad: #c25450;
@@ -49,6 +77,27 @@ body {
   background: var(--color-ink-100);
   border: 1px solid var(--color-ink-200);
   border-radius: 10px;
+}
+
+/* MathConcept-aligned surface — white card on a near-black hairline
+ * border. Used by the Sessions page. */
+.surface-mc {
+  background: var(--color-mc-paper);
+  border: 1px solid var(--color-mc-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.surface-mc-strong {
+  background: var(--color-mc-paper);
+  border: 2px solid var(--color-mc-ink);
+  border-radius: 8px;
+}
+
+.surface-mc-cream {
+  background: var(--color-mc-cream);
+  border: 1px solid var(--color-mc-line);
+  border-radius: 8px;
 }
 
 .chip {

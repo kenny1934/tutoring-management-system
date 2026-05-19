@@ -85,11 +85,22 @@ export type NextSuggestion = {
   checktableId: string;
 };
 
+export type PendingHomeworkEntry = {
+  exercise: SessionExercise;
+  /** Completion row, if one has been recorded. The selector only returns
+   *  entries whose completion (if any) was made in the current session
+   *  — older completions made elsewhere are dropped so the row doesn't
+   *  re-surface stale checks. */
+  completion?: HomeworkCompletion;
+};
+
 export type PendingHomeworkCheck = {
   /** The prior session the HW was assigned in. */
   session: Session;
-  /** HW exercises from that session with no HomeworkCompletion row yet. */
-  exercises: SessionExercise[];
+  /** All HW entries from that session that are still in scope for the
+   *  current check: either no completion yet, or completion recorded in
+   *  the current session (so it stays visible after the tutor marks it). */
+  entries: PendingHomeworkEntry[];
 };
 
 type Store = {
@@ -412,31 +423,48 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       checked_by?: string;
     }) => {
       const nowIso = new Date().toISOString();
-      const id = `hc-${Math.random().toString(36).slice(2, 8)}`;
-      const completion: HomeworkCompletion = {
-        id,
-        current_session_id: input.current_session_id,
-        session_exercise_id: input.session_exercise_id,
-        student_id: input.student_id,
-        submitted: input.submitted,
-        completion_status: input.completion_status,
-        tutor_comments: input.tutor_comments,
-        checked_by: input.checked_by,
-        checked_at: nowIso,
-      };
-      setHomeworkCompletions((prev) => [...prev, completion]);
+      setHomeworkCompletions((prev) => {
+        // Upsert by (student, exercise, current session) so re-marking the
+        // same HW from the same session updates rather than appending.
+        const idx = prev.findIndex(
+          (c) =>
+            c.student_id === input.student_id &&
+            c.session_exercise_id === input.session_exercise_id &&
+            c.current_session_id === input.current_session_id
+        );
+        const next: HomeworkCompletion = {
+          id: idx === -1 ? `hc-${Math.random().toString(36).slice(2, 8)}` : prev[idx].id,
+          current_session_id: input.current_session_id,
+          session_exercise_id: input.session_exercise_id,
+          student_id: input.student_id,
+          submitted: input.submitted,
+          completion_status: input.completion_status,
+          tutor_comments: input.tutor_comments,
+          checked_by: input.checked_by,
+          checked_at: nowIso,
+        };
+        if (idx === -1) return [...prev, next];
+        const copy = prev.slice();
+        copy[idx] = next;
+        return copy;
+      });
 
-      // Flip any matching ChecktableAssignment to done (the prototype's
-      // existing source of truth for grid chip state) when the completion
-      // is "submitted".
-      if (!input.submitted) return;
+      // Flip / unflip the linked ChecktableAssignment based on submitted
+      // state (grid chips are the existing source of truth for "done").
       setAssignments((prev) =>
-        prev.map((a) =>
-          a.sourceRecordedExerciseId === input.session_exercise_id &&
-          a.studentId === input.student_id
-            ? { ...a, status: "done", doneAt: nowIso }
-            : a
-        )
+        prev.map((a) => {
+          if (
+            a.sourceRecordedExerciseId !== input.session_exercise_id ||
+            a.studentId !== input.student_id
+          )
+            return a;
+          if (input.submitted) {
+            return { ...a, status: "done", doneAt: nowIso };
+          }
+          // Re-marked as "Not done" — flip the assignment back to
+          // "assigned" so the grid chip no longer reads as complete.
+          return { ...a, status: "assigned", doneAt: undefined };
+        })
       );
     },
     []
@@ -530,17 +558,31 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           return b.start_time.localeCompare(a.start_time);
         });
 
-      const completedExerciseIds = new Set(
-        homeworkCompletions
-          .filter((c) => c.student_id === studentId)
-          .map((c) => c.session_exercise_id)
-      );
+      const completionsByExerciseId = new Map<string, HomeworkCompletion>();
+      for (const c of homeworkCompletions) {
+        if (c.student_id !== studentId) continue;
+        completionsByExerciseId.set(c.session_exercise_id, c);
+      }
 
       for (const session of priorAttended) {
-        const pending = session.hw.filter(
-          (ex) => !completedExerciseIds.has(ex.id)
-        );
-        if (pending.length > 0) return { session, exercises: pending };
+        const entries: PendingHomeworkEntry[] = [];
+        for (const ex of session.hw) {
+          const completion = completionsByExerciseId.get(ex.id);
+          // No completion at all → still pending, show it.
+          if (!completion) {
+            entries.push({ exercise: ex });
+            continue;
+          }
+          // Completion was recorded in *this* current session → keep it
+          // visible so the tutor can see what they just marked (and
+          // re-mark if needed).
+          if (completion.current_session_id === currentSessionId) {
+            entries.push({ exercise: ex, completion });
+          }
+          // Completion recorded in some other (later) session → suppress
+          // here; it belongs in that session's row.
+        }
+        if (entries.length > 0) return { session, entries };
       }
       return null;
     },

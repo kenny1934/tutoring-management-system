@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CalendarDays,
   Clock,
   MapPin,
   User,
@@ -18,6 +17,12 @@ import {
   Check,
   CircleSlash,
   CircleDashed,
+  CheckCircle2,
+  UserX,
+  Ambulance,
+  CloudRain,
+  CalendarPlus,
+  Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -33,8 +38,10 @@ import {
   formatPageRange,
   type NextSuggestion,
   type PendingHomeworkCheck,
+  type PendingHomeworkEntry,
 } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
+import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
 
@@ -44,8 +51,11 @@ type ExerciseEditor = {
   kind: "CW" | "HW";
 };
 
+type PreviousHwChoice = "complete" | "partial" | "not-done";
+
 /** UI-only grouping: many per-student Session rows that share class+date+time
- *  display as one card. Kept as a derived view; not stored. */
+ *  display as one card. Kept as a derived view; not stored. Mirrors CSM's
+ *  "time slot" grouping. */
 type ClassMeeting = {
   key: string;
   class_code: string;
@@ -56,10 +66,8 @@ type ClassMeeting = {
   room: string;
   tutor_name: string;
   lesson_number: number;
-  /** True if any sibling session is a make-up class. */
   is_makeup: boolean;
   class_wide_note?: string;
-  /** Per-student sessions in this meeting. */
   members: Session[];
 };
 
@@ -166,7 +174,8 @@ export function SessionsApp() {
     return map;
   }, [students, primaryChecktableId, nextSuggestedItem]);
 
-  /** Per current-session-id, the previous attended session's unchecked HW. */
+  /** Per current-session-id, the previous attended session's HW entries
+   *  (mix of pending + already-checked-in-this-session). */
   const pendingHwBySessionId = useMemo(() => {
     const map = new Map<string, PendingHomeworkCheck>();
     for (const s of sessionState) {
@@ -243,7 +252,7 @@ export function SessionsApp() {
 
       <div className="space-y-4">
         {filtered.length === 0 && (
-          <div className="surface p-8 text-center text-ink-500">
+          <div className="surface-mc p-8 text-center text-ink-500">
             No sessions in this window.
           </div>
         )}
@@ -345,17 +354,17 @@ function FilterBar({
     { id: "past", label: "Past", count: counts.past },
   ];
   return (
-    <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-sm">
+    <div className="inline-flex rounded-md border border-ink-300 bg-white p-0.5 text-sm">
       {items.map((it) => {
         const active = filter === it.id;
         return (
           <button
             key={it.id}
             onClick={() => onChange(it.id)}
-            className={`px-3 py-1 rounded-md ${
+            className={`px-3 py-1 rounded-md transition-colors ${
               active
-                ? "bg-ink-800 text-white"
-                : "text-ink-600 hover:bg-ink-100"
+                ? "bg-mc-red-600 text-white"
+                : "text-ink-700 hover:bg-ink-100"
             }`}
           >
             {it.label}
@@ -372,7 +381,6 @@ function FilterBar({
 }
 
 function formatTime(start_time: string): string {
-  // "HH:MM" → "4:00pm" (HKT)
   const d = new Date(`2026-01-01T${start_time}:00+08:00`);
   return d.toLocaleTimeString("en-HK", {
     hour: "numeric",
@@ -380,7 +388,22 @@ function formatTime(start_time: string): string {
   });
 }
 
-type PreviousHwChoice = "complete" | "partial" | "not-done";
+/** Lightweight color map for primary grade badges. Just enough variety to
+ *  visually distinguish grades on the card. */
+function gradeBadgeStyle(grade: string): string {
+  switch (grade) {
+    case "P1": case "P2":
+      return "bg-blue-100 text-blue-700";
+    case "P3": case "P4":
+      return "bg-emerald-100 text-emerald-700";
+    case "P5":
+      return "bg-purple-100 text-purple-700";
+    case "P6":
+      return "bg-mc-peach-100 text-mc-peach-600";
+    default:
+      return "bg-ink-100 text-ink-700";
+  }
+}
 
 function MeetingCard({
   meeting,
@@ -438,54 +461,53 @@ function MeetingCard({
 
   return (
     <div
-      className={`surface overflow-hidden ${
-        highlighted ? "ring-2 ring-accent-500 ring-offset-2" : ""
+      className={`surface-mc overflow-hidden ${
+        highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
+      {/* Time-slot header — mirrors CSM's slot header with a thick red
+       *  left rule. Cream tint when this meeting is a make-up. */}
       <div
-        className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${
+        className={`px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-l-4 ${
           meeting.is_makeup
-            ? "bg-amber-50 border-b border-amber-200"
-            : "bg-ink-50 border-b border-ink-200"
+            ? "bg-mc-yellow-50 border-l-mc-yellow-500 border-b border-b-ink-200"
+            : "bg-white border-l-mc-red-600 border-b border-b-ink-200"
         }`}
       >
         <div className="font-semibold text-ink-900">{meeting.class_name}</div>
-        <div className="text-xs text-ink-500 flex items-center gap-1">
-          <CalendarDays className="h-3 w-3" />
-          {dateLabel}
-        </div>
-        <div className="text-xs text-ink-500 flex items-center gap-1">
+        <div className="text-xs text-ink-600 flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {timeLabel} · {meeting.duration_mins} min
+          {dateLabel} · {timeLabel} · {meeting.duration_mins} min
         </div>
-        <div className="text-xs text-ink-500 flex items-center gap-1">
+        <div className="text-xs text-ink-600 flex items-center gap-1">
           <MapPin className="h-3 w-3" />
           {meeting.room}
         </div>
-        <div className="text-xs text-ink-500 flex items-center gap-1">
+        <div className="text-xs text-ink-600 flex items-center gap-1">
           <User className="h-3 w-3" />
           {meeting.tutor_name}
         </div>
         {meeting.lesson_number > 0 && (
-          <div className="text-xs rounded-md bg-white border border-ink-200 px-1.5 py-0.5 text-ink-600">
-            Lesson #{meeting.lesson_number}
+          <div className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5">
+            <Hash className="h-3 w-3" />
+            {meeting.lesson_number}
           </div>
         )}
         {meeting.is_makeup && (
-          <div className="text-xs rounded-md bg-amber-100 text-amber-700 px-2 py-0.5 font-medium">
-            Makeup
+          <div className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold">
+            Make-up
           </div>
         )}
       </div>
 
       {meeting.class_wide_note && (
-        <div className="px-4 py-2 text-xs text-ink-600 bg-accent-50 border-b border-accent-100 flex items-start gap-2">
-          <StickyNote className="h-3 w-3 mt-0.5" />
+        <div className="px-4 py-2 text-xs text-ink-700 bg-mc-cream border-b border-ink-200 flex items-start gap-2">
+          <StickyNote className="h-3 w-3 mt-0.5 text-mc-red-600" />
           {meeting.class_wide_note}
         </div>
       )}
 
-      <div className="divide-y divide-ink-100">
+      <div className="divide-y divide-ink-200">
         {meeting.members.map((session) => {
           const student = studentById.get(session.student_id);
           if (!student) return null;
@@ -526,51 +548,23 @@ function MeetingCard({
   );
 }
 
-type PickerChoice = "present" | "late" | "absent";
-
-function pickerChoiceForStatus(s: Session): PickerChoice | null {
-  if (s.session_status === SessionStatus.ATTENDED) {
-    return s.attendance_status === "Late" ? "late" : "present";
-  }
-  if (s.session_status === SessionStatus.NO_SHOW) return "absent";
-  // Pending make-up variants display as "absent" so the schedule-makeup
-  // button remains discoverable.
-  if (
-    s.session_status === SessionStatus.RESCHEDULED_PENDING ||
-    s.session_status === SessionStatus.SICK_LEAVE_PENDING ||
-    s.session_status === SessionStatus.WEATHER_PENDING
-  )
-    return "absent";
-  return null;
+/** Sessions whose status can be changed via the inline action buttons.
+ *  Once attended / no-show'd / makeup-booked, the row finalizes and the
+ *  buttons hide (matching CSM behavior). */
+function isNotAttended(s: SessionStatusValue): boolean {
+  return (
+    s === SessionStatus.SCHEDULED ||
+    s === SessionStatus.TRIAL_CLASS ||
+    s === SessionStatus.MAKEUP_CLASS
+  );
 }
 
-function makeupSubChip(s: Session): { label: string; tone: string } | null {
-  switch (s.session_status) {
-    case SessionStatus.MAKEUP_CLASS:
-      return {
-        label: "Make-up class",
-        tone: "border-accent-200 bg-accent-50 text-accent-700",
-      };
-    case SessionStatus.ATTENDED_MAKEUP:
-      return {
-        label: "Attended (Make-up)",
-        tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
-      };
-    case SessionStatus.RESCHEDULED_BOOKED:
-    case SessionStatus.SICK_LEAVE_BOOKED:
-    case SessionStatus.WEATHER_BOOKED:
-      return {
-        label: "Make-up booked",
-        tone: "border-accent-200 bg-accent-50 text-accent-700",
-      };
-    case SessionStatus.CANCELLED:
-      return {
-        label: "Cancelled",
-        tone: "border-ink-200 bg-ink-100 text-ink-600",
-      };
-    default:
-      return null;
-  }
+function isPendingMakeup(s: SessionStatusValue): boolean {
+  return (
+    s === SessionStatus.SICK_LEAVE_PENDING ||
+    s === SessionStatus.WEATHER_PENDING ||
+    s === SessionStatus.RESCHEDULED_PENDING
+  );
 }
 
 function StudentRow({
@@ -603,181 +597,333 @@ function StudentRow({
   onScheduleMakeup: () => void;
   onMarkPreviousHw: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
-  const choice = pickerChoiceForStatus(session);
-  const subChip = makeupSubChip(session);
-  const canScheduleMakeup =
-    session.session_status === SessionStatus.NO_SHOW ||
-    session.session_status === SessionStatus.SICK_LEAVE_PENDING ||
-    session.session_status === SessionStatus.WEATHER_PENDING ||
-    session.session_status === SessionStatus.RESCHEDULED_PENDING;
+  const statusConfig = getSessionStatusConfig(session.session_status);
+  const StatusIcon = statusConfig.Icon;
+  const showAttendanceActions = isNotAttended(session.session_status);
+  const showMakeupAction = isPendingMakeup(session.session_status);
+  const isAttended =
+    session.session_status === SessionStatus.ATTENDED ||
+    session.session_status === SessionStatus.ATTENDED_MAKEUP;
 
   return (
     <div
-      className={`px-4 py-3 grid grid-cols-1 lg:grid-cols-[200px_140px_1fr_auto] gap-3 lg:items-start ${
-        highlightedRow ? "bg-accent-50/40" : ""
+      className={`flex ${
+        highlightedRow ? "bg-mc-yellow-50" : statusConfig.tintClass
       }`}
+      style={{ opacity: statusConfig.opacity ?? 1 }}
     >
-      <div>
-        <div className="font-medium text-ink-900">{student.name}</div>
-        <div className="text-xs text-ink-500">
-          {student.code} · {student.grade}
-        </div>
-        {student.hwLoad !== "Normal" && (
-          <div className="mt-0.5">
+      {/* Main content */}
+      <div className="flex-1 p-3 sm:p-4 min-w-0 space-y-2.5">
+        {/* ── Top: student identity + status text ── */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
             <span
-              className="text-[10px] rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700 font-medium"
-              data-hw-load={student.hwLoad}
-              title="Preferred homework load — informs the HW assignment workflow"
+              className={`text-xs text-ink-500 whitespace-nowrap font-mono ${
+                statusConfig.strikethrough ? "line-through" : ""
+              }`}
             >
-              HW: {student.hwLoad}
+              {student.code}
             </span>
+            <span
+              className={`text-base font-bold ${
+                statusConfig.strikethrough ? "line-through text-ink-500" : "text-ink-900"
+              }`}
+            >
+              {student.name}
+            </span>
+            {session.lesson_number > 0 && (
+              <span
+                className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5"
+                title="Lesson number within this enrollment"
+              >
+                <Hash className="h-2.5 w-2.5" />
+                {session.lesson_number}
+              </span>
+            )}
+            <span
+              className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${gradeBadgeStyle(
+                student.grade
+              )}`}
+            >
+              {student.grade}
+            </span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-mc-yellow-100 text-mc-yellow-600 font-medium whitespace-nowrap">
+              {student.school}
+            </span>
+            {student.hwLoad !== "Normal" && (
+              <span
+                className="text-[10px] rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700 font-medium"
+                title="Preferred homework load"
+              >
+                HW: {student.hwLoad}
+              </span>
+            )}
+          </div>
+
+          {/* Right: status text + tutor (no buttons here — CSM keeps
+           *  status display read-only on the card itself, mutations live
+           *  in the action buttons row below). */}
+          <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+            <p
+              className={`text-sm font-medium ${statusConfig.textClass} ${
+                statusConfig.strikethrough ? "line-through" : ""
+              }`}
+            >
+              {session.session_status}
+              {session.attendance_status === "Late" && (
+                <span className="text-xs text-mc-yellow-600 font-semibold ml-1">
+                  · Late
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-ink-500">{session.tutor_name}</p>
+          </div>
+        </div>
+
+        {/* ── Next suggestion + notes ── */}
+        {(nextSuggestion || session.notes) && (
+          <div className="space-y-1">
+            {nextSuggestion && (
+              <Link
+                href={`/checktables?student=${student.id}`}
+                className="inline-flex items-center gap-1 text-[11px] rounded-md border border-mc-red-200 bg-mc-red-50 text-mc-red-700 px-1.5 py-0.5 hover:bg-mc-red-100"
+                title={`Next untouched item · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
+              >
+                <ArrowRight className="h-3 w-3" />
+                <span className="uppercase tracking-wide text-[9px] opacity-80">
+                  Next
+                </span>
+                <span className="font-mono">{nextSuggestion.item.code}</span>
+                <span className="opacity-80">
+                  · Ch.{nextSuggestion.chapter.number}{" "}
+                  {nextSuggestion.chapter.title}
+                </span>
+              </Link>
+            )}
+            {session.notes && (
+              <div className="text-xs text-ink-600 italic">
+                &ldquo;{session.notes}&rdquo;
+              </div>
+            )}
           </div>
         )}
-        {nextSuggestion && (
-          <Link
-            href={`/checktables?student=${student.id}`}
-            className="mt-1.5 inline-flex items-center gap-1 text-[11px] rounded-md border border-accent-200 bg-accent-50 text-accent-700 px-1.5 py-0.5 hover:bg-accent-100"
-            title={`Next untouched item · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
-          >
-            <ArrowRight className="h-3 w-3" />
-            <span className="uppercase tracking-wide text-[9px] text-accent-600/80">
-              Next
-            </span>
-            <span className="font-mono">{nextSuggestion.item.code}</span>
-            <span className="text-accent-600/80">
-              · Ch.{nextSuggestion.chapter.number} {nextSuggestion.chapter.title}
-            </span>
-          </Link>
-        )}
-        {session.notes && (
-          <div className="text-xs text-ink-600 mt-1 italic">
-            &ldquo;{session.notes}&rdquo;
-          </div>
-        )}
-      </div>
 
-      <div className="space-y-1.5">
-        <AttendancePicker
-          choice={choice}
-          subChip={subChip}
-          onChange={(c) => {
-            if (c === "present")
-              onSetStatus({
-                session_status: SessionStatus.ATTENDED,
-                attendance_status: undefined,
-              });
-            else if (c === "late")
-              onSetStatus({
-                session_status: SessionStatus.ATTENDED,
-                attendance_status: "Late",
-              });
-            else
-              onSetStatus({
-                session_status: SessionStatus.NO_SHOW,
-                attendance_status: undefined,
-              });
-          }}
-        />
-        {canScheduleMakeup && (
-          <button
-            onClick={onScheduleMakeup}
-            className="text-xs text-accent-700 hover:underline flex items-center gap-1"
-          >
-            <CalendarClock className="h-3 w-3" />
-            Schedule makeup
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        {pendingHw && (
-          <PreviousHomeworkToCheck
-            pending={pendingHw}
-            sourceLabel={sessionLabel(pendingHw.session.id)}
-            onMark={onMarkPreviousHw}
+        {/* ── Previous HW to check + today's CW/HW ── */}
+        <div className="space-y-2">
+          {pendingHw && (
+            <PreviousHomeworkToCheck
+              pending={pendingHw}
+              sourceLabel={sessionLabel(pendingHw.session.id)}
+              onMark={onMarkPreviousHw}
+            />
+          )}
+          <ExerciseRow
+            kind="CW"
+            items={session.cw}
+            onOpen={() => onOpenExercise("CW")}
+            onRemove={(id) => onRemoveExercise("CW", id)}
           />
-        )}
-        <ExerciseRow
-          kind="CW"
-          items={session.cw}
-          onOpen={() => onOpenExercise("CW")}
-          onRemove={(id) => onRemoveExercise("CW", id)}
-        />
-        <ExerciseRow
-          kind="HW"
-          items={session.hw}
-          onOpen={() => onOpenExercise("HW")}
-          onRemove={(id) => onRemoveExercise("HW", id)}
+          <ExerciseRow
+            kind="HW"
+            items={session.hw}
+            onOpen={() => onOpenExercise("HW")}
+            onRemove={(id) => onRemoveExercise("HW", id)}
+          />
+        </div>
+
+        {/* ── Action buttons row — CSM-style attendance/state actions ── */}
+        <ActionButtonsRow
+          session={session}
+          showAttendanceActions={showAttendanceActions}
+          showMakeupAction={showMakeupAction}
+          isAttended={isAttended}
+          performanceValue={session.performance_rating}
+          onSetStatus={onSetStatus}
+          onPerformance={onPerformance}
+          onScheduleMakeup={onScheduleMakeup}
+          studentId={student.id}
+          sessionId={session.id}
         />
       </div>
 
-      <div className="flex flex-col items-end gap-1.5">
-        <PerformanceRater
-          value={session.performance_rating}
-          onChange={onPerformance}
+      {/* Status color stripe — far right, full height. Mirrors CSM's
+       *  session card. */}
+      <div
+        className={`w-8 sm:w-10 flex-shrink-0 flex items-center justify-center ${statusConfig.stripeClass}`}
+        style={{ opacity: statusConfig.opacity ?? 1 }}
+        title={session.session_status}
+      >
+        <StatusIcon
+          className={`h-4 w-4 sm:h-5 sm:w-5 ${
+            statusConfig.iconClass ?? "text-white"
+          }`}
         />
+      </div>
+    </div>
+  );
+}
+
+function ActionButtonsRow({
+  session,
+  showAttendanceActions,
+  showMakeupAction,
+  isAttended,
+  performanceValue,
+  onSetStatus,
+  onPerformance,
+  onScheduleMakeup,
+  studentId,
+  sessionId,
+}: {
+  session: Session;
+  showAttendanceActions: boolean;
+  showMakeupAction: boolean;
+  isAttended: boolean;
+  performanceValue?: number;
+  onSetStatus: (next: {
+    session_status: SessionStatusValue;
+    attendance_status?: string;
+  }) => void;
+  onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
+  onScheduleMakeup: () => void;
+  studentId: string;
+  sessionId: string;
+}) {
+  // Decide which state-change actions appear inline based on current
+  // status. Matches CSM's session-actions config.
+  const stateActions: { id: string; label: string; Icon: typeof CheckCircle2; cls: string; onClick: () => void }[] = [];
+
+  if (showAttendanceActions) {
+    const attendedTarget =
+      session.session_status === SessionStatus.MAKEUP_CLASS
+        ? SessionStatus.ATTENDED_MAKEUP
+        : SessionStatus.ATTENDED;
+    stateActions.push(
+      {
+        id: "attended",
+        label: "Attended",
+        Icon: CheckCircle2,
+        cls: "bg-green-100 text-green-700 hover:bg-green-200",
+        onClick: () =>
+          onSetStatus({
+            session_status: attendedTarget,
+            attendance_status: undefined,
+          }),
+      },
+      {
+        id: "no-show",
+        label: "No Show",
+        Icon: UserX,
+        cls: "bg-red-100 text-red-700 hover:bg-red-200",
+        onClick: () =>
+          onSetStatus({
+            session_status: SessionStatus.NO_SHOW,
+            attendance_status: undefined,
+          }),
+      },
+      {
+        id: "reschedule",
+        label: "Reschedule",
+        Icon: CalendarClock,
+        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+        onClick: () =>
+          onSetStatus({
+            session_status: SessionStatus.RESCHEDULED_PENDING,
+            attendance_status: undefined,
+          }),
+      },
+      {
+        id: "sick-leave",
+        label: "Sick",
+        Icon: Ambulance,
+        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+        onClick: () =>
+          onSetStatus({
+            session_status: SessionStatus.SICK_LEAVE_PENDING,
+            attendance_status: undefined,
+          }),
+      },
+      {
+        id: "weather",
+        label: "Weather",
+        Icon: CloudRain,
+        cls: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+        onClick: () =>
+          onSetStatus({
+            session_status: SessionStatus.WEATHER_PENDING,
+            attendance_status: undefined,
+          }),
+      }
+    );
+  }
+
+  if (showMakeupAction) {
+    stateActions.push({
+      id: "schedule-makeup",
+      label: "Schedule Make-up",
+      Icon: CalendarPlus,
+      cls: "bg-teal-100 text-teal-700 hover:bg-teal-200",
+      onClick: onScheduleMakeup,
+    });
+  }
+
+  // For Attended sessions, surface a Late toggle so the Late attendance
+  // attribute can still be set/cleared without an edit modal.
+  const showLateToggle = isAttended;
+  const isLate = session.attendance_status === "Late";
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-ink-200">
+      {stateActions.map(({ id, label, Icon, cls, onClick }) => (
+        <button
+          key={id}
+          onClick={onClick}
+          className={`text-xs rounded-md px-2 py-1 font-medium transition-colors inline-flex items-center gap-1 ${cls}`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
+      {showLateToggle && (
+        <button
+          onClick={() =>
+            onSetStatus({
+              session_status: session.session_status,
+              attendance_status: isLate ? undefined : "Late",
+            })
+          }
+          className={`text-xs rounded-md px-2 py-1 font-medium transition-colors inline-flex items-center gap-1 border ${
+            isLate
+              ? "bg-mc-yellow-500 text-ink-900 border-transparent"
+              : "bg-white text-ink-600 border-ink-300 hover:bg-mc-yellow-50"
+          }`}
+          title="Toggle Late attendance qualifier"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Late
+        </button>
+      )}
+
+      {/* Right-aligned: rate, checktable, print */}
+      <div className="ml-auto flex items-center gap-1.5">
+        <PerformanceRater value={performanceValue} onChange={onPerformance} />
         <Link
-          href={`/checktables?student=${student.id}`}
-          className="text-[11px] text-accent-700 hover:underline inline-flex items-center gap-1"
+          href={`/checktables?student=${studentId}`}
+          className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
           title="Open this student's checktable"
         >
           <Table2 className="h-3 w-3" />
           Checktable
         </Link>
         <Link
-          href={`/checktables?student=${student.id}&prep-session=${session.id}`}
-          className="text-[11px] text-accent-700 hover:underline inline-flex items-center gap-1"
+          href={`/checktables?student=${studentId}&prep-session=${sessionId}`}
+          className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
           title="Pick items in the checktable, then print them as this session's HW in one shot"
         >
           <Printer className="h-3 w-3" />
           Prep print batch
         </Link>
       </div>
-    </div>
-  );
-}
-
-function AttendancePicker({
-  choice,
-  subChip,
-  onChange,
-}: {
-  choice: PickerChoice | null;
-  subChip: { label: string; tone: string } | null;
-  onChange: (v: PickerChoice) => void;
-}) {
-  const options: {
-    id: PickerChoice;
-    label: string;
-    cls: string;
-  }[] = [
-    { id: "present", label: "Present", cls: "bg-emerald-100 text-emerald-700" },
-    { id: "late", label: "Late", cls: "bg-amber-100 text-amber-700" },
-    { id: "absent", label: "Absent", cls: "bg-rose-100 text-rose-700" },
-  ];
-  return (
-    <div className="flex flex-wrap gap-1">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          onClick={() => onChange(o.id)}
-          className={`text-xs rounded-md px-2 py-0.5 border transition-colors ${
-            choice === o.id
-              ? `${o.cls} border-transparent font-medium`
-              : "border-ink-200 text-ink-500 hover:bg-ink-50"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-      {subChip && (
-        <span
-          className={`text-xs rounded-md px-2 py-0.5 border font-medium ${subChip.tone}`}
-          title="Reflects session status — set automatically by the make-up flow"
-        >
-          {subChip.label}
-        </span>
-      )}
     </div>
   );
 }
@@ -792,79 +938,123 @@ function PreviousHomeworkToCheck({
   onMark: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
   return (
-    <div className="rounded-md border border-accent-200 bg-accent-50/60 p-2 space-y-1.5">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-accent-700">
+    <div className="rounded-md border border-mc-red-200 bg-mc-red-50/60 p-2 space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-mc-red-700">
         <ClipboardCheck className="h-3 w-3" />
         <span>Previous HW to check</span>
-        <span className="normal-case tracking-normal text-accent-600/80">
+        <span className="normal-case tracking-normal text-mc-red-700/70">
           · from {sourceLabel}
         </span>
       </div>
       <div className="space-y-1">
-        {pending.exercises.map((ex) => {
-          const range = formatPageRange(ex.page_start, ex.page_end);
-          return (
-            <div
-              key={ex.id}
-              className="flex flex-wrap items-center gap-1.5"
-            >
-              <span className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5">
-                <span className="font-mono text-ink-700">{ex.pdf_name}</span>
-                {range && <span className="text-ink-400">·{range}</span>}
-              </span>
-              <PreviousHwChoiceButtons
-                onMark={(choice) => onMark(ex.id, choice)}
-              />
-            </div>
-          );
-        })}
+        {pending.entries.map((entry) => (
+          <PreviousHomeworkLine
+            key={entry.exercise.id}
+            entry={entry}
+            onMark={(choice) => onMark(entry.exercise.id, choice)}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function PreviousHwChoiceButtons({
+function completionChoice(status?: string): PreviousHwChoice | null {
+  if (status === "Complete") return "complete";
+  if (status === "Partial") return "partial";
+  if (status === "Not done") return "not-done";
+  return null;
+}
+
+function PreviousHomeworkLine({
+  entry,
   onMark,
 }: {
+  entry: PendingHomeworkEntry;
+  onMark: (choice: PreviousHwChoice) => void;
+}) {
+  const range = formatPageRange(
+    entry.exercise.page_start,
+    entry.exercise.page_end
+  );
+  const current = completionChoice(entry.completion?.completion_status);
+  const marked = !!entry.completion;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={`inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5 ${
+          marked ? "opacity-70" : ""
+        }`}
+      >
+        <span className="font-mono text-ink-700">{entry.exercise.pdf_name}</span>
+        {range && <span className="text-ink-400">·{range}</span>}
+      </span>
+      <PreviousHwChoiceButtons selected={current} onMark={onMark} />
+    </div>
+  );
+}
+
+function PreviousHwChoiceButtons({
+  selected,
+  onMark,
+}: {
+  selected: PreviousHwChoice | null;
   onMark: (choice: PreviousHwChoice) => void;
 }) {
   const options: {
     id: PreviousHwChoice;
     label: string;
-    cls: string;
+    selectedCls: string;
+    hoverCls: string;
     Icon: typeof Check;
   }[] = [
     {
       id: "complete",
       label: "Complete",
-      cls: "hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-200",
+      selectedCls: "bg-green-600 text-white border-transparent",
+      hoverCls: "hover:bg-green-100 hover:text-green-700 hover:border-green-200",
       Icon: Check,
     },
     {
       id: "partial",
       label: "Partial",
-      cls: "hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200",
+      selectedCls: "bg-mc-yellow-500 text-ink-900 border-transparent",
+      hoverCls: "hover:bg-mc-yellow-100 hover:text-mc-yellow-600 hover:border-mc-yellow-200",
       Icon: CircleDashed,
     },
     {
       id: "not-done",
       label: "Not done",
-      cls: "hover:bg-rose-100 hover:text-rose-700 hover:border-rose-200",
+      selectedCls: "bg-mc-red-600 text-white border-transparent",
+      hoverCls: "hover:bg-mc-red-100 hover:text-mc-red-700 hover:border-mc-red-200",
       Icon: CircleSlash,
     },
   ];
   return (
     <div className="flex flex-wrap gap-1">
-      {options.map(({ id, label, cls, Icon }) => (
-        <button
-          key={id}
-          onClick={() => onMark(id)}
-          className={`text-[11px] rounded-md px-1.5 py-0.5 border border-ink-200 text-ink-600 transition-colors flex items-center gap-1 ${cls}`}
-        >
-          <Icon className="h-3 w-3" />
-          {label}
-        </button>
-      ))}
+      {options.map(({ id, label, selectedCls, hoverCls, Icon }) => {
+        const isSelected = selected === id;
+        return (
+          <button
+            key={id}
+            onClick={() => onMark(id)}
+            className={`text-[11px] rounded-md px-1.5 py-0.5 border transition-colors inline-flex items-center gap-1 ${
+              isSelected
+                ? `${selectedCls} font-semibold`
+                : `border-ink-200 text-ink-600 ${hoverCls}`
+            }`}
+            title={
+              isSelected
+                ? `Marked as ${label} — click another to change`
+                : `Mark as ${label}`
+            }
+          >
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -882,7 +1072,7 @@ function ExerciseRow({
 }) {
   const isCW = kind === "CW";
   const tone = isCW
-    ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+    ? "bg-mc-red-50 border-mc-red-200 text-mc-red-700 hover:bg-mc-red-100"
     : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100";
   return (
     <div className="flex items-start gap-2">
@@ -940,11 +1130,11 @@ function PerformanceRater({
           key={n}
           onClick={() => onChange(n as 1 | 2 | 3 | 4 | 5)}
           className={`p-0.5 ${
-            value && n <= value ? "text-amber-500" : "text-ink-200"
-          } hover:text-amber-400`}
+            value && n <= value ? "text-mc-yellow-500" : "text-ink-200"
+          } hover:text-mc-yellow-500`}
           aria-label={`${n} stars`}
         >
-          <Star className="h-4 w-4 fill-current" />
+          <Star className="h-3.5 w-3.5 fill-current" />
         </button>
       ))}
     </div>
