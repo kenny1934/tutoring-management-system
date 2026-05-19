@@ -465,39 +465,51 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Time-slot header — mirrors CSM's slot header with a thick red
-       *  left rule. Cream tint when this meeting is a make-up. */}
+      {/* Time-slot header — fixed two-row layout (title + meta) so chips
+       *  never stack vertically. Thick red left rule mirrors CSM; yellow
+       *  rule + tint when the meeting is a make-up. */}
       <div
-        className={`px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-l-4 ${
+        className={`px-4 py-2 border-l-4 border-b border-b-ink-200 ${
           meeting.is_makeup
-            ? "bg-mc-yellow-50 border-l-mc-yellow-500 border-b border-b-ink-200"
-            : "bg-white border-l-mc-red-600 border-b border-b-ink-200"
+            ? "bg-mc-yellow-50 border-l-mc-yellow-500"
+            : "bg-white border-l-mc-red-600"
         }`}
       >
-        <div className="font-semibold text-ink-900">{meeting.class_name}</div>
-        <div className="text-xs text-ink-600 flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {dateLabel} · {timeLabel} · {meeting.duration_mins} min
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-ink-900 text-sm">
+            {meeting.class_name}
+          </span>
+          {meeting.lesson_number > 0 && (
+            <span
+              className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5 font-medium"
+              title="Lesson number"
+            >
+              <Hash className="h-2.5 w-2.5" />
+              {meeting.lesson_number}
+            </span>
+          )}
+          {meeting.is_makeup && (
+            <span className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold">
+              Make-up
+            </span>
+          )}
         </div>
-        <div className="text-xs text-ink-600 flex items-center gap-1">
-          <MapPin className="h-3 w-3" />
-          {meeting.room}
+        <div className="mt-0.5 text-xs text-ink-500 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {dateLabel} · {timeLabel} · {meeting.duration_mins} min
+          </span>
+          <span className="text-ink-300">·</span>
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            {meeting.room}
+          </span>
+          <span className="text-ink-300">·</span>
+          <span className="inline-flex items-center gap-1">
+            <User className="h-3 w-3" />
+            {meeting.tutor_name}
+          </span>
         </div>
-        <div className="text-xs text-ink-600 flex items-center gap-1">
-          <User className="h-3 w-3" />
-          {meeting.tutor_name}
-        </div>
-        {meeting.lesson_number > 0 && (
-          <div className="text-[11px] rounded-md bg-mc-cream border border-ink-200 px-1.5 py-0.5 text-ink-700 inline-flex items-center gap-0.5">
-            <Hash className="h-3 w-3" />
-            {meeting.lesson_number}
-          </div>
-        )}
-        {meeting.is_makeup && (
-          <div className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold">
-            Make-up
-          </div>
-        )}
       </div>
 
       {meeting.class_wide_note && (
