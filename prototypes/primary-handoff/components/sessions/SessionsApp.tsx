@@ -4,15 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Clock,
-  PenTool,
-  Home as HomeIcon,
   Star,
   StickyNote,
   CalendarClock,
   Table2,
-  ArrowRight,
   Printer,
-  ClipboardCheck,
   Check,
   CircleSlash,
   CircleDashed,
@@ -23,6 +19,8 @@ import {
   CalendarPlus,
   ChevronDown,
   XCircle,
+  MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -424,19 +422,18 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Slot header — CSM-format time_slot (date lives in the toolbar's
-       *  date navigator). Thick red left rule; yellow rule + cream tint
-       *  when the meeting is a make-up. Tutor + member count on the right
-       *  give the at-a-glance "who's running this slot". */}
+      {/* Slot header — time slot left, tutor + member count right.
+       *  Thin red left rule (yellow + cream tint for make-up meetings)
+       *  gives a quiet visual anchor without dominating the card. */}
       <div
-        className={`px-4 py-2.5 border-l-4 border-b border-b-mc-line flex items-center justify-between gap-3 ${
+        className={`px-4 py-2 border-l-[3px] border-b border-b-mc-line flex items-center justify-between gap-3 ${
           meeting.is_makeup
             ? "bg-mc-yellow-50 border-l-mc-yellow-500"
             : "bg-white border-l-mc-red-600"
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Clock className="h-4 w-4 text-ink-500 shrink-0" />
+          <Clock className="h-4 w-4 text-ink-400 shrink-0" />
           <span className="text-base font-semibold text-ink-900 tabular-nums">
             {slotLabel}
           </span>
@@ -446,19 +443,18 @@ function MeetingCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-ink-500 hidden sm:inline">
-            {meeting.tutor_name}
-          </span>
-          <span className="text-[11px] rounded-full bg-ink-100 text-ink-700 px-2 py-0.5 font-semibold tabular-nums">
+        <div className="flex items-center gap-2 shrink-0 text-xs text-ink-500">
+          <span className="hidden sm:inline">{meeting.tutor_name}</span>
+          <span className="hidden sm:inline text-ink-300">·</span>
+          <span className="tabular-nums">
             {memberCount} {memberCount === 1 ? "student" : "students"}
           </span>
         </div>
       </div>
 
       {meeting.class_wide_note && (
-        <div className="px-4 py-2 text-xs text-ink-700 bg-mc-cream border-b border-mc-line flex items-start gap-2">
-          <StickyNote className="h-3 w-3 mt-0.5 text-mc-red-600" />
+        <div className="px-4 py-1.5 text-xs text-ink-600 bg-ink-50 border-b border-mc-line flex items-start gap-2">
+          <StickyNote className="h-3 w-3 mt-0.5 text-ink-400" />
           {meeting.class_wide_note}
         </div>
       )}
@@ -562,158 +558,133 @@ function StudentRow({
   const StatusIcon = statusConfig.Icon;
   const showAttendanceActions = isNotAttended(session.session_status);
   const showMakeupAction = isPendingMakeup(session.session_status);
-  const isAttended =
-    session.session_status === SessionStatus.ATTENDED ||
-    session.session_status === SessionStatus.ATTENDED_MAKEUP;
 
   return (
     <div
-      className={`flex ${
+      className={`px-3 py-2 min-w-0 space-y-1.5 ${
         highlightedRow ? "bg-mc-yellow-50" : statusConfig.tintClass
       }`}
       style={{ opacity: statusConfig.opacity ?? 1 }}
     >
-      {/* Main content. Padding deliberately kept tight (p-2.5) and the
-       *  internal sections are separated by space-y-1.5 instead of the
-       *  earlier 2.5 — the row was previously much taller than CSM's
-       *  reference. */}
-      <div className="flex-1 p-2.5 min-w-0 space-y-1.5">
-        {/* ── Top: student identity + status pill (single line each) ── */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-            <span
-              className={`text-sm text-ink-700 whitespace-nowrap flex-shrink-0 ${
-                statusConfig.strikethrough ? "line-through" : ""
-              }`}
-            >
-              {student.code}
-            </span>
-            <span
-              className={`text-sm font-bold ${
-                statusConfig.strikethrough ? "line-through text-ink-500" : "text-ink-900"
-              }`}
-            >
-              {student.name}
-            </span>
-            {session.lesson_number > 0 && (
-              <span
-                className="text-[9px] leading-[14px] px-1 py-0 min-w-[16px] rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-semibold inline-flex items-center justify-center"
-                title="Lesson number within this enrollment"
-              >
-                L{session.lesson_number}
-              </span>
-            )}
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${gradeBadgeStyle(
-                student.grade
-              )}`}
-            >
-              {student.grade}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium whitespace-nowrap">
-              {student.school}
-            </span>
-            {student.hwLoad !== "Normal" && (
-              <span
-                className="text-[10px] rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700 font-medium"
-                title="Preferred homework load"
-              >
-                HW: {student.hwLoad}
-              </span>
-            )}
-          </div>
-
-          {/* Right: status + tutor on one line. Was previously stacked
-           *  vertically; collapsing saves ~16px of height per row. */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 text-right whitespace-nowrap">
-            <span
-              className={`text-xs font-medium ${statusConfig.textClass} ${
-                statusConfig.strikethrough ? "line-through" : ""
-              }`}
-            >
-              {session.session_status}
-              {session.attendance_status === "Late" && (
-                <span className="text-[11px] text-mc-yellow-600 font-semibold ml-1">
-                  · Late
-                </span>
-              )}
-            </span>
-            <span className="text-[11px] text-ink-400">·</span>
-            <span className="text-[11px] text-ink-500">{session.tutor_name}</span>
-          </div>
-        </div>
-
-        {/* ── Notes only — the "Next" suggestion has moved onto the HW
-         *  row since it represents "what to assign as HW next". ── */}
-        {session.notes && (
-          <div className="text-[11px] text-ink-600 italic">
-            &ldquo;{session.notes}&rdquo;
-          </div>
-        )}
-
-        {/* ── Previous HW to check (kept as its own block because it's
-         *  interactive). ── */}
-        {pendingHw && (
-          <PreviousHomeworkToCheck
-            pending={pendingHw}
-            sourceLabel={sessionLabel(pendingHw.session.id)}
-            onMark={onMarkPreviousHw}
-          />
-        )}
-
-        {/* ── CW + HW on one row to halve the vertical footprint. The
-         *  HW side also surfaces the "Next" suggestion as a dashed chip
-         *  at the end of its chip list — it's the most natural place
-         *  for "what to assign as HW next". ── */}
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-          <ExerciseRow
-            kind="CW"
-            items={session.cw}
-            onOpen={() => onOpenExercise("CW")}
-            onRemove={(id) => onRemoveExercise("CW", id)}
-          />
-          <ExerciseRow
-            kind="HW"
-            items={session.hw}
-            onOpen={() => onOpenExercise("HW")}
-            onRemove={(id) => onRemoveExercise("HW", id)}
-            nextSuggestion={nextSuggestion}
-            onOpenSuggestion={() =>
-              nextSuggestion && onOpenChecktable(nextSuggestion.item.id)
-            }
-          />
-        </div>
-
-        {/* ── Action buttons row — CSM-style attendance/state actions ── */}
-        <ActionButtonsRow
-          session={session}
-          showAttendanceActions={showAttendanceActions}
-          showMakeupAction={showMakeupAction}
-          isAttended={isAttended}
-          performanceValue={session.performance_rating}
-          onSetStatus={onSetStatus}
-          onPerformance={onPerformance}
-          onScheduleMakeup={onScheduleMakeup}
-          onOpenChecktable={() => onOpenChecktable()}
-          studentId={student.id}
-          sessionId={session.id}
-        />
-      </div>
-
-      {/* Status color stripe — far right, full height. Mirrors CSM's
-       *  session card. */}
-      <div
-        className={`w-8 sm:w-10 flex-shrink-0 flex items-center justify-center ${statusConfig.stripeClass}`}
-        style={{ opacity: statusConfig.opacity ?? 1 }}
-        title={session.session_status}
-      >
-        <StatusIcon
-          className={`h-4 w-4 sm:h-5 sm:w-5 ${
-            statusConfig.iconClass ?? "text-white"
+      {/* ── Identity line: code · name · grade pill · school pill (+ HW load
+       *  pill when not Normal) on the left, status pill on the right. One
+       *  line; pills are quiet but coloured enough to anchor scanning. ── */}
+      <div className="flex items-center justify-between gap-3">
+        <div
+          className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 ${
+            statusConfig.strikethrough ? "line-through" : ""
           }`}
+        >
+          <span className="text-[11px] text-ink-500 tabular-nums shrink-0">
+            {student.code}
+          </span>
+          <span
+            className={`text-sm font-semibold truncate ${
+              statusConfig.strikethrough ? "text-ink-500" : "text-ink-900"
+            }`}
+          >
+            {student.name}
+          </span>
+          <span
+            className={`text-[10px] font-medium rounded px-1.5 py-0.5 shrink-0 ${gradeBadgeStyle(
+              student.grade
+            )}`}
+          >
+            {student.grade}
+          </span>
+          <span className="text-[10px] font-medium rounded px-1.5 py-0.5 bg-ink-100 text-ink-600 shrink-0">
+            {student.school}
+          </span>
+          {student.hwLoad !== "Normal" && (
+            <span
+              className="text-[10px] rounded px-1.5 py-0.5 bg-ink-100 text-ink-600 shrink-0"
+              title="Preferred homework load"
+            >
+              HW: {student.hwLoad}
+            </span>
+          )}
+        </div>
+        <StatusPill
+          status={session.session_status}
+          statusConfig={statusConfig}
+          icon={StatusIcon}
         />
       </div>
+
+      {session.notes && (
+        <div className="text-[11px] text-ink-600 italic">
+          &ldquo;{session.notes}&rdquo;
+        </div>
+      )}
+
+      {pendingHw && (
+        <PreviousHomeworkToCheck
+          pending={pendingHw}
+          sourceLabel={sessionLabel(pendingHw.session.id)}
+          onMark={onMarkPreviousHw}
+        />
+      )}
+
+      {/* CW + HW on one row to halve the vertical footprint. The HW side
+       *  surfaces the "Next" suggestion as a quiet ghost button at the
+       *  end of its chip list. */}
+      <div className="flex flex-col gap-1">
+        <ExerciseRow
+          kind="CW"
+          items={session.cw}
+          onOpen={() => onOpenExercise("CW")}
+          onRemove={(id) => onRemoveExercise("CW", id)}
+        />
+        <ExerciseRow
+          kind="HW"
+          items={session.hw}
+          onOpen={() => onOpenExercise("HW")}
+          onRemove={(id) => onRemoveExercise("HW", id)}
+          nextSuggestion={nextSuggestion}
+          onOpenSuggestion={() =>
+            nextSuggestion && onOpenChecktable(nextSuggestion.item.id)
+          }
+        />
+      </div>
+
+      <ActionButtonsRow
+        session={session}
+        showAttendanceActions={showAttendanceActions}
+        showMakeupAction={showMakeupAction}
+        performanceValue={session.performance_rating}
+        onSetStatus={onSetStatus}
+        onPerformance={onPerformance}
+        onScheduleMakeup={onScheduleMakeup}
+        onOpenChecktable={() => onOpenChecktable()}
+        studentId={student.id}
+        sessionId={session.id}
+      />
     </div>
+  );
+}
+
+/** Single-element status indicator — replaces both the old colored text-only
+ *  status and the 40px-wide right-edge stripe. One coloured pill carries
+ *  state for the whole row. */
+function StatusPill({
+  status,
+  statusConfig,
+  icon: Icon,
+}: {
+  status: string;
+  statusConfig: ReturnType<typeof getSessionStatusConfig>;
+  icon: typeof Clock;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-medium whitespace-nowrap shrink-0 ${
+        statusConfig.textClass
+      } ${statusConfig.strikethrough ? "line-through" : ""}`}
+      title={status}
+    >
+      <Icon className="h-3 w-3" />
+      {status}
+    </span>
   );
 }
 
@@ -721,7 +692,6 @@ function ActionButtonsRow({
   session,
   showAttendanceActions,
   showMakeupAction,
-  isAttended,
   performanceValue,
   onSetStatus,
   onPerformance,
@@ -733,7 +703,6 @@ function ActionButtonsRow({
   session: Session;
   showAttendanceActions: boolean;
   showMakeupAction: boolean;
-  isAttended: boolean;
   performanceValue?: number;
   onSetStatus: (next: {
     session_status: SessionStatusValue;
@@ -750,92 +719,181 @@ function ActionButtonsRow({
       ? SessionStatus.ATTENDED_MAKEUP
       : SessionStatus.ATTENDED;
 
-  // For Attended sessions, surface a Late toggle so the Late attendance
-  // attribute can still be set/cleared without an edit modal.
-  const showLateToggle = isAttended;
-  const isLate = session.attendance_status === "Late";
-
   return (
-    <div className="flex flex-wrap items-center gap-1 pt-1.5 border-t border-ink-200">
+    <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-ink-200">
       {showAttendanceActions && (
-        <>
-          <button
-            onClick={() =>
-              onSetStatus({
-                session_status: attendedTarget,
-                attendance_status: undefined,
-              })
-            }
-            className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200"
-          >
-            <CheckCircle2 className="h-3 w-3" />
-            Attended
-          </button>
-          <button
-            onClick={() =>
-              onSetStatus({
-                session_status: SessionStatus.NO_SHOW,
-                attendance_status: undefined,
-              })
-            }
-            className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-red-100 text-red-700 hover:bg-red-200"
-          >
-            <UserX className="h-3 w-3" />
-            No Show
-          </button>
-          <CantAttendMenu onSetStatus={onSetStatus} />
-        </>
+        <AttendancePicker
+          onAttended={() =>
+            onSetStatus({
+              session_status: attendedTarget,
+              attendance_status: undefined,
+            })
+          }
+          onNoShow={() =>
+            onSetStatus({
+              session_status: SessionStatus.NO_SHOW,
+              attendance_status: undefined,
+            })
+          }
+          onSetStatus={onSetStatus}
+        />
       )}
       {showMakeupAction && (
         <button
           onClick={onScheduleMakeup}
-          className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-teal-100 text-teal-700 hover:bg-teal-200"
+          className="text-[11px] rounded-md px-2 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-ink-800 text-white hover:bg-ink-900"
         >
           <CalendarPlus className="h-3 w-3" />
-          Schedule Make-up
-        </button>
-      )}
-      {showLateToggle && (
-        <button
-          onClick={() =>
-            onSetStatus({
-              session_status: session.session_status,
-              attendance_status: isLate ? undefined : "Late",
-            })
-          }
-          className={`text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 border ${
-            isLate
-              ? "bg-mc-yellow-500 text-ink-900 border-transparent"
-              : "bg-white text-ink-600 border-ink-300 hover:bg-mc-yellow-50"
-          }`}
-          title="Toggle Late attendance qualifier"
-        >
-          <Clock className="h-3 w-3" />
-          Late
+          Schedule make-up
         </button>
       )}
 
-      {/* Right-aligned: rate, checktable, print */}
-      <div className="ml-auto flex items-center gap-2">
+      {/* Right-aligned: rate + overflow menu for checktable / prep print */}
+      <div className="ml-auto flex items-center gap-1.5">
         <PerformanceRater value={performanceValue} onChange={onPerformance} />
-        <button
-          onClick={onOpenChecktable}
-          className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
-          title="Open this student's checktable"
-        >
-          <Table2 className="h-3 w-3" />
-          Checktable
-        </button>
-        <Link
-          href={`/checktables?student=${studentId}&prep-session=${sessionId}`}
-          className="text-[11px] text-mc-red-700 hover:underline inline-flex items-center gap-1"
-          title="Pick items in the checktable, then print them as this session's HW in one shot"
-        >
-          <Printer className="h-3 w-3" />
-          Prep print
-        </Link>
+        <RowOverflowMenu
+          onOpenChecktable={onOpenChecktable}
+          prepPrintHref={`/checktables?student=${studentId}&prep-session=${sessionId}`}
+        />
       </div>
     </div>
+  );
+}
+
+/** Segmented attendance picker — replaces three colored buttons (Attended /
+ *  No show / Can't attend ▾) with one quiet inline-flex group. State colour
+ *  shows up only after a choice is made, via the row's status pill. */
+function AttendancePicker({
+  onAttended,
+  onNoShow,
+  onSetStatus,
+}: {
+  onAttended: () => void;
+  onNoShow: () => void;
+  onSetStatus: (next: {
+    session_status: SessionStatusValue;
+    attendance_status?: string;
+  }) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-md border border-ink-200 bg-white overflow-visible text-[11px] font-medium">
+      <button
+        onClick={onAttended}
+        className="px-2 py-0.5 text-ink-700 hover:bg-green-50 hover:text-green-700 inline-flex items-center gap-1 border-r border-ink-200"
+      >
+        <CheckCircle2 className="h-3 w-3" />
+        Attended
+      </button>
+      <button
+        onClick={onNoShow}
+        className="px-2 py-0.5 text-ink-700 hover:bg-red-50 hover:text-red-700 inline-flex items-center gap-1 border-r border-ink-200"
+      >
+        <UserX className="h-3 w-3" />
+        No show
+      </button>
+      <CantAttendMenu onSetStatus={onSetStatus} />
+    </div>
+  );
+}
+
+/** Kebab menu for secondary row actions — Checktable + Prep print. Keeps
+ *  the action row visually quiet once a row is "done". */
+function RowOverflowMenu({
+  onOpenChecktable,
+  prepPrintHref,
+}: {
+  onOpenChecktable: () => void;
+  prepPrintHref: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const updatePosition = () => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, left: r.right });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScroll() {
+      updatePosition();
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={() => setOpen((v) => !v)}
+        className="p-1 rounded-md text-ink-400 hover:text-ink-800 hover:bg-ink-100"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="More actions"
+        title="More"
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              transform: "translateX(-100%)",
+            }}
+            className="z-50 w-44 bg-white border border-mc-line rounded-md shadow-lg p-1"
+          >
+            <button
+              role="menuitem"
+              onClick={() => {
+                onOpenChecktable();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-ink-700 hover:bg-ink-100"
+            >
+              <Table2 className="h-3.5 w-3.5 text-ink-500" />
+              Open checktable
+            </button>
+            <Link
+              role="menuitem"
+              href={prepPrintHref}
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-ink-700 hover:bg-ink-100"
+              title="Pick items in the checktable, then print them as this session's HW in one shot"
+            >
+              <Printer className="h-3.5 w-3.5 text-ink-500" />
+              Prep print
+            </Link>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
@@ -848,25 +906,26 @@ function PreviousHomeworkToCheck({
   sourceLabel: string;
   onMark: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
-  // One-line layout: label + source folded onto the same wrap-line as the
-  // entries so the whole block collapses to a single row when there's
-  // only one HW to check (the common case).
+  // Quiet variant: rail label like CW/HW (no red tint, no border), source
+  // label demoted to ink-400, and each entry renders inline so the whole
+  // block collapses to one row in the common single-item case.
   return (
-    <div className="rounded-md border border-mc-red-200 bg-mc-red-50/60 px-2 py-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-mc-red-700 font-semibold whitespace-nowrap">
-        <ClipboardCheck className="h-3 w-3" />
-        Prev HW
-        <span className="normal-case tracking-normal font-normal text-mc-red-700/70">
-          · {sourceLabel}
-        </span>
+    <div className="flex items-start gap-2 min-w-0">
+      <span
+        className="w-6 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5"
+        title={`Last session · ${sourceLabel}`}
+      >
+        Prev
       </span>
-      {pending.entries.map((entry) => (
-        <PreviousHomeworkLine
-          key={entry.exercise.id}
-          entry={entry}
-          onMark={(choice) => onMark(entry.exercise.id, choice)}
-        />
-      ))}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+        {pending.entries.map((entry) => (
+          <PreviousHomeworkLine
+            key={entry.exercise.id}
+            entry={entry}
+            onMark={(choice) => onMark(entry.exercise.id, choice)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -895,8 +954,8 @@ function PreviousHomeworkLine({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span
-        className={`inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5 ${
-          marked ? "opacity-70" : ""
+        className={`inline-flex items-center gap-1 text-[11px] bg-white border border-ink-200 rounded-md px-1.5 py-0.5 ${
+          marked ? "opacity-60" : ""
         }`}
       >
         <span className="font-mono text-ink-700">{entry.exercise.pdf_name}</span>
@@ -978,32 +1037,28 @@ function ExerciseRow({
   items: SessionExercise[];
   onOpen: () => void;
   onRemove: (id: string) => void;
-  /** Only the HW variant uses this; renders a dashed "+ Next: …" chip
-   *  after the chips list so the tutor can jump to the suggested next
-   *  item without leaving the row. */
+  /** Only the HW variant uses this; renders a quiet "+ Next 640A" ghost
+   *  button after the chip list so the tutor can jump to the suggested
+   *  next item without leaving the row. */
   nextSuggestion?: NextSuggestion | null;
   onOpenSuggestion?: () => void;
 }) {
-  const isCW = kind === "CW";
-  const tone = isCW
-    ? "bg-mc-red-50 border-mc-red-200 text-mc-red-700 hover:bg-mc-red-100"
-    : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100";
   return (
-    <div className="flex items-start gap-2">
-      <button
-        onClick={onOpen}
-        className={`text-[11px] rounded-md px-1.5 py-0.5 border flex items-center gap-1 font-medium shrink-0 ${tone}`}
-      >
-        {isCW ? (
-          <PenTool className="h-3 w-3" />
-        ) : (
-          <HomeIcon className="h-3 w-3" />
-        )}
-        {kind} <span className="opacity-70">({items.length})</span>
-      </button>
-      <div className="flex flex-wrap gap-1">
+    <div className="flex items-start gap-2 min-w-0">
+      {/* Rail label — 22px wide so CW + HW align vertically. No fill,
+       *  ink-400 text — relegates this to "row prefix" weight. */}
+      <span className="w-6 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5">
+        {kind}
+      </span>
+      <div className="flex flex-wrap items-center gap-1 min-w-0">
         {items.length === 0 && !nextSuggestion && (
-          <span className="text-[11px] text-ink-400 italic">none recorded</span>
+          <button
+            onClick={onOpen}
+            className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-1"
+          >
+            <Plus className="h-3 w-3" />
+            add
+          </button>
         )}
         {items.map((it) => {
           const range = formatPageRange(it.page_start, it.page_end);
@@ -1017,7 +1072,7 @@ function ExerciseRow({
               {range && <span className="text-ink-400">·{range}</span>}
               <button
                 onClick={() => onRemove(it.id)}
-                className="text-ink-400 hover:text-ink-800 -mr-0.5"
+                className="text-ink-300 hover:text-ink-700 -mr-0.5"
                 aria-label={`Remove ${it.pdf_name}`}
               >
                 ×
@@ -1025,16 +1080,24 @@ function ExerciseRow({
             </span>
           );
         })}
+        {items.length > 0 && (
+          <button
+            onClick={onOpen}
+            className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-0.5 px-1"
+            aria-label={`Add ${kind} item`}
+            title={`Add ${kind} item`}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
         {nextSuggestion && onOpenSuggestion && (
           <button
             onClick={onOpenSuggestion}
-            className="inline-flex items-center gap-1 text-[11px] rounded-md border border-dashed border-mc-red-300 bg-mc-red-50/60 text-mc-red-700 px-1.5 py-0.5 hover:bg-mc-red-100"
+            className="inline-flex items-center gap-1 text-[11px] rounded-md border border-ink-200 bg-white text-ink-600 px-1.5 py-0.5 hover:bg-ink-50 hover:text-ink-800"
             title={`Suggested next · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
           >
-            <ArrowRight className="h-3 w-3" />
-            <span className="uppercase tracking-wide text-[9px] opacity-80">
-              Next
-            </span>
+            <Plus className="h-3 w-3 text-ink-400" />
+            <span className="text-ink-500">Next</span>
             <span className="font-mono">{nextSuggestion.item.code}</span>
           </button>
         )}
@@ -1110,7 +1173,7 @@ function CantAttendMenu({
       <button
         ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
-        className="text-[11px] rounded-md px-1.5 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-orange-100 text-orange-700 hover:bg-orange-200"
+        className="px-2 py-0.5 text-ink-700 hover:bg-orange-50 hover:text-orange-700 inline-flex items-center gap-1 text-[11px] font-medium"
         aria-haspopup="menu"
         aria-expanded={open}
       >

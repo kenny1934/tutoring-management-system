@@ -100,7 +100,7 @@ export function SessionsToolbar({
         )}
 
         {/* Tutor filter */}
-        <SelectChip Icon={Users} label="Tutor">
+        <SelectChip Icon={Users} label="Tutor:">
           <select
             value={tutorFilter}
             onChange={(e) => onTutorChange(e.target.value)}
@@ -116,7 +116,7 @@ export function SessionsToolbar({
         </SelectChip>
 
         {/* Status filter */}
-        <SelectChip Icon={Filter} label="Status">
+        <SelectChip Icon={Filter} label="Status:">
           <select
             value={statusFilter}
             onChange={(e) =>
@@ -168,10 +168,8 @@ function SelectChip({
 }) {
   return (
     <div className="inline-flex items-center gap-1.5 rounded-md border border-mc-line bg-white pl-2 pr-1 py-1">
-      <Icon className="h-3.5 w-3.5 text-ink-500" />
-      <span className="text-xs uppercase tracking-wide text-ink-500">
-        {label}
-      </span>
+      <Icon className="h-3.5 w-3.5 text-ink-400" />
+      <span className="text-xs text-ink-500">{label}</span>
       {children}
     </div>
   );
@@ -193,8 +191,8 @@ function ViewButton({
       onClick={onClick}
       className={`px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors ${
         active
-          ? "bg-mc-red-600 text-white"
-          : "text-ink-700 hover:bg-ink-100"
+          ? "bg-ink-800 text-white"
+          : "text-ink-600 hover:bg-ink-100"
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
