@@ -1,7 +1,4 @@
 import { ChecktableApp } from "@/components/checktable/ChecktableApp";
-import { students } from "@/lib/mock-data/students";
-import { checktables } from "@/lib/mock-data/checktables";
-import { seedAssignments } from "@/lib/mock-data/assignments";
 
 export default function ChecktablesPage() {
   return (
@@ -15,11 +12,7 @@ export default function ChecktablesPage() {
           and trigger bulk print to the network share.
         </p>
       </div>
-      <ChecktableApp
-        students={students}
-        checktables={checktables}
-        initialAssignments={seedAssignments}
-      />
+      <ChecktableApp />
     </div>
   );
 }

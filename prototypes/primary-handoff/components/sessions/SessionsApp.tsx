@@ -19,16 +19,10 @@ import type {
   RecordedExercise,
   Student,
   SessionStudent,
-  Checktable,
 } from "@/lib/types";
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
-
-type Props = {
-  sessions: ClassSession[];
-  students: Student[];
-  checktables: Checktable[];
-};
 
 type ExerciseEditor = {
   sessionId: string;
@@ -36,8 +30,16 @@ type ExerciseEditor = {
   kind: "CW" | "HW";
 };
 
-export function SessionsApp({ sessions, students, checktables }: Props) {
-  const [sessionState, setSessionState] = useState(sessions);
+export function SessionsApp() {
+  const {
+    sessions: sessionState,
+    students,
+    checktables,
+    setSessions,
+    recordExercise,
+    removeExercise: removeExerciseFromStore,
+  } = usePrimaryStore();
+
   const [exerciseEditor, setExerciseEditor] =
     useState<ExerciseEditor | null>(null);
   const [makeupOpen, setMakeupOpen] = useState<{
@@ -64,7 +66,7 @@ export function SessionsApp({ sessions, students, checktables }: Props) {
     studentId: string,
     attendance: AttendanceStatus
   ) => {
-    setSessionState((prev) =>
+    setSessions((prev) =>
       prev.map((s) =>
         s.id !== sessionId
           ? s
@@ -83,7 +85,7 @@ export function SessionsApp({ sessions, students, checktables }: Props) {
     studentId: string,
     performance: 1 | 2 | 3 | 4 | 5
   ) => {
-    setSessionState((prev) =>
+    setSessions((prev) =>
       prev.map((s) =>
         s.id !== sessionId
           ? s
@@ -97,63 +99,7 @@ export function SessionsApp({ sessions, students, checktables }: Props) {
     );
   };
 
-  const addExercise = (input: {
-    sessionId: string;
-    studentId: string;
-    kind: "CW" | "HW";
-    itemCode: string;
-    itemId?: string;
-    pageRange?: string;
-    note?: string;
-  }) => {
-    const newExercise: RecordedExercise = {
-      id: `rec-${Math.random().toString(36).slice(2, 8)}`,
-      kind: input.kind,
-      itemCode: input.itemCode,
-      itemId: input.itemId,
-      pageRange: input.pageRange,
-      note: input.note,
-    };
-    setSessionState((prev) =>
-      prev.map((s) =>
-        s.id !== input.sessionId
-          ? s
-          : {
-              ...s,
-              students: s.students.map((st) => {
-                if (st.studentId !== input.studentId) return st;
-                const key = input.kind === "CW" ? "cw" : "hw";
-                return { ...st, [key]: [...st[key], newExercise] };
-              }),
-            }
-      )
-    );
-  };
-
-  const removeExercise = (
-    sessionId: string,
-    studentId: string,
-    kind: "CW" | "HW",
-    exerciseId: string
-  ) => {
-    setSessionState((prev) =>
-      prev.map((s) =>
-        s.id !== sessionId
-          ? s
-          : {
-              ...s,
-              students: s.students.map((st) => {
-                if (st.studentId !== studentId) return st;
-                const key = kind === "CW" ? "cw" : "hw";
-                return {
-                  ...st,
-                  [key]: st[key].filter((e) => e.id !== exerciseId),
-                };
-              }),
-            }
-      )
-    );
-  };
+  const removeExercise = removeExerciseFromStore;
 
   const editorSession = exerciseEditor
     ? sessionState.find((s) => s.id === exerciseEditor.sessionId)
@@ -210,7 +156,7 @@ export function SessionsApp({ sessions, students, checktables }: Props) {
           checktables={checktables}
           onClose={() => setExerciseEditor(null)}
           onAdd={(input) => {
-            addExercise({
+            recordExercise({
               sessionId: exerciseEditor.sessionId,
               studentId: exerciseEditor.studentId,
               kind: exerciseEditor.kind,

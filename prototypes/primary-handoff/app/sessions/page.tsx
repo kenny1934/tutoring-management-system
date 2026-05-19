@@ -1,7 +1,4 @@
 import { SessionsApp } from "@/components/sessions/SessionsApp";
-import { sessions } from "@/lib/mock-data/sessions";
-import { students } from "@/lib/mock-data/students";
-import { checktables } from "@/lib/mock-data/checktables";
 
 export default function SessionsPage() {
   return (
@@ -19,11 +16,7 @@ export default function SessionsPage() {
           one-click makeup scheduler with suggested slots.
         </p>
       </div>
-      <SessionsApp
-        sessions={sessions}
-        students={students}
-        checktables={checktables}
-      />
+      <SessionsApp />
     </div>
   );
 }

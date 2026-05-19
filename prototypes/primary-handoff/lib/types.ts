@@ -66,6 +66,8 @@ export type ChecktableAssignment = {
   pageRange?: string;
   tutorNote?: string;
   sessionLabel?: string; // e.g. "2026-05-19 Mon 4:00pm"
+  sessionId?: string; // link to a real session (when picked)
+  sourceRecordedExerciseId?: string; // set when this assignment was auto-created from a session record
 };
 
 // Assessment kanban types
@@ -107,6 +109,7 @@ export type RecordedExercise = {
   itemId?: string; // optional checktable item id link
   pageRange?: string;
   note?: string;
+  sessionId?: string; // back-reference to source session
 };
 
 export type SessionStudent = {

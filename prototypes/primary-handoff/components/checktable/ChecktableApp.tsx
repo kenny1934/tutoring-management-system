@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { History } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import type {
   AssignmentStatus,
   Checktable,
@@ -9,28 +10,38 @@ import type {
   ChecktableItem,
   Student,
 } from "@/lib/types";
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "./ChecktableGrid";
 import { AssignDialog } from "./AssignDialog";
 import { PrintTray } from "./PrintTray";
 import { HistoryDrawer } from "./HistoryDrawer";
 
-type Props = {
-  students: Student[];
-  checktables: Checktable[];
-  initialAssignments: ChecktableAssignment[];
-};
+export function ChecktableApp() {
+  const {
+    students,
+    checktables,
+    assignments,
+    setAssignments,
+  } = usePrimaryStore();
 
-export function ChecktableApp({
-  students,
-  checktables,
-  initialAssignments,
-}: Props) {
-  const [studentId, setStudentId] = useState(students[0].id);
+  const searchParams = useSearchParams();
+  const studentParam = searchParams.get("student");
+
+  const [studentId, setStudentId] = useState(
+    studentParam && students.some((s) => s.id === studentParam)
+      ? studentParam
+      : students[0].id
+  );
   const [checktableId, setChecktableId] = useState(checktables[0].id);
-  const [assignments, setAssignments] = useState(initialAssignments);
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const [printBatchIds, setPrintBatchIds] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (studentParam && students.some((s) => s.id === studentParam)) {
+      setStudentId(studentParam);
+    }
+  }, [studentParam, students]);
 
   const student = students.find((s) => s.id === studentId)!;
   const table = checktables.find((c) => c.id === checktableId)!;
@@ -79,7 +90,11 @@ export function ChecktableApp({
 
   const handleAssign = (
     item: ChecktableItem,
-    input: { pageRange?: string; tutorNote?: string; sessionLabel: string }
+    input: {
+      pageRange?: string;
+      tutorNote?: string;
+      sessionLabel: string;
+    }
   ) => {
     const existing = existingAssignmentFor(item);
     if (existing) {
@@ -91,6 +106,7 @@ export function ChecktableApp({
                 pageRange: input.pageRange || undefined,
                 tutorNote: input.tutorNote || undefined,
                 sessionLabel: input.sessionLabel,
+                sessionId: input.sessionId,
               }
             : a
         )
@@ -105,7 +121,7 @@ export function ChecktableApp({
         assignedAt: new Date().toISOString(),
         pageRange: input.pageRange || undefined,
         tutorNote: input.tutorNote || undefined,
-        sessionLabel: input.sessionLabel,
+        sessionLabel: input.sessionLabel || undefined,
       };
       setAssignments((prev) => [...prev, newA]);
     }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Primary Section Handoff Prototypes",
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <Providers>
         <header className="border-b border-ink-200 bg-white">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-3">
             <Link href="/" className="flex items-center gap-2">
@@ -54,6 +56,7 @@ export default function RootLayout({
           Prototype for internal discussion. Mock data only. No real student
           records.
         </footer>
+        </Providers>
       </body>
     </html>
   );

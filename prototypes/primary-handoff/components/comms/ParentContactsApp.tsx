@@ -2,15 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
-import type {
-  ContactType,
-  ParentContact,
-  Student,
-} from "@/lib/types";
+import type { ContactType, ParentContact } from "@/lib/types";
 import {
   contactStatusFor,
   DEMO_NOW,
 } from "@/lib/mock-data/parent-contacts";
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { ContactStatsBar } from "./ContactStatsBar";
 import { PendingFollowups } from "./PendingFollowups";
 import { StudentList } from "./StudentList";
@@ -18,13 +15,8 @@ import { ContactCalendar } from "./ContactCalendar";
 import { ContactDetail } from "./ContactDetail";
 import { RecordContactModal } from "./RecordContactModal";
 
-type Props = {
-  students: Student[];
-  initialContacts: ParentContact[];
-};
-
-export function ParentContactsApp({ students, initialContacts }: Props) {
-  const [contacts, setContacts] = useState(initialContacts);
+export function ParentContactsApp() {
+  const { students, contacts, setContacts } = usePrimaryStore();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
     null
   );

@@ -1,6 +1,4 @@
 import { ParentContactsApp } from "@/components/comms/ParentContactsApp";
-import { students } from "@/lib/mock-data/students";
-import { parentContacts } from "@/lib/mock-data/parent-contacts";
 
 export default function CommsPage() {
   return (
@@ -16,7 +14,7 @@ export default function CommsPage() {
           follow-ups sit at the top so nothing urgent gets buried.
         </p>
       </div>
-      <ParentContactsApp students={students} initialContacts={parentContacts} />
+      <ParentContactsApp />
     </div>
   );
 }
