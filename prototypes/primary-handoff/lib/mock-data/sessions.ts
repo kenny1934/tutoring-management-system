@@ -203,6 +203,7 @@ export const sessions: Session[] = [
     hw: [
       { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "608B" },
       { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "extra/602" },
+      { id: "rec-h5", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "609A", page_start: 3, page_end: 4 },
     ],
   },
   {
@@ -237,7 +238,10 @@ export const sessions: Session[] = [
     session_status: SessionStatus.ATTENDED,
     performance_rating: 3,
     cw: [{ id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", pdf_name: "607B" }],
-    hw: [],
+    hw: [
+      { id: "rec-h6", session_id: "sess-004-s-003", exercise_type: "HW", pdf_name: "607C", page_start: 1, page_end: 2 },
+      { id: "rec-h7", session_id: "sess-004-s-003", exercise_type: "HW", pdf_name: "C_Rev_6F_A01" },
+    ],
   },
 ];
 

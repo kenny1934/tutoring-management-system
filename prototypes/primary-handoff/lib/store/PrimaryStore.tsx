@@ -85,6 +85,13 @@ export type NextSuggestion = {
   checktableId: string;
 };
 
+export type PendingHomeworkCheck = {
+  /** The prior session the HW was assigned in. */
+  session: Session;
+  /** HW exercises from that session with no HomeworkCompletion row yet. */
+  exercises: SessionExercise[];
+};
+
 type Store = {
   students: Student[];
   enrollments: Enrollment[];
@@ -151,6 +158,16 @@ type Store = {
     };
     reason?: string;
   }) => string;
+
+  /** HW from a student's most recent prior attended session that hasn't
+   *  been recorded as a HomeworkCompletion yet. Used by the session view to
+   *  prompt "Previous HW to check" before today's class begins. Returns
+   *  null when there's no candidate session or every prior HW is accounted
+   *  for. */
+  pendingPreviousHomework: (
+    studentId: string,
+    currentSessionId: string
+  ) => PendingHomeworkCheck | null;
 
   /** Checktable the student is most actively working in (most assignments),
    *  or the first checktable as a fallback. */
@@ -491,6 +508,45 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const pendingPreviousHomework = useCallback(
+    (studentId: string, currentSessionId: string): PendingHomeworkCheck | null => {
+      const current = sessions.find((s) => s.id === currentSessionId);
+      if (!current) return null;
+      const currentKey = `${current.session_date}T${current.start_time}`;
+
+      const priorAttended = sessions
+        .filter(
+          (s) =>
+            s.student_id === studentId &&
+            s.id !== currentSessionId &&
+            (s.session_status === SessionStatus.ATTENDED ||
+              s.session_status === SessionStatus.ATTENDED_MAKEUP) &&
+            s.hw.length > 0 &&
+            `${s.session_date}T${s.start_time}` < currentKey
+        )
+        .sort((a, b) => {
+          if (a.session_date !== b.session_date)
+            return b.session_date.localeCompare(a.session_date);
+          return b.start_time.localeCompare(a.start_time);
+        });
+
+      const completedExerciseIds = new Set(
+        homeworkCompletions
+          .filter((c) => c.student_id === studentId)
+          .map((c) => c.session_exercise_id)
+      );
+
+      for (const session of priorAttended) {
+        const pending = session.hw.filter(
+          (ex) => !completedExerciseIds.has(ex.id)
+        );
+        if (pending.length > 0) return { session, exercises: pending };
+      }
+      return null;
+    },
+    [sessions, homeworkCompletions]
+  );
+
   const primaryChecktableId = useCallback(
     (studentId: string) => {
       const counts = new Map<string, number>();
@@ -571,6 +627,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       removeFromPrintBatch,
       clearPrintBatch,
       createMakeupSession,
+      pendingPreviousHomework,
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,
@@ -592,6 +649,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       removeFromPrintBatch,
       clearPrintBatch,
       createMakeupSession,
+      pendingPreviousHomework,
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,

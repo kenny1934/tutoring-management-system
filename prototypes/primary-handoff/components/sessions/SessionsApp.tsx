@@ -14,6 +14,10 @@ import {
   Table2,
   ArrowRight,
   Printer,
+  ClipboardCheck,
+  Check,
+  CircleSlash,
+  CircleDashed,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -28,6 +32,7 @@ import {
   usePrimaryStore,
   formatPageRange,
   type NextSuggestion,
+  type PendingHomeworkCheck,
 } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { RecordExerciseModal } from "./RecordExerciseModal";
@@ -108,8 +113,11 @@ export function SessionsApp() {
     setSessions,
     recordExercise,
     removeExercise,
+    recordHomeworkCompletion,
+    pendingPreviousHomework,
     primaryChecktableId,
     nextSuggestedItem,
+    sessionLabel,
   } = usePrimaryStore();
 
   const [exerciseEditor, setExerciseEditor] =
@@ -157,6 +165,16 @@ export function SessionsApp() {
     }
     return map;
   }, [students, primaryChecktableId, nextSuggestedItem]);
+
+  /** Per current-session-id, the previous attended session's unchecked HW. */
+  const pendingHwBySessionId = useMemo(() => {
+    const map = new Map<string, PendingHomeworkCheck>();
+    for (const s of sessionState) {
+      const pending = pendingPreviousHomework(s.student_id, s.id);
+      if (pending) map.set(s.id, pending);
+    }
+    return map;
+  }, [sessionState, pendingPreviousHomework]);
 
   const meetings = useMemo(() => groupByMeeting(sessionState), [sessionState]);
 
@@ -244,6 +262,8 @@ export function SessionsApp() {
                 highlighted={isHighlighted}
                 highlightSessionId={highlightSessionId}
                 nextByStudent={nextByStudent}
+                pendingHwBySessionId={pendingHwBySessionId}
+                sessionLabel={sessionLabel}
                 onSetStatus={setStatus}
                 onPerformance={setPerformance}
                 onOpenExercise={(sessionId, studentId, kind) =>
@@ -253,6 +273,20 @@ export function SessionsApp() {
                   setMakeupOpen({ sessionId, studentId })
                 }
                 onRemoveExercise={removeExercise}
+                onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
+                  recordHomeworkCompletion({
+                    current_session_id: currentSessionId,
+                    session_exercise_id: exerciseId,
+                    student_id: studentId,
+                    submitted: choice !== "not-done",
+                    completion_status:
+                      choice === "complete"
+                        ? "Complete"
+                        : choice === "partial"
+                          ? "Partial"
+                          : "Not done",
+                  })
+                }
               />
             </div>
           );
@@ -346,23 +380,30 @@ function formatTime(start_time: string): string {
   });
 }
 
+type PreviousHwChoice = "complete" | "partial" | "not-done";
+
 function MeetingCard({
   meeting,
   studentById,
   highlighted,
   highlightSessionId,
   nextByStudent,
+  pendingHwBySessionId,
+  sessionLabel,
   onSetStatus,
   onPerformance,
   onOpenExercise,
   onScheduleMakeup,
   onRemoveExercise,
+  onMarkPreviousHw,
 }: {
   meeting: ClassMeeting;
   studentById: Map<string, Student>;
   highlighted: boolean;
   highlightSessionId: string | null;
   nextByStudent: Map<string, NextSuggestion | null>;
+  pendingHwBySessionId: Map<string, PendingHomeworkCheck>;
+  sessionLabel: (sessionId: string) => string;
   onSetStatus: (
     sessionId: string,
     next: { session_status: SessionStatusValue; attendance_status?: string }
@@ -378,6 +419,12 @@ function MeetingCard({
     sessionId: string,
     kind: "CW" | "HW",
     exerciseId: string
+  ) => void;
+  onMarkPreviousHw: (
+    currentSessionId: string,
+    studentId: string,
+    exerciseId: string,
+    choice: PreviousHwChoice
   ) => void;
 }) {
   const dateLabel = new Date(
@@ -450,6 +497,8 @@ function MeetingCard({
               student={student}
               highlightedRow={isHighlightedRow}
               nextSuggestion={nextByStudent.get(session.student_id) ?? null}
+              pendingHw={pendingHwBySessionId.get(session.id) ?? null}
+              sessionLabel={sessionLabel}
               onSetStatus={(next) => onSetStatus(session.id, next)}
               onPerformance={(p) => onPerformance(session.id, p)}
               onOpenExercise={(k) =>
@@ -460,6 +509,14 @@ function MeetingCard({
               }
               onScheduleMakeup={() =>
                 onScheduleMakeup(session.id, session.student_id)
+              }
+              onMarkPreviousHw={(exerciseId, choice) =>
+                onMarkPreviousHw(
+                  session.id,
+                  session.student_id,
+                  exerciseId,
+                  choice
+                )
               }
             />
           );
@@ -521,16 +578,21 @@ function StudentRow({
   student,
   highlightedRow,
   nextSuggestion,
+  pendingHw,
+  sessionLabel,
   onSetStatus,
   onPerformance,
   onOpenExercise,
   onRemoveExercise,
   onScheduleMakeup,
+  onMarkPreviousHw,
 }: {
   session: Session;
   student: Student;
   highlightedRow: boolean;
   nextSuggestion: NextSuggestion | null;
+  pendingHw: PendingHomeworkCheck | null;
+  sessionLabel: (sessionId: string) => string;
   onSetStatus: (next: {
     session_status: SessionStatusValue;
     attendance_status?: string;
@@ -539,6 +601,7 @@ function StudentRow({
   onOpenExercise: (k: "CW" | "HW") => void;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
+  onMarkPreviousHw: (exerciseId: string, choice: PreviousHwChoice) => void;
 }) {
   const choice = pickerChoiceForStatus(session);
   const subChip = makeupSubChip(session);
@@ -627,6 +690,13 @@ function StudentRow({
       </div>
 
       <div className="space-y-2">
+        {pendingHw && (
+          <PreviousHomeworkToCheck
+            pending={pendingHw}
+            sourceLabel={sessionLabel(pendingHw.session.id)}
+            onMark={onMarkPreviousHw}
+          />
+        )}
         <ExerciseRow
           kind="CW"
           items={session.cw}
@@ -708,6 +778,93 @@ function AttendancePicker({
           {subChip.label}
         </span>
       )}
+    </div>
+  );
+}
+
+function PreviousHomeworkToCheck({
+  pending,
+  sourceLabel,
+  onMark,
+}: {
+  pending: PendingHomeworkCheck;
+  sourceLabel: string;
+  onMark: (exerciseId: string, choice: PreviousHwChoice) => void;
+}) {
+  return (
+    <div className="rounded-md border border-accent-200 bg-accent-50/60 p-2 space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-accent-700">
+        <ClipboardCheck className="h-3 w-3" />
+        <span>Previous HW to check</span>
+        <span className="normal-case tracking-normal text-accent-600/80">
+          · from {sourceLabel}
+        </span>
+      </div>
+      <div className="space-y-1">
+        {pending.exercises.map((ex) => {
+          const range = formatPageRange(ex.page_start, ex.page_end);
+          return (
+            <div
+              key={ex.id}
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              <span className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 rounded-md px-1.5 py-0.5">
+                <span className="font-mono text-ink-700">{ex.pdf_name}</span>
+                {range && <span className="text-ink-400">·{range}</span>}
+              </span>
+              <PreviousHwChoiceButtons
+                onMark={(choice) => onMark(ex.id, choice)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PreviousHwChoiceButtons({
+  onMark,
+}: {
+  onMark: (choice: PreviousHwChoice) => void;
+}) {
+  const options: {
+    id: PreviousHwChoice;
+    label: string;
+    cls: string;
+    Icon: typeof Check;
+  }[] = [
+    {
+      id: "complete",
+      label: "Complete",
+      cls: "hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-200",
+      Icon: Check,
+    },
+    {
+      id: "partial",
+      label: "Partial",
+      cls: "hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200",
+      Icon: CircleDashed,
+    },
+    {
+      id: "not-done",
+      label: "Not done",
+      cls: "hover:bg-rose-100 hover:text-rose-700 hover:border-rose-200",
+      Icon: CircleSlash,
+    },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map(({ id, label, cls, Icon }) => (
+        <button
+          key={id}
+          onClick={() => onMark(id)}
+          className={`text-[11px] rounded-md px-1.5 py-0.5 border border-ink-200 text-ink-600 transition-colors flex items-center gap-1 ${cls}`}
+        >
+          <Icon className="h-3 w-3" />
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
