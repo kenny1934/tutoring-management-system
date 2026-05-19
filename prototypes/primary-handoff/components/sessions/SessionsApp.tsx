@@ -557,17 +557,18 @@ function AttendancePicker({
   value: AttendanceStatus;
   onChange: (v: AttendanceStatus) => void;
 }) {
+  // "makeup" is system-set when a makeup session is scheduled — shown here
+  // for context but not selectable directly. Tutors flip a student to
+  // absent/late and use the "Schedule makeup" action.
   const options: {
-    id: AttendanceStatus;
+    id: Exclude<AttendanceStatus, "makeup" | "pending">;
     label: string;
     cls: string;
   }[] = [
     { id: "present", label: "Present", cls: "bg-emerald-100 text-emerald-700" },
     { id: "late", label: "Late", cls: "bg-amber-100 text-amber-700" },
     { id: "absent", label: "Absent", cls: "bg-rose-100 text-rose-700" },
-    { id: "makeup", label: "Makeup", cls: "bg-accent-100 text-accent-700" },
   ];
-  const current = options.find((o) => o.id === value);
   return (
     <div className="flex flex-wrap gap-1">
       {options.map((o) => (
@@ -575,7 +576,7 @@ function AttendancePicker({
           key={o.id}
           onClick={() => onChange(o.id)}
           className={`text-xs rounded-md px-2 py-0.5 border transition-colors ${
-            current?.id === o.id
+            value === o.id
               ? `${o.cls} border-transparent font-medium`
               : "border-ink-200 text-ink-500 hover:bg-ink-50"
           }`}
@@ -583,6 +584,15 @@ function AttendancePicker({
           {o.label}
         </button>
       ))}
+      {value === "makeup" && (
+        <span
+          className="text-xs rounded-md px-2 py-0.5 border border-accent-200 bg-accent-50 text-accent-700 font-medium"
+          title="Set automatically when a makeup session was scheduled"
+        >
+          Makeup ·{" "}
+          <span className="text-accent-600/70 font-normal">scheduled</span>
+        </span>
+      )}
     </div>
   );
 }
