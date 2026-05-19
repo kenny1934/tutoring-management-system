@@ -41,6 +41,19 @@ import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
+import {
+  SessionsToolbar,
+  type StatusFilter,
+  type TutorOption,
+  type ViewMode,
+} from "./SessionsToolbar";
+import { WeeklyView } from "./WeeklyView";
+import {
+  groupByMeeting,
+  formatTimeSlot,
+  gradeBadgeStyle,
+  type ClassMeeting,
+} from "./meeting-utils";
 
 type ExerciseEditor = {
   sessionId: string;
@@ -49,66 +62,6 @@ type ExerciseEditor = {
 };
 
 type PreviousHwChoice = "complete" | "partial" | "not-done";
-
-/** UI-only grouping: many per-student Session rows that share class+date+time
- *  display as one card. Kept as a derived view; not stored. Mirrors CSM's
- *  "time slot" grouping. */
-type ClassMeeting = {
-  key: string;
-  class_code: string;
-  class_name: string;
-  session_date: string;
-  start_time: string;
-  duration_mins: number;
-  room: string;
-  tutor_name: string;
-  lesson_number: number;
-  is_makeup: boolean;
-  class_wide_note?: string;
-  members: Session[];
-};
-
-function groupByMeeting(sessions: Session[]): ClassMeeting[] {
-  const map = new Map<string, ClassMeeting>();
-  for (const s of sessions) {
-    const key = `${s.class_code}|${s.session_date}|${s.start_time}`;
-    const existing = map.get(key);
-    if (existing) {
-      existing.members.push(s);
-      if (
-        s.session_status === SessionStatus.MAKEUP_CLASS ||
-        s.session_status === SessionStatus.ATTENDED_MAKEUP
-      ) {
-        existing.is_makeup = true;
-      }
-      if (!existing.class_wide_note && s.class_wide_note) {
-        existing.class_wide_note = s.class_wide_note;
-      }
-    } else {
-      map.set(key, {
-        key,
-        class_code: s.class_code,
-        class_name: s.class_name,
-        session_date: s.session_date,
-        start_time: s.start_time,
-        duration_mins: s.duration_mins,
-        room: s.room,
-        tutor_name: s.tutor_name,
-        lesson_number: s.lesson_number,
-        is_makeup:
-          s.session_status === SessionStatus.MAKEUP_CLASS ||
-          s.session_status === SessionStatus.ATTENDED_MAKEUP,
-        class_wide_note: s.class_wide_note,
-        members: [s],
-      });
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => {
-    if (a.session_date !== b.session_date)
-      return a.session_date.localeCompare(b.session_date);
-    return a.start_time.localeCompare(b.start_time);
-  });
-}
 
 export function SessionsApp() {
   const {
@@ -131,7 +84,10 @@ export function SessionsApp() {
     sessionId: string;
     studentId: string;
   } | null>(null);
-  const [filter, setFilter] = useState<"today" | "upcoming" | "past">("today");
+  const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
+  const [tutorFilter, setTutorFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [view, setView] = useState<ViewMode>("list");
 
   const searchParams = useSearchParams();
   const highlightSessionId = searchParams.get("session");
@@ -141,10 +97,8 @@ export function SessionsApp() {
     if (!highlightSessionId) return;
     const target = sessionState.find((s) => s.id === highlightSessionId);
     if (!target) return;
-    const day = target.session_date;
-    if (day === DEMO_DAY) setFilter("today");
-    else if (day > DEMO_DAY) setFilter("upcoming");
-    else setFilter("past");
+    setSelectedDate(target.session_date);
+    setView("list");
   }, [highlightSessionId, sessionState]);
 
   useEffect(() => {
@@ -155,7 +109,7 @@ export function SessionsApp() {
         block: "start",
       });
     }
-  }, [highlightSessionId, filter]);
+  }, [highlightSessionId, selectedDate, view]);
 
   const studentById = useMemo(
     () => new Map(students.map((s) => [s.id, s])),
@@ -182,28 +136,49 @@ export function SessionsApp() {
     return map;
   }, [sessionState, pendingPreviousHomework]);
 
-  const meetings = useMemo(() => groupByMeeting(sessionState), [sessionState]);
-
-  const filterCounts = useMemo(() => {
-    let today = 0;
-    let upcoming = 0;
-    let past = 0;
-    for (const m of meetings) {
-      if (m.session_date === DEMO_DAY) today += 1;
-      else if (m.session_date > DEMO_DAY) upcoming += 1;
-      else past += 1;
+  // Distinct tutors across all seeded sessions, sorted by surname-ish.
+  const tutorOptions = useMemo<TutorOption[]>(() => {
+    const map = new Map<string, string>();
+    for (const s of sessionState) {
+      if (!map.has(s.tutor_id)) map.set(s.tutor_id, s.tutor_name);
     }
-    return { today, upcoming, past };
-  }, [meetings]);
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [sessionState]);
 
-  const filtered = useMemo(
+  // Distinct statuses present in the seed — keeps the filter dropdown tight
+  // and only shows options the user can actually pick.
+  const statusOptions = useMemo<SessionStatusValue[]>(() => {
+    const set = new Set<SessionStatusValue>();
+    for (const s of sessionState) set.add(s.session_status);
+    return Array.from(set).sort();
+  }, [sessionState]);
+
+  // Filter at the session level first (tutor + status), then re-group into
+  // meetings so a tutor/status filter shrinks the slot card to matching rows.
+  const filteredSessions = useMemo(
     () =>
-      meetings.filter((m) => {
-        if (filter === "today") return m.session_date === DEMO_DAY;
-        if (filter === "upcoming") return m.session_date > DEMO_DAY;
-        return m.session_date < DEMO_DAY;
+      sessionState.filter((s) => {
+        if (tutorFilter !== "all" && s.tutor_id !== tutorFilter) return false;
+        if (statusFilter !== "all" && s.session_status !== statusFilter)
+          return false;
+        return true;
       }),
-    [meetings, filter]
+    [sessionState, tutorFilter, statusFilter]
+  );
+
+  const meetingsForDate = useMemo(
+    () =>
+      groupByMeeting(
+        filteredSessions.filter((s) => s.session_date === selectedDate)
+      ),
+    [filteredSessions, selectedDate]
+  );
+
+  const allMeetings = useMemo(
+    () => groupByMeeting(filteredSessions),
+    [filteredSessions]
   );
 
   const setStatus = (
@@ -245,59 +220,93 @@ export function SessionsApp() {
 
   return (
     <div className="space-y-4">
-      <FilterBar filter={filter} onChange={setFilter} counts={filterCounts} />
+      <SessionsToolbar
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onJumpToToday={() => setSelectedDate(DEMO_DAY)}
+        isToday={selectedDate === DEMO_DAY}
+        tutors={tutorOptions}
+        tutorFilter={tutorFilter}
+        onTutorChange={setTutorFilter}
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={statusOptions}
+        view={view}
+        onViewChange={setView}
+        resultCount={
+          view === "list" ? meetingsForDate.length : allMeetings.length
+        }
+      />
 
-      <div className="space-y-4">
-        {filtered.length === 0 && (
-          <div className="surface-mc p-8 text-center text-ink-500">
-            No sessions in this window.
-          </div>
-        )}
-        {filtered.map((meeting) => {
-          const isHighlighted = meeting.members.some(
-            (m) => m.id === highlightSessionId
-          );
-          return (
-            <div
-              key={meeting.key}
-              ref={isHighlighted ? highlightedRef : undefined}
-            >
-              <MeetingCard
-                meeting={meeting}
-                studentById={studentById}
-                highlighted={isHighlighted}
-                highlightSessionId={highlightSessionId}
-                nextByStudent={nextByStudent}
-                pendingHwBySessionId={pendingHwBySessionId}
-                sessionLabel={sessionLabel}
-                onSetStatus={setStatus}
-                onPerformance={setPerformance}
-                onOpenExercise={(sessionId, studentId, kind) =>
-                  setExerciseEditor({ sessionId, studentId, kind })
-                }
-                onScheduleMakeup={(sessionId, studentId) =>
-                  setMakeupOpen({ sessionId, studentId })
-                }
-                onRemoveExercise={removeExercise}
-                onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
-                  recordHomeworkCompletion({
-                    current_session_id: currentSessionId,
-                    session_exercise_id: exerciseId,
-                    student_id: studentId,
-                    submitted: choice !== "not-done",
-                    completion_status:
-                      choice === "complete"
-                        ? "Complete"
-                        : choice === "partial"
-                          ? "Partial"
-                          : "Not done",
-                  })
-                }
-              />
+      {view === "weekly" ? (
+        <WeeklyView
+          meetings={allMeetings}
+          anchorDate={selectedDate}
+          studentById={studentById}
+          onPick={(meeting) => {
+            setSelectedDate(meeting.session_date);
+            setView("list");
+          }}
+        />
+      ) : (
+        <div className="space-y-4">
+          {meetingsForDate.length === 0 && (
+            <div className="surface-mc p-10 text-center">
+              <CalendarClock className="h-8 w-8 text-ink-300 mx-auto" />
+              <div className="mt-2 text-sm font-medium text-ink-700">
+                No sessions on this day
+              </div>
+              <div className="mt-1 text-xs text-ink-500">
+                Try a different date or clear the tutor/status filter.
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+          {meetingsForDate.map((meeting) => {
+            const isHighlighted = meeting.members.some(
+              (m) => m.id === highlightSessionId
+            );
+            return (
+              <div
+                key={meeting.key}
+                ref={isHighlighted ? highlightedRef : undefined}
+              >
+                <MeetingCard
+                  meeting={meeting}
+                  studentById={studentById}
+                  highlighted={isHighlighted}
+                  highlightSessionId={highlightSessionId}
+                  nextByStudent={nextByStudent}
+                  pendingHwBySessionId={pendingHwBySessionId}
+                  sessionLabel={sessionLabel}
+                  onSetStatus={setStatus}
+                  onPerformance={setPerformance}
+                  onOpenExercise={(sessionId, studentId, kind) =>
+                    setExerciseEditor({ sessionId, studentId, kind })
+                  }
+                  onScheduleMakeup={(sessionId, studentId) =>
+                    setMakeupOpen({ sessionId, studentId })
+                  }
+                  onRemoveExercise={removeExercise}
+                  onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
+                    recordHomeworkCompletion({
+                      current_session_id: currentSessionId,
+                      session_exercise_id: exerciseId,
+                      student_id: studentId,
+                      submitted: choice !== "not-done",
+                      completion_status:
+                        choice === "complete"
+                          ? "Complete"
+                          : choice === "partial"
+                            ? "Partial"
+                            : "Not done",
+                    })
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {exerciseEditor && editorSession && editorStudentInfo && (
         <RecordExerciseModal
@@ -334,76 +343,6 @@ export function SessionsApp() {
       )}
     </div>
   );
-}
-
-function FilterBar({
-  filter,
-  onChange,
-  counts,
-}: {
-  filter: "today" | "upcoming" | "past";
-  onChange: (v: "today" | "upcoming" | "past") => void;
-  counts: { today: number; upcoming: number; past: number };
-}) {
-  const items: { id: typeof filter; label: string; count: number }[] = [
-    { id: "today", label: "Today", count: counts.today },
-    { id: "upcoming", label: "Upcoming", count: counts.upcoming },
-    { id: "past", label: "Past", count: counts.past },
-  ];
-  return (
-    <div className="inline-flex rounded-md border border-ink-300 bg-white p-0.5 text-sm">
-      {items.map((it) => {
-        const active = filter === it.id;
-        return (
-          <button
-            key={it.id}
-            onClick={() => onChange(it.id)}
-            className={`px-3 py-1 rounded-md transition-colors ${
-              active
-                ? "bg-mc-red-600 text-white"
-                : "text-ink-700 hover:bg-ink-100"
-            }`}
-          >
-            {it.label}
-            <span
-              className={`ml-1 ${active ? "opacity-80" : "text-ink-400"}`}
-            >
-              ({it.count})
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** "16:00 - 17:30" — 24-hour zero-padded, space-dash-space. Matches CSM's
- *  stored time_slot format (database/seed_summer_2025.py). */
-function formatTimeSlot(start_time: string, duration_mins: number): string {
-  const [hStr, mStr] = start_time.split(":");
-  const startMins = Number(hStr) * 60 + Number(mStr);
-  const endMins = startMins + duration_mins;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const end = `${pad(Math.floor(endMins / 60) % 24)}:${pad(endMins % 60)}`;
-  const start = `${pad(Number(hStr))}:${pad(Number(mStr))}`;
-  return `${start} - ${end}`;
-}
-
-/** Lightweight color map for primary grade badges. Just enough variety to
- *  visually distinguish grades on the card. */
-function gradeBadgeStyle(grade: string): string {
-  switch (grade) {
-    case "P1": case "P2":
-      return "bg-blue-100 text-blue-700";
-    case "P3": case "P4":
-      return "bg-emerald-100 text-emerald-700";
-    case "P5":
-      return "bg-purple-100 text-purple-700";
-    case "P6":
-      return "bg-mc-peach-100 text-mc-peach-600";
-    default:
-      return "bg-ink-100 text-ink-700";
-  }
 }
 
 function MeetingCard({
@@ -451,14 +390,8 @@ function MeetingCard({
     choice: PreviousHwChoice
   ) => void;
 }) {
-  const dateLabel = new Date(
-    `${meeting.session_date}T${meeting.start_time}:00+08:00`
-  ).toLocaleDateString("en-HK", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
   const slotLabel = formatTimeSlot(meeting.start_time, meeting.duration_mins);
+  const memberCount = meeting.members.length;
 
   return (
     <div
@@ -466,35 +399,46 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Slot header — date + CSM-format time_slot only. No class name,
-       *  no room, no tutor, no lesson# (those live on each student row
-       *  per CSM's list view). Thick red left rule; yellow rule + cream
-       *  tint when the meeting is a make-up. */}
+      {/* Slot header — CSM-format time_slot (date lives in the toolbar's
+       *  date navigator). Thick red left rule; yellow rule + cream tint
+       *  when the meeting is a make-up. Tutor + member count on the right
+       *  give the at-a-glance "who's running this slot". */}
       <div
-        className={`px-4 py-2 border-l-4 border-b border-b-ink-200 flex items-center justify-between gap-3 ${
+        className={`px-4 py-2.5 border-l-4 border-b border-b-mc-line flex items-center justify-between gap-3 ${
           meeting.is_makeup
             ? "bg-mc-yellow-50 border-l-mc-yellow-500"
             : "bg-white border-l-mc-red-600"
         }`}
       >
-        <span className="text-base font-semibold text-ink-900">
-          {dateLabel} · {slotLabel}
-        </span>
-        {meeting.is_makeup && (
-          <span className="text-[11px] rounded-md bg-mc-yellow-500 text-ink-900 px-2 py-0.5 font-semibold shrink-0">
-            Make-up
+        <div className="flex items-center gap-2 min-w-0">
+          <Clock className="h-4 w-4 text-ink-500 shrink-0" />
+          <span className="text-base font-semibold text-ink-900 tabular-nums">
+            {slotLabel}
           </span>
-        )}
+          {meeting.is_makeup && (
+            <span className="text-[10px] rounded-md bg-mc-yellow-500 text-ink-900 px-1.5 py-0.5 font-semibold shrink-0">
+              Make-up
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-ink-500 hidden sm:inline">
+            {meeting.tutor_name}
+          </span>
+          <span className="text-[11px] rounded-full bg-ink-100 text-ink-700 px-2 py-0.5 font-semibold tabular-nums">
+            {memberCount} {memberCount === 1 ? "student" : "students"}
+          </span>
+        </div>
       </div>
 
       {meeting.class_wide_note && (
-        <div className="px-4 py-2 text-xs text-ink-700 bg-mc-cream border-b border-ink-200 flex items-start gap-2">
+        <div className="px-4 py-2 text-xs text-ink-700 bg-mc-cream border-b border-mc-line flex items-start gap-2">
           <StickyNote className="h-3 w-3 mt-0.5 text-mc-red-600" />
           {meeting.class_wide_note}
         </div>
       )}
 
-      <div className="divide-y divide-ink-200">
+      <div className="divide-y divide-mc-line">
         {meeting.members.map((session) => {
           const student = studentById.get(session.student_id);
           if (!student) return null;
