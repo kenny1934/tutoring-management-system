@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import type {
   Checktable,
   ChecktableAssignment,
+  ChecktableChapter,
   ChecktableItem,
   ClassSession,
   ExerciseKind,
@@ -36,6 +37,12 @@ type ExerciseInput = {
 };
 
 type ItemMeta = { item: ChecktableItem; checktableId: string };
+
+export type NextSuggestion = {
+  item: ChecktableItem;
+  chapter: ChecktableChapter;
+  checktableId: string;
+};
 
 type Store = {
   students: Student[];
@@ -70,6 +77,18 @@ type Store = {
   togglePrintBatch: (studentId: string, itemId: string) => void;
   removeFromPrintBatch: (studentId: string, itemId: string) => void;
   clearPrintBatch: (studentId: string) => void;
+
+  /** Checktable the student is most actively working in (most assignments),
+   *  or the first checktable as a fallback. */
+  primaryChecktableId: (studentId: string) => string;
+  /** First item with no assignment yet from the lowest-numbered chapter the
+   *  student has touched. Falls back to next chapter's first item if the
+   *  current chapter is fully covered, or to the very first item if the
+   *  student has no assignments yet. */
+  nextSuggestedItem: (
+    studentId: string,
+    checktableId: string
+  ) => NextSuggestion | null;
 
   sessionLabel: (sessionId: string) => string;
 };
@@ -276,6 +295,65 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const primaryChecktableId = useCallback(
+    (studentId: string) => {
+      const counts = new Map<string, number>();
+      for (const a of assignments) {
+        if (a.studentId !== studentId) continue;
+        counts.set(a.checktableId, (counts.get(a.checktableId) ?? 0) + 1);
+      }
+      let topId: string | null = null;
+      let topCount = -1;
+      for (const [id, count] of counts) {
+        if (count > topCount) {
+          topId = id;
+          topCount = count;
+        }
+      }
+      return topId ?? checktables[0].id;
+    },
+    [assignments, checktables]
+  );
+
+  const nextSuggestedItem = useCallback(
+    (studentId: string, checktableId: string): NextSuggestion | null => {
+      const table = checktables.find((t) => t.id === checktableId);
+      if (!table) return null;
+      const assigned = new Set(
+        assignments
+          .filter(
+            (a) => a.studentId === studentId && a.checktableId === checktableId
+          )
+          .map((a) => a.itemId)
+      );
+
+      type ChapterBucket = { chapter: ChecktableChapter; items: ChecktableItem[] };
+      const buckets: ChapterBucket[] = [];
+      for (const sec of table.sections) {
+        for (const ch of sec.chapters) {
+          const items: ChecktableItem[] = [];
+          for (const s of table.series) {
+            items.push(...(ch.cells[s.id]?.items ?? []));
+          }
+          buckets.push({ chapter: ch, items });
+        }
+      }
+
+      let startIndex = buckets.findIndex(({ items }) =>
+        items.some((i) => assigned.has(i.id))
+      );
+      if (startIndex === -1) startIndex = 0;
+
+      for (let i = startIndex; i < buckets.length; i++) {
+        const { chapter, items } = buckets[i];
+        const next = items.find((it) => !assigned.has(it.id));
+        if (next) return { item: next, chapter, checktableId };
+      }
+      return null;
+    },
+    [assignments, checktables]
+  );
+
   const value = useMemo<Store>(
     () => ({
       students,
@@ -293,6 +371,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      primaryChecktableId,
+      nextSuggestedItem,
       sessionLabel,
     }),
     [
@@ -308,6 +388,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      primaryChecktableId,
+      nextSuggestedItem,
       sessionLabel,
     ]
   );

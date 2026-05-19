@@ -12,6 +12,7 @@ import {
   StickyNote,
   CalendarClock,
   Table2,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -22,7 +23,7 @@ import type {
   Student,
   SessionStudent,
 } from "@/lib/types";
-import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { usePrimaryStore, type NextSuggestion } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
@@ -43,6 +44,8 @@ export function SessionsApp() {
     setSessions,
     recordExercise,
     removeExercise,
+    primaryChecktableId,
+    nextSuggestedItem,
   } = usePrimaryStore();
 
   const [exerciseEditor, setExerciseEditor] =
@@ -81,6 +84,15 @@ export function SessionsApp() {
     () => new Map(students.map((s) => [s.id, s])),
     [students]
   );
+
+  const nextByStudent = useMemo(() => {
+    const map = new Map<string, NextSuggestion | null>();
+    for (const s of students) {
+      const ctId = primaryChecktableId(s.id);
+      map.set(s.id, nextSuggestedItem(s.id, ctId));
+    }
+    return map;
+  }, [students, primaryChecktableId, nextSuggestedItem]);
 
   const recentlyCoveredByStudent = useMemo(() => {
     const map = new Map<string, { code: string; doneAt: string }[]>();
@@ -181,6 +193,7 @@ export function SessionsApp() {
                 studentById={studentById}
                 highlighted={isHighlighted}
                 recentlyCoveredByStudent={recentlyCoveredByStudent}
+                nextByStudent={nextByStudent}
                 onAttendance={(studentId, attendance) =>
                   setAttendance(session.id, studentId, attendance)
                 }
@@ -283,6 +296,7 @@ function SessionCard({
   studentById,
   highlighted,
   recentlyCoveredByStudent,
+  nextByStudent,
   onAttendance,
   onPerformance,
   onOpenExercise,
@@ -293,6 +307,7 @@ function SessionCard({
   studentById: Map<string, Student>;
   highlighted?: boolean;
   recentlyCoveredByStudent: Map<string, { code: string; doneAt: string }[]>;
+  nextByStudent: Map<string, NextSuggestion | null>;
   onAttendance: (studentId: string, a: AttendanceStatus) => void;
   onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (studentId: string, kind: "CW" | "HW") => void;
@@ -379,6 +394,7 @@ function SessionCard({
               sessionStudent={ss}
               student={student}
               recentlyCovered={recentlyCoveredByStudent.get(ss.studentId) ?? []}
+              nextSuggestion={nextByStudent.get(ss.studentId) ?? null}
               onAttendance={(a) => onAttendance(ss.studentId, a)}
               onPerformance={(p) => onPerformance(ss.studentId, p)}
               onOpenExercise={(k) => onOpenExercise(ss.studentId, k)}
@@ -398,6 +414,7 @@ function StudentRow({
   sessionStudent,
   student,
   recentlyCovered,
+  nextSuggestion,
   onAttendance,
   onPerformance,
   onOpenExercise,
@@ -407,6 +424,7 @@ function StudentRow({
   sessionStudent: SessionStudent;
   student: Student;
   recentlyCovered: { code: string; doneAt: string }[];
+  nextSuggestion: NextSuggestion | null;
   onAttendance: (a: AttendanceStatus) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
@@ -445,6 +463,22 @@ function StudentRow({
               </span>
             ))}
           </div>
+        )}
+        {nextSuggestion && (
+          <Link
+            href={`/checktables?student=${student.id}`}
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] rounded-md border border-accent-200 bg-accent-50 text-accent-700 px-1.5 py-0.5 hover:bg-accent-100"
+            title={`Next untouched item · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
+          >
+            <ArrowRight className="h-3 w-3" />
+            <span className="uppercase tracking-wide text-[9px] text-accent-600/80">
+              Next
+            </span>
+            <span className="font-mono">{nextSuggestion.item.code}</span>
+            <span className="text-accent-600/80">
+              · Ch.{nextSuggestion.chapter.number} {nextSuggestion.chapter.title}
+            </span>
+          </Link>
         )}
         {sessionStudent.note && (
           <div className="text-xs text-ink-600 mt-1 italic">
