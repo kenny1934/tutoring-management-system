@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Clock,
@@ -11,8 +11,10 @@ import {
   Star,
   StickyNote,
   CalendarClock,
-  Sparkles,
+  Table2,
 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type {
   AttendanceStatus,
   ClassSession,
@@ -47,6 +49,31 @@ export function SessionsApp() {
     studentId: string;
   } | null>(null);
   const [filter, setFilter] = useState<"today" | "upcoming" | "past">("today");
+
+  const searchParams = useSearchParams();
+  const highlightSessionId = searchParams.get("session");
+  const highlightedRef = useRef<HTMLDivElement | null>(null);
+
+  // When arriving via ?session=<id>, switch the filter so the session is visible
+  useEffect(() => {
+    if (!highlightSessionId) return;
+    const target = sessionState.find((s) => s.id === highlightSessionId);
+    if (!target) return;
+    const day = target.startAt.slice(0, 10);
+    const today = "2026-05-19";
+    if (day === today) setFilter("today");
+    else if (day > today) setFilter("upcoming");
+    else setFilter("past");
+  }, [highlightSessionId, sessionState]);
+
+  useEffect(() => {
+    if (highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [highlightSessionId, filter]);
 
   const studentById = useMemo(
     () => new Map(students.map((s) => [s.id, s])),
@@ -123,28 +150,36 @@ export function SessionsApp() {
             No sessions in this window.
           </div>
         )}
-        {filtered.map((session) => (
-          <SessionCard
-            key={session.id}
-            session={session}
-            students={students}
-            onAttendance={(studentId, attendance) =>
-              setAttendance(session.id, studentId, attendance)
-            }
-            onPerformance={(studentId, perf) =>
-              setPerformance(session.id, studentId, perf)
-            }
-            onOpenExercise={(studentId, kind) =>
-              setExerciseEditor({ sessionId: session.id, studentId, kind })
-            }
-            onScheduleMakeup={(studentId) =>
-              setMakeupOpen({ sessionId: session.id, studentId })
-            }
-            onRemoveExercise={(studentId, kind, exerciseId) =>
-              removeExercise(session.id, studentId, kind, exerciseId)
-            }
-          />
-        ))}
+        {filtered.map((session) => {
+          const isHighlighted = session.id === highlightSessionId;
+          return (
+            <div
+              key={session.id}
+              ref={isHighlighted ? highlightedRef : undefined}
+            >
+              <SessionCard
+                session={session}
+                students={students}
+                highlighted={isHighlighted}
+                onAttendance={(studentId, attendance) =>
+                  setAttendance(session.id, studentId, attendance)
+                }
+                onPerformance={(studentId, perf) =>
+                  setPerformance(session.id, studentId, perf)
+                }
+                onOpenExercise={(studentId, kind) =>
+                  setExerciseEditor({ sessionId: session.id, studentId, kind })
+                }
+                onScheduleMakeup={(studentId) =>
+                  setMakeupOpen({ sessionId: session.id, studentId })
+                }
+                onRemoveExercise={(studentId, kind, exerciseId) =>
+                  removeExercise(session.id, studentId, kind, exerciseId)
+                }
+              />
+            </div>
+          );
+        })}
       </div>
 
       {exerciseEditor && editorSession && editorStudent && editorStudentInfo && (
@@ -226,6 +261,7 @@ function FilterBar({
 function SessionCard({
   session,
   students,
+  highlighted,
   onAttendance,
   onPerformance,
   onOpenExercise,
@@ -234,6 +270,7 @@ function SessionCard({
 }: {
   session: ClassSession;
   students: Student[];
+  highlighted?: boolean;
   onAttendance: (studentId: string, a: AttendanceStatus) => void;
   onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (studentId: string, kind: "CW" | "HW") => void;
@@ -248,7 +285,11 @@ function SessionCard({
   const start = new Date(session.startAt);
 
   return (
-    <div className="surface overflow-hidden">
+    <div
+      className={`surface overflow-hidden ${
+        highlighted ? "ring-2 ring-accent-500 ring-offset-2" : ""
+      }`}
+    >
       <div
         className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${
           session.isMakeup
@@ -355,6 +396,14 @@ function StudentRow({
         <div className="text-xs text-ink-500">
           {student.code} · {student.grade}
         </div>
+        <Link
+          href={`/checktables?student=${student.id}`}
+          className="text-xs text-accent-700 hover:underline mt-1 inline-flex items-center gap-1"
+          title="Open this student's checktable"
+        >
+          <Table2 className="h-3 w-3" />
+          Open checktable
+        </Link>
         {sessionStudent.note && (
           <div className="text-xs text-ink-600 mt-1 italic">
             &ldquo;{sessionStudent.note}&rdquo;

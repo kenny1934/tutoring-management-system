@@ -1,6 +1,7 @@
 "use client";
 
-import { X, Check } from "lucide-react";
+import { X, Check, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import type { ChecktableAssignment, Student, Checktable } from "@/lib/types";
 
 type Props = {
@@ -84,8 +85,19 @@ export function HistoryDrawer({
                 {tableLabel(a.checktableId)}
               </div>
               <div className="text-xs text-ink-500 mt-0.5">
-                {a.sessionLabel ??
-                  new Date(a.assignedAt).toLocaleDateString()}
+                {a.sessionId ? (
+                  <Link
+                    href={`/sessions?session=${a.sessionId}`}
+                    className="text-accent-700 hover:underline inline-flex items-center gap-1"
+                    title="Open the session this was recorded in"
+                  >
+                    {a.sessionLabel ??
+                      new Date(a.assignedAt).toLocaleDateString()}
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                ) : (
+                  a.sessionLabel ?? new Date(a.assignedAt).toLocaleDateString()
+                )}
                 {a.pageRange && ` · pp. ${a.pageRange}`}
               </div>
               {a.tutorNote && (
