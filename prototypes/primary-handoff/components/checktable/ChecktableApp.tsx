@@ -26,6 +26,10 @@ export function ChecktableApp() {
     itemMeta,
     setAssignments,
     sessionLabel: formatSessionLabel,
+    getPrintBatch,
+    togglePrintBatch: togglePrintBatchForStudent,
+    removeFromPrintBatch,
+    clearPrintBatch,
   } = usePrimaryStore();
 
   const searchParams = useSearchParams();
@@ -40,11 +44,12 @@ export function ChecktableApp() {
 
   const [checktableId, setChecktableId] = useState(checktables[0].id);
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
-  const [printBatchIds, setPrintBatchIds] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const student = students.find((s) => s.id === studentId)!;
   const table = checktables.find((c) => c.id === checktableId)!;
+
+  const printBatchIds = getPrintBatch(studentId);
 
   const statusByItemId = useMemo(() => {
     const map: Record<string, AssignmentStatus | null> = {};
@@ -154,11 +159,7 @@ export function ChecktableApp() {
   };
 
   const togglePrintBatch = (item: ChecktableItem) => {
-    setPrintBatchIds((prev) =>
-      prev.includes(item.id)
-        ? prev.filter((id) => id !== item.id)
-        : [...prev, item.id]
-    );
+    togglePrintBatchForStudent(studentId, item.id);
   };
 
   const handlePrint = () => {
@@ -167,7 +168,7 @@ export function ChecktableApp() {
         .map((i) => i.pdfPath ?? `${table.basePath}\\${i.code}.pdf`)
         .join("\n")}\n\nAnd send to default printer.`
     );
-    setPrintBatchIds([]);
+    clearPrintBatch(studentId);
   };
 
   return (
@@ -196,10 +197,8 @@ export function ChecktableApp() {
         items={printBatchItems}
         student={student}
         basePath={table.basePath}
-        onRemove={(id) =>
-          setPrintBatchIds((prev) => prev.filter((x) => x !== id))
-        }
-        onClear={() => setPrintBatchIds([])}
+        onRemove={(id) => removeFromPrintBatch(studentId, id)}
+        onClear={() => clearPrintBatch(studentId)}
         onPrint={handlePrint}
       />
 

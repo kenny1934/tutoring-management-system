@@ -64,6 +64,13 @@ type Store = {
     exerciseId: string
   ) => void;
 
+  /** Items queued for printing, scoped per student so switching students
+   *  shows that student's own batch. */
+  getPrintBatch: (studentId: string) => string[];
+  togglePrintBatch: (studentId: string, itemId: string) => void;
+  removeFromPrintBatch: (studentId: string, itemId: string) => void;
+  clearPrintBatch: (studentId: string) => void;
+
   sessionLabel: (sessionId: string) => string;
 };
 
@@ -104,6 +111,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
   const [contacts, setContacts] = useState<ParentContact[]>(seedContacts);
+  const [printBatchByStudent, setPrintBatchByStudent] = useState<
+    Record<string, string[]>
+  >({});
 
   const itemMeta = useMemo(() => buildItemMeta(checktables), [checktables]);
 
@@ -229,6 +239,43 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const getPrintBatch = useCallback(
+    (studentId: string) => printBatchByStudent[studentId] ?? [],
+    [printBatchByStudent]
+  );
+
+  const togglePrintBatch = useCallback(
+    (studentId: string, itemId: string) => {
+      setPrintBatchByStudent((prev) => {
+        const cur = prev[studentId] ?? [];
+        const next = cur.includes(itemId)
+          ? cur.filter((id) => id !== itemId)
+          : [...cur, itemId];
+        return { ...prev, [studentId]: next };
+      });
+    },
+    []
+  );
+
+  const removeFromPrintBatch = useCallback(
+    (studentId: string, itemId: string) => {
+      setPrintBatchByStudent((prev) => {
+        const cur = prev[studentId] ?? [];
+        return { ...prev, [studentId]: cur.filter((id) => id !== itemId) };
+      });
+    },
+    []
+  );
+
+  const clearPrintBatch = useCallback((studentId: string) => {
+    setPrintBatchByStudent((prev) => {
+      if (!(studentId in prev)) return prev;
+      const next = { ...prev };
+      delete next[studentId];
+      return next;
+    });
+  }, []);
+
   const value = useMemo<Store>(
     () => ({
       students,
@@ -242,6 +289,10 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       setContacts,
       recordExercise,
       removeExercise,
+      getPrintBatch,
+      togglePrintBatch,
+      removeFromPrintBatch,
+      clearPrintBatch,
       sessionLabel,
     }),
     [
@@ -253,6 +304,10 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       itemMeta,
       recordExercise,
       removeExercise,
+      getPrintBatch,
+      togglePrintBatch,
+      removeFromPrintBatch,
+      clearPrintBatch,
       sessionLabel,
     ]
   );
