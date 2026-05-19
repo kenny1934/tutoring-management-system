@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-50: #f7f7f8;
+  --color-ink-100: #eeeef0;
+  --color-ink-200: #d8d8dd;
+  --color-ink-300: #b4b4bd;
+  --color-ink-400: #898996;
+  --color-ink-500: #5e5e6c;
+  --color-ink-600: #45454f;
+  --color-ink-700: #2f2f37;
+  --color-ink-800: #1c1c22;
+  --color-ink-900: #0e0e12;
+
+  --color-accent-50: #f2f6ff;
+  --color-accent-100: #e3ecff;
+  --color-accent-200: #c4d4ff;
+  --color-accent-500: #4a6cf7;
+  --color-accent-600: #3a55d4;
+  --color-accent-700: #2c41a6;
+
+  --color-good: #2f9e6a;
+  --color-warn: #c98a2b;
+  --color-bad: #c25450;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Noto Sans TC", sans-serif;
+}
+
+html,
+body {
+  background: var(--color-ink-50);
+  color: var(--color-ink-800);
+  font-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Subtle, generic surface treatment so prototypes don't read as CSM */
+.surface {
+  background: white;
+  border: 1px solid var(--color-ink-200);
+  border-radius: 10px;
+}
+
+.surface-muted {
+  background: var(--color-ink-100);
+  border: 1px solid var(--color-ink-200);
+  border-radius: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-ink-200);
+  background: white;
+  color: var(--color-ink-700);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.chip:hover {
+  border-color: var(--color-ink-400);
+}
+
+.chip[data-state="assigned"] {
+  background: var(--color-accent-100);
+  border-color: var(--color-accent-200);
+  color: var(--color-accent-700);
+}
+
+.chip[data-state="done"] {
+  background: var(--color-good);
+  border-color: var(--color-good);
+  color: white;
+}
+
+.chip[data-state="selected"] {
+  background: var(--color-ink-800);
+  border-color: var(--color-ink-800);
+  color: white;
+}
