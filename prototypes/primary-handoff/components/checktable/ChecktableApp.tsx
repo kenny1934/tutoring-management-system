@@ -9,7 +9,7 @@ import type {
   Checktable,
   ChecktableAssignment,
   ChecktableItem,
-  ClassSession,
+  Session,
   Student,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
@@ -64,8 +64,9 @@ export function ChecktableApp() {
     if (!prepSessionParam) return null;
     const s = sessions.find((x) => x.id === prepSessionParam);
     if (!s) return null;
-    // Only prep for sessions this student is actually in
-    if (!s.students.some((st) => st.studentId === studentId)) return null;
+    // The prep-session URL identifies a specific per-student session row;
+    // confirm it actually belongs to the current student.
+    if (s.student_id !== studentId) return null;
     return s;
   }, [prepSessionParam, sessions, studentId]);
 
@@ -128,10 +129,13 @@ export function ChecktableApp() {
       sessions
         .filter(
           (s) =>
-            s.startAt.slice(0, 10) >= DEMO_DAY &&
-            s.students.some((st) => st.studentId === studentId)
+            s.session_date >= DEMO_DAY && s.student_id === studentId
         )
-        .sort((a, b) => a.startAt.localeCompare(b.startAt))
+        .sort((a, b) => {
+          if (a.session_date !== b.session_date)
+            return a.session_date.localeCompare(b.session_date);
+          return a.start_time.localeCompare(b.start_time);
+        })
         .slice(0, 8),
     [sessions, studentId]
   );
@@ -520,11 +524,13 @@ function PrepBanner({
   student,
   batchSize,
 }: {
-  session: ClassSession;
+  session: Session;
   student: Student;
   batchSize: number;
 }) {
-  const start = new Date(session.startAt);
+  const start = new Date(
+    `${session.session_date}T${session.start_time}:00+08:00`
+  );
   const label = `${start.toLocaleDateString("en-HK", {
     weekday: "short",
     month: "short",
@@ -539,7 +545,7 @@ function PrepBanner({
         <Printer className="h-4 w-4 text-accent-600" />
         <span>
           Prepping HW for{" "}
-          <span className="font-medium">{session.className}</span> ·{" "}
+          <span className="font-medium">{session.class_name}</span> ·{" "}
           <span className="font-medium">{label}</span> ·{" "}
           <span className="font-medium">{student.name}</span>
         </span>

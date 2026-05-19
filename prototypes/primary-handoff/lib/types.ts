@@ -1,4 +1,10 @@
 // Shared types across prototypes. Mock-only.
+//
+// CSM-aligned types (Session, Enrollment, SessionExercise, HomeworkCompletion,
+// SessionStatus) mirror the real backend schema in shape and field name —
+// snake_case, statuses string-enum'd from the same set CSM uses. Prototype-only
+// concepts (Checktable, Assessment, ParentContact, ChecktableAssignment) keep
+// the lighter camelCase since they don't have a CSM counterpart yet.
 
 export type HWLoad = "NO" | "Little" | "Normal" | "Many";
 
@@ -92,49 +98,96 @@ export type Assessment = {
   followUpDue?: string; // after attended
 };
 
-// Sessions types
-export type AttendanceStatus =
-  | "pending"
-  | "present"
-  | "absent"
-  | "late"
-  | "makeup";
+// -----------------------------------------------------------------------------
+// CSM-aligned: Enrollment + Session + SessionStatus
+// -----------------------------------------------------------------------------
+
+/** Mirror of CSM's SessionStatus (webapp/frontend/types/index.ts).
+ *  Keep in sync if the real values drift. */
+export const SessionStatus = {
+  SCHEDULED: "Scheduled",
+  TRIAL_CLASS: "Trial Class",
+  MAKEUP_CLASS: "Make-up Class",
+  ATTENDED: "Attended",
+  ATTENDED_MAKEUP: "Attended (Make-up)",
+  NO_SHOW: "No Show",
+  RESCHEDULED_PENDING: "Rescheduled - Pending Make-up",
+  RESCHEDULED_BOOKED: "Rescheduled - Make-up Booked",
+  SICK_LEAVE_PENDING: "Sick Leave - Pending Make-up",
+  SICK_LEAVE_BOOKED: "Sick Leave - Make-up Booked",
+  WEATHER_PENDING: "Weather Cancelled - Pending Make-up",
+  WEATHER_BOOKED: "Weather Cancelled - Make-up Booked",
+  CANCELLED: "Cancelled",
+} as const;
+export type SessionStatusValue =
+  (typeof SessionStatus)[keyof typeof SessionStatus];
+
+/** A student's enrollment in a class. One student → many enrollments;
+ *  each enrollment → many sessions (typically lessons_total of them). */
+export interface Enrollment {
+  id: string;
+  student_id: string;
+  class_code: string;
+  class_name: string;
+  tutor_id: string;
+  tutor_name: string;
+  lessons_total: number;
+  started_at: string; // YYYY-MM-DD
+}
 
 export type ExerciseKind = "CW" | "HW";
 
+/** Exercise recorded against a specific session for a specific student.
+ *  Field names will align fully with CSM's SessionExercise in the next
+ *  commit; for now keeps the existing prototype shape but is referenced
+ *  per-session instead of nested inside a class-wide record. */
 export type RecordedExercise = {
   id: string;
+  session_id: string;
   kind: ExerciseKind;
-  itemCode: string; // pulled from checktable, e.g. "607A"
-  itemId?: string; // optional checktable item id link
+  itemCode: string;
+  itemId?: string;
   pageRange?: string;
   note?: string;
-  sessionId?: string; // back-reference to source session
 };
 
-export type SessionStudent = {
-  studentId: string;
-  attendance: AttendanceStatus;
-  performance?: 1 | 2 | 3 | 4 | 5;
+/** A scheduled occurrence of an enrollment for a single student. Mirrors
+ *  CSM's Session: one row per student per occurrence. Sessions sharing
+ *  (class_code, session_date, start_time) form a single "class meeting"
+ *  that the UI groups into one card. */
+export interface Session {
+  id: string;
+  enrollment_id: string;
+  student_id: string;
+  tutor_id: string;
+  tutor_name: string;
+  session_date: string; // YYYY-MM-DD
+  start_time: string; // "HH:MM" 24-hour, treated as HKT
+  duration_mins: number;
+  room: string;
+  class_code: string;
+  class_name: string;
+  lesson_number: number; // 0 means "not numbered" (e.g. ad-hoc make-up)
+  session_status: SessionStatusValue;
+  /** Free-form attendance qualifier (e.g. "Late"). session_status is the
+   *  source of truth for state transitions; this is just a label. */
+  attendance_status?: string;
+  performance_rating?: 1 | 2 | 3 | 4 | 5;
+  notes?: string;
+  /** Note shared across all sibling sessions of the same class meeting.
+   *  Duplicated on each Session row for storage simplicity; the UI shows
+   *  it once per group. */
+  class_wide_note?: string;
+  /** Set on a make-up session, pointing back to the original. */
+  make_up_for_id?: string;
+  /** Set on the original session once a make-up has been booked. */
+  rescheduled_to_id?: string;
+  /** For make-up sessions: the date of the root original session, used by
+   *  the 60-day rule in CSM. */
+  root_original_session_date?: string;
   cw: RecordedExercise[];
   hw: RecordedExercise[];
-  note?: string;
-};
-
-export type ClassSession = {
-  id: string;
-  className: string;
-  classCode: string;
-  startAt: string; // ISO
-  durationMins: number;
-  room: string;
-  tutorName: string;
-  lessonNumber: number;
-  students: SessionStudent[];
-  rescheduledFrom?: string; // human label
-  isMakeup?: boolean;
-  classWideNote?: string;
-};
+}
 
 // Parent communications types
 export type ContactMethod = "WhatsApp" | "Phone" | "In-Person";

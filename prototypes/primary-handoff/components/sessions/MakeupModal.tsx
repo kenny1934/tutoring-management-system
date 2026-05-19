@@ -14,12 +14,12 @@ import {
   makeupSuggestions,
   type MakeupSuggestion,
 } from "@/lib/mock-data/sessions";
-import type { ClassSession, Student } from "@/lib/types";
+import type { Session, Student } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 type Props = {
   student: Student;
-  session: ClassSession | null;
+  session: Session | null;
   fromSessionId: string;
   onClose: () => void;
 };
@@ -56,12 +56,14 @@ export function MakeupModal({
       studentId: student.id,
       reason: reason || undefined,
       template: {
-        classCode: suggestion.classCode,
-        className: suggestion.className,
-        startAt: suggestion.startAt,
-        durationMins: suggestion.durationMins,
+        class_code: suggestion.class_code,
+        class_name: suggestion.class_name,
+        session_date: suggestion.session_date,
+        start_time: suggestion.start_time,
+        duration_mins: suggestion.duration_mins,
         room: suggestion.room,
-        tutorName: suggestion.tutorName,
+        tutor_id: suggestion.tutor_id,
+        tutor_name: suggestion.tutor_name,
       },
     });
     setCreated({ sessionId: newId, suggestion });
@@ -85,11 +87,13 @@ export function MakeupModal({
               </span>
             </div>
             <div className="text-xs text-ink-500 mt-0.5">
-              For {student.name} ({student.code}) ·{" "}
+              For {student.name} ({student.code})
               {session && (
                 <>
-                  Missed {session.className} on{" "}
-                  {new Date(session.startAt).toLocaleDateString("en-HK", {
+                  {" "}· Missed {session.class_name} on{" "}
+                  {new Date(
+                    `${session.session_date}T${session.start_time}:00+08:00`
+                  ).toLocaleDateString("en-HK", {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
@@ -170,7 +174,7 @@ export function MakeupModal({
                         {s.rationale}
                       </div>
                       <div className="text-xs text-ink-400 mt-0.5 font-mono">
-                        {s.classCode} · {s.tutorName} · Room {s.room}
+                        {s.class_code} · {s.tutor_name} · Room {s.room}
                       </div>
                     </button>
                   );
@@ -233,16 +237,17 @@ function ConfirmationView({
             Makeup scheduled
           </div>
           <div className="text-sm text-ink-600">
-            {student.name} is booked into {suggestion.className} on{" "}
+            {student.name} is booked into {suggestion.class_name} on{" "}
             <span className="font-medium">{suggestion.day}</span> at{" "}
             <span className="font-medium">{suggestion.time}</span>. The original
-            session now shows attendance as <em>Makeup</em>.
+            session is now <em>Make-up Booked</em> and the new make-up class is
+            linked back to it.
           </div>
         </div>
       </div>
       <div className="rounded-md border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-600">
         <div className="font-mono text-ink-700">
-          {suggestion.classCode} · Room {suggestion.room} · {suggestion.tutorName}
+          {suggestion.class_code} · Room {suggestion.room} · {suggestion.tutor_name}
         </div>
         <Link
           href={`/sessions?session=${sessionId}`}

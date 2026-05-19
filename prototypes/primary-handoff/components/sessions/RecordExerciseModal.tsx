@@ -14,8 +14,7 @@ import type {
   AssignmentStatus,
   Checktable,
   ChecktableItem,
-  ClassSession,
-  SessionStudent,
+  Session,
   Student,
 } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
@@ -25,9 +24,8 @@ import {
 } from "@/components/checktable/ChecktableGrid";
 
 type Props = {
-  session: ClassSession;
+  session: Session;
   student: Student;
-  sessionStudent: SessionStudent;
   kind: "CW" | "HW";
   checktables: Checktable[];
   onClose: () => void;
@@ -73,7 +71,6 @@ function toGridStatusFilter(f: StatusFilter): GridStatusFilter {
 export function RecordExerciseModal({
   session,
   student,
-  sessionStudent,
   kind,
   checktables,
   onClose,
@@ -171,7 +168,7 @@ export function RecordExerciseModal({
     return matches.slice(0, 60);
   }, [allItems, search, statusFilter, statusByItemId]);
 
-  const items = kind === "CW" ? sessionStudent.cw : sessionStudent.hw;
+  const items = kind === "CW" ? session.cw : session.hw;
   const isCW = kind === "CW";
   const isGrid = viewMode === "grid";
 
@@ -208,7 +205,7 @@ export function RecordExerciseModal({
               </span>
             </div>
             <div className="text-xs text-ink-500 mt-0.5 truncate">
-              {student.name} · {student.code} · {session.className}
+              {student.name} · {student.code} · {session.class_name}
             </div>
           </div>
           <div className="flex items-center gap-3">

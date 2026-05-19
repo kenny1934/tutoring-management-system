@@ -14,16 +14,22 @@ import type {
   ChecktableAssignment,
   ChecktableChapter,
   ChecktableItem,
-  ClassSession,
+  Enrollment,
   ExerciseKind,
   ParentContact,
   RecordedExercise,
+  Session,
+  SessionStatusValue,
   Student,
 } from "@/lib/types";
+import { SessionStatus } from "@/lib/types";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { checktables as seedChecktables } from "@/lib/mock-data/checktables";
 import { seedAssignments } from "@/lib/mock-data/assignments";
-import { sessions as seedSessions } from "@/lib/mock-data/sessions";
+import {
+  enrollments as seedEnrollments,
+  sessions as seedSessions,
+} from "@/lib/mock-data/sessions";
 import { parentContacts as seedContacts } from "@/lib/mock-data/parent-contacts";
 
 type ExerciseInput = {
@@ -53,15 +59,16 @@ export type NextSuggestion = {
 
 type Store = {
   students: Student[];
+  enrollments: Enrollment[];
   checktables: Checktable[];
-  sessions: ClassSession[];
+  sessions: Session[];
   assignments: ChecktableAssignment[];
   contacts: ParentContact[];
 
   /** Lookup any item by id; carries its checktable id too. */
   itemMeta: Map<string, ItemMeta>;
 
-  setSessions: (updater: (s: ClassSession[]) => ClassSession[]) => void;
+  setSessions: (updater: (s: Session[]) => Session[]) => void;
   setAssignments: (
     updater: (a: ChecktableAssignment[]) => ChecktableAssignment[]
   ) => void;
@@ -73,7 +80,6 @@ type Store = {
   /** Remove a recorded exercise; also removes the auto-linked assignment, if any. */
   removeExercise: (
     sessionId: string,
-    studentId: string,
     kind: ExerciseKind,
     exerciseId: string
   ) => void;
@@ -85,19 +91,21 @@ type Store = {
   removeFromPrintBatch: (studentId: string, itemId: string) => void;
   clearPrintBatch: (studentId: string) => void;
 
-  /** Spawn a makeup ClassSession for a student missing a source session.
-   *  Marks the source session's attendance for the student as "makeup" and
-   *  returns the new session id. */
+  /** Spawn a make-up Session for a student. Sets make_up_for_id on the new
+   *  session, rescheduled_to_id on the source, and transitions the source's
+   *  session_status into the appropriate *_BOOKED state. */
   createMakeupSession: (input: {
     fromSessionId: string;
     studentId: string;
     template: {
-      classCode: string;
-      className: string;
-      startAt: string;
-      durationMins: number;
+      class_code: string;
+      class_name: string;
+      session_date: string;
+      start_time: string;
+      duration_mins: number;
       room: string;
-      tutorName: string;
+      tutor_id: string;
+      tutor_name: string;
     };
     reason?: string;
   }) => string;
@@ -119,15 +127,14 @@ type Store = {
 
 const StoreContext = createContext<Store | null>(null);
 
-function formatSessionLabel(session: ClassSession): string {
-  const d = new Date(session.startAt);
-  const date = d.toISOString().slice(0, 10);
+function formatSessionLabel(session: Session): string {
+  const d = new Date(`${session.session_date}T${session.start_time}:00+08:00`);
   const weekday = d.toLocaleDateString("en-HK", { weekday: "short" });
   const time = d.toLocaleTimeString("en-HK", {
     hour: "numeric",
     minute: "2-digit",
   });
-  return `${date} ${weekday} ${time}`;
+  return `${session.session_date} ${weekday} ${time}`;
 }
 
 function buildItemMeta(checktables: Checktable[]): Map<string, ItemMeta> {
@@ -158,10 +165,27 @@ function buildItemMeta(checktables: Checktable[]): Map<string, ItemMeta> {
   return map;
 }
 
+/** Map an absent-session status to the one that should fire when a make-up
+ *  is booked. Different reasons (sick / weather / generic) have different
+ *  status pairs in CSM. */
+function statusAfterMakeupBooked(
+  current: SessionStatusValue
+): SessionStatusValue {
+  switch (current) {
+    case SessionStatus.SICK_LEAVE_PENDING:
+      return SessionStatus.SICK_LEAVE_BOOKED;
+    case SessionStatus.WEATHER_PENDING:
+      return SessionStatus.WEATHER_BOOKED;
+    default:
+      return SessionStatus.RESCHEDULED_BOOKED;
+  }
+}
+
 export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [students] = useState<Student[]>(seedStudents);
+  const [enrollments] = useState<Enrollment[]>(seedEnrollments);
   const [checktables] = useState<Checktable[]>(seedChecktables);
-  const [sessions, setSessions] = useState<ClassSession[]>(seedSessions);
+  const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
   const [contacts, setContacts] = useState<ParentContact[]>(seedContacts);
@@ -171,7 +195,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
 
   const itemMeta = useMemo(() => buildItemMeta(checktables), [checktables]);
 
-  // Keep recordExercise stable while still reading fresh sessions/itemMeta
+  // Keep recordExercise/createMakeupSession stable while still reading fresh state
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
   const itemMetaRef = useRef(itemMeta);
@@ -186,27 +210,22 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     const recordedId = `rec-${Math.random().toString(36).slice(2, 8)}`;
     const newExercise: RecordedExercise = {
       id: recordedId,
+      session_id: input.sessionId,
       kind: input.kind,
       itemCode: input.itemCode,
       itemId: input.itemId,
       pageRange: input.pageRange,
       note: input.note,
-      sessionId: input.sessionId,
     };
 
     setSessions((prev) =>
-      prev.map((s) =>
-        s.id !== input.sessionId
-          ? s
-          : {
-              ...s,
-              students: s.students.map((st) => {
-                if (st.studentId !== input.studentId) return st;
-                const key = input.kind === "CW" ? "cw" : "hw";
-                return { ...st, [key]: [...st[key], newExercise] };
-              }),
-            }
-      )
+      prev.map((s) => {
+        if (s.id !== input.sessionId) return s;
+        if (s.student_id !== input.studentId) return s;
+        return input.kind === "CW"
+          ? { ...s, cw: [...s.cw, newExercise] }
+          : { ...s, hw: [...s.hw, newExercise] };
+      })
     );
 
     if (!input.itemId) return;
@@ -263,28 +282,16 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeExercise = useCallback(
-    (
-      sessionId: string,
-      studentId: string,
-      kind: ExerciseKind,
-      exerciseId: string
-    ) => {
+    (sessionId: string, kind: ExerciseKind, exerciseId: string) => {
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id !== sessionId
-            ? s
-            : {
-                ...s,
-                students: s.students.map((st) => {
-                  if (st.studentId !== studentId) return st;
-                  const key = kind === "CW" ? "cw" : "hw";
-                  return {
-                    ...st,
-                    [key]: st[key].filter((e) => e.id !== exerciseId),
-                  };
-                }),
-              }
-        )
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const key = kind === "CW" ? "cw" : "hw";
+          return {
+            ...s,
+            [key]: s[key].filter((e) => e.id !== exerciseId),
+          };
+        })
       );
       setAssignments((prev) =>
         prev.filter((a) => a.sourceRecordedExerciseId !== exerciseId)
@@ -335,12 +342,14 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       fromSessionId: string;
       studentId: string;
       template: {
-        classCode: string;
-        className: string;
-        startAt: string;
-        durationMins: number;
+        class_code: string;
+        class_name: string;
+        session_date: string;
+        start_time: string;
+        duration_mins: number;
         room: string;
-        tutorName: string;
+        tutor_id: string;
+        tutor_name: string;
       };
       reason?: string;
     }) => {
@@ -348,34 +357,32 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       const source = sessionsRef.current.find(
         (s) => s.id === input.fromSessionId
       );
-      const fromLabel = source ? formatSessionLabel(source) : "";
-      const rescheduledFrom = fromLabel
-        ? `Makeup for ${source?.className ?? ""} on ${fromLabel}${
-            input.reason ? ` (${input.reason})` : ""
-          }`
-        : input.reason
-          ? `Makeup (${input.reason})`
-          : "Makeup";
+      const enrollmentId = source?.enrollment_id ?? "";
+      const rootDate = source?.session_date;
+      const noteParts = [
+        source ? `Makeup for ${source.class_name} on ${formatSessionLabel(source)}` : null,
+        input.reason ? `(${input.reason})` : null,
+      ].filter(Boolean);
 
-      const newSession: ClassSession = {
+      const newSession: Session = {
         id: newId,
-        className: input.template.className,
-        classCode: input.template.classCode,
-        startAt: input.template.startAt,
-        durationMins: input.template.durationMins,
+        enrollment_id: enrollmentId,
+        student_id: input.studentId,
+        tutor_id: input.template.tutor_id,
+        tutor_name: input.template.tutor_name,
+        session_date: input.template.session_date,
+        start_time: input.template.start_time,
+        duration_mins: input.template.duration_mins,
         room: input.template.room,
-        tutorName: input.template.tutorName,
-        lessonNumber: 0,
-        isMakeup: true,
-        rescheduledFrom,
-        students: [
-          {
-            studentId: input.studentId,
-            attendance: "pending",
-            cw: [],
-            hw: [],
-          },
-        ],
+        class_code: input.template.class_code,
+        class_name: `${input.template.class_name} (Make-up)`,
+        lesson_number: 0,
+        session_status: SessionStatus.MAKEUP_CLASS,
+        make_up_for_id: input.fromSessionId,
+        root_original_session_date: rootDate,
+        notes: noteParts.length > 0 ? noteParts.join(" ") : undefined,
+        cw: [],
+        hw: [],
       };
 
       setSessions((prev) => [
@@ -384,11 +391,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
             ? s
             : {
                 ...s,
-                students: s.students.map((st) =>
-                  st.studentId === input.studentId
-                    ? { ...st, attendance: "makeup" as const }
-                    : st
-                ),
+                session_status: statusAfterMakeupBooked(s.session_status),
+                rescheduled_to_id: newId,
               }
         ),
         newSession,
@@ -461,6 +465,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       students,
+      enrollments,
       checktables,
       sessions,
       assignments,
@@ -482,6 +487,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       students,
+      enrollments,
       checktables,
       sessions,
       assignments,

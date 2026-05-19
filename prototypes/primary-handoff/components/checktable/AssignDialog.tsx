@@ -13,7 +13,7 @@ import type {
   AssignmentStatus,
   ChecktableAssignment,
   ChecktableItem,
-  ClassSession,
+  Session,
   Student,
 } from "@/lib/types";
 
@@ -22,7 +22,7 @@ type Props = {
   student: Student;
   basePath: string;
   existingAssignment?: ChecktableAssignment;
-  upcomingSessions: ClassSession[];
+  upcomingSessions: Session[];
   /** How many assigned-not-done items the student currently has across all
    *  checktables — used for the low-HW-load warning. */
   openAssignmentCount: number;
@@ -192,7 +192,7 @@ export function AssignDialog({
                 >
                   {upcomingSessions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {formatSessionLabel(s.id)} · {s.className}
+                      {formatSessionLabel(s.id)} · {s.class_name}
                     </option>
                   ))}
                   <option value={UNLINKED}>

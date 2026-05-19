@@ -18,12 +18,12 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
-  AttendanceStatus,
-  ClassSession,
   RecordedExercise,
+  Session,
+  SessionStatusValue,
   Student,
-  SessionStudent,
 } from "@/lib/types";
+import { SessionStatus } from "@/lib/types";
 import { usePrimaryStore, type NextSuggestion } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { RecordExerciseModal } from "./RecordExerciseModal";
@@ -34,6 +34,67 @@ type ExerciseEditor = {
   studentId: string;
   kind: "CW" | "HW";
 };
+
+/** UI-only grouping: many per-student Session rows that share class+date+time
+ *  display as one card. Kept as a derived view; not stored. */
+type ClassMeeting = {
+  key: string;
+  class_code: string;
+  class_name: string;
+  session_date: string;
+  start_time: string;
+  duration_mins: number;
+  room: string;
+  tutor_name: string;
+  lesson_number: number;
+  /** True if any sibling session is a make-up class. */
+  is_makeup: boolean;
+  class_wide_note?: string;
+  /** Per-student sessions in this meeting. */
+  members: Session[];
+};
+
+function groupByMeeting(sessions: Session[]): ClassMeeting[] {
+  const map = new Map<string, ClassMeeting>();
+  for (const s of sessions) {
+    const key = `${s.class_code}|${s.session_date}|${s.start_time}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.members.push(s);
+      if (
+        s.session_status === SessionStatus.MAKEUP_CLASS ||
+        s.session_status === SessionStatus.ATTENDED_MAKEUP
+      ) {
+        existing.is_makeup = true;
+      }
+      if (!existing.class_wide_note && s.class_wide_note) {
+        existing.class_wide_note = s.class_wide_note;
+      }
+    } else {
+      map.set(key, {
+        key,
+        class_code: s.class_code,
+        class_name: s.class_name,
+        session_date: s.session_date,
+        start_time: s.start_time,
+        duration_mins: s.duration_mins,
+        room: s.room,
+        tutor_name: s.tutor_name,
+        lesson_number: s.lesson_number,
+        is_makeup:
+          s.session_status === SessionStatus.MAKEUP_CLASS ||
+          s.session_status === SessionStatus.ATTENDED_MAKEUP,
+        class_wide_note: s.class_wide_note,
+        members: [s],
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.session_date !== b.session_date)
+      return a.session_date.localeCompare(b.session_date);
+    return a.start_time.localeCompare(b.start_time);
+  });
+}
 
 export function SessionsApp() {
   const {
@@ -63,7 +124,7 @@ export function SessionsApp() {
     if (!highlightSessionId) return;
     const target = sessionState.find((s) => s.id === highlightSessionId);
     if (!target) return;
-    const day = target.startAt.slice(0, 10);
+    const day = target.session_date;
     if (day === DEMO_DAY) setFilter("today");
     else if (day > DEMO_DAY) setFilter("upcoming");
     else setFilter("past");
@@ -93,34 +154,33 @@ export function SessionsApp() {
     return map;
   }, [students, primaryChecktableId, nextSuggestedItem]);
 
+  const meetings = useMemo(() => groupByMeeting(sessionState), [sessionState]);
+
   const filterCounts = useMemo(() => {
     let today = 0;
     let upcoming = 0;
     let past = 0;
-    for (const s of sessionState) {
-      const day = s.startAt.slice(0, 10);
-      if (day === DEMO_DAY) today += 1;
-      else if (day > DEMO_DAY) upcoming += 1;
+    for (const m of meetings) {
+      if (m.session_date === DEMO_DAY) today += 1;
+      else if (m.session_date > DEMO_DAY) upcoming += 1;
       else past += 1;
     }
     return { today, upcoming, past };
-  }, [sessionState]);
+  }, [meetings]);
 
   const filtered = useMemo(
     () =>
-      sessionState.filter((s) => {
-        const day = s.startAt.slice(0, 10);
-        if (filter === "today") return day === DEMO_DAY;
-        if (filter === "upcoming") return day > DEMO_DAY;
-        return day < DEMO_DAY;
+      meetings.filter((m) => {
+        if (filter === "today") return m.session_date === DEMO_DAY;
+        if (filter === "upcoming") return m.session_date > DEMO_DAY;
+        return m.session_date < DEMO_DAY;
       }),
-    [sessionState, filter]
+    [meetings, filter]
   );
 
-  const setAttendance = (
+  const setStatus = (
     sessionId: string,
-    studentId: string,
-    attendance: AttendanceStatus
+    next: { session_status: SessionStatusValue; attendance_status?: string }
   ) => {
     setSessions((prev) =>
       prev.map((s) =>
@@ -128,9 +188,8 @@ export function SessionsApp() {
           ? s
           : {
               ...s,
-              students: s.students.map((st) =>
-                st.studentId === studentId ? { ...st, attendance } : st
-              ),
+              session_status: next.session_status,
+              attendance_status: next.attendance_status,
             }
       )
     );
@@ -138,19 +197,11 @@ export function SessionsApp() {
 
   const setPerformance = (
     sessionId: string,
-    studentId: string,
     performance: 1 | 2 | 3 | 4 | 5
   ) => {
     setSessions((prev) =>
       prev.map((s) =>
-        s.id !== sessionId
-          ? s
-          : {
-              ...s,
-              students: s.students.map((st) =>
-                st.studentId === studentId ? { ...st, performance } : st
-              ),
-            }
+        s.id !== sessionId ? s : { ...s, performance_rating: performance }
       )
     );
   };
@@ -158,22 +209,15 @@ export function SessionsApp() {
   const editorSession = exerciseEditor
     ? sessionState.find((s) => s.id === exerciseEditor.sessionId)
     : null;
-  const editorStudent =
-    exerciseEditor && editorSession
-      ? editorSession.students.find(
-          (st) => st.studentId === exerciseEditor.studentId
-        )
-      : null;
   const editorStudentInfo =
     exerciseEditor && studentById.get(exerciseEditor.studentId);
+  const makeupSession = makeupOpen
+    ? sessionState.find((s) => s.id === makeupOpen.sessionId) ?? null
+    : null;
 
   return (
     <div className="space-y-4">
-      <FilterBar
-        filter={filter}
-        onChange={setFilter}
-        counts={filterCounts}
-      />
+      <FilterBar filter={filter} onChange={setFilter} counts={filterCounts} />
 
       <div className="space-y-4">
         {filtered.length === 0 && (
@@ -181,44 +225,40 @@ export function SessionsApp() {
             No sessions in this window.
           </div>
         )}
-        {filtered.map((session) => {
-          const isHighlighted = session.id === highlightSessionId;
+        {filtered.map((meeting) => {
+          const isHighlighted = meeting.members.some(
+            (m) => m.id === highlightSessionId
+          );
           return (
             <div
-              key={session.id}
+              key={meeting.key}
               ref={isHighlighted ? highlightedRef : undefined}
             >
-              <SessionCard
-                session={session}
+              <MeetingCard
+                meeting={meeting}
                 studentById={studentById}
                 highlighted={isHighlighted}
+                highlightSessionId={highlightSessionId}
                 nextByStudent={nextByStudent}
-                onAttendance={(studentId, attendance) =>
-                  setAttendance(session.id, studentId, attendance)
+                onSetStatus={setStatus}
+                onPerformance={setPerformance}
+                onOpenExercise={(sessionId, studentId, kind) =>
+                  setExerciseEditor({ sessionId, studentId, kind })
                 }
-                onPerformance={(studentId, perf) =>
-                  setPerformance(session.id, studentId, perf)
+                onScheduleMakeup={(sessionId, studentId) =>
+                  setMakeupOpen({ sessionId, studentId })
                 }
-                onOpenExercise={(studentId, kind) =>
-                  setExerciseEditor({ sessionId: session.id, studentId, kind })
-                }
-                onScheduleMakeup={(studentId) =>
-                  setMakeupOpen({ sessionId: session.id, studentId })
-                }
-                onRemoveExercise={(studentId, kind, exerciseId) =>
-                  removeExercise(session.id, studentId, kind, exerciseId)
-                }
+                onRemoveExercise={removeExercise}
               />
             </div>
           );
         })}
       </div>
 
-      {exerciseEditor && editorSession && editorStudent && editorStudentInfo && (
+      {exerciseEditor && editorSession && editorStudentInfo && (
         <RecordExerciseModal
           session={editorSession}
           student={editorStudentInfo}
-          sessionStudent={editorStudent}
           kind={exerciseEditor.kind}
           checktables={checktables}
           onClose={() => setExerciseEditor(null)}
@@ -233,7 +273,6 @@ export function SessionsApp() {
           onRemove={(exerciseId) =>
             removeExercise(
               exerciseEditor.sessionId,
-              exerciseEditor.studentId,
               exerciseEditor.kind,
               exerciseId
             )
@@ -245,9 +284,7 @@ export function SessionsApp() {
         <MakeupModal
           student={studentById.get(makeupOpen.studentId)!}
           fromSessionId={makeupOpen.sessionId}
-          session={
-            sessionState.find((s) => s.id === makeupOpen.sessionId) ?? null
-          }
+          session={makeupSession}
           onClose={() => setMakeupOpen(null)}
         />
       )}
@@ -296,32 +333,57 @@ function FilterBar({
   );
 }
 
-function SessionCard({
-  session,
+function formatTime(start_time: string): string {
+  // "HH:MM" → "4:00pm" (HKT)
+  const d = new Date(`2026-01-01T${start_time}:00+08:00`);
+  return d.toLocaleTimeString("en-HK", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function MeetingCard({
+  meeting,
   studentById,
   highlighted,
+  highlightSessionId,
   nextByStudent,
-  onAttendance,
+  onSetStatus,
   onPerformance,
   onOpenExercise,
   onScheduleMakeup,
   onRemoveExercise,
 }: {
-  session: ClassSession;
+  meeting: ClassMeeting;
   studentById: Map<string, Student>;
-  highlighted?: boolean;
+  highlighted: boolean;
+  highlightSessionId: string | null;
   nextByStudent: Map<string, NextSuggestion | null>;
-  onAttendance: (studentId: string, a: AttendanceStatus) => void;
-  onPerformance: (studentId: string, p: 1 | 2 | 3 | 4 | 5) => void;
-  onOpenExercise: (studentId: string, kind: "CW" | "HW") => void;
-  onScheduleMakeup: (studentId: string) => void;
-  onRemoveExercise: (
+  onSetStatus: (
+    sessionId: string,
+    next: { session_status: SessionStatusValue; attendance_status?: string }
+  ) => void;
+  onPerformance: (sessionId: string, p: 1 | 2 | 3 | 4 | 5) => void;
+  onOpenExercise: (
+    sessionId: string,
     studentId: string,
+    kind: "CW" | "HW"
+  ) => void;
+  onScheduleMakeup: (sessionId: string, studentId: string) => void;
+  onRemoveExercise: (
+    sessionId: string,
     kind: "CW" | "HW",
     exerciseId: string
   ) => void;
 }) {
-  const start = new Date(session.startAt);
+  const dateLabel = new Date(
+    `${meeting.session_date}T${meeting.start_time}:00+08:00`
+  ).toLocaleDateString("en-HK", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const timeLabel = formatTime(meeting.start_time);
 
   return (
     <div
@@ -331,80 +393,70 @@ function SessionCard({
     >
       <div
         className={`px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${
-          session.isMakeup
+          meeting.is_makeup
             ? "bg-amber-50 border-b border-amber-200"
             : "bg-ink-50 border-b border-ink-200"
         }`}
       >
-        <div className="font-semibold text-ink-900">{session.className}</div>
+        <div className="font-semibold text-ink-900">{meeting.class_name}</div>
         <div className="text-xs text-ink-500 flex items-center gap-1">
           <CalendarDays className="h-3 w-3" />
-          {start.toLocaleDateString("en-HK", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          })}
+          {dateLabel}
         </div>
         <div className="text-xs text-ink-500 flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {start.toLocaleTimeString("en-HK", {
-            hour: "numeric",
-            minute: "2-digit",
-          })}{" "}
-          · {session.durationMins} min
+          {timeLabel} · {meeting.duration_mins} min
         </div>
         <div className="text-xs text-ink-500 flex items-center gap-1">
           <MapPin className="h-3 w-3" />
-          {session.room}
+          {meeting.room}
         </div>
         <div className="text-xs text-ink-500 flex items-center gap-1">
           <User className="h-3 w-3" />
-          {session.tutorName}
+          {meeting.tutor_name}
         </div>
-        {session.lessonNumber > 0 && (
+        {meeting.lesson_number > 0 && (
           <div className="text-xs rounded-md bg-white border border-ink-200 px-1.5 py-0.5 text-ink-600">
-            Lesson #{session.lessonNumber}
+            Lesson #{meeting.lesson_number}
           </div>
         )}
-        {session.isMakeup && (
+        {meeting.is_makeup && (
           <div className="text-xs rounded-md bg-amber-100 text-amber-700 px-2 py-0.5 font-medium">
             Makeup
           </div>
         )}
       </div>
 
-      {session.rescheduledFrom && (
-        <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
-          <CalendarClock className="h-3 w-3" />
-          {session.rescheduledFrom}
-        </div>
-      )}
-
-      {session.classWideNote && (
+      {meeting.class_wide_note && (
         <div className="px-4 py-2 text-xs text-ink-600 bg-accent-50 border-b border-accent-100 flex items-start gap-2">
           <StickyNote className="h-3 w-3 mt-0.5" />
-          {session.classWideNote}
+          {meeting.class_wide_note}
         </div>
       )}
 
       <div className="divide-y divide-ink-100">
-        {session.students.map((ss) => {
-          const student = studentById.get(ss.studentId);
+        {meeting.members.map((session) => {
+          const student = studentById.get(session.student_id);
           if (!student) return null;
+          const isHighlightedRow = session.id === highlightSessionId;
           return (
             <StudentRow
-              key={ss.studentId}
-              sessionStudent={ss}
+              key={session.id}
+              session={session}
               student={student}
-              sessionId={session.id}
-              nextSuggestion={nextByStudent.get(ss.studentId) ?? null}
-              onAttendance={(a) => onAttendance(ss.studentId, a)}
-              onPerformance={(p) => onPerformance(ss.studentId, p)}
-              onOpenExercise={(k) => onOpenExercise(ss.studentId, k)}
-              onRemoveExercise={(k, id) =>
-                onRemoveExercise(ss.studentId, k, id)
+              highlightedRow={isHighlightedRow}
+              nextSuggestion={nextByStudent.get(session.student_id) ?? null}
+              onSetStatus={(next) => onSetStatus(session.id, next)}
+              onPerformance={(p) => onPerformance(session.id, p)}
+              onOpenExercise={(k) =>
+                onOpenExercise(session.id, session.student_id, k)
               }
-              onScheduleMakeup={() => onScheduleMakeup(ss.studentId)}
+              onRemoveExercise={(k, id) =>
+                onRemoveExercise(session.id, k, id)
+              }
+              onScheduleMakeup={() =>
+                onScheduleMakeup(session.id, session.student_id)
+              }
             />
           );
         })}
@@ -413,29 +465,91 @@ function SessionCard({
   );
 }
 
+type PickerChoice = "present" | "late" | "absent";
+
+function pickerChoiceForStatus(s: Session): PickerChoice | null {
+  if (s.session_status === SessionStatus.ATTENDED) {
+    return s.attendance_status === "Late" ? "late" : "present";
+  }
+  if (s.session_status === SessionStatus.NO_SHOW) return "absent";
+  // Pending make-up variants display as "absent" so the schedule-makeup
+  // button remains discoverable.
+  if (
+    s.session_status === SessionStatus.RESCHEDULED_PENDING ||
+    s.session_status === SessionStatus.SICK_LEAVE_PENDING ||
+    s.session_status === SessionStatus.WEATHER_PENDING
+  )
+    return "absent";
+  return null;
+}
+
+function makeupSubChip(s: Session): { label: string; tone: string } | null {
+  switch (s.session_status) {
+    case SessionStatus.MAKEUP_CLASS:
+      return {
+        label: "Make-up class",
+        tone: "border-accent-200 bg-accent-50 text-accent-700",
+      };
+    case SessionStatus.ATTENDED_MAKEUP:
+      return {
+        label: "Attended (Make-up)",
+        tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+    case SessionStatus.RESCHEDULED_BOOKED:
+    case SessionStatus.SICK_LEAVE_BOOKED:
+    case SessionStatus.WEATHER_BOOKED:
+      return {
+        label: "Make-up booked",
+        tone: "border-accent-200 bg-accent-50 text-accent-700",
+      };
+    case SessionStatus.CANCELLED:
+      return {
+        label: "Cancelled",
+        tone: "border-ink-200 bg-ink-100 text-ink-600",
+      };
+    default:
+      return null;
+  }
+}
+
 function StudentRow({
-  sessionStudent,
+  session,
   student,
-  sessionId,
+  highlightedRow,
   nextSuggestion,
-  onAttendance,
+  onSetStatus,
   onPerformance,
   onOpenExercise,
   onRemoveExercise,
   onScheduleMakeup,
 }: {
-  sessionStudent: SessionStudent;
+  session: Session;
   student: Student;
-  sessionId: string;
+  highlightedRow: boolean;
   nextSuggestion: NextSuggestion | null;
-  onAttendance: (a: AttendanceStatus) => void;
+  onSetStatus: (next: {
+    session_status: SessionStatusValue;
+    attendance_status?: string;
+  }) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
 }) {
+  const choice = pickerChoiceForStatus(session);
+  const subChip = makeupSubChip(session);
+  const canScheduleMakeup =
+    session.session_status === SessionStatus.NO_SHOW ||
+    session.session_status === SessionStatus.SICK_LEAVE_PENDING ||
+    session.session_status === SessionStatus.WEATHER_PENDING ||
+    session.session_status === SessionStatus.RESCHEDULED_PENDING;
+
   return (
-    <div className="px-4 py-3 grid grid-cols-1 lg:grid-cols-[200px_140px_1fr_auto] gap-3 lg:items-start">
+    <div
+      className={`px-4 py-3 grid grid-cols-1 lg:grid-cols-[200px_140px_1fr_auto] gap-3 lg:items-start ${
+        highlightedRow ? "bg-accent-50/40" : ""
+      }`}
+    >
       <div>
         <div className="font-medium text-ink-900">{student.name}</div>
         <div className="text-xs text-ink-500">
@@ -457,20 +571,36 @@ function StudentRow({
             </span>
           </Link>
         )}
-        {sessionStudent.note && (
+        {session.notes && (
           <div className="text-xs text-ink-600 mt-1 italic">
-            &ldquo;{sessionStudent.note}&rdquo;
+            &ldquo;{session.notes}&rdquo;
           </div>
         )}
       </div>
 
       <div className="space-y-1.5">
         <AttendancePicker
-          value={sessionStudent.attendance}
-          onChange={onAttendance}
+          choice={choice}
+          subChip={subChip}
+          onChange={(c) => {
+            if (c === "present")
+              onSetStatus({
+                session_status: SessionStatus.ATTENDED,
+                attendance_status: undefined,
+              });
+            else if (c === "late")
+              onSetStatus({
+                session_status: SessionStatus.ATTENDED,
+                attendance_status: "Late",
+              });
+            else
+              onSetStatus({
+                session_status: SessionStatus.NO_SHOW,
+                attendance_status: undefined,
+              });
+          }}
         />
-        {(sessionStudent.attendance === "absent" ||
-          sessionStudent.attendance === "late") && (
+        {canScheduleMakeup && (
           <button
             onClick={onScheduleMakeup}
             className="text-xs text-accent-700 hover:underline flex items-center gap-1"
@@ -484,13 +614,13 @@ function StudentRow({
       <div className="space-y-2">
         <ExerciseRow
           kind="CW"
-          items={sessionStudent.cw}
+          items={session.cw}
           onOpen={() => onOpenExercise("CW")}
           onRemove={(id) => onRemoveExercise("CW", id)}
         />
         <ExerciseRow
           kind="HW"
-          items={sessionStudent.hw}
+          items={session.hw}
           onOpen={() => onOpenExercise("HW")}
           onRemove={(id) => onRemoveExercise("HW", id)}
         />
@@ -498,7 +628,7 @@ function StudentRow({
 
       <div className="flex flex-col items-end gap-1.5">
         <PerformanceRater
-          value={sessionStudent.performance}
+          value={session.performance_rating}
           onChange={onPerformance}
         />
         <Link
@@ -510,7 +640,7 @@ function StudentRow({
           Checktable
         </Link>
         <Link
-          href={`/checktables?student=${student.id}&prep-session=${sessionId}`}
+          href={`/checktables?student=${student.id}&prep-session=${session.id}`}
           className="text-[11px] text-accent-700 hover:underline inline-flex items-center gap-1"
           title="Pick items in the checktable, then print them as this session's HW in one shot"
         >
@@ -523,17 +653,16 @@ function StudentRow({
 }
 
 function AttendancePicker({
-  value,
+  choice,
+  subChip,
   onChange,
 }: {
-  value: AttendanceStatus;
-  onChange: (v: AttendanceStatus) => void;
+  choice: PickerChoice | null;
+  subChip: { label: string; tone: string } | null;
+  onChange: (v: PickerChoice) => void;
 }) {
-  // "makeup" is system-set when a makeup session is scheduled — shown here
-  // for context but not selectable directly. Tutors flip a student to
-  // absent/late and use the "Schedule makeup" action.
   const options: {
-    id: Exclude<AttendanceStatus, "makeup" | "pending">;
+    id: PickerChoice;
     label: string;
     cls: string;
   }[] = [
@@ -548,7 +677,7 @@ function AttendancePicker({
           key={o.id}
           onClick={() => onChange(o.id)}
           className={`text-xs rounded-md px-2 py-0.5 border transition-colors ${
-            value === o.id
+            choice === o.id
               ? `${o.cls} border-transparent font-medium`
               : "border-ink-200 text-ink-500 hover:bg-ink-50"
           }`}
@@ -556,13 +685,12 @@ function AttendancePicker({
           {o.label}
         </button>
       ))}
-      {value === "makeup" && (
+      {subChip && (
         <span
-          className="text-xs rounded-md px-2 py-0.5 border border-accent-200 bg-accent-50 text-accent-700 font-medium"
-          title="Set automatically when a makeup session was scheduled"
+          className={`text-xs rounded-md px-2 py-0.5 border font-medium ${subChip.tone}`}
+          title="Reflects session status — set automatically by the make-up flow"
         >
-          Makeup ·{" "}
-          <span className="text-accent-600/70 font-normal">scheduled</span>
+          {subChip.label}
         </span>
       )}
     </div>
@@ -595,8 +723,7 @@ function ExerciseRow({
         ) : (
           <HomeIcon className="h-3 w-3" />
         )}
-        {kind}{" "}
-        <span className="opacity-70">({items.length})</span>
+        {kind} <span className="opacity-70">({items.length})</span>
       </button>
       <div className="flex flex-wrap gap-1">
         {items.length === 0 && (
