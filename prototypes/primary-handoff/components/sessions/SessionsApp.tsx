@@ -580,13 +580,14 @@ function StudentRow({
           <span className="text-[11px] text-ink-500 tabular-nums shrink-0">
             {student.code}
           </span>
-          <span
-            className={`text-sm font-semibold truncate ${
+          <Link
+            href={`/students/${student.id}`}
+            className={`text-sm font-semibold truncate hover:underline ${
               statusConfig.strikethrough ? "text-ink-500" : "text-ink-900"
             }`}
           >
             {student.name}
-          </span>
+          </Link>
           <span
             className={`text-[10px] font-medium rounded px-1.5 py-0.5 shrink-0 ${gradeBadgeStyle(
               student.grade
