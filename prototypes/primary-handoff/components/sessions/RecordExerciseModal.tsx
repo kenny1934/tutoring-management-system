@@ -10,6 +10,10 @@ import {
   List as ListIcon,
   LayoutGrid,
   Check,
+  Circle,
+  CircleDashed,
+  CircleCheck,
+  type LucideIcon,
 } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -54,10 +58,18 @@ const FILTER_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: "hide-done", label: "Hide done" },
 ];
 
-function statusDotClasses(status: AssignmentStatus | null): string {
-  if (status === "done") return "bg-emerald-500";
-  if (status === "assigned") return "bg-amber-400";
-  return "bg-ink-200";
+function statusIcon(status: AssignmentStatus | null): {
+  Icon: LucideIcon;
+  className: string;
+} {
+  // Distinct silhouettes (filled-check / dashed / outline) so the three
+  // states are still readable at the small size we use in the list — pure
+  // color dots blurred together at 8px.
+  if (status === "done")
+    return { Icon: CircleCheck, className: "text-emerald-600" };
+  if (status === "assigned")
+    return { Icon: CircleDashed, className: "text-amber-500" };
+  return { Icon: Circle, className: "text-ink-300" };
 }
 
 function statusLabel(status: AssignmentStatus | null): string {
@@ -129,6 +141,12 @@ export function RecordExerciseModal({
       if (flashTimer.current) clearTimeout(flashTimer.current);
     };
   }, []);
+
+  // Reset search whenever the tutor switches checktables — a query that
+  // matched items in the old table almost never matches the new one.
+  useEffect(() => {
+    setSearch("");
+  }, [checktableId]);
 
   const table = checktables.find((c) => c.id === checktableId)!;
 
@@ -341,7 +359,15 @@ export function RecordExerciseModal({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by code or chapter (e.g. 609, 圓周, supplementary)"
+                onKeyDown={(e) => {
+                  // Enter records the top filtered hit so a tutor can search
+                  // → enter to capture without reaching for the mouse.
+                  if (e.key === "Enter" && filtered.length > 0) {
+                    e.preventDefault();
+                    submit(filtered[0].item);
+                  }
+                }}
+                placeholder="Search by code or chapter — press Enter to record top hit"
                 className="flex-1 min-w-[160px] text-sm focus:outline-none"
               />
             </>
@@ -456,6 +482,8 @@ export function RecordExerciseModal({
                     const status = statusByItemId[item.id] ?? null;
                     const isRecorded = recordedItemIds.has(item.id);
                     const isFlashing = flashItemId === item.id;
+                    const { Icon: StatusIcon, className: statusCls } =
+                      statusIcon(status);
                     return (
                       <li key={item.id}>
                         <button
@@ -474,8 +502,9 @@ export function RecordExerciseModal({
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
+                            <StatusIcon
+                              className={`h-3.5 w-3.5 shrink-0 ${statusCls}`}
+                              strokeWidth={2.25}
                               aria-label={statusLabel(status)}
                             />
                             <div className="min-w-0">

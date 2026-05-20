@@ -92,7 +92,12 @@ export function ChecktableGrid({
                     className="border-r border-ink-200 px-3 py-2 text-left font-medium last:border-r-0 min-w-[140px]"
                     title={s.hint}
                   >
-                    {s.label}
+                    <div>{s.label}</div>
+                    {s.hint && (
+                      <div className="text-[10px] font-normal text-ink-500 mt-0.5 leading-tight">
+                        {s.hint}
+                      </div>
+                    )}
                   </th>
                 ))}
               </tr>

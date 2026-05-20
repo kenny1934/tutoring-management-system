@@ -121,9 +121,9 @@ body {
 }
 
 .chip[data-state="assigned"] {
-  background: var(--color-accent-100);
-  border-color: var(--color-accent-200);
-  color: var(--color-accent-700);
+  background: #fef3c7; /* amber-100 */
+  border-color: #fde68a; /* amber-200 */
+  color: #92400e; /* amber-800 */
 }
 
 .chip[data-state="done"] {
