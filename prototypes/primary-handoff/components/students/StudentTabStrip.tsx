@@ -18,7 +18,7 @@ export function StudentTabStrip({ studentId, tabs }: Props) {
   const pathname = usePathname();
 
   return (
-    <div className="border-b border-ink-200 overflow-x-auto">
+    <div className="border-b border-ink-200 overflow-x-auto overflow-y-hidden">
       <div className="flex gap-1 min-w-max">
         {tabs.map((tab) => {
           const href =
