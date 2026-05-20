@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   PenTool,
@@ -9,6 +9,7 @@ import {
   Search,
   List as ListIcon,
   LayoutGrid,
+  Check,
 } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -96,13 +97,24 @@ export function RecordExerciseModal({
   const [note, setNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // Briefly-set id for the row that just got recorded; drives a green flash
+  // so the tutor visibly sees the click landed without scrolling.
+  const [flashItemId, setFlashItemId] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Empty input ⇒ no range (valid). Non-empty input that doesn't match the
-  // simple "12" or "1-3" form ⇒ silently dropped today; surface a hint so
-  // typos like "p.1-2" or "1–3" (em-dash) don't quietly land as no range.
+  // Forgive common range formats before validating: strip "p." prefixes,
+  // normalize en/em dashes, accept "5 to 10", and collapse whitespace.
+  // parsePageRange is strict (^\d+(-\d+)?$); we hand it a clean string.
+  const normalizedRange = pageRange
+    .trim()
+    .replace(/^p\.?\s*/i, "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s*to\s*/i, "-")
+    .replace(/\s+/g, "");
+
   const pageRangeIsInvalid =
     pageRange.trim().length > 0 &&
-    !/^\d+\s*-\s*\d+$|^\d+$/.test(pageRange.trim());
+    !/^\d+-\d+$|^\d+$/.test(normalizedRange);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -111,6 +123,12 @@ export function RecordExerciseModal({
     document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
   }, [onClose]);
+
+  useEffect(() => {
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
+  }, []);
 
   const table = checktables.find((c) => c.id === checktableId)!;
 
@@ -191,9 +209,22 @@ export function RecordExerciseModal({
   const isCW = kind === "CW";
   const isGrid = viewMode === "grid";
 
+  // Set of checktable-item ids already recorded *in this session's CW/HW
+  // list*. Drives the inline "Recorded" pill on list rows so the tutor can
+  // see at a glance which items are already in.
+  const recordedItemIds = useMemo(
+    () =>
+      new Set(
+        items
+          .map((it) => it.item_id)
+          .filter((id): id is string => typeof id === "string")
+      ),
+    [items]
+  );
+
   const submit = (item: ChecktableItem) => {
     if (pageRangeIsInvalid) return;
-    const { page_start, page_end } = parsePageRange(pageRange);
+    const { page_start, page_end } = parsePageRange(normalizedRange);
     onAdd({
       pdf_name: item.code,
       item_id: item.id,
@@ -201,9 +232,13 @@ export function RecordExerciseModal({
       page_end,
       remarks: note || undefined,
     });
+    setFlashItemId(item.id);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => {
+      setFlashItemId((cur) => (cur === item.id ? null : cur));
+    }, 900);
     // Keep pageRange and note so the tutor can record several PDFs from
-    // the same range in one go without retyping. Clear via the field
-    // itself when they're ready to move on.
+    // the same range in one go without retyping.
   };
 
   return (
@@ -232,85 +267,19 @@ export function RecordExerciseModal({
               {session.start_time} · {session.tutor_name}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div
-              className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs"
-              role="tablist"
-              aria-label="Picker view mode"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!isGrid}
-                onClick={() => setViewMode("list")}
-                className={`px-2 py-1 rounded-md flex items-center gap-1 ${
-                  !isGrid
-                    ? "bg-ink-800 text-white"
-                    : "text-ink-600 hover:bg-ink-100"
-                }`}
-              >
-                <ListIcon className="h-3 w-3" />
-                List
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={isGrid}
-                onClick={() => setViewMode("grid")}
-                className={`px-2 py-1 rounded-md flex items-center gap-1 ${
-                  isGrid
-                    ? "bg-ink-800 text-white"
-                    : "text-ink-600 hover:bg-ink-100"
-                }`}
-              >
-                <LayoutGrid className="h-3 w-3" />
-                Grid
-              </button>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-ink-400 hover:text-ink-700 -mr-2 p-2"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-ink-400 hover:text-ink-700 -mr-2 p-2"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </header>
 
-        {/* Already recorded */}
-        {items.length > 0 && (
-          <div className="px-5 py-3 border-b border-ink-100">
-            <div className="text-xs uppercase tracking-wide text-ink-500 mb-2">
-              Recorded so far ({items.length})
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {items.map((it) => {
-                const range = formatPageRange(it.page_start, it.page_end);
-                return (
-                  <span
-                    key={it.id}
-                    className="inline-flex items-center gap-1 text-xs bg-ink-100 text-ink-700 rounded-md pl-2 pr-1 py-1"
-                  >
-                    <span className="font-mono">{it.pdf_name}</span>
-                    {range && <span className="text-ink-500">·{range}</span>}
-                    <button
-                      onClick={() => onRemove(it.id)}
-                      className="text-ink-400 hover:text-ink-800"
-                      aria-label={`Remove ${it.pdf_name}`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Picker */}
-        <div className="px-5 py-3 border-b border-ink-100 grid sm:grid-cols-[1fr_120px_1fr] gap-3">
+        {/* Picker controls */}
+        <div className="px-5 py-3 border-b border-ink-100 grid sm:grid-cols-[1fr_140px_1fr] gap-3">
           <div>
-            <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
+            <label className="block text-xs text-ink-500 mb-1">
               Checktable
             </label>
             <select
@@ -326,14 +295,14 @@ export function RecordExerciseModal({
             </select>
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
+            <label className="block text-xs text-ink-500 mb-1">
               Page range
             </label>
             <input
               type="text"
               value={pageRange}
               onChange={(e) => setPageRange(e.target.value)}
-              placeholder="1-2"
+              placeholder="e.g. 5 or 1-3"
               aria-invalid={pageRangeIsInvalid || undefined}
               className={`w-full rounded-md border px-2 py-1.5 text-sm ${
                 pageRangeIsInvalid
@@ -348,8 +317,8 @@ export function RecordExerciseModal({
             )}
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
-              Note (optional)
+            <label className="block text-xs text-ink-500 mb-1">
+              Note <span className="text-ink-400">(optional)</span>
             </label>
             <input
               type="text"
@@ -361,6 +330,9 @@ export function RecordExerciseModal({
           </div>
         </div>
 
+        {/* Browse controls: search + filter + view toggle.
+         *  View toggle moved out of the header so it sits next to the
+         *  picker it actually affects. */}
         <div className="px-5 py-2 border-b border-ink-100 flex flex-wrap items-center gap-2">
           {!isGrid && (
             <>
@@ -376,8 +348,7 @@ export function RecordExerciseModal({
           )}
           {isGrid && (
             <span className="text-xs text-ink-500">
-              Tap any chip to record it. Page range and note apply to each
-              record.
+              Tap any chip to record it. Page range and note apply to each.
             </span>
           )}
           <div
@@ -386,8 +357,6 @@ export function RecordExerciseModal({
             aria-label="Filter items by status"
           >
             {FILTER_OPTIONS.map((opt) => {
-              // "Hide done" only changes list visibility — skip it in grid
-              // mode where rows still render done items for context.
               if (isGrid && opt.id === "hide-done") return null;
               const active = statusFilter === opt.id;
               const count =
@@ -421,8 +390,42 @@ export function RecordExerciseModal({
               );
             })}
           </div>
+          <div
+            className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs"
+            role="tablist"
+            aria-label="Picker view mode"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isGrid}
+              onClick={() => setViewMode("list")}
+              className={`px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                !isGrid
+                  ? "bg-ink-800 text-white"
+                  : "text-ink-600 hover:bg-ink-100"
+              }`}
+            >
+              <ListIcon className="h-3 w-3" />
+              List
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isGrid}
+              onClick={() => setViewMode("grid")}
+              className={`px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                isGrid
+                  ? "bg-ink-800 text-white"
+                  : "text-ink-600 hover:bg-ink-100"
+              }`}
+            >
+              <LayoutGrid className="h-3 w-3" />
+              Grid
+            </button>
+          </div>
           {!isGrid && (
-            <span className="text-xs text-ink-400">
+            <span className="text-xs text-ink-400 w-full sm:w-auto">
               Showing {filtered.length}
             </span>
           )}
@@ -451,49 +454,78 @@ export function RecordExerciseModal({
                 <ul className="divide-y divide-ink-100">
                   {filtered.map(({ item, chapter }) => {
                     const status = statusByItemId[item.id] ?? null;
+                    const isRecorded = recordedItemIds.has(item.id);
+                    const isFlashing = flashItemId === item.id;
                     return (
-                      <li
-                        key={item.id}
-                        className="py-2 flex items-center justify-between gap-3 hover:bg-ink-50 -mx-2 px-2 rounded-md"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
-                            title={statusLabel(status)}
-                            aria-label={statusLabel(status)}
-                          />
-                          <div className="min-w-0">
-                            <div className="font-mono text-sm text-ink-800">
-                              {item.code}
-                            </div>
-                            <div className="text-xs text-ink-500 truncate">
-                              {chapter}
-                              {status && (
-                                <span
-                                  className={`ml-1.5 font-medium ${
-                                    status === "done"
-                                      ? "text-emerald-700"
-                                      : "text-amber-700"
-                                  }`}
-                                >
-                                  · {statusLabel(status)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                      <li key={item.id}>
                         <button
+                          type="button"
                           onClick={() => submit(item)}
                           disabled={pageRangeIsInvalid}
                           title={
                             pageRangeIsInvalid
                               ? "Fix the page range first"
-                              : undefined
+                              : "Click to record"
                           }
-                          className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 flex items-center gap-1 text-ink-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                          className={`group w-full -mx-2 px-2 py-2 rounded-md flex items-center justify-between gap-3 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isFlashing
+                              ? "bg-emerald-100"
+                              : "hover:bg-ink-50 focus-visible:bg-ink-50 outline-none"
+                          }`}
                         >
-                          <Plus className="h-3 w-3" />
-                          Record
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${statusDotClasses(status)}`}
+                              aria-label={statusLabel(status)}
+                            />
+                            <div className="min-w-0">
+                              <div className="font-mono text-sm text-ink-800 flex items-center gap-1.5">
+                                {item.code}
+                                {isRecorded && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-700">
+                                    <Check className="h-2.5 w-2.5" />
+                                    Recorded
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-ink-500 truncate">
+                                {chapter}
+                                {status && (
+                                  <span
+                                    className={`ml-1.5 font-medium ${
+                                      status === "done"
+                                        ? "text-emerald-700"
+                                        : "text-amber-700"
+                                    }`}
+                                  >
+                                    · {statusLabel(status)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Hover-revealed affordance instead of a wall of
+                           *  visible buttons. Kept text + icon so the
+                           *  interaction is clear when hovered or focused. */}
+                          <span
+                            className={`text-xs text-ink-500 flex items-center gap-1 whitespace-nowrap transition-opacity ${
+                              isFlashing
+                                ? "opacity-100 text-emerald-700 font-medium"
+                                : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                            }`}
+                          >
+                            {isFlashing ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                Recorded
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-3 w-3" />
+                                Record
+                              </>
+                            )}
+                          </span>
                         </button>
                       </li>
                     );
@@ -504,12 +536,42 @@ export function RecordExerciseModal({
           )}
         </div>
 
-        <footer className="border-t border-ink-200 px-5 py-3 bg-ink-50 flex items-center justify-between text-xs text-ink-500">
-          <div>
-            Adds to the {kind} record for this student in this session. Also
-            creates a checktable assignment so it shows up in the student&apos;s
-            history.
+        {/* Recorded-so-far strip. Lives just above the footer so it stays
+         *  visible while the tutor scrolls the picker and accumulates near
+         *  the close action. Empty when nothing recorded yet. */}
+        {items.length > 0 && (
+          <div className="border-t border-ink-100 px-5 py-2 bg-ink-50/60 flex items-start gap-2">
+            <span className="text-xs text-ink-500 shrink-0 pt-1">
+              Recorded{" "}
+              <span className="text-ink-400 tabular-nums">
+                ({items.length})
+              </span>
+            </span>
+            <div className="flex flex-wrap gap-1.5 min-w-0">
+              {items.map((it) => {
+                const range = formatPageRange(it.page_start, it.page_end);
+                return (
+                  <span
+                    key={it.id}
+                    className="inline-flex items-center gap-1 text-xs bg-white border border-ink-200 text-ink-700 rounded-md pl-2 pr-1 py-0.5"
+                  >
+                    <span className="font-mono">{it.pdf_name}</span>
+                    {range && <span className="text-ink-400">·{range}</span>}
+                    <button
+                      onClick={() => onRemove(it.id)}
+                      className="text-ink-300 hover:text-ink-700"
+                      aria-label={`Remove ${it.pdf_name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
           </div>
+        )}
+
+        <footer className="border-t border-ink-200 px-5 py-3 flex items-center justify-end">
           <button
             onClick={onClose}
             className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
