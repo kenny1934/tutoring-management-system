@@ -320,7 +320,6 @@ export function ChecktableApp() {
       <PrintTray
         items={printBatchItems}
         student={student}
-        basePath={table.basePath}
         prepSessionLabel={
           prepSession ? formatSessionLabel(prepSession.id) : undefined
         }
@@ -380,9 +379,7 @@ function Header({
   return (
     <div className="surface p-4 flex flex-wrap items-end gap-4">
       <div className="min-w-[180px] flex-1">
-        <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
-          Student
-        </label>
+        <label className="block text-xs text-ink-500 mb-1">Student</label>
         <select
           value={student.id}
           onChange={(e) => onStudentChange(e.target.value)}
@@ -395,20 +392,12 @@ function Header({
           ))}
         </select>
         <div className="text-xs text-ink-500 mt-1">
-          School: {student.school} · HW load:{" "}
-          <span
-            className="rounded-md px-1.5 py-0.5 bg-ink-100 text-ink-700"
-            data-hw-load={student.hwLoad}
-          >
-            {student.hwLoad}
-          </span>
+          {student.school} · {student.hwLoad} HW
         </div>
       </div>
 
       <div className="min-w-[220px] flex-1">
-        <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
-          Checktable
-        </label>
+        <label className="block text-xs text-ink-500 mb-1">Checktable</label>
         <select
           value={table.id}
           onChange={(e) => onChecktableChange(e.target.value)}
@@ -421,8 +410,7 @@ function Header({
           ))}
         </select>
         <div className="text-xs text-ink-500 mt-1">
-          Updated {table.updatedAt} ·{" "}
-          <code className="font-mono">{table.basePath}</code>
+          Updated {table.updatedAt}
         </div>
       </div>
 
@@ -493,9 +481,7 @@ export function GridFilterBar({
 
   return (
     <div className="surface flex flex-wrap items-center gap-2 px-3 py-2">
-      <span className="text-xs uppercase tracking-wide text-ink-500 mr-1">
-        Filter
-      </span>
+      <span className="text-xs text-ink-500 mr-1">Filter</span>
       <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
         {statusOptions.map((opt) => {
           const active = status === opt.id;
@@ -576,9 +562,9 @@ function PrepBanner({
     minute: "2-digit",
   })}`;
   return (
-    <div className="surface bg-accent-50 border-accent-200 px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <div className="flex items-center gap-2 text-sm text-accent-800">
-        <Printer className="h-4 w-4 text-accent-600" />
+    <div className="surface bg-mc-yellow-50 border-mc-yellow-200 px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <div className="flex items-center gap-2 text-sm text-ink-800">
+        <Printer className="h-4 w-4 text-mc-yellow-600" />
         <span>
           Prepping HW for{" "}
           <span className="font-medium">{student.name}</span> ·{" "}
@@ -586,14 +572,14 @@ function PrepBanner({
           <span className="font-medium">{session.tutor_name}</span>
         </span>
       </div>
-      <span className="text-xs text-accent-700">
+      <span className="text-xs text-ink-600">
         {batchSize === 0
           ? "Pick items below — Print records them as HW on this session."
           : `${batchSize} item${batchSize === 1 ? "" : "s"} ready to print.`}
       </span>
       <Link
         href={`/sessions?session=${session.id}`}
-        className="ml-auto text-xs text-accent-700 hover:underline inline-flex items-center gap-1"
+        className="ml-auto text-xs text-ink-700 hover:underline inline-flex items-center gap-1"
       >
         <ArrowLeft className="h-3 w-3" />
         Back to session
@@ -628,7 +614,7 @@ export function Legend() {
         <span>In print batch</span>
       </span>
       <span className="text-ink-400 ml-auto">
-        Click any chip to assign, mark done, or add to print batch.
+        Click a chip to manage.
       </span>
     </div>
   );

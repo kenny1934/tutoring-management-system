@@ -213,7 +213,7 @@ function AssignmentCard({
             Done
           </span>
         ) : (
-          <span className="text-xs rounded-md bg-accent-100 text-accent-700 px-2 py-0.5">
+          <span className="text-xs rounded-md bg-amber-100 text-amber-800 px-2 py-0.5">
             Assigned
           </span>
         )}
@@ -225,7 +225,7 @@ function AssignmentCard({
         {a.sessionId ? (
           <Link
             href={`/sessions?session=${a.sessionId}`}
-            className="text-accent-700 hover:underline inline-flex items-center gap-1"
+            className="text-mc-red-700 hover:underline inline-flex items-center gap-1"
             title="Open the session this was recorded in"
           >
             {a.sessionLabel ?? new Date(a.assignedAt).toLocaleDateString()}
