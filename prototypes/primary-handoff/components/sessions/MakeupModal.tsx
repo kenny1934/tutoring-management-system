@@ -115,7 +115,7 @@ export function MakeupModal({
         ) : (
           <div className="px-5 py-4 space-y-4">
             <div>
-              <label className="block text-xs uppercase tracking-wide text-ink-500 mb-1">
+              <label className="block text-xs text-ink-500 mb-1">
                 Reason
               </label>
               <input
@@ -128,29 +128,30 @@ export function MakeupModal({
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-4 w-4 text-accent-600" />
-                <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
-                  Suggested slots
-                </span>
+              <div className="flex items-center gap-1.5 mb-2 text-xs text-ink-500">
+                <Sparkles className="h-3.5 w-3.5 text-ink-400" />
+                Suggested slots
               </div>
               <div className="space-y-2">
                 {makeupSuggestions.map((s) => {
                   const isChosen = chosenId === s.id;
-                  const tone =
+                  // Single fit indicator: a small inline pill with a soft
+                  // colour. The card bg stays white so the selection ring
+                  // and "fit" reading don't fight each other.
+                  const fitPill =
                     s.fit === "best"
-                      ? "border-emerald-200 bg-emerald-50"
+                      ? "bg-emerald-100 text-emerald-700"
                       : s.fit === "good"
-                        ? "border-amber-200 bg-amber-50"
-                        : "border-rose-200 bg-rose-50";
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-rose-100 text-rose-700";
                   return (
                     <button
                       key={s.id}
                       onClick={() => setChosenId(s.id)}
-                      className={`w-full text-left rounded-md border p-3 ${
+                      className={`w-full text-left rounded-md border bg-white p-3 transition-colors ${
                         isChosen
-                          ? "ring-2 ring-accent-300 border-accent-300 bg-white"
-                          : tone
+                          ? "border-ink-800 ring-2 ring-ink-800/10"
+                          : "border-ink-200 hover:border-ink-400"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -158,13 +159,7 @@ export function MakeupModal({
                           {s.day} · {s.time}
                         </div>
                         <span
-                          className={`text-xs rounded-md px-2 py-0.5 ${
-                            s.fit === "best"
-                              ? "bg-emerald-200 text-emerald-800"
-                              : s.fit === "good"
-                                ? "bg-amber-200 text-amber-800"
-                                : "bg-rose-200 text-rose-800"
-                          }`}
+                          className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${fitPill}`}
                         >
                           {s.fit} fit
                         </span>
@@ -180,7 +175,7 @@ export function MakeupModal({
                 })}
               </div>
               <p className="text-xs text-ink-500 mt-2 flex items-start gap-1.5">
-                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0 text-ink-400" />
                 Smart suggestions consider tutor pairing, class capacity, and
                 the student&apos;s usual availability window.
               </p>
@@ -188,7 +183,7 @@ export function MakeupModal({
           </div>
         )}
 
-        <footer className="border-t border-ink-200 px-5 py-3 bg-ink-50 flex items-center justify-end gap-2">
+        <footer className="border-t border-ink-200 px-5 py-3 flex items-center justify-end gap-2">
           {created ? (
             <button
               onClick={onClose}
@@ -200,14 +195,14 @@ export function MakeupModal({
             <>
               <button
                 onClick={onClose}
-                className="rounded-md border border-ink-300 text-ink-700 px-3 py-1.5 text-sm hover:bg-white"
+                className="rounded-md border border-ink-200 text-ink-700 px-3 py-1.5 text-sm hover:bg-ink-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirm}
                 disabled={!chosenId}
-                className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Schedule makeup
               </button>
@@ -251,7 +246,7 @@ function ConfirmationView({
         </div>
         <Link
           href={`/sessions?session=${sessionId}`}
-          className="inline-flex items-center gap-1 mt-2 text-accent-700 hover:underline"
+          className="inline-flex items-center gap-1 mt-2 text-mc-red-700 hover:underline"
         >
           Open the new makeup session
           <ExternalLink className="h-3 w-3" />
