@@ -22,6 +22,7 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
     { id: "overview", label: "Overview" },
     { id: "sessions", label: "Sessions", count: sessionCount },
     { id: "checktables", label: "Checktables", count: pending },
+    { id: "performance", label: "Performance" },
     { id: "assessments", label: "Assessments" },
     { id: "parent-comms", label: "Parent comms" },
     { id: "history", label: "History" },

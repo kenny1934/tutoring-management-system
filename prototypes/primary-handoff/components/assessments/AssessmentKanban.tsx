@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   GraduationCap,
@@ -68,6 +69,38 @@ export function AssessmentKanban({ initial }: Props) {
   const [hoverLane, setHoverLane] = useState<AssessmentStage | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus");
+  const focusedRef = useRef<HTMLDivElement | null>(null);
+  // Pulse drops off after a couple seconds; the steady ring stays until
+  // the user navigates away or removes the focus query.
+  const [pulsing, setPulsing] = useState(false);
+
+  // Clear filters when arriving with a focus id so the target card is
+  // guaranteed visible, regardless of what was filtered before.
+  useEffect(() => {
+    if (!focusId) return;
+    setSourceFilter(null);
+    setGradeFilter(null);
+  }, [focusId]);
+
+  useEffect(() => {
+    if (!focusId) return;
+    setPulsing(true);
+    const t = setTimeout(() => setPulsing(false), 2000);
+    return () => clearTimeout(t);
+  }, [focusId]);
+
+  useEffect(() => {
+    if (!focusId) return;
+    if (focusedRef.current) {
+      focusedRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [focusId]);
 
   // Conversion rate: enrolled / (enrolled + lost)
   const stats = useMemo(() => {
@@ -177,19 +210,25 @@ export function AssessmentKanban({ initial }: Props) {
                     Empty
                   </div>
                 )}
-                {cards.map((a) => (
-                  <Card
-                    key={a.id}
-                    a={a}
-                    onDragStart={() => setDraggingId(a.id)}
-                    onDragEnd={() => {
-                      setDraggingId(null);
-                      setHoverLane(null);
-                    }}
-                    dragging={draggingId === a.id}
-                    onMoveNext={() => moveNext(a.id)}
-                  />
-                ))}
+                {cards.map((a) => {
+                  const isFocused = a.id === focusId;
+                  return (
+                    <Card
+                      key={a.id}
+                      a={a}
+                      onDragStart={() => setDraggingId(a.id)}
+                      onDragEnd={() => {
+                        setDraggingId(null);
+                        setHoverLane(null);
+                      }}
+                      dragging={draggingId === a.id}
+                      onMoveNext={() => moveNext(a.id)}
+                      focused={isFocused}
+                      pulsing={isFocused && pulsing}
+                      cardRef={isFocused ? focusedRef : undefined}
+                    />
+                  );
+                })}
               </div>
             </div>
           );
@@ -334,12 +373,18 @@ function Card({
   onDragEnd,
   dragging,
   onMoveNext,
+  focused,
+  pulsing,
+  cardRef,
 }: {
   a: Assessment;
   onDragStart: () => void;
   onDragEnd: () => void;
   dragging: boolean;
   onMoveNext: () => void;
+  focused: boolean;
+  pulsing: boolean;
+  cardRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const followUpFlag =
     a.stage === "follow-up" && a.followUpDue
@@ -348,14 +393,19 @@ function Card({
 
   const canMoveNext = a.stage in NEXT_STAGE;
 
+  const focusClass = focused
+    ? `ring-2 ring-mc-red-500 ring-offset-2 ${pulsing ? "animate-pulse" : ""}`
+    : "";
+
   return (
     <div
+      ref={cardRef}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={`bg-white rounded-md border border-ink-200 p-3 text-sm shadow-sm cursor-grab active:cursor-grabbing relative group ${
         dragging ? "opacity-50" : ""
-      }`}
+      } ${focusClass}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

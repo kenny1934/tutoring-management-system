@@ -96,6 +96,12 @@ export type Assessment = {
   notes?: string;
   scorePct?: number; // after attended
   followUpDue?: string; // after attended
+  /** Tutor who ran the assessment session. Set once attended. */
+  assessingTutorName?: string;
+  /** When stage transitions to "enrolled", this is set to the Student.id
+   *  that was created from the conversion. Lets the student detail page
+   *  surface the originating funnel record. */
+  studentId?: string;
 };
 
 // -----------------------------------------------------------------------------
