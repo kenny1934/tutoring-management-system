@@ -122,8 +122,10 @@ export const SessionStatus = {
 export type SessionStatusValue =
   (typeof SessionStatus)[keyof typeof SessionStatus];
 
-/** Mirrors CSM's enrollment_type — drives session generation rules. */
-export type EnrollmentType = "Regular" | "Trial" | "One-Time";
+/** Mirrors CSM's enrollment_type — drives session generation rules.
+ *  Assessment is a single trial-style lesson at a flat fee, tracked
+ *  alongside the prospects funnel on the /assessments page. */
+export type EnrollmentType = "Regular" | "Assessment" | "One-Time";
 
 /** Mon=1 .. Sun=7, ISO weekday numbering. */
 export type WeekdayNum = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -151,19 +153,21 @@ export interface Enrollment {
   remark?: string;
 }
 
-/** Generated session row in the create-enrollment preview. */
-export type EnrollmentPreviewSession = {
-  lesson_number: number;
-  session_date: string; // YYYY-MM-DD
-  /** "ok" — a normal session; "skipped-holiday" — original date fell on a
-   *  holiday and was advanced to the next week (this row is the next-week
-   *  replacement). */
-  status: "ok" | "skipped-holiday";
-  /** When status is "skipped-holiday", the original date that was bumped. */
-  skipped_from?: string;
-  /** Human label for the holiday that bumped this lesson, if any. */
-  skipped_holiday_label?: string;
-};
+/** Row in the create-enrollment preview. A "lesson" row is a real session
+ *  that will be written; a "skipped" row records a holiday that bumped a
+ *  candidate date but is itself never written as a session. CSM shows
+ *  both so the tutor can see *why* the schedule shifts. */
+export type EnrollmentPreviewRow =
+  | {
+      kind: "lesson";
+      lesson_number: number;
+      session_date: string; // YYYY-MM-DD
+    }
+  | {
+      kind: "skipped";
+      session_date: string; // YYYY-MM-DD — the holiday date itself
+      holiday_label: string;
+    };
 
 export type ExerciseKind = "CW" | "HW";
 

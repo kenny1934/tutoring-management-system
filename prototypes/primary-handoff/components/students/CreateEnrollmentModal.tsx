@@ -36,31 +36,21 @@ const ENROLLMENT_TYPES: { id: EnrollmentType; label: string; hint: string }[] = 
   {
     id: "Regular",
     label: "Regular",
-    hint: "Weekly package — generates lessons_paid sessions",
+    hint: "Weekly package · HK$250 per lesson",
   },
   {
-    id: "Trial",
-    label: "Trial",
-    hint: "One free lesson — single session",
+    id: "Assessment",
+    label: "Assessment",
+    hint: "Single trial lesson · HK$200 flat",
   },
   {
     id: "One-Time",
     label: "One-Time",
-    hint: "Drop-in lesson — single session",
+    hint: "Drop-in lesson · HK$250",
   },
 ];
 
 const WEEKDAYS: WeekdayNum[] = [1, 2, 3, 4, 5, 6, 7];
-const TIME_SLOTS = [
-  "09:00",
-  "10:30",
-  "12:00",
-  "14:00",
-  "15:30",
-  "16:00",
-  "17:30",
-  "19:00",
-];
 
 export function CreateEnrollmentModal({
   student,
@@ -74,7 +64,7 @@ export function CreateEnrollmentModal({
   const [enrollmentType, setEnrollmentType] = useState<EnrollmentType>("Regular");
   const [assignedDay, setAssignedDay] = useState<WeekdayNum>(2);
   const [assignedTime, setAssignedTime] = useState("16:00");
-  const [durationMins, setDurationMins] = useState(90);
+  const [durationMins, setDurationMins] = useState(60);
   const [room, setRoom] = useState(rooms[2]);
   const [firstLessonDate, setFirstLessonDate] = useState(
     defaultFirstLessonDate ?? "2026-06-02"
@@ -104,7 +94,7 @@ export function CreateEnrollmentModal({
   );
 
   const endDate = effectiveEndDate(preview);
-  const skipped = preview.filter((p) => p.status === "skipped-holiday");
+  const skipped = preview.filter((p) => p.kind === "skipped");
   const fee = computeFee({
     enrollmentType,
     lessonsPaid,
@@ -242,17 +232,13 @@ export function CreateEnrollmentModal({
                 </select>
               </FieldGroup>
               <FieldGroup label="Time">
-                <select
+                <input
+                  type="time"
                   value={assignedTime}
+                  step={300}
                   onChange={(e) => setAssignedTime(e.target.value)}
                   className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm bg-white"
-                >
-                  {TIME_SLOTS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                />
               </FieldGroup>
               <FieldGroup label="Mins">
                 <input
@@ -353,8 +339,8 @@ export function CreateEnrollmentModal({
                 <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                 <span>
                   {skipped.length}{" "}
-                  {skipped.length === 1 ? "lesson" : "lessons"} bumped to the
-                  next week because of holidays.
+                  {skipped.length === 1 ? "date is" : "dates are"} a holiday;
+                  the schedule advances to the next week.
                 </span>
               </div>
             )}
@@ -369,47 +355,49 @@ export function CreateEnrollmentModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.map((row) => (
-                    <tr
-                      key={row.lesson_number}
-                      className={`border-t border-ink-100 ${
-                        row.status === "skipped-holiday" ? "bg-amber-50/60" : ""
-                      }`}
-                    >
-                      <td className="px-3 py-1.5 text-ink-500 tabular-nums">
-                        {row.lesson_number}
-                      </td>
-                      <td className="px-3 py-1.5 text-ink-800 tabular-nums">
-                        {formatDate(row.session_date)}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        {row.status === "ok" ? (
+                  {preview.map((row, i) =>
+                    row.kind === "lesson" ? (
+                      <tr
+                        key={`l-${row.lesson_number}`}
+                        className="border-t border-ink-100"
+                      >
+                        <td className="px-3 py-1.5 text-ink-500 tabular-nums">
+                          {row.lesson_number}
+                        </td>
+                        <td className="px-3 py-1.5 text-ink-800 tabular-nums">
+                          {formatDate(row.session_date)}
+                        </td>
+                        <td className="px-3 py-1.5">
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
                             <CheckCircle2 className="h-3 w-3" />
                             On schedule
                           </span>
-                        ) : (
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr
+                        key={`s-${i}-${row.session_date}`}
+                        className="border-t border-ink-100 bg-amber-50/60"
+                      >
+                        <td className="px-3 py-1.5 text-ink-400 tabular-nums">
+                          —
+                        </td>
+                        <td className="px-3 py-1.5 text-ink-500 tabular-nums line-through">
+                          {formatDate(row.session_date)}
+                        </td>
+                        <td className="px-3 py-1.5">
                           <span className="text-xs text-amber-800">
-                            Bumped from {formatDate(row.skipped_from!)}{" "}
-                            <span className="text-amber-600">
-                              ({row.skipped_holiday_label})
-                            </span>
+                            Holiday · {row.holiday_label}
                           </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
               </table>
             </div>
 
-            <FeeSummary
-              base={fee.base}
-              discount={fee.discount}
-              regFee={fee.regFee}
-              total={fee.total}
-              lessonsPaid={sessionCount}
-            />
+            <FeeSummary fee={fee} />
           </div>
         </div>
 
@@ -449,39 +437,39 @@ function FieldGroup({
 }
 
 function FeeSummary({
-  base,
-  discount,
-  regFee,
-  total,
-  lessonsPaid,
+  fee,
 }: {
-  base: number;
-  discount: number;
-  regFee: number;
-  total: number;
-  lessonsPaid: number;
+  fee: {
+    base: number;
+    perLesson: number;
+    count: number;
+    discount: number;
+    regFee: number;
+    total: number;
+  };
 }) {
+  const baseLabel =
+    fee.count === 1
+      ? "Lesson"
+      : `Base · ${fee.count} × HK$${fee.perLesson}`;
   return (
     <div className="surface bg-white p-3 text-sm">
       <div className="text-xs text-ink-500 mb-1.5">Fee</div>
       <div className="space-y-0.5">
-        <FeeLine
-          label={`Base · ${lessonsPaid} × HK$400`}
-          value={`HK$${base.toLocaleString()}`}
-        />
-        {discount > 0 && (
+        <FeeLine label={baseLabel} value={`HK$${fee.base.toLocaleString()}`} />
+        {fee.discount > 0 && (
           <FeeLine
             label="Discount"
-            value={`− HK$${discount.toLocaleString()}`}
+            value={`− HK$${fee.discount.toLocaleString()}`}
           />
         )}
-        {regFee > 0 && (
-          <FeeLine label="Registration fee" value={`+ HK$${regFee}`} />
+        {fee.regFee > 0 && (
+          <FeeLine label="Registration fee" value={`+ HK$${fee.regFee}`} />
         )}
         <div className="border-t border-ink-100 mt-1.5 pt-1.5">
           <FeeLine
             label="Total"
-            value={`HK$${total.toLocaleString()}`}
+            value={`HK$${fee.total.toLocaleString()}`}
             bold
           />
         </div>

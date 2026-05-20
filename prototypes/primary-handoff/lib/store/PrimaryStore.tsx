@@ -517,21 +517,25 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         remark: input.remark,
       };
 
-      const newSessions: Session[] = generated.map((g) => ({
-        id: `sess-${Math.random().toString(36).slice(2, 8)}-${g.lesson_number}`,
-        enrollment_id: enrollmentId,
-        student_id: input.student_id,
-        tutor_id: input.tutor_id,
-        tutor_name: input.tutor_name,
-        session_date: g.session_date,
-        start_time: input.assigned_time,
-        duration_mins: input.duration_mins,
-        room: input.room,
-        lesson_number: g.lesson_number,
-        session_status: SessionStatus.SCHEDULED,
-        cw: [],
-        hw: [],
-      }));
+      const newSessions: Session[] = generated
+        .filter((g): g is Extract<typeof g, { kind: "lesson" }> =>
+          g.kind === "lesson"
+        )
+        .map((g) => ({
+          id: `sess-${Math.random().toString(36).slice(2, 8)}-${g.lesson_number}`,
+          enrollment_id: enrollmentId,
+          student_id: input.student_id,
+          tutor_id: input.tutor_id,
+          tutor_name: input.tutor_name,
+          session_date: g.session_date,
+          start_time: input.assigned_time,
+          duration_mins: input.duration_mins,
+          room: input.room,
+          lesson_number: g.lesson_number,
+          session_status: SessionStatus.SCHEDULED,
+          cw: [],
+          hw: [],
+        }));
 
       setEnrollments((prev) => [...prev, newEnrollment]);
       setSessions((prev) => [...prev, ...newSessions]);
