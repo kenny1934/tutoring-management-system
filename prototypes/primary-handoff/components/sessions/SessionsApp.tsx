@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import {
   Clock,
   Star,
-  StickyNote,
   CalendarClock,
   Table2,
   Printer,
@@ -422,19 +421,20 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Slot header — time slot left, tutor + member count right.
-       *  Thin red left rule (yellow + cream tint for make-up meetings)
-       *  gives a quiet visual anchor without dominating the card. */}
+      {/* Slot header — time slot is the focal point of the card, sized up
+       *  to confidently anchor the eye. Tutor + member count sit right in
+       *  quieter weight. Make-up meetings flip to yellow rule + cream
+       *  tint. */}
       <div
-        className={`px-4 py-2 border-l-[3px] border-b border-b-mc-line flex items-center justify-between gap-3 ${
+        className={`px-4 py-2.5 border-l-[3px] border-b border-b-mc-line flex items-center justify-between gap-3 ${
           meeting.is_makeup
             ? "bg-mc-yellow-50 border-l-mc-yellow-500"
             : "bg-white border-l-mc-red-600"
         }`}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Clock className="h-4 w-4 text-ink-400 shrink-0" />
-          <span className="text-base font-semibold text-ink-900 tabular-nums">
+          <span className="text-[15px] font-bold text-ink-900 tabular-nums tracking-tight">
             {slotLabel}
           </span>
           {meeting.is_makeup && (
@@ -453,8 +453,10 @@ function MeetingCard({
       </div>
 
       {meeting.class_wide_note && (
-        <div className="px-4 py-1.5 text-xs text-ink-600 bg-ink-50 border-b border-mc-line flex items-start gap-2">
-          <StickyNote className="h-3 w-3 mt-0.5 text-ink-400" />
+        <div className="px-4 py-1.5 text-xs text-ink-700 bg-ink-50 border-b border-mc-line">
+          <span className="text-[10px] font-semibold tracking-wide text-ink-500 mr-1.5 uppercase">
+            Class note
+          </span>
           {meeting.class_wide_note}
         </div>
       )}
@@ -719,8 +721,17 @@ function ActionButtonsRow({
       ? SessionStatus.ATTENDED_MAKEUP
       : SessionStatus.ATTENDED;
 
+  // Only draw the divider when there's something visually heavy above it
+  // (the attendance picker / make-up button). For finalized rows where the
+  // action row is just stars + kebab, the border reads as visual noise.
+  const hasHeavyActions = showAttendanceActions || showMakeupAction;
+
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-ink-200">
+    <div
+      className={`flex flex-wrap items-center gap-1.5 pt-1.5 ${
+        hasHeavyActions ? "border-t border-ink-200" : ""
+      }`}
+    >
       {showAttendanceActions && (
         <AttendancePicker
           onAttended={() =>
@@ -912,7 +923,7 @@ function PreviousHomeworkToCheck({
   return (
     <div className="flex items-start gap-2 min-w-0">
       <span
-        className="w-6 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5"
+        className="w-8 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5 text-right pr-1"
         title={`Last session · ${sourceLabel}`}
       >
         Prev
@@ -1047,7 +1058,7 @@ function ExerciseRow({
     <div className="flex items-start gap-2 min-w-0">
       {/* Rail label — 22px wide so CW + HW align vertically. No fill,
        *  ink-400 text — relegates this to "row prefix" weight. */}
-      <span className="w-6 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5">
+      <span className="w-8 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5 text-right pr-1">
         {kind}
       </span>
       <div className="flex flex-wrap items-center gap-1 min-w-0">
@@ -1225,20 +1236,55 @@ function PerformanceRater({
   value?: number;
   onChange: (v: 1 | 2 | 3 | 4 | 5) => void;
 }) {
-  return (
-    <div className="flex items-center gap-0.5">
+  // hoverIndex previews "would set to N" while the cursor is over star N.
+  // Falls back to the persisted value so unhovered rated state still shows
+  // the correct number of filled stars.
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const isRated = !!value && value > 0;
+  const active = hoverIndex ?? value ?? 0;
+
+  const Stars = (
+    <div
+      className="flex items-center gap-0.5"
+      onMouseLeave={() => setHoverIndex(null)}
+    >
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           onClick={() => onChange(n as 1 | 2 | 3 | 4 | 5)}
-          className={`p-0.5 ${
-            value && n <= value ? "text-mc-yellow-500" : "text-ink-200"
-          } hover:text-mc-yellow-500`}
+          onMouseEnter={() => setHoverIndex(n)}
+          onFocus={() => setHoverIndex(n)}
+          onBlur={() => setHoverIndex(null)}
+          className={`p-0.5 transition-colors ${
+            n <= active ? "text-mc-yellow-500" : "text-ink-200"
+          }`}
           aria-label={`${n} stars`}
         >
           <Star className="h-3.5 w-3.5 fill-current" />
         </button>
       ))}
+    </div>
+  );
+
+  // When rated, the 5-star row is always visible.
+  if (isRated) return Stars;
+
+  // When unrated, show a quiet "Rate" affordance that swaps to the 5-star
+  // row on hover/focus-within. Wrapper handles the hand-off.
+  return (
+    <div className="group relative inline-flex items-center">
+      <button
+        type="button"
+        className="text-[11px] text-ink-400 inline-flex items-center gap-1 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        <Star className="h-3.5 w-3.5" />
+        Rate
+      </button>
+      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        {Stars}
+      </div>
     </div>
   );
 }

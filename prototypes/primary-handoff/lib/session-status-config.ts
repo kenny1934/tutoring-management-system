@@ -47,7 +47,7 @@ export function getSessionStatusConfig(
   if (s.endsWith("- Pending Make-up")) {
     return {
       stripeClass: "bg-orange-500",
-      tintClass: "bg-orange-50",
+      tintClass: "bg-orange-50/50",
       textClass: "text-orange-600",
       Icon: AlertTriangle,
       strikethrough: true,
@@ -57,7 +57,7 @@ export function getSessionStatusConfig(
   if (s.endsWith("- Make-up Booked")) {
     return {
       stripeClass: "bg-gray-400",
-      tintClass: "bg-gray-100",
+      tintClass: "bg-gray-100/60",
       textClass: "text-gray-500",
       Icon: Loader2,
       strikethrough: true,
@@ -69,21 +69,21 @@ export function getSessionStatusConfig(
     case "Scheduled":
       return {
         stripeClass: "bg-sky-400",
-        tintClass: "bg-sky-50",
+        tintClass: "bg-sky-50/50",
         textClass: "text-sky-600",
         Icon: Clock,
       };
     case "Attended":
       return {
         stripeClass: "bg-green-600",
-        tintClass: "bg-green-50",
+        tintClass: "bg-green-50/50",
         textClass: "text-green-600",
         Icon: CheckCircle,
       };
     case "Attended (Make-up)":
       return {
         stripeClass: "bg-green-600",
-        tintClass: "bg-green-50",
+        tintClass: "bg-green-50/50",
         textClass: "text-green-600",
         Icon: CheckCircle2,
         iconClass: "text-yellow-300",
@@ -91,21 +91,21 @@ export function getSessionStatusConfig(
     case "Make-up Class":
       return {
         stripeClass: "bg-yellow-500",
-        tintClass: "bg-yellow-50",
+        tintClass: "bg-yellow-50/50",
         textClass: "text-yellow-700",
         Icon: PencilLine,
       };
     case "Trial Class":
       return {
         stripeClass: "bg-blue-500",
-        tintClass: "bg-blue-50",
+        tintClass: "bg-blue-50/50",
         textClass: "text-blue-600",
         Icon: FlaskConical,
       };
     case "Cancelled":
       return {
         stripeClass: "bg-red-500",
-        tintClass: "bg-red-50",
+        tintClass: "bg-red-50/50",
         textClass: "text-red-500",
         Icon: XCircle,
         strikethrough: true,
@@ -113,7 +113,7 @@ export function getSessionStatusConfig(
     case "No Show":
       return {
         stripeClass: "bg-red-500",
-        tintClass: "bg-red-50",
+        tintClass: "bg-red-50/50",
         textClass: "text-red-500",
         Icon: UserX,
         strikethrough: true,
