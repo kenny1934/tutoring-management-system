@@ -15,6 +15,7 @@ import type {
   ChecktableChapter,
   ChecktableItem,
   Enrollment,
+  EnrollmentType,
   ExerciseKind,
   HomeworkCompletion,
   ParentContact,
@@ -22,8 +23,10 @@ import type {
   SessionExercise,
   SessionStatusValue,
   Student,
+  WeekdayNum,
 } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
+import { generateSessions } from "@/lib/enrollment-utils";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { checktables as seedChecktables } from "@/lib/mock-data/checktables";
 import { seedAssignments } from "@/lib/mock-data/assignments";
@@ -43,6 +46,21 @@ type ExerciseInput = {
   page_start?: number;
   page_end?: number;
   remarks?: string;
+};
+
+export type CreateEnrollmentInput = {
+  student_id: string;
+  tutor_id: string;
+  tutor_name: string;
+  enrollment_type: EnrollmentType;
+  assigned_day: WeekdayNum;
+  assigned_time: string;
+  duration_mins: number;
+  room: string;
+  first_lesson_date: string;
+  lessons_paid: number;
+  is_new_student: boolean;
+  remark?: string;
 };
 
 /** Page-range UI strings ("1-2" or "5") parse to start/end numbers; empty
@@ -151,6 +169,10 @@ type Store = {
     checked_by?: string;
   }) => void;
 
+  /** Create a new Enrollment and spawn its Session rows from the weekly
+   *  recurrence rule (with holiday skips). Returns the new enrollment id. */
+  createEnrollment: (input: CreateEnrollmentInput) => string;
+
   /** Spawn a make-up Session for a student. Sets make_up_for_id on the new
    *  session, rescheduled_to_id on the source, and transitions the source's
    *  session_status into the appropriate *_BOOKED state. */
@@ -251,7 +273,8 @@ function statusAfterMakeupBooked(
 
 export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [students] = useState<Student[]>(seedStudents);
-  const [enrollments] = useState<Enrollment[]>(seedEnrollments);
+  const [enrollments, setEnrollments] =
+    useState<Enrollment[]>(seedEnrollments);
   const [checktables] = useState<Checktable[]>(seedChecktables);
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
@@ -468,6 +491,55 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const createEnrollment = useCallback(
+    (input: CreateEnrollmentInput): string => {
+      const enrollmentId = `enr-${Math.random().toString(36).slice(2, 8)}`;
+      const generated = generateSessions({
+        enrollmentType: input.enrollment_type,
+        firstLessonDate: input.first_lesson_date,
+        assignedDay: input.assigned_day,
+        lessonsPaid: input.lessons_paid,
+      });
+      const newEnrollment: Enrollment = {
+        id: enrollmentId,
+        student_id: input.student_id,
+        tutor_id: input.tutor_id,
+        tutor_name: input.tutor_name,
+        lessons_total: input.lessons_paid,
+        started_at: input.first_lesson_date,
+        enrollment_type: input.enrollment_type,
+        assigned_day: input.assigned_day,
+        assigned_time: input.assigned_time,
+        duration_mins: input.duration_mins,
+        room: input.room,
+        first_lesson_date: input.first_lesson_date,
+        is_new_student: input.is_new_student,
+        remark: input.remark,
+      };
+
+      const newSessions: Session[] = generated.map((g) => ({
+        id: `sess-${Math.random().toString(36).slice(2, 8)}-${g.lesson_number}`,
+        enrollment_id: enrollmentId,
+        student_id: input.student_id,
+        tutor_id: input.tutor_id,
+        tutor_name: input.tutor_name,
+        session_date: g.session_date,
+        start_time: input.assigned_time,
+        duration_mins: input.duration_mins,
+        room: input.room,
+        lesson_number: g.lesson_number,
+        session_status: SessionStatus.SCHEDULED,
+        cw: [],
+        hw: [],
+      }));
+
+      setEnrollments((prev) => [...prev, newEnrollment]);
+      setSessions((prev) => [...prev, ...newSessions]);
+      return enrollmentId;
+    },
+    []
+  );
+
   const createMakeupSession = useCallback(
     (input: {
       fromSessionId: string;
@@ -664,6 +736,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      createEnrollment,
       createMakeupSession,
       pendingPreviousHomework,
       primaryChecktableId,
@@ -686,6 +759,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       togglePrintBatch,
       removeFromPrintBatch,
       clearPrintBatch,
+      createEnrollment,
       createMakeupSession,
       pendingPreviousHomework,
       primaryChecktableId,

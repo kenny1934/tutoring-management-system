@@ -122,8 +122,14 @@ export const SessionStatus = {
 export type SessionStatusValue =
   (typeof SessionStatus)[keyof typeof SessionStatus];
 
+/** Mirrors CSM's enrollment_type — drives session generation rules. */
+export type EnrollmentType = "Regular" | "Trial" | "One-Time";
+
+/** Mon=1 .. Sun=7, ISO weekday numbering. */
+export type WeekdayNum = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 /** A student's enrollment with a tutor. One student → many enrollments;
- *  each enrollment → many sessions (typically lessons_total of them). CSM
+ *  each enrollment → many sessions (typically lessons_paid of them). CSM
  *  has no "class" concept — an enrollment is just (student, tutor, term)
  *  with sessions slotted into recurring time_slots. */
 export interface Enrollment {
@@ -133,7 +139,31 @@ export interface Enrollment {
   tutor_name: string;
   lessons_total: number;
   started_at: string; // YYYY-MM-DD
+  /** CSM-aligned scheduling fields. Optional on legacy seeds; the create
+   *  modal always sets them. */
+  enrollment_type?: EnrollmentType;
+  assigned_day?: WeekdayNum;
+  assigned_time?: string; // "HH:MM"
+  duration_mins?: number;
+  room?: string;
+  first_lesson_date?: string; // YYYY-MM-DD
+  is_new_student?: boolean;
+  remark?: string;
 }
+
+/** Generated session row in the create-enrollment preview. */
+export type EnrollmentPreviewSession = {
+  lesson_number: number;
+  session_date: string; // YYYY-MM-DD
+  /** "ok" — a normal session; "skipped-holiday" — original date fell on a
+   *  holiday and was advanced to the next week (this row is the next-week
+   *  replacement). */
+  status: "ok" | "skipped-holiday";
+  /** When status is "skipped-holiday", the original date that was bumped. */
+  skipped_from?: string;
+  /** Human label for the holiday that bumped this lesson, if any. */
+  skipped_holiday_label?: string;
+};
 
 export type ExerciseKind = "CW" | "HW";
 

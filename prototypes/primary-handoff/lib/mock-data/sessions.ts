@@ -15,6 +15,12 @@ export const enrollments: Enrollment[] = [
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-03-04",
+    enrollment_type: "Regular",
+    assigned_day: 2, // Tue
+    assigned_time: "16:00",
+    duration_mins: 90,
+    room: "Room 3",
+    first_lesson_date: "2026-03-04",
   },
   {
     id: "enr-002",
@@ -23,6 +29,12 @@ export const enrollments: Enrollment[] = [
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-03-04",
+    enrollment_type: "Regular",
+    assigned_day: 2,
+    assigned_time: "16:00",
+    duration_mins: 90,
+    room: "Room 3",
+    first_lesson_date: "2026-03-04",
   },
   {
     id: "enr-003",
@@ -31,6 +43,12 @@ export const enrollments: Enrollment[] = [
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-04-08",
+    enrollment_type: "Regular",
+    assigned_day: 2,
+    assigned_time: "16:00",
+    duration_mins: 90,
+    room: "Room 3",
+    first_lesson_date: "2026-04-08",
   },
   {
     id: "enr-004",
@@ -39,8 +57,24 @@ export const enrollments: Enrollment[] = [
     tutor_name: "Ms Wendy Wong",
     lessons_total: 8,
     started_at: "2026-04-01",
+    enrollment_type: "Regular",
+    assigned_day: 2,
+    assigned_time: "17:30",
+    duration_mins: 90,
+    room: "Room 2",
+    first_lesson_date: "2026-04-01",
   },
 ];
+
+/** Tutors available in the create-enrollment picker. */
+export const tutors = [
+  { id: "t-wong", name: "Ms Wendy Wong" },
+  { id: "t-lee", name: "Mr Lawrence Lee" },
+  { id: "t-chan", name: "Ms Karen Chan" },
+];
+
+/** Demo rooms available in the picker. */
+export const rooms = ["Room 1", "Room 2", "Room 3", "Room 4"];
 
 const wong = { tutor_id: "t-wong", tutor_name: "Ms Wendy Wong" };
 const lee = { tutor_id: "t-lee", tutor_name: "Mr Lawrence Lee" };

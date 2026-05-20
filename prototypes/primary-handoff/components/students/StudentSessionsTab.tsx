@@ -1,17 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { CalendarClock, ArrowRight, Star } from "lucide-react";
+import { CalendarClock, ArrowRight, Star, CalendarPlus } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import type { Session } from "@/lib/types";
+import { CreateEnrollmentModal } from "./CreateEnrollmentModal";
 
 export function StudentSessionsTab() {
   const { id } = useParams<{ id: string }>();
-  const { sessions } = usePrimaryStore();
+  const { sessions, students } = usePrimaryStore();
+  const student = students.find((s) => s.id === id)!;
+  const [enrollOpen, setEnrollOpen] = useState(false);
 
   const studentSessions = useMemo(
     () => sessions.filter((s) => s.student_id === id),
@@ -42,16 +45,44 @@ export function StudentSessionsTab() {
     [studentSessions]
   );
 
+  const header = (
+    <div className="flex items-center justify-end">
+      <button
+        onClick={() => setEnrollOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+      >
+        <CalendarPlus className="h-4 w-4" />
+        New enrollment
+      </button>
+    </div>
+  );
+
   if (studentSessions.length === 0) {
     return (
-      <div className="surface p-10 text-center text-sm text-ink-500">
-        No sessions scheduled for this student yet.
+      <div className="space-y-3 max-w-3xl">
+        {header}
+        <div className="surface p-10 text-center text-sm text-ink-500">
+          No sessions scheduled for this student yet.
+        </div>
+        {enrollOpen && (
+          <CreateEnrollmentModal
+            student={student}
+            onClose={() => setEnrollOpen(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-5 max-w-3xl">
+      {header}
+      {enrollOpen && (
+        <CreateEnrollmentModal
+          student={student}
+          onClose={() => setEnrollOpen(false)}
+        />
+      )}
       {upcoming.length > 0 && (
         <Section title="Upcoming" count={upcoming.length}>
           {upcoming.map((s) => (
