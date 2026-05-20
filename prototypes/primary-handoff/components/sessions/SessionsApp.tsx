@@ -7,7 +7,6 @@ import {
   Star,
   CalendarClock,
   Table2,
-  Printer,
   Check,
   CircleSlash,
   CircleDashed,
@@ -22,7 +21,7 @@ import {
   Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type {
   Session,
   SessionExercise,
@@ -41,7 +40,6 @@ import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
-import { ChecktableDrawer } from "./ChecktableDrawer";
 import {
   SessionsToolbar,
   type StatusFilter,
@@ -79,19 +77,12 @@ export function SessionsApp() {
     sessionLabel,
   } = usePrimaryStore();
 
+  const router = useRouter();
   const [exerciseEditor, setExerciseEditor] =
     useState<ExerciseEditor | null>(null);
   const [makeupOpen, setMakeupOpen] = useState<{
     sessionId: string;
     studentId: string;
-  } | null>(null);
-  // Drawer keeps the session row visible underneath so the tutor never
-  // loses context while assigning from a checktable. focusItemId is set
-  // when arriving via the "Next" pill so the assign dialog opens straight
-  // on the suggested item.
-  const [drawerOpen, setDrawerOpen] = useState<{
-    studentId: string;
-    focusItemId?: string;
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
   const [tutorFilter, setTutorFilter] = useState<string>("all");
@@ -295,9 +286,14 @@ export function SessionsApp() {
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
-                  onOpenChecktable={(studentId, focusItemId) =>
-                    setDrawerOpen({ studentId, focusItemId })
-                  }
+                  onOpenChecktable={(studentId, focusItemId) => {
+                    const base = `/students/${studentId}/checktables`;
+                    router.push(
+                      focusItemId
+                        ? `${base}?focus=${encodeURIComponent(focusItemId)}`
+                        : base
+                    );
+                  }}
                   onRemoveExercise={removeExercise}
                   onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
                     recordHomeworkCompletion({
@@ -354,13 +350,6 @@ export function SessionsApp() {
         />
       )}
 
-      {drawerOpen && studentById.get(drawerOpen.studentId) && (
-        <ChecktableDrawer
-          student={studentById.get(drawerOpen.studentId)!}
-          focusItemId={drawerOpen.focusItemId}
-          onClose={() => setDrawerOpen(null)}
-        />
-      )}
     </div>
   );
 }
@@ -659,8 +648,6 @@ function StudentRow({
         onPerformance={onPerformance}
         onScheduleMakeup={onScheduleMakeup}
         onOpenChecktable={() => onOpenChecktable()}
-        studentId={student.id}
-        sessionId={session.id}
       />
     </div>
   );
@@ -700,8 +687,6 @@ function ActionButtonsRow({
   onPerformance,
   onScheduleMakeup,
   onOpenChecktable,
-  studentId,
-  sessionId,
 }: {
   session: Session;
   showAttendanceActions: boolean;
@@ -714,8 +699,6 @@ function ActionButtonsRow({
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onScheduleMakeup: () => void;
   onOpenChecktable: () => void;
-  studentId: string;
-  sessionId: string;
 }) {
   const attendedTarget =
     session.session_status === SessionStatus.MAKEUP_CLASS
@@ -763,10 +746,7 @@ function ActionButtonsRow({
       {/* Right-aligned: rate + overflow menu for checktable / prep print */}
       <div className="ml-auto flex items-center gap-1.5">
         <PerformanceRater value={performanceValue} onChange={onPerformance} />
-        <RowOverflowMenu
-          onOpenChecktable={onOpenChecktable}
-          prepPrintHref={`/checktables?student=${studentId}&prep-session=${sessionId}`}
-        />
+        <RowOverflowMenu onOpenChecktable={onOpenChecktable} />
       </div>
     </div>
   );
@@ -808,14 +788,12 @@ function AttendancePicker({
   );
 }
 
-/** Kebab menu for secondary row actions — Checktable + Prep print. Keeps
- *  the action row visually quiet once a row is "done". */
+/** Kebab menu for secondary row actions. Keeps the action row visually
+ *  quiet once a row is "done". */
 function RowOverflowMenu({
   onOpenChecktable,
-  prepPrintHref,
 }: {
   onOpenChecktable: () => void;
-  prepPrintHref: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -892,16 +870,6 @@ function RowOverflowMenu({
               <Table2 className="h-3.5 w-3.5 text-ink-500" />
               Open checktable
             </button>
-            <Link
-              role="menuitem"
-              href={prepPrintHref}
-              onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-ink-700 hover:bg-ink-100"
-              title="Pick items in the checktable, then print them as this session's HW in one shot"
-            >
-              <Printer className="h-3.5 w-3.5 text-ink-500" />
-              Prep print
-            </Link>
           </div>,
           document.body
         )}

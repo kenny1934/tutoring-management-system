@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -17,13 +17,13 @@ import {
 } from "@/components/checktable/ChecktableGrid";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
-import {
-  GridFilterBar,
-  Legend,
-} from "@/components/checktable/ChecktableApp";
+import { GridFilterBar } from "@/components/checktable/GridFilterBar";
+import { Legend } from "@/components/checktable/Legend";
 
 export function StudentChecktablesTab() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const focusItemId = searchParams.get("focus");
   const {
     students,
     checktables,
@@ -54,6 +54,26 @@ export function StudentChecktablesTab() {
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
 
   const table = checktables.find((c) => c.id === checktableId)!;
+
+  // Honor ?focus=itemId — opens the assign dialog for that item on mount.
+  // Set from the Sessions row's "Next" pill so the tutor lands directly on
+  // the suggested action instead of having to scan the grid.
+  useEffect(() => {
+    if (!focusItemId) return;
+    for (const sec of table.sections) {
+      for (const ch of sec.chapters) {
+        for (const sId of Object.keys(ch.cells)) {
+          const hit = ch.cells[sId].items.find((it) => it.id === focusItemId);
+          if (hit) {
+            setActiveItem(hit);
+            return;
+          }
+        }
+      }
+    }
+    const supp = table.supplementary.find((it) => it.id === focusItemId);
+    if (supp) setActiveItem(supp);
+  }, [focusItemId, table]);
 
   const statusByItemId = useMemo(() => {
     const map: Record<string, AssignmentStatus | null> = {};

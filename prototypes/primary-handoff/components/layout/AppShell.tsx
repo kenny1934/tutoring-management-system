@@ -7,7 +7,6 @@ import {
   Home,
   Calendar,
   Users,
-  Table2,
   ClipboardCheck,
   MessageSquare,
   Settings,
@@ -32,7 +31,6 @@ const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", Icon: Home, dot: "bg-mc-red-600" },
   { href: "/sessions", label: "Sessions", Icon: Calendar, dot: "bg-mc-red-600" },
   { href: "/students", label: "Students", Icon: Users, dot: "bg-ink-700" },
-  { href: "/checktables", label: "Checktables", Icon: Table2, dot: "bg-mc-yellow-500" },
   { href: "/assessments", label: "Assessments", Icon: ClipboardCheck, dot: "bg-mc-peach-500" },
   { href: "/comms", label: "Parent Comms", Icon: MessageSquare, dot: "bg-ink-700" },
 ];

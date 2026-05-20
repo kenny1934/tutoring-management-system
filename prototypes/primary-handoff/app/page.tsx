@@ -8,7 +8,6 @@ import {
   Users,
   ClipboardCheck,
   MessageSquare,
-  Table2,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -151,7 +150,7 @@ export default function DashboardPage() {
           value={String(students.length)}
           sub={`${enrollments.length} enrollments`}
           tone="neutral"
-          href="/checktables"
+          href="/students"
         />
       </section>
 
@@ -285,10 +284,10 @@ export default function DashboardPage() {
             blurb="Attendance, CW/HW, previous-HW check, makeup scheduling."
           />
           <ModuleCard
-            href="/checktables"
-            Icon={Table2}
-            title="Checktables"
-            blurb="Per-textbook exercise grid. Assign, mark done, print batch."
+            href="/students"
+            Icon={Users}
+            title="Students"
+            blurb="Per-student hub — sessions, checktables, comms, history all in one place."
           />
           <ModuleCard
             href="/assessments"

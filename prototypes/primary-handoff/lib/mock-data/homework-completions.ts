@@ -1,8 +1,8 @@
 import type { HomeworkCompletion } from "../types";
 
 // Seed completions for HW that was assigned earlier and checked off in
-// later sessions. Used so HistoryDrawer can surface "submitted in X" info
-// from the start.
+// later sessions. Used so the student History tab can surface
+// "submitted in X" info from the start.
 export const seedHomeworkCompletions: HomeworkCompletion[] = [
   // Chan Ho Yin: HW rec-h2 (608B) and rec-h3 (extra/602) assigned in the
   // 2026-05-12 session, checked in today's (2026-05-19) session.

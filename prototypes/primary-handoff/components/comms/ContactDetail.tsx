@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, Trash2, Plus, Bell } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Trash2, Plus, Bell, ArrowUpRight } from "lucide-react";
 import type { ParentContact, Student } from "@/lib/types";
 import { ContactStatusBadge } from "./ContactStatusBadge";
 import { MethodIcon, TypeIcon, typeBadgeCls } from "./contact-utils";
@@ -58,9 +59,14 @@ export function ContactDetail({
       <div className="border-b border-ink-200 px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="font-semibold text-ink-900 truncate">
+            <Link
+              href={`/students/${student.id}`}
+              className="font-semibold text-ink-900 truncate hover:underline inline-flex items-center gap-1"
+              title="Open student hub"
+            >
               {student.name}
-            </div>
+              <ArrowUpRight className="h-3 w-3 text-ink-400" />
+            </Link>
             <div className="text-xs text-ink-500 truncate">
               {student.code} · {student.grade} · {student.school}
             </div>
@@ -70,7 +76,7 @@ export function ContactDetail({
         <div className="mt-2">
           <button
             onClick={() => onRecord(student.id)}
-            className="text-sm rounded-md bg-accent-600 text-white px-3 py-1.5 hover:bg-accent-700 flex items-center gap-1 font-medium"
+            className="text-sm rounded-md bg-ink-800 text-white px-3 py-1.5 hover:bg-ink-900 flex items-center gap-1 font-medium"
           >
             <Plus className="h-4 w-4" />
             Record contact
