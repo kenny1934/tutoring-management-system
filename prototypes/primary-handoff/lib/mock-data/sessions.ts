@@ -157,7 +157,7 @@ export const sessions: Session[] = [
     session_date: "2026-05-19",
     start_time: "17:30",
     duration_mins: 90,
-    room: "Room 1",
+    room: "Room 2",
     lesson_number: 9,
     session_status: SessionStatus.SCHEDULED,
     cw: [],
@@ -183,7 +183,9 @@ export const sessions: Session[] = [
     hw: [],
   },
   // Original session that the make-up replaces (cancelled by weather, now
-  // marked as booked-and-rescheduled)
+  // marked as booked-and-rescheduled). Friday slot (not the Tue recurrence)
+  // — this was itself an ad-hoc session for enr-001, so lesson_number 0
+  // per the convention in types.ts (Session.lesson_number).
   {
     id: "sess-old-typhoon",
     enrollment_id: "enr-001",
@@ -296,7 +298,7 @@ export const makeupSuggestions = [
     start_time: "11:00",
     room: "204",
     tutor_id: "t-chan",
-    tutor_name: "Ms Cathy Chan",
+    tutor_name: "Ms Karen Chan",
     duration_mins: 90,
   },
 ] as const;

@@ -18,7 +18,7 @@ export function ContactStatsBar({
   return (
     <div className="surface p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
       <Stat
-        icon={<MessageCircle className="h-4 w-4 text-accent-600" />}
+        icon={<MessageCircle className="h-4 w-4 text-mc-red-600" />}
         label="Total contacts"
         value={total}
       />

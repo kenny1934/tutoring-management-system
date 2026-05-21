@@ -15,8 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type { Assessment, AssessmentStage } from "@/lib/types";
-
-type Props = { initial: Assessment[] };
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 const LANES: { id: AssessmentStage; label: string; hint: string }[] = [
   {
@@ -48,7 +47,7 @@ const LANES: { id: AssessmentStage; label: string; hint: string }[] = [
 
 const LANE_TINT: Record<AssessmentStage, string> = {
   booked: "bg-ink-100",
-  attended: "bg-accent-50",
+  attended: "bg-mc-peach-50",
   "follow-up": "bg-amber-50",
   enrolled: "bg-emerald-50",
   lost: "bg-rose-50",
@@ -63,8 +62,8 @@ const NEXT_STAGE: Partial<Record<AssessmentStage, AssessmentStage>> = {
 const SOURCES = ["Referral", "Walk-in", "Online"] as const;
 const GRADES = ["P1", "P2", "P3", "P4", "P5", "P6"] as const;
 
-export function AssessmentKanban({ initial }: Props) {
-  const [items, setItems] = useState(initial);
+export function AssessmentKanban() {
+  const { assessments: items, setAssessmentStage } = usePrimaryStore();
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverLane, setHoverLane] = useState<AssessmentStage | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
@@ -113,7 +112,9 @@ export function AssessmentKanban({ initial }: Props) {
 
   const visible = useMemo(() => {
     return items.filter((a) => {
-      if (sourceFilter && !a.source.includes(sourceFilter)) return false;
+      // Source pill matches by category prefix — seed sources like
+      // "Referral · existing P5 family" should match the "Referral" pill.
+      if (sourceFilter && !a.source.startsWith(sourceFilter)) return false;
       if (gradeFilter && a.childGrade !== gradeFilter) return false;
       return true;
     });
@@ -140,21 +141,16 @@ export function AssessmentKanban({ initial }: Props) {
 
   const handleDrop = (laneId: AssessmentStage) => {
     if (!draggingId) return;
-    setItems((prev) =>
-      prev.map((a) => (a.id === draggingId ? { ...a, stage: laneId } : a))
-    );
+    setAssessmentStage(draggingId, laneId);
     setDraggingId(null);
     setHoverLane(null);
   };
 
   const moveNext = (id: string) => {
-    setItems((prev) =>
-      prev.map((a) => {
-        if (a.id !== id) return a;
-        const next = NEXT_STAGE[a.stage];
-        return next ? { ...a, stage: next } : a;
-      })
-    );
+    const a = items.find((x) => x.id === id);
+    if (!a) return;
+    const next = NEXT_STAGE[a.stage];
+    if (next) setAssessmentStage(id, next);
   };
 
   const addBooking = () => {
@@ -189,7 +185,7 @@ export function AssessmentKanban({ initial }: Props) {
               onDrop={() => handleDrop(lane.id)}
               className={`rounded-lg border ${
                 isHover
-                  ? "border-accent-500 ring-2 ring-accent-200"
+                  ? "border-mc-red-500 ring-2 ring-mc-red-200"
                   : "border-ink-200"
               } ${LANE_TINT[lane.id]} flex flex-col min-h-[200px]`}
             >
@@ -291,7 +287,7 @@ function Toolbar({
 
       <button
         onClick={onAdd}
-        className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700 flex items-center gap-1 whitespace-nowrap"
+        className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700 flex items-center gap-1 whitespace-nowrap"
       >
         <Plus className="h-4 w-4" />
         New booking

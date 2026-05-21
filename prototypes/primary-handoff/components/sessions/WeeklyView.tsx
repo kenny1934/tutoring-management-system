@@ -5,6 +5,12 @@ import type { Student } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { formatTimeSlot, type ClassMeeting } from "./meeting-utils";
+import {
+  addDaysIso,
+  hktDateFromIso,
+  isoMondayOf,
+  parseIsoDateUTC,
+} from "@/lib/datetime";
 
 type Props = {
   meetings: ClassMeeting[];
@@ -27,7 +33,7 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
     list.sort((a, b) => a.start_time.localeCompare(b.start_time));
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = hktDateFromIso(new Date().toISOString());
 
   return (
     <div className="surface-mc overflow-hidden">
@@ -175,23 +181,25 @@ type WeekDay = {
   month: string;
 };
 
-/** Mon-Sun week containing `anchor`. */
+/** Mon-Sun week containing `anchor`. UTC arithmetic so the displayed week
+ *  doesn't drift when the host browser isn't in HKT. */
 function buildWeek(anchor: string): WeekDay[] {
-  const d = new Date(`${anchor}T00:00:00+08:00`);
-  // ISO weekday: Mon=1 .. Sun=7. JS getDay: Sun=0..Sat=6.
-  const jsDay = d.getDay();
-  const isoDay = jsDay === 0 ? 7 : jsDay;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - (isoDay - 1));
+  const monday = isoMondayOf(anchor);
   const out: WeekDay[] = [];
   for (let i = 0; i < 7; i++) {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + i);
+    const iso = addDaysIso(monday, i);
+    const d = parseIsoDateUTC(iso);
     out.push({
-      iso: day.toISOString().slice(0, 10),
-      weekday: day.toLocaleDateString("en-HK", { weekday: "short" }),
-      dayNum: String(day.getDate()),
-      month: day.toLocaleDateString("en-HK", { month: "short" }),
+      iso,
+      weekday: d.toLocaleDateString("en-HK", {
+        weekday: "short",
+        timeZone: "UTC",
+      }),
+      dayNum: String(d.getUTCDate()),
+      month: d.toLocaleDateString("en-HK", {
+        month: "short",
+        timeZone: "UTC",
+      }),
     });
   }
   return out;

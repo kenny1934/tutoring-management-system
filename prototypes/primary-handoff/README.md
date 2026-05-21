@@ -6,10 +6,12 @@ Prototype set for the modules primary section (IMMS) asked for in the discovery 
 
 | Route | What it shows | Why |
 |-------|---------------|-----|
-| `/checktables` | Per-textbook exercise grid with per-student state, click-to-assign, bulk print tray | Fully new module, no analogue in current CSM |
+| `/` | Today snapshot: pending makeups, today's sessions, follow-ups due, quick links into the four main modules | Dashboard landing |
+| `/students` | Roster hub — searchable list of students, jumping into each student's detail tabs | Student-first IA shift on this branch |
+| `/students/[id]/...` | Per-student detail with tabs: Overview, Sessions, Performance, Assessments, Checktables, History, Parent Comms | Checktables now live here as a student-scoped tab (the standalone `/checktables` route was removed) |
+| `/sessions` | Sessions + reschedule + makeup, weekly view, previous-HW-to-check on session rows | Already exists in CSM, included for completeness |
 | `/assessments` | Kanban over the assessment lifecycle | New module shaped on CSM's existing Trial page |
-| `/sessions` | Sessions + reschedule + makeup reference | Already exists in CSM, included for completeness |
-| `/comms` | Parent communications reference | Already exists in CSM, included for completeness |
+| `/comms` | Parent communications reference + pending follow-ups | Already exists in CSM, included for completeness |
 
 The Waitlist module discussed in the meeting is intentionally not in this set, because the features primary asked for (multi-time preference, vacancy suggestions, mixed prospects + slot-change list) are already in CSM's waitlist.
 

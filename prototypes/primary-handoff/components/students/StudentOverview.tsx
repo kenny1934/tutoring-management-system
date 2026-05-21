@@ -21,12 +21,13 @@ export function StudentOverview() {
   const { students, sessions, assignments, contacts, itemMeta } =
     usePrimaryStore();
 
-  const student = students.find((s) => s.id === id)!;
-
+  const student = students.find((s) => s.id === id);
+  // Parent shell calls notFound() for an unknown id, so this is defensive.
   const next = useMemo(
-    () => getNextSession(student.id, sessions, DEMO_DAY),
-    [student.id, sessions]
+    () => (student ? getNextSession(student.id, sessions, DEMO_DAY) : null),
+    [student, sessions]
   );
+  if (!student) return null;
 
   const pending = useMemo(
     () =>

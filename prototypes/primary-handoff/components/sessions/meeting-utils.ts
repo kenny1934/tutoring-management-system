@@ -70,6 +70,9 @@ export function formatTimeSlot(
   const startMins = Number(hStr) * 60 + Number(mStr);
   const endMins = startMins + duration_mins;
   const pad = (n: number) => String(n).padStart(2, "0");
+  // Wraps past midnight silently — primary sessions all end before 21:00,
+  // so this hasn't bitten. If sessions are ever scheduled past midnight,
+  // surface the next-day boundary in the label.
   const end = `${pad(Math.floor(endMins / 60) % 24)}:${pad(endMins % 60)}`;
   const start = `${pad(Number(hStr))}:${pad(Number(mStr))}`;
   return `${start} - ${end}`;

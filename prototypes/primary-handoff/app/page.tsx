@@ -128,7 +128,13 @@ export default function DashboardPage() {
           Icon={CalendarPlus}
           label="Pending make-ups"
           value={String(pendingMakeups.length)}
-          sub={pendingMakeups.length === 0 ? "Nothing to schedule" : "Need scheduling"}
+          sub={
+            pendingMakeups.length === 0
+              ? "Nothing to schedule"
+              : pendingMakeups.length === 1
+                ? "Needs scheduling"
+                : "Need scheduling"
+          }
           tone="yellow"
           href="/sessions?filter=pending-makeups"
         />

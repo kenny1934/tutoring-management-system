@@ -13,7 +13,7 @@ import { CreateEnrollmentModal } from "./CreateEnrollmentModal";
 export function StudentSessionsTab() {
   const { id } = useParams<{ id: string }>();
   const { sessions, students } = usePrimaryStore();
-  const student = students.find((s) => s.id === id)!;
+  const student = students.find((s) => s.id === id);
   const [enrollOpen, setEnrollOpen] = useState(false);
 
   const studentSessions = useMemo(
@@ -44,6 +44,8 @@ export function StudentSessionsTab() {
         }),
     [studentSessions]
   );
+
+  if (!student) return null;
 
   const header = (
     <div className="flex items-center justify-end">

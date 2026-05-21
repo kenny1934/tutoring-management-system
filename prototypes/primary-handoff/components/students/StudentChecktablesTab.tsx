@@ -1,207 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
-import type {
-  AssignmentStatus,
-  ChecktableAssignment,
-  ChecktableItem,
-} from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
-import { DEMO_DAY } from "@/lib/mock-data/sessions";
-import {
-  ChecktableGrid,
-  type GridSectionFilter,
-  type GridStatusFilter,
-} from "@/components/checktable/ChecktableGrid";
+import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
+import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
 import { Legend } from "@/components/checktable/Legend";
+import { useState } from "react";
+import type {
+  GridSectionFilter,
+  GridStatusFilter,
+} from "@/components/checktable/ChecktableGrid";
 
 export function StudentChecktablesTab() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const focusItemId = searchParams.get("focus");
-  const {
-    students,
-    checktables,
-    assignments,
-    sessions,
-    sessionLabel,
-    setAssignments,
-    getPrintBatch,
-    togglePrintBatch: togglePrintBatchForStudent,
-    removeFromPrintBatch,
-    clearPrintBatch,
-    itemMeta,
-  } = usePrimaryStore();
+  const { students, sessionLabel, removeFromPrintBatch, clearPrintBatch } =
+    usePrimaryStore();
 
-  const student = students.find((s) => s.id === id)!;
-
-  // Auto-pick the checktable that matches the student's grade. Tutors can
-  // still switch books via the inline selector — the picker is quiet but
-  // there for ad-hoc cases (older book, supplementary tracks).
-  const initialChecktableId = useMemo(() => {
-    const match = checktables.find((c) => c.grade === student.grade);
-    return (match ?? checktables[0]).id;
-  }, [checktables, student.grade]);
-
-  const [checktableId, setChecktableId] = useState(initialChecktableId);
-  const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
+  const student = students.find((s) => s.id === id);
+  const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
 
-  const table = checktables.find((c) => c.id === checktableId)!;
-
-  // Honor ?focus=itemId — opens the assign dialog for that item on mount.
-  // Set from the Sessions row's "Next" pill so the tutor lands directly on
-  // the suggested action instead of having to scan the grid.
-  useEffect(() => {
-    if (!focusItemId) return;
-    for (const sec of table.sections) {
-      for (const ch of sec.chapters) {
-        for (const sId of Object.keys(ch.cells)) {
-          const hit = ch.cells[sId].items.find((it) => it.id === focusItemId);
-          if (hit) {
-            setActiveItem(hit);
-            return;
-          }
-        }
-      }
-    }
-    const supp = table.supplementary.find((it) => it.id === focusItemId);
-    if (supp) setActiveItem(supp);
-  }, [focusItemId, table]);
-
-  const statusByItemId = useMemo(() => {
-    const map: Record<string, AssignmentStatus | null> = {};
-    for (const a of assignments) {
-      if (a.studentId === student.id && a.checktableId === checktableId) {
-        map[a.itemId] = a.status;
-      }
-    }
-    return map;
-  }, [assignments, student.id, checktableId]);
-
-  const noteByItemId = useMemo(() => {
-    const map: Record<string, string | undefined> = {};
-    for (const a of assignments) {
-      if (
-        a.studentId === student.id &&
-        a.checktableId === checktableId &&
-        a.tutorNote
-      ) {
-        map[a.itemId] = a.tutorNote;
-      }
-    }
-    return map;
-  }, [assignments, student.id, checktableId]);
-
-  const studentAssignments = useMemo(
-    () => assignments.filter((a) => a.studentId === student.id),
-    [assignments, student.id]
-  );
-  const openAssignmentCount = useMemo(
-    () => studentAssignments.filter((a) => a.status === "assigned").length,
-    [studentAssignments]
-  );
-
-  const upcomingSessions = useMemo(
-    () =>
-      sessions
-        .filter(
-          (s) => s.session_date >= DEMO_DAY && s.student_id === student.id
-        )
-        .sort((a, b) => {
-          if (a.session_date !== b.session_date)
-            return a.session_date.localeCompare(b.session_date);
-          return a.start_time.localeCompare(b.start_time);
-        })
-        .slice(0, 8),
-    [sessions, student.id]
-  );
-
-  const printBatchIds = getPrintBatch(student.id);
-  const selectedIds = new Set(printBatchIds);
-  const printBatchItems = useMemo(
-    () =>
-      printBatchIds
-        .map((pid) => itemMeta.get(pid)?.item)
-        .filter((i): i is ChecktableItem => Boolean(i)),
-    [printBatchIds, itemMeta]
-  );
-
-  const existingAssignmentFor = (item: ChecktableItem) =>
-    assignments.find(
-      (a) =>
-        a.studentId === student.id &&
-        a.checktableId === checktableId &&
-        a.itemId === item.id
-    );
-
-  const handleAssign = (
-    item: ChecktableItem,
-    input: {
-      pageRange?: string;
-      tutorNote?: string;
-      sessionLabel: string;
-      sessionId?: string;
-    }
-  ) => {
-    const existing = existingAssignmentFor(item);
-    if (existing) {
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.id === existing.id
-            ? {
-                ...a,
-                pageRange: input.pageRange || undefined,
-                tutorNote: input.tutorNote || undefined,
-                sessionLabel: input.sessionLabel || undefined,
-                sessionId: input.sessionId,
-              }
-            : a
-        )
-      );
-    } else {
-      const newA: ChecktableAssignment = {
-        id: `a-${Math.random().toString(36).slice(2, 8)}`,
-        studentId: student.id,
-        checktableId,
-        itemId: item.id,
-        status: "assigned",
-        assignedAt: new Date().toISOString(),
-        pageRange: input.pageRange || undefined,
-        tutorNote: input.tutorNote || undefined,
-        sessionLabel: input.sessionLabel || undefined,
-        sessionId: input.sessionId,
-      };
-      setAssignments((prev) => [...prev, newA]);
-    }
-    setActiveItem(null);
-  };
-
-  const handleMarkDone = (item: ChecktableItem) => {
-    const existing = existingAssignmentFor(item);
-    if (!existing) return;
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a.id === existing.id
-          ? { ...a, status: "done", doneAt: new Date().toISOString() }
-          : a
-      )
-    );
-    setActiveItem(null);
-  };
-
-  const handleUnassign = (item: ChecktableItem) => {
-    const existing = existingAssignmentFor(item);
-    if (!existing) return;
-    setAssignments((prev) => prev.filter((a) => a.id !== existing.id));
-    setActiveItem(null);
-  };
+  if (!student || !editor.table) return null;
+  const { table } = editor;
 
   return (
     <div className="space-y-3">
@@ -216,12 +43,12 @@ export function StudentChecktablesTab() {
         <div className="flex items-center gap-2 text-xs">
           <span className="text-ink-500">Switch book</span>
           <select
-            value={checktableId}
-            onChange={(e) => setChecktableId(e.target.value)}
+            value={editor.checktableId}
+            onChange={(e) => editor.setChecktableId(e.target.value)}
             className="rounded-md border border-ink-200 px-2 py-1 text-xs bg-white"
             aria-label="Switch checktable"
           >
-            {checktables.map((c) => (
+            {editor.checktables.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.textbook} · {c.grade} · {c.version}
               </option>
@@ -234,7 +61,7 @@ export function StudentChecktablesTab() {
 
       <GridFilterBar
         table={table}
-        statusByItemId={statusByItemId}
+        statusByItemId={editor.statusByItemId}
         status={gridStatus}
         section={gridSection}
         onStatusChange={setGridStatus}
@@ -243,44 +70,42 @@ export function StudentChecktablesTab() {
 
       <ChecktableGrid
         table={table}
-        statusByItemId={statusByItemId}
-        noteByItemId={noteByItemId}
-        selectedItemIds={selectedIds}
+        statusByItemId={editor.statusByItemId}
+        noteByItemId={editor.noteByItemId}
+        selectedItemIds={editor.selectedIds}
         statusFilter={gridStatus}
         sectionFilter={gridSection}
-        onItemClick={setActiveItem}
+        onItemClick={editor.setActiveItem}
       />
 
       <PrintTray
-        items={printBatchItems}
+        items={editor.printBatchItems}
         student={student}
         onRemove={(pid) => removeFromPrintBatch(student.id, pid)}
         onClear={() => clearPrintBatch(student.id)}
         onPrint={() => {
           alert(
-            `Demo only.\n\nWould print ${printBatchItems.length} PDFs from:\n${table.basePath}`
+            `Demo only.\n\nWould print ${editor.printBatchItems.length} PDFs from:\n${table.basePath}`
           );
           clearPrintBatch(student.id);
         }}
       />
 
-      {activeItem && (
+      {editor.activeItem && (
         <AssignDialog
-          item={activeItem}
+          item={editor.activeItem}
           student={student}
           basePath={table.basePath}
-          existingAssignment={existingAssignmentFor(activeItem)}
-          upcomingSessions={upcomingSessions}
-          openAssignmentCount={openAssignmentCount}
+          existingAssignment={editor.existingAssignmentFor(editor.activeItem)}
+          upcomingSessions={editor.upcomingSessions}
+          openAssignmentCount={editor.openAssignmentCount}
           formatSessionLabel={sessionLabel}
-          onClose={() => setActiveItem(null)}
-          onAssign={(input) => handleAssign(activeItem, input)}
-          onMarkDone={() => handleMarkDone(activeItem)}
-          onUnassign={() => handleUnassign(activeItem)}
-          onAddToPrintBatch={() =>
-            togglePrintBatchForStudent(student.id, activeItem.id)
-          }
-          isInPrintBatch={selectedIds.has(activeItem.id)}
+          onClose={() => editor.setActiveItem(null)}
+          onAssign={(input) => editor.handleAssign(editor.activeItem!, input)}
+          onMarkDone={() => editor.handleMarkDone(editor.activeItem!)}
+          onUnassign={() => editor.handleUnassign(editor.activeItem!)}
+          onAddToPrintBatch={() => editor.togglePrintBatch(editor.activeItem!.id)}
+          isInPrintBatch={editor.selectedIds.has(editor.activeItem.id)}
         />
       )}
     </div>

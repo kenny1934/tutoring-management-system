@@ -91,8 +91,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             lg:translate-x-0
           `}
         >
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-mc-line">
-            <BrandMark compact={collapsed} />
+          <div
+            className={`flex items-center gap-2 py-3 border-b border-mc-line ${
+              collapsed ? "px-2 justify-center" : "px-4 justify-between"
+            }`}
+          >
+            {!collapsed && <BrandMark compact={false} />}
             <button
               onClick={() => setMobileOpen(false)}
               className="lg:hidden p-1 text-ink-500 hover:text-ink-800"
@@ -102,7 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <button
               onClick={() => setCollapsed((c) => !c)}
-              className="hidden lg:inline-flex p-1 text-ink-400 hover:text-ink-800"
+              className="hidden lg:inline-flex p-1 text-ink-400 hover:text-ink-800 rounded-md hover:bg-ink-100"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               title={collapsed ? "Expand" : "Collapse"}
             >
@@ -152,12 +156,12 @@ function BrandMark({ compact }: { compact: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2 min-w-0">
       <div className="h-8 w-8 rounded-md bg-mc-red-600 text-white grid place-items-center text-sm font-bold shadow-sm shrink-0">
-        P
+        I
       </div>
       {!compact && (
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink-900 leading-tight">
-            Primary Handoff
+            IMMS Modules
           </div>
           <div className="text-[10px] uppercase tracking-wide text-ink-400 leading-tight">
             Prototype

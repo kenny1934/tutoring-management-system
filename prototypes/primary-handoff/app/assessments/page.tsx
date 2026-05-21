@@ -1,5 +1,4 @@
 import { AssessmentKanban } from "@/components/assessments/AssessmentKanban";
-import { assessments } from "@/lib/mock-data/assessments";
 
 export default function AssessmentsPage() {
   return (
@@ -15,7 +14,7 @@ export default function AssessmentsPage() {
           assessed score, follow-up due date, conversion outcome.
         </p>
       </div>
-      <AssessmentKanban initial={assessments} />
+      <AssessmentKanban />
     </div>
   );
 }

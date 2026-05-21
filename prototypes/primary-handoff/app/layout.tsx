@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: "Primary Section Handoff Prototypes",
+  title: "IMMS Modules Prototype",
   description:
     "Prototype set illustrating the modules primary section asked for. Generic theme, mock data, not production.",
 };

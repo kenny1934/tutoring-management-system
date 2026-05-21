@@ -124,7 +124,7 @@ export function ContactCalendar({
                     onClick={() => onSelectContact(c.id)}
                     className={`w-full text-left text-xs rounded px-1 py-0.5 truncate ${
                       selectedContactId === c.id
-                        ? "bg-accent-600 text-white"
+                        ? "bg-mc-red-600 text-white"
                         : "bg-ink-100 hover:bg-ink-200 text-ink-700"
                     }`}
                   >

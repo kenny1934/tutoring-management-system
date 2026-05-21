@@ -8,6 +8,7 @@ import {
   DEMO_NOW,
 } from "@/lib/mock-data/parent-contacts";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { newId } from "@/lib/id";
 import { ContactStatsBar } from "./ContactStatsBar";
 import { PendingFollowups } from "./PendingFollowups";
 import { StudentList } from "./StudentList";
@@ -105,7 +106,7 @@ export function ParentContactsApp() {
     } else {
       const newC: ParentContact = {
         ...input,
-        id: `pc-${Math.random().toString(36).slice(2, 8)}`,
+        id: newId("pc"),
       };
       setContacts((prev) => [...prev, newC]);
     }
@@ -141,7 +142,7 @@ export function ParentContactsApp() {
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => handleRecord()}
-          className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700 flex items-center gap-1"
+          className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700 flex items-center gap-1"
         >
           <Plus className="h-4 w-4" />
           Record contact

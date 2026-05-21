@@ -10,6 +10,8 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type {
+  Assessment,
+  AssessmentStage,
   Checktable,
   ChecktableAssignment,
   ChecktableChapter,
@@ -36,6 +38,8 @@ import {
 } from "@/lib/mock-data/sessions";
 import { seedHomeworkCompletions } from "@/lib/mock-data/homework-completions";
 import { parentContacts as seedContacts } from "@/lib/mock-data/parent-contacts";
+import { assessments as seedAssessments } from "@/lib/mock-data/assessments";
+import { newId } from "@/lib/id";
 
 type ExerciseInput = {
   sessionId: string;
@@ -129,6 +133,7 @@ type Store = {
   assignments: ChecktableAssignment[];
   homeworkCompletions: HomeworkCompletion[];
   contacts: ParentContact[];
+  assessments: Assessment[];
 
   /** Lookup any item by id; carries its checktable id too. */
   itemMeta: Map<string, ItemMeta>;
@@ -138,6 +143,9 @@ type Store = {
     updater: (a: ChecktableAssignment[]) => ChecktableAssignment[]
   ) => void;
   setContacts: (updater: (c: ParentContact[]) => ParentContact[]) => void;
+  setAssessments: (updater: (a: Assessment[]) => Assessment[]) => void;
+  /** Move an assessment to a new stage on the kanban. */
+  setAssessmentStage: (id: string, stage: AssessmentStage) => void;
 
   /** Record CW/HW for a student in a session. Also writes a ChecktableAssignment
    *  (status `done` for CW, `assigned` for HW) when the item links to a checktable. */
@@ -283,6 +291,17 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     HomeworkCompletion[]
   >(seedHomeworkCompletions);
   const [contacts, setContacts] = useState<ParentContact[]>(seedContacts);
+  const [assessments, setAssessments] =
+    useState<Assessment[]>(seedAssessments);
+
+  const setAssessmentStage = useCallback(
+    (id: string, stage: AssessmentStage) => {
+      setAssessments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, stage } : a))
+      );
+    },
+    []
+  );
   const [printBatchByStudent, setPrintBatchByStudent] = useState<
     Record<string, string[]>
   >({});
@@ -301,7 +320,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recordExercise = useCallback((input: ExerciseInput) => {
-    const recordedId = `rec-${Math.random().toString(36).slice(2, 8)}`;
+    const recordedId = newId("rec");
     const newExercise: SessionExercise = {
       id: recordedId,
       session_id: input.sessionId,
@@ -323,8 +342,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       })
     );
 
-    if (!input.item_id) return;
-    const meta = itemMetaRef.current.get(input.item_id);
+    const itemId = input.item_id;
+    if (!itemId) return;
+    const meta = itemMetaRef.current.get(itemId);
     if (!meta) return;
     const checktableId = meta.checktableId;
 
@@ -341,7 +361,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         (a) =>
           a.studentId === input.studentId &&
           a.checktableId === checktableId &&
-          a.itemId === input.item_id
+          a.itemId === itemId
       );
       if (existing) {
         return prev.map((a) =>
@@ -360,10 +380,10 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         );
       }
       const newAssignment: ChecktableAssignment = {
-        id: `a-${Math.random().toString(36).slice(2, 8)}`,
+        id: newId("a"),
         studentId: input.studentId,
         checktableId,
-        itemId: input.item_id,
+        itemId,
         status,
         assignedAt: nowIso,
         doneAt: status === "done" ? nowIso : undefined,
@@ -454,7 +474,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
             c.current_session_id === input.current_session_id
         );
         const next: HomeworkCompletion = {
-          id: idx === -1 ? `hc-${Math.random().toString(36).slice(2, 8)}` : prev[idx].id,
+          id: idx === -1 ? newId("hc") : prev[idx].id,
           current_session_id: input.current_session_id,
           session_exercise_id: input.session_exercise_id,
           student_id: input.student_id,
@@ -493,7 +513,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
 
   const createEnrollment = useCallback(
     (input: CreateEnrollmentInput): string => {
-      const enrollmentId = `enr-${Math.random().toString(36).slice(2, 8)}`;
+      const enrollmentId = newId("enr");
       const generated = generateSessions({
         enrollmentType: input.enrollment_type,
         firstLessonDate: input.first_lesson_date,
@@ -522,7 +542,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           g.kind === "lesson"
         )
         .map((g) => ({
-          id: `sess-${Math.random().toString(36).slice(2, 8)}-${g.lesson_number}`,
+          id: `${newId("sess")}-${g.lesson_number}`,
           enrollment_id: enrollmentId,
           student_id: input.student_id,
           tutor_id: input.tutor_id,
@@ -558,7 +578,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       };
       reason?: string;
     }) => {
-      const newId = `s-mu-${Math.random().toString(36).slice(2, 8)}`;
+      const newSessionId = newId("s-mu");
       const source = sessionsRef.current.find(
         (s) => s.id === input.fromSessionId
       );
@@ -572,7 +592,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       ].filter(Boolean);
 
       const newSession: Session = {
-        id: newId,
+        id: newSessionId,
         enrollment_id: enrollmentId,
         student_id: input.studentId,
         tutor_id: input.template.tutor_id,
@@ -597,13 +617,13 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
             : {
                 ...s,
                 session_status: statusAfterMakeupBooked(s.session_status),
-                rescheduled_to_id: newId,
+                rescheduled_to_id: newSessionId,
               }
         ),
         newSession,
       ]);
 
-      return newId;
+      return newSessionId;
     },
     []
   );
@@ -710,9 +730,16 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       );
       if (startIndex === -1) startIndex = 0;
 
+      // R / P / PS are render-only notes (reading, project, problem set
+      // header), not assignable items. ItemChip styles them italic; the
+      // suggestion engine must skip them or it'd recommend "R" as next.
+      const NON_ASSIGNABLE = new Set(["R", "P", "PS"]);
+
       for (let i = startIndex; i < buckets.length; i++) {
         const { chapter, items } = buckets[i];
-        const next = items.find((it) => !assigned.has(it.id));
+        const next = items.find(
+          (it) => !assigned.has(it.id) && !NON_ASSIGNABLE.has(it.code)
+        );
         if (next) return { item: next, chapter, checktableId };
       }
       return null;
@@ -729,10 +756,13 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       assignments,
       homeworkCompletions,
       contacts,
+      assessments,
       itemMeta,
       setSessions,
       setAssignments,
       setContacts,
+      setAssessments,
+      setAssessmentStage,
       recordExercise,
       removeExercise,
       recordHomeworkCompletion,
@@ -755,6 +785,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       assignments,
       homeworkCompletions,
       contacts,
+      assessments,
+      setAssessmentStage,
       itemMeta,
       recordExercise,
       removeExercise,

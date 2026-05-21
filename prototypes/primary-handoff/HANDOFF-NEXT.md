@@ -43,7 +43,7 @@ Field naming: types that mirror CSM use snake_case. Prototype-only types (`Check
 - **MakeupModal**'s confirm now calls `createMakeupSession` which:
   1. Creates a new `Session` with `session_status = "Make-up Class"`, `make_up_for_id = source.id`, `root_original_session_date = source.session_date`.
   2. Transitions the source's status via `statusAfterMakeupBooked` — `SICK_LEAVE_PENDING → SICK_LEAVE_BOOKED`, `WEATHER_PENDING → WEATHER_BOOKED`, else `RESCHEDULED_BOOKED` — and sets its `rescheduled_to_id = newSession.id`.
-- **AssignDialog**'s "Mark done" routes through `recordHomeworkCompletion`, which picks the student's next session after the assignment as `current_session_id` (mirroring CSM's next-session-checks-previous-HW pattern), creates the completion row, and flips the matching `ChecktableAssignment` to done as a side effect.
+- **AssignDialog**'s "Mark done" flips the `ChecktableAssignment` status directly via the store. The richer next-session-checks-previous-HW flow now lives on `/sessions` as a `PreviousHomeworkToCheck` row per student — that path calls `recordHomeworkCompletion`, which picks the student's next session after the assignment as `current_session_id`, creates the completion row, and flips the matching assignment as a side effect.
 - **HistoryDrawer** surfaces completion info on each assignment card with a deep link to the session where the HW was checked.
 - **hwLoad** now appears as a chip on session student rows (when non-Normal), in addition to the existing checktable header and AssignDialog warning.
 
@@ -65,7 +65,7 @@ The **Checktable + ChecktableAssignment** model is internally consistent. It rem
 - Schedule a make-up from an absent/sick/weather-pending session → new linked `Session`, source transitions to the matching `*_BOOKED` status.
 - Record CW/HW from the session row → `SessionExercise` is added to the session, auto-linked `ChecktableAssignment` flips to `done` (CW) or `assigned` (HW).
 - Picker shows per-student status (green/amber/neutral dots), `All | Pending | Untouched | Hide done` filter, and a `List | Grid` view toggle reusing `<ChecktableGrid>`.
-- Checktable page has a status × section filter strip; tutor-note badges on chips; per-student print batch (Fix A); session-prep mode via `?prep-session=<id>` that records HW in one shot (Fix B).
+- Checktable lives as a per-student tab (`/students/[id]/checktables`) with a status × section filter strip; tutor-note badges on chips; per-student print batch. The same surface is also reachable from `/sessions` as a slide-out drawer per session row.
 - HistoryDrawer groups by date / chapter / session and shows completion info pulled from `HomeworkCompletion`.
 - "Next suggested item" chip on session rows pointing at the lowest-numbered chapter the student has touched.
 - HW-load warning fires in AssignDialog when assigning to a `hwLoad: Little` student would push them to ≥3 open items.
@@ -100,8 +100,6 @@ Most of the alignment work is done. Remaining items below are scoped narrow.
 - **`primaryChecktableId(studentId)`** picks the checktable a student is most active in.
 - **`parsePageRange` / `formatPageRange`** in the store convert between the "1-2" UI string and the `page_start / page_end` numbers on `SessionExercise`.
 - **URL params owned by the prototypes:**
-  - `/checktables?student=<id>` — selects current student
-  - `/checktables?student=<id>&prep-session=<sessionId>` — session-prep mode
   - `/sessions?session=<id>` — highlights and scrolls to a session row
 
 ### Mock-data layout
@@ -118,9 +116,10 @@ Most of the alignment work is done. Remaining items below are scoped narrow.
 
 ## Demo script
 
-1. Open `/sessions` — three filter tabs show counts. Today's 4pm class shows three per-student rows under a single card; Lee Tsz Kit has a `HW: Little` chip next to his grade.
-2. Click HW on a student → modal opens with per-student status dots; flip to `Grid` view to use the checktable grid for picking.
-3. Record 2 items → HW chips appear on the session row; status `Attended` is preserved.
-4. Click **Prep print batch** → checktables page opens with accent banner ("Prepping HW for …"); add 3 chips, click **Print & record 3** → returns to `/sessions?session=<id>` with the new HW visible.
-5. On another student, click **Absent** → **Schedule makeup** → pick a slot → confirmation panel links through to the newly-created `Session`. The source row now shows `Make-up booked` and the new session shows `Make-up class` with `make_up_for_id` linking back.
-6. Open History drawer on the checktable; pick an entry that has a completion → see `Complete in <next session>` line + the tutor comment.
+1. Open `/` — today snapshot card shows pending makeups, today's sessions, follow-ups due. Click into Sessions.
+2. On `/sessions`, three filter tabs show counts. Today's 4pm class shows three per-student rows under a single card; Lee Tsz Kit has a `HW: Little` chip next to his grade.
+3. Click HW on a student → modal opens with per-student status dots; flip to `Grid` view to use the checktable grid for picking.
+4. Record 2 items → HW chips appear on the session row; status `Attended` is preserved.
+5. Open the row's kebab → **Open checktable** → checktable drawer slides in scoped to that student, ready for further editing without leaving the session view.
+6. On another student, click **Absent** → **Schedule makeup** → pick a slot → confirmation panel links through to the newly-created `Session`. The source row now shows `Make-up booked` and the new session shows `Make-up class` with `make_up_for_id` linking back.
+7. Open `/students/<id>` → the History tab groups assignments by date / chapter / session; pick an entry that has a completion → see `Complete in <next session>` line + the tutor comment.

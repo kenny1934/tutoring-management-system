@@ -12,13 +12,6 @@
   --color-ink-800: #1c1c22;
   --color-ink-900: #0e0e12;
 
-  --color-accent-50: #f2f6ff;
-  --color-accent-100: #e3ecff;
-  --color-accent-200: #c4d4ff;
-  --color-accent-500: #4a6cf7;
-  --color-accent-600: #3a55d4;
-  --color-accent-700: #2c41a6;
-
   /* MathConcept brand palette — red / white / black dominate, with yellow
    * and peach as warm accents. Mirrors mathconcept.com.mo. */
   --color-mc-red-50: #fff1f1;

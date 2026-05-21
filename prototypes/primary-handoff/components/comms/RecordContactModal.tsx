@@ -9,6 +9,7 @@ import type {
   Student,
 } from "@/lib/types";
 import { CONTACT_METHODS, CONTACT_TYPES, MethodIcon } from "./contact-utils";
+import { hktDateFromIso, hktTimeFromIso } from "@/lib/datetime";
 
 type Props = {
   open: boolean;
@@ -44,9 +45,8 @@ export function RecordContactModal({
       setStudentId(editing.studentId);
       setMethod(editing.method);
       setType(editing.type);
-      const d = new Date(editing.contactedAt);
-      setContactedDate(d.toISOString().slice(0, 10));
-      setContactedTime(d.toISOString().slice(11, 16));
+      setContactedDate(hktDateFromIso(editing.contactedAt));
+      setContactedTime(hktTimeFromIso(editing.contactedAt));
       setBriefNotes(editing.briefNotes);
       setFollowUpNeeded(editing.followUpNeeded);
       setFollowUpDate(editing.followUpDate ?? "");
@@ -230,7 +230,7 @@ export function RecordContactModal({
           <button
             onClick={submit}
             disabled={!briefNotes.trim()}
-            className="rounded-md bg-accent-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {editing ? "Save changes" : "Record"}
           </button>

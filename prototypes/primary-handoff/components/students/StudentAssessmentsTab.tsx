@@ -12,8 +12,8 @@ import {
   ArrowUpRight,
   ClipboardList,
 } from "lucide-react";
-import { assessments as allAssessments } from "@/lib/mock-data/assessments";
 import type { Assessment } from "@/lib/types";
+import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 /** "Assessment" on the student detail page == the originating funnel
  *  record. Same noun as `/assessments` (prospect intake): the booked
@@ -22,13 +22,14 @@ import type { Assessment } from "@/lib/types";
  *  model them. */
 export function StudentAssessmentsTab() {
   const { id } = useParams<{ id: string }>();
+  const { assessments } = usePrimaryStore();
 
   const linked = useMemo(
     () =>
-      allAssessments
+      assessments
         .filter((a) => a.studentId === id)
         .sort((a, b) => b.bookedFor.localeCompare(a.bookedFor)),
-    [id]
+    [assessments, id]
   );
 
   if (linked.length === 0) {

@@ -3,6 +3,7 @@
 import { AlertCircle, Check, ArrowRight } from "lucide-react";
 import type { ParentContact, Student } from "@/lib/types";
 import { DEMO_NOW } from "@/lib/mock-data/parent-contacts";
+import { daysBetweenIso, hktDateFromIso } from "@/lib/datetime";
 
 type Props = {
   contacts: ParentContact[];
@@ -28,7 +29,7 @@ export function PendingFollowups({
   if (pending.length === 0) return null;
 
   const studentById = new Map(students.map((s) => [s.id, s]));
-  const now = new Date(DEMO_NOW).getTime();
+  const todayIso = hktDateFromIso(DEMO_NOW);
 
   return (
     <div className="surface p-3 border-l-4 border-l-amber-400">
@@ -42,11 +43,8 @@ export function PendingFollowups({
         {pending.map((c) => {
           const student = studentById.get(c.studentId);
           if (!student) return null;
-          const due = c.followUpDate
-            ? new Date(c.followUpDate).getTime()
-            : null;
-          const days = due
-            ? Math.floor((due - now) / 86400000)
+          const days = c.followUpDate
+            ? daysBetweenIso(todayIso, c.followUpDate)
             : null;
           const urgency =
             days === null
@@ -72,7 +70,7 @@ export function PendingFollowups({
             >
               <button
                 onClick={() => onSelectStudent(c.studentId)}
-                className="font-medium text-ink-900 hover:text-accent-600 truncate text-left"
+                className="font-medium text-ink-900 hover:text-mc-red-600 truncate text-left"
               >
                 {student.name}
               </button>
