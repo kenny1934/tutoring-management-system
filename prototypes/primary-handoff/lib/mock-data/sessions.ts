@@ -198,7 +198,7 @@ export const sessions: Session[] = [
     lesson_number: 0,
     session_status: SessionStatus.WEATHER_BOOKED,
     rescheduled_to_id: "sess-003-makeup",
-    notes: "Typhoon closure — make-up booked for 2026-05-20.",
+    notes: "Typhoon closure. Make-up booked for 2026-05-20.",
     cw: [],
     hw: [],
   },

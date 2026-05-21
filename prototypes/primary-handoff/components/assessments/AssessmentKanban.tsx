@@ -155,7 +155,7 @@ export function AssessmentKanban() {
 
   const addBooking = () => {
     alert(
-      "Demo only — would open a 'new booking' form (child name, grade, guardian contact, preferred slot)."
+      "Demo only. Would open a 'new booking' form (child name, grade, guardian contact, preferred slot)."
     );
   };
 

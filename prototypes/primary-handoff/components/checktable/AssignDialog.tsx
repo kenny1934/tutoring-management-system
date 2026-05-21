@@ -186,7 +186,7 @@ export function AssignDialog({
                     </option>
                   ))}
                   <option value={UNLINKED}>
-                    — Assign without a session —
+                    Assign without a session
                   </option>
                 </select>
               ) : (

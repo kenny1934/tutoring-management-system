@@ -367,7 +367,7 @@ export function RecordExerciseModal({
                     submit(filtered[0].item);
                   }
                 }}
-                placeholder="Search by code or chapter — press Enter to record top hit"
+                placeholder="Search by code or chapter. Press Enter to record top hit"
                 className="flex-1 min-w-[160px] text-sm focus:outline-none"
               />
             </>

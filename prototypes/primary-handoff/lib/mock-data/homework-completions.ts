@@ -24,7 +24,7 @@ export const seedHomeworkCompletions: HomeworkCompletion[] = [
     student_id: "s-001",
     submitted: true,
     completion_status: "Partial",
-    tutor_comments: "Skipped Q4 and Q5 — review next week.",
+    tutor_comments: "Skipped Q4 and Q5. Review next week.",
     checked_by: "t-wong",
     checked_at: "2026-05-19T08:00:00.000Z",
   },
