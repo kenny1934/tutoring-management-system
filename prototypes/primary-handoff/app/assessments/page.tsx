@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AssessmentKanban } from "@/components/assessments/AssessmentKanban";
 
 export default function AssessmentsPage() {
@@ -14,7 +15,9 @@ export default function AssessmentsPage() {
           assessed score, follow-up due date, conversion outcome.
         </p>
       </div>
-      <AssessmentKanban />
+      <Suspense fallback={null}>
+        <AssessmentKanban />
+      </Suspense>
     </div>
   );
 }
