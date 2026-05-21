@@ -57,8 +57,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Mobile top bar — outside the flex row so it doesn't compete with
-       *  the sidebar's column. lg:hidden collapses it to nothing on desktop. */}
+      {/* Outside the flex row so the mobile header doesn't stack inside
+       *  the sidebar column. */}
       <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 bg-white border-b border-mc-line px-4 py-2">
         <button
           onClick={() => setMobileOpen(true)}
@@ -71,7 +71,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        {/* Mobile backdrop */}
         {mobileOpen && (
           <div
             className="lg:hidden fixed inset-0 z-40 bg-ink-900/40"
@@ -80,7 +79,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Sidebar — sticky column on desktop, slide-over on mobile. */}
         <aside
           className={`
             fixed lg:sticky top-0 left-0 z-50 lg:z-auto

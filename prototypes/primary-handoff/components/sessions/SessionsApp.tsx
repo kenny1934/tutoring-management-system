@@ -140,7 +140,6 @@ export function SessionsApp() {
     return map;
   }, [sessionState, pendingPreviousHomework]);
 
-  // Distinct tutors across all seeded sessions, sorted by surname-ish.
   const tutorOptions = useMemo<TutorOption[]>(() => {
     const map = new Map<string, string>();
     for (const s of sessionState) {
@@ -417,10 +416,6 @@ function MeetingCard({
         highlighted ? "ring-2 ring-mc-red-500 ring-offset-2" : ""
       }`}
     >
-      {/* Slot header — time slot is the focal point of the card, sized up
-       *  to confidently anchor the eye. Tutor + member count sit right in
-       *  quieter weight. Make-up meetings flip to yellow rule + cream
-       *  tint. */}
       <div
         className={`px-4 py-2.5 border-l-[3px] border-b border-b-mc-line flex items-center justify-between gap-3 ${
           meeting.is_makeup
@@ -564,9 +559,6 @@ function StudentRow({
       }`}
       style={{ opacity: statusConfig.opacity ?? 1 }}
     >
-      {/* ── Identity line: code · name · grade pill · school pill (+ HW load
-       *  pill when not Normal) on the left, status pill on the right. One
-       *  line; pills are quiet but coloured enough to anchor scanning. ── */}
       <div className="flex items-center justify-between gap-3">
         <div
           className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 ${
@@ -624,9 +616,6 @@ function StudentRow({
         />
       )}
 
-      {/* CW + HW on one row to halve the vertical footprint. The HW side
-       *  surfaces the "Next" suggestion as a quiet ghost button at the
-       *  end of its chip list. */}
       <div className="flex flex-col gap-1">
         <ExerciseRow
           kind="CW"
@@ -750,7 +739,6 @@ function ActionButtonsRow({
         </button>
       )}
 
-      {/* Right-aligned: rate + overflow menu for checktable / prep print */}
       <div className="ml-auto flex items-center gap-1.5">
         <PerformanceRater value={performanceValue} onChange={onPerformance} />
         <RowOverflowMenu onOpenChecktable={onOpenChecktable} />
@@ -1032,8 +1020,7 @@ function ExerciseRow({
 }) {
   return (
     <div className="flex items-start gap-2 min-w-0">
-      {/* Rail label — 22px wide so CW + HW align vertically. No fill,
-       *  ink-400 text — relegates this to "row prefix" weight. */}
+      {/* 22px wide so CW + HW align vertically across exercise rows. */}
       <span className="w-8 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5 text-right pr-1">
         {kind}
       </span>

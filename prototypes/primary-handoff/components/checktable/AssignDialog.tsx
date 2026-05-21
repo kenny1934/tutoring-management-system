@@ -154,7 +154,6 @@ export function AssignDialog({
         )}
 
         <div className="grid sm:grid-cols-5 gap-0">
-          {/* PDF preview placeholder */}
           <div className="sm:col-span-3 border-r border-ink-100 p-5">
             <div className="text-xs text-ink-500 mb-2">Preview</div>
             <div className="aspect-[3/4] surface-muted grid place-items-center text-ink-400">
@@ -168,7 +167,6 @@ export function AssignDialog({
             </div>
           </div>
 
-          {/* Assign form */}
           <div className="sm:col-span-2 p-5 space-y-4">
             <div>
               <label className="block text-xs text-ink-500 mb-1">

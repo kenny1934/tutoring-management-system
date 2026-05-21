@@ -294,7 +294,6 @@ export function RecordExerciseModal({
           </button>
         </header>
 
-        {/* Picker controls */}
         <div className="px-5 py-3 border-b border-ink-100 grid sm:grid-cols-[1fr_140px_1fr] gap-3">
           <div>
             <label className="block text-xs text-ink-500 mb-1">
@@ -348,9 +347,8 @@ export function RecordExerciseModal({
           </div>
         </div>
 
-        {/* Browse controls: search + filter + view toggle.
-         *  View toggle moved out of the header so it sits next to the
-         *  picker it actually affects. */}
+        {/* View toggle lives next to the picker it actually affects
+         *  (rather than the header). */}
         <div className="px-5 py-2 border-b border-ink-100 flex flex-wrap items-center gap-2">
           {!isGrid && (
             <>

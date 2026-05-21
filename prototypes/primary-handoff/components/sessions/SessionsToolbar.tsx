@@ -59,7 +59,6 @@ export function SessionsToolbar({
   return (
     <div className="sticky top-12 lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-ink-50/95 backdrop-blur border-b border-mc-line">
       <div className="flex flex-wrap items-center gap-2">
-        {/* Date navigator */}
         <div className="inline-flex items-center rounded-md border border-mc-line bg-white">
           <button
             onClick={() => shiftDate(-1)}
@@ -99,7 +98,6 @@ export function SessionsToolbar({
           </button>
         )}
 
-        {/* Tutor filter */}
         <SelectChip Icon={Users} label="Tutor:">
           <select
             value={tutorFilter}
@@ -115,7 +113,6 @@ export function SessionsToolbar({
           </select>
         </SelectChip>
 
-        {/* Status filter */}
         <SelectChip Icon={Filter} label="Status:">
           <select
             value={statusFilter}
@@ -137,7 +134,6 @@ export function SessionsToolbar({
           {resultCount} {resultCount === 1 ? "meeting" : "meetings"}
         </div>
 
-        {/* View switcher — pushed right */}
         <div className="ml-auto inline-flex rounded-md border border-mc-line bg-white p-0.5 text-sm">
           <ViewButton
             active={view === "list"}

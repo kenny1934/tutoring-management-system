@@ -93,7 +93,6 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Greeting strip */}
       <header className="surface-mc px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-ink-900">
@@ -114,7 +113,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Stat tiles */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile
           Icon={Calendar}
@@ -160,7 +158,6 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* Two-up: today's sessions + follow-ups */}
       <section className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           <PanelHeader
@@ -277,7 +274,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Module quick links */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-ink-700 uppercase tracking-wide">
           Modules

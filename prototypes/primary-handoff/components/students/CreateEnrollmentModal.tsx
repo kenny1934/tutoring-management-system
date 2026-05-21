@@ -157,7 +157,6 @@ export function CreateEnrollmentModal({
         </header>
 
         <div className="grid sm:grid-cols-5 gap-0">
-          {/* ── Form pane ── */}
           <div className="sm:col-span-2 p-5 space-y-3 border-r border-ink-100">
             <FieldGroup label="Type">
               <div className="space-y-1">
@@ -313,7 +312,6 @@ export function CreateEnrollmentModal({
             </FieldGroup>
           </div>
 
-          {/* ── Preview pane ── */}
           <div className="sm:col-span-3 p-5 space-y-3 bg-ink-50/50">
             <div className="flex items-baseline justify-between gap-2 flex-wrap">
               <div>

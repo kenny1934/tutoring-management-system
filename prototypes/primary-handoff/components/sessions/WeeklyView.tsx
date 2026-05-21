@@ -37,7 +37,6 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
 
   return (
     <div className="surface-mc overflow-hidden">
-      {/* Day header row */}
       <div className="grid grid-cols-7 border-b border-mc-line bg-ink-50">
         {weekDays.map((day) => {
           const isAnchor = day.iso === anchorDate;
@@ -72,7 +71,6 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
         })}
       </div>
 
-      {/* Day columns with stacked meeting cards */}
       <div className="grid grid-cols-7 min-h-[420px]">
         {weekDays.map((day) => {
           const dayMeetings = byDate.get(day.iso) ?? [];
