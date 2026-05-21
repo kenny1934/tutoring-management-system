@@ -21,7 +21,7 @@ import {
   Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type {
   Session,
   SessionExercise,
@@ -40,6 +40,7 @@ import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
+import { ChecktableDrawer } from "./ChecktableDrawer";
 import {
   SessionsToolbar,
   type StatusFilter,
@@ -77,12 +78,15 @@ export function SessionsApp() {
     sessionLabel,
   } = usePrimaryStore();
 
-  const router = useRouter();
   const [exerciseEditor, setExerciseEditor] =
     useState<ExerciseEditor | null>(null);
   const [makeupOpen, setMakeupOpen] = useState<{
     sessionId: string;
     studentId: string;
+  } | null>(null);
+  const [checktableDrawer, setChecktableDrawer] = useState<{
+    studentId: string;
+    focusItemId?: string;
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
   const [tutorFilter, setTutorFilter] = useState<string>("all");
@@ -286,14 +290,9 @@ export function SessionsApp() {
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
-                  onOpenChecktable={(studentId, focusItemId) => {
-                    const base = `/students/${studentId}/checktables`;
-                    router.push(
-                      focusItemId
-                        ? `${base}?focus=${encodeURIComponent(focusItemId)}`
-                        : base
-                    );
-                  }}
+                  onOpenChecktable={(studentId, focusItemId) =>
+                    setChecktableDrawer({ studentId, focusItemId })
+                  }
                   onRemoveExercise={removeExercise}
                   onMarkPreviousHw={(currentSessionId, studentId, exerciseId, choice) =>
                     recordHomeworkCompletion({
@@ -347,6 +346,14 @@ export function SessionsApp() {
           fromSessionId={makeupOpen.sessionId}
           session={makeupSession}
           onClose={() => setMakeupOpen(null)}
+        />
+      )}
+
+      {checktableDrawer && studentById.get(checktableDrawer.studentId) && (
+        <ChecktableDrawer
+          student={studentById.get(checktableDrawer.studentId)!}
+          focusItemId={checktableDrawer.focusItemId}
+          onClose={() => setChecktableDrawer(null)}
         />
       )}
 
