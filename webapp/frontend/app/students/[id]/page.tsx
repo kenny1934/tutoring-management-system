@@ -1395,20 +1395,36 @@ function ProfileTab({
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               No enrollments yet
             </p>
-            <button
-              onClick={onNewTrial}
-              disabled={readOnly}
-              className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors",
-                readOnly
-                  ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-700"
-              )}
-              title={readOnly ? "Read-only access" : undefined}
-            >
-              <Plus className="h-4 w-4" />
-              New Trial
-            </button>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button
+                onClick={onNewTrial}
+                disabled={readOnly}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors",
+                  readOnly
+                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                    : "bg-teal-600 hover:bg-teal-700"
+                )}
+                title={readOnly ? "Read-only access" : undefined}
+              >
+                <Plus className="h-4 w-4" />
+                New Trial
+              </button>
+              <button
+                onClick={onNewEnrollment}
+                disabled={!isAdmin}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
+                  !isAdmin
+                    ? "border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                    : "border-teal-600 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+                )}
+                title={!isAdmin ? "Admin access required" : "Create a Regular or One-Time enrollment"}
+              >
+                <Plus className="h-4 w-4" />
+                New Enrollment
+              </button>
+            </div>
           </div>
         </div>
       )}
