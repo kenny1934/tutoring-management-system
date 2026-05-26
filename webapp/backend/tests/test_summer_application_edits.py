@@ -240,6 +240,7 @@ class TestEditsListEndpoint:
     def test_returns_edits_newest_first(self, client, db_session, cfg, monkeypatch):
         from auth.dependencies import require_admin_view
         from main import app as fastapi_app
+        from tests.helpers import make_auth_token
         fastapi_app.dependency_overrides[require_admin_view] = lambda: None
         try:
             app_row = _make_app(db_session, cfg, ref="SC2026-HIST")
@@ -263,7 +264,12 @@ class TestEditsListEndpoint:
                 ),
             ])
             db_session.commit()
-            r = client.get(f"/api/summer/applications/{app_row.id}/edits")
+            # Cookie clears the AuthGate middleware; the override above satisfies
+            # the endpoint's own require_admin_view dependency.
+            r = client.get(
+                f"/api/summer/applications/{app_row.id}/edits",
+                cookies={"access_token": make_auth_token(1)},
+            )
             assert r.status_code == 200, r.text
             rows = r.json()
             assert len(rows) == 2
