@@ -113,8 +113,22 @@ class TutorBase(BaseModel):
 
 
 class TutorResponse(TutorBase):
-    """Tutor response"""
+    """Tutor response (admin view — includes compensation)."""
     id: int = Field(..., gt=0)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TutorResponsePublic(BaseModel):
+    """Tutor response for non-admin roles. Omits compensation (basic_salary)."""
+    id: int = Field(..., gt=0)
+    user_email: str = Field(..., min_length=3, max_length=255)
+    tutor_name: str = Field(..., min_length=1, max_length=200)
+    nickname: Optional[str] = Field(None, max_length=100)
+    default_location: Optional[str] = Field(None, max_length=200)
+    role: str = Field(..., max_length=50)
+    is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    profile_picture: Optional[str] = Field(None, max_length=2048)
 
     model_config = ConfigDict(from_attributes=True)
 

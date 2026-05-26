@@ -12,6 +12,8 @@ from starlette.responses import Response
 import os
 from dotenv import load_dotenv
 
+from auth.gate import AuthGateMiddleware
+
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -263,7 +265,13 @@ else:
     allow_origins = allowed_origins_str.split(",")
     allow_credentials = True
 
-# Add security headers middleware first
+# Auth gate is added first so it ends up INNERMOST (runs just before routing):
+# CORS still handles preflight, and RequestLogging/SecurityHeaders still wrap
+# the 401s it returns. It enforces a blanket login requirement on /api/* with
+# an explicit public allowlist (see auth/gate.py).
+app.add_middleware(AuthGateMiddleware)
+
+# Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
