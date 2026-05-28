@@ -519,7 +519,7 @@ export default function SummerApplyPage() {
       <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center space-y-4">
         <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" strokeWidth={2} />
         <h2 className="text-xl font-bold text-foreground">
-          {t("報名成功！", "Application Submitted!", lang)}
+          {t("留位意向已提交！", "Application Submitted!", lang)}
         </h2>
         <div className="bg-primary/10 rounded-xl p-4 space-y-2">
           <div className="text-sm text-muted-foreground">
@@ -750,7 +750,7 @@ export default function SummerApplyPage() {
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2 flex-wrap">
           <span>
             {t(
-              `偵測到上次未完成的報名草稿（${new Date(pendingDraft.savedAt).toLocaleString()}）。要繼續填寫嗎？`,
+              `偵測到上次未完成的留位意向草稿（${new Date(pendingDraft.savedAt).toLocaleString()}）。要繼續填寫嗎？`,
               `Found an unfinished draft from ${new Date(pendingDraft.savedAt).toLocaleString()}. Resume?`,
               lang,
             )}

@@ -62,7 +62,7 @@ export function FormNavButtons({
           >
             {submitting
               ? t("提交中...", "Submitting...", lang)
-              : t("提交報名", "Submit Application", lang)}
+              : t("提交意向", "Submit Application", lang)}
           </button>
         )}
       </div>

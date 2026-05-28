@@ -140,11 +140,11 @@ export function ReviewSubmitStep({
       {/* Summary */}
       <div className={sectionClass}>
         <h2 className="text-base font-semibold text-foreground leading-snug">
-          {t("報名資料預覽", "Application Summary", lang)}
+          {t("留位意向資料預覽", "Application Summary", lang)}
         </h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1">
           {t(
-            "請核對以下資料，確認無誤後按「提交報名」遞交。",
+            "請核對以下資料，確認無誤後按「提交意向」遞交。",
             "Please review the details below. When everything is correct, press “Submit Application” to submit.",
             lang
           )}
