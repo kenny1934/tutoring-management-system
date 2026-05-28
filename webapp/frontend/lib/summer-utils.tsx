@@ -39,7 +39,7 @@ export const STEP_LABELS = [
   { zh: "學生背景", en: "Background" },
   { zh: "課堂安排", en: "Schedule" },
   { zh: "聯絡方式", en: "Contact" },
-  { zh: "確認提交", en: "Confirm" },
+  { zh: "核對提交", en: "Review" },
 ];
 
 /** Day name translation map. */
