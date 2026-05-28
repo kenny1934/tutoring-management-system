@@ -31,7 +31,7 @@ import {
 import type { Discount } from "@/types";
 import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
-import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES } from "@/lib/constants";
+import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
@@ -343,6 +343,7 @@ export function CreateEnrollmentModal({
   // Auto-select trial discount ($150) when converting from trial
   useEffect(() => {
     if (!convertFromTrial || !isOpen || discounts.length === 0) return;
+    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT) return;
 
     // Find the "Trial to Enrollment" discount ($150)
     const trialDiscount = discounts.find(
@@ -352,7 +353,7 @@ export function CreateEnrollmentModal({
     if (trialDiscount) {
       setDiscountId(trialDiscount.id);
     }
-  }, [convertFromTrial, isOpen, discounts]);
+  }, [convertFromTrial, isOpen, discounts, lessonsPaid]);
 
   // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
@@ -368,6 +369,7 @@ export function CreateEnrollmentModal({
   // Skip if converting from trial (uses special $150 trial discount instead)
   useEffect(() => {
     if (!student || !isOpen || convertFromTrial || discounts.length === 0) return;
+    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT) return;
 
     // Priority 1: Staff Referral ($500 discount)
     if (student.is_staff_referral) {
@@ -395,7 +397,14 @@ export function CreateEnrollmentModal({
     }).catch(() => {
       // Silently fail if coupon check fails
     });
-  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts]);
+  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts, lessonsPaid]);
+
+  // Discounts require a minimum lesson count; clear any selection below the floor.
+  useEffect(() => {
+    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT && discountId !== null) {
+      setDiscountId(null);
+    }
+  }, [lessonsPaid, discountId]);
 
   // Auto-detect is_new_student when student is selected (skip for Trial enrollments)
   useEffect(() => {
@@ -816,7 +825,8 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate"
+                disabled={lessonsPaid < MIN_LESSONS_FOR_DISCOUNT}
+                className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (
@@ -827,6 +837,11 @@ export function CreateEnrollmentModal({
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
             </div>
+            {lessonsPaid < MIN_LESSONS_FOR_DISCOUNT && (
+              <p className="mt-1.5 text-xs text-foreground/50">
+                Discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
+              </p>
+            )}
           </div>
 
           {/* New Student - not applicable to Trial enrollments */}

@@ -37,6 +37,10 @@ export const GRADE_COLORS: Record<string, string> = {
 // Default color when grade/stream not found
 export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 
+// Discounts (coupons, staff referral, trial conversion) only apply to
+// enrollments of at least this many lessons. Mirrors the backend constant.
+export const MIN_LESSONS_FOR_DISCOUNT = 6;
+
 // Grade levels (regular). P6 is admin-only (summer create-student flow);
 // Graduated is the auto-promotion target for F6 students.
 export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;

@@ -115,6 +115,10 @@ EXAM_EVENT_TYPES = ('Test', 'Quiz', 'Exam', 'Final Exam', 'Mid-term', 'Mock')
 BASE_FEE_PER_LESSON = 400
 REGISTRATION_FEE = 100
 
+# Discounts (coupons, staff referral, trial conversion, etc.) only apply to
+# enrollments of at least this many lessons. Summer tier discounts are separate.
+MIN_LESSONS_FOR_DISCOUNT = 6
+
 # Grace period: students remain in "active" lists for this many days after enrollment expires
 ACTIVE_GRACE_PERIOD_DAYS = 21
 

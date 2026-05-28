@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, BASE_FEE_PER_LESSON, REGISTRATION_FEE, ACTIVE_GRACE_PERIOD_DAYS
+from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
@@ -409,6 +409,11 @@ async def create_enrollment(
         discount = db.query(Discount).filter(Discount.id == enrollment_data.discount_id).first()
         if not discount:
             raise HTTPException(status_code=404, detail=f"Discount with ID {enrollment_data.discount_id} not found")
+        if enrollment_data.lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
+            )
 
     # Validate renewed_from enrollment if provided
     if enrollment_data.renewed_from_enrollment_id:
@@ -1739,6 +1744,10 @@ async def get_fee_message(
         else:
             discount_value = 0
 
+    # Discounts don't apply below the minimum lesson count, regardless of source.
+    if lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
+        discount_value = 0
+
     # Determine new student status: use override if provided, otherwise use enrollment value
     # Trial enrollments never have reg fee
     effective_is_new_student = is_new_student if is_new_student is not None else (enrollment.is_new_student or False)
@@ -1879,6 +1888,22 @@ async def update_enrollment(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     update_data = enrollment_update.model_dump(exclude_unset=True)
+
+    # Discounts require a minimum lesson count. Evaluate the resulting state so
+    # this catches both adding a discount and shrinking lessons below the floor.
+    # Summer enrollments use a separate tier-discount system and are exempt.
+    if enrollment.enrollment_type != 'Summer':
+        effective_discount_id = update_data.get('discount_id', enrollment.discount_id)
+        effective_lessons = update_data.get('lessons_paid', enrollment.lessons_paid)
+        if (
+            effective_discount_id
+            and effective_lessons is not None
+            and effective_lessons < MIN_LESSONS_FOR_DISCOUNT
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
+            )
 
     # Check if payment_status is being changed to "Paid"
     updating_to_paid = (

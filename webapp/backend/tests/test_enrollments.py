@@ -668,3 +668,148 @@ class TestCheckStudentConflicts:
             "15:00-16:30",
         )
         assert len(conflicts) == 1
+
+
+# ============================================================================
+# Test discount minimum-lesson rule (MIN_LESSONS_FOR_DISCOUNT)
+# ============================================================================
+
+from main import app
+from auth.dependencies import require_admin_write, get_current_user
+from tests.helpers import make_auth_token
+from models import Discount, StudentCoupon
+from constants import MIN_LESSONS_FOR_DISCOUNT
+
+AUTH_COOKIE = {"access_token": make_auth_token(99)}
+
+
+class TestDiscountMinimumLessons:
+    """Discounts must not apply to enrollments below MIN_LESSONS_FOR_DISCOUNT."""
+
+    @pytest.fixture(autouse=True)
+    def _override_auth(self):
+        admin = Tutor(id=99, user_email="admin@test.com", tutor_name="Mr Admin", role="Admin")
+        app.dependency_overrides[require_admin_write] = lambda: admin
+        app.dependency_overrides[get_current_user] = lambda: admin
+        yield
+        app.dependency_overrides.pop(require_admin_write, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+    def _seed(self, db_session, *, coupon=False):
+        tutor = Tutor(user_email="t@test.com", tutor_name="Tutor A", role="Tutor")
+        db_session.add(tutor)
+        db_session.flush()
+        student = Student(student_name="Student A", home_location="MSA", school_student_id="1001")
+        db_session.add(student)
+        db_session.flush()
+        discount = Discount(discount_name="Coupon $300", discount_value=300, is_active=True)
+        db_session.add(discount)
+        db_session.flush()
+        if coupon:
+            db_session.add(StudentCoupon(student_id=student.id, available_coupons=2, coupon_value=300))
+        db_session.commit()
+        return student, tutor, discount
+
+    def _create_payload(self, student, tutor, *, lessons_paid, discount_id=None):
+        payload = {
+            "student_id": student.id,
+            "tutor_id": tutor.id,
+            "assigned_day": "Monday",
+            "assigned_time": "15:00 - 16:30",
+            "location": "MSA",
+            "first_lesson_date": "2026-03-02",  # Monday, no holidays seeded
+            "lessons_paid": lessons_paid,
+            "enrollment_type": "Regular",
+        }
+        if discount_id is not None:
+            payload["discount_id"] = discount_id
+        return payload
+
+    def test_create_rejects_discount_below_floor(self, client, db_session):
+        student, tutor, discount = self._seed(db_session)
+        resp = client.post(
+            "/api/enrollments",
+            json=self._create_payload(student, tutor, lessons_paid=5, discount_id=discount.id),
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 400
+        assert str(MIN_LESSONS_FOR_DISCOUNT) in resp.json()["detail"]
+
+    def test_create_allows_discount_at_floor(self, client, db_session):
+        student, tutor, discount = self._seed(db_session)
+        resp = client.post(
+            "/api/enrollments",
+            json=self._create_payload(student, tutor, lessons_paid=6, discount_id=discount.id),
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["discount_name"] == discount.discount_name
+
+    def test_create_allows_short_enrollment_without_discount(self, client, db_session):
+        student, tutor, _ = self._seed(db_session)
+        resp = client.post(
+            "/api/enrollments",
+            json=self._create_payload(student, tutor, lessons_paid=3),
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+    def test_update_rejects_shrinking_lessons_with_discount(self, client, db_session):
+        student, tutor, discount = self._seed(db_session)
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=6, enrollment_type="Regular", discount_id=discount.id,
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"lessons_paid": 4},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 400
+        assert str(MIN_LESSONS_FOR_DISCOUNT) in resp.json()["detail"]
+
+    def test_update_rejects_adding_discount_to_short_enrollment(self, client, db_session):
+        student, tutor, discount = self._seed(db_session)
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=4, enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"discount_id": discount.id},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 400
+
+    def test_fee_message_zeroes_discount_below_floor(self, client, db_session):
+        """A student coupon must not surface in the fee message below the floor."""
+        student, tutor, _ = self._seed(db_session, coupon=True)
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=6, enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+
+        below = client.get(
+            f"/api/enrollments/{enrollment.id}/fee-message?lang=en&lessons_paid=3",
+            cookies=AUTH_COOKIE,
+        )
+        assert below.status_code == 200
+        assert "Discounted" not in below.json()["message"]
+
+        at_floor = client.get(
+            f"/api/enrollments/{enrollment.id}/fee-message?lang=en&lessons_paid=6",
+            cookies=AUTH_COOKIE,
+        )
+        assert at_floor.status_code == 200
+        assert "Discounted $300" in at_floor.json()["message"]
