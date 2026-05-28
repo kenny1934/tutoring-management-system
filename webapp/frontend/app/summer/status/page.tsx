@@ -352,7 +352,7 @@ export default function SummerStatusPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={inputClass}
-            placeholder={t("報名時填寫的電話號碼", "Phone used during application", lang)}
+            placeholder={t("留位時填寫的電話號碼", "Phone used during application", lang)}
           />
         </div>
 
@@ -1052,7 +1052,7 @@ export default function SummerStatusPage() {
           href="/apply"
           className="text-sm text-primary hover:text-primary-hover"
         >
-          {t("前往報名", "Go to Application Form", lang)}
+          {t("前往填寫留位意向", "Go to Application Form", lang)}
         </a>
       </div>
     </div>
