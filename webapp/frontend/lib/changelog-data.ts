@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Discounts no longer apply to enrollments under 6 lessons**: any discount or coupon (loyalty coupon, staff referral, trial conversion) now requires an enrollment of at least 6 lessons. The discount picker is disabled with a short note when fewer than 6 lessons are entered, saving a discount on a shorter enrollment is refused, and the fee message never shows a discount below 6 lessons."
+          },
+          {
+            "description": "**Number of Lessons field can be cleared and retyped**: in the create enrollment dialog, backspacing the lesson count used to snap straight back to 1 and trap you there. You can now clear the field and type the number you want; an empty field falls back to 1 only when you click away."
           }
         ]
       }

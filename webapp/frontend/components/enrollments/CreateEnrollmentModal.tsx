@@ -196,7 +196,9 @@ export function CreateEnrollmentModal({
   const [assignedTime, setAssignedTime] = useState<string>(WEEKDAY_TIME_SLOTS[0]);
   const [location, setLocation] = useState<string>(selectedLocation !== "All Locations" ? selectedLocation : "MSA");
   const [firstLessonDate, setFirstLessonDate] = useState<string>("");
-  const [lessonsPaid, setLessonsPaid] = useState<number>(6);
+  // Empty string is allowed transiently so the field can be cleared and retyped.
+  const [lessonsPaid, setLessonsPaid] = useState<number | "">(6);
+  const lessonsCount = typeof lessonsPaid === "number" ? lessonsPaid : 0;
   const [enrollmentType, setEnrollmentType] = useState<string>("Regular");
   const [discountId, setDiscountId] = useState<number | null>(null);
   const [isNewStudent, setIsNewStudent] = useState<boolean | null>(null);
@@ -343,7 +345,7 @@ export function CreateEnrollmentModal({
   // Auto-select trial discount ($150) when converting from trial
   useEffect(() => {
     if (!convertFromTrial || !isOpen || discounts.length === 0) return;
-    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT) return;
+    if (lessonsCount < MIN_LESSONS_FOR_DISCOUNT) return;
 
     // Find the "Trial to Enrollment" discount ($150)
     const trialDiscount = discounts.find(
@@ -353,7 +355,7 @@ export function CreateEnrollmentModal({
     if (trialDiscount) {
       setDiscountId(trialDiscount.id);
     }
-  }, [convertFromTrial, isOpen, discounts, lessonsPaid]);
+  }, [convertFromTrial, isOpen, discounts, lessonsCount]);
 
   // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
@@ -369,7 +371,7 @@ export function CreateEnrollmentModal({
   // Skip if converting from trial (uses special $150 trial discount instead)
   useEffect(() => {
     if (!student || !isOpen || convertFromTrial || discounts.length === 0) return;
-    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT) return;
+    if (lessonsCount < MIN_LESSONS_FOR_DISCOUNT) return;
 
     // Priority 1: Staff Referral ($500 discount)
     if (student.is_staff_referral) {
@@ -397,14 +399,14 @@ export function CreateEnrollmentModal({
     }).catch(() => {
       // Silently fail if coupon check fails
     });
-  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts, lessonsPaid]);
+  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts, lessonsCount]);
 
   // Discounts require a minimum lesson count; clear any selection below the floor.
   useEffect(() => {
-    if (lessonsPaid < MIN_LESSONS_FOR_DISCOUNT && discountId !== null) {
+    if (lessonsCount < MIN_LESSONS_FOR_DISCOUNT && discountId !== null) {
       setDiscountId(null);
     }
-  }, [lessonsPaid, discountId]);
+  }, [lessonsCount, discountId]);
 
   // Auto-detect is_new_student when student is selected (skip for Trial enrollments)
   useEffect(() => {
@@ -438,6 +440,7 @@ export function CreateEnrollmentModal({
   const enrollmentData: EnrollmentCreate | null = useMemo(() => {
     if (!student || !tutorId || !firstLessonDate) return null;
     if (useCustomTime && !isCustomTimeValid) return null;
+    if (typeof lessonsPaid !== "number" || lessonsPaid < 1) return null;
     return {
       student_id: student.id,
       tutor_id: tutorId,
@@ -627,7 +630,7 @@ export function CreateEnrollmentModal({
 
             {/* Sessions count */}
             <p className="text-sm text-foreground/60">
-              {preview?.sessions.filter(s => !s.is_holiday).length || lessonsPaid} sessions scheduled
+              {preview?.sessions.filter(s => !s.is_holiday).length || lessonsCount} sessions scheduled
             </p>
           </div>
         </div>
@@ -813,7 +816,18 @@ export function CreateEnrollmentModal({
               min={1}
               max={52}
               value={lessonsPaid}
-              onChange={(e) => setLessonsPaid(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") {
+                  setLessonsPaid("");
+                  return;
+                }
+                const n = parseInt(v, 10);
+                setLessonsPaid(Number.isNaN(n) ? "" : n);
+              }}
+              onBlur={() => {
+                if (lessonsPaid === "" || lessonsPaid < 1) setLessonsPaid(1);
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
@@ -825,7 +839,7 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                disabled={lessonsPaid < MIN_LESSONS_FOR_DISCOUNT}
+                disabled={lessonsCount < MIN_LESSONS_FOR_DISCOUNT}
                 className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No discount</option>
@@ -837,7 +851,7 @@ export function CreateEnrollmentModal({
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
             </div>
-            {lessonsPaid < MIN_LESSONS_FOR_DISCOUNT && (
+            {lessonsCount < MIN_LESSONS_FOR_DISCOUNT && (
               <p className="mt-1.5 text-xs text-foreground/50">
                 Discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
               </p>
