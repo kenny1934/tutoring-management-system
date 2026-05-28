@@ -3,6 +3,19 @@ import type { SummerCourseFormConfig } from "@/types";
 import { type Lang, t, dayLabel, frequencyLabel, sectionClass, shortCenterName } from "@/lib/summer-utils";
 import { classifyPrefs, type PrefSlot } from "@/lib/summer-preferences";
 
+/** Today's local date as YYYY-MM-DD, for lexicographic comparison with config dates. */
+function todayISO(): string {
+  const n = new Date();
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`;
+}
+
+/** Parse a YYYY-MM-DD string at local midnight (avoids UTC off-by-one). */
+function parseISODate(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function SummaryRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;
   return (
@@ -96,6 +109,31 @@ export function ReviewSubmitStep({
       ? langStreamData.name
       : langStreamData.name_en
     : langStream;
+
+  // Disclaimer = a date-aware "when we'll confirm" line + an evergreen note on
+  // scheduling. The contact-by date is shown only while it's still upcoming;
+  // once it passes (or is unset) we drop it, so a stale past date never reads as
+  // "your application is already settled". The scheduling note stays editable in
+  // config (text_content.disclaimer_*); the date lives in contact_by_date.
+  const contactBy = config.text_content?.contact_by_date?.trim();
+  const showContactDate =
+    !!contactBy && /^\d{4}-\d{2}-\d{2}$/.test(contactBy) && contactBy >= todayISO();
+  const contactDate = showContactDate ? parseISODate(contactBy!) : null;
+
+  const scheduleNoteZh =
+    config.text_content?.disclaimer_zh || "實際時段會根據整體報名情況安排及調整。";
+  const scheduleNoteEn =
+    config.text_content?.disclaimer_en ||
+    "Actual schedules will be arranged and adjusted based on overall demand.";
+
+  const disclaimerZh =
+    (contactDate
+      ? `我們會在${contactDate.getMonth() + 1}月${contactDate.getDate()}日或之前聯絡您確認上課時間，`
+      : "我們會盡快聯絡您確認上課時間，") + scheduleNoteZh;
+  const disclaimerEn =
+    (contactDate
+      ? `We will contact you on or before ${contactDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} to confirm class times. `
+      : "We will contact you shortly to confirm class times. ") + scheduleNoteEn;
 
   return (
     <div className="space-y-6">
@@ -224,11 +262,7 @@ export function ReviewSubmitStep({
         <div className="flex items-start gap-2.5 rounded-lg bg-primary/5 border border-primary/15 px-3.5 py-2.5">
           <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary/70" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            {t(
-              config.text_content?.disclaimer_zh || "我們會在5月21日或之前聯絡您確認上課時間，實際時段會根據整體報名情況安排及調整。",
-              config.text_content?.disclaimer_en || "We will contact you on or before 21 May to confirm class times. Actual schedules will be arranged and adjusted based on overall demand.",
-              lang
-            )}
+            {t(disclaimerZh, disclaimerEn, lang)}
           </p>
         </div>
         <label
