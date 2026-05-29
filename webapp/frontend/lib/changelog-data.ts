@@ -12,6 +12,9 @@ const changelogData = [
           },
           {
             "description": "**Admins can create exam revision slots on holidays**: the Create Revision Slot dialog now flags when the chosen date is a holiday. Admins see an override notice and can proceed, while everyone else is blocked with a clear message. Once an admin has created a revision slot on a holiday, anyone can enroll students into it without hitting the holiday block."
+          },
+          {
+            "description": "**Handover banner now shows the primary student's branch id and name**: the P6 handover banner on a student's profile, and the first-lesson note on the session popover, now show the originating branch student id and name (for example MCP-1023 with the student's name) instead of just the branch code. The banner also stays visible when no handover notes were left, so you can still see which primary branch and tutor the student came from, with a clear \"no handover notes\" message in place of an empty box."
           }
         ]
       }
