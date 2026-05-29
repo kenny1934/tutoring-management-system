@@ -14,8 +14,9 @@ from constants import hk_now
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
-    Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
+    ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 )
+from utils.makeup_validators import assert_not_holiday
 from auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -507,15 +508,7 @@ async def approve_slot(
         proposal.proposed_by_tutor
         and proposal.proposed_by_tutor.role in ['Admin', 'Super Admin']
     )
-    if not (is_admin or proposer_is_admin):
-        holiday = db.query(Holiday).filter(
-            Holiday.holiday_date == slot.proposed_date
-        ).first()
-        if holiday:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
-            )
+    assert_not_holiday(db, slot.proposed_date, is_admin=(is_admin or proposer_is_admin))
 
     # Validate: enrollment deadline - ONLY for regular slot
     # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)

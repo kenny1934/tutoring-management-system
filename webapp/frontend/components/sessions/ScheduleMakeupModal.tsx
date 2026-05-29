@@ -452,9 +452,8 @@ export function ScheduleMakeupModal({
   readOnly = false,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
-  const { effectiveRole, user } = useAuth();
+  const { effectiveRole, user, isAdmin } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
-  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
@@ -676,13 +675,12 @@ export function ScheduleMakeupModal({
     toDateString(monthBounds.start),
     toDateString(monthBounds.end)
   );
-  const holidayDates = useMemo(() => new Set(holidays.map(h => h.holiday_date)), [holidays]);
   const holidayNamesByDate = useMemo(
     () => new Map(holidays.map(h => [h.holiday_date, h.holiday_name])),
     [holidays]
   );
   // Admins (Admin / Super Admin) can override the holiday block to schedule a make-up on a holiday
-  const selectedDateIsHoliday = !!selectedDate && holidayDates.has(selectedDate);
+  const selectedDateIsHoliday = !!selectedDate && holidayNamesByDate.has(selectedDate);
 
   // Prefetch next month's holidays for instant navigation
   const nextMonthBounds = useMemo(() => getMonthBounds(getNextMonth(viewDate)), [viewDate]);
@@ -837,7 +835,7 @@ export function ScheduleMakeupModal({
         isCurrentMonth: date.getMonth() === currentMonth,
         isToday: isSameDay(date, today),
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
-        isHoliday: holidayDates.has(dateString),
+        isHoliday: holidayNamesByDate.has(dateString),
         isPastDeadline,
         isPast60Days,
         isSelected: dateString === selectedDate,
@@ -851,7 +849,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayDates, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate60Day]);
+  }, [viewDate, sessionsByDate, today, holidayNamesByDate, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate60Day]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -897,9 +895,9 @@ export function ScheduleMakeupModal({
     if (!selectedDate) return "Please select a date";
     if (!effectiveTimeSlot || effectiveTimeSlot === " - ") return "Please select a time slot";
     if (!selectedTutorId) return "Please select a tutor";
-    if (holidayDates.has(selectedDate) && !isAdmin) return "Cannot schedule on a holiday";
+    if (holidayNamesByDate.has(selectedDate) && !isAdmin) return "Cannot schedule on a holiday";
     return null;
-  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates, isAdmin]);
+  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayNamesByDate, isAdmin]);
 
   // Unified booking function
   const bookMakeup = async (params: {

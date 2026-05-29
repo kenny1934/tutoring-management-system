@@ -41,6 +41,24 @@ def find_root_original_session(session: SessionLog, db: Session) -> SessionLog:
     return current
 
 
+def assert_not_holiday(db: Session, target_date: date, is_admin: bool = False):
+    """
+    Raise HTTPException if target_date is a holiday, unless the caller is an
+    Admin / Super Admin who is allowed to override the holiday block.
+    Shared by make-up scheduling, proposal approval, and revision-slot creation.
+    """
+    if is_admin:
+        return
+    holiday = db.query(Holiday).filter(
+        Holiday.holiday_date == target_date
+    ).first()
+    if holiday:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
+        )
+
+
 def validate_makeup_constraints(
     db: Session,
     student_id: int,
@@ -89,15 +107,7 @@ def validate_makeup_constraints(
             )
 
     # 2. Check for holiday (Admin / Super Admin can override)
-    if not is_admin:
-        holiday = db.query(Holiday).filter(
-            Holiday.holiday_date == target_date
-        ).first()
-        if holiday:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
-            )
+    assert_not_holiday(db, target_date, is_admin=is_admin)
 
     # 3. Check enrollment deadline - ONLY for regular slot
     # Only block scheduling to the student's regular slot (assigned_day + assigned_time)

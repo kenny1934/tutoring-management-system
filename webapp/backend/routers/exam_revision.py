@@ -14,7 +14,7 @@ from typing import List, Optional
 from datetime import date, datetime
 from database import get_db
 from models import (
-    ExamRevisionSlot, CalendarEvent, SessionLog, Student, Tutor, Enrollment, Holiday
+    ExamRevisionSlot, CalendarEvent, SessionLog, Student, Tutor, Enrollment
 )
 from schemas import (
     ExamRevisionSlotCreate,
@@ -34,7 +34,7 @@ from schemas import (
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from utils.response_builders import build_session_response as _build_session_response, batch_find_root_original_session_dates
-from utils.makeup_validators import validate_makeup_constraints
+from utils.makeup_validators import validate_makeup_constraints, assert_not_holiday
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
 from auth.dependencies import get_current_user
@@ -384,15 +384,7 @@ async def create_revision_slot(
 
     # Holiday check — only Admin / Super Admin can create a revision slot on a holiday
     is_admin = current_user.role in ("Super Admin", "Admin")
-    if not is_admin:
-        holiday = db.query(Holiday).filter(
-            Holiday.holiday_date == request.session_date
-        ).first()
-        if holiday:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
-            )
+    assert_not_holiday(db, request.session_date, is_admin=is_admin)
 
     # Check for duplicate slot
     existing = db.query(ExamRevisionSlot).filter(
