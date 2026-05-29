@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.70](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.70) (2026-05-29)
+
+### New Features
+
+* **Admins can schedule make-ups on holidays**: holidays are normally blocked when scheduling a make-up class, but admins can now pick a holiday in the Schedule Make-up dialog and book on it. An override notice shows the holiday name and a reminder to confirm the class will actually run that day. The same override applies when proposing slots to a tutor: a holiday slot an admin set up can be approved. Tutors and read-only roles stay blocked as before.
+* **Admins can create exam revision slots on holidays**: the Create Revision Slot dialog now flags when the chosen date is a holiday. Admins see an override notice and can proceed, while everyone else is blocked with a clear message. Once an admin has created a revision slot on a holiday, anyone can enroll students into it without hitting the holiday block.
+
 ## [2.0.69](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.69) (2026-05-29)
 
 ### Bug Fixes
