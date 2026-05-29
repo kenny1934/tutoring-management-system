@@ -49,6 +49,7 @@ def validate_makeup_constraints(
     target_time_slot: str,
     target_location: str,
     is_super_admin: bool = False,
+    is_admin: bool = False,
     exclude_session_id: Optional[int] = None,
 ):
     """
@@ -57,7 +58,7 @@ def validate_makeup_constraints(
 
     Checks:
     1. 60-day window (Super Admin can override)
-    2. Holiday
+    2. Holiday (Admin / Super Admin can override)
     3. Enrollment deadline for regular slot
     4. Student time conflict
     """
@@ -87,15 +88,16 @@ def validate_makeup_constraints(
                 }
             )
 
-    # 2. Check for holiday
-    holiday = db.query(Holiday).filter(
-        Holiday.holiday_date == target_date
-    ).first()
-    if holiday:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
-        )
+    # 2. Check for holiday (Admin / Super Admin can override)
+    if not is_admin:
+        holiday = db.query(Holiday).filter(
+            Holiday.holiday_date == target_date
+        ).first()
+        if holiday:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
+            )
 
     # 3. Check enrollment deadline - ONLY for regular slot
     # Only block scheduling to the student's regular slot (assigned_day + assigned_time)

@@ -1396,10 +1396,12 @@ async def schedule_makeup(
 
     # Shared validation: 60-day window, holiday, enrollment deadline, student conflict
     is_super_admin = current_user.role == "Super Admin"
+    is_admin = current_user.role in ("Super Admin", "Admin")
     validate_makeup_constraints(
         db, original_session.student_id, original_session,
         request.session_date, request.time_slot, request.location,
         is_super_admin=is_super_admin,
+        is_admin=is_admin,
     )
 
     # Verify tutor exists and is at the location

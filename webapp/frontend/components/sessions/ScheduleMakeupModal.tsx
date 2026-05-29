@@ -454,6 +454,7 @@ export function ScheduleMakeupModal({
   const { showToast, dismissToast } = useToast();
   const { effectiveRole, user } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
@@ -676,6 +677,12 @@ export function ScheduleMakeupModal({
     toDateString(monthBounds.end)
   );
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.holiday_date)), [holidays]);
+  const holidayNamesByDate = useMemo(
+    () => new Map(holidays.map(h => [h.holiday_date, h.holiday_name])),
+    [holidays]
+  );
+  // Admins (Admin / Super Admin) can override the holiday block to schedule a make-up on a holiday
+  const selectedDateIsHoliday = !!selectedDate && holidayDates.has(selectedDate);
 
   // Prefetch next month's holidays for instant navigation
   const nextMonthBounds = useMemo(() => getMonthBounds(getNextMonth(viewDate)), [viewDate]);
@@ -890,9 +897,9 @@ export function ScheduleMakeupModal({
     if (!selectedDate) return "Please select a date";
     if (!effectiveTimeSlot || effectiveTimeSlot === " - ") return "Please select a time slot";
     if (!selectedTutorId) return "Please select a tutor";
-    if (holidayDates.has(selectedDate)) return "Cannot schedule on a holiday";
+    if (holidayDates.has(selectedDate) && !isAdmin) return "Cannot schedule on a holiday";
     return null;
-  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates]);
+  }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates, isAdmin]);
 
   // Unified booking function
   const bookMakeup = async (params: {
@@ -1056,7 +1063,7 @@ export function ScheduleMakeupModal({
 
   // Handle date click - now opens day picker
   const handleDateClick = (dateString: string, isHoliday: boolean, sessionCount: number) => {
-    if (isHoliday) {
+    if (isHoliday && !isAdmin) {
       setValidationError("Cannot schedule on a holiday");
       return;
     }
@@ -1759,11 +1766,13 @@ export function ScheduleMakeupModal({
                         "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer relative",
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
-                        dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10 cursor-not-allowed",
+                        dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10",
+                        dayData.isHoliday && !isAdmin && "cursor-not-allowed",
                         !dayData.isHoliday && dayData.isPast60Days && "bg-red-50 dark:bg-red-900/20",
                         !dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
                         dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
                         !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
+                        !dayData.isSelected && dayData.isHoliday && isAdmin && dayData.isCurrentMonth && "hover:bg-rose-100 dark:hover:bg-rose-900/20",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}
                     >
@@ -1901,6 +1910,36 @@ export function ScheduleMakeupModal({
                         ? "text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
                         : "text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
                     )}
+                  >
+                    Pick Different Date
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Holiday override — admins can schedule a make-up on a holiday with an explicit warning */}
+            {selectedDateIsHoliday && isAdmin && (
+              <div id="makeup-holiday-warning" role="alert" className="p-3 border rounded-lg bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                      Admin Override: Scheduling on a holiday
+                    </p>
+                    <p className="text-xs mt-0.5 text-orange-600 dark:text-orange-400">
+                      {holidayNamesByDate.get(selectedDate)
+                        ? `${selectedDate} is a holiday (${holidayNamesByDate.get(selectedDate)}). `
+                        : `${selectedDate} is a holiday. `}
+                      You can proceed as an admin, but confirm the class will actually run that day.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedDate("")}
+                    className="text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
                   >
                     Pick Different Date
                   </Button>
