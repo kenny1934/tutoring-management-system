@@ -52,6 +52,8 @@ class HandoverProspectInfo(BaseModel):
     preferred_time_note: Optional[str] = None
     tutor_name: Optional[str] = None
     source_branch: str
+    primary_student_id: Optional[str] = None
+    student_name: Optional[str] = None
     submitted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

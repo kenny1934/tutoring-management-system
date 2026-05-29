@@ -105,6 +105,8 @@ export interface HandoverProspect {
   preferred_time_note?: string | null;
   tutor_name?: string | null;
   source_branch: string;
+  primary_student_id?: string | null;
+  student_name?: string | null;
   submitted_at?: string | null;
 }
 

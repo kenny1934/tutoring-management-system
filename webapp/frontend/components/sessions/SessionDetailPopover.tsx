@@ -40,6 +40,7 @@ import {
 import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
+import { formatProspectCode } from "@/lib/summer-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
@@ -758,11 +759,19 @@ export function SessionDetailPopover({
             <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
-                First lesson — handover note from {detailedSession.handover_prospect.source_branch}
+                First lesson — handover from {formatProspectCode(
+                  detailedSession.handover_prospect.source_branch,
+                  detailedSession.handover_prospect.primary_student_id,
+                )}
+                {detailedSession.handover_prospect.student_name && ` ${detailedSession.handover_prospect.student_name}`}
               </p>
-              {detailedSession.handover_prospect.tutor_remark && (
+              {detailedSession.handover_prospect.tutor_remark ? (
                 <p className="mt-1 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {detailedSession.handover_prospect.tutor_remark}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
+                  No handover notes were left.
                 </p>
               )}
               <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">

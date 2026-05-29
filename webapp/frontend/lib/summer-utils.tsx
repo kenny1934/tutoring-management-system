@@ -145,6 +145,20 @@ export function formatShortDate(dateStr: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+/** Build a prospect code like "MCP-1023" from a branch + primary student id.
+ *  Strips a duplicate leading branch prefix so a raw id of "MCP1023" doesn't
+ *  render as "MCP-MCP1023". Falls back to just the branch when no id exists. */
+export function formatProspectCode(
+  sourceBranch: string,
+  primaryStudentId?: string | null,
+): string {
+  const raw = primaryStudentId ?? "";
+  const stripped = raw.startsWith(sourceBranch)
+    ? raw.slice(sourceBranch.length)
+    : raw;
+  return stripped ? `${sourceBranch}-${stripped}` : sourceBranch;
+}
+
 /** Format a date string like "2025-07-05" to localized display. */
 export function formatDate(dateStr: string, lang: Lang): string {
   const d = new Date(dateStr + "T00:00:00");

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BRANCH_INFO } from "@/lib/summer-utils";
+import { BRANCH_INFO, formatProspectCode } from "@/lib/summer-utils";
 import type { SummerApplication } from "@/types";
 
 type LinkedStudent = NonNullable<SummerApplication["linked_student"]>;
@@ -50,15 +50,7 @@ function ProspectChip({
   asFrom?: boolean;
   onProspectClick?: (prospectId: number) => void;
 }) {
-  const raw = prospect.primary_student_id;
-  const stripped = raw
-    ? raw.startsWith(prospect.source_branch)
-      ? raw.slice(prospect.source_branch.length)
-      : raw
-    : "";
-  const code = stripped
-    ? `${prospect.source_branch}-${stripped}`
-    : prospect.source_branch;
+  const code = formatProspectCode(prospect.source_branch, prospect.primary_student_id);
   const chipClass = cn(
     "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded transition-opacity hover:opacity-80",
     BRANCH_INFO[prospect.source_branch]?.badge ||

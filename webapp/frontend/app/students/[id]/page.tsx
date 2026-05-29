@@ -29,6 +29,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
+import { formatProspectCode } from "@/lib/summer-utils";
 import { getToday } from "@/lib/calendar-utils";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -1455,8 +1456,6 @@ function HandoverFromP6Card({ prospect }: { prospect: HandoverProspect }) {
     { label: "Preferred time", value: prospect.preferred_time_note },
   ].filter(s => s.value && s.value.trim().length > 0);
 
-  if (sections.length === 0) return null;
-
   return (
     <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg">
       <button
@@ -1468,9 +1467,14 @@ function HandoverFromP6Card({ prospect }: { prospect: HandoverProspect }) {
         <h3 className="text-sm font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">
           Handover from P6
         </h3>
-        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-medium">
-          {prospect.source_branch}
+        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-medium shrink-0">
+          {formatProspectCode(prospect.source_branch, prospect.primary_student_id)}
         </span>
+        {prospect.student_name && (
+          <span className="text-xs font-semibold text-amber-900 dark:text-amber-100 truncate">
+            {prospect.student_name}
+          </span>
+        )}
         <span className="text-xs text-gray-600 dark:text-gray-400 ml-1 truncate">
           {prospect.tutor_name && `by ${prospect.tutor_name}`}
           {prospect.submitted_at && ` · ${formatShortDate(prospect.submitted_at)}`}
@@ -1482,16 +1486,22 @@ function HandoverFromP6Card({ prospect }: { prospect: HandoverProspect }) {
       </button>
       {!collapsed && (
         <div className="px-4 pb-3 space-y-3">
-          {sections.map(s => (
-            <div key={s.label}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 mb-0.5">
-                {s.label}
-              </p>
-              <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                {s.value}
-              </p>
-            </div>
-          ))}
+          {sections.length > 0 ? (
+            sections.map(s => (
+              <div key={s.label}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 mb-0.5">
+                  {s.label}
+                </p>
+                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                  {s.value}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm italic text-gray-500 dark:text-gray-400">
+              No handover notes were left for this student.
+            </p>
+          )}
         </div>
       )}
     </div>
