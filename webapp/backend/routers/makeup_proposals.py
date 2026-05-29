@@ -501,15 +501,21 @@ async def approve_slot(
     if not original_session:
         raise HTTPException(status_code=404, detail="Original session not found")
 
-    # Validate: not a holiday
-    holiday = db.query(Holiday).filter(
-        Holiday.holiday_date == slot.proposed_date
-    ).first()
-    if holiday:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
-        )
+    # Validate: not a holiday (Admin / Super Admin can override — either the
+    # approver or the admin who created the proposal can authorize a holiday slot)
+    proposer_is_admin = bool(
+        proposal.proposed_by_tutor
+        and proposal.proposed_by_tutor.role in ['Admin', 'Super Admin']
+    )
+    if not (is_admin or proposer_is_admin):
+        holiday = db.query(Holiday).filter(
+            Holiday.holiday_date == slot.proposed_date
+        ).first()
+        if holiday:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
+            )
 
     # Validate: enrollment deadline - ONLY for regular slot
     # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)

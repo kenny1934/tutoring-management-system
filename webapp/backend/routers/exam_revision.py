@@ -14,7 +14,7 @@ from typing import List, Optional
 from datetime import date, datetime
 from database import get_db
 from models import (
-    ExamRevisionSlot, CalendarEvent, SessionLog, Student, Tutor, Enrollment
+    ExamRevisionSlot, CalendarEvent, SessionLog, Student, Tutor, Enrollment, Holiday
 )
 from schemas import (
     ExamRevisionSlotCreate,
@@ -381,6 +381,18 @@ async def create_revision_slot(
     tutor = db.query(Tutor).filter(Tutor.id == request.tutor_id).first()
     if not tutor:
         raise HTTPException(status_code=404, detail=f"Tutor with ID {request.tutor_id} not found")
+
+    # Holiday check — only Admin / Super Admin can create a revision slot on a holiday
+    is_admin = current_user.role in ("Super Admin", "Admin")
+    if not is_admin:
+        holiday = db.query(Holiday).filter(
+            Holiday.holiday_date == request.session_date
+        ).first()
+        if holiday:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
+            )
 
     # Check for duplicate slot
     existing = db.query(ExamRevisionSlot).filter(
@@ -1044,10 +1056,14 @@ async def enroll_student(
         raise HTTPException(status_code=404, detail=f"Student with ID {request.student_id} not found")
 
     # Shared validation: 60-day window, holiday, enrollment deadline, student conflict
+    # Note: holiday is intentionally NOT re-checked here. Whether a slot may fall
+    # on a holiday is decided (admin-gated) when the slot is created, so once the
+    # slot exists it is freely fillable regardless of the enroller's role.
     validate_makeup_constraints(
         db, request.student_id, consume_session,
         slot.session_date, slot.time_slot, slot.location,
         is_super_admin=current_user.role == "Super Admin",
+        is_admin=True,  # holiday already authorized at slot creation
         exclude_session_id=request.consume_session_id,
     )
 

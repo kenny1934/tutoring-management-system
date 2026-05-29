@@ -3,10 +3,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { toDateString, getDayName, isTimeRangeValid } from "@/lib/calendar-utils";
-import { useActiveTutors, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useLocations, useHolidays } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
 import type { ExamWithRevisionSlots, SlotDefaults } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -19,6 +20,7 @@ import {
   User,
   FileText,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 interface CreateRevisionSlotModalProps {
@@ -44,6 +46,8 @@ export function CreateRevisionSlotModal({
   const { data: tutors = [] } = useActiveTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
+  // Admins (Admin / Super Admin) can override the holiday block to create a slot on a holiday
+  const { isAdmin } = useAuth();
 
   // Form state - Default to 2 days before exam or today, whichever is later
   const [sessionDate, setSessionDate] = useState<string>(() => {
@@ -54,6 +58,13 @@ export function CreateRevisionSlotModal({
     today.setHours(0, 0, 0, 0);
     return toDateString(twoDaysBefore < today ? today : twoDaysBefore);
   });
+
+  // Holiday detection for the selected date (single-day lookup)
+  const { data: holidaysOnDate = [] } = useHolidays(sessionDate, sessionDate);
+  const holidayOnDate = useMemo(
+    () => holidaysOnDate.find((h) => h.holiday_date === sessionDate) || null,
+    [holidaysOnDate, sessionDate]
+  );
 
   // Time slot state
   const [useCustomTime, setUseCustomTime] = useState(false);
@@ -219,6 +230,29 @@ export function CreateRevisionSlotModal({
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Exam date: {new Date(exam.start_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             </p>
+
+            {/* Holiday warning — admins can override, others are blocked */}
+            {holidayOnDate && isAdmin && (
+              <div role="alert" className="mt-2 p-3 border rounded-lg bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+                  <p className="text-xs text-orange-700 dark:text-orange-300">
+                    <span className="font-medium">Admin Override:</span> {sessionDate} is a holiday{holidayOnDate.holiday_name ? ` (${holidayOnDate.holiday_name})` : ""}.
+                    You can proceed as an admin, but confirm the slot will actually run that day.
+                  </p>
+                </div>
+              </div>
+            )}
+            {holidayOnDate && !isAdmin && (
+              <div role="alert" className="mt-2 p-3 border rounded-lg bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    {sessionDate} is a holiday{holidayOnDate.holiday_name ? ` (${holidayOnDate.holiday_name})` : ""}. Revision slots can't be created on a holiday.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Time Slot */}
@@ -388,7 +422,7 @@ export function CreateRevisionSlotModal({
             </button>
             <button
               type="submit"
-              disabled={readOnly || isSubmitting || !isTimeValid}
+              disabled={readOnly || isSubmitting || !isTimeValid || (!!holidayOnDate && !isAdmin)}
               title={readOnly ? "Read-only access" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
