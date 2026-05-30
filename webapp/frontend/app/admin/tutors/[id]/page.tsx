@@ -10,12 +10,13 @@ import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle } from "@/lib/hooks";
-import { tutorsAPI, revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
+import { usePageTitle, useTutor } from "@/lib/hooks";
+import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { getWeekBounds, toDateString, getDayName, getMonthName } from "@/lib/calendar-utils";
 import {
   ArrowLeft,
   Pencil,
@@ -32,38 +33,28 @@ function currentPeriod(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
-}
-
+// The week containing today, as YYYY-MM-DD strings for the API. Uses the app's
+// shared week convention so "this week" matches the rest of the UI.
 function currentWeekRange(): { from: string; to: string } {
-  const d = new Date();
-  const day = d.getDay(); // 0 = Sun .. 6 = Sat
-  const diffToMon = day === 0 ? -6 : 1 - day;
-  const mon = new Date(d);
-  mon.setDate(d.getDate() + diffToMon);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  return { from: fmtDate(mon), to: fmtDate(sun) };
+  const { start, end } = getWeekBounds(new Date());
+  return { from: toDateString(start), to: toDateString(end) };
 }
 
+// Match the revenue page's money convention (MOP, 2dp) so the same figures read
+// consistently across the app.
 function fmtMoney(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
-  return new Intl.NumberFormat("en-HK", {
-    style: "currency",
-    currency: "HKD",
-    maximumFractionDigits: 0,
-  }).format(n);
+  return `MOP ${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const PERIOD_LABEL = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  year: "numeric",
-}).format(new Date());
+const now = new Date();
+const PERIOD_LABEL = `${getMonthName(now)} ${now.getFullYear()}`;
+// A tutor's salary (basic + this month's bonus) is paid the following month.
+const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+const NEXT_PERIOD_LABEL = `${getMonthName(nextMonth)} ${nextMonth.getFullYear()}`;
 
 // --- small presentational pieces -------------------------------------------
 function Card({
@@ -80,7 +71,7 @@ function Card({
   return (
     <div className="rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">
+        <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wide text-foreground/50">
           {icon}
           {title}
         </h2>
@@ -100,6 +91,36 @@ function GlanceRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+// Renders a capped list with a "Show all / Show less" toggle so long rosters and
+// schedules don't make the page unwieldy.
+function ExpandableList<T>({
+  items,
+  initial = 6,
+  renderItem,
+}: {
+  items: T[];
+  initial?: number;
+  renderItem: (item: T) => React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? items : items.slice(0, initial);
+  return (
+    <>
+      <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
+        {shown.map(renderItem)}
+      </ul>
+      {items.length > initial && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 w-full rounded-lg py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+        >
+          {expanded ? "Show less" : `Show all ${items.length}`}
+        </button>
+      )}
+    </>
+  );
+}
+
 function TutorProfileInner() {
   const params = useParams();
   const router = useRouter();
@@ -110,14 +131,8 @@ function TutorProfileInner() {
   const period = currentPeriod();
   const week = useMemo(() => currentWeekRange(), []);
 
-  const {
-    data: tutor,
-    isLoading: tutorLoading,
-    mutate: mutateTutor,
-  } = useSWR(
-    Number.isFinite(tutorId) ? ["tutor", tutorId] : null,
-    () => tutorsAPI.getById(tutorId)
-  );
+  const { data: tutor, isLoading: tutorLoading, mutate: mutateTutor } =
+    useTutor(tutorId);
 
   usePageTitle(tutor ? tutor.tutor_name : "Tutor");
 
@@ -177,14 +192,15 @@ function TutorProfileInner() {
     : undefined;
   // basic_salary is only present in the API payload for admin-level roles.
   const canSeeCompensation = tutor.basic_salary !== undefined;
+  const basicPay = Number(tutor.basic_salary ?? 0);
 
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
-        {/* Back link */}
+        {/* Back link — chip so it stays legible on the desk texture */}
         <Link
           href="/admin/tutors"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground/60 hover:text-foreground mb-4"
+          className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
         >
           <ArrowLeft className="h-4 w-4" />
           All tutors
@@ -286,20 +302,61 @@ function TutorProfileInner() {
 
             {canSeeCompensation && (
               <Card title="Compensation" icon={<Wallet className="h-3.5 w-3.5" />}>
-                <p className="text-xs text-foreground/45 -mt-2 mb-2">{PERIOD_LABEL}</p>
-                <GlanceRow label="Basic salary" value={fmtMoney(tutor.basic_salary)} />
-                <GlanceRow label="Session revenue" value={fmtMoney(comp?.session_revenue)} />
-                <GlanceRow label="Bonus" value={fmtMoney(comp?.monthly_bonus)} />
-                <div className="mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  <GlanceRow
-                    label="Total this month"
-                    value={
-                      <span className="text-base font-bold text-foreground">
-                        {fmtMoney(comp?.total_salary ?? tutor.basic_salary)}
+                {/* Salary = basic + this month's bonus, paid the following month */}
+                <span className="text-sm text-foreground/55">
+                  Salary for {NEXT_PERIOD_LABEL}
+                </span>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                  {fmtMoney(comp?.total_salary ?? basicPay)}
+                </p>
+                <p className="text-[11px] text-foreground/40">
+                  Based on {PERIOD_LABEL}, paid the following month.
+                </p>
+
+                <div className="mt-3 space-y-2.5">
+                  {/* Basic */}
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm text-foreground/55">Basic</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {fmtMoney(tutor.basic_salary)}
+                    </span>
+                  </div>
+
+                  {/* Bonus, with the session revenue that drives it as its caption */}
+                  <div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm text-foreground/55">Bonus</span>
+                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        {fmtMoney(comp?.monthly_bonus)}
                       </span>
-                    }
-                  />
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-foreground/40">
+                      {comp
+                        ? `On ${fmtMoney(comp.session_revenue)} session revenue`
+                        : "From this month's session revenue"}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Bonus tiers */}
+                <details className="mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <summary className="text-xs text-foreground/55 cursor-pointer hover:text-foreground">
+                    How the bonus is calculated
+                  </summary>
+                  <div className="mt-2 text-[11px] text-foreground/55 pl-3">
+                    <p className="mb-1 text-foreground/40">
+                      Each revenue band is paid at its own rate:
+                    </p>
+                    <div className="space-y-0.5">
+                      {BONUS_TIERS.map(([range, pct]) => (
+                        <div key={range} className="flex justify-between gap-3">
+                          <span>{range}</span>
+                          <span className="font-medium">{pct}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </details>
               </Card>
             )}
           </div>
@@ -317,8 +374,9 @@ function TutorProfileInner() {
                   No active students.
                 </p>
               ) : (
-                <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
-                  {roster.map((e) => (
+                <ExpandableList
+                  items={roster}
+                  renderItem={(e) => (
                     <li key={e.id}>
                       <Link
                         href={`/students/${e.student_id}`}
@@ -342,8 +400,8 @@ function TutorProfileInner() {
                         </span>
                       </Link>
                     </li>
-                  ))}
-                </ul>
+                  )}
+                />
               )}
             </Card>
 
@@ -358,14 +416,15 @@ function TutorProfileInner() {
                   No sessions scheduled this week.
                 </p>
               ) : (
-                <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
-                  {sortedSchedule.map((s) => {
+                <ExpandableList
+                  items={sortedSchedule}
+                  initial={8}
+                  renderItem={(s) => {
                     const cfg = getSessionStatusConfig(s.session_status);
-                    const dow = WEEKDAY[new Date(s.session_date).getDay()];
                     return (
                       <li key={s.id} className="flex items-center gap-3 py-2.5">
                         <span className="text-xs text-foreground/50 w-14 flex-shrink-0">
-                          {dow} {s.session_date.slice(5)}
+                          {getDayName(new Date(s.session_date + "T00:00:00"))} {s.session_date.slice(5)}
                         </span>
                         <span className="text-xs font-medium text-foreground/70 w-28 flex-shrink-0 truncate">
                           {s.time_slot}
@@ -384,8 +443,8 @@ function TutorProfileInner() {
                         </span>
                       </li>
                     );
-                  })}
-                </ul>
+                  }}
+                />
               )}
             </Card>
           </div>

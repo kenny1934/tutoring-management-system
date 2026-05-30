@@ -144,6 +144,16 @@ export function useTutors() {
 }
 
 /**
+ * Hook for fetching a single tutor by id (admin-level roles also get compensation).
+ */
+export function useTutor(id: number | null | undefined) {
+  return useSWR<Tutor>(
+    id != null && Number.isFinite(id) ? ['tutor', id] : null,
+    () => tutorsAPI.getById(id as number)
+  );
+}
+
+/**
  * Hook for fetching only active tutors (those who teach students)
  * Filters out Supervisors and non-teaching admin staff
  */

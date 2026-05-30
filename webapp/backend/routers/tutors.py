@@ -20,6 +20,17 @@ from auth.dependencies import (
 router = APIRouter()
 
 
+def _serialize_tutor(tutor: Tutor, effective_role: str):
+    """Pick the response shape for a tutor based on the viewer's role.
+
+    Admin-level roles (Super Admin, Admin, Supervisor) get the full record
+    including ``basic_salary``; everyone else gets the reduced record.
+    """
+    if can_view_admin_data(effective_role):
+        return TutorResponse.model_validate(tutor)
+    return TutorResponsePublic.model_validate(tutor)
+
+
 @router.get(
     "/tutors",
     response_model=List[Union[TutorResponse, TutorResponsePublic]],
@@ -45,9 +56,7 @@ def get_tutors(
     tutors = db.query(Tutor).order_by(Tutor.tutor_name).limit(100).all()
 
     effective_role = get_effective_role(request, current_user)
-    if can_view_admin_data(effective_role):
-        return [TutorResponse.model_validate(t) for t in tutors]
-    return [TutorResponsePublic.model_validate(t) for t in tutors]
+    return [_serialize_tutor(t, effective_role) for t in tutors]
 
 
 @router.get(
@@ -71,9 +80,7 @@ def get_tutor(
         raise HTTPException(status_code=404, detail=f"Tutor {tutor_id} not found")
 
     effective_role = get_effective_role(request, current_user)
-    if can_view_admin_data(effective_role):
-        return TutorResponse.model_validate(tutor)
-    return TutorResponsePublic.model_validate(tutor)
+    return _serialize_tutor(tutor, effective_role)
 
 
 @router.put("/tutors/{tutor_id}", response_model=TutorResponse)

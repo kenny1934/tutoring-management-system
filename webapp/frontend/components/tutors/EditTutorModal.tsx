@@ -42,7 +42,11 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
   // Build the location options, making sure the tutor's current value is present
   // even if it isn't in the active-locations list.
   const locationOptions = (() => {
-    const opts = [...(locations ?? [])].filter((l) => l && l !== "All Locations");
+    // Exclude the "All Locations" sentinel and the "Various" placeholder, matching
+    // how locations are filtered elsewhere (e.g. the sidebar selector).
+    const opts = [...(locations ?? [])].filter(
+      (l) => l && l !== "All Locations" && l !== "Various"
+    );
     if (tutor.default_location && !opts.includes(tutor.default_location)) {
       opts.unshift(tutor.default_location);
     }

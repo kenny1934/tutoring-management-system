@@ -2,6 +2,17 @@
  * Shared constants used across the application
  */
 
+// Marginal monthly bonus schedule by session revenue. Each band is paid at its
+// own rate. Source of truth: calculate_monthly_bonus() in
+// backend/routers/revenue.py. Keep in sync.
+export const BONUS_TIERS: [string, string][] = [
+  ["Up to 50,000", "0%"],
+  ["50,000 to 80,000", "5%"],
+  ["80,000 to 90,000", "10%"],
+  ["90,000 to 120,000", "25%"],
+  ["Above 120,000", "30%"],
+];
+
 // Day names for calendar views
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 

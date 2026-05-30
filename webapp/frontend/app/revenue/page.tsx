@@ -13,8 +13,10 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { RevenueMatrix } from "@/components/revenue/RevenueMatrix";
 import { sessionsAPI } from "@/lib/api";
-import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot, LayoutGrid, List } from "lucide-react";
+import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot, LayoutGrid, List, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip } from "@/components/ui/tooltip";
+import { BONUS_TIERS } from "@/lib/constants";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { Session } from "@/types";
@@ -517,7 +519,7 @@ export default function RevenuePage() {
                   {/* Basic Salary (only shown for Tutor role) */}
                   {showSalary && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 tracking-wide">
                         Basic Salary
                       </p>
                       <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -529,10 +531,29 @@ export default function RevenuePage() {
                   {/* Monthly Bonus - Highlighted (only shown for Tutor role) */}
                   {showSalary && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                      <div className="text-xs text-amber-600 dark:text-amber-400 tracking-wide flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
                         Monthly Bonus
-                      </p>
+                        <Tooltip
+                          side="top"
+                          content={
+                            <div className="normal-case">
+                              <p className="font-semibold mb-1">Bonus by session revenue</p>
+                              <p className="opacity-80 mb-1.5">Each band is paid at its own rate.</p>
+                              <div className="space-y-0.5">
+                                {BONUS_TIERS.map(([range, pct]) => (
+                                  <div key={range} className="flex justify-between gap-4">
+                                    <span>{range}</span>
+                                    <span className="font-medium">{pct}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          }
+                        >
+                          <Info className="h-3 w-3 cursor-help opacity-60 hover:opacity-100" />
+                        </Tooltip>
+                      </div>
                       <p className="text-xl font-semibold text-amber-700 dark:text-amber-300">
                         {formatCurrency(summary.monthly_bonus)}
                       </p>
@@ -541,7 +562,7 @@ export default function RevenuePage() {
 
                   {/* Session Revenue */}
                   <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 tracking-wide">
                       Session Revenue
                     </p>
                     <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -551,7 +572,7 @@ export default function RevenuePage() {
 
                   {/* Sessions Count */}
                   <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 tracking-wide">
                       Sessions
                     </p>
                     <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -575,7 +596,7 @@ export default function RevenuePage() {
               !isMobile && "paper-texture"
             )}>
               <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-wide">
                   Session Details
                 </h3>
               </div>
