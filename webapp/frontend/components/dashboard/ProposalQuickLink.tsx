@@ -116,7 +116,7 @@ function CompactSlotItem({
           </div>
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
             <User className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate"><TutorLink tutorId={slot.proposed_tutor_id} tutorName={slot.proposed_tutor_name} /></span>
+            <TutorLink tutorId={slot.proposed_tutor_id} tutorName={slot.proposed_tutor_name} className="truncate" />
             {isTargetTutor && (
               <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
                 You

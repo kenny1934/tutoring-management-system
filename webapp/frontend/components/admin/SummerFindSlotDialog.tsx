@@ -287,7 +287,7 @@ export function SummerFindSlotDialog({
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {result.tutor_name && (
-                                <span className="text-[10px] text-muted-foreground"><TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} /></span>
+                                <TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} className="text-[10px] text-muted-foreground" />
                               )}
                               <div className="flex-1 h-1 bg-[#e8d4b8]/30 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div

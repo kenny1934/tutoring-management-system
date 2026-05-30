@@ -93,7 +93,7 @@ function ScheduledTrialCard({
 
           <div className="flex items-center gap-1.5 text-xs text-foreground/60 mt-0.5">
             <User className="h-3 w-3 flex-shrink-0" />
-            <span><TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} /></span>
+            <TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
             <span className="text-foreground/30">•</span>
             <MapPin className="h-3 w-3 flex-shrink-0" />
             <span>{trial.location}</span>
@@ -156,7 +156,7 @@ function AwaitingTrialCard({
 
       <div className="flex items-center gap-1.5 text-xs text-foreground/60 mt-0.5">
         <User className="h-3 w-3 flex-shrink-0" />
-        <span><TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} /></span>
+        <TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
         <span className="text-foreground/30">•</span>
         <MapPin className="h-3 w-3 flex-shrink-0" />
         <span>{trial.location}</span>
