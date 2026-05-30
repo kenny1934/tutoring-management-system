@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -28,7 +28,10 @@ import {
   Wallet,
   BarChart3,
   ArrowRight,
+  GraduationCap,
+  Clock,
 } from "lucide-react";
+import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 
 // --- date helpers (client-side) --------------------------------------------
 function currentPeriod(): string {
@@ -85,33 +88,57 @@ function Card({
   );
 }
 
-// Renders a capped list with a "Show all / Show less" toggle so long rosters and
-// schedules don't make the page unwieldy.
-function ExpandableList<T>({
+// Renders a list capped to a fixed height that scrolls internally (on every
+// breakpoint) so a long roster/schedule never balloons the page and the
+// two-column layout stays aligned. A bottom fade hints there's more to scroll
+// and hides once you reach the end.
+function ScrollList<T>({
   items,
-  initial = 6,
   renderItem,
+  maxHeightClass = "max-h-80",
 }: {
   items: T[];
-  initial?: number;
   renderItem: (item: T) => React.ReactNode;
+  maxHeightClass?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? items : items.slice(0, initial);
+  const ref = useRef<HTMLUListElement>(null);
+  const [showFade, setShowFade] = useState(false);
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const overflowing = el.scrollHeight > el.clientHeight + 1;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+    setShowFade(overflowing && !atBottom);
+  }, []);
+
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (!el) return;
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [update, items]);
+
   return (
-    <>
-      <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
-        {shown.map(renderItem)}
+    <div className="relative">
+      <ul
+        ref={ref}
+        className={cn(
+          "divide-y divide-[#efe4d2] dark:divide-[#3a3022] overflow-y-auto overscroll-contain pr-1",
+          maxHeightClass
+        )}
+      >
+        {items.map(renderItem)}
       </ul>
-      {items.length > initial && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-2 w-full rounded-lg py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-        >
-          {expanded ? "Show less" : `Show all ${items.length}`}
-        </button>
+      {showFade && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#faf8f5] to-transparent dark:from-[#1a1a1a]" />
       )}
-    </>
+    </div>
   );
 }
 
@@ -151,6 +178,20 @@ function TutorProfileInner() {
       return d !== 0 ? d : (a.time_slot || "").localeCompare(b.time_slot || "");
     });
   }, [weekSessions]);
+
+  // Roster sorted by school student id (numeric when possible). Missing ids
+  // sort last so they don't lead the list.
+  const sortedRoster = useMemo(() => {
+    return [...(roster ?? [])].sort((a, b) => {
+      const av = a.school_student_id ?? "";
+      const bv = b.school_student_id ?? "";
+      if (!av || !bv) return av ? -1 : bv ? 1 : 0;
+      const an = Number(av);
+      const bn = Number(bv);
+      if (!Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
+      return av.localeCompare(bv);
+    });
+  }, [roster]);
 
   if (tutorLoading) {
     return (
@@ -372,33 +413,71 @@ function TutorProfileInner() {
                   No active students.
                 </p>
               ) : (
-                <ExpandableList
-                  items={roster}
-                  renderItem={(e) => (
-                    <li key={e.id}>
-                      <Link
-                        href={`/students/${e.student_id}`}
-                        className="flex items-center gap-3 py-2.5 -mx-1 px-1 rounded-lg hover:bg-foreground/5 transition-colors"
-                      >
-                        <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
-                          {e.student_name || `Student #${e.student_id}`}
-                        </span>
-                        {e.grade && (
-                          <span
-                            className={cn(
-                              "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-                              getGradeColor(e.grade, e.lang_stream)
+                <ScrollList
+                  items={sortedRoster}
+                  renderItem={(e) => {
+                    const payStatus = getDisplayPaymentStatus(e);
+                    const payCfg = getPaymentStatusConfig(payStatus);
+                    const schedule = [e.assigned_day, e.assigned_time].filter(Boolean).join(" ");
+                    return (
+                      <li key={e.id}>
+                        <Link
+                          href={`/students/${e.student_id}`}
+                          className="block py-2.5 -mx-1 px-1 rounded-lg hover:bg-foreground/5 transition-colors"
+                        >
+                          {/* Line 1: id · name · grade · payment */}
+                          <div className="flex items-center gap-2">
+                            {e.school_student_id && (
+                              <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
+                                {e.school_student_id}
+                              </span>
                             )}
-                          >
-                            {e.grade}
-                          </span>
-                        )}
-                        <span className="text-xs text-foreground/50 w-32 text-right truncate">
-                          {[e.assigned_day, e.assigned_time].filter(Boolean).join(" ") || "—"}
-                        </span>
-                      </Link>
-                    </li>
-                  )}
+                            <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
+                              {e.student_name || `Student #${e.student_id}`}
+                            </span>
+                            {e.grade && (
+                              <span
+                                className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
+                              >
+                                {e.grade}
+                                {e.lang_stream || ""}
+                              </span>
+                            )}
+                            {payStatus && (
+                              <span
+                                className={cn(
+                                  "flex-shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground/70",
+                                  payCfg.bgTint
+                                )}
+                                title={`Payment: ${payStatus}`}
+                              >
+                                <span className={cn("h-1.5 w-1.5 rounded-full", payCfg.bgClass)} />
+                                {payStatus}
+                              </span>
+                            )}
+                          </div>
+                          {/* Line 2: school · schedule */}
+                          {(e.school || schedule) && (
+                            <div className="mt-0.5 flex items-center gap-3 text-xs text-foreground/45">
+                              {e.school && (
+                                <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                                  <GraduationCap className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{e.school}</span>
+                                </span>
+                              )}
+                              {schedule && (
+                                <span className="inline-flex flex-shrink-0 items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {schedule}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  }}
                 />
               )}
             </Card>
@@ -414,9 +493,8 @@ function TutorProfileInner() {
                   No sessions scheduled this week.
                 </p>
               ) : (
-                <ExpandableList
+                <ScrollList
                   items={sortedSchedule}
-                  initial={8}
                   renderItem={(s) => {
                     const cfg = getSessionStatusConfig(s.session_status);
                     return (
