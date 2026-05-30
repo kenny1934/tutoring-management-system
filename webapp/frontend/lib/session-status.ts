@@ -81,6 +81,63 @@ export const getStatusSortOrder = (status: string | undefined): number => {
   return 99;
 };
 
+type SlotSortSession = {
+  grade?: string;
+  lang_stream?: string;
+  session_status?: string;
+  school?: string;
+  school_student_id?: string;
+};
+
+/**
+ * The dominant `${grade}${lang_stream}` group among a slot's *Scheduled*
+ * sessions (the "main group"). Returns '' when nothing dominates, which
+ * disables the main-group boost in compareSessionsInSlot. Mirrors the grouping
+ * used on the sessions page.
+ */
+export function getMainGradeGroup(sessions: SlotSortSession[]): string {
+  const counts = new Map<string, number>();
+  for (const s of sessions) {
+    if (s.session_status !== 'Scheduled') continue;
+    const key = `${s.grade || ''}${s.lang_stream || ''}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+
+/**
+ * Orders two sessions within a single time slot, matching the sessions page:
+ * trials first, then the slot's main grade group, then other active sessions,
+ * then make-ups, then the rest by status order. Ties break by school, then
+ * school student id. Pass the slot's main group from getMainGradeGroup ('' to
+ * disable the main-group boost).
+ */
+export function compareSessionsInSlot(
+  a: SlotSortSession,
+  b: SlotSortSession,
+  mainGroup: string
+): number {
+  const getPriority = (s: SlotSortSession) => {
+    const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
+    const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
+    const status = s.session_status || '';
+    if (status === 'Trial Class' || status === 'Attended (Trial)') return 0;
+    if (isMainGroup && (status === 'Scheduled' || status === 'Attended' || status === 'No Show')) return 1;
+    if (status === 'Scheduled' || status === 'Attended' || status === 'No Show') return 3;
+    if (status === 'Make-up Class' || status === 'Attended (Make-up)') return 5;
+    return 10 + getStatusSortOrder(status);
+  };
+  const priorityA = getPriority(a);
+  const priorityB = getPriority(b);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+  // Within the same priority (especially the main group), school then student id.
+  if (priorityA <= 2) {
+    const schoolCompare = (a.school || '').localeCompare(b.school || '');
+    if (schoolCompare !== 0) return schoolCompare;
+  }
+  return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+}
+
 /**
  * Returns the display status for a session, deriving special statuses like "Attended (Trial)"
  * when the session was originally a Trial Class but is now marked as Attended.

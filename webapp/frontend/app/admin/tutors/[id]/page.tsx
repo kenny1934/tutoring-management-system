@@ -14,11 +14,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useTutor } from "@/lib/hooks";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
-import { getSessionStatusConfig } from "@/lib/session-status";
+import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
 import { getGradeColor, BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { getWeekBounds, toDateString, getDayName, getMonthName } from "@/lib/calendar-utils";
+import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from "@/lib/calendar-utils";
 import { formatMOP } from "@/lib/formatters";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import type { Session } from "@/types";
 import {
   ArrowLeft,
   Pencil,
@@ -62,6 +64,34 @@ function currentWeekRange(): { from: string; to: string } {
 // the figures read consistently across the app.
 function fmtMoney(n: number | null | undefined): string {
   return n === null || n === undefined ? "—" : formatMOP(n);
+}
+
+// "Fri 30 May" — a day header label from a YYYY-MM-DD string, parsed in local
+// time so the date never slips across the timezone boundary.
+function dayHeaderLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${getDayName(d)} ${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}`;
+}
+
+// Counts that classify a session for the week tally / row emphasis.
+function isAttendedStatus(status: string): boolean {
+  return status.startsWith("Attended");
+}
+function isUpcomingStatus(status: string): boolean {
+  return status === "Scheduled" || status === "Trial Class" || status === "Make-up Class";
+}
+
+// Groups a day's already-ordered sessions into consecutive time-slot bands so
+// the UI can tint alternating slots.
+function groupSessionsBySlot(sessions: Session[]): { slot: string; sessions: Session[] }[] {
+  const bands: { slot: string; sessions: Session[] }[] = [];
+  for (const s of sessions) {
+    const slot = s.time_slot || "";
+    const last = bands[bands.length - 1];
+    if (last && last.slot === slot) last.sessions.push(s);
+    else bands.push({ slot, sessions: [s] });
+  }
+  return bands;
 }
 
 const now = new Date();
@@ -201,17 +231,74 @@ function TutorProfileInner() {
     () => enrollmentsAPI.getMyStudents(tutorId)
   );
 
-  const { data: weekSessions } = useSWR(
+  const { data: weekSessions, mutate: mutateWeek } = useSWR(
     Number.isFinite(tutorId) ? ["tutor-week", tutorId, week.from, week.to] : null,
     () => sessionsAPI.getAll({ tutor_id: tutorId, from_date: week.from, to_date: week.to })
   );
 
   const sortedSchedule = useMemo(() => {
-    return [...(weekSessions ?? [])].sort((a, b) => {
+    const list = weekSessions ?? [];
+    // The dominant grade group per day+slot drives the within-slot order.
+    const bySlot = new Map<string, Session[]>();
+    for (const s of list) {
+      const key = `${s.session_date}|${s.time_slot || ""}`;
+      const arr = bySlot.get(key) ?? [];
+      arr.push(s);
+      bySlot.set(key, arr);
+    }
+    const slotMainGroup = new Map<string, string>();
+    for (const [key, arr] of bySlot) slotMainGroup.set(key, getMainGradeGroup(arr));
+    return [...list].sort((a, b) => {
       const d = a.session_date.localeCompare(b.session_date);
-      return d !== 0 ? d : (a.time_slot || "").localeCompare(b.time_slot || "");
+      if (d !== 0) return d;
+      const t = (a.time_slot || "").split("-")[0].localeCompare((b.time_slot || "").split("-")[0]);
+      if (t !== 0) return t;
+      // Same day + slot: defer to the shared sessions-page convention.
+      const key = `${a.session_date}|${a.time_slot || ""}`;
+      return compareSessionsInSlot(a, b, slotMainGroup.get(key) ?? "");
     });
   }, [weekSessions]);
+
+  // Group the week's sessions by day for the agenda, flagging today / past days,
+  // and tally how many are done vs. still upcoming for the card header.
+  const weekAgenda = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const byDay = new Map<string, Session[]>();
+    for (const s of sortedSchedule) {
+      const arr = byDay.get(s.session_date) ?? [];
+      arr.push(s);
+      byDay.set(s.session_date, arr);
+    }
+    // sortedSchedule is date-ascending, so Map insertion order is chronological.
+    const groups = Array.from(byDay.entries()).map(([dateStr, sessions]) => {
+      const date = new Date(dateStr + "T00:00:00");
+      const isToday = isSameDay(date, today);
+      return { dateStr, isToday, isPast: date.getTime() < today.getTime() && !isToday, sessions };
+    });
+    let done = 0;
+    let upcoming = 0;
+    for (const s of sortedSchedule) {
+      if (isAttendedStatus(s.session_status)) done++;
+      else if (isUpcomingStatus(s.session_status)) upcoming++;
+    }
+    // Today-anchored order: today + upcoming days first (ascending, so the next
+    // session is near the top), then past days below, most-recent first.
+    const future = groups.filter((g) => !g.isPast);
+    const past = groups.filter((g) => g.isPast).reverse();
+    return { groups: [...future, ...past], done, upcoming };
+  }, [sortedSchedule]);
+
+  const weekTally = (() => {
+    const parts: string[] = [];
+    if (weekAgenda.done) parts.push(`${weekAgenda.done} done`);
+    if (weekAgenda.upcoming) parts.push(`${weekAgenda.upcoming} upcoming`);
+    return parts.length ? parts.join(" · ") : `${sortedSchedule.length} sessions`;
+  })();
+
+  // Session detail popover, opened from a row and anchored at the click point.
+  const [openSession, setOpenSession] = useState<Session | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
 
   // Faceted roster: the Quick Stats card is the clickable facet menu and the
   // roster list reflects the selection; search + sort are local list controls.
@@ -613,7 +700,7 @@ function TutorProfileInner() {
             </Card>
 
             <Card
-              title={`This week${sortedSchedule.length ? ` · ${sortedSchedule.length} sessions` : ""}`}
+              title={`This week${sortedSchedule.length ? ` · ${weekTally}` : ""}`}
               icon={<CalendarDays className="h-3.5 w-3.5" />}
             >
               {!weekSessions ? (
@@ -624,32 +711,102 @@ function TutorProfileInner() {
                 </p>
               ) : (
                 <ScrollList
-                  items={sortedSchedule}
-                  renderItem={(s) => {
-                    const cfg = getSessionStatusConfig(s.session_status);
-                    return (
-                      <li key={s.id} className="flex items-center gap-3 py-2.5">
-                        <span className="text-xs text-foreground/50 w-14 flex-shrink-0">
-                          {getDayName(new Date(s.session_date + "T00:00:00"))} {s.session_date.slice(5)}
-                        </span>
-                        <span className="text-xs font-medium text-foreground/70 w-28 flex-shrink-0 truncate">
-                          {s.time_slot}
-                        </span>
-                        <span className="flex-1 min-w-0 truncate text-sm text-foreground">
-                          {s.student_name || `Student #${s.student_id}`}
-                        </span>
+                  items={weekAgenda.groups}
+                  renderItem={(g) => (
+                    <li key={g.dateStr} className={cn("py-2", g.isPast && "opacity-55")}>
+                      {/* Day header — today is accented and pinned with a pill */}
+                      <div className="mb-1 flex items-center gap-2">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1.5 text-xs font-medium flex-shrink-0",
-                            cfg.textClass
+                            "text-[11px] font-semibold uppercase tracking-wide",
+                            g.isToday ? "text-amber-700 dark:text-amber-300" : "text-foreground/45"
                           )}
                         >
-                          <span className={cn("h-1.5 w-1.5 rounded-full", cfg.bgClass)} />
-                          {s.session_status}
+                          {dayHeaderLabel(g.dateStr)}
                         </span>
-                      </li>
-                    );
-                  }}
+                        {g.isToday && (
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                            Today
+                          </span>
+                        )}
+                        <span className="ml-auto text-[11px] text-foreground/35">
+                          {g.sessions.length}
+                        </span>
+                      </div>
+                      {/* Sessions for the day — fixed-width columns so time, grade,
+                          lesson and status line up across rows; click opens the
+                          session detail popover anchored at the cursor */}
+                      <div className="space-y-1">
+                        {groupSessionsBySlot(g.sessions).map((band, bandIdx) => (
+                          <div
+                            key={band.slot}
+                            className={cn(
+                              "rounded-lg",
+                              bandIdx % 2 === 1 && "bg-foreground/[0.035] dark:bg-white/[0.04]"
+                            )}
+                          >
+                            {band.sessions.map((s) => {
+                              const cfg = getSessionStatusConfig(s.session_status);
+                              const StatusIcon = cfg.Icon;
+                              return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={(ev) => {
+                                setPopoverPos({ x: ev.clientX, y: ev.clientY });
+                                setOpenSession(s);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5"
+                            >
+                              <span className="w-24 flex-shrink-0 whitespace-nowrap font-mono text-[11px] text-foreground/55">
+                                {s.time_slot}
+                              </span>
+                              <span className="w-9 flex-shrink-0">
+                                {s.grade && (
+                                  <span
+                                    className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                    style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
+                                  >
+                                    {s.grade}
+                                    {s.lang_stream || ""}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
+                                {s.lesson_number != null ? `L${s.lesson_number}` : ""}
+                              </span>
+                              {s.school_student_id && (
+                                <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
+                                  {s.school_student_id}
+                                </span>
+                              )}
+                              <span
+                                className={cn(
+                                  "min-w-0 flex-1 truncate text-sm text-foreground",
+                                  cfg.strikethrough && "text-foreground/45 line-through"
+                                )}
+                              >
+                                {s.student_name || `Student #${s.student_id}`}
+                              </span>
+                              <span
+                                className={cn(
+                                  "flex flex-shrink-0 items-center gap-1 text-xs font-medium",
+                                  cfg.textClass
+                                )}
+                              >
+                                <StatusIcon className={cn("h-3.5 w-3.5", cfg.iconClass)} />
+                                <span className="hidden whitespace-nowrap sm:inline">
+                                  {s.session_status}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </li>
+                  )}
                 />
               )}
             </Card>
@@ -663,6 +820,18 @@ function TutorProfileInner() {
           isOpen={editing}
           onClose={() => setEditing(false)}
           onSaved={(updated) => mutateTutor(updated, { revalidate: false })}
+        />
+      )}
+
+      {openSession && (
+        <SessionDetailPopover
+          session={openSession}
+          isOpen={!!openSession}
+          clickPosition={popoverPos}
+          onClose={() => {
+            setOpenSession(null);
+            mutateWeek();
+          }}
         />
       )}
     </DeskSurface>
