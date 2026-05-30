@@ -88,6 +88,7 @@ import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 const ProposalDetailModal = dynamic(
@@ -2280,7 +2281,7 @@ export default function SessionsPage() {
                                           </p>
                                           {session.tutor_name && (
                                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                                              {session.tutor_name}
+                                              <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                             </p>
                                           )}
                                         </div>
@@ -2619,7 +2620,7 @@ export default function SessionsPage() {
                                     </p>
                                     {session.tutor_name && (
                                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                                        {session.tutor_name}
+                                        <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </p>
                                     )}
                                     {/* Show proposal indicator if session has pending proposal */}

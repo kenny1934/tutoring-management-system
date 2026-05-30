@@ -15,6 +15,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import { TutorLink } from "@/components/tutors/TutorLink";
 
 // Column configuration
 const COLUMNS = [
@@ -127,7 +128,7 @@ const TrialCard = React.memo(function TrialCard({
         </div>
         <div className="flex items-center gap-2">
           <User className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>{trial.tutor_name}</span>
+          <TutorLink tutorId={trial.tutor_id} tutorName={trial.tutor_name} />
           <span className="text-foreground/50">•</span>
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span>{trial.location}</span>

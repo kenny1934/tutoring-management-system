@@ -29,6 +29,9 @@ export function ProgressRing({
   // Unique ID for the gradient (needed for SVG)
   const gradientId = `progress-ring-gradient-${size}`;
 
+  // Scale the center text to the ring so the digits don't crowd the track.
+  const isCompact = size <= 36;
+
   return (
     <div className={cn("relative inline-flex items-center justify-center", className)}>
       <svg
@@ -72,11 +75,21 @@ export function ProgressRing({
       </svg>
 
       {/* Center text */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span
+          className={cn(
+            "font-bold text-gray-900 dark:text-gray-100 leading-none",
+            isCompact ? "text-[11px]" : "text-sm"
+          )}
+        >
           {completed}
         </span>
-        <span className="text-[8px] font-medium text-gray-500 dark:text-gray-400 -mt-0.5">
+        <span
+          className={cn(
+            "font-medium text-gray-500 dark:text-gray-400 leading-none mt-px",
+            isCompact ? "text-[7px]" : "text-[8px]"
+          )}
+        >
           /{total}
         </span>
       </div>

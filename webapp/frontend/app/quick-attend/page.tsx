@@ -13,6 +13,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -43,10 +44,6 @@ const URGENCY_CONFIG: Record<string, { label: string; color: string; border: str
 };
 
 const URGENCY_ORDER = ["Critical", "High", "Medium", "Low"];
-
-// Strip honorific prefixes for tutor name sorting
-const getTutorSortName = (name: string): string =>
-  name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 // Sort sessions within a time group using DailyGridView priority logic
 // When groupByTutor is true, groups by tutor first (like TodaySessionsCard)

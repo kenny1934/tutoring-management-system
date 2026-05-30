@@ -2655,6 +2655,7 @@ export interface SummerFindSlotResult {
   slot_id: number;
   date: string;
   time_slot: string;
+  tutor_id?: number;
   tutor_name: string | null;
   current_count: number;
   max_students: number;

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, memo } from "react";
 import Link from "next/link";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { useSessions, useProposalsInDateRange, usePendingMemoCount } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
@@ -705,7 +706,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           {/* Tutor */}
           {session.tutor_name && (
             <span className="hidden sm:inline text-[10px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
-              {session.tutor_name}
+              <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
             </span>
           )}
         </div>
@@ -800,7 +801,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
         <div className="flex-shrink-0 flex items-center gap-2">
           {proposedSession.tutor_name && (
             <span className="text-[10px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
-              {proposedSession.tutor_name}
+              <TutorLink tutorId={proposedSession.tutor_id} tutorName={proposedSession.tutor_name} />
             </span>
           )}
         </div>

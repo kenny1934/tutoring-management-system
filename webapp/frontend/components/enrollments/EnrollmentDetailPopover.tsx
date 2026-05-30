@@ -24,6 +24,7 @@ import { getDisplayStatus } from "@/lib/session-status";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment } from "@/types";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Day options (short form)
@@ -626,7 +627,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 Tutor:
               </span>
               <span className="text-gray-900 dark:text-gray-100">
-                {enrollment.tutor_name}
+                <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name} />
               </span>
             </div>
           )}
@@ -666,7 +667,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                     </span>
                     {session.tutor_name && (
                       <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                        {session.tutor_name}
+                        <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                       </span>
                     )}
                   </div>

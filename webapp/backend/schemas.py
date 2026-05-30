@@ -2763,6 +2763,7 @@ class SummerFindSlotResult(BaseModel):
     slot_id: int
     date: date
     time_slot: str
+    tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     current_count: int
     max_students: int

@@ -19,6 +19,7 @@ import {
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "./contact-utils";
 import Link from "next/link";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { TutorLink } from "@/components/tutors/TutorLink";
 
 interface ContactDetailPanelProps {
   contact: ParentCommunication | null;
@@ -157,7 +158,7 @@ export function ContactDetailPanel({
                       </p>
                     )}
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      by {c.tutor_name}
+                      by <TutorLink tutorId={c.tutor_id} tutorName={c.tutor_name} />
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
@@ -372,7 +373,7 @@ export function ContactDetailPanel({
             </span>
           </div>
           <p className="pl-6 text-sm text-gray-900 dark:text-gray-100">
-            {contact.tutor_name}
+            <TutorLink tutorId={contact.tutor_id} tutorName={contact.tutor_name} />
           </p>
         </div>
 

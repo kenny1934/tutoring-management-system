@@ -18,6 +18,7 @@ import { sessionsAPI } from "@/lib/api";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { Loader2, Check, X, ClipboardList, AlertTriangle, CheckSquare, Square, Minus, CheckCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
@@ -611,7 +612,7 @@ export default function UncheckedAttendancePage() {
                                     </td>
                                     {viewMode === 'center-view' && (
                                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                                        {session.tutor_name}
+                                        <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </td>
                                     )}
                                     <td className="px-4 py-3">

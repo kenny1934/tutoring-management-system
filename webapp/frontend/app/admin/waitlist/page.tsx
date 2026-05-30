@@ -19,6 +19,7 @@ import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { WaitlistTimetable } from "@/components/admin/WaitlistTimetable";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
@@ -580,7 +581,7 @@ export default function AdminWaitlistPage() {
                                           {sp.day_of_week && <span>{sp.day_of_week}</span>}
                                           {sp.time_slot && <span>{sp.time_slot}</span>}
                                           {!sp.day_of_week && !sp.time_slot && !sp.preferred_tutor_name && <span>Any</span>}
-                                          {sp.preferred_tutor_name && <span className="text-foreground/40">· {sp.preferred_tutor_name}</span>}
+                                          {sp.preferred_tutor_name && <span className="text-foreground/40">· <TutorLink tutorId={sp.preferred_tutor_id} tutorName={sp.preferred_tutor_name} /></span>}
                                         </span>
                                       ))}
                                     </div>
@@ -1222,7 +1223,7 @@ function WaitlistRow({
                 {sp.day_of_week && <span>{sp.day_of_week}</span>}
                 {sp.time_slot && <span>{sp.time_slot}</span>}
                 {!sp.day_of_week && !sp.time_slot && !sp.preferred_tutor_name && <span>Any</span>}
-                {sp.preferred_tutor_name && <span className="text-foreground/40">· {sp.preferred_tutor_name}</span>}
+                {sp.preferred_tutor_name && <span className="text-foreground/40">· <TutorLink tutorId={sp.preferred_tutor_id} tutorName={sp.preferred_tutor_name} /></span>}
               </span>
             ))}
           </div>

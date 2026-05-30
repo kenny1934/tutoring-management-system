@@ -9,6 +9,7 @@ import { examRevisionAPI } from "@/lib/api";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { ExamRevisionSlot, EnrolledStudentInfo } from "@/types";
 import {
   Calendar,
@@ -129,7 +130,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
               <User className="h-4 w-4 text-gray-400" />
-              {slot.tutor_name || "Unknown"}
+              <TutorLink tutorId={slot.tutor_id} tutorName={slot.tutor_name} fallback="Unknown" />
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
               <MapPin className="h-4 w-4 text-gray-400" />

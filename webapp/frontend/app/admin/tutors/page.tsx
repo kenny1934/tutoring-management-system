@@ -11,6 +11,7 @@ import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
 import { Users, Search, MapPin } from "lucide-react";
 import type { Tutor, TutorRole } from "@/types";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 // Roles that represent teaching/admin staff we surface on this page. Supervisor
 // and Guest records stay editable only through the Super Admin debug panel.
@@ -48,7 +49,7 @@ function isActive(t: Tutor): boolean {
 function sortTutors(list: Tutor[]): Tutor[] {
   return [...list].sort((a, b) => {
     if (isActive(a) !== isActive(b)) return isActive(a) ? -1 : 1;
-    return a.tutor_name.localeCompare(b.tutor_name);
+    return getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
   });
 }
 
