@@ -561,7 +561,7 @@ function TutorProfileInner() {
                           href={`/students/${e.student_id}`}
                           className="block py-2.5 -mx-1 px-1 rounded-lg hover:bg-foreground/5 transition-colors"
                         >
-                          {/* Line 1: id · name · grade · payment */}
+                          {/* Line 1: id · name · payment */}
                           <div className="flex items-center gap-2">
                             {e.school_student_id && (
                               <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
@@ -571,15 +571,6 @@ function TutorProfileInner() {
                             <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
                               {e.student_name || `Student #${e.student_id}`}
                             </span>
-                            {e.grade && (
-                              <span
-                                className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
-                                style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
-                              >
-                                {e.grade}
-                                {e.lang_stream || ""}
-                              </span>
-                            )}
                             {payStatus && (
                               <span
                                 className={cn(
@@ -593,23 +584,38 @@ function TutorProfileInner() {
                               </span>
                             )}
                           </div>
-                          {/* Line 2: school · schedule */}
-                          {(e.school || schedule) && (
-                            <div className="mt-0.5 flex items-center gap-3 text-xs text-foreground/45">
+                          {/* Line 2: grade+lang chip · school · schedule —
+                              fixed-width columns so they line up vertically
+                              across rows */}
+                          <div className="mt-1 flex items-center gap-2 text-xs text-foreground/45">
+                            <span className="w-9 flex-shrink-0">
+                              {e.grade && (
+                                <span
+                                  className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                  style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
+                                >
+                                  {e.grade}
+                                  {e.lang_stream || ""}
+                                </span>
+                              )}
+                            </span>
+                            <span className="flex min-w-0 flex-1 items-center gap-1">
                               {e.school && (
-                                <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                                <>
                                   <GraduationCap className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{e.school}</span>
-                                </span>
+                                </>
                               )}
+                            </span>
+                            <span className="flex w-36 flex-shrink-0 items-center justify-end gap-1 whitespace-nowrap">
                               {schedule && (
-                                <span className="inline-flex flex-shrink-0 items-center gap-1">
-                                  <Clock className="h-3 w-3" />
+                                <>
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
                                   {schedule}
-                                </span>
+                                </>
                               )}
-                            </div>
-                          )}
+                            </span>
+                          </div>
                         </Link>
                       </li>
                     );
