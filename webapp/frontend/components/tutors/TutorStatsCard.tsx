@@ -8,6 +8,8 @@ import {
   normalizeGrade,
   normalizeStream,
   shortDay,
+  gradeIdx,
+  STREAM_ORDER,
   type RosterFacets,
   type StreamKey,
 } from "@/lib/tutor-roster";
@@ -25,8 +27,6 @@ const SEPIA = [
   "#a0522d",
 ];
 
-const GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6"];
-const STREAM_ORDER: Record<StreamKey, number> = { C: 0, E: 1, Other: 2 };
 const TOP_SCHOOLS = 4;
 
 // Timetable column order — Sunday first, matching the app's calendar convention.
@@ -90,7 +90,7 @@ export function TutorStatsCard({
   facets: RosterFacets;
   onToggle: (patch: Partial<RosterFacets>) => void;
 }) {
-  const { grades, schools, locations, schedule, total } = useMemo(() => {
+  const { grades, schools, locations, schedule, maxSchool, total } = useMemo(() => {
     const gradeCounts: Record<string, GradeSlice> = {};
     const schoolCounts: Record<string, number> = {};
     const locationCounts: Record<string, number> = {};
@@ -129,8 +129,7 @@ export function TutorStatsCard({
 
     const grades = Object.values(gradeCounts).sort(
       (a, b) =>
-        (GRADE_ORDER.indexOf(a.grade) === -1 ? 99 : GRADE_ORDER.indexOf(a.grade)) -
-          (GRADE_ORDER.indexOf(b.grade) === -1 ? 99 : GRADE_ORDER.indexOf(b.grade)) ||
+        gradeIdx(a.grade) - gradeIdx(b.grade) ||
         STREAM_ORDER[a.stream] - STREAM_ORDER[b.stream]
     );
 
@@ -162,14 +161,15 @@ export function TutorStatsCard({
       max: Math.max(0, ...Object.values(cellCounts)),
     };
 
-    return { grades, schools, locations, schedule, total: roster.length };
+    // Schools are sorted descending, so the leader's count is the bar scale.
+    const maxSchool = schools[0]?.value ?? 1;
+
+    return { grades, schools, locations, schedule, maxSchool, total: roster.length };
   }, [roster]);
 
   if (total === 0) {
     return <p className="py-2 text-sm text-foreground/40">No students match the current filter.</p>;
   }
-
-  const maxSchool = Math.max(...schools.map((s) => s.value), 1);
 
   return (
     <div className="space-y-4">

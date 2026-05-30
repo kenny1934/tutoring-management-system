@@ -17,6 +17,7 @@ import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, Trendin
 import { cn } from "@/lib/utils";
 import { Tooltip } from "@/components/ui/tooltip";
 import { BONUS_TIERS } from "@/lib/constants";
+import { formatMOP } from "@/lib/formatters";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { Session } from "@/types";
@@ -48,9 +49,9 @@ function getNextMonthDisplay(period: string): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// Format currency
+// Format currency (MOP, 2dp) via the shared formatter.
 function formatCurrency(amount: number): string {
-  return `MOP ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMOP(amount);
 }
 
 export default function RevenuePage() {

@@ -37,8 +37,10 @@ export const ROSTER_SORTS: { value: RosterSort; label: string }[] = [
   { value: "day_time", label: "Day & time" },
 ];
 
-const GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6"];
-const STREAM_ORDER: Record<StreamKey, number> = { C: 0, E: 1, Other: 2 };
+// Grade progression and C/E/Other ordering — the single source of truth for the
+// tutor roster feature (the stats card imports these rather than re-declaring).
+export const GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6"];
+export const STREAM_ORDER: Record<StreamKey, number> = { C: 0, E: 1, Other: 2 };
 
 export function normalizeStream(raw: string | null | undefined): StreamKey {
   const v = (raw ?? "").trim().toUpperCase();
@@ -50,7 +52,8 @@ export function normalizeGrade(raw: string | null | undefined): string {
   return (raw || "Other").toUpperCase();
 }
 
-function gradeIdx(grade: string | null | undefined): number {
+// Sort index for a grade; unknown grades sort last.
+export function gradeIdx(grade: string | null | undefined): number {
   const i = GRADE_ORDER.indexOf(normalizeGrade(grade));
   return i === -1 ? 99 : i;
 }
@@ -80,8 +83,9 @@ export function applyFacets(roster: Enrollment[], f: RosterFacets): Enrollment[]
 }
 
 /** Free-text match across name, school, student id and grade/stream. */
-export function matchesSearch(e: Enrollment, query: string): boolean {
-  const q = query.trim().toLowerCase();
+// `q` must already be trimmed + lowercased by the caller (normalize once, not
+// once per roster row).
+export function matchesSearch(e: Enrollment, q: string): boolean {
   if (!q) return true;
   return (
     (e.student_name || "").toLowerCase().includes(q) ||

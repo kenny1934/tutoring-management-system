@@ -5,6 +5,17 @@ export function plural(n: number, singular: string, pluralForm?: string): string
 }
 
 /**
+ * Format an amount as MOP currency.
+ * Example: formatMOP(28500) => "MOP 28,500.00"
+ */
+export function formatMOP(amount: number, fractionDigits = 2): string {
+  return `MOP ${amount.toLocaleString("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`;
+}
+
+/**
  * Format student display following CSM Pro pattern:
  * {location} {school_student_id} {student_name} {grade}{lang_stream} {school}
  *

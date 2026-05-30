@@ -18,6 +18,7 @@ import { getSessionStatusConfig } from "@/lib/session-status";
 import { getGradeColor, BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getWeekBounds, toDateString, getDayName, getMonthName } from "@/lib/calendar-utils";
+import { formatMOP } from "@/lib/formatters";
 import {
   ArrowLeft,
   Pencil,
@@ -57,14 +58,10 @@ function currentWeekRange(): { from: string; to: string } {
   return { from: toDateString(start), to: toDateString(end) };
 }
 
-// Match the revenue page's money convention (MOP, 2dp) so the same figures read
-// consistently across the app.
+// MOP money with a null/undefined → "—" guard, on the shared MOP formatter so
+// the figures read consistently across the app.
 function fmtMoney(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return `MOP ${n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return n === null || n === undefined ? "—" : formatMOP(n);
 }
 
 const now = new Date();
@@ -169,6 +166,16 @@ function FacetChip({ label, onClear }: { label: string; onClear: () => void }) {
   );
 }
 
+// Active-facet chips, in display order — maps each facet key to its chip label.
+const FACET_CHIPS: { key: keyof RosterFacets; label: (v: string) => string }[] = [
+  { key: "grade", label: (v) => `Grade ${v}` },
+  { key: "lang", label: (v) => `Lang ${v}` },
+  { key: "school", label: (v) => v },
+  { key: "location", label: (v) => v },
+  { key: "day", label: (v) => v },
+  { key: "time", label: (v) => v.split(" - ")[0] },
+];
+
 function TutorProfileInner() {
   const params = useParams();
   const router = useRouter();
@@ -218,13 +225,9 @@ function TutorProfileInner() {
     setFacets((cur) => {
       const keys = Object.keys(patch) as (keyof RosterFacets)[];
       const allMatch = keys.every((k) => cur[k] === patch[k]);
-      const next: RosterFacets = { ...cur };
-      const rec = next as Record<string, string | undefined>;
-      for (const k of keys) {
-        if (allMatch) delete rec[k];
-        else rec[k] = patch[k] as string | undefined;
-      }
-      return next;
+      const next = { ...cur };
+      keys.forEach((k) => delete next[k]); // clear the touched dimensions
+      return allMatch ? next : { ...next, ...patch }; // re-apply unless toggling off
     });
   }, []);
 
@@ -240,10 +243,10 @@ function TutorProfileInner() {
   // additionally applies the free-text search, then sorts.
   const hasFacets = Object.values(facets).some(Boolean);
   const facetRoster = useMemo(() => applyFacets(roster ?? [], facets), [roster, facets]);
-  const displayedRoster = useMemo(
-    () => sortRoster(facetRoster.filter((e) => matchesSearch(e, search)), sort),
-    [facetRoster, search, sort]
-  );
+  const displayedRoster = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return sortRoster(facetRoster.filter((e) => matchesSearch(e, q)), sort);
+  }, [facetRoster, search, sort]);
 
   if (tutorLoading) {
     return (
@@ -505,27 +508,12 @@ function TutorProfileInner() {
                       <span className="text-xs text-foreground/45">
                         {displayedRoster.length} of {roster.length}
                       </span>
-                      {facets.grade && (
-                        <FacetChip label={`Grade ${facets.grade}`} onClear={() => clearFacet("grade")} />
-                      )}
-                      {facets.lang && (
-                        <FacetChip label={`Lang ${facets.lang}`} onClear={() => clearFacet("lang")} />
-                      )}
-                      {facets.school && (
-                        <FacetChip label={facets.school} onClear={() => clearFacet("school")} />
-                      )}
-                      {facets.location && (
-                        <FacetChip label={facets.location} onClear={() => clearFacet("location")} />
-                      )}
-                      {facets.day && (
-                        <FacetChip label={facets.day} onClear={() => clearFacet("day")} />
-                      )}
-                      {facets.time && (
-                        <FacetChip
-                          label={facets.time.split(" - ")[0]}
-                          onClear={() => clearFacet("time")}
-                        />
-                      )}
+                      {FACET_CHIPS.map(({ key, label }) => {
+                        const v = facets[key];
+                        return v ? (
+                          <FacetChip key={key} label={label(v)} onClear={() => clearFacet(key)} />
+                        ) : null;
+                      })}
                       {hasFacets && (
                         <button
                           onClick={() => setFacets({})}
