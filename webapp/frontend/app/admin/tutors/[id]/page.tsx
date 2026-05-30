@@ -9,6 +9,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
+import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useTutor } from "@/lib/hooks";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
@@ -25,6 +26,8 @@ import {
   Users,
   CalendarDays,
   Wallet,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 
 // --- date helpers (client-side) --------------------------------------------
@@ -78,15 +81,6 @@ function Card({
         {action}
       </div>
       {children}
-    </div>
-  );
-}
-
-function GlanceRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="text-sm text-foreground/55">{label}</span>
-      <span className="text-sm font-medium text-foreground text-right">{value}</span>
     </div>
   );
 }
@@ -150,13 +144,6 @@ function TutorProfileInner() {
     Number.isFinite(tutorId) ? ["tutor-week", tutorId, week.from, week.to] : null,
     () => sessionsAPI.getAll({ tutor_id: tutorId, from_date: week.from, to_date: week.to })
   );
-
-  const locationsTaught = useMemo(() => {
-    const set = new Set<string>();
-    roster?.forEach((e) => e.location && set.add(e.location));
-    weekSessions?.forEach((s) => s.location && set.add(s.location));
-    return [...set].sort();
-  }, [roster, weekSessions]);
 
   const sortedSchedule = useMemo(() => {
     return [...(weekSessions ?? [])].sort((a, b) => {
@@ -289,15 +276,12 @@ function TutorProfileInner() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left rail */}
           <div className="space-y-4">
-            <Card title="At a glance">
-              <GlanceRow label="Role" value={tutor.role} />
-              <GlanceRow label="Default location" value={tutor.default_location || "—"} />
-              <GlanceRow
-                label="Locations taught"
-                value={locationsTaught.length ? locationsTaught.join(", ") : "—"}
-              />
-              <GlanceRow label="Active students" value={roster?.length ?? "—"} />
-              <GlanceRow label="Sessions this week" value={weekSessions?.length ?? "—"} />
+            <Card title="Quick stats" icon={<BarChart3 className="h-3.5 w-3.5" />}>
+              {!roster ? (
+                <p className="py-2 text-sm text-foreground/40">Loading…</p>
+              ) : (
+                <TutorStatsCard roster={roster} />
+              )}
             </Card>
 
             {canSeeCompensation && (
@@ -306,9 +290,13 @@ function TutorProfileInner() {
                 <span className="text-sm text-foreground/55">
                   Salary for {NEXT_PERIOD_LABEL}
                 </span>
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-                  {fmtMoney(comp?.total_salary ?? basicPay)}
-                </p>
+                {comp === undefined ? (
+                  <div className="my-1 h-7 w-36 animate-pulse rounded bg-foreground/10" />
+                ) : (
+                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                    {fmtMoney(comp.total_salary ?? basicPay)}
+                  </p>
+                )}
                 <p className="text-[11px] text-foreground/40">
                   Based on {PERIOD_LABEL}, paid the following month.
                 </p>
@@ -357,6 +345,16 @@ function TutorProfileInner() {
                     </div>
                   </div>
                 </details>
+
+                {isAdmin && (
+                  <Link
+                    href={`/revenue?view=detail&tutor=${tutorId}&period=${period}`}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:underline dark:text-amber-300"
+                  >
+                    View full breakdown
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
               </Card>
             )}
           </div>
