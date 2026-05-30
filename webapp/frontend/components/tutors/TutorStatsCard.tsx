@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { Enrollment } from "@/types";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -80,7 +80,10 @@ interface Slice {
   color: string;
 }
 
-export function TutorStatsCard({
+// Memoized: the page re-renders on every roster-search keystroke, but this
+// card's props (the facet-filtered roster, facets, and onToggle) are all
+// reference-stable while typing, so memo keeps the heatmap off the hot path.
+export const TutorStatsCard = memo(function TutorStatsCard({
   roster,
   facets,
   onToggle,
@@ -387,4 +390,4 @@ export function TutorStatsCard({
       )}
     </div>
   );
-}
+});

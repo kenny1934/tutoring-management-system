@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
@@ -186,7 +186,6 @@ const FACET_CHIPS: { key: keyof RosterFacets; label: (v: string) => string }[] =
 
 function TutorProfileInner() {
   const params = useParams();
-  const router = useRouter();
   const tutorId = Number(params?.id);
   const { isAdmin } = useAuth();
   const [editing, setEditing] = useState(false);
@@ -315,23 +314,28 @@ function TutorProfileInner() {
 
   if (tutorLoading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
-      </div>
+      <DeskSurface fullHeight>
+        <div className="flex h-full items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600" />
+        </div>
+      </DeskSurface>
     );
   }
 
   if (!tutor) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
-        <p>Tutor not found.</p>
-        <button
-          onClick={() => router.push("/admin/tutors")}
-          className="text-sm text-primary hover:underline"
-        >
-          Back to tutors
-        </button>
-      </div>
+      <DeskSurface fullHeight>
+        <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground/60">
+          <p>Tutor not found.</p>
+          <Link
+            href="/admin/tutors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All tutors
+          </Link>
+        </div>
+      </DeskSurface>
     );
   }
 
@@ -733,58 +737,58 @@ function TutorProfileInner() {
                               const cfg = getSessionStatusConfig(s.session_status);
                               const StatusIcon = cfg.Icon;
                               return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={(ev) => {
-                                setPopoverPos({ x: ev.clientX, y: ev.clientY });
-                                setOpenSession(s);
-                              }}
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5"
-                            >
-                              <span className="w-24 flex-shrink-0 whitespace-nowrap font-mono text-[11px] text-foreground/55">
-                                {s.time_slot}
-                              </span>
-                              <span className="w-9 flex-shrink-0">
-                                {s.grade && (
-                                  <span
-                                    className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
-                                    style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-                                  >
-                                    {s.grade}
-                                    {s.lang_stream || ""}
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={(ev) => {
+                                    setPopoverPos({ x: ev.clientX, y: ev.clientY });
+                                    setOpenSession(s);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5"
+                                >
+                                  <span className="w-24 flex-shrink-0 whitespace-nowrap font-mono text-[11px] text-foreground/55">
+                                    {s.time_slot}
                                   </span>
-                                )}
-                              </span>
-                              <span className="w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
-                                {s.lesson_number != null ? `L${s.lesson_number}` : ""}
-                              </span>
-                              {s.school_student_id && (
-                                <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
-                                  {s.school_student_id}
-                                </span>
-                              )}
-                              <span
-                                className={cn(
-                                  "min-w-0 flex-1 truncate text-sm text-foreground",
-                                  cfg.strikethrough && "text-foreground/45 line-through"
-                                )}
-                              >
-                                {s.student_name || `Student #${s.student_id}`}
-                              </span>
-                              <span
-                                className={cn(
-                                  "flex flex-shrink-0 items-center gap-1 text-xs font-medium",
-                                  cfg.textClass
-                                )}
-                              >
-                                <StatusIcon className={cn("h-3.5 w-3.5", cfg.iconClass)} />
-                                <span className="hidden whitespace-nowrap sm:inline">
-                                  {s.session_status}
-                                </span>
-                              </span>
-                            </button>
-                          );
+                                  <span className="w-9 flex-shrink-0">
+                                    {s.grade && (
+                                      <span
+                                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
+                                        style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
+                                      >
+                                        {s.grade}
+                                        {s.lang_stream || ""}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
+                                    {s.lesson_number != null ? `L${s.lesson_number}` : ""}
+                                  </span>
+                                  {s.school_student_id && (
+                                    <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
+                                      {s.school_student_id}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={cn(
+                                      "min-w-0 flex-1 truncate text-sm text-foreground",
+                                      cfg.strikethrough && "text-foreground/45 line-through"
+                                    )}
+                                  >
+                                    {s.student_name || `Student #${s.student_id}`}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "flex flex-shrink-0 items-center gap-1 text-xs font-medium",
+                                      cfg.textClass
+                                    )}
+                                  >
+                                    <StatusIcon className={cn("h-3.5 w-3.5", cfg.iconClass)} />
+                                    <span className="hidden whitespace-nowrap sm:inline">
+                                      {s.session_status}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
                             })}
                           </div>
                         ))}
