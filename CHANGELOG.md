@@ -9,6 +9,12 @@
 * **Admins can schedule make-ups on holidays**: holidays are normally blocked when scheduling a make-up class, but admins can now pick a holiday in the Schedule Make-up dialog and book on it. An override notice shows the holiday name and a reminder to confirm the class will actually run that day. The same override applies when proposing slots to a tutor: a holiday slot an admin set up can be approved. Tutors and read-only roles stay blocked as before.
 * **Admins can create exam revision slots on holidays**: the Create Revision Slot dialog now flags when the chosen date is a holiday. Admins see an override notice and can proceed, while everyone else is blocked with a clear message. Once an admin has created a revision slot on a holiday, anyone can enroll students into it without hitting the holiday block.
 * **Handover banner now shows the primary student's branch id and name**: the P6 handover banner on a student's profile, and the first-lesson note on the session popover, now show the originating branch student id and name (for example MCP-1023 with the student's name) instead of just the branch code. The banner also stays visible when no handover notes were left, so you can still see which primary branch and tutor the student came from, with a clear "no handover notes" message in place of an empty box.
+* **Jump to a tutor's profile from anywhere their name appears**: for admins, tutor names are now clickable across the app (sessions, enrollments, the dashboard, proposals, trials, exam revision slots, the waitlist, summer slots, and parent contacts) and open that tutor's profile. Read-only and tutor accounts keep seeing plain names.
+
+### Bug Fixes
+
+* **Tutor lists sort by name, not by title**: the Tutors roster now orders tutors by their actual name instead of their "Mr", "Ms", or "Mrs" title, so a tutor sorts under their first name rather than bunching together under the title.
+* **Session completion ring no longer crowds its count**: the small progress ring in the today's sessions header had its number touching the edge of the ring at that size; the figures now sit cleanly inside.
 
 ## [2.0.69](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.69) (2026-05-29)
 

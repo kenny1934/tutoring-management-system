@@ -21,6 +21,20 @@ const changelogData = [
           },
           {
             "description": "**Handover banner now shows the primary student's branch id and name**: the P6 handover banner on a student's profile, and the first-lesson note on the session popover, now show the originating branch student id and name (for example MCP-1023 with the student's name) instead of just the branch code. The banner also stays visible when no handover notes were left, so you can still see which primary branch and tutor the student came from, with a clear \"no handover notes\" message in place of an empty box."
+          },
+          {
+            "description": "**Jump to a tutor's profile from anywhere their name appears**: for admins, tutor names are now clickable across the app (sessions, enrollments, the dashboard, proposals, trials, exam revision slots, the waitlist, summer slots, and parent contacts) and open that tutor's profile. Read-only and tutor accounts keep seeing plain names."
+          }
+        ]
+      },
+      {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "**Tutor lists sort by name, not by title**: the Tutors roster now orders tutors by their actual name instead of their \"Mr\", \"Ms\", or \"Mrs\" title, so a tutor sorts under their first name rather than bunching together under the title."
+          },
+          {
+            "description": "**Session completion ring no longer crowds its count**: the small progress ring in the today's sessions header had its number touching the edge of the ring at that size; the figures now sit cleanly inside."
           }
         ]
       }
