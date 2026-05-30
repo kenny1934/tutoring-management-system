@@ -9,6 +9,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { formatEnrollmentDisplay, formatSessionDateTime } from "@/lib/formatters";
 import { StatusBadge } from "@/components/ui/status-badge";
 import Link from "next/link";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { Enrollment } from "@/types";
 
 interface ActiveEnrollmentsTableProps {
@@ -90,7 +91,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
                   : "TBD"}
                 {enrollment.tutor_name && (
                   <span className="text-gray-400 dark:text-gray-500">
-                    • {enrollment.tutor_name}
+                    • <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name} />
                   </span>
                 )}
               </div>
@@ -187,7 +188,7 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
                           </span>
                           {enrollment.tutor_name && (
                             <span className="text-xs text-muted-foreground">
-                              Tutor: {enrollment.tutor_name}
+                              Tutor: <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name} />
                             </span>
                           )}
                         </div>

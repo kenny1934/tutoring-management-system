@@ -17,6 +17,7 @@ import { DAY_NAMES, DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 import type { GroupOption, SortOption, SortDirection } from "./MyStudentsList";
 import { getGroupKey, compareGroupKeys } from "./MyStudentsList";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { TutorLink } from "@/components/tutors/TutorLink";
 
 interface MyStudentsWeeklyGridProps {
   enrollments: Enrollment[];
@@ -504,7 +505,7 @@ export function MyStudentsWeeklyGrid({
                                         </span>
                                         {isAllTutors && enrollment.tutor_name && (
                                           <span className="text-[8px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-                                            {getTutorFirstName(enrollment.tutor_name)}
+                                            <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
                                           </span>
                                         )}
                                       </p>

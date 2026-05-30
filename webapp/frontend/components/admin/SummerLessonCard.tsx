@@ -10,6 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WorkflowStatusIcon } from "@/components/admin/SummerApplicationCard";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { SummerLessonCalendarEntry, SummerLessonUpdate } from "@/types";
 
 interface SummerLessonCardProps {
@@ -410,7 +411,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
 
       {/* Row 2: Tutor */}
       <div className="px-1 pb-0.5 text-[9px] text-muted-foreground dark:text-gray-300 text-center truncate">
-        {lesson.tutor_name || "— tutor —"}
+        <TutorLink tutorId={lesson.tutor_id} tutorName={lesson.tutor_name} fallback="— tutor —" />
       </div>
 
       {/* Row 3: Capacity bar. Synthetic ad-hoc cards hide it (max_students

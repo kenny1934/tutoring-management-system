@@ -43,6 +43,7 @@ import { formatShortDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
@@ -809,7 +810,7 @@ export function SessionDetailPopover({
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Tutor:</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">
-                {session.tutor_name}
+                <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
               </span>
             </div>
           )}

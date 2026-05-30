@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { examRevisionAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
 import {
   X,
@@ -204,7 +205,7 @@ export function EnrollStudentModal({
               </span>
               <span className="inline-flex items-center gap-1">
                 <User className="h-3.5 w-3.5" />
-                {slot.tutor_name}
+                <TutorLink tutorId={slot.tutor_id} tutorName={slot.tutor_name} />
               </span>
             </div>
           </div>

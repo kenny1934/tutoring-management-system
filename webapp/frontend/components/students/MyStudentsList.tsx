@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { TutorLink } from "@/components/tutors/TutorLink";
 
 // Group options - can be combined
 export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot' | 'tutor';
@@ -262,7 +263,7 @@ function EnrollmentRow({
           </div>
           {isAllTutors && enrollment.tutor_name && (
             <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-              {getTutorFirstName(enrollment.tutor_name)}
+              <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (
@@ -471,7 +472,7 @@ export function MyStudentsList({
           </div>
           {isAllTutors && enrollment.tutor_name && (
             <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-              {getTutorFirstName(enrollment.tutor_name)}
+              <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name}>{getTutorFirstName(enrollment.tutor_name)}</TutorLink>
             </span>
           )}
           {isOverdue && (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { formatDateCompact } from "@/lib/formatters";
 import { useProposal, useTutors } from "@/lib/hooks";
 import { proposalsAPI } from "@/lib/api";
@@ -81,7 +82,7 @@ function SlotItem({
           </div>
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
             <User className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{slot.proposed_tutor_name}</span>
+            <span className="truncate"><TutorLink tutorId={slot.proposed_tutor_id} tutorName={slot.proposed_tutor_name} /></span>
             {isTargetTutor && (
               <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded">
                 You
@@ -286,7 +287,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
             </span>
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
-              {session.tutor_name}
+              <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
             </span>
           </div>
         )}
@@ -323,9 +324,11 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       {proposal.proposal_type === "needs_input" && (
         <div className="p-2">
           <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded p-2">
-            {proposal.needs_input_tutor_id === currentTutorId
-              ? "You need to select a slot"
-              : `Waiting for ${proposal.needs_input_tutor_name}`}
+            {proposal.needs_input_tutor_id === currentTutorId ? (
+              "You need to select a slot"
+            ) : (
+              <>Waiting for <TutorLink tutorId={proposal.needs_input_tutor_id} tutorName={proposal.needs_input_tutor_name} /></>
+            )}
           </div>
         </div>
       )}

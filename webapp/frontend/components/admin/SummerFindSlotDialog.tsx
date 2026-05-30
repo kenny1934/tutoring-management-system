@@ -16,6 +16,7 @@ import { summerAPI } from "@/lib/api";
 import { formatShortDate, formatCompactDate, DAY_ABBREV } from "@/lib/summer-utils";
 import { getWeekStartStr, toDateString, getWeekDateStrings } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { SummerFindSlotResult, SummerLessonCalendarEntry } from "@/types";
 
 interface SummerFindSlotDialogProps {
@@ -286,7 +287,7 @@ export function SummerFindSlotDialog({
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {result.tutor_name && (
-                                <span className="text-[10px] text-muted-foreground">{result.tutor_name}</span>
+                                <span className="text-[10px] text-muted-foreground"><TutorLink tutorId={result.tutor_id} tutorName={result.tutor_name} /></span>
                               )}
                               <div className="flex-1 h-1 bg-[#e8d4b8]/30 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div

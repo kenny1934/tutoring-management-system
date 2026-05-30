@@ -7,6 +7,7 @@ import { getGradeColor, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TI
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Users, AlertCircle } from "lucide-react";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import type { Enrollment, WaitlistEntry } from "@/types";
 
 interface SlotChangeHighlight {
@@ -640,7 +641,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
               </span>
             )}
             <span className="font-medium text-foreground truncate">
-              {slot.tutorName}
+              <TutorLink tutorId={slot.tutorId} tutorName={slot.tutorName} />
             </span>
             <span className={cn("font-mono text-[9px]", capacityColor)}>
               {count}/{MAX_CAPACITY}

@@ -5275,6 +5275,7 @@ def find_slot(
             slot_id=slot.id,
             date=lesson.lesson_date,
             time_slot=slot.time_slot,
+            tutor_id=slot.tutor_id,
             tutor_name=slot.tutor.tutor_name if slot.tutor else None,
             current_count=active_count,
             max_students=slot.max_students,

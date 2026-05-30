@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -814,7 +815,7 @@ export default function EnrollmentDetailPage() {
                       </div>
                       <div>
                         <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {enrollment.tutor_name || 'Not assigned'}
+                          <TutorLink tutorId={enrollment.tutor_id} tutorName={enrollment.tutor_name} fallback="Not assigned" />
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Tutor</p>
                       </div>

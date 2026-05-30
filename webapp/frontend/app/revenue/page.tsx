@@ -19,6 +19,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { BONUS_TIERS } from "@/lib/constants";
 import { formatMOP } from "@/lib/formatters";
 import Link from "next/link";
+import { TutorLink } from "@/components/tutors/TutorLink";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { Session } from "@/types";
 
@@ -490,7 +491,7 @@ export default function RevenuePage() {
               {/* Header */}
               <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                  {summary.tutor_name} - {formatPeriodDisplay(selectedPeriod)}
+                  <TutorLink tutorId={summary.tutor_id} tutorName={summary.tutor_name} /> - {formatPeriodDisplay(selectedPeriod)}
                 </h2>
               </div>
 
