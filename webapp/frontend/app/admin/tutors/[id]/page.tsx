@@ -30,8 +30,19 @@ import {
   ArrowRight,
   GraduationCap,
   Clock,
+  Search,
+  ArrowUpDown,
+  X,
 } from "lucide-react";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
+import {
+  applyFacets,
+  matchesSearch,
+  sortRoster,
+  ROSTER_SORTS,
+  type RosterFacets,
+  type RosterSort,
+} from "@/lib/tutor-roster";
 
 // --- date helpers (client-side) --------------------------------------------
 function currentPeriod(): string {
@@ -142,6 +153,22 @@ function ScrollList<T>({
   );
 }
 
+// A removable chip representing one active roster facet.
+function FacetChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+      {label}
+      <button
+        onClick={onClear}
+        aria-label={`Remove ${label} filter`}
+        className="-mr-0.5 rounded-full p-0.5 hover:bg-amber-200/60 dark:hover:bg-amber-800/40"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
 function TutorProfileInner() {
   const params = useParams();
   const router = useRouter();
@@ -179,19 +206,44 @@ function TutorProfileInner() {
     });
   }, [weekSessions]);
 
-  // Roster sorted by school student id (numeric when possible). Missing ids
-  // sort last so they don't lead the list.
-  const sortedRoster = useMemo(() => {
-    return [...(roster ?? [])].sort((a, b) => {
-      const av = a.school_student_id ?? "";
-      const bv = b.school_student_id ?? "";
-      if (!av || !bv) return av ? -1 : bv ? 1 : 0;
-      const an = Number(av);
-      const bn = Number(bv);
-      if (!Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
-      return av.localeCompare(bv);
+  // Faceted roster: the Quick Stats card is the clickable facet menu and the
+  // roster list reflects the selection; search + sort are local list controls.
+  const [facets, setFacets] = useState<RosterFacets>({});
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<RosterSort>("school_id");
+
+  // Toggle a facet (or a grade+stream pair): clicking the active value clears
+  // it, clicking another sets it.
+  const toggleFacet = useCallback((patch: Partial<RosterFacets>) => {
+    setFacets((cur) => {
+      const keys = Object.keys(patch) as (keyof RosterFacets)[];
+      const allMatch = keys.every((k) => cur[k] === patch[k]);
+      const next: RosterFacets = { ...cur };
+      const rec = next as Record<string, string | undefined>;
+      for (const k of keys) {
+        if (allMatch) delete rec[k];
+        else rec[k] = patch[k] as string | undefined;
+      }
+      return next;
     });
-  }, [roster]);
+  }, []);
+
+  const clearFacet = useCallback((k: keyof RosterFacets) => {
+    setFacets((cur) => {
+      const next = { ...cur };
+      delete next[k];
+      return next;
+    });
+  }, []);
+
+  // Facet-filtered roster drives the stats (reflect mode); the visible list
+  // additionally applies the free-text search, then sorts.
+  const hasFacets = Object.values(facets).some(Boolean);
+  const facetRoster = useMemo(() => applyFacets(roster ?? [], facets), [roster, facets]);
+  const displayedRoster = useMemo(
+    () => sortRoster(facetRoster.filter((e) => matchesSearch(e, search)), sort),
+    [facetRoster, search, sort]
+  );
 
   if (tutorLoading) {
     return (
@@ -317,11 +369,25 @@ function TutorProfileInner() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left rail */}
           <div className="space-y-4">
-            <Card title="Quick stats" icon={<BarChart3 className="h-3.5 w-3.5" />}>
+            <Card
+              title="Quick stats"
+              icon={<BarChart3 className="h-3.5 w-3.5" />}
+              action={
+                hasFacets ? (
+                  <button
+                    onClick={() => setFacets({})}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:underline dark:text-amber-300"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear filters
+                  </button>
+                ) : undefined
+              }
+            >
               {!roster ? (
                 <p className="py-2 text-sm text-foreground/40">Loading…</p>
               ) : (
-                <TutorStatsCard roster={roster} />
+                <TutorStatsCard roster={facetRoster} facets={facets} onToggle={toggleFacet} />
               )}
             </Card>
 
@@ -406,15 +472,85 @@ function TutorProfileInner() {
               title={`Students${roster ? ` · ${roster.length} active` : ""}`}
               icon={<Users className="h-3.5 w-3.5" />}
             >
+              {roster && roster.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40" />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(ev) => setSearch(ev.target.value)}
+                        placeholder="Search name, school, ID…"
+                        className="w-full rounded-lg border border-foreground/15 bg-white py-1.5 pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-[#231d14]"
+                      />
+                    </div>
+                    <div className="relative">
+                      <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40" />
+                      <select
+                        value={sort}
+                        onChange={(ev) => setSort(ev.target.value as RosterSort)}
+                        className="w-full rounded-lg border border-foreground/15 bg-white py-1.5 pl-8 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto dark:bg-[#231d14]"
+                      >
+                        {ROSTER_SORTS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {(search || hasFacets) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-foreground/45">
+                        {displayedRoster.length} of {roster.length}
+                      </span>
+                      {facets.grade && (
+                        <FacetChip label={`Grade ${facets.grade}`} onClear={() => clearFacet("grade")} />
+                      )}
+                      {facets.lang && (
+                        <FacetChip label={`Lang ${facets.lang}`} onClear={() => clearFacet("lang")} />
+                      )}
+                      {facets.school && (
+                        <FacetChip label={facets.school} onClear={() => clearFacet("school")} />
+                      )}
+                      {facets.location && (
+                        <FacetChip label={facets.location} onClear={() => clearFacet("location")} />
+                      )}
+                      {facets.day && (
+                        <FacetChip label={facets.day} onClear={() => clearFacet("day")} />
+                      )}
+                      {facets.time && (
+                        <FacetChip
+                          label={facets.time.split(" - ")[0]}
+                          onClear={() => clearFacet("time")}
+                        />
+                      )}
+                      {hasFacets && (
+                        <button
+                          onClick={() => setFacets({})}
+                          className="text-xs font-medium text-foreground/50 hover:text-foreground"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {!roster ? (
                 <p className="text-sm text-foreground/40 py-4 text-center">Loading…</p>
               ) : roster.length === 0 ? (
                 <p className="text-sm text-foreground/40 py-4 text-center">
                   No active students.
                 </p>
+              ) : displayedRoster.length === 0 ? (
+                <p className="py-6 text-center text-sm text-foreground/40">
+                  No students match your search or filters.
+                </p>
               ) : (
                 <ScrollList
-                  items={sortedRoster}
+                  items={displayedRoster}
                   renderItem={(e) => {
                     const payStatus = getDisplayPaymentStatus(e);
                     const payCfg = getPaymentStatusConfig(payStatus);
