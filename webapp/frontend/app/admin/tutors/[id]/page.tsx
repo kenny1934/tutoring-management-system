@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
-import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
@@ -126,55 +125,34 @@ function Card({
   );
 }
 
-// Renders a list capped to a fixed height that scrolls internally (on every
-// breakpoint) so a long roster/schedule never balloons the page and the
-// two-column layout stays aligned. A bottom fade hints there's more to scroll
-// and hides once you reach the end.
-function ScrollList<T>({
+// Renders a list collapsed to a few rows with a "show more/less" toggle so a
+// long roster/agenda stays compact by default; the viewport-scoped column
+// scrolls if an expanded list runs past it.
+function ExpandableList<T>({
   items,
   renderItem,
-  maxHeightClass = "max-h-80",
+  collapsedCount = 8,
 }: {
   items: T[];
   renderItem: (item: T) => React.ReactNode;
-  maxHeightClass?: string;
+  collapsedCount?: number;
 }) {
-  const ref = useRef<HTMLUListElement>(null);
-  const [showFade, setShowFade] = useState(false);
-
-  const update = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const overflowing = el.scrollHeight > el.clientHeight + 1;
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-    setShowFade(overflowing && !atBottom);
-  }, []);
-
-  useEffect(() => {
-    update();
-    const el = ref.current;
-    if (!el) return;
-    el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [update, items]);
-
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? items : items.slice(0, collapsedCount);
+  const hiddenCount = items.length - collapsedCount;
   return (
-    <div className="relative">
-      <ul
-        ref={ref}
-        className={cn(
-          "divide-y divide-[#efe4d2] dark:divide-[#3a3022] overflow-y-auto overscroll-contain pr-1",
-          maxHeightClass
-        )}
-      >
-        {items.map(renderItem)}
+    <div>
+      <ul className="divide-y divide-[#efe4d2] dark:divide-[#3a3022]">
+        {shown.map(renderItem)}
       </ul>
-      {showFade && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#faf8f5] to-transparent dark:from-[#1a1a1a]" />
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 text-xs font-medium text-amber-700 hover:underline dark:text-amber-300"
+        >
+          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+        </button>
       )}
     </div>
   );
@@ -365,19 +343,19 @@ function TutorProfileInner() {
   const basicPay = Number(tutor.basic_salary ?? 0);
 
   return (
-    <DeskSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
+    <DeskSurface fullHeight>
+      <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6 animate-fadeIn">
         {/* Back link — chip so it stays legible on the desk texture */}
         <Link
           href="/admin/tutors"
-          className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
+          className="inline-flex flex-shrink-0 self-start items-center gap-1.5 mb-4 px-2.5 py-1.5 rounded-lg text-sm font-medium bg-[#faf8f5] dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] text-foreground/80 hover:text-foreground shadow-sm"
         >
           <ArrowLeft className="h-4 w-4" />
           All tutors
         </Link>
 
         {/* Hero */}
-        <div className="rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-6 mb-4">
+        <div className="flex-shrink-0 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-6 mb-4">
           <div className="flex items-start gap-5">
             {picture ? (
               <Image
@@ -428,10 +406,11 @@ function TutorProfileInner() {
                 {tutor.user_email && (
                   <a
                     href={`mailto:${tutor.user_email}`}
-                    className="inline-flex items-center gap-1.5 hover:text-foreground"
+                    title={tutor.user_email}
+                    className="inline-flex min-w-0 max-w-full items-center gap-1.5 hover:text-foreground"
                   >
-                    <Mail className="h-4 w-4" />
-                    {tutor.user_email}
+                    <Mail className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{tutor.user_email}</span>
                   </a>
                 )}
                 {tutor.default_location && (
@@ -455,10 +434,12 @@ function TutorProfileInner() {
           </div>
         </div>
 
-        {/* Two-column body */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left rail */}
-          <div className="space-y-4">
+        {/* Two-column body — fills the remaining viewport height; on desktop it's
+            a flex row whose columns are height-bounded, so each scrolls on its
+            own and the page itself never grows */}
+        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto lg:flex-row lg:overflow-hidden">
+          {/* Left rail — fixed third of the row; scrolls on its own if it overflows */}
+          <div className="space-y-4 lg:w-1/3 lg:flex-shrink-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             <Card
               title="Quick stats"
               icon={<BarChart3 className="h-3.5 w-3.5" />}
@@ -556,8 +537,9 @@ function TutorProfileInner() {
             )}
           </div>
 
-          {/* Right column */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Right column — takes the rest of the row and scrolls within it; cards
+              sit at natural height so the first card always shows in full */}
+          <div className="space-y-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             <Card
               title={`Students${roster ? ` · ${roster.length} active` : ""}`}
               icon={<Users className="h-3.5 w-3.5" />}
@@ -624,7 +606,8 @@ function TutorProfileInner() {
                   No students match your search or filters.
                 </p>
               ) : (
-                <ScrollList
+                <ExpandableList
+                  collapsedCount={5}
                   items={displayedRoster}
                   renderItem={(e) => {
                     const payStatus = getDisplayPaymentStatus(e);
@@ -710,7 +693,8 @@ function TutorProfileInner() {
                   No sessions scheduled this week.
                 </p>
               ) : (
-                <ScrollList
+                <ExpandableList
+                  collapsedCount={2}
                   items={weekAgenda.groups}
                   renderItem={(g) => (
                     <li key={g.dateStr} className={cn("py-2", g.isPast && "opacity-55")}>
@@ -812,7 +796,7 @@ function TutorProfileInner() {
             </Card>
           </div>
         </div>
-      </PageTransition>
+      </div>
 
       {isAdmin && (
         <EditTutorModal
