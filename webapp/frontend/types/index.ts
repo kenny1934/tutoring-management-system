@@ -5,10 +5,22 @@ export interface Tutor {
   id: number;
   user_email?: string;
   tutor_name: string;
+  nickname?: string;
   default_location?: string;
   role: TutorRole;
+  /** Monthly base salary. Only present for admin-level roles (Super Admin, Admin, Supervisor). */
+  basic_salary?: number;
   is_active_tutor?: boolean;
   profile_picture?: string;
+}
+
+// Fields an admin may edit via the tutor profile page. Excludes email + role
+// (those stay debug-panel only).
+export interface TutorUpdate {
+  nickname?: string;
+  default_location?: string;
+  basic_salary?: number;
+  is_active_tutor?: boolean;
 }
 
 // Session Status constants

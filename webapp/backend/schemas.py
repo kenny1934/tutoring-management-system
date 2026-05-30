@@ -135,6 +135,19 @@ class TutorResponsePublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TutorUpdate(BaseModel):
+    """Schema for updating tutor fields. Admin only.
+
+    Intentionally limited to compensation and safe profile fields. ``user_email``
+    and ``role`` are excluded (auth/privilege risk) and remain editable only
+    through the Super Admin debug panel.
+    """
+    nickname: Optional[str] = Field(None, max_length=100)
+    default_location: Optional[str] = Field(None, max_length=200)
+    basic_salary: Optional[Decimal] = Field(None, ge=0)
+    is_active_tutor: Optional[bool] = None
+
+
 # ============================================
 # Discount Schemas
 # ============================================

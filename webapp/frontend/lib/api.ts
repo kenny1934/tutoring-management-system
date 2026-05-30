@@ -1,5 +1,6 @@
 import type {
   Tutor,
+  TutorUpdate,
   Student,
   StudentCreate,
   Discount,
@@ -367,6 +368,17 @@ function buildLocationQuery(params: Record<string, unknown> = {}, location?: str
 export const tutorsAPI = {
   getAll: () => {
     return fetchAPI<Tutor[]>("/tutors");
+  },
+
+  getById: (id: number) => {
+    return fetchAPI<Tutor>(`/tutors/${id}`);
+  },
+
+  update: (id: number, data: TutorUpdate) => {
+    return fetchAPI<Tutor>(`/tutors/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   },
 };
 
