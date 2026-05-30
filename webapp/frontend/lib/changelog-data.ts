@@ -2,11 +2,17 @@
 const changelogData = [
   {
     "version": "2.0.70",
-    "date": "2026-05-29",
+    "date": "2026-05-30",
     "sections": [
       {
         "title": "New Features",
         "items": [
+          {
+            "description": "**Tutor management page with detailed profiles**: a new Tutors page under Admin lists every tutor grouped by location, role, and active status, with inactive tutors sorted to the bottom. Each tutor opens a profile showing their photo, contact details, this month's salary (basic plus bonus, with the bonus tiers explained), and an Edit dialog for admins."
+          },
+          {
+            "description": "**Searchable roster, quick stats, and a weekly agenda on each profile**: the profile lists the tutor's active students with search and sorting, alongside a quick-stats panel showing grade mix, schools, locations, and a clickable weekly schedule heatmap you can use to filter the roster. A This Week card groups the tutor's sessions by day, anchored on today, and clicking any session opens its detail popover."
+          },
           {
             "description": "**Admins can schedule make-ups on holidays**: holidays are normally blocked when scheduling a make-up class, but admins can now pick a holiday in the Schedule Make-up dialog and book on it. An override notice shows the holiday name and a reminder to confirm the class will actually run that day. The same override applies when proposing slots to a tutor: a holiday slot an admin set up can be approved. Tutors and read-only roles stay blocked as before."
           },
