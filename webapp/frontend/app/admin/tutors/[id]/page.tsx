@@ -359,19 +359,19 @@ function TutorProfileInner() {
         </Link>
 
         {/* Hero */}
-        <div className="flex-shrink-0 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-6 mb-4">
-          <div className="flex items-start gap-5">
+        <div className="flex-shrink-0 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-4 sm:p-6 mb-4">
+          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
             {picture ? (
               <Image
                 src={picture}
                 alt={tutor.tutor_name}
                 width={80}
                 height={80}
-                className="h-20 w-20 rounded-full object-cover shadow-sm flex-shrink-0"
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full object-cover shadow-sm flex-shrink-0"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="h-20 w-20 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
                 <span className="text-2xl font-bold text-primary-foreground">
                   {getInitials(tutor.tutor_name)}
                 </span>
@@ -379,7 +379,7 @@ function TutorProfileInner() {
             )}
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-foreground truncate">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
                 {tutor.tutor_name}
               </h1>
               <div className="mt-1 flex items-center gap-2 flex-wrap text-sm">
@@ -429,7 +429,7 @@ function TutorProfileInner() {
             {isAdmin && (
               <button
                 onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex-shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex-shrink-0 self-start sm:self-auto"
               >
                 <Pencil className="h-4 w-4" />
                 Edit
@@ -669,7 +669,7 @@ function TutorProfileInner() {
                                 </>
                               )}
                             </span>
-                            <span className="flex w-36 flex-shrink-0 items-center justify-end gap-1 whitespace-nowrap">
+                            <span className="hidden w-36 flex-shrink-0 items-center justify-end gap-1 whitespace-nowrap sm:flex">
                               {schedule && (
                                 <>
                                   <Clock className="h-3 w-3 flex-shrink-0" />
@@ -744,12 +744,12 @@ function TutorProfileInner() {
                                     setPopoverPos({ x: ev.clientX, y: ev.clientY });
                                     setOpenSession(s);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5"
+                                  className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5 sm:flex-nowrap"
                                 >
-                                  <span className="w-24 flex-shrink-0 whitespace-nowrap font-mono text-[11px] text-foreground/55">
+                                  <span className="order-1 w-auto flex-shrink-0 whitespace-nowrap font-mono text-[11px] text-foreground/55 sm:w-24">
                                     {s.time_slot}
                                   </span>
-                                  <span className="w-9 flex-shrink-0">
+                                  <span className="order-2 w-9 flex-shrink-0">
                                     {s.grade && (
                                       <span
                                         className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
@@ -760,17 +760,17 @@ function TutorProfileInner() {
                                       </span>
                                     )}
                                   </span>
-                                  <span className="w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
+                                  <span className="order-3 w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">
                                     {s.lesson_number != null ? `L${s.lesson_number}` : ""}
                                   </span>
                                   {s.school_student_id && (
-                                    <span className="flex-shrink-0 font-mono text-[11px] text-foreground/40">
+                                    <span className="order-4 flex-shrink-0 font-mono text-[11px] text-foreground/40">
                                       {s.school_student_id}
                                     </span>
                                   )}
                                   <span
                                     className={cn(
-                                      "min-w-0 flex-1 truncate text-sm text-foreground",
+                                      "order-6 min-w-0 flex-1 basis-full truncate text-sm text-foreground sm:order-5 sm:basis-auto",
                                       cfg.strikethrough && "text-foreground/45 line-through"
                                     )}
                                   >
@@ -778,7 +778,7 @@ function TutorProfileInner() {
                                   </span>
                                   <span
                                     className={cn(
-                                      "flex flex-shrink-0 items-center gap-1 text-xs font-medium",
+                                      "order-5 ml-auto flex flex-shrink-0 items-center gap-1 text-xs font-medium sm:order-6 sm:ml-0",
                                       cfg.textClass
                                     )}
                                   >
