@@ -360,7 +360,7 @@ function TutorProfileInner() {
 
         {/* Hero */}
         <div className="flex-shrink-0 rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-sm p-4 sm:p-6 mb-4">
-          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+          <div className="flex items-start gap-3 sm:gap-5">
             {picture ? (
               <Image
                 src={picture}
@@ -429,10 +429,11 @@ function TutorProfileInner() {
             {isAdmin && (
               <button
                 onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex-shrink-0 self-start sm:self-auto"
+                aria-label="Edit tutor"
+                className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex-shrink-0"
               >
                 <Pencil className="h-4 w-4" />
-                Edit
+                <span className="hidden sm:inline">Edit</span>
               </button>
             )}
           </div>
