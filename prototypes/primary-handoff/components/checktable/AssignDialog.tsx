@@ -262,12 +262,25 @@ export function AssignDialog({
             </div>
             <div className="aspect-[3/4] surface-muted overflow-hidden">
               {previewUrl ? (
-                <iframe
-                  src={previewUrl}
-                  className="w-full h-full border-0 bg-white"
-                  title={`Preview of ${item.code}`}
-                  loading="lazy"
-                />
+                // The MC Drive viewer renders the page a touch wider than this
+                // narrow frame (and ignores #zoom). Render the iframe at 125%
+                // and scale it back to 80% so the viewer gets the extra width
+                // and the whole page shrinks to fit — no stray horizontal scroll.
+                <div
+                  className="origin-top-left"
+                  style={{
+                    width: "125%",
+                    height: "125%",
+                    transform: "scale(0.8)",
+                  }}
+                >
+                  <iframe
+                    src={`${previewUrl}#zoom=page-fit`}
+                    className="block w-full h-full border-0 bg-white"
+                    title={`Preview of ${item.code}`}
+                    loading="lazy"
+                  />
+                </div>
               ) : (
                 <div className="grid place-items-center h-full text-ink-400">
                   <div className="text-center px-4">

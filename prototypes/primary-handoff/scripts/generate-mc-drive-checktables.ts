@@ -46,14 +46,25 @@ const BRANCH_META: Record<string, { family: string; order: number }> = {
 };
 
 const STRAND_LABEL: Record<string, string> = {
-  MG: "Measures, Shape & Space",
+  MG: "Measurement and Geometry",
   NA: "Number & Algebra",
   PS: "Problem Solving",
-  ST: "Data Handling",
+  ST: "Statistics",
   "PS.NA": "Problem Solving · Number & Algebra",
-  "PS.MG": "Problem Solving · Measures",
-  "PS.ST": "Problem Solving · Data",
+  "PS.MG": "Problem Solving · Measurement and Geometry",
+  "PS.ST": "Problem Solving · Statistics",
 };
+
+/** Decode the few HTML entities the scraper left in filenames (the link text
+ *  came from rendered HTML). s3_path is already clean, so this is display-only. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'");
+}
 
 type Parsed = {
   code: string;
@@ -185,9 +196,10 @@ function buildChecktable(
   );
 
   for (const mat of sorted) {
-    const p = parseFile(branch, mat.filename);
+    const filename = decodeEntities(mat.filename);
+    const p = parseFile(branch, filename);
     if (!p) {
-      const fbBase = mat.filename
+      const fbBase = filename
         .replace(/\.pdf$/i, "")
         .replace(/\s*\(\d+\)\s*$/, "");
       supplementary.push({

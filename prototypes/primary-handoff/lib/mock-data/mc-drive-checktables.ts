@@ -47952,8 +47952,8 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [],
     "supplementary": [
       {
-        "id": "ct-mcd-kindergarten-little-first-step-pdf-n4/misc/N0401_Writing Numbers 1 &amp; 2_01",
-        "code": "N0401_Writing Numbers 1 &amp; 2_01",
+        "id": "ct-mcd-kindergarten-little-first-step-pdf-n4/misc/N0401_Writing Numbers 1 & 2_01",
+        "code": "N0401_Writing Numbers 1 & 2_01",
         "mcDriveS3Path": "MC_Drive/Answer/04_Kindergarten Supplementary_v1.0/Little First Step_PDF/N4/N0401_Writing Numbers 1 & 2_01.pdf"
       },
       {
@@ -48002,8 +48002,8 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [],
     "supplementary": [
       {
-        "id": "ct-mcd-kindergarten-little-first-step-pdf-n5/misc/N0501_Writing Numbers 2 &amp; 3_01",
-        "code": "N0501_Writing Numbers 2 &amp; 3_01",
+        "id": "ct-mcd-kindergarten-little-first-step-pdf-n5/misc/N0501_Writing Numbers 2 & 3_01",
+        "code": "N0501_Writing Numbers 2 & 3_01",
         "mcDriveS3Path": "MC_Drive/Answer/04_Kindergarten Supplementary_v1.0/Little First Step_PDF/N5/N0501_Writing Numbers 2 & 3_01.pdf"
       },
       {
@@ -48052,8 +48052,8 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [],
     "supplementary": [
       {
-        "id": "ct-mcd-kindergarten-little-first-step-pdf-n6/misc/N0601_Writing Numbers 3 &amp; 4_01",
-        "code": "N0601_Writing Numbers 3 &amp; 4_01",
+        "id": "ct-mcd-kindergarten-little-first-step-pdf-n6/misc/N0601_Writing Numbers 3 & 4_01",
+        "code": "N0601_Writing Numbers 3 & 4_01",
         "mcDriveS3Path": "MC_Drive/Answer/04_Kindergarten Supplementary_v1.0/Little First Step_PDF/N6/N0601_Writing Numbers 3 & 4_01.pdf"
       },
       {
@@ -48207,8 +48207,8 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [],
     "supplementary": [
       {
-        "id": "ct-mcd-kindergarten-little-first-step-pdf-n9/misc/N0901_Writing Numbers 5 &amp; 6_01",
-        "code": "N0901_Writing Numbers 5 &amp; 6_01",
+        "id": "ct-mcd-kindergarten-little-first-step-pdf-n9/misc/N0901_Writing Numbers 5 & 6_01",
+        "code": "N0901_Writing Numbers 5 & 6_01",
         "mcDriveS3Path": "MC_Drive/Answer/04_Kindergarten Supplementary_v1.0/Little First Step_PDF/N9/N0901_Writing Numbers 5 & 6_01.pdf"
       },
       {
@@ -48612,7 +48612,7 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [
       {
         "id": "MG",
-        "label": "Measures, Shape & Space",
+        "label": "Measurement and Geometry",
         "chapters": [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-mg-u01",
@@ -51283,7 +51283,7 @@ export const mcDriveChecktables: Checktable[] = [
       },
       {
         "id": "ST",
-        "label": "Data Handling",
+        "label": "Statistics",
         "chapters": [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-st-u01",
@@ -52653,7 +52653,7 @@ export const mcDriveChecktables: Checktable[] = [
     "sections": [
       {
         "id": "MG",
-        "label": "Measures, Shape & Space",
+        "label": "Measurement and Geometry",
         "chapters": [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u01",
@@ -54427,7 +54427,7 @@ export const mcDriveChecktables: Checktable[] = [
       },
       {
         "id": "ST",
-        "label": "Data Handling",
+        "label": "Statistics",
         "chapters": [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-st-u01",
@@ -54537,7 +54537,7 @@ export const mcDriveChecktables: Checktable[] = [
       },
       {
         "id": "PS.MG",
-        "label": "Problem Solving · Measures",
+        "label": "Problem Solving · Measurement and Geometry",
         "chapters": [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-mg-u01",
