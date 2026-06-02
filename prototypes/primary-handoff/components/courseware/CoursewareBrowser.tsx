@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Library, CheckCircle2 } from "lucide-react";
 import type { Checktable, ChecktableItem } from "@/lib/types";
-import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import {
   AssignDialog,
@@ -11,6 +11,7 @@ import {
 } from "@/components/checktable/AssignDialog";
 
 const EMPTY_STATUS: Record<string, never> = {};
+const EMPTY_SELECTION = new Set<string>();
 
 function countItems(t: Checktable): number {
   let n = t.supplementary.length;
@@ -31,14 +32,6 @@ function shortLevel(levelLabel: string): string {
     levelLabel.match(/\bN\d+\b/)?.[0] ??
     levelLabel.split("/").pop()!.trim()
   );
-}
-
-/** "1-2" -> {start:1,end:2}; "5" -> {start:5,end:5}; anything else -> {}. */
-function parsePageRange(raw: string): { start?: number; end?: number } {
-  const m = raw.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/);
-  if (!m) return {};
-  const start = parseInt(m[1], 10);
-  return { start, end: m[2] ? parseInt(m[2], 10) : start };
 }
 
 export function CoursewareBrowser() {
@@ -71,6 +64,7 @@ export function CoursewareBrowser() {
   // Keep the selected level inside the active family.
   const table =
     levels.find((t) => t.id === selectedId) ?? levels[0];
+  const worksheetCount = useMemo(() => (table ? countItems(table) : 0), [table]);
 
   const pickFamily = (f: string) => {
     setFamily(f);
@@ -81,14 +75,13 @@ export function CoursewareBrowser() {
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
-  const selectedItemIds = useMemo(() => new Set<string>(), []);
 
   const handleAssignSessions = (
     picks: SessionPick[],
     opts: { pageRange?: string; tutorNote?: string }
   ) => {
     if (!activeItem || picks.length === 0) return;
-    const { start, end } = parsePageRange(opts.pageRange ?? "");
+    const { page_start, page_end } = parsePageRange(opts.pageRange);
     // One record per session, exactly like CSM's per-session saveExercises.
     // recordExercise also writes the matching ChecktableAssignment (CW -> done,
     // HW -> assigned) via the item's checktable link.
@@ -99,8 +92,8 @@ export function CoursewareBrowser() {
         kind: pick.kind,
         pdf_name: activeItem.code,
         item_id: activeItem.id,
-        page_start: start,
-        page_end: end,
+        page_start,
+        page_end,
         remarks: opts.tutorNote || undefined,
       });
     }
@@ -177,7 +170,7 @@ export function CoursewareBrowser() {
             <span className="text-ink-400">/</span>
             <span className="font-medium">{table.levelLabel}</span>
             <span className="text-ink-500">
-              {table.grade} · {countItems(table)} worksheets
+              {table.grade} · {worksheetCount} worksheets
             </span>
           </div>
           <p className="text-xs text-ink-500 max-w-3xl">
@@ -188,7 +181,7 @@ export function CoursewareBrowser() {
           <ChecktableGrid
             table={table}
             statusByItemId={EMPTY_STATUS}
-            selectedItemIds={selectedItemIds}
+            selectedItemIds={EMPTY_SELECTION}
             statusFilter="all"
             sectionFilter="all"
             onItemClick={setActiveItem}
