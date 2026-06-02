@@ -76,8 +76,32 @@ type Parsed = {
   topic: string;
 };
 
+// Connector words kept lowercase in titles, unless they open a phrase.
+const SMALL_WORDS = new Set([
+  "a", "an", "and", "as", "at", "by", "for", "from", "in", "of", "on",
+  "or", "the", "to", "vs", "with", "per",
+]);
+
+/** Title-case a topic: filenames are inconsistently cased (some all-lowercase),
+ *  so capitalise each word's first letter while leaving connectors lowercase.
+ *  Only the first alphabetic char of a word is touched, so acronyms like 2D/3D
+ *  and markers like (A) keep their existing casing. */
+const titleCase = (raw: string) =>
+  raw
+    .split(" ")
+    .map((word, i) => {
+      const idx = word.search(/[A-Za-z]/);
+      if (idx === -1) return word;
+      const core = word.replace(/[^A-Za-z]/g, "").toLowerCase();
+      const opensPhrase = i === 0 || /^[("'[]/.test(word);
+      const upper = opensPhrase || !SMALL_WORDS.has(core);
+      const ch = upper ? word[idx].toUpperCase() : word[idx].toLowerCase();
+      return word.slice(0, idx) + ch + word.slice(idx + 1);
+    })
+    .join(" ");
+
 const cleanTopic = (raw: string) =>
-  raw.replace(/\./g, " ").replace(/\s+/g, " ").trim();
+  titleCase(raw.replace(/\./g, " ").replace(/\s+/g, " ").trim());
 
 /** Topic from the middle filename tokens (everything but the code and the
  *  trailing ANS / language markers). */

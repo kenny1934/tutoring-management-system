@@ -50,7 +50,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u01",
             "number": 1,
-            "title": "numbers to 10",
+            "title": "Numbers to 10",
             "cells": {
               "A": {
                 "items": [
@@ -133,7 +133,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u02",
             "number": 2,
-            "title": "one to one correspondence",
+            "title": "One to One Correspondence",
             "cells": {
               "A": {
                 "items": [
@@ -194,7 +194,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u03",
             "number": 3,
-            "title": "number bonds",
+            "title": "Number Bonds",
             "cells": {
               "A": {
                 "items": [
@@ -266,7 +266,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u04",
             "number": 4,
-            "title": "add within 10",
+            "title": "Add Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -349,7 +349,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u06",
             "number": 6,
-            "title": "sub within 10",
+            "title": "Sub Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -454,7 +454,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u08",
             "number": 8,
-            "title": "relationship between add and sub",
+            "title": "Relationship Between Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -515,7 +515,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u10",
             "number": 10,
-            "title": "shapes and patterns",
+            "title": "Shapes and Patterns",
             "cells": {
               "A": {
                 "items": [
@@ -587,7 +587,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u11",
             "number": 11,
-            "title": "making patterns with shapes",
+            "title": "Making Patterns with Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -670,7 +670,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u12",
             "number": 12,
-            "title": "ordinal numbers and position",
+            "title": "Ordinal Numbers and Position",
             "cells": {
               "A": {
                 "items": [
@@ -731,7 +731,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u13",
             "number": 13,
-            "title": "numbers to 20",
+            "title": "Numbers to 20",
             "cells": {
               "A": {
                 "items": [
@@ -814,7 +814,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u14",
             "number": 14,
-            "title": "add within 20",
+            "title": "Add Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -897,7 +897,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u16",
             "number": 16,
-            "title": "sub within 20",
+            "title": "Sub Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -969,7 +969,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u19",
             "number": 19,
-            "title": "length",
+            "title": "Length",
             "cells": {
               "A": {
                 "items": [
@@ -1052,7 +1052,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u20",
             "number": 20,
-            "title": "numbers to 40",
+            "title": "Numbers to 40",
             "cells": {
               "A": {
                 "items": [
@@ -1135,7 +1135,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u21",
             "number": 21,
-            "title": "add within 40",
+            "title": "Add Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -1218,7 +1218,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u23",
             "number": 23,
-            "title": "sub within 40",
+            "title": "Sub Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -1290,7 +1290,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u26",
             "number": 26,
-            "title": "picture graphs",
+            "title": "Picture Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -1373,7 +1373,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u27",
             "number": 27,
-            "title": "multiplication",
+            "title": "Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -1434,7 +1434,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u29",
             "number": 29,
-            "title": "division",
+            "title": "Division",
             "cells": {
               "A": {
                 "items": [
@@ -1495,7 +1495,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u31",
             "number": 31,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -1567,7 +1567,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u32",
             "number": 32,
-            "title": "numbers to 100",
+            "title": "Numbers to 100",
             "cells": {
               "A": {
                 "items": [
@@ -1650,7 +1650,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u33",
             "number": 33,
-            "title": "add within 100",
+            "title": "Add Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -1722,7 +1722,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u35",
             "number": 35,
-            "title": "sub within 100",
+            "title": "Sub Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -1794,7 +1794,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u38",
             "number": 38,
-            "title": "money",
+            "title": "Money",
             "cells": {
               "A": {
                 "items": [
@@ -1877,7 +1877,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-1-main-u39",
             "number": 39,
-            "title": "add and sub of money",
+            "title": "Add and Sub of Money",
             "cells": {
               "A": {
                 "items": [
@@ -2007,7 +2007,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u01",
             "number": 1,
-            "title": "numbers to 1000",
+            "title": "Numbers to 1000",
             "cells": {
               "A": {
                 "items": [
@@ -2098,7 +2098,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u02",
             "number": 2,
-            "title": "add within 1000",
+            "title": "Add Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -2178,7 +2178,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u03",
             "number": 3,
-            "title": "sub within 1000",
+            "title": "Sub Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -2258,7 +2258,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u05",
             "number": 5,
-            "title": "revision on mult and div",
+            "title": "Revision on Mult and Div",
             "cells": {
               "A": {
                 "items": [
@@ -2327,7 +2327,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u06",
             "number": 6,
-            "title": "mult tables of 2 5 and 10",
+            "title": "Mult Tables of 2 5 and 10",
             "cells": {
               "A": {
                 "items": [
@@ -2418,7 +2418,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u07",
             "number": 7,
-            "title": "mult tables of 3 and 4",
+            "title": "Mult Tables of 3 and 4",
             "cells": {
               "A": {
                 "items": [
@@ -2498,7 +2498,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u10",
             "number": 10,
-            "title": "measuring in m or cm",
+            "title": "Measuring in M or Cm",
             "cells": {
               "A": {
                 "items": [
@@ -2589,7 +2589,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u14",
             "number": 14,
-            "title": "mass",
+            "title": "Mass",
             "cells": {
               "A": {
                 "items": [
@@ -2647,7 +2647,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u15",
             "number": 15,
-            "title": "grams and kilograms",
+            "title": "Grams and Kilograms",
             "cells": {
               "A": {
                 "items": [
@@ -2727,7 +2727,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u17",
             "number": 17,
-            "title": "dollars and cents",
+            "title": "Dollars and Cents",
             "cells": {
               "A": {
                 "items": [
@@ -2796,7 +2796,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u19",
             "number": 19,
-            "title": "shapes and two-dimensional figures",
+            "title": "Shapes and Two-dimensional Figures",
             "cells": {
               "A": {
                 "items": [
@@ -2865,7 +2865,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u20",
             "number": 20,
-            "title": "solids and three-dimensional figures",
+            "title": "Solids and Three-dimensional Figures",
             "cells": {
               "A": {
                 "items": [
@@ -2934,7 +2934,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u21",
             "number": 21,
-            "title": "making patterns",
+            "title": "Making Patterns",
             "cells": {
               "A": {
                 "items": [
@@ -3014,7 +3014,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u22",
             "number": 22,
-            "title": "fractions",
+            "title": "Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -3083,7 +3083,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u23",
             "number": 23,
-            "title": "comparing and ordering fractions",
+            "title": "Comparing and Ordering Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -3152,7 +3152,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u24",
             "number": 24,
-            "title": "add and sub of like fractions",
+            "title": "Add and Sub of Like Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -3210,7 +3210,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u26",
             "number": 26,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -3279,7 +3279,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u27",
             "number": 27,
-            "title": "picture graphs",
+            "title": "Picture Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -3359,7 +3359,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-2-main-u28",
             "number": 28,
-            "title": "volume",
+            "title": "Volume",
             "cells": {
               "A": {
                 "items": [
@@ -3479,7 +3479,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u01",
             "number": 1,
-            "title": "numbers to 10000",
+            "title": "Numbers to 10000",
             "cells": {
               "A": {
                 "items": [
@@ -3562,7 +3562,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u02",
             "number": 2,
-            "title": "add within 10000",
+            "title": "Add Within 10000",
             "cells": {
               "A": {
                 "items": [
@@ -3645,7 +3645,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u03",
             "number": 3,
-            "title": "sub within 10000",
+            "title": "Sub Within 10000",
             "cells": {
               "A": {
                 "items": [
@@ -3728,7 +3728,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u05",
             "number": 5,
-            "title": "mult tables of 6 7 8 and 9",
+            "title": "Mult Tables of 6 7 8 and 9",
             "cells": {
               "A": {
                 "items": [
@@ -3833,7 +3833,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u07",
             "number": 7,
-            "title": "mult of 2-digit numbers by 1-digit numbers",
+            "title": "Mult of 2-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -3905,7 +3905,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u08",
             "number": 8,
-            "title": "mult of 3-digit numbers by 1-digit numbers",
+            "title": "Mult of 3-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -3977,7 +3977,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u10",
             "number": 10,
-            "title": "basic div",
+            "title": "Basic Div",
             "cells": {
               "A": {
                 "items": [
@@ -4038,7 +4038,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u11",
             "number": 11,
-            "title": "div of 2-digit numbers by 1-digit numbers",
+            "title": "Div of 2-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -4099,7 +4099,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u12",
             "number": 12,
-            "title": "div of 3-digit numbers by 1-digit numbers",
+            "title": "Div of 3-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -4160,7 +4160,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u16",
             "number": 16,
-            "title": "add and sub of money",
+            "title": "Add and Sub of Money",
             "cells": {
               "A": {
                 "items": [
@@ -4243,7 +4243,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u18",
             "number": 18,
-            "title": "length mass and volume",
+            "title": "Length Mass and Volume",
             "cells": {
               "A": {
                 "items": [
@@ -4337,7 +4337,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u20",
             "number": 20,
-            "title": "reading bar graphs",
+            "title": "Reading Bar Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -4409,7 +4409,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u21",
             "number": 21,
-            "title": "equivalent fractions",
+            "title": "Equivalent Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -4492,7 +4492,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u22",
             "number": 22,
-            "title": "add and sub of fractions",
+            "title": "Add and Sub of Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -4553,7 +4553,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u24",
             "number": 24,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -4636,7 +4636,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u26",
             "number": 26,
-            "title": "introduction to angles",
+            "title": "Introduction to Angles",
             "cells": {
               "A": {
                 "items": [
@@ -4719,7 +4719,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u27",
             "number": 27,
-            "title": "perpendicular lines and parallel lines",
+            "title": "Perpendicular Lines and Parallel Lines",
             "cells": {
               "A": {
                 "items": [
@@ -4802,7 +4802,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u28",
             "number": 28,
-            "title": "area",
+            "title": "Area",
             "cells": {
               "A": {
                 "items": [
@@ -4885,7 +4885,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-3-main-u29",
             "number": 29,
-            "title": "perimeter and area",
+            "title": "Perimeter and Area",
             "cells": {
               "A": {
                 "items": [
@@ -5019,7 +5019,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u01",
             "number": 1,
-            "title": "numbers to 100000",
+            "title": "Numbers to 100000",
             "cells": {
               "A": {
                 "items": [
@@ -5124,7 +5124,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u02",
             "number": 2,
-            "title": "factors and multiples",
+            "title": "Factors and Multiples",
             "cells": {
               "A": {
                 "items": [
@@ -5207,7 +5207,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u03",
             "number": 3,
-            "title": "relationship between factors and multiples",
+            "title": "Relationship Between Factors and Multiples",
             "cells": {
               "A": {
                 "items": [
@@ -5257,7 +5257,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u04",
             "number": 4,
-            "title": "common multiples and common factors",
+            "title": "Common Multiples and Common Factors",
             "cells": {
               "A": {
                 "items": [
@@ -5340,7 +5340,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u06",
             "number": 6,
-            "title": "mult of 4-digit numbers by 1-digit numbers",
+            "title": "Mult of 4-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -5412,7 +5412,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u07",
             "number": 7,
-            "title": "mult of 2-digit or 3-digit numbers by 2-digit numbers",
+            "title": "Mult of 2-Digit or 3-Digit Numbers by 2-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -5517,7 +5517,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u08",
             "number": 8,
-            "title": "div of 4-digit numbers by 1-digit numbers",
+            "title": "Div of 4-Digit Numbers by 1-Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -5589,7 +5589,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u10",
             "number": 10,
-            "title": "angles",
+            "title": "Angles",
             "cells": {
               "A": {
                 "items": [
@@ -5672,7 +5672,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u11",
             "number": 11,
-            "title": "turns and 8-point compass",
+            "title": "Turns and 8-Point Compass",
             "cells": {
               "A": {
                 "items": [
@@ -5755,7 +5755,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u12",
             "number": 12,
-            "title": "squares and rectangles",
+            "title": "Squares and Rectangles",
             "cells": {
               "A": {
                 "items": [
@@ -5849,7 +5849,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u13",
             "number": 13,
-            "title": "drawing squares and rectangles",
+            "title": "Drawing Squares and Rectangles",
             "cells": {
               "A": {
                 "items": [
@@ -5910,7 +5910,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u15",
             "number": 15,
-            "title": "symmetry",
+            "title": "Symmetry",
             "cells": {
               "A": {
                 "items": [
@@ -5993,7 +5993,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u16",
             "number": 16,
-            "title": "improper fractions and mixed numbers",
+            "title": "Improper Fractions and Mixed Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -6076,7 +6076,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u17",
             "number": 17,
-            "title": "fractions of a set",
+            "title": "Fractions of a Set",
             "cells": {
               "A": {
                 "items": [
@@ -6137,7 +6137,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u18",
             "number": 18,
-            "title": "add and sub of unlike fractions",
+            "title": "Add and Sub of Unlike Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -6209,7 +6209,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u21",
             "number": 21,
-            "title": "decimals",
+            "title": "Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -6303,7 +6303,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u22",
             "number": 22,
-            "title": "fractions and decimals",
+            "title": "Fractions and Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -6375,7 +6375,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u23",
             "number": 23,
-            "title": "add and sub of decimals",
+            "title": "Add and Sub of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -6458,7 +6458,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u24",
             "number": 24,
-            "title": "mult and div of decimals",
+            "title": "Mult and Div of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -6541,7 +6541,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u26",
             "number": 26,
-            "title": "area and perimeter",
+            "title": "Area and Perimeter",
             "cells": {
               "A": {
                 "items": [
@@ -6624,7 +6624,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u28",
             "number": 28,
-            "title": "tables",
+            "title": "Tables",
             "cells": {
               "A": {
                 "items": [
@@ -6696,7 +6696,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u29",
             "number": 29,
-            "title": "line graphs",
+            "title": "Line Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -6768,7 +6768,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-4-main-u30",
             "number": 30,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -6902,7 +6902,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u01",
             "number": 1,
-            "title": "numbers to 10 million",
+            "title": "Numbers to 10 Million",
             "cells": {
               "A": {
                 "items": [
@@ -6963,7 +6963,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u02",
             "number": 2,
-            "title": "mult or div by tens hundreds or thousands",
+            "title": "Mult or Div by Tens Hundreds or Thousands",
             "cells": {
               "A": {
                 "items": [
@@ -7046,7 +7046,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u03",
             "number": 3,
-            "title": "mixed operations",
+            "title": "Mixed Operations",
             "cells": {
               "A": {
                 "items": [
@@ -7129,7 +7129,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u04",
             "number": 4,
-            "title": "brackets",
+            "title": "Brackets",
             "cells": {
               "A": {
                 "items": [
@@ -7201,7 +7201,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u06",
             "number": 6,
-            "title": "fractions and div",
+            "title": "Fractions and Div",
             "cells": {
               "A": {
                 "items": [
@@ -7262,7 +7262,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u07",
             "number": 7,
-            "title": "add and sub of mixed numbers",
+            "title": "Add and Sub of Mixed Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -7345,7 +7345,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u09",
             "number": 9,
-            "title": "mult of proper fractions and whole numbers",
+            "title": "Mult of Proper Fractions and Whole Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -7406,7 +7406,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u10",
             "number": 10,
-            "title": "product of proper fractions",
+            "title": "Product of Proper Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -7467,7 +7467,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u11",
             "number": 11,
-            "title": "mult involving improper fractions and mixed numbers",
+            "title": "Mult Involving Improper Fractions and Mixed Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -7550,7 +7550,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u14",
             "number": 14,
-            "title": "area of triangles",
+            "title": "Area of Triangles",
             "cells": {
               "A": {
                 "items": [
@@ -7633,7 +7633,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u16",
             "number": 16,
-            "title": "ratios of two quantities",
+            "title": "Ratios of Two Quantities",
             "cells": {
               "A": {
                 "items": [
@@ -7705,7 +7705,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u17",
             "number": 17,
-            "title": "ratios of three quantities",
+            "title": "Ratios of Three Quantities",
             "cells": {
               "A": {
                 "items": [
@@ -7766,7 +7766,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u20",
             "number": 20,
-            "title": "understanding volumes",
+            "title": "Understanding Volumes",
             "cells": {
               "A": {
                 "items": [
@@ -7849,7 +7849,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u21",
             "number": 21,
-            "title": "volumes of a cuboid",
+            "title": "Volumes of a Cuboid",
             "cells": {
               "A": {
                 "items": [
@@ -7932,7 +7932,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u22",
             "number": 22,
-            "title": "volume of liquid",
+            "title": "Volume of Liquid",
             "cells": {
               "A": {
                 "items": [
@@ -7993,7 +7993,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u24",
             "number": 24,
-            "title": "mult and div decimals",
+            "title": "Mult and Div Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -8087,7 +8087,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u26",
             "number": 26,
-            "title": "converting units",
+            "title": "Converting Units",
             "cells": {
               "A": {
                 "items": [
@@ -8170,7 +8170,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u28",
             "number": 28,
-            "title": "percentage",
+            "title": "Percentage",
             "cells": {
               "A": {
                 "items": [
@@ -8253,7 +8253,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u29",
             "number": 29,
-            "title": "converting between percentages decimals and fractions",
+            "title": "Converting Between Percentages Decimals and Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -8347,7 +8347,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u30",
             "number": 30,
-            "title": "finding percentages",
+            "title": "Finding Percentages",
             "cells": {
               "A": {
                 "items": [
@@ -8408,7 +8408,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u31",
             "number": 31,
-            "title": "percentage of a quantity",
+            "title": "Percentage of a Quantity",
             "cells": {
               "A": {
                 "items": [
@@ -8491,7 +8491,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u33",
             "number": 33,
-            "title": "average",
+            "title": "Average",
             "cells": {
               "A": {
                 "items": [
@@ -8574,7 +8574,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u35",
             "number": 35,
-            "title": "rate",
+            "title": "Rate",
             "cells": {
               "A": {
                 "items": [
@@ -8635,7 +8635,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u37",
             "number": 37,
-            "title": "angles",
+            "title": "Angles",
             "cells": {
               "A": {
                 "items": [
@@ -8740,7 +8740,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u39",
             "number": 39,
-            "title": "properties of triangles",
+            "title": "Properties of Triangles",
             "cells": {
               "A": {
                 "items": [
@@ -8834,7 +8834,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u40",
             "number": 40,
-            "title": "properties of quadrilaterals",
+            "title": "Properties of Quadrilaterals",
             "cells": {
               "A": {
                 "items": [
@@ -8917,7 +8917,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-5-main-u42",
             "number": 42,
-            "title": "geometrical construction of triangles and 4-sided figures",
+            "title": "Geometrical Construction of Triangles and 4-Sided Figures",
             "cells": {
               "A": {
                 "items": [
@@ -9043,7 +9043,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u01",
             "number": 1,
-            "title": "using letters to represent unknown numbers",
+            "title": "Using Letters to Represent Unknown Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -9120,7 +9120,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u02",
             "number": 2,
-            "title": "simplifying algebraic expressions",
+            "title": "Simplifying Algebraic Expressions",
             "cells": {
               "A": {
                 "items": [
@@ -9175,7 +9175,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u04",
             "number": 4,
-            "title": "angles in geometric figures",
+            "title": "Angles in Geometric Figures",
             "cells": {
               "A": {
                 "items": [
@@ -9241,7 +9241,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u06",
             "number": 6,
-            "title": "solid",
+            "title": "Solid",
             "cells": {
               "A": {
                 "items": [
@@ -9296,7 +9296,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u07",
             "number": 7,
-            "title": "nets of solids",
+            "title": "Nets of Solids",
             "cells": {
               "A": {
                 "items": [
@@ -9373,7 +9373,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u09",
             "number": 9,
-            "title": "div by a proper fraction",
+            "title": "Div by a Proper Fraction",
             "cells": {
               "A": {
                 "items": [
@@ -9428,7 +9428,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u11",
             "number": 11,
-            "title": "ratio and fraction",
+            "title": "Ratio and Fraction",
             "cells": {
               "A": {
                 "items": [
@@ -9505,7 +9505,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u12",
             "number": 12,
-            "title": "comparing ratios",
+            "title": "Comparing Ratios",
             "cells": {
               "A": {
                 "items": [
@@ -9560,7 +9560,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u14",
             "number": 14,
-            "title": "revision of finding percentage",
+            "title": "Revision of Finding Percentage",
             "cells": {
               "A": {
                 "items": [
@@ -9626,7 +9626,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u15",
             "number": 15,
-            "title": "percentage increase or decrease",
+            "title": "Percentage Increase or Decrease",
             "cells": {
               "A": {
                 "items": [
@@ -9692,7 +9692,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u16",
             "number": 16,
-            "title": "finding the whole value",
+            "title": "Finding the Whole Value",
             "cells": {
               "A": {
                 "items": [
@@ -9758,7 +9758,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u18",
             "number": 18,
-            "title": "distance time and speed",
+            "title": "Distance Time and Speed",
             "cells": {
               "A": {
                 "items": [
@@ -9835,7 +9835,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u19",
             "number": 19,
-            "title": "average speed",
+            "title": "Average Speed",
             "cells": {
               "A": {
                 "items": [
@@ -9890,7 +9890,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u21",
             "number": 21,
-            "title": "radius diameter and circumference",
+            "title": "Radius Diameter and Circumference",
             "cells": {
               "A": {
                 "items": [
@@ -9967,7 +9967,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u22",
             "number": 22,
-            "title": "area of a circle",
+            "title": "Area of a Circle",
             "cells": {
               "A": {
                 "items": [
@@ -10044,7 +10044,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u24",
             "number": 24,
-            "title": "pie chart",
+            "title": "Pie Chart",
             "cells": {
               "A": {
                 "items": [
@@ -10121,7 +10121,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u25",
             "number": 25,
-            "title": "area and perimeter of composite figures",
+            "title": "Area and Perimeter of Composite Figures",
             "cells": {
               "A": {
                 "items": [
@@ -10187,7 +10187,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u27",
             "number": 27,
-            "title": "square roots and cube roots",
+            "title": "Square Roots and Cube Roots",
             "cells": {
               "A": {
                 "items": [
@@ -10242,7 +10242,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u28",
             "number": 28,
-            "title": "volume of solids",
+            "title": "Volume of Solids",
             "cells": {
               "A": {
                 "items": [
@@ -10308,7 +10308,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-sg-letter-size-sg-level-6-main-u29",
             "number": 29,
-            "title": "volume of liquids",
+            "title": "Volume of Liquids",
             "cells": {
               "A": {
                 "items": [
@@ -10561,7 +10561,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u02",
             "number": 2,
-            "title": "Composition of numbers 1 to 10",
+            "title": "Composition of Numbers 1 to 10",
             "cells": {
               "A": {
                 "items": [
@@ -10674,7 +10674,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u03",
             "number": 3,
-            "title": "One to one correspondence",
+            "title": "One to One Correspondence",
             "cells": {
               "A": {
                 "items": [
@@ -10867,7 +10867,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u05",
             "number": 5,
-            "title": "Composition of numbers 11 to 18",
+            "title": "Composition of Numbers 11 to 18",
             "cells": {
               "A": {
                 "items": [
@@ -10980,7 +10980,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u06",
             "number": 6,
-            "title": "Counting objects and ordering",
+            "title": "Counting Objects and Ordering",
             "cells": {
               "A": {
                 "items": [
@@ -11082,7 +11082,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u07",
             "number": 7,
-            "title": "Addition and subtraction",
+            "title": "Addition and Subtraction",
             "cells": {
               "A": {
                 "items": [
@@ -11249,7 +11249,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u09",
             "number": 9,
-            "title": "Addition up to 20",
+            "title": "Addition Up to 20",
             "cells": {
               "A": {
                 "items": [
@@ -11363,7 +11363,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u10",
             "number": 10,
-            "title": "Subtraction up to 18",
+            "title": "Subtraction Up to 18",
             "cells": {
               "A": {
                 "items": [
@@ -11466,7 +11466,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u11",
             "number": 11,
-            "title": "Relationship between add and sub",
+            "title": "Relationship Between Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -11536,7 +11536,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u12",
             "number": 12,
-            "title": "3D shapes",
+            "title": "3D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -11628,7 +11628,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u13",
             "number": 13,
-            "title": "Prisms cylinders pyramids cones and spheres",
+            "title": "Prisms Cylinders Pyramids Cones and Spheres",
             "cells": {
               "A": {
                 "items": [
@@ -11790,7 +11790,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u15",
             "number": 15,
-            "title": "Length and distance",
+            "title": "Length and Distance",
             "cells": {
               "A": {
                 "items": [
@@ -11985,7 +11985,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u17",
             "number": 17,
-            "title": "Counting in groups of 2 5 and 10",
+            "title": "Counting in Groups of 2 5 and 10",
             "cells": {
               "A": {
                 "items": [
@@ -12077,7 +12077,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u18",
             "number": 18,
-            "title": "2 digit addition with carrying",
+            "title": "2 Digit Addition with Carrying",
             "cells": {
               "A": {
                 "items": [
@@ -12180,7 +12180,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u19",
             "number": 19,
-            "title": "2 digit sub without borrowing",
+            "title": "2 Digit Sub Without Borrowing",
             "cells": {
               "A": {
                 "items": [
@@ -12272,7 +12272,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u20",
             "number": 20,
-            "title": "Problem solving in add and sub",
+            "title": "Problem Solving in Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -12375,7 +12375,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u21",
             "number": 21,
-            "title": "Points straight lines and curves",
+            "title": "Points Straight Lines and Curves",
             "cells": {
               "A": {
                 "items": [
@@ -12467,7 +12467,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u22",
             "number": 22,
-            "title": "2D shapes",
+            "title": "2D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -12716,7 +12716,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u24",
             "number": 24,
-            "title": "Shopping activities",
+            "title": "Shopping Activities",
             "cells": {
               "A": {
                 "items": [
@@ -13014,7 +13014,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u27",
             "number": 27,
-            "title": "Week and calendar",
+            "title": "Week and Calendar",
             "cells": {
               "A": {
                 "items": [
@@ -13095,7 +13095,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-1-main-u28",
             "number": 28,
-            "title": "Simple sudoku game and sorting methods",
+            "title": "Simple Sudoku Game and Sorting Methods",
             "cells": {
               "A": {
                 "items": [
@@ -13475,7 +13475,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u01",
             "number": 1,
-            "title": "3 digit numbers",
+            "title": "3 Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -13614,7 +13614,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u02",
             "number": 2,
-            "title": "3 digit add with carrying",
+            "title": "3 Digit Add with Carrying",
             "cells": {
               "A": {
                 "items": [
@@ -13753,7 +13753,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u03",
             "number": 3,
-            "title": "2 digit sub with borrowing",
+            "title": "2 Digit Sub with Borrowing",
             "cells": {
               "A": {
                 "items": [
@@ -13881,7 +13881,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u04",
             "number": 4,
-            "title": "Basic multiplication",
+            "title": "Basic Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -14086,7 +14086,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u05",
             "number": 5,
-            "title": "Problem solving in multiplication",
+            "title": "Problem Solving in Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -14171,7 +14171,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u06",
             "number": 6,
-            "title": "3D shapes",
+            "title": "3D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -14588,7 +14588,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u09",
             "number": 9,
-            "title": "Hours and minutes",
+            "title": "Hours and Minutes",
             "cells": {
               "A": {
                 "items": [
@@ -14722,7 +14722,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u10",
             "number": 10,
-            "title": "Year month and day",
+            "title": "Year Month and Day",
             "cells": {
               "A": {
                 "items": [
@@ -14807,7 +14807,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u11",
             "number": 11,
-            "title": "4 digit numbers",
+            "title": "4 Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -14925,7 +14925,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u12",
             "number": 12,
-            "title": "Revision on add and sub",
+            "title": "Revision on Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -15021,7 +15021,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u13",
             "number": 13,
-            "title": "3 digit sub with borrowing",
+            "title": "3 Digit Sub with Borrowing",
             "cells": {
               "A": {
                 "items": [
@@ -15150,7 +15150,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u14",
             "number": 14,
-            "title": "Mixed operations of add and sub",
+            "title": "Mixed Operations of Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -15268,7 +15268,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u15",
             "number": 15,
-            "title": "Dividing and grouping",
+            "title": "Dividing and Grouping",
             "cells": {
               "A": {
                 "items": [
@@ -15375,7 +15375,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u16",
             "number": 16,
-            "title": "Basic division",
+            "title": "Basic Division",
             "cells": {
               "A": {
                 "items": [
@@ -15482,7 +15482,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u17",
             "number": 17,
-            "title": "Relationship between mult and div",
+            "title": "Relationship Between Mult and Div",
             "cells": {
               "A": {
                 "items": [
@@ -15567,7 +15567,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u18",
             "number": 18,
-            "title": "Problem solving in division",
+            "title": "Problem Solving in Division",
             "cells": {
               "A": {
                 "items": [
@@ -15792,7 +15792,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u20",
             "number": 20,
-            "title": "Line segments and quadrilaterals",
+            "title": "Line Segments and Quadrilaterals",
             "cells": {
               "A": {
                 "items": [
@@ -15888,7 +15888,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u21",
             "number": 21,
-            "title": "Squares and rectangles",
+            "title": "Squares and Rectangles",
             "cells": {
               "A": {
                 "items": [
@@ -16006,7 +16006,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u22",
             "number": 22,
-            "title": "Hong Kong money",
+            "title": "Hong Kong Money",
             "cells": {
               "A": {
                 "items": [
@@ -16124,7 +16124,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u23",
             "number": 23,
-            "title": "Shopping activities",
+            "title": "Shopping Activities",
             "cells": {
               "A": {
                 "items": [
@@ -16401,7 +16401,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u26",
             "number": 26,
-            "title": "Block graphs",
+            "title": "Block Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -16508,7 +16508,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u27",
             "number": 27,
-            "title": "Ancient timing devices",
+            "title": "Ancient Timing Devices",
             "cells": {
               "A": {
                 "items": [
@@ -16582,7 +16582,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u28",
             "number": 28,
-            "title": "Number Sense - Smart calculation",
+            "title": "Number Sense - Smart Calculation",
             "cells": {
               "A": {
                 "items": [
@@ -16867,7 +16867,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u32",
             "number": 32,
-            "title": "Half - Inverse operation",
+            "title": "Half - Inverse Operation",
             "cells": {
               "A": {
                 "items": [
@@ -17026,7 +17026,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-2-main-u34",
             "number": 34,
-            "title": "Gram and kilogram",
+            "title": "Gram and Kilogram",
             "cells": {
               "A": {
                 "items": [
@@ -17218,7 +17218,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u01",
             "number": 1,
-            "title": "5 digit numbers",
+            "title": "5 Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -17320,7 +17320,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u02",
             "number": 2,
-            "title": "4 digit addition",
+            "title": "4 Digit Addition",
             "cells": {
               "A": {
                 "items": [
@@ -17433,7 +17433,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u03",
             "number": 3,
-            "title": "4 digit subtraction",
+            "title": "4 Digit Subtraction",
             "cells": {
               "A": {
                 "items": [
@@ -17546,7 +17546,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u04",
             "number": 4,
-            "title": "Mult 2 digits by 1 digit",
+            "title": "Mult 2 Digits by 1 Digit",
             "cells": {
               "A": {
                 "items": [
@@ -17670,7 +17670,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u05",
             "number": 5,
-            "title": "Mult 3 digits by 1 digit",
+            "title": "Mult 3 Digits by 1 Digit",
             "cells": {
               "A": {
                 "items": [
@@ -17794,7 +17794,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u06",
             "number": 6,
-            "title": "Div 2 digits by 1 digit",
+            "title": "Div 2 Digits by 1 Digit",
             "cells": {
               "A": {
                 "items": [
@@ -17961,7 +17961,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u07",
             "number": 7,
-            "title": "Div 3 digits by 1 digit",
+            "title": "Div 3 Digits by 1 Digit",
             "cells": {
               "A": {
                 "items": [
@@ -18085,7 +18085,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u08",
             "number": 8,
-            "title": "Problem solving in multi and div",
+            "title": "Problem Solving in Multi and Div",
             "cells": {
               "A": {
                 "items": [
@@ -18214,7 +18214,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u10",
             "number": 10,
-            "title": "Parallelograms and trapezium",
+            "title": "Parallelograms and Trapezium",
             "cells": {
               "A": {
                 "items": [
@@ -18317,7 +18317,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u11",
             "number": 11,
-            "title": "Kilometres and millimetres",
+            "title": "Kilometres and Millimetres",
             "cells": {
               "A": {
                 "items": [
@@ -18751,7 +18751,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u15",
             "number": 15,
-            "title": "Mixed operations of add sub and mult",
+            "title": "Mixed Operations of Add Sub and Mult",
             "cells": {
               "A": {
                 "items": [
@@ -18854,7 +18854,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u16",
             "number": 16,
-            "title": "Problem solving in mixed operations",
+            "title": "Problem Solving in Mixed Operations",
             "cells": {
               "A": {
                 "items": [
@@ -19060,7 +19060,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u18",
             "number": 18,
-            "title": "Comparing fractions",
+            "title": "Comparing Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -19434,7 +19434,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u21",
             "number": 21,
-            "title": "Making triangles",
+            "title": "Making Triangles",
             "cells": {
               "A": {
                 "items": [
@@ -19585,7 +19585,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u23",
             "number": 23,
-            "title": "Litres and millilitres",
+            "title": "Litres and Millilitres",
             "cells": {
               "A": {
                 "items": [
@@ -19699,7 +19699,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u24",
             "number": 24,
-            "title": "24 hour time",
+            "title": "24 Hour Time",
             "cells": {
               "A": {
                 "items": [
@@ -19802,7 +19802,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u25",
             "number": 25,
-            "title": "Reading bar charts",
+            "title": "Reading Bar Charts",
             "cells": {
               "A": {
                 "items": [
@@ -19894,7 +19894,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u26",
             "number": 26,
-            "title": "Making bar charts",
+            "title": "Making Bar Charts",
             "cells": {
               "A": {
                 "items": [
@@ -19986,7 +19986,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u27",
             "number": 27,
-            "title": "Curve stitching",
+            "title": "Curve Stitching",
             "cells": {
               "A": {
                 "items": [
@@ -20104,7 +20104,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u29",
             "number": 29,
-            "title": "Chinese abacus",
+            "title": "Chinese Abacus",
             "cells": {
               "A": {
                 "items": [
@@ -20163,7 +20163,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u30",
             "number": 30,
-            "title": "Inverse operation of fractions",
+            "title": "Inverse Operation of Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -20211,7 +20211,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-3-main-u31",
             "number": 31,
-            "title": "Stem and leaf diagrams",
+            "title": "Stem and Leaf Diagrams",
             "cells": {
               "A": {
                 "items": [
@@ -20325,7 +20325,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u01",
             "number": 1,
-            "title": "Properties of multiplication",
+            "title": "Properties of Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -20506,7 +20506,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u03",
             "number": 3,
-            "title": "Application of multiplication",
+            "title": "Application of Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -20591,7 +20591,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u04",
             "number": 4,
-            "title": "Division 2 digits by 2 digits",
+            "title": "Division 2 Digits by 2 Digits",
             "cells": {
               "A": {
                 "items": [
@@ -20676,7 +20676,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u05",
             "number": 5,
-            "title": "Division 3 digits by 2 digits",
+            "title": "Division 3 Digits by 2 Digits",
             "cells": {
               "A": {
                 "items": [
@@ -20761,7 +20761,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u06",
             "number": 6,
-            "title": "Application of division",
+            "title": "Application of Division",
             "cells": {
               "A": {
                 "items": [
@@ -21064,7 +21064,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u10",
             "number": 10,
-            "title": "Dissecting shapes",
+            "title": "Dissecting Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -21150,7 +21150,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u11",
             "number": 11,
-            "title": "Forming shapes",
+            "title": "Forming Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -21353,7 +21353,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u14",
             "number": 14,
-            "title": "Prime numbers and composite numbers",
+            "title": "Prime Numbers and Composite Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -21417,7 +21417,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u15",
             "number": 15,
-            "title": "Common factors",
+            "title": "Common Factors",
             "cells": {
               "A": {
                 "items": [
@@ -21503,7 +21503,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u16",
             "number": 16,
-            "title": "Common multiples",
+            "title": "Common Multiples",
             "cells": {
               "A": {
                 "items": [
@@ -21675,7 +21675,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u18",
             "number": 18,
-            "title": "Knowing bar charts",
+            "title": "Knowing Bar Charts",
             "cells": {
               "A": {
                 "items": [
@@ -21728,7 +21728,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u19",
             "number": 19,
-            "title": "Making bar charts",
+            "title": "Making Bar Charts",
             "cells": {
               "A": {
                 "items": [
@@ -21803,7 +21803,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u20",
             "number": 20,
-            "title": "Mixed operations",
+            "title": "Mixed Operations",
             "cells": {
               "A": {
                 "items": [
@@ -21889,7 +21889,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u21",
             "number": 21,
-            "title": "Problem solving in mixed operations",
+            "title": "Problem Solving in Mixed Operations",
             "cells": {
               "A": {
                 "items": [
@@ -22017,7 +22017,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u23",
             "number": 23,
-            "title": "Perimeter of squares",
+            "title": "Perimeter of Squares",
             "cells": {
               "A": {
                 "items": [
@@ -22070,7 +22070,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u24",
             "number": 24,
-            "title": "Perimeter of rectangles",
+            "title": "Perimeter of Rectangles",
             "cells": {
               "A": {
                 "items": [
@@ -22123,7 +22123,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u25",
             "number": 25,
-            "title": "Perimeter of 2D shapes",
+            "title": "Perimeter of 2D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -22220,7 +22220,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u26",
             "number": 26,
-            "title": "Knowing and comparing area",
+            "title": "Knowing and Comparing Area",
             "cells": {
               "A": {
                 "items": [
@@ -22273,7 +22273,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u27",
             "number": 27,
-            "title": "Units of area",
+            "title": "Units of Area",
             "cells": {
               "A": {
                 "items": [
@@ -22337,7 +22337,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u28",
             "number": 28,
-            "title": "Area of squares and rectangles",
+            "title": "Area of Squares and Rectangles",
             "cells": {
               "A": {
                 "items": [
@@ -22401,7 +22401,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u29",
             "number": 29,
-            "title": "Area of 2D shapes",
+            "title": "Area of 2D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -22465,7 +22465,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u30",
             "number": 30,
-            "title": "Proper frac improper frac and mixed numbers",
+            "title": "Proper Frac Improper Frac and Mixed Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -22540,7 +22540,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u31",
             "number": 31,
-            "title": "Expanding and reducing frac",
+            "title": "Expanding and Reducing Frac",
             "cells": {
               "A": {
                 "items": [
@@ -22637,7 +22637,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u32",
             "number": 32,
-            "title": "Add of frac with the same denominators",
+            "title": "Add of Frac with the Same Denominators",
             "cells": {
               "A": {
                 "items": [
@@ -22712,7 +22712,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u33",
             "number": 33,
-            "title": "Sub of frac with the same denominators",
+            "title": "Sub of Frac with the Same Denominators",
             "cells": {
               "A": {
                 "items": [
@@ -22809,7 +22809,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u34",
             "number": 34,
-            "title": "Add and sub of frac with the same denominators",
+            "title": "Add and Sub of Frac with the Same Denominators",
             "cells": {
               "A": {
                 "items": [
@@ -22959,7 +22959,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u36",
             "number": 36,
-            "title": "Add and sub of decimals",
+            "title": "Add and Sub of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -23056,7 +23056,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u37",
             "number": 37,
-            "title": "Mixed operations of add and sub of decimals",
+            "title": "Mixed Operations of Add and Sub of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -23131,7 +23131,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u38",
             "number": 38,
-            "title": "Eulerian paths",
+            "title": "Eulerian Paths",
             "cells": {
               "A": {
                 "items": [
@@ -23173,7 +23173,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-4-main-u39",
             "number": 39,
-            "title": "Sorting diagrams",
+            "title": "Sorting Diagrams",
             "cells": {
               "A": {
                 "items": [
@@ -23274,7 +23274,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u01",
             "number": 1,
-            "title": "Multi digit numbers",
+            "title": "Multi Digit Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -23373,7 +23373,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u02",
             "number": 2,
-            "title": "Base and height of triangles and quadrilaterals",
+            "title": "Base and Height of Triangles and Quadrilaterals",
             "cells": {
               "A": {
                 "items": [
@@ -23450,7 +23450,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u03",
             "number": 3,
-            "title": "Area of parallelograms",
+            "title": "Area of Parallelograms",
             "cells": {
               "A": {
                 "items": [
@@ -23538,7 +23538,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u04",
             "number": 4,
-            "title": "Area of triangles",
+            "title": "Area of Triangles",
             "cells": {
               "A": {
                 "items": [
@@ -23626,7 +23626,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u05",
             "number": 5,
-            "title": "Area of trapeziums",
+            "title": "Area of Trapeziums",
             "cells": {
               "A": {
                 "items": [
@@ -23714,7 +23714,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u06",
             "number": 6,
-            "title": "Area of polygons",
+            "title": "Area of Polygons",
             "cells": {
               "A": {
                 "items": [
@@ -23813,7 +23813,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u07",
             "number": 7,
-            "title": "Add of frac with diff denominators",
+            "title": "Add of Frac with Diff Denominators",
             "cells": {
               "A": {
                 "items": [
@@ -23924,7 +23924,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u08",
             "number": 8,
-            "title": "Sub of frac with diff denominators",
+            "title": "Sub of Frac with Diff Denominators",
             "cells": {
               "A": {
                 "items": [
@@ -24035,7 +24035,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u09",
             "number": 9,
-            "title": "Add and sub of frac",
+            "title": "Add and Sub of Frac",
             "cells": {
               "A": {
                 "items": [
@@ -24102,7 +24102,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u10",
             "number": 10,
-            "title": "Mult of fractions and whole numbers",
+            "title": "Mult of Fractions and Whole Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -24213,7 +24213,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u11",
             "number": 11,
-            "title": "Mult of fractions",
+            "title": "Mult of Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -24313,7 +24313,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u12",
             "number": 12,
-            "title": "Mult of three fractions",
+            "title": "Mult of Three Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -24391,7 +24391,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u13",
             "number": 13,
-            "title": "Algebraic expressions",
+            "title": "Algebraic Expressions",
             "cells": {
               "A": {
                 "items": [
@@ -24480,7 +24480,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u14",
             "number": 14,
-            "title": "Simple equations",
+            "title": "Simple Equations",
             "cells": {
               "A": {
                 "items": [
@@ -24591,7 +24591,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u15",
             "number": 15,
-            "title": "Compound bar charts",
+            "title": "Compound Bar Charts",
             "cells": {
               "A": {
                 "items": [
@@ -24758,7 +24758,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u17",
             "number": 17,
-            "title": "Cross sections of 3D shapes",
+            "title": "Cross Sections of 3D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -24836,7 +24836,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u18",
             "number": 18,
-            "title": "3D shapes",
+            "title": "3D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -24947,7 +24947,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u19",
             "number": 19,
-            "title": "Mult of whole numbers and dec",
+            "title": "Mult of Whole Numbers and Dec",
             "cells": {
               "A": {
                 "items": [
@@ -25036,7 +25036,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u20",
             "number": 20,
-            "title": "Mult of decimals",
+            "title": "Mult of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -25147,7 +25147,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u21",
             "number": 21,
-            "title": "Div frac by whole numbers",
+            "title": "Div Frac by Whole Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -25236,7 +25236,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u22",
             "number": 22,
-            "title": "Div of fractions",
+            "title": "Div of Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -25347,7 +25347,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u23",
             "number": 23,
-            "title": "Mixed operations of frac",
+            "title": "Mixed Operations of Frac",
             "cells": {
               "A": {
                 "items": [
@@ -25447,7 +25447,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u24",
             "number": 24,
-            "title": "More on algebraic expressions",
+            "title": "More on Algebraic Expressions",
             "cells": {
               "A": {
                 "items": [
@@ -25525,7 +25525,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u25",
             "number": 25,
-            "title": "Two step equations",
+            "title": "Two Step Equations",
             "cells": {
               "A": {
                 "items": [
@@ -25714,7 +25714,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u27",
             "number": 27,
-            "title": "Volume of cubes and cuboids",
+            "title": "Volume of Cubes and Cuboids",
             "cells": {
               "A": {
                 "items": [
@@ -25825,7 +25825,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u28",
             "number": 28,
-            "title": "Ancient numerals",
+            "title": "Ancient Numerals",
             "cells": {
               "A": {
                 "items": [
@@ -25892,7 +25892,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-5-main-u29",
             "number": 29,
-            "title": "Exploration of 3D shapes",
+            "title": "Exploration of 3D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -26037,7 +26037,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u01",
             "number": 1,
-            "title": "Div dec by whole numbers",
+            "title": "Div Dec by Whole Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -26153,7 +26153,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u02",
             "number": 2,
-            "title": "Div of decimals",
+            "title": "Div of Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -26280,7 +26280,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u03",
             "number": 3,
-            "title": "Mixed operations of dec",
+            "title": "Mixed Operations of Dec",
             "cells": {
               "A": {
                 "items": [
@@ -26407,7 +26407,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u04",
             "number": 4,
-            "title": "Changing between dec and frac",
+            "title": "Changing Between Dec and Frac",
             "cells": {
               "A": {
                 "items": [
@@ -26512,7 +26512,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u05",
             "number": 5,
-            "title": "Comparing dec and frac",
+            "title": "Comparing Dec and Frac",
             "cells": {
               "A": {
                 "items": [
@@ -26827,7 +26827,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u08",
             "number": 8,
-            "title": "Changing between percent dec and frac",
+            "title": "Changing Between Percent Dec and Frac",
             "cells": {
               "A": {
                 "items": [
@@ -26938,7 +26938,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u09",
             "number": 9,
-            "title": "Finding percentages",
+            "title": "Finding Percentages",
             "cells": {
               "A": {
                 "items": [
@@ -27055,7 +27055,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u10",
             "number": 10,
-            "title": "Finding part and remaining by percentages",
+            "title": "Finding Part and Remaining by Percentages",
             "cells": {
               "A": {
                 "items": [
@@ -27150,7 +27150,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u11",
             "number": 11,
-            "title": "Finding increase and decrease by percent",
+            "title": "Finding Increase and Decrease by Percent",
             "cells": {
               "A": {
                 "items": [
@@ -27267,7 +27267,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u12",
             "number": 12,
-            "title": "Capacity and volume",
+            "title": "Capacity and Volume",
             "cells": {
               "A": {
                 "items": [
@@ -27351,7 +27351,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u13",
             "number": 13,
-            "title": "Displacement of water",
+            "title": "Displacement of Water",
             "cells": {
               "A": {
                 "items": [
@@ -27530,7 +27530,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u15",
             "number": 15,
-            "title": "Calculation of circumferences",
+            "title": "Calculation of Circumferences",
             "cells": {
               "A": {
                 "items": [
@@ -27646,7 +27646,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u16",
             "number": 16,
-            "title": "Areas of circles",
+            "title": "Areas of Circles",
             "cells": {
               "A": {
                 "items": [
@@ -27847,7 +27847,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u18",
             "number": 18,
-            "title": "Pie charts",
+            "title": "Pie Charts",
             "cells": {
               "A": {
                 "items": [
@@ -28121,7 +28121,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u21",
             "number": 21,
-            "title": "Travel graphs",
+            "title": "Travel Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -28205,7 +28205,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u22",
             "number": 22,
-            "title": "Simple equations(I)",
+            "title": "Simple Equations(I)",
             "cells": {
               "A": {
                 "items": [
@@ -28300,7 +28300,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u23",
             "number": 23,
-            "title": "Simple equations(II)",
+            "title": "Simple Equations(II)",
             "cells": {
               "A": {
                 "items": [
@@ -28384,7 +28384,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u24",
             "number": 24,
-            "title": "Problem solving in simple equations",
+            "title": "Problem Solving in Simple Equations",
             "cells": {
               "A": {
                 "items": [
@@ -28457,7 +28457,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u25",
             "number": 25,
-            "title": "Broken line graph",
+            "title": "Broken Line Graph",
             "cells": {
               "A": {
                 "items": [
@@ -28552,7 +28552,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u26",
             "number": 26,
-            "title": "Uses and abuses of statistics",
+            "title": "Uses and Abuses of Statistics",
             "cells": {
               "A": {
                 "items": [
@@ -28720,7 +28720,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u28",
             "number": 28,
-            "title": "Rotational symmetry",
+            "title": "Rotational Symmetry",
             "cells": {
               "A": {
                 "items": [
@@ -28782,7 +28782,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u29",
             "number": 29,
-            "title": "Non metric units",
+            "title": "Non Metric Units",
             "cells": {
               "A": {
                 "items": [
@@ -28928,7 +28928,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u31",
             "number": 31,
-            "title": "Recurring decimals",
+            "title": "Recurring Decimals",
             "cells": {
               "A": {
                 "items": [
@@ -29012,7 +29012,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u32",
             "number": 32,
-            "title": "Square numbers and triangular numbers",
+            "title": "Square Numbers and Triangular Numbers",
             "cells": {
               "A": {
                 "items": [
@@ -29118,7 +29118,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-math-1-6-a4-math-1-to-6-level-6-main-u33",
             "number": 33,
-            "title": "Squares and square roots",
+            "title": "Squares and Square Roots",
             "cells": {
               "A": {
                 "items": [
@@ -30217,7 +30217,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-1-main-u21",
             "number": 21,
-            "title": "Add with carrying",
+            "title": "Add with Carrying",
             "cells": {
               "A": {
                 "items": []
@@ -30254,7 +30254,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-1-main-u22",
             "number": 22,
-            "title": "Add with carrying",
+            "title": "Add with Carrying",
             "cells": {
               "A": {
                 "items": [
@@ -30335,7 +30335,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-1-main-u23",
             "number": 23,
-            "title": "Add with carrying",
+            "title": "Add with Carrying",
             "cells": {
               "A": {
                 "items": []
@@ -30372,7 +30372,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-1-main-u24",
             "number": 24,
-            "title": "Add with carrying",
+            "title": "Add with Carrying",
             "cells": {
               "A": {
                 "items": [
@@ -30442,7 +30442,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-1-main-u25",
             "number": 25,
-            "title": "Add with carrying",
+            "title": "Add with Carrying",
             "cells": {
               "A": {
                 "items": []
@@ -36071,7 +36071,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-problem-solving-ps-level-3-main-u38",
             "number": 38,
-            "title": "24 hour Time",
+            "title": "24 Hour Time",
             "cells": {
               "A": {
                 "items": []
@@ -44608,7 +44608,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u01",
             "number": 1,
-            "title": "Classification A",
+            "title": "Classification a",
             "cells": {
               "A": {
                 "items": []
@@ -44796,7 +44796,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u05",
             "number": 5,
-            "title": "Counting Numbers (two more)",
+            "title": "Counting Numbers (Two More)",
             "cells": {
               "A": {
                 "items": [
@@ -44947,7 +44947,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u08",
             "number": 8,
-            "title": "Numbers 16-20 A",
+            "title": "Numbers 16-20 a",
             "cells": {
               "A": {
                 "items": [
@@ -45046,7 +45046,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u10",
             "number": 10,
-            "title": "Write 1 more and 1 less (A)",
+            "title": "Write 1 More and 1 Less (A)",
             "cells": {
               "A": {
                 "items": [
@@ -45091,7 +45091,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u11",
             "number": 11,
-            "title": "Write 1 more and 1 less (B)",
+            "title": "Write 1 More and 1 Less (B)",
             "cells": {
               "A": {
                 "items": [
@@ -45236,7 +45236,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u14",
             "number": 14,
-            "title": "25 to 100 (turning point)",
+            "title": "25 to 100 (Turning Point)",
             "cells": {
               "A": {
                 "items": [
@@ -45276,7 +45276,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-1-pdf-main-u15",
             "number": 15,
-            "title": "Larger and Smaller numbers I 1-100",
+            "title": "Larger and Smaller Numbers I 1-100",
             "cells": {
               "A": {
                 "items": [
@@ -46476,7 +46476,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u38",
             "number": 38,
-            "title": "Missing addend C",
+            "title": "Missing Addend C",
             "cells": {
               "A": {
                 "items": [
@@ -46570,7 +46570,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u39",
             "number": 39,
-            "title": "Count the 3-D shapes A",
+            "title": "Count the 3-D Shapes a",
             "cells": {
               "A": {
                 "items": [
@@ -46635,7 +46635,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u40",
             "number": 40,
-            "title": "Count the 3-D shapes B",
+            "title": "Count the 3-D Shapes B",
             "cells": {
               "A": {
                 "items": [
@@ -46695,7 +46695,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u41",
             "number": 41,
-            "title": "Count the 3-D shapes",
+            "title": "Count the 3-D Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -46767,7 +46767,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u42",
             "number": 42,
-            "title": "Count the 3-D shapes D",
+            "title": "Count the 3-D Shapes D",
             "cells": {
               "A": {
                 "items": [
@@ -46912,7 +46912,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u44",
             "number": 44,
-            "title": "Telling Time - quarter to B",
+            "title": "Telling Time - Quarter to B",
             "cells": {
               "A": {
                 "items": [
@@ -46972,7 +46972,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u45",
             "number": 45,
-            "title": "Telling Time - half past C",
+            "title": "Telling Time - Half Past C",
             "cells": {
               "A": {
                 "items": [
@@ -47027,7 +47027,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u46",
             "number": 46,
-            "title": "Telling Time - half past D",
+            "title": "Telling Time - Half Past D",
             "cells": {
               "A": {
                 "items": [
@@ -47087,7 +47087,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u47",
             "number": 47,
-            "title": "Telling Time - quarter to C",
+            "title": "Telling Time - Quarter to C",
             "cells": {
               "A": {
                 "items": [
@@ -47147,7 +47147,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u48",
             "number": 48,
-            "title": "Telling Time - quarter to D",
+            "title": "Telling Time - Quarter to D",
             "cells": {
               "A": {
                 "items": [
@@ -47202,7 +47202,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u49",
             "number": 49,
-            "title": "Drawing Time 1A",
+            "title": "Drawing Time 1a",
             "cells": {
               "A": {
                 "items": [
@@ -47305,7 +47305,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u51",
             "number": 51,
-            "title": "Telling Time 1A",
+            "title": "Telling Time 1a",
             "cells": {
               "A": {
                 "items": [
@@ -47359,7 +47359,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u52",
             "number": 52,
-            "title": "How many tens",
+            "title": "How Many Tens",
             "cells": {
               "A": {
                 "items": [
@@ -47468,7 +47468,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-kindergarten-first-step-stage-2-pdf-main-u54",
             "number": 54,
-            "title": "Telling Time 2A",
+            "title": "Telling Time 2a",
             "cells": {
               "A": {
                 "items": [
@@ -48617,7 +48617,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-mg-u01",
             "number": 1,
-            "title": "shapes and patterns",
+            "title": "Shapes and Patterns",
             "cells": {
               "A": {
                 "items": [
@@ -48704,7 +48704,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-mg-u02",
             "number": 2,
-            "title": "making patterns with shapes",
+            "title": "Making Patterns with Shapes",
             "cells": {
               "A": {
                 "items": [
@@ -48802,7 +48802,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-mg-u03",
             "number": 3,
-            "title": "length",
+            "title": "Length",
             "cells": {
               "A": {
                 "items": [
@@ -48900,7 +48900,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-mg-u04",
             "number": 4,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -49004,7 +49004,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u01",
             "number": 1,
-            "title": "numbers to 10",
+            "title": "Numbers to 10",
             "cells": {
               "A": {
                 "items": [
@@ -49113,7 +49113,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u02",
             "number": 2,
-            "title": "one to one correspondence",
+            "title": "One to One Correspondence",
             "cells": {
               "A": {
                 "items": [
@@ -49189,7 +49189,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u03",
             "number": 3,
-            "title": "number bonds",
+            "title": "Number Bonds",
             "cells": {
               "A": {
                 "items": [
@@ -49276,7 +49276,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u04",
             "number": 4,
-            "title": "add within 10",
+            "title": "Add Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -49396,7 +49396,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u05",
             "number": 5,
-            "title": "sub within 10",
+            "title": "Sub Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -49570,7 +49570,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u07",
             "number": 7,
-            "title": "relationship between add and sub",
+            "title": "Relationship Between Add and Sub",
             "cells": {
               "A": {
                 "items": [
@@ -49646,7 +49646,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u08",
             "number": 8,
-            "title": "ordinal numbers and position",
+            "title": "Ordinal Numbers and Position",
             "cells": {
               "A": {
                 "items": [
@@ -49722,7 +49722,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u09",
             "number": 9,
-            "title": "numbers to 20",
+            "title": "Numbers to 20",
             "cells": {
               "A": {
                 "items": [
@@ -49831,7 +49831,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u10",
             "number": 10,
-            "title": "add within 20",
+            "title": "Add Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -49973,7 +49973,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u11",
             "number": 11,
-            "title": "sub within 20",
+            "title": "Sub Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -50115,7 +50115,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u12",
             "number": 12,
-            "title": "numbers to 40",
+            "title": "Numbers to 40",
             "cells": {
               "A": {
                 "items": [
@@ -50246,7 +50246,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u13",
             "number": 13,
-            "title": "add within 40",
+            "title": "Add Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -50410,7 +50410,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u14",
             "number": 14,
-            "title": "sub within 40",
+            "title": "Sub Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -50541,7 +50541,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u15",
             "number": 15,
-            "title": "multiplication",
+            "title": "Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -50628,7 +50628,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u16",
             "number": 16,
-            "title": "division",
+            "title": "Division",
             "cells": {
               "A": {
                 "items": [
@@ -50715,7 +50715,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u17",
             "number": 17,
-            "title": "numbers to 100",
+            "title": "Numbers to 100",
             "cells": {
               "A": {
                 "items": [
@@ -50824,7 +50824,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u18",
             "number": 18,
-            "title": "add within 100",
+            "title": "Add Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -50944,7 +50944,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u19",
             "number": 19,
-            "title": "sub within 100",
+            "title": "Sub Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -51086,7 +51086,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u20",
             "number": 20,
-            "title": "money",
+            "title": "Money",
             "cells": {
               "A": {
                 "items": [
@@ -51184,7 +51184,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-na-u21",
             "number": 21,
-            "title": "add and sub of money",
+            "title": "Add and Sub of Money",
             "cells": {
               "A": {
                 "items": [
@@ -51288,7 +51288,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-st-u01",
             "number": 1,
-            "title": "picture graphs",
+            "title": "Picture Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -51392,7 +51392,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u04",
             "number": 4,
-            "title": "add within 10",
+            "title": "Add Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -51501,7 +51501,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u05",
             "number": 5,
-            "title": "sub within 10",
+            "title": "Sub Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -51632,7 +51632,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u07",
             "number": 7,
-            "title": "add and sub within 10",
+            "title": "Add and Sub Within 10",
             "cells": {
               "A": {
                 "items": [
@@ -51708,7 +51708,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u10",
             "number": 10,
-            "title": "add within 20",
+            "title": "Add Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -51795,7 +51795,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u11",
             "number": 11,
-            "title": "sub within 20",
+            "title": "Sub Within 20",
             "cells": {
               "A": {
                 "items": [
@@ -51915,7 +51915,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u13",
             "number": 13,
-            "title": "add within 40",
+            "title": "Add Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -52035,7 +52035,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u14",
             "number": 14,
-            "title": "sub within 40",
+            "title": "Sub Within 40",
             "cells": {
               "A": {
                 "items": [
@@ -52166,7 +52166,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u15",
             "number": 15,
-            "title": "multiplication",
+            "title": "Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -52253,7 +52253,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u16",
             "number": 16,
-            "title": "division",
+            "title": "Division",
             "cells": {
               "A": {
                 "items": [
@@ -52340,7 +52340,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u18",
             "number": 18,
-            "title": "add within 100",
+            "title": "Add Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -52416,7 +52416,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u19",
             "number": 19,
-            "title": "sub within 100",
+            "title": "Sub Within 100",
             "cells": {
               "A": {
                 "items": [
@@ -52503,7 +52503,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-1-ps-na-u21",
             "number": 21,
-            "title": "add sub of money",
+            "title": "Add Sub of Money",
             "cells": {
               "A": {
                 "items": [
@@ -52658,7 +52658,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u01",
             "number": 1,
-            "title": "measuring in m or cm",
+            "title": "Measuring in M or Cm",
             "cells": {
               "A": {
                 "items": [
@@ -52773,7 +52773,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u02",
             "number": 2,
-            "title": "mass",
+            "title": "Mass",
             "cells": {
               "A": {
                 "items": [
@@ -52855,7 +52855,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u03",
             "number": 3,
-            "title": "grams and kilograms",
+            "title": "Grams and Kilograms",
             "cells": {
               "A": {
                 "items": [
@@ -52959,7 +52959,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u04",
             "number": 4,
-            "title": "shapes and two-dimensional figures",
+            "title": "Shapes and Two-dimensional Figures",
             "cells": {
               "A": {
                 "items": [
@@ -53052,7 +53052,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u05",
             "number": 5,
-            "title": "solids and three-dimensional figures",
+            "title": "Solids and Three-dimensional Figures",
             "cells": {
               "A": {
                 "items": [
@@ -53145,7 +53145,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u06",
             "number": 6,
-            "title": "making patterns",
+            "title": "Making Patterns",
             "cells": {
               "A": {
                 "items": [
@@ -53238,7 +53238,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u07",
             "number": 7,
-            "title": "time",
+            "title": "Time",
             "cells": {
               "A": {
                 "items": [
@@ -53331,7 +53331,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-mg-u08",
             "number": 8,
-            "title": "volume",
+            "title": "Volume",
             "cells": {
               "A": {
                 "items": [
@@ -53430,7 +53430,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u01",
             "number": 1,
-            "title": "numbers to 1000",
+            "title": "Numbers to 1000",
             "cells": {
               "A": {
                 "items": [
@@ -53545,7 +53545,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u02",
             "number": 2,
-            "title": "add within 1000",
+            "title": "Add Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -53660,7 +53660,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u03",
             "number": 3,
-            "title": "sub within 1000",
+            "title": "Sub Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -53775,7 +53775,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u04",
             "number": 4,
-            "title": "revision on mult and div",
+            "title": "Revision on Mult and Div",
             "cells": {
               "A": {
                 "items": [
@@ -53868,7 +53868,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u05",
             "number": 5,
-            "title": "mult tables of 2 5 and 10",
+            "title": "Mult Tables of 2 5 and 10",
             "cells": {
               "A": {
                 "items": [
@@ -53983,7 +53983,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u06",
             "number": 6,
-            "title": "property of multiplication",
+            "title": "Property of Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -54065,7 +54065,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u07",
             "number": 7,
-            "title": "dollars and cents",
+            "title": "Dollars and Cents",
             "cells": {
               "A": {
                 "items": [
@@ -54158,7 +54158,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u08",
             "number": 8,
-            "title": "fractions",
+            "title": "Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -54251,7 +54251,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u09",
             "number": 9,
-            "title": "comparing and ordering fractions",
+            "title": "Comparing and Ordering Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -54344,7 +54344,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-na-u10",
             "number": 10,
-            "title": "add and sub of like fractions",
+            "title": "Add and Sub of Like Fractions",
             "cells": {
               "A": {
                 "items": [
@@ -54432,7 +54432,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-st-u01",
             "number": 1,
-            "title": "picture graphs",
+            "title": "Picture Graphs",
             "cells": {
               "A": {
                 "items": [
@@ -54542,7 +54542,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-mg-u01",
             "number": 1,
-            "title": "add of length",
+            "title": "Add of Length",
             "cells": {
               "A": {
                 "items": [
@@ -54657,7 +54657,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-mg-u03",
             "number": 3,
-            "title": "mass",
+            "title": "Mass",
             "cells": {
               "A": {
                 "items": [
@@ -54750,7 +54750,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-mg-u08",
             "number": 8,
-            "title": "volumes",
+            "title": "Volumes",
             "cells": {
               "A": {
                 "items": [
@@ -54849,7 +54849,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u02",
             "number": 2,
-            "title": "add within 1000",
+            "title": "Add Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -54931,7 +54931,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u03",
             "number": 3,
-            "title": "sub within 1000",
+            "title": "Sub Within 1000",
             "cells": {
               "A": {
                 "items": [
@@ -55123,7 +55123,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u05",
             "number": 5,
-            "title": "multiplication",
+            "title": "Multiplication",
             "cells": {
               "A": {
                 "items": [
@@ -55216,7 +55216,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u06",
             "number": 6,
-            "title": "division",
+            "title": "Division",
             "cells": {
               "A": {
                 "items": [
@@ -55309,7 +55309,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u07",
             "number": 7,
-            "title": "money",
+            "title": "Money",
             "cells": {
               "A": {
                 "items": [
@@ -55402,7 +55402,7 @@ export const mcDriveChecktables: Checktable[] = [
           {
             "id": "ct-mcd-ca-level-1-2-level-2-ps-na-u10",
             "number": 10,
-            "title": "add and sub of fractions",
+            "title": "Add and Sub of Fractions",
             "cells": {
               "A": {
                 "items": [
