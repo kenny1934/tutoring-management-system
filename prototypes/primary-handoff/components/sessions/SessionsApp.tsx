@@ -45,7 +45,7 @@ import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
 import { ChecktableDrawer } from "./ChecktableDrawer";
-import { WorksheetPreviewModal } from "./WorksheetPreviewModal";
+import { WorksheetModal } from "./WorksheetModal";
 import {
   SessionsToolbar,
   type StatusFilter,
@@ -78,10 +78,13 @@ type AcceptSuggestion = (
   item: ChecktableItem
 ) => void;
 
-/** Open the worksheet preview for a logged exercise or suggestion. The
- *  itemId (when present) resolves to the real MC Drive PDF; code is the
- *  fallback label. */
-type PreviewFn = (itemId: string | undefined, code: string) => void;
+/** Open the worksheet detail modal (PDF preview + page-range/note) either to
+ *  log a suggested worksheet or to edit an already-logged one. */
+type WorksheetReq =
+  | { mode: "log"; kind: ExerciseKind; item: ChecktableItem }
+  | { mode: "edit"; kind: ExerciseKind; exercise: SessionExercise };
+/** Bound form passed down to a row (session/student already captured). */
+type OpenWorksheet = (req: WorksheetReq) => void;
 
 export function SessionsApp() {
   const {
@@ -91,6 +94,7 @@ export function SessionsApp() {
     setSessions,
     recordExercise,
     removeExercise,
+    updateExercise,
     recordHomeworkCompletion,
     pendingPreviousHomework,
     primaryChecktableId,
@@ -109,13 +113,47 @@ export function SessionsApp() {
     studentId: string;
     focusItemId?: string;
   } | null>(null);
-  const [previewItem, setPreviewItem] = useState<ChecktableItem | null>(null);
+  const [worksheet, setWorksheet] = useState<{
+    mode: "log" | "edit";
+    kind: ExerciseKind;
+    sessionId: string;
+    studentId: string;
+    item: ChecktableItem;
+    exerciseId?: string;
+    initialPageRange?: string;
+    initialNote?: string;
+  } | null>(null);
 
-  // Resolve a logged/suggested worksheet to its checktable item (carrying the
-  // S3 path) for the PDF preview; fall back to a code-only stub.
-  const openPreview: PreviewFn = (itemId, code) => {
-    const found = itemId ? itemMeta.get(itemId)?.item : undefined;
-    setPreviewItem(found ?? { id: itemId ?? "", code });
+  // Open the worksheet modal (preview + page range) — either to log a
+  // suggestion or to edit a logged exercise. For edits, resolve the logged
+  // exercise's item through itemMeta to recover its PDF; fall back to a stub.
+  const openWorksheet = (
+    sessionId: string,
+    studentId: string,
+    req: WorksheetReq
+  ) => {
+    if (req.mode === "log") {
+      setWorksheet({
+        mode: "log",
+        kind: req.kind,
+        sessionId,
+        studentId,
+        item: req.item,
+      });
+      return;
+    }
+    const ex = req.exercise;
+    const found = ex.item_id ? itemMeta.get(ex.item_id)?.item : undefined;
+    setWorksheet({
+      mode: "edit",
+      kind: req.kind,
+      sessionId,
+      studentId,
+      item: found ?? { id: ex.item_id ?? "", code: ex.pdf_name },
+      exerciseId: ex.id,
+      initialPageRange: formatPageRange(ex.page_start, ex.page_end),
+      initialNote: ex.remarks,
+    });
   };
   const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
   const [tutorFilter, setTutorFilter] = useState<string>("all");
@@ -331,7 +369,7 @@ export function SessionsApp() {
                       item_id: item.id,
                     })
                   }
-                  onPreview={openPreview}
+                  onOpenWorksheet={openWorksheet}
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
@@ -402,10 +440,46 @@ export function SessionsApp() {
         />
       )}
 
-      {previewItem && (
-        <WorksheetPreviewModal
-          item={previewItem}
-          onClose={() => setPreviewItem(null)}
+      {worksheet && (
+        <WorksheetModal
+          item={worksheet.item}
+          kind={worksheet.kind}
+          mode={worksheet.mode}
+          initialPageRange={worksheet.initialPageRange}
+          initialNote={worksheet.initialNote}
+          onClose={() => setWorksheet(null)}
+          onSubmit={(input) => {
+            if (worksheet.mode === "log") {
+              recordExercise({
+                sessionId: worksheet.sessionId,
+                studentId: worksheet.studentId,
+                kind: worksheet.kind,
+                pdf_name: worksheet.item.code,
+                item_id: worksheet.item.id || undefined,
+                ...input,
+              });
+            } else if (worksheet.exerciseId) {
+              updateExercise(
+                worksheet.sessionId,
+                worksheet.kind,
+                worksheet.exerciseId,
+                input
+              );
+            }
+            setWorksheet(null);
+          }}
+          onRemove={
+            worksheet.mode === "edit" && worksheet.exerciseId
+              ? () => {
+                  removeExercise(
+                    worksheet.sessionId,
+                    worksheet.kind,
+                    worksheet.exerciseId!
+                  );
+                  setWorksheet(null);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -425,7 +499,7 @@ function MeetingCard({
   onPerformance,
   onOpenExercise,
   onAcceptSuggestion,
-  onPreview,
+  onOpenWorksheet,
   onScheduleMakeup,
   onOpenChecktable,
   onRemoveExercise,
@@ -449,7 +523,11 @@ function MeetingCard({
     kind: "CW" | "HW"
   ) => void;
   onAcceptSuggestion: AcceptSuggestion;
-  onPreview: PreviewFn;
+  onOpenWorksheet: (
+    sessionId: string,
+    studentId: string,
+    req: WorksheetReq
+  ) => void;
   onScheduleMakeup: (sessionId: string, studentId: string) => void;
   onOpenChecktable: (studentId: string, focusItemId?: string) => void;
   onRemoveExercise: (
@@ -536,7 +614,9 @@ function MeetingCard({
               onAcceptSuggestion={(k, item) =>
                 onAcceptSuggestion(session.id, session.student_id, k, item)
               }
-              onPreview={onPreview}
+              onOpenWorksheet={(req) =>
+                onOpenWorksheet(session.id, session.student_id, req)
+              }
               onRemoveExercise={(k, id) =>
                 onRemoveExercise(session.id, k, id)
               }
@@ -592,7 +672,7 @@ function StudentRow({
   onPerformance,
   onOpenExercise,
   onAcceptSuggestion,
-  onPreview,
+  onOpenWorksheet,
   onRemoveExercise,
   onScheduleMakeup,
   onOpenChecktable,
@@ -611,7 +691,7 @@ function StudentRow({
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
   onAcceptSuggestion: (k: ExerciseKind, item: ChecktableItem) => void;
-  onPreview: PreviewFn;
+  onOpenWorksheet: OpenWorksheet;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
   onOpenChecktable: (focusItemId?: string) => void;
@@ -694,7 +774,7 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("CW", id)}
           nextSuggestion={nextSuggestion.cw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("CW", item)}
-          onPreview={onPreview}
+          onOpenWorksheet={onOpenWorksheet}
         />
         <ExerciseRow
           kind="HW"
@@ -703,7 +783,7 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("HW", id)}
           nextSuggestion={nextSuggestion.hw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("HW", item)}
-          onPreview={onPreview}
+          onOpenWorksheet={onOpenWorksheet}
         />
       </div>
 
@@ -1079,7 +1159,7 @@ function ExerciseRow({
   onRemove,
   nextSuggestion,
   onAcceptSuggestion,
-  onPreview,
+  onOpenWorksheet,
 }: {
   kind: "CW" | "HW";
   items: SessionExercise[];
@@ -1090,8 +1170,8 @@ function ExerciseRow({
   nextSuggestion?: NextSuggestion | null;
   /** Accept the suggestion → log it as a real CW/HW for this session. */
   onAcceptSuggestion?: (item: ChecktableItem) => void;
-  /** Open the PDF preview for a worksheet (logged chip or suggestion). */
-  onPreview?: (itemId: string | undefined, code: string) => void;
+  /** Open the worksheet modal (preview + page range) to log or edit. */
+  onOpenWorksheet?: OpenWorksheet;
 }) {
   const empty = items.length === 0;
   // Suggestion is open by default on an empty row; once work is logged it
@@ -1117,10 +1197,12 @@ function ExerciseRow({
               <span className="font-mono text-ink-700">{it.pdf_name}</span>
               {range && <span className="text-ink-400">·{range}</span>}
               <button
-                onClick={() => onPreview?.(it.item_id, it.pdf_name)}
+                onClick={() =>
+                  onOpenWorksheet?.({ mode: "edit", kind, exercise: it })
+                }
                 className="text-ink-300 hover:text-ink-700"
-                aria-label={`Preview ${it.pdf_name}`}
-                title="Preview"
+                aria-label={`Preview and edit ${it.pdf_name}`}
+                title="Preview / edit pages"
               >
                 <Eye className="h-3 w-3" />
               </button>
@@ -1176,14 +1258,15 @@ function ExerciseRow({
               </button>
               <button
                 onClick={() =>
-                  onPreview?.(
-                    nextSuggestion.item.id,
-                    nextSuggestion.item.code
-                  )
+                  onOpenWorksheet?.({
+                    mode: "log",
+                    kind,
+                    item: nextSuggestion.item,
+                  })
                 }
                 className="inline-flex items-center px-1 py-0.5 text-ink-400 hover:bg-white hover:text-ink-700"
-                aria-label={`Preview ${nextSuggestion.item.code}`}
-                title="Preview"
+                aria-label={`Preview ${nextSuggestion.item.code} and set pages`}
+                title="Preview & set pages"
               >
                 <Eye className="h-3 w-3" />
               </button>

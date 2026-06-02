@@ -167,6 +167,14 @@ type Store = {
     kind: ExerciseKind,
     exerciseId: string
   ) => void;
+  /** Edit a recorded exercise's page range / note in place; keeps the linked
+   *  assignment's pageRange/tutorNote in sync. */
+  updateExercise: (
+    sessionId: string,
+    kind: ExerciseKind,
+    exerciseId: string,
+    patch: { page_start?: number; page_end?: number; remarks?: string }
+  ) => void;
 
   /** Items queued for printing, scoped per student so switching students
    *  shows that student's own batch. */
@@ -447,6 +455,50 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       );
       setAssignments((prev) =>
         prev.filter((a) => a.sourceRecordedExerciseId !== exerciseId)
+      );
+    },
+    []
+  );
+
+  const updateExercise = useCallback(
+    (
+      sessionId: string,
+      kind: ExerciseKind,
+      exerciseId: string,
+      patch: { page_start?: number; page_end?: number; remarks?: string }
+    ) => {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const key = kind === "CW" ? "cw" : "hw";
+          return {
+            ...s,
+            [key]: s[key].map((e) =>
+              e.id === exerciseId
+                ? {
+                    ...e,
+                    page_start: patch.page_start,
+                    page_end: patch.page_end,
+                    remarks: patch.remarks,
+                  }
+                : e
+            ),
+          };
+        })
+      );
+      // Keep the auto-linked assignment's page range / note in sync.
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.sourceRecordedExerciseId === exerciseId
+            ? {
+                ...a,
+                pageRange:
+                  formatPageRange(patch.page_start, patch.page_end) ||
+                  undefined,
+                tutorNote: patch.remarks ?? a.tutorNote,
+              }
+            : a
+        )
       );
     },
     []
@@ -826,6 +878,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       setAssessmentStage,
       recordExercise,
       removeExercise,
+      updateExercise,
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
@@ -854,6 +907,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       updateStudent,
       recordExercise,
       removeExercise,
+      updateExercise,
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
