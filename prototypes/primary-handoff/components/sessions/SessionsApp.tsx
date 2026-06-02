@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   Plus,
   Lightbulb,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -44,6 +45,7 @@ import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
 import { ChecktableDrawer } from "./ChecktableDrawer";
+import { WorksheetPreviewModal } from "./WorksheetPreviewModal";
 import {
   SessionsToolbar,
   type StatusFilter,
@@ -76,6 +78,11 @@ type AcceptSuggestion = (
   item: ChecktableItem
 ) => void;
 
+/** Open the worksheet preview for a logged exercise or suggestion. The
+ *  itemId (when present) resolves to the real MC Drive PDF; code is the
+ *  fallback label. */
+type PreviewFn = (itemId: string | undefined, code: string) => void;
+
 export function SessionsApp() {
   const {
     sessions: sessionState,
@@ -89,6 +96,7 @@ export function SessionsApp() {
     primaryChecktableId,
     nextSuggestion,
     sessionLabel,
+    itemMeta,
   } = usePrimaryStore();
 
   const [exerciseEditor, setExerciseEditor] =
@@ -101,6 +109,14 @@ export function SessionsApp() {
     studentId: string;
     focusItemId?: string;
   } | null>(null);
+  const [previewItem, setPreviewItem] = useState<ChecktableItem | null>(null);
+
+  // Resolve a logged/suggested worksheet to its checktable item (carrying the
+  // S3 path) for the PDF preview; fall back to a code-only stub.
+  const openPreview: PreviewFn = (itemId, code) => {
+    const found = itemId ? itemMeta.get(itemId)?.item : undefined;
+    setPreviewItem(found ?? { id: itemId ?? "", code });
+  };
   const [selectedDate, setSelectedDate] = useState<string>(DEMO_DAY);
   const [tutorFilter, setTutorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -315,6 +331,7 @@ export function SessionsApp() {
                       item_id: item.id,
                     })
                   }
+                  onPreview={openPreview}
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
@@ -385,6 +402,13 @@ export function SessionsApp() {
         />
       )}
 
+      {previewItem && (
+        <WorksheetPreviewModal
+          item={previewItem}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
+
     </div>
   );
 }
@@ -401,6 +425,7 @@ function MeetingCard({
   onPerformance,
   onOpenExercise,
   onAcceptSuggestion,
+  onPreview,
   onScheduleMakeup,
   onOpenChecktable,
   onRemoveExercise,
@@ -424,6 +449,7 @@ function MeetingCard({
     kind: "CW" | "HW"
   ) => void;
   onAcceptSuggestion: AcceptSuggestion;
+  onPreview: PreviewFn;
   onScheduleMakeup: (sessionId: string, studentId: string) => void;
   onOpenChecktable: (studentId: string, focusItemId?: string) => void;
   onRemoveExercise: (
@@ -510,6 +536,7 @@ function MeetingCard({
               onAcceptSuggestion={(k, item) =>
                 onAcceptSuggestion(session.id, session.student_id, k, item)
               }
+              onPreview={onPreview}
               onRemoveExercise={(k, id) =>
                 onRemoveExercise(session.id, k, id)
               }
@@ -565,6 +592,7 @@ function StudentRow({
   onPerformance,
   onOpenExercise,
   onAcceptSuggestion,
+  onPreview,
   onRemoveExercise,
   onScheduleMakeup,
   onOpenChecktable,
@@ -583,6 +611,7 @@ function StudentRow({
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
   onAcceptSuggestion: (k: ExerciseKind, item: ChecktableItem) => void;
+  onPreview: PreviewFn;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
   onOpenChecktable: (focusItemId?: string) => void;
@@ -665,6 +694,7 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("CW", id)}
           nextSuggestion={nextSuggestion.cw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("CW", item)}
+          onPreview={onPreview}
         />
         <ExerciseRow
           kind="HW"
@@ -673,6 +703,7 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("HW", id)}
           nextSuggestion={nextSuggestion.hw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("HW", item)}
+          onPreview={onPreview}
         />
       </div>
 
@@ -1048,6 +1079,7 @@ function ExerciseRow({
   onRemove,
   nextSuggestion,
   onAcceptSuggestion,
+  onPreview,
 }: {
   kind: "CW" | "HW";
   items: SessionExercise[];
@@ -1058,6 +1090,8 @@ function ExerciseRow({
   nextSuggestion?: NextSuggestion | null;
   /** Accept the suggestion → log it as a real CW/HW for this session. */
   onAcceptSuggestion?: (item: ChecktableItem) => void;
+  /** Open the PDF preview for a worksheet (logged chip or suggestion). */
+  onPreview?: (itemId: string | undefined, code: string) => void;
 }) {
   const empty = items.length === 0;
   // Suggestion is open by default on an empty row; once work is logged it
@@ -1082,6 +1116,14 @@ function ExerciseRow({
             >
               <span className="font-mono text-ink-700">{it.pdf_name}</span>
               {range && <span className="text-ink-400">·{range}</span>}
+              <button
+                onClick={() => onPreview?.(it.item_id, it.pdf_name)}
+                className="text-ink-300 hover:text-ink-700"
+                aria-label={`Preview ${it.pdf_name}`}
+                title="Preview"
+              >
+                <Eye className="h-3 w-3" />
+              </button>
               <button
                 onClick={() => onRemove(it.id)}
                 className="text-ink-300 hover:text-ink-700 -mr-0.5"
@@ -1124,13 +1166,26 @@ function ExerciseRow({
               </button>
               <button
                 onClick={() => onAcceptSuggestion?.(nextSuggestion.item)}
-                className="inline-flex items-center gap-1 text-[11px] pr-1.5 py-0.5 text-ink-600 transition-colors active:scale-95 hover:bg-white hover:text-good"
+                className="inline-flex items-center gap-1 text-[11px] py-0.5 text-ink-600 transition-colors active:scale-95 hover:bg-white hover:text-good"
                 title="Click to log this worksheet"
               >
                 <span className="font-mono">{nextSuggestion.item.code}</span>
                 <span className="text-[8px] uppercase tracking-wide font-semibold text-ink-400">
                   suggested
                 </span>
+              </button>
+              <button
+                onClick={() =>
+                  onPreview?.(
+                    nextSuggestion.item.id,
+                    nextSuggestion.item.code
+                  )
+                }
+                className="inline-flex items-center px-1 py-0.5 text-ink-400 hover:bg-white hover:text-ink-700"
+                aria-label={`Preview ${nextSuggestion.item.code}`}
+                title="Preview"
+              >
+                <Eye className="h-3 w-3" />
               </button>
             </span>
           ) : (
