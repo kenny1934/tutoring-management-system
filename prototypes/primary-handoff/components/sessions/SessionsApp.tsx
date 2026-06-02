@@ -19,10 +19,14 @@ import {
   XCircle,
   MoreHorizontal,
   Plus,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
+  ChecktableItem,
+  ExerciseKind,
   Session,
   SessionExercise,
   SessionStatusValue,
@@ -63,6 +67,16 @@ type ExerciseEditor = {
 
 type PreviousHwChoice = "complete" | "partial" | "not-done";
 
+/** Next worksheet to suggest per kind (CW = "...1" copy, HW = "...2" copy). */
+type NextByKind = { cw: NextSuggestion | null; hw: NextSuggestion | null };
+
+type AcceptSuggestion = (
+  sessionId: string,
+  studentId: string,
+  kind: ExerciseKind,
+  item: ChecktableItem
+) => void;
+
 export function SessionsApp() {
   const {
     sessions: sessionState,
@@ -74,7 +88,7 @@ export function SessionsApp() {
     recordHomeworkCompletion,
     pendingPreviousHomework,
     primaryChecktableId,
-    nextSuggestedItem,
+    nextSuggestion,
     sessionLabel,
   } = usePrimaryStore();
 
@@ -120,14 +134,21 @@ export function SessionsApp() {
     [students]
   );
 
+  // Per student, the next CW and HW worksheet to suggest (variant pairs).
   const nextByStudent = useMemo(() => {
-    const map = new Map<string, NextSuggestion | null>();
+    const map = new Map<
+      string,
+      { cw: NextSuggestion | null; hw: NextSuggestion | null }
+    >();
     for (const s of students) {
       const ctId = primaryChecktableId(s.id);
-      map.set(s.id, nextSuggestedItem(s.id, ctId));
+      map.set(s.id, {
+        cw: nextSuggestion(s.id, ctId, "CW"),
+        hw: nextSuggestion(s.id, ctId, "HW"),
+      });
     }
     return map;
-  }, [students, primaryChecktableId, nextSuggestedItem]);
+  }, [students, primaryChecktableId, nextSuggestion]);
 
   /** Per current-session-id, the previous attended session's HW entries
    *  (mix of pending + already-checked-in-this-session). */
@@ -286,6 +307,15 @@ export function SessionsApp() {
                   onOpenExercise={(sessionId, studentId, kind) =>
                     setExerciseEditor({ sessionId, studentId, kind })
                   }
+                  onAcceptSuggestion={(sessionId, studentId, kind, item) =>
+                    recordExercise({
+                      sessionId,
+                      studentId,
+                      kind,
+                      pdf_name: item.code,
+                      item_id: item.id,
+                    })
+                  }
                   onScheduleMakeup={(sessionId, studentId) =>
                     setMakeupOpen({ sessionId, studentId })
                   }
@@ -371,6 +401,7 @@ function MeetingCard({
   onSetStatus,
   onPerformance,
   onOpenExercise,
+  onAcceptSuggestion,
   onScheduleMakeup,
   onOpenChecktable,
   onRemoveExercise,
@@ -380,7 +411,7 @@ function MeetingCard({
   studentById: Map<string, Student>;
   highlighted: boolean;
   highlightSessionId: string | null;
-  nextByStudent: Map<string, NextSuggestion | null>;
+  nextByStudent: Map<string, NextByKind>;
   pendingHwBySessionId: Map<string, PendingHomeworkCheck>;
   sessionLabel: (sessionId: string) => string;
   onSetStatus: (
@@ -393,6 +424,7 @@ function MeetingCard({
     studentId: string,
     kind: "CW" | "HW"
   ) => void;
+  onAcceptSuggestion: AcceptSuggestion;
   onScheduleMakeup: (sessionId: string, studentId: string) => void;
   onOpenChecktable: (studentId: string, focusItemId?: string) => void;
   onRemoveExercise: (
@@ -463,13 +495,21 @@ function MeetingCard({
               session={session}
               student={student}
               highlightedRow={isHighlightedRow}
-              nextSuggestion={nextByStudent.get(session.student_id) ?? null}
+              nextSuggestion={
+                nextByStudent.get(session.student_id) ?? {
+                  cw: null,
+                  hw: null,
+                }
+              }
               pendingHw={pendingHwBySessionId.get(session.id) ?? null}
               sessionLabel={sessionLabel}
               onSetStatus={(next) => onSetStatus(session.id, next)}
               onPerformance={(p) => onPerformance(session.id, p)}
               onOpenExercise={(k) =>
                 onOpenExercise(session.id, session.student_id, k)
+              }
+              onAcceptSuggestion={(k, item) =>
+                onAcceptSuggestion(session.id, session.student_id, k, item)
               }
               onRemoveExercise={(k, id) =>
                 onRemoveExercise(session.id, k, id)
@@ -525,6 +565,7 @@ function StudentRow({
   onSetStatus,
   onPerformance,
   onOpenExercise,
+  onAcceptSuggestion,
   onRemoveExercise,
   onScheduleMakeup,
   onOpenChecktable,
@@ -533,7 +574,7 @@ function StudentRow({
   session: Session;
   student: Student;
   highlightedRow: boolean;
-  nextSuggestion: NextSuggestion | null;
+  nextSuggestion: NextByKind;
   pendingHw: PendingHomeworkCheck | null;
   sessionLabel: (sessionId: string) => string;
   onSetStatus: (next: {
@@ -542,6 +583,7 @@ function StudentRow({
   }) => void;
   onPerformance: (p: 1 | 2 | 3 | 4 | 5) => void;
   onOpenExercise: (k: "CW" | "HW") => void;
+  onAcceptSuggestion: (k: ExerciseKind, item: ChecktableItem) => void;
   onRemoveExercise: (k: "CW" | "HW", id: string) => void;
   onScheduleMakeup: () => void;
   onOpenChecktable: (focusItemId?: string) => void;
@@ -622,16 +664,18 @@ function StudentRow({
           items={session.cw}
           onOpen={() => onOpenExercise("CW")}
           onRemove={(id) => onRemoveExercise("CW", id)}
+          nextSuggestion={nextSuggestion.cw}
+          onAcceptSuggestion={(item) => onAcceptSuggestion("CW", item)}
+          onOpenSuggestion={(focusItemId) => onOpenChecktable(focusItemId)}
         />
         <ExerciseRow
           kind="HW"
           items={session.hw}
           onOpen={() => onOpenExercise("HW")}
           onRemove={(id) => onRemoveExercise("HW", id)}
-          nextSuggestion={nextSuggestion}
-          onOpenSuggestion={() =>
-            nextSuggestion && onOpenChecktable(nextSuggestion.item.id)
-          }
+          nextSuggestion={nextSuggestion.hw}
+          onAcceptSuggestion={(item) => onAcceptSuggestion("HW", item)}
+          onOpenSuggestion={(focusItemId) => onOpenChecktable(focusItemId)}
         />
       </div>
 
@@ -1006,18 +1050,27 @@ function ExerciseRow({
   onOpen,
   onRemove,
   nextSuggestion,
+  onAcceptSuggestion,
   onOpenSuggestion,
 }: {
   kind: "CW" | "HW";
   items: SessionExercise[];
   onOpen: () => void;
   onRemove: (id: string) => void;
-  /** Only the HW variant uses this; renders a quiet "+ Next 640A" ghost
-   *  button after the chip list so the tutor can jump to the suggested
-   *  next item without leaving the row. */
+  /** Next worksheet to suggest for this row's kind, or null when the book is
+   *  covered. */
   nextSuggestion?: NextSuggestion | null;
-  onOpenSuggestion?: () => void;
+  /** Accept the suggestion → log it as a real CW/HW for this session. */
+  onAcceptSuggestion?: (item: ChecktableItem) => void;
+  /** Open the checktable focused on an item (the "fill in details" path). */
+  onOpenSuggestion?: (focusItemId: string) => void;
 }) {
+  const empty = items.length === 0;
+  // Suggestions show by default on an empty row; once the tutor has logged
+  // something, the suggestion collapses to a lightbulb they can re-open.
+  const [revealed, setRevealed] = useState(false);
+  const showSuggestion = !!nextSuggestion && (empty || revealed);
+
   return (
     <div className="flex items-start gap-2 min-w-0">
       {/* 22px wide so CW + HW align vertically across exercise rows. */}
@@ -1025,21 +1078,12 @@ function ExerciseRow({
         {kind}
       </span>
       <div className="flex flex-wrap items-center gap-1 min-w-0">
-        {items.length === 0 && !nextSuggestion && (
-          <button
-            onClick={onOpen}
-            className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-1"
-          >
-            <Plus className="h-3 w-3" />
-            add
-          </button>
-        )}
         {items.map((it) => {
           const range = formatPageRange(it.page_start, it.page_end);
           return (
             <span
               key={it.id}
-              className="inline-flex items-center gap-1 text-[11px] bg-white border border-ink-200 rounded-md px-1.5 py-0.5"
+              className="inline-flex items-center gap-1 text-[11px] bg-white border border-ink-200 rounded-md px-1.5 py-0.5 animate-[chipIn_160ms_ease-out]"
               title={range ? `pp. ${range}` : undefined}
             >
               <span className="font-mono text-ink-700">{it.pdf_name}</span>
@@ -1054,25 +1098,53 @@ function ExerciseRow({
             </span>
           );
         })}
-        {items.length > 0 && (
-          <button
-            onClick={onOpen}
-            className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-0.5 px-1"
-            aria-label={`Add ${kind} item`}
-            title={`Add ${kind} item`}
-          >
-            <Plus className="h-3 w-3" />
-          </button>
+
+        {/* Manual add — opens the full record modal (page range, notes…). */}
+        <button
+          onClick={onOpen}
+          className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-1 px-1"
+          aria-label={`Add ${kind} item`}
+          title={`Add ${kind} item`}
+        >
+          <Plus className="h-3 w-3" />
+          {empty && <span>add</span>}
+        </button>
+
+        {/* Suggested (not-yet-real) worksheet. Click the chip to log it. */}
+        {showSuggestion && nextSuggestion && (
+          <span className="inline-flex items-center">
+            <button
+              onClick={() => onAcceptSuggestion?.(nextSuggestion.item)}
+              className="group inline-flex items-center gap-1 text-[11px] rounded-l-md border border-dashed border-ink-300 bg-ink-50/70 text-ink-500 pl-1.5 pr-1 py-0.5 transition active:scale-95 hover:bg-white hover:border-good hover:text-ink-800"
+              title={`Suggested ${kind} · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title} — click to log`}
+            >
+              <Sparkles className="h-3 w-3 text-mc-yellow-600 animate-[suggestGlow_2.4s_ease-in-out_infinite] group-hover:animate-none group-hover:text-good" />
+              <span className="font-mono">{nextSuggestion.item.code}</span>
+              <span className="text-[8px] uppercase tracking-wide font-semibold text-ink-400 group-hover:text-good">
+                <span className="group-hover:hidden">suggested</span>
+                <span className="hidden group-hover:inline">log it</span>
+              </span>
+            </button>
+            {/* Secondary: open the checktable to log with page range / note. */}
+            <button
+              onClick={() => onOpenSuggestion?.(nextSuggestion.item.id)}
+              className="inline-flex items-center rounded-r-md border border-l-0 border-dashed border-ink-300 bg-ink-50/70 text-ink-400 px-1 py-0.5 hover:bg-white hover:text-ink-700"
+              title="Open in checktable"
+            >
+              <Table2 className="h-3 w-3" />
+            </button>
+          </span>
         )}
-        {nextSuggestion && onOpenSuggestion && (
+
+        {/* Collapsed re-open affordance once work is logged. */}
+        {!empty && nextSuggestion && !revealed && (
           <button
-            onClick={onOpenSuggestion}
-            className="inline-flex items-center gap-1 text-[11px] rounded-md border border-ink-200 bg-white text-ink-600 px-1.5 py-0.5 hover:bg-ink-50 hover:text-ink-800"
-            title={`Suggested next · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
+            onClick={() => setRevealed(true)}
+            className="inline-flex items-center text-ink-300 hover:text-mc-yellow-600 px-0.5"
+            aria-label="Show suggested next worksheet"
+            title="Show suggested next worksheet"
           >
-            <Plus className="h-3 w-3 text-ink-400" />
-            <span className="text-ink-500">Next</span>
-            <span className="font-mono">{nextSuggestion.item.code}</span>
+            <Lightbulb className="h-3.5 w-3.5" />
           </button>
         )}
       </div>

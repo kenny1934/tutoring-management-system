@@ -32,6 +32,7 @@ import { SessionStatus } from "@/lib/types";
 import { generateSessions } from "@/lib/enrollment-utils";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
+import { assignableUnits } from "@/lib/mock-data/mc-drive-seed-helpers";
 import { seedAssignments } from "@/lib/mock-data/assignments";
 import {
   DEMO_DAY,
@@ -221,13 +222,15 @@ type Store = {
   /** Checktable the student is most actively working in (most assignments),
    *  or the first checktable as a fallback. */
   primaryChecktableId: (studentId: string) => string;
-  /** First item with no assignment yet from the lowest-numbered chapter the
-   *  student has touched. Falls back to next chapter's first item if the
-   *  current chapter is fully covered, or to the very first item if the
-   *  student has no assignments yet. */
-  nextSuggestedItem: (
+  /** The next worksheet to log for a given kind, honouring CW/HW variant
+   *  pairs: for CW it suggests the next unit's "...1" copy, for HW the
+   *  matching "...2" copy. "Next" = the first unit whose copy for that kind
+   *  the student has no assignment for yet. Null when the book is fully
+   *  covered for that kind. */
+  nextSuggestion: (
     studentId: string,
-    checktableId: string
+    checktableId: string,
+    kind: ExerciseKind
   ) => NextSuggestion | null;
 
   sessionLabel: (sessionId: string) => string;
@@ -773,8 +776,12 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     [assignments, checktables, students]
   );
 
-  const nextSuggestedItem = useCallback(
-    (studentId: string, checktableId: string): NextSuggestion | null => {
+  const nextSuggestion = useCallback(
+    (
+      studentId: string,
+      checktableId: string,
+      kind: ExerciseKind
+    ): NextSuggestion | null => {
       const table = checktables.find((t) => t.id === checktableId);
       if (!table) return null;
       const assigned = new Set(
@@ -785,34 +792,14 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           .map((a) => a.itemId)
       );
 
-      type ChapterBucket = { chapter: ChecktableChapter; items: ChecktableItem[] };
-      const buckets: ChapterBucket[] = [];
-      for (const sec of table.sections) {
-        for (const ch of sec.chapters) {
-          const items: ChecktableItem[] = [];
-          for (const s of table.series) {
-            items.push(...(ch.cells[s.id]?.items ?? []));
-          }
-          buckets.push({ chapter: ch, items });
+      // Walk the CW/HW variant-pair units in chapter order and return the
+      // first one whose copy for this kind hasn't been logged yet. CW uses
+      // the "...1" copy, HW the matching "...2" copy.
+      for (const unit of assignableUnits(table)) {
+        const item = kind === "CW" ? unit.cw : unit.hw;
+        if (!assigned.has(item.id)) {
+          return { item, chapter: unit.chapter, checktableId };
         }
-      }
-
-      let startIndex = buckets.findIndex(({ items }) =>
-        items.some((i) => assigned.has(i.id))
-      );
-      if (startIndex === -1) startIndex = 0;
-
-      // R / P / PS are render-only notes (reading, project, problem set
-      // header), not assignable items. ItemChip styles them italic; the
-      // suggestion engine must skip them or it'd recommend "R" as next.
-      const NON_ASSIGNABLE = new Set(["R", "P", "PS"]);
-
-      for (let i = startIndex; i < buckets.length; i++) {
-        const { chapter, items } = buckets[i];
-        const next = items.find(
-          (it) => !assigned.has(it.id) && !NON_ASSIGNABLE.has(it.code)
-        );
-        if (next) return { item: next, chapter, checktableId };
       }
       return null;
     },
@@ -848,7 +835,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       createMakeupSession,
       pendingPreviousHomework,
       primaryChecktableId,
-      nextSuggestedItem,
+      nextSuggestion,
       sessionLabel,
       assignableSessions,
     }),
@@ -876,7 +863,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       createMakeupSession,
       pendingPreviousHomework,
       primaryChecktableId,
-      nextSuggestedItem,
+      nextSuggestion,
       sessionLabel,
       assignableSessions,
     ]

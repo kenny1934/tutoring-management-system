@@ -17,7 +17,7 @@ export const PRIMARY_FAMILY = "SG (Letter Size)";
 export const SECONDARY_FAMILY = "Math 1-6 (A4)";
 
 // R / P / PS are render-only note codes (revision marker, project, problem-set
-// header) — not assignable worksheets. Mirrors PrimaryStore.nextSuggestedItem.
+// header) — not assignable worksheets. Mirrors PrimaryStore.nextSuggestion.
 const NON_ASSIGNABLE = new Set(["R", "P", "PS"]);
 
 export type PlanItem = {
