@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { Library, CheckCircle2 } from "lucide-react";
-import type { Checktable, ChecktableAssignment, ChecktableItem } from "@/lib/types";
+import type { Checktable, ChecktableItem } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
-import { AssignDialog } from "@/components/checktable/AssignDialog";
-import { newId } from "@/lib/id";
+import {
+  AssignDialog,
+  type SessionPick,
+} from "@/components/checktable/AssignDialog";
 
 const EMPTY_STATUS: Record<string, never> = {};
 
@@ -31,8 +33,16 @@ function shortLevel(levelLabel: string): string {
   );
 }
 
+/** "1-2" -> {start:1,end:2}; "5" -> {start:5,end:5}; anything else -> {}. */
+function parsePageRange(raw: string): { start?: number; end?: number } {
+  const m = raw.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/);
+  if (!m) return {};
+  const start = parseInt(m[1], 10);
+  return { start, end: m[2] ? parseInt(m[2], 10) : start };
+}
+
 export function CoursewareBrowser() {
-  const { checktables, assignableSessions, setAssignments } = usePrimaryStore();
+  const { checktables, assignableSessions, recordExercise } = usePrimaryStore();
 
   const mcTables = useMemo(
     () => checktables.filter((c) => c.source === "mc-drive"),
@@ -73,29 +83,32 @@ export function CoursewareBrowser() {
   const [toast, setToast] = useState<string | null>(null);
   const selectedItemIds = useMemo(() => new Set<string>(), []);
 
-  const handleAssign = (input: {
-    pageRange?: string;
-    tutorNote?: string;
-    sessionLabel: string;
-    sessionId?: string;
-  }) => {
-    if (!table || !activeItem || !input.sessionId) return;
-    const target = targets.find((t) => t.sessionId === input.sessionId);
-    if (!target) return;
-    const assignment: ChecktableAssignment = {
-      id: newId("a"),
-      studentId: target.studentId,
-      checktableId: table.id,
-      itemId: activeItem.id,
-      status: "assigned",
-      assignedAt: new Date().toISOString(),
-      pageRange: input.pageRange || undefined,
-      tutorNote: input.tutorNote || undefined,
-      sessionLabel: input.sessionLabel || undefined,
-      sessionId: input.sessionId,
-    };
-    setAssignments((prev) => [...prev, assignment]);
-    setToast(`Assigned ${activeItem.code} to ${target.studentName}`);
+  const handleAssignSessions = (
+    picks: SessionPick[],
+    opts: { pageRange?: string; tutorNote?: string }
+  ) => {
+    if (!activeItem || picks.length === 0) return;
+    const { start, end } = parsePageRange(opts.pageRange ?? "");
+    // One record per session, exactly like CSM's per-session saveExercises.
+    // recordExercise also writes the matching ChecktableAssignment (CW -> done,
+    // HW -> assigned) via the item's checktable link.
+    for (const pick of picks) {
+      recordExercise({
+        sessionId: pick.sessionId,
+        studentId: pick.studentId,
+        kind: pick.kind,
+        pdf_name: activeItem.code,
+        item_id: activeItem.id,
+        page_start: start,
+        page_end: end,
+        remarks: opts.tutorNote || undefined,
+      });
+    }
+    setToast(
+      `Assigned ${activeItem.code} to ${picks.length} session${
+        picks.length === 1 ? "" : "s"
+      }`
+    );
     setActiveItem(null);
     window.setTimeout(() => setToast(null), 3500);
   };
@@ -193,7 +206,7 @@ export function CoursewareBrowser() {
           basePath={table.basePath}
           assignTargets={targets}
           onClose={() => setActiveItem(null)}
-          onAssign={handleAssign}
+          onAssignSessions={handleAssignSessions}
         />
       )}
     </div>

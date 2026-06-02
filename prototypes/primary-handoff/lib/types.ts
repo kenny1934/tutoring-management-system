@@ -78,10 +78,13 @@ export type Checktable = {
  *  student-less assign flow (the session determines the student). */
 export type AssignTarget = {
   sessionId: string;
-  label: string; // formatted session label, e.g. "2026-05-19 Mon 4:00pm"
+  label: string; // full label, e.g. "2026-05-19 Tue 4:00 pm"
   studentId: string;
   studentName: string;
   tutorName: string;
+  date: string; // session_date, YYYY-MM-DD — groups the multi-select list
+  dateLabel: string; // "Tue 19 May"
+  timeLabel: string; // "4:00 pm"
 };
 
 export type AssignmentStatus = "assigned" | "done";

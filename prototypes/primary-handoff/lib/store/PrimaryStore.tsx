@@ -703,13 +703,26 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           ? a.session_date.localeCompare(b.session_date)
           : a.start_time.localeCompare(b.start_time)
       )
-      .map((s) => ({
-        sessionId: s.id,
-        label: formatSessionLabel(s),
-        studentId: s.student_id,
-        studentName: nameById.get(s.student_id) ?? s.student_id,
-        tutorName: s.tutor_name,
-      }));
+      .map((s) => {
+        const d = new Date(`${s.session_date}T${s.start_time}:00+08:00`);
+        return {
+          sessionId: s.id,
+          label: formatSessionLabel(s),
+          studentId: s.student_id,
+          studentName: nameById.get(s.student_id) ?? s.student_id,
+          tutorName: s.tutor_name,
+          date: s.session_date,
+          dateLabel: d.toLocaleDateString("en-HK", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          }),
+          timeLabel: d.toLocaleTimeString("en-HK", {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        };
+      });
   }, [sessions, students]);
 
   const primaryChecktableId = useCallback(
