@@ -19,7 +19,6 @@ import {
   XCircle,
   MoreHorizontal,
   Plus,
-  Sparkles,
   Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
@@ -666,7 +665,6 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("CW", id)}
           nextSuggestion={nextSuggestion.cw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("CW", item)}
-          onOpenSuggestion={(focusItemId) => onOpenChecktable(focusItemId)}
         />
         <ExerciseRow
           kind="HW"
@@ -675,7 +673,6 @@ function StudentRow({
           onRemove={(id) => onRemoveExercise("HW", id)}
           nextSuggestion={nextSuggestion.hw}
           onAcceptSuggestion={(item) => onAcceptSuggestion("HW", item)}
-          onOpenSuggestion={(focusItemId) => onOpenChecktable(focusItemId)}
         />
       </div>
 
@@ -1051,7 +1048,6 @@ function ExerciseRow({
   onRemove,
   nextSuggestion,
   onAcceptSuggestion,
-  onOpenSuggestion,
 }: {
   kind: "CW" | "HW";
   items: SessionExercise[];
@@ -1062,14 +1058,12 @@ function ExerciseRow({
   nextSuggestion?: NextSuggestion | null;
   /** Accept the suggestion → log it as a real CW/HW for this session. */
   onAcceptSuggestion?: (item: ChecktableItem) => void;
-  /** Open the checktable focused on an item (the "fill in details" path). */
-  onOpenSuggestion?: (focusItemId: string) => void;
 }) {
   const empty = items.length === 0;
-  // Suggestions show by default on an empty row; once the tutor has logged
-  // something, the suggestion collapses to a lightbulb they can re-open.
-  const [revealed, setRevealed] = useState(false);
-  const showSuggestion = !!nextSuggestion && (empty || revealed);
+  // Suggestion is open by default on an empty row; once work is logged it
+  // collapses to a lightbulb. The lightbulb toggles it either way.
+  const [revealed, setRevealed] = useState(empty);
+  const showSuggestion = !!nextSuggestion && revealed;
 
   return (
     <div className="flex items-start gap-2 min-w-0">
@@ -1110,43 +1104,45 @@ function ExerciseRow({
           {empty && <span>add</span>}
         </button>
 
-        {/* Suggested (not-yet-real) worksheet. Click the chip to log it. */}
-        {showSuggestion && nextSuggestion && (
-          <span className="inline-flex items-center">
-            <button
-              onClick={() => onAcceptSuggestion?.(nextSuggestion.item)}
-              className="group inline-flex items-center gap-1 text-[11px] rounded-l-md border border-dashed border-ink-300 bg-ink-50/70 text-ink-500 pl-1.5 pr-1 py-0.5 transition active:scale-95 hover:bg-white hover:border-good hover:text-ink-800"
-              title={`Suggested ${kind} · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title} — click to log`}
+        {/* Suggestion. Expanded: a ghosted chip whose lightbulb collapses it
+         *  and whose code logs it. Collapsed: just the lightbulb to re-open.
+         *  The lightbulb is the consistent motif in both states; nothing
+         *  changes width on hover, so there's no flicker. */}
+        {nextSuggestion &&
+          (showSuggestion ? (
+            <span
+              className="inline-flex items-center rounded-md border border-dashed border-ink-300 bg-ink-50/70 overflow-hidden animate-[chipIn_140ms_ease-out]"
+              title={`Suggested ${kind} · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
             >
-              <Sparkles className="h-3 w-3 text-mc-yellow-600 animate-[suggestGlow_2.4s_ease-in-out_infinite] group-hover:animate-none group-hover:text-good" />
-              <span className="font-mono">{nextSuggestion.item.code}</span>
-              <span className="text-[8px] uppercase tracking-wide font-semibold text-ink-400 group-hover:text-good">
-                <span className="group-hover:hidden">suggested</span>
-                <span className="hidden group-hover:inline">log it</span>
-              </span>
-            </button>
-            {/* Secondary: open the checktable to log with page range / note. */}
+              <button
+                onClick={() => setRevealed(false)}
+                className="inline-flex items-center px-1 py-0.5 text-mc-yellow-600 hover:bg-ink-100"
+                aria-label="Hide suggestion"
+                title="Hide suggestion"
+              >
+                <Lightbulb className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => onAcceptSuggestion?.(nextSuggestion.item)}
+                className="inline-flex items-center gap-1 text-[11px] pr-1.5 py-0.5 text-ink-600 transition-colors active:scale-95 hover:bg-white hover:text-good"
+                title="Click to log this worksheet"
+              >
+                <span className="font-mono">{nextSuggestion.item.code}</span>
+                <span className="text-[8px] uppercase tracking-wide font-semibold text-ink-400">
+                  suggested
+                </span>
+              </button>
+            </span>
+          ) : (
             <button
-              onClick={() => onOpenSuggestion?.(nextSuggestion.item.id)}
-              className="inline-flex items-center rounded-r-md border border-l-0 border-dashed border-ink-300 bg-ink-50/70 text-ink-400 px-1 py-0.5 hover:bg-white hover:text-ink-700"
-              title="Open in checktable"
+              onClick={() => setRevealed(true)}
+              className="inline-flex items-center text-ink-300 hover:text-mc-yellow-600 px-0.5"
+              aria-label="Show suggested next worksheet"
+              title="Show suggested next worksheet"
             >
-              <Table2 className="h-3 w-3" />
+              <Lightbulb className="h-3.5 w-3.5" />
             </button>
-          </span>
-        )}
-
-        {/* Collapsed re-open affordance once work is logged. */}
-        {!empty && nextSuggestion && !revealed && (
-          <button
-            onClick={() => setRevealed(true)}
-            className="inline-flex items-center text-ink-300 hover:text-mc-yellow-600 px-0.5"
-            aria-label="Show suggested next worksheet"
-            title="Show suggested next worksheet"
-          >
-            <Lightbulb className="h-3.5 w-3.5" />
-          </button>
-        )}
+          ))}
       </div>
     </div>
   );

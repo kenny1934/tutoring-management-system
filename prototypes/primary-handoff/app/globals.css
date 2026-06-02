@@ -106,18 +106,6 @@ body {
   }
 }
 
-/* Quiet breathing glow on a suggested (not-yet-real) chip so it's clearly a
- * hint rather than a logged item. */
-@keyframes suggestGlow {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 .chip {
   display: inline-flex;
   align-items: center;
