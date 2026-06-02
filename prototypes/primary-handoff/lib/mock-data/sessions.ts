@@ -1,5 +1,14 @@
 import type { Enrollment, Session } from "../types";
 import { SessionStatus } from "../types";
+import { exRef, studentPlans } from "./mc-drive-seed-helpers";
+
+// Classwork/homework worksheets are pulled from each student's grade-matched
+// MC Drive plan so every cw/hw row points at a real scraped worksheet (and
+// links to its checktable item via item_id). p001 is P6, p002 is P4, p003 is
+// P2 — matching the students' grades.
+const p001 = studentPlans["s-001"].primary;
+const p002 = studentPlans["s-002"].primary;
+const p003 = studentPlans["s-003"].primary;
 
 // Demo "today" used for headers
 export const DEMO_DAY = "2026-05-19";
@@ -98,14 +107,14 @@ export const sessions: Session[] = [
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
     notes: "Struggled on word problems, revisit next week",
-    class_wide_note: "Cover percentage word problems thoroughly today.",
+    class_wide_note: "Check last week's homework, then this week's core worksheets.",
     cw: [
-      { id: "rec-1", session_id: "sess-001-s-001", exercise_type: "CW", pdf_name: "609A", page_start: 1, page_end: 2 },
-      { id: "rec-2", session_id: "sess-001-s-001", exercise_type: "CW", pdf_name: "609B" },
+      { id: "rec-1", session_id: "sess-001-s-001", exercise_type: "CW", ...exRef(p001, 8), page_start: 1, page_end: 2 },
+      { id: "rec-2", session_id: "sess-001-s-001", exercise_type: "CW", ...exRef(p001, 9) },
     ],
     hw: [
-      { id: "rec-3", session_id: "sess-001-s-001", exercise_type: "HW", pdf_name: "609C" },
-      { id: "rec-4", session_id: "sess-001-s-001", exercise_type: "HW", pdf_name: "609D" },
+      { id: "rec-3", session_id: "sess-001-s-001", exercise_type: "HW", ...exRef(p001, 10) },
+      { id: "rec-4", session_id: "sess-001-s-001", exercise_type: "HW", ...exRef(p001, 11) },
     ],
   },
   {
@@ -120,13 +129,13 @@ export const sessions: Session[] = [
     lesson_number: 12,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 5,
-    class_wide_note: "Cover percentage word problems thoroughly today.",
+    class_wide_note: "Check last week's homework, then this week's core worksheets.",
     cw: [
-      { id: "rec-5", session_id: "sess-001-s-002", exercise_type: "CW", pdf_name: "516A" },
-      { id: "rec-6", session_id: "sess-001-s-002", exercise_type: "CW", pdf_name: "516B" },
+      { id: "rec-5", session_id: "sess-001-s-002", exercise_type: "CW", ...exRef(p002, 12) },
+      { id: "rec-6", session_id: "sess-001-s-002", exercise_type: "CW", ...exRef(p002, 13) },
     ],
     hw: [
-      { id: "rec-7", session_id: "sess-001-s-002", exercise_type: "HW", pdf_name: "C_Rev_6F_A02" },
+      { id: "rec-7", session_id: "sess-001-s-002", exercise_type: "HW", ...exRef(p002, 14) },
     ],
   },
   {
@@ -143,8 +152,8 @@ export const sessions: Session[] = [
     attendance_status: "Late",
     performance_rating: 3,
     notes: "Arrived 15 min late, sibling pickup issue",
-    class_wide_note: "Cover percentage word problems thoroughly today.",
-    cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", pdf_name: "607A" }],
+    class_wide_note: "Check last week's homework, then this week's core worksheets.",
+    cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", ...exRef(p003, 3) }],
     hw: [],
   },
 
@@ -216,11 +225,11 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
-    cw: [{ id: "rec-h1", session_id: "sess-004-s-001", exercise_type: "CW", pdf_name: "608A" }],
+    cw: [{ id: "rec-h1", session_id: "sess-004-s-001", exercise_type: "CW", ...exRef(p001, 4) }],
     hw: [
-      { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "608B" },
-      { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "extra/602" },
-      { id: "rec-h5", session_id: "sess-004-s-001", exercise_type: "HW", pdf_name: "609A", page_start: 3, page_end: 4 },
+      { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 5) },
+      { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 6) },
+      { id: "rec-h5", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 7), page_start: 3, page_end: 4 },
     ],
   },
   {
@@ -250,10 +259,10 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 3,
-    cw: [{ id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", pdf_name: "607B" }],
+    cw: [{ id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", ...exRef(p003, 0) }],
     hw: [
-      { id: "rec-h6", session_id: "sess-004-s-003", exercise_type: "HW", pdf_name: "607C", page_start: 1, page_end: 2 },
-      { id: "rec-h7", session_id: "sess-004-s-003", exercise_type: "HW", pdf_name: "C_Rev_6F_A01" },
+      { id: "rec-h6", session_id: "sess-004-s-003", exercise_type: "HW", ...exRef(p003, 1), page_start: 1, page_end: 2 },
+      { id: "rec-h7", session_id: "sess-004-s-003", exercise_type: "HW", ...exRef(p003, 2) },
     ],
   },
 ];

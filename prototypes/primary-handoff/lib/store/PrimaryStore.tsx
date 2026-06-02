@@ -31,7 +31,6 @@ import type {
 import { SessionStatus } from "@/lib/types";
 import { generateSessions } from "@/lib/enrollment-utils";
 import { students as seedStudents } from "@/lib/mock-data/students";
-import { checktables as seedChecktables } from "@/lib/mock-data/checktables";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
 import { seedAssignments } from "@/lib/mock-data/assignments";
 import {
@@ -54,6 +53,9 @@ type ExerciseInput = {
   page_end?: number;
   remarks?: string;
 };
+
+/** Editable student fields (everything except the generated id). */
+export type StudentInput = Omit<Student, "id">;
 
 export type CreateEnrollmentInput = {
   student_id: string;
@@ -140,6 +142,11 @@ type Store = {
 
   /** Lookup any item by id; carries its checktable id too. */
   itemMeta: Map<string, ItemMeta>;
+
+  /** Add a new student to the roster. Returns the new student id. */
+  addStudent: (input: StudentInput) => string;
+  /** Patch an existing student's editable fields. */
+  updateStudent: (id: string, patch: Partial<StudentInput>) => void;
 
   setSessions: (updater: (s: Session[]) => Session[]) => void;
   setAssignments: (
@@ -287,16 +294,14 @@ function statusAfterMakeupBooked(
 }
 
 export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
-  const [students] = useState<Student[]>(seedStudents);
+  const [students, setStudents] = useState<Student[]>(seedStudents);
   const [enrollments, setEnrollments] =
     useState<Enrollment[]>(seedEnrollments);
-  // Mock textbooks plus the real MC Drive worksheet checktables. The MC Drive
-  // ones carry source:"mc-drive" so they show on the Courseware page and only
-  // surface in a student's book dropdown when grade-appropriate.
-  const [checktables] = useState<Checktable[]>(() => [
-    ...seedChecktables,
-    ...mcDriveChecktables,
-  ]);
+  // The real MC Drive worksheet checktables are now the only source. They
+  // carry source:"mc-drive" so they show on the Courseware page and only
+  // surface in a student's book dropdown when grade-appropriate. (The old
+  // hand-coded textbooks in mock-data/checktables.ts are archived/unused.)
+  const [checktables] = useState<Checktable[]>(() => mcDriveChecktables);
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
@@ -315,6 +320,21 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     },
     []
   );
+  const addStudent = useCallback((input: StudentInput): string => {
+    const id = newId("s");
+    setStudents((prev) => [...prev, { id, ...input }]);
+    return id;
+  }, []);
+
+  const updateStudent = useCallback(
+    (id: string, patch: Partial<StudentInput>) => {
+      setStudents((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
+      );
+    },
+    []
+  );
+
   const [printBatchByStudent, setPrintBatchByStudent] = useState<
     Record<string, string[]>
   >({});
@@ -740,9 +760,17 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           topCount = count;
         }
       }
-      return topId ?? checktables[0].id;
+      if (topId) return topId;
+      // No assignments yet (e.g. a freshly-added student): default to the
+      // first checktable matching the student's grade so the grid opens on a
+      // grade-appropriate book rather than P1.
+      const student = students.find((s) => s.id === studentId);
+      const gradeMatch = student
+        ? checktables.find((c) => c.grade === student.grade)
+        : undefined;
+      return gradeMatch?.id ?? checktables[0].id;
     },
-    [assignments, checktables]
+    [assignments, checktables, students]
   );
 
   const nextSuggestedItem = useCallback(
@@ -802,6 +830,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       contacts,
       assessments,
       itemMeta,
+      addStudent,
+      updateStudent,
       setSessions,
       setAssignments,
       setContacts,
@@ -833,6 +863,8 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       assessments,
       setAssessmentStage,
       itemMeta,
+      addStudent,
+      updateStudent,
       recordExercise,
       removeExercise,
       recordHomeworkCompletion,

@@ -1,181 +1,126 @@
 import type { ChecktableAssignment } from "../types";
+import { studentPlans } from "./mc-drive-seed-helpers";
 
-// Seed assignments so each demo student has different visible state on the
-// grid. Keep diverse: some done, some assigned, some recent, some older.
-export const seedAssignments: ChecktableAssignment[] = [
-  // Chan Ho Yin — mid-semester, mostly assigned through chapter 6
-  {
-    id: "a-001",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c1/math-1-6/640A",
-    status: "done",
-    assignedAt: "2026-03-04T09:00:00Z",
-    doneAt: "2026-03-04T10:00:00Z",
-    pageRange: "1-2",
-    sessionLabel: "2026-03-04 Wed 4:00pm",
-  },
-  {
-    id: "a-002",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607A",
-    status: "done",
-    assignedAt: "2026-03-11T09:00:00Z",
-    doneAt: "2026-03-11T10:00:00Z",
-    sessionLabel: "2026-03-11 Wed 4:00pm",
-  },
-  {
-    id: "a-003",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607B",
-    status: "done",
-    assignedAt: "2026-03-11T09:00:00Z",
-    doneAt: "2026-03-18T10:00:00Z",
-    sessionLabel: "2026-03-11 Wed 4:00pm",
-  },
-  {
-    id: "a-004",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c3/math-1-6/608C",
-    status: "done",
-    assignedAt: "2026-03-18T09:00:00Z",
-    doneAt: "2026-03-25T10:00:00Z",
-    sessionLabel: "2026-03-18 Wed 4:00pm",
-  },
-  {
-    id: "a-005",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c4/math-1-6/608A",
-    status: "assigned",
-    assignedAt: "2026-05-13T09:00:00Z",
-    sessionLabel: "2026-05-13 Wed 4:00pm",
-    tutorNote: "Skip word problems, focus on conversion drills",
-  },
-  {
-    id: "a-006",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c6/math-1-6/609A",
-    status: "assigned",
-    assignedAt: "2026-05-13T09:00:00Z",
-    sessionLabel: "2026-05-13 Wed 4:00pm",
-  },
-  {
-    id: "a-007",
-    studentId: "s-001",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/extra/602",
-    status: "done",
-    assignedAt: "2026-03-11T09:00:00Z",
-    doneAt: "2026-03-18T10:00:00Z",
-    sessionLabel: "2026-03-11 Wed 4:00pm",
-  },
+// Seed assignments are built from each student's *grade-matched* MC Drive
+// worksheet plan (see mc-drive-seed-helpers). Every itemId/checktableId
+// therefore resolves to a real scraped worksheet, and a P6 student gets P6
+// worksheets in their history while a P1 student gets P1 worksheets — no
+// hand-maintained ids. Keep the per-student narratives diverse: some done,
+// some still assigned, a few from the secondary (Math 1-6) book.
 
-  // Wong Mei Ling — heavy load, further along
-  {
-    id: "a-101",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c1/math-1-6/640A",
-    status: "done",
-    assignedAt: "2026-02-18T09:00:00Z",
-    doneAt: "2026-02-18T10:00:00Z",
-  },
-  {
-    id: "a-102",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607A",
-    status: "done",
-    assignedAt: "2026-02-25T09:00:00Z",
-    doneAt: "2026-02-25T10:00:00Z",
-  },
-  {
-    id: "a-103",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607B",
-    status: "done",
-    assignedAt: "2026-02-25T09:00:00Z",
-    doneAt: "2026-02-25T10:00:00Z",
-  },
-  {
-    id: "a-104",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607C",
-    status: "done",
-    assignedAt: "2026-03-03T09:00:00Z",
-    doneAt: "2026-03-03T10:00:00Z",
-  },
-  {
-    id: "a-105",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c6/math-1-6/609A",
-    status: "done",
-    assignedAt: "2026-04-15T09:00:00Z",
-    doneAt: "2026-04-15T10:00:00Z",
-  },
-  {
-    id: "a-106",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c6/math-1-6/609B",
-    status: "done",
-    assignedAt: "2026-04-15T09:00:00Z",
-    doneAt: "2026-04-22T10:00:00Z",
-  },
-  {
-    id: "a-107",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c10/math-1-6/516A",
-    status: "assigned",
-    assignedAt: "2026-05-15T09:00:00Z",
-    sessionLabel: "2026-05-15 Fri 5:00pm",
-  },
-  {
-    id: "a-108",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c10/math-1-6/516B",
-    status: "assigned",
-    assignedAt: "2026-05-15T09:00:00Z",
-    sessionLabel: "2026-05-15 Fri 5:00pm",
-  },
-  {
-    id: "a-109",
-    studentId: "s-002",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c6/c-rev/C_Rev_6F_A02",
-    status: "assigned",
-    assignedAt: "2026-05-15T09:00:00Z",
-    sessionLabel: "2026-05-15 Fri 5:00pm",
-    tutorNote: "Whole consolidated review for half-term check",
-  },
+// Deterministic dates anchored to the demo "today" (no Date.now() so seeds
+// stay stable across reloads).
+const ANCHOR = new Date("2026-05-19T09:00:00Z");
 
-  // Lee Tsz Kit — light load, just started
+function dateInfo(daysAgo: number): { iso: string; label: string } {
+  const d = new Date(ANCHOR);
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  const ymd = d.toISOString().slice(0, 10);
+  const weekday = d.toLocaleDateString("en-US", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+  return { iso: d.toISOString(), label: `${ymd} ${weekday} 4:00pm` };
+}
+
+type Spec = {
+  studentId: string;
+  /** Primary-book worksheets completed (from chapter 1 onward). */
+  done: number;
+  /** Primary-book worksheets currently assigned (after the done run). */
+  assigned: number;
+  /** Secondary-book worksheets completed. */
+  secondaryDone?: number;
+  /** Tutor notes keyed by assignment offset, for flavour. */
+  notes?: Record<number, string>;
+};
+
+const SPECS: Spec[] = [
+  // Chan Ho Yin (P6) — mid-semester, through chapter ~6, a couple ahead.
   {
-    id: "a-201",
-    studentId: "s-003",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c1/math-1-6/640A",
-    status: "done",
-    assignedAt: "2026-04-29T09:00:00Z",
-    doneAt: "2026-04-29T10:00:00Z",
+    studentId: "s-001",
+    done: 6,
+    assigned: 3,
+    secondaryDone: 2,
+    notes: { 7: "Skip word problems, focus on conversion drills" },
   },
+  // Wong Mei Ling (P4) — heavy load, well ahead.
   {
-    id: "a-202",
-    studentId: "s-003",
-    checktableId: "ct-p6-zh-v12",
-    itemId: "t1-c2/math-1-6/607A",
-    status: "assigned",
-    assignedAt: "2026-05-12T09:00:00Z",
-    sessionLabel: "2026-05-12 Tue 5:30pm",
+    studentId: "s-002",
+    done: 11,
+    assigned: 2,
+    secondaryDone: 2,
+    notes: { 12: "Whole consolidated review for half-term check" },
   },
+  // Lee Tsz Kit (P2) — light load, just getting going.
+  { studentId: "s-003", done: 1, assigned: 1 },
+  // Ng Wing Yan (P1) — newer student, a little early work done.
+  { studentId: "s-004", done: 2, assigned: 2 },
 ];
+
+function buildAssignments(spec: Spec): ChecktableAssignment[] {
+  const plan = studentPlans[spec.studentId];
+  if (!plan) return [];
+  const out: ChecktableAssignment[] = [];
+  let n = 0;
+  const note = (offset: number) => spec.notes?.[offset];
+
+  // Completed primary worksheets, weekly cadence working backwards.
+  for (let i = 0; i < spec.done && i < plan.primary.length; i++) {
+    const pi = plan.primary[i];
+    const di = dateInfo((spec.done - i) * 7 + 7);
+    out.push({
+      id: `a-${spec.studentId}-${n++}`,
+      studentId: spec.studentId,
+      checktableId: pi.checktableId,
+      itemId: pi.item.id,
+      status: "done",
+      assignedAt: di.iso,
+      doneAt: di.iso,
+      sessionLabel: di.label,
+      tutorNote: note(i),
+    });
+  }
+
+  // Currently-assigned primary worksheets (last week / this week).
+  for (let i = 0; i < spec.assigned; i++) {
+    const idx = spec.done + i;
+    if (idx >= plan.primary.length) break;
+    const pi = plan.primary[idx];
+    const di = dateInfo(i === 0 ? 7 : 0);
+    out.push({
+      id: `a-${spec.studentId}-${n++}`,
+      studentId: spec.studentId,
+      checktableId: pi.checktableId,
+      itemId: pi.item.id,
+      status: "assigned",
+      assignedAt: di.iso,
+      sessionLabel: di.label,
+      tutorNote: note(idx),
+    });
+  }
+
+  // A few completed worksheets from the secondary (Math 1-6) book, so the
+  // history spans more than one checktable.
+  const secDone = spec.secondaryDone ?? 0;
+  for (let i = 0; i < secDone && i < plan.secondary.length; i++) {
+    const pi = plan.secondary[i];
+    const di = dateInfo((secDone - i) * 7 + 3);
+    out.push({
+      id: `a-${spec.studentId}-sec-${i}`,
+      studentId: spec.studentId,
+      checktableId: pi.checktableId,
+      itemId: pi.item.id,
+      status: "done",
+      assignedAt: di.iso,
+      doneAt: di.iso,
+      sessionLabel: di.label,
+    });
+  }
+
+  return out;
+}
+
+export const seedAssignments: ChecktableAssignment[] = SPECS.flatMap(
+  buildAssignments
+);

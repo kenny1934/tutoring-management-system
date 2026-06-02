@@ -1,3 +1,7 @@
+// ARCHIVED — these hand-coded textbooks are no longer wired into the app.
+// The store now uses only the real MC Drive worksheet checktables
+// (mock-data/mc-drive-checktables.ts). Kept for reference only; nothing
+// imports this file.
 import type { Checktable, ChecktableItem } from "../types";
 
 // Scoped item builder. scope is unique per cell occurrence so the same bare

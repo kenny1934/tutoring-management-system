@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import type { Student } from "@/lib/types";
+import { StudentFormModal } from "./StudentFormModal";
 import {
   daysAgoLabel,
   formatSessionTime,
@@ -25,6 +26,7 @@ export function StudentsIndex() {
   const [grade, setGrade] = useState<string>("all");
   const [school, setSchool] = useState<string>("all");
   const [hwLoad, setHwLoad] = useState<string>("all");
+  const [showAdd, setShowAdd] = useState(false);
 
   const grades = useMemo(
     () => Array.from(new Set(students.map((s) => s.grade))).sort(),
@@ -55,12 +57,21 @@ export function StudentsIndex() {
 
   return (
     <div className="space-y-4 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink-900">Students</h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Pick a student to open their hub — sessions, checktables, comms,
-          history all live there.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink-900">Students</h1>
+          <p className="text-sm text-ink-500 mt-1">
+            Pick a student to open their hub — sessions, checktables, comms,
+            history all live there.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-mc-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-mc-red-700"
+        >
+          <UserPlus className="h-4 w-4" />
+          Add student
+        </button>
       </div>
 
       <div className="surface p-3 space-y-2.5">
@@ -131,6 +142,8 @@ export function StudentsIndex() {
           </div>
         )}
       </div>
+
+      {showAdd && <StudentFormModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }

@@ -4,8 +4,8 @@ import type { HomeworkCompletion } from "../types";
 // later sessions. Used so the student History tab can surface
 // "submitted in X" info from the start.
 export const seedHomeworkCompletions: HomeworkCompletion[] = [
-  // Chan Ho Yin: HW rec-h2 (608B) and rec-h3 (extra/602) assigned in the
-  // 2026-05-12 session, checked in today's (2026-05-19) session.
+  // Chan Ho Yin: HW rec-h2 and rec-h3 assigned in the 2026-05-12 session,
+  // checked in today's (2026-05-19) session.
   {
     id: "hc-001",
     current_session_id: "sess-001-s-001",
