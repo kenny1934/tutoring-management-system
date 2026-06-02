@@ -1,14 +1,20 @@
 import type { Enrollment, Session } from "../types";
 import { SessionStatus } from "../types";
-import { exRef, studentPlans } from "./mc-drive-seed-helpers";
+import { cwRef, hwRef, studentUnits, SEED_PLAN } from "./mc-drive-seed-helpers";
 
 // Classwork/homework worksheets are pulled from each student's grade-matched
-// MC Drive plan so every cw/hw row points at a real scraped worksheet (and
-// links to its checktable item via item_id). p001 is P6, p002 is P4, p003 is
-// P2 — matching the students' grades.
-const p001 = studentPlans["s-001"].primary;
-const p002 = studentPlans["s-002"].primary;
-const p003 = studentPlans["s-003"].primary;
+// MC Drive plan as CW/HW *variant pairs*: a session's classwork is the "...1"
+// copy and its matching homework is the "...2" copy of the same worksheet
+// (e.g. SG601A1 in class → SG601A2 for homework). u001 is P6, u002 is P4,
+// u003 is P2. Each student's sessions start at unit `historyUnits` (the
+// earlier units are seeded as already-done history — see assignments.ts), so
+// the grid and the session record line up with no overlap.
+const u001 = studentUnits["s-001"];
+const u002 = studentUnits["s-002"];
+const u003 = studentUnits["s-003"];
+const o1 = SEED_PLAN["s-001"].historyUnits;
+const o2 = SEED_PLAN["s-002"].historyUnits;
+const o3 = SEED_PLAN["s-003"].historyUnits;
 
 // Demo "today" used for headers
 export const DEMO_DAY = "2026-05-19";
@@ -108,13 +114,14 @@ export const sessions: Session[] = [
     performance_rating: 4,
     notes: "Struggled on word problems, revisit next week",
     class_wide_note: "Check last week's homework, then this week's core worksheets.",
+    // Two CW/HW variant pairs: classwork "...1" + matching homework "...2".
     cw: [
-      { id: "rec-1", session_id: "sess-001-s-001", exercise_type: "CW", ...exRef(p001, 8), page_start: 1, page_end: 2 },
-      { id: "rec-2", session_id: "sess-001-s-001", exercise_type: "CW", ...exRef(p001, 9) },
+      { id: "rec-1", session_id: "sess-001-s-001", exercise_type: "CW", ...cwRef(u001[o1 + 3]), page_start: 1, page_end: 2 },
+      { id: "rec-2", session_id: "sess-001-s-001", exercise_type: "CW", ...cwRef(u001[o1 + 4]) },
     ],
     hw: [
-      { id: "rec-3", session_id: "sess-001-s-001", exercise_type: "HW", ...exRef(p001, 10) },
-      { id: "rec-4", session_id: "sess-001-s-001", exercise_type: "HW", ...exRef(p001, 11) },
+      { id: "rec-3", session_id: "sess-001-s-001", exercise_type: "HW", ...hwRef(u001[o1 + 3]) },
+      { id: "rec-4", session_id: "sess-001-s-001", exercise_type: "HW", ...hwRef(u001[o1 + 4]) },
     ],
   },
   {
@@ -130,12 +137,14 @@ export const sessions: Session[] = [
     session_status: SessionStatus.ATTENDED,
     performance_rating: 5,
     class_wide_note: "Check last week's homework, then this week's core worksheets.",
+    // Two CW/HW variant pairs.
     cw: [
-      { id: "rec-5", session_id: "sess-001-s-002", exercise_type: "CW", ...exRef(p002, 12) },
-      { id: "rec-6", session_id: "sess-001-s-002", exercise_type: "CW", ...exRef(p002, 13) },
+      { id: "rec-5", session_id: "sess-001-s-002", exercise_type: "CW", ...cwRef(u002[o2 + 0]) },
+      { id: "rec-6", session_id: "sess-001-s-002", exercise_type: "CW", ...cwRef(u002[o2 + 1]) },
     ],
     hw: [
-      { id: "rec-7", session_id: "sess-001-s-002", exercise_type: "HW", ...exRef(p002, 14) },
+      { id: "rec-7", session_id: "sess-001-s-002", exercise_type: "HW", ...hwRef(u002[o2 + 0]) },
+      { id: "rec-7b", session_id: "sess-001-s-002", exercise_type: "HW", ...hwRef(u002[o2 + 1]) },
     ],
   },
   {
@@ -153,8 +162,9 @@ export const sessions: Session[] = [
     performance_rating: 3,
     notes: "Arrived 15 min late, sibling pickup issue",
     class_wide_note: "Check last week's homework, then this week's core worksheets.",
-    cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", ...exRef(p003, 3) }],
-    hw: [],
+    // One CW/HW variant pair (shorter session — arrived late).
+    cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", ...cwRef(u003[o3 + 2]) }],
+    hw: [{ id: "rec-8h", session_id: "sess-001-s-003", exercise_type: "HW", ...hwRef(u003[o3 + 2]) }],
   },
 
   // === Today (2026-05-19 17:30) — Ms Wong P5 meeting, lesson 9 ===
@@ -225,11 +235,17 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
-    cw: [{ id: "rec-h1", session_id: "sess-004-s-001", exercise_type: "CW", ...exRef(p001, 4) }],
+    // Three CW/HW variant pairs. HW for the first two pairs gets checked in
+    // today's session (see homework-completions); the third stays pending.
+    cw: [
+      { id: "rec-h1", session_id: "sess-004-s-001", exercise_type: "CW", ...cwRef(u001[o1 + 0]) },
+      { id: "rec-h1b", session_id: "sess-004-s-001", exercise_type: "CW", ...cwRef(u001[o1 + 1]) },
+      { id: "rec-h1c", session_id: "sess-004-s-001", exercise_type: "CW", ...cwRef(u001[o1 + 2]) },
+    ],
     hw: [
-      { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 5) },
-      { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 6) },
-      { id: "rec-h5", session_id: "sess-004-s-001", exercise_type: "HW", ...exRef(p001, 7), page_start: 3, page_end: 4 },
+      { id: "rec-h2", session_id: "sess-004-s-001", exercise_type: "HW", ...hwRef(u001[o1 + 0]) },
+      { id: "rec-h3", session_id: "sess-004-s-001", exercise_type: "HW", ...hwRef(u001[o1 + 1]) },
+      { id: "rec-h5", session_id: "sess-004-s-001", exercise_type: "HW", ...hwRef(u001[o1 + 2]), page_start: 3, page_end: 4 },
     ],
   },
   {
@@ -259,10 +275,14 @@ export const sessions: Session[] = [
     lesson_number: 11,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 3,
-    cw: [{ id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", ...exRef(p003, 0) }],
+    // Two CW/HW variant pairs.
+    cw: [
+      { id: "rec-h4", session_id: "sess-004-s-003", exercise_type: "CW", ...cwRef(u003[o3 + 0]) },
+      { id: "rec-h4b", session_id: "sess-004-s-003", exercise_type: "CW", ...cwRef(u003[o3 + 1]) },
+    ],
     hw: [
-      { id: "rec-h6", session_id: "sess-004-s-003", exercise_type: "HW", ...exRef(p003, 1), page_start: 1, page_end: 2 },
-      { id: "rec-h7", session_id: "sess-004-s-003", exercise_type: "HW", ...exRef(p003, 2) },
+      { id: "rec-h6", session_id: "sess-004-s-003", exercise_type: "HW", ...hwRef(u003[o3 + 0]), page_start: 1, page_end: 2 },
+      { id: "rec-h7", session_id: "sess-004-s-003", exercise_type: "HW", ...hwRef(u003[o3 + 1]) },
     ],
   },
 ];

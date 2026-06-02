@@ -88,11 +88,76 @@ export const studentPlans: Record<string, StudentPlan> = Object.fromEntries(
   Object.entries(STUDENT_GRADES).map(([id, g]) => [id, planFor(g)])
 );
 
-/** Shorthand for a SessionExercise's worksheet fields from a plan item. */
-export function exRef(items: PlanItem[], i: number): {
-  pdf_name: string;
-  item_id: string;
-} {
-  const it = items[i].item;
-  return { pdf_name: it.code, item_id: it.id };
+// --- Variant pairs (CW / HW) ----------------------------------------------
+//
+// MC Drive worksheets come in variant pairs within a chapter's series cell:
+// the "...1" variant is the classwork copy and the "...2" variant is the
+// matching homework copy (e.g. SG601A1 done in class, SG601A2 sent home).
+// The SG (Letter Size) primary books are always exactly two clean variants
+// per cell, so a "unit" is just that pair.
+
+export type PlanUnit = {
+  /** Variant 1 — the classwork copy. */
+  cw: ChecktableItem;
+  /** Variant 2 — the matching homework copy. */
+  hw: ChecktableItem;
+  chapter: ChecktableChapter;
+  sectionLabel: string;
+  checktableId: string;
+  seriesId: string;
+};
+
+/** Pair up a checktable's worksheets into CW (variant 1) / HW (variant 2)
+ *  units, in chapter → series order. Cells without a clean pair are skipped. */
+export function assignableUnits(table: Checktable): PlanUnit[] {
+  const out: PlanUnit[] = [];
+  for (const sec of table.sections) {
+    for (const ch of sec.chapters) {
+      for (const s of table.series) {
+        const its = ch.cells[s.id]?.items ?? [];
+        if (its.length < 2) continue;
+        const [cw, hw] = its;
+        if (NON_ASSIGNABLE.has(cw.code)) continue;
+        out.push({
+          cw,
+          hw,
+          chapter: ch,
+          sectionLabel: sec.label,
+          checktableId: table.id,
+          seriesId: s.id,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** Per-student CW/HW unit list from their primary (SG) book. */
+export const studentUnits: Record<string, PlanUnit[]> = Object.fromEntries(
+  Object.entries(STUDENT_GRADES).map(([id, g]) => {
+    const sg = findTable(g, PRIMARY_FAMILY);
+    return [id, sg ? assignableUnits(sg) : []];
+  })
+);
+
+/** Single source of truth for where each student sits in their book:
+ *  `historyUnits` early units are fully done before the visible sessions
+ *  (so the sessions start at unit index `historyUnits`), plus a few done
+ *  worksheets in the secondary book. Read by both the session seed (to pick
+ *  unit offsets) and the assignment seed (to layer history). */
+export type SeedPlan = { historyUnits: number; secondaryDone: number };
+export const SEED_PLAN: Record<string, SeedPlan> = {
+  "s-001": { historyUnits: 4, secondaryDone: 2 }, // P6 — mid-semester
+  "s-002": { historyUnits: 7, secondaryDone: 2 }, // P4 — heavy load, well ahead
+  "s-003": { historyUnits: 0, secondaryDone: 0 }, // P2 — just started
+  "s-004": { historyUnits: 1, secondaryDone: 1 }, // P1 — newer student
+};
+
+/** Worksheet fields for a unit's CW (variant 1) copy. */
+export function cwRef(unit: PlanUnit): { pdf_name: string; item_id: string } {
+  return { pdf_name: unit.cw.code, item_id: unit.cw.id };
+}
+/** Worksheet fields for a unit's HW (variant 2) copy. */
+export function hwRef(unit: PlanUnit): { pdf_name: string; item_id: string } {
+  return { pdf_name: unit.hw.code, item_id: unit.hw.id };
 }

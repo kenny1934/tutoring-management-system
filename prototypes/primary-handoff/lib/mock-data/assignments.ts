@@ -1,5 +1,5 @@
 import type { ChecktableAssignment, Session } from "../types";
-import { studentPlans } from "./mc-drive-seed-helpers";
+import { studentPlans, SEED_PLAN } from "./mc-drive-seed-helpers";
 import { sessions } from "./sessions";
 import { seedHomeworkCompletions } from "./homework-completions";
 
@@ -110,15 +110,17 @@ for (const session of orderedSessions) {
 // --- 2. layer earlier-chapter history beneath the session record -----------
 
 // Worksheets the student finished before the visible session window, so the
-// grid shows real prior coverage. Indexed from chapter 1 of each book; items
-// already recorded in a session are skipped.
+// grid shows real prior coverage. The first `historyUnits` CW/HW pairs are
+// fully done (both variants), which is the flat-list slice [0, 2*historyUnits)
+// — exactly where the session record picks up (see SEED_PLAN). Items already
+// recorded in a session are skipped defensively.
 type History = { primaryDone: number; secondaryDone: number };
-const HISTORY: Record<string, History> = {
-  "s-001": { primaryDone: 4, secondaryDone: 2 }, // P6 — mid-semester
-  "s-002": { primaryDone: 12, secondaryDone: 2 }, // P4 — heavy load, well ahead
-  "s-003": { primaryDone: 0, secondaryDone: 0 }, // P2 — just started
-  "s-004": { primaryDone: 2, secondaryDone: 1 }, // P1 — newer student
-};
+const HISTORY: Record<string, History> = Object.fromEntries(
+  Object.entries(SEED_PLAN).map(([id, p]) => [
+    id,
+    { primaryDone: p.historyUnits * 2, secondaryDone: p.secondaryDone },
+  ])
+);
 
 // Deterministic history dates anchored to the demo "today".
 const ANCHOR = new Date("2026-05-19T09:00:00Z");
