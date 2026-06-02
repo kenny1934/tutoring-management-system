@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   FileText,
@@ -84,19 +84,20 @@ export function AssignDialog({
   // which sessions (and therefore students) get the worksheet.
   const courseware = !student;
 
-  const [pageRange, setPageRange] = useState(
-    existingAssignment?.pageRange ?? ""
-  );
-  const [tutorNote, setTutorNote] = useState(
-    existingAssignment?.tutorNote ?? ""
-  );
+  const initialPageRange = existingAssignment?.pageRange ?? "";
+  const initialTutorNote = existingAssignment?.tutorNote ?? "";
+  const initialSessionId =
+    existingAssignment?.sessionId ?? upcomingSessions[0]?.id ?? UNLINKED;
+
+  const [pageRange, setPageRange] = useState(initialPageRange);
+  const [tutorNote, setTutorNote] = useState(initialTutorNote);
 
   // Student-mode single session link.
-  const [sessionId, setSessionId] = useState<string>(
-    existingAssignment?.sessionId ?? upcomingSessions[0]?.id ?? UNLINKED
-  );
+  const [sessionId, setSessionId] = useState<string>(initialSessionId);
   // Student-mode CW/HW choice — only matters when a session is linked.
   const [studentKind, setStudentKind] = useState<ExerciseKind>("HW");
+
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Courseware-mode multi-select: sessionId -> CW/HW. `defaultKind` is applied
   // to newly-checked rows; each row can be flipped individually.
@@ -121,13 +122,57 @@ export function AssignDialog({
     return groups;
   }, [assignTargets]);
 
+  // Pristine = no edits worth guarding; controls backdrop close.
+  const dirty =
+    pageRange !== initialPageRange ||
+    tutorNote !== initialTutorNote ||
+    sessionId !== initialSessionId ||
+    studentKind !== "HW" ||
+    picks.size > 0 ||
+    defaultKind !== "HW";
+
+  // Restore focus to whatever was focused before the modal opened, and move
+  // focus into the dialog on open.
   useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    const prevFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current
+      ?.querySelector<HTMLElement>(
+        'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
+      )
+      ?.focus();
+    return () => prevFocused?.focus?.();
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  const onBackdrop = () => {
+    if (!dirty) onClose();
+  };
 
   const status: AssignmentStatus | null = existingAssignment?.status ?? null;
   const projectedOpen = openAssignmentCount + (status === null ? 1 : 0);
@@ -195,16 +240,23 @@ export function AssignDialog({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={onBackdrop}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="assign-dialog-title"
         className="surface w-full sm:max-w-3xl bg-white max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3 sticky top-0 bg-white z-10">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold text-ink-900">
+              <span
+                id="assign-dialog-title"
+                className="text-lg font-semibold text-ink-900"
+              >
                 {item.code}
               </span>
               {status === "done" && (

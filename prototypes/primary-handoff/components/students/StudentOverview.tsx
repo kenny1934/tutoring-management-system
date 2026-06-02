@@ -21,53 +21,67 @@ export function StudentOverview() {
   const { students, sessions, assignments, contacts, itemMeta } =
     usePrimaryStore();
 
-  const student = students.find((s) => s.id === id);
   // Parent shell calls notFound() for an unknown id, so this is defensive.
+  // All hooks run unconditionally and guard for a missing student so the
+  // early return below never trips the rules of hooks.
+  const student = students.find((s) => s.id === id);
+  const studentId = student?.id;
+
   const next = useMemo(
     () => (student ? getNextSession(student.id, sessions, DEMO_DAY) : null),
     [student, sessions]
   );
-  if (!student) return null;
 
   const pending = useMemo(
     () =>
-      assignments
-        .filter((a) => a.studentId === student.id && a.status === "assigned")
-        .sort((a, b) => b.assignedAt.localeCompare(a.assignedAt)),
-    [assignments, student.id]
+      studentId
+        ? assignments
+            .filter((a) => a.studentId === studentId && a.status === "assigned")
+            .sort((a, b) => b.assignedAt.localeCompare(a.assignedAt))
+        : [],
+    [assignments, studentId]
   );
 
   const recentDone = useMemo(
     () =>
-      assignments
-        .filter(
-          (a) => a.studentId === student.id && a.status === "done" && a.doneAt
-        )
-        .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
-    [assignments, student.id]
+      studentId
+        ? assignments
+            .filter(
+              (a) =>
+                a.studentId === studentId && a.status === "done" && a.doneAt
+            )
+            .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""))
+        : [],
+    [assignments, studentId]
   );
 
   const recentAttended = useMemo(
     () =>
-      sessions
-        .filter(
-          (s) =>
-            s.student_id === student.id &&
-            s.session_date < DEMO_DAY &&
-            (s.session_status === SessionStatus.ATTENDED ||
-              s.session_status === SessionStatus.ATTENDED_MAKEUP)
-        )
-        .sort((a, b) => b.session_date.localeCompare(a.session_date)),
-    [sessions, student.id]
+      studentId
+        ? sessions
+            .filter(
+              (s) =>
+                s.student_id === studentId &&
+                s.session_date < DEMO_DAY &&
+                (s.session_status === SessionStatus.ATTENDED ||
+                  s.session_status === SessionStatus.ATTENDED_MAKEUP)
+            )
+            .sort((a, b) => b.session_date.localeCompare(a.session_date))
+        : [],
+    [sessions, studentId]
   );
 
   const recentComms = useMemo(
     () =>
-      contacts
-        .filter((c) => c.studentId === student.id)
-        .sort((a, b) => b.contactedAt.localeCompare(a.contactedAt)),
-    [contacts, student.id]
+      studentId
+        ? contacts
+            .filter((c) => c.studentId === studentId)
+            .sort((a, b) => b.contactedAt.localeCompare(a.contactedAt))
+        : [],
+    [contacts, studentId]
   );
+
+  if (!student) return null;
 
   return (
     <div className="grid sm:grid-cols-2 gap-4">

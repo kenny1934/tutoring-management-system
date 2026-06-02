@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, UserPlus, Pencil } from "lucide-react";
 import { usePrimaryStore, type StudentInput } from "@/lib/store/PrimaryStore";
 import type { HWLoad, Student } from "@/lib/types";
@@ -27,13 +27,51 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   const [school, setSchool] = useState(student?.school ?? "");
   const [hwLoad, setHwLoad] = useState<HWLoad>(student?.hwLoad ?? "Normal");
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Pristine = nothing changed from the initial values; controls backdrop close.
+  const dirty =
+    name !== (student?.name ?? "") ||
+    code !== (student?.code ?? "") ||
+    grade !== (student?.grade ?? "P1") ||
+    school !== (student?.school ?? "") ||
+    hwLoad !== (student?.hwLoad ?? "Normal");
+
+  // Restore focus to whatever was focused before the modal opened.
   useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    const prevFocused = document.activeElement as HTMLElement | null;
+    return () => prevFocused?.focus?.();
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  const onBackdrop = () => {
+    if (!dirty) onClose();
+  };
 
   const canSave = name.trim() !== "" && code.trim() !== "";
 
@@ -59,9 +97,13 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={onBackdrop}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-form-title"
         className="surface w-full sm:max-w-md bg-white max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -72,7 +114,10 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
             ) : (
               <UserPlus className="h-4 w-4 text-mc-red-600" />
             )}
-            <span className="text-lg font-semibold text-ink-900">
+            <span
+              id="student-form-title"
+              className="text-lg font-semibold text-ink-900"
+            >
               {isEdit ? "Edit student" : "Add student"}
             </span>
           </div>

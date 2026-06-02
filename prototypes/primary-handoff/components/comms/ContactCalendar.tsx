@@ -2,10 +2,17 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ParentContact, ContactType } from "@/lib/types";
+import type { ParentContact, ContactType, Student } from "@/lib/types";
+import {
+  addDaysIso,
+  hktDateFromIso,
+  hktTimeFromIso,
+  parseIsoDateUTC,
+} from "@/lib/datetime";
 
 type Props = {
   contacts: ParentContact[];
+  studentById: Map<string, Student>;
   selectedContactId: string | null;
   onSelectContact: (id: string) => void;
   activeTypes: Set<ContactType>;
@@ -20,31 +27,57 @@ const TYPE_COLOR: Record<ContactType, string> = {
 
 export function ContactCalendar({
   contacts,
+  studentById,
   selectedContactId,
   onSelectContact,
   activeTypes,
   onToggleType,
 }: Props) {
-  const [cursor, setCursor] = useState(() => new Date("2026-05-01T00:00:00+08:00"));
+  // First-of-month as an HKT calendar day (YYYY-MM-DD), kept in UTC-safe form.
+  const [monthStart, setMonthStart] = useState("2026-05-01");
+  // Day cells that have been expanded to show all their events.
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
-  const days = useMemo(() => buildMonthGrid(cursor), [cursor]);
+  const days = useMemo(() => buildMonthGrid(monthStart), [monthStart]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, ParentContact[]>();
     for (const c of contacts) {
       if (!activeTypes.has(c.type)) continue;
-      const day = c.contactedAt.slice(0, 10);
+      const day = hktDateFromIso(c.contactedAt);
       const arr = map.get(day) ?? [];
       arr.push(c);
       map.set(day, arr);
     }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.contactedAt.localeCompare(b.contactedAt));
+    }
     return map;
   }, [contacts, activeTypes]);
 
-  const prev = () =>
-    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
-  const next = () =>
-    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+  const monthDate = parseIsoDateUTC(monthStart);
+  const monthLabel = monthDate.toLocaleDateString("en-HK", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  const prev = () => {
+    setExpandedDays(new Set());
+    setMonthStart(addMonthsIso(monthStart, -1));
+  };
+  const next = () => {
+    setExpandedDays(new Set());
+    setMonthStart(addMonthsIso(monthStart, 1));
+  };
+
+  const toggleExpanded = (dayStr: string) =>
+    setExpandedDays((prev) => {
+      const nextSet = new Set(prev);
+      if (nextSet.has(dayStr)) nextSet.delete(dayStr);
+      else nextSet.add(dayStr);
+      return nextSet;
+    });
 
   return (
     <div className="surface flex flex-col h-full overflow-hidden">
@@ -58,10 +91,7 @@ export function ContactCalendar({
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="text-sm font-semibold text-ink-900 min-w-[120px] text-center">
-            {cursor.toLocaleDateString("en-HK", {
-              month: "long",
-              year: "numeric",
-            })}
+            {monthLabel}
           </div>
           <button
             onClick={next}
@@ -107,8 +137,11 @@ export function ContactCalendar({
 
       <div className="grid grid-cols-7 flex-1 overflow-y-auto">
         {days.map((day) => {
-          const dayStr = day.date.toISOString().slice(0, 10);
+          const dayStr = day.iso;
           const items = byDay.get(dayStr) ?? [];
+          const expanded = expandedDays.has(dayStr);
+          const visible = expanded ? items : items.slice(0, 3);
+          const hidden = items.length - visible.length;
           return (
             <div
               key={dayStr}
@@ -116,33 +149,61 @@ export function ContactCalendar({
                 day.inMonth ? "bg-white" : "bg-ink-50/50 text-ink-300"
               }`}
             >
-              <div className="text-xs text-ink-500 mb-1">{day.date.getDate()}</div>
+              <div className="text-xs text-ink-500 mb-1">{day.dayNum}</div>
               <div className="space-y-0.5">
-                {items.slice(0, 3).map((c) => (
+                {visible.map((c) => {
+                  const student = studentById.get(c.studentId);
+                  const name = student?.name ?? "Unknown student";
+                  const time = hktTimeFromIso(c.contactedAt);
+                  const snippet = c.briefNotes
+                    ? `: ${c.briefNotes.slice(0, 80)}${
+                        c.briefNotes.length > 80 ? "…" : ""
+                      }`
+                    : "";
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => onSelectContact(c.id)}
+                      title={`${name} · ${c.type}${snippet}`}
+                      className={`w-full text-left text-xs rounded px-1 py-0.5 ${
+                        selectedContactId === c.id
+                          ? "bg-mc-red-600 text-white"
+                          : "bg-ink-100 hover:bg-ink-200 text-ink-700"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${TYPE_COLOR[c.type]}`}
+                        />
+                        <span className="truncate font-medium">{name}</span>
+                      </span>
+                      <span
+                        className={`block truncate text-[10px] ${
+                          selectedContactId === c.id
+                            ? "text-white/80"
+                            : "text-ink-500"
+                        }`}
+                      >
+                        {time}
+                      </span>
+                    </button>
+                  );
+                })}
+                {hidden > 0 && (
                   <button
-                    key={c.id}
-                    onClick={() => onSelectContact(c.id)}
-                    className={`w-full text-left text-xs rounded px-1 py-0.5 truncate ${
-                      selectedContactId === c.id
-                        ? "bg-mc-red-600 text-white"
-                        : "bg-ink-100 hover:bg-ink-200 text-ink-700"
-                    }`}
+                    onClick={() => toggleExpanded(dayStr)}
+                    className="w-full text-left text-xs text-ink-500 hover:text-ink-800 px-1 rounded hover:bg-ink-100"
                   >
-                    <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${TYPE_COLOR[c.type]}`}
-                    />
-                    {new Date(c.contactedAt)
-                      .toLocaleTimeString("en-HK", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })
-                      .padStart(2, "0")}
+                    +{hidden} more
                   </button>
-                ))}
-                {items.length > 3 && (
-                  <div className="text-xs text-ink-500 px-1">
-                    +{items.length - 3} more
-                  </div>
+                )}
+                {expanded && items.length > 3 && (
+                  <button
+                    onClick={() => toggleExpanded(dayStr)}
+                    className="w-full text-left text-xs text-ink-500 hover:text-ink-800 px-1 rounded hover:bg-ink-100"
+                  >
+                    Show less
+                  </button>
                 )}
               </div>
             </div>
@@ -153,17 +214,31 @@ export function ContactCalendar({
   );
 }
 
-function buildMonthGrid(cursor: Date) {
-  const year = cursor.getFullYear();
-  const month = cursor.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const startDay = firstOfMonth.getDay();
-  const start = new Date(year, month, 1 - startDay);
-  const days: { date: Date; inMonth: boolean }[] = [];
+type GridDay = { iso: string; dayNum: number; inMonth: boolean };
+
+/** Shift a YYYY-MM-01 month-start by `delta` months (UTC-safe). */
+function addMonthsIso(monthStartIso: string, delta: number): string {
+  const d = parseIsoDateUTC(monthStartIso);
+  d.setUTCMonth(d.getUTCMonth() + delta, 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Build a 6-week (42-cell) grid for the month starting at `monthStartIso`,
+ *  doing all date arithmetic in UTC so HKT calendar days never drift. */
+function buildMonthGrid(monthStartIso: string): GridDay[] {
+  const first = parseIsoDateUTC(monthStartIso);
+  const monthIndex = first.getUTCMonth();
+  // Grid starts on the Sunday on/before the 1st (getUTCDay: Sun=0..Sat=6).
+  const start = addDaysIso(monthStartIso, -first.getUTCDay());
+  const days: GridDay[] = [];
   for (let i = 0; i < 42; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    days.push({ date: d, inMonth: d.getMonth() === month });
+    const iso = addDaysIso(start, i);
+    const d = parseIsoDateUTC(iso);
+    days.push({
+      iso,
+      dayNum: d.getUTCDate(),
+      inMonth: d.getUTCMonth() === monthIndex,
+    });
   }
   return days;
 }

@@ -5,9 +5,9 @@ import type { Student } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { formatTimeSlot, type ClassMeeting } from "./meeting-utils";
+import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import {
   addDaysIso,
-  hktDateFromIso,
   isoMondayOf,
   parseIsoDateUTC,
 } from "@/lib/datetime";
@@ -33,7 +33,9 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
     list.sort((a, b) => a.start_time.localeCompare(b.start_time));
   }
 
-  const todayIso = hktDateFromIso(new Date().toISOString());
+  // Anchor "Today" to the demo day so the marker matches the rest of the
+  // prototype (which seeds around DEMO_DAY), not the host machine's clock.
+  const todayIso = DEMO_DAY;
 
   return (
     <div className="surface-mc overflow-hidden">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Printer } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
@@ -9,7 +9,7 @@ import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
 import { Legend } from "@/components/checktable/Legend";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   GridSectionFilter,
   GridStatusFilter,
@@ -26,6 +26,15 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
+  const [printToast, setPrintToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    []
+  );
 
   if (!student || !editor.table) return null;
   const { table } = editor;
@@ -84,9 +93,12 @@ export function StudentChecktablesTab() {
         onRemove={(pid) => removeFromPrintBatch(student.id, pid)}
         onClear={() => clearPrintBatch(student.id)}
         onPrint={() => {
-          alert(
-            `Demo only.\n\nWould print ${editor.printBatchItems.length} PDFs from:\n${table.basePath}`
+          const count = editor.printBatchItems.length;
+          setPrintToast(
+            `Would print ${count} ${count === 1 ? "PDF" : "PDFs"} (demo)`
           );
+          if (toastTimer.current) clearTimeout(toastTimer.current);
+          toastTimer.current = setTimeout(() => setPrintToast(null), 3000);
           clearPrintBatch(student.id);
         }}
       />
@@ -107,6 +119,17 @@ export function StudentChecktablesTab() {
           onAddToPrintBatch={() => editor.togglePrintBatch(editor.activeItem!.id)}
           isInPrintBatch={editor.selectedIds.has(editor.activeItem.id)}
         />
+      )}
+
+      {printToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 surface bg-ink-900 text-white px-4 py-2 text-sm flex items-center gap-2 shadow-lg"
+        >
+          <Printer className="h-4 w-4 text-mc-yellow-400" />
+          {printToast}
+        </div>
       )}
     </div>
   );

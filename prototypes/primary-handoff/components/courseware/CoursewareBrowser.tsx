@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Library, CheckCircle2 } from "lucide-react";
-import type { Checktable, ChecktableItem } from "@/lib/types";
+import { Library, CheckCircle2, Search, X } from "lucide-react";
+import type {
+  AssignmentStatus,
+  Checktable,
+  ChecktableItem,
+} from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import {
@@ -10,8 +14,43 @@ import {
   type SessionPick,
 } from "@/components/checktable/AssignDialog";
 
-const EMPTY_STATUS: Record<string, never> = {};
 const EMPTY_SELECTION = new Set<string>();
+
+/** Build a search-filtered copy of a checktable, keeping only items whose code
+ *  or chapter title matches the query. Empty rows/sections are dropped so the
+ *  grid stays compact. Returns the original table when the query is empty. */
+function filterTableBySearch(table: Checktable, query: string): Checktable {
+  const q = query.trim().toLowerCase();
+  if (!q) return table;
+
+  const matchItem = (item: ChecktableItem, chapterTitle: string) =>
+    item.code.toLowerCase().includes(q) ||
+    chapterTitle.toLowerCase().includes(q);
+
+  const sections = table.sections
+    .map((sec) => {
+      const chapters = sec.chapters
+        .map((ch) => {
+          const cells: typeof ch.cells = {};
+          for (const sId of Object.keys(ch.cells)) {
+            const items = ch.cells[sId].items.filter((it) =>
+              matchItem(it, ch.title)
+            );
+            if (items.length > 0) cells[sId] = { items };
+          }
+          return Object.keys(cells).length > 0 ? { ...ch, cells } : null;
+        })
+        .filter((ch): ch is NonNullable<typeof ch> => ch !== null);
+      return chapters.length > 0 ? { ...sec, chapters } : null;
+    })
+    .filter((sec): sec is NonNullable<typeof sec> => sec !== null);
+
+  const supplementary = table.supplementary.filter((it) =>
+    matchItem(it, "補充教材 Supplementary")
+  );
+
+  return { ...table, sections, supplementary };
+}
 
 function countItems(t: Checktable): number {
   let n = t.supplementary.length;
@@ -35,7 +74,8 @@ function shortLevel(levelLabel: string): string {
 }
 
 export function CoursewareBrowser() {
-  const { checktables, assignableSessions, recordExercise } = usePrimaryStore();
+  const { checktables, assignments, assignableSessions, recordExercise } =
+    usePrimaryStore();
 
   const mcTables = useMemo(
     () => checktables.filter((c) => c.source === "mc-drive"),
@@ -68,13 +108,41 @@ export function CoursewareBrowser() {
 
   const pickFamily = (f: string) => {
     setFamily(f);
+    setSearch("");
     const first = families.find(([name]) => name === f)?.[1][0];
     if (first) setSelectedId(first.id);
+  };
+
+  const pickLevel = (id: string) => {
+    setSelectedId(id);
+    setSearch("");
   };
 
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  // Filtered view of the active checktable for the code/chapter search.
+  const filteredTable = useMemo(
+    () => (table ? filterTableBySearch(table, search) : undefined),
+    [table, search]
+  );
+
+  // Mark already-assigned/done worksheets across all students for the active
+  // checktable, so browsed items aren't shown as if untouched. Done wins over
+  // assigned when an item appears in more than one student's checktable.
+  const statusByItemId = useMemo(() => {
+    const map: Record<string, AssignmentStatus | null> = {};
+    if (!table) return map;
+    for (const a of assignments) {
+      if (a.checktableId !== table.id) continue;
+      if (a.status === "done" || map[a.itemId] == null) {
+        map[a.itemId] = a.status;
+      }
+    }
+    return map;
+  }, [assignments, table]);
 
   const handleAssignSessions = (
     picks: SessionPick[],
@@ -137,7 +205,7 @@ export function CoursewareBrowser() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setSelectedId(t.id)}
+              onClick={() => pickLevel(t.id)}
               className={`rounded-full px-3 py-1 text-xs transition-colors ${
                 active
                   ? "bg-mc-red-600 text-white"
@@ -155,10 +223,23 @@ export function CoursewareBrowser() {
         })}
       </div>
 
+      {/* Success toast: announced to AT, overlaid so it doesn't shift layout,
+          and manually dismissible. */}
+      <div aria-live="polite" className="sr-only">
+        {toast}
+      </div>
       {toast && (
-        <div className="flex items-center gap-2 rounded-md border border-good/30 bg-good/10 px-3 py-2 text-sm text-ink-800">
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border border-good/30 bg-good/10 px-3 py-2 text-sm text-ink-800 shadow-lg backdrop-blur-sm">
           <CheckCircle2 className="h-4 w-4 text-good shrink-0" />
-          {toast}
+          <span>{toast}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Dismiss"
+            className="ml-1 text-ink-400 hover:text-ink-800 p-0.5"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -178,9 +259,31 @@ export function CoursewareBrowser() {
             session.
           </p>
 
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by code or chapter"
+              aria-label="Search worksheets by code or chapter"
+              className="w-full rounded-md border border-ink-200 pl-9 pr-9 py-2 text-sm focus:outline-none focus:border-ink-400"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-800 p-0.5"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
           <ChecktableGrid
-            table={table}
-            statusByItemId={EMPTY_STATUS}
+            table={filteredTable ?? table}
+            statusByItemId={statusByItemId}
             selectedItemIds={EMPTY_SELECTION}
             statusFilter="all"
             sectionFilter="all"

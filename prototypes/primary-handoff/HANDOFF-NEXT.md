@@ -123,3 +123,58 @@ Most of the alignment work is done. Remaining items below are scoped narrow.
 5. Open the row's kebab → **Open checktable** → checktable drawer slides in scoped to that student, ready for further editing without leaving the session view.
 6. On another student, click **Absent** → **Schedule makeup** → pick a slot → confirmation panel links through to the newly-created `Session`. The source row now shows `Make-up booked` and the new session shows `Make-up class` with `make_up_for_id` linking back.
 7. Open `/students/<id>` → the History tab groups assignments by date / chapter / session; pick an entry that has a completion → see `Complete in <next session>` line + the tutor comment.
+
+---
+
+## UX Audit Checklist (2026-06-03)
+
+Findings from a full-surface UX audit, grouped into the five parallel work-packages used to fix them. Files are disjoint per package so the fixes can land independently.
+
+### Cross-cutting pattern (applied per modal, inline — no shared hook yet)
+- [ ] Modal a11y: `role="dialog"` + `aria-modal="true"` + `aria-labelledby` (title gets an id), focus first field on open, restore focus on close, trap Tab.
+- [ ] Backdrop click only closes when the form is pristine (dirty form → no accidental close / data loss). Cancel/Close button still always closes.
+- [ ] Replace `alert()` / native `confirm()` "Demo only" stubs with in-app styled feedback; drop jarring "Demo only" phrasing.
+- [ ] Normalise "makeup" → "make-up" in user-facing copy.
+
+### Pkg 1 — Dashboard + Sessions core (`app/page.tsx`, `SessionsApp.tsx`, `WeeklyView.tsx`)
+- [ ] Dashboard "Pending make-ups" tile deep-link (`?filter=pending-makeups`) is dead — implement the `filter` param in `SessionsApp` so the tile actually narrows to pending-makeup statuses.
+- [ ] Star rater (`PerformanceRater`) is hover-only and unusable on touch — make stars visible/ tappable by default.
+- [ ] No way to correct attendance once marked — add a "Change status" path (fold into the row kebab, which currently holds only one item).
+- [ ] Removing a logged exercise (bare `×`) has no confirm — add a light confirm.
+- [ ] Increase hit areas on the dense Sessions-row controls (remove/eye/lightbulb/stars/kebab) for tablet use.
+- [ ] `WeeklyView` "Today" marker uses the real clock — anchor it to `DEMO_DAY`.
+
+### Pkg 2 — Sessions modals (`MakeupModal.tsx`, `RecordExerciseModal.tsx`, `WorksheetModal.tsx`)
+- [ ] Apply modal a11y + dirty-backdrop guard (all three).
+- [ ] `MakeupModal` re-asks the reason already chosen in "Can't attend ▾" — prefill from the pending status.
+- [ ] `WorksheetModal` PDF iframe has no loading state — add one.
+
+### Pkg 3 — Student hub modals + overview (`StudentFormModal.tsx`, `CreateEnrollmentModal.tsx`, `StudentOverview.tsx`, `StudentChecktablesTab.tsx`, `AssignDialog.tsx`)
+- [ ] Apply modal a11y + dirty-backdrop guard to `StudentFormModal`, `CreateEnrollmentModal`, `AssignDialog`.
+- [ ] `StudentOverview` calls hooks after an early `return null` (rules-of-hooks violation) — move the guard above all hooks.
+- [ ] `StudentChecktablesTab` Print → `alert("Demo only")` — replace with in-app feedback.
+
+### Pkg 4 — Parent Comms (`ContactCalendar.tsx`, `RecordContactModal.tsx`, `ParentContactsApp.tsx`, `StudentList.tsx`)
+- [ ] Calendar places events by host-local timezone — key the grid + `byDay` via `lib/datetime.ts` HKT helpers.
+- [ ] `RecordContactModal` crashes on an empty student list (`students[0].id`) — guard; apply modal a11y.
+- [ ] Calendar event chips show only a time — add student name + tooltip; make `+N more` clickable.
+- [ ] Three-panel layout keeps fixed `h-[640px]` on mobile — let panels stack at natural height.
+- [ ] Calendar-event selection strands the detail pane — add "back to history".
+- [ ] Dedupe the four "Record contact" button styles; remove "Demo only" from the delete confirm.
+- [ ] Verify `/comms?student=<id>` deep-link (from dashboard follow-ups) selects that student.
+
+### Pkg 5 — Assessments + Courseware (`AssessmentKanban.tsx`, `CoursewareBrowser.tsx`)
+- [ ] Kanban is drag-only — add a per-card stage select/menu (keyboard + touch, any direction) reusing the existing stage-change mechanism.
+- [ ] "Move next" arrow is hover-only — make it visible/focusable.
+- [ ] Add ARIA to lanes/cards + an `aria-live` move announcement.
+- [ ] "New booking" → `alert("Demo only")` — make it a labelled placeholder or mock flow.
+- [ ] Toolbar stats computed from unfiltered set while cards are filtered — add "showing N of M" / compute from visible.
+- [ ] Courseware has no search over thousands of PDFs — add a code/chapter search box.
+- [ ] Courseware grid never reflects already-assigned worksheets — feed real status from the store.
+- [ ] Assign toast not announced — wrap in `aria-live`, add manual dismiss.
+
+### Out of scope — needs a product/design decision (not auto-fixed)
+- Logging CW/HW has 3–4 overlapping entry points (inline suggestion, RecordExerciseModal, WorksheetModal, AssignDialog) — rationalise into a clear "two ways" model.
+- Sessions suggestion-chip (lightbulb / code / eye on one chip) is dense/cryptic — needs a redesign pass, not a mechanical tweak.
+- Primary-CTA colour split (red page-level vs ink-800 in-modal) — confirm the intended convention before sweeping changes.
+- Consolidating the per-modal hand-rolled ESC/focus logic into a shared `useModalA11y` hook (do after the parallel fixes land, to avoid races).

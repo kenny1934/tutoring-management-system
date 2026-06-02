@@ -21,6 +21,7 @@ import {
   Plus,
   Lightbulb,
   Eye,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -159,10 +160,21 @@ export function SessionsApp() {
   const [tutorFilter, setTutorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [view, setView] = useState<ViewMode>("list");
+  // Deep-link mode: show every pending make-up across all dates, ignoring the
+  // date picker (otherwise they'd be hidden behind selectedDate). Dismissible.
+  const [pendingMakeupsOnly, setPendingMakeupsOnly] = useState(false);
 
   const searchParams = useSearchParams();
   const highlightSessionId = searchParams.get("session");
+  const filterParam = searchParams.get("filter");
   const highlightedRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (filterParam === "pending-makeups") {
+      setPendingMakeupsOnly(true);
+      setView("list");
+    }
+  }, [filterParam]);
 
   useEffect(() => {
     if (!highlightSessionId) return;
@@ -170,6 +182,7 @@ export function SessionsApp() {
     if (!target) return;
     setSelectedDate(target.session_date);
     setView("list");
+    setPendingMakeupsOnly(false);
   }, [highlightSessionId, sessionState]);
 
   useEffect(() => {
@@ -240,17 +253,23 @@ export function SessionsApp() {
         if (tutorFilter !== "all" && s.tutor_id !== tutorFilter) return false;
         if (statusFilter !== "all" && s.session_status !== statusFilter)
           return false;
+        if (pendingMakeupsOnly && !isPendingMakeup(s.session_status))
+          return false;
         return true;
       }),
-    [sessionState, tutorFilter, statusFilter]
+    [sessionState, tutorFilter, statusFilter, pendingMakeupsOnly]
   );
 
   const meetingsForDate = useMemo(
     () =>
       groupByMeeting(
-        filteredSessions.filter((s) => s.session_date === selectedDate)
+        // In pending-make-ups mode, show matches across all dates so they
+        // aren't hidden behind the date picker; otherwise scope to the day.
+        pendingMakeupsOnly
+          ? filteredSessions
+          : filteredSessions.filter((s) => s.session_date === selectedDate)
       ),
-    [filteredSessions, selectedDate]
+    [filteredSessions, selectedDate, pendingMakeupsOnly]
   );
 
   const allMeetings = useMemo(
@@ -314,6 +333,21 @@ export function SessionsApp() {
           view === "list" ? meetingsForDate.length : allMeetings.length
         }
       />
+
+      {pendingMakeupsOnly && (
+        <div className="flex items-center gap-2 rounded-md border border-mc-yellow-500 bg-mc-yellow-50 px-3 py-2 text-xs text-ink-700">
+          <CalendarPlus className="h-4 w-4 text-mc-yellow-600 shrink-0" />
+          <span className="font-medium">
+            Showing pending make-ups across all dates
+          </span>
+          <button
+            onClick={() => setPendingMakeupsOnly(false)}
+            className="ml-auto rounded-md px-2 py-1 font-medium text-ink-700 hover:bg-mc-yellow-500/30"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {view === "weekly" ? (
         <WeeklyView
@@ -853,6 +887,13 @@ function ActionButtonsRow({
       ? SessionStatus.ATTENDED_MAKEUP
       : SessionStatus.ATTENDED;
 
+  // A row is "finalized" once attendance has been marked. Offer a reset so a
+  // mis-tap can be corrected (returns to SCHEDULED → re-opens the picker).
+  const canResetAttendance =
+    session.session_status === SessionStatus.ATTENDED ||
+    session.session_status === SessionStatus.ATTENDED_MAKEUP ||
+    session.session_status === SessionStatus.NO_SHOW;
+
   // Only draw the divider when there's something visually heavy above it
   // (the attendance picker / make-up button). For finalized rows where the
   // action row is just stars + kebab, the border reads as visual noise.
@@ -893,7 +934,16 @@ function ActionButtonsRow({
 
       <div className="ml-auto flex items-center gap-1.5">
         <PerformanceRater value={performanceValue} onChange={onPerformance} />
-        <RowOverflowMenu onOpenChecktable={onOpenChecktable} />
+        <RowOverflowMenu
+          onOpenChecktable={onOpenChecktable}
+          canResetAttendance={canResetAttendance}
+          onResetAttendance={() =>
+            onSetStatus({
+              session_status: SessionStatus.SCHEDULED,
+              attendance_status: undefined,
+            })
+          }
+        />
       </div>
     </div>
   );
@@ -939,8 +989,14 @@ function AttendancePicker({
  *  quiet once a row is "done". */
 function RowOverflowMenu({
   onOpenChecktable,
+  canResetAttendance,
+  onResetAttendance,
 }: {
   onOpenChecktable: () => void;
+  /** True once the row is finalized (attended / no-show) so a mis-tap can be
+   *  corrected. */
+  canResetAttendance: boolean;
+  onResetAttendance: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -985,7 +1041,7 @@ function RowOverflowMenu({
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        className="p-1 rounded-md text-ink-400 hover:text-ink-800 hover:bg-ink-100"
+        className="p-2 rounded-md text-ink-400 hover:text-ink-800 hover:bg-ink-100"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="More actions"
@@ -1012,11 +1068,24 @@ function RowOverflowMenu({
                 onOpenChecktable();
                 setOpen(false);
               }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-ink-700 hover:bg-ink-100"
+              className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-100"
             >
               <Table2 className="h-3.5 w-3.5 text-ink-500" />
               Open checktable
             </button>
+            {canResetAttendance && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  onResetAttendance();
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-100"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-ink-500" />
+                Reset attendance
+              </button>
+            )}
           </div>,
           document.body
         )}
@@ -1200,16 +1269,23 @@ function ExerciseRow({
                 onClick={() =>
                   onOpenWorksheet?.({ mode: "edit", kind, exercise: it })
                 }
-                className="text-ink-300 hover:text-ink-700"
+                className="text-ink-300 hover:text-ink-700 p-1 -m-0.5"
                 aria-label={`Preview and edit ${it.pdf_name}`}
                 title="Preview / edit pages"
               >
                 <Eye className="h-3 w-3" />
               </button>
               <button
-                onClick={() => onRemove(it.id)}
-                className="text-ink-300 hover:text-ink-700 -mr-0.5"
+                onClick={() => {
+                  if (
+                    window.confirm(`Remove ${it.pdf_name} from this ${kind}?`)
+                  ) {
+                    onRemove(it.id);
+                  }
+                }}
+                className="text-ink-300 hover:text-mc-red-600 p-1 -m-0.5 -mr-0.5"
                 aria-label={`Remove ${it.pdf_name}`}
+                title="Remove"
               >
                 ×
               </button>
@@ -1240,7 +1316,7 @@ function ExerciseRow({
             >
               <button
                 onClick={() => setRevealed(false)}
-                className="inline-flex items-center px-1 py-0.5 text-mc-yellow-600 hover:bg-ink-100"
+                className="inline-flex items-center px-1.5 py-1 text-mc-yellow-600 hover:bg-ink-100"
                 aria-label="Hide suggestion"
                 title="Hide suggestion"
               >
@@ -1264,7 +1340,7 @@ function ExerciseRow({
                     item: nextSuggestion.item,
                   })
                 }
-                className="inline-flex items-center px-1 py-0.5 text-ink-400 hover:bg-white hover:text-ink-700"
+                className="inline-flex items-center px-1.5 py-1 text-ink-400 hover:bg-white hover:text-ink-700"
                 aria-label={`Preview ${nextSuggestion.item.code} and set pages`}
                 title="Preview & set pages"
               >
@@ -1274,7 +1350,7 @@ function ExerciseRow({
           ) : (
             <button
               onClick={() => setRevealed(true)}
-              className="inline-flex items-center text-ink-300 hover:text-mc-yellow-600 px-0.5"
+              className="inline-flex items-center text-ink-300 hover:text-mc-yellow-600 p-1.5"
               aria-label="Show suggested next worksheet"
               title="Show suggested next worksheet"
             >
@@ -1412,47 +1488,36 @@ function PerformanceRater({
   const isRated = !!value && value > 0;
   const active = hoverIndex ?? value ?? 0;
 
-  const Stars = (
+  // Stars are always rendered and tappable so a tutor on a tablet (no hover)
+  // can rate. Mouse users still get the hover preview via hoverIndex. When
+  // unrated, a quiet "Rate" hint sits alongside the empty stars.
+  return (
     <div
-      className="flex items-center gap-0.5"
+      className="inline-flex items-center gap-1"
       onMouseLeave={() => setHoverIndex(null)}
     >
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          onClick={() => onChange(n as 1 | 2 | 3 | 4 | 5)}
-          onMouseEnter={() => setHoverIndex(n)}
-          onFocus={() => setHoverIndex(n)}
-          onBlur={() => setHoverIndex(null)}
-          className={`p-0.5 transition-colors ${
-            n <= active ? "text-mc-yellow-500" : "text-ink-200"
-          }`}
-          aria-label={`${n} stars`}
-        >
-          <Star className="h-3.5 w-3.5 fill-current" />
-        </button>
-      ))}
-    </div>
-  );
-
-  // When rated, the 5-star row is always visible.
-  if (isRated) return Stars;
-
-  // When unrated, show a quiet "Rate" affordance that swaps to the 5-star
-  // row on hover/focus-within. Wrapper handles the hand-off.
-  return (
-    <div className="group relative inline-flex items-center">
-      <button
-        type="button"
-        className="text-[11px] text-ink-400 inline-flex items-center gap-1 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
-        tabIndex={-1}
-        aria-hidden="true"
-      >
-        <Star className="h-3.5 w-3.5" />
-        Rate
-      </button>
-      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-        {Stars}
+      {!isRated && (
+        <span className="text-[11px] text-ink-400" aria-hidden="true">
+          Rate
+        </span>
+      )}
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n as 1 | 2 | 3 | 4 | 5)}
+            onMouseEnter={() => setHoverIndex(n)}
+            onFocus={() => setHoverIndex(n)}
+            onBlur={() => setHoverIndex(null)}
+            className={`p-1.5 transition-colors ${
+              n <= active ? "text-mc-yellow-500" : "text-ink-300"
+            }`}
+            aria-label={`${n} stars`}
+          >
+            <Star className="h-3.5 w-3.5 fill-current" />
+          </button>
+        ))}
       </div>
     </div>
   );

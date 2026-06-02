@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   CalendarClock,
@@ -14,8 +14,23 @@ import {
   makeupSuggestions,
   type MakeupSuggestion,
 } from "@/lib/mock-data/sessions";
-import type { Session, Student } from "@/lib/types";
+import { SessionStatus, type Session, type Student } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+
+/** Derive a sensible default reason from the missed session's pending status,
+ *  so the tutor isn't re-typing what they already picked in the menu. */
+function reasonFromStatus(status: string | undefined): string {
+  switch (status) {
+    case SessionStatus.SICK_LEAVE_PENDING:
+      return "Sick leave";
+    case SessionStatus.WEATHER_PENDING:
+      return "Weather";
+    case SessionStatus.RESCHEDULED_PENDING:
+      return "Reschedule";
+    default:
+      return "";
+  }
+}
 
 type Props = {
   student: Student;
@@ -34,11 +49,26 @@ export function MakeupModal({
   const [chosenId, setChosenId] = useState<string | null>(
     makeupSuggestions[0]?.id ?? null
   );
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(() =>
+    reasonFromStatus(session?.session_status)
+  );
   const [created, setCreated] = useState<{
     sessionId: string;
     suggestion: MakeupSuggestion;
   } | null>(null);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const reasonInputRef = useRef<HTMLInputElement>(null);
+
+  // A tutor has invested input once they've typed a reason or changed the
+  // pre-selected slot; in that case a stray backdrop click shouldn't discard it.
+  const isPristine =
+    reason === reasonFromStatus(session?.session_status) &&
+    chosenId === (makeupSuggestions[0]?.id ?? null);
+
+  const handleBackdrop = () => {
+    if (isPristine) onClose();
+  };
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -47,6 +77,33 @@ export function MakeupModal({
     document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
   }, [onClose]);
+
+  // Focus management: move focus into the dialog on open, restore it on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    (reasonInputRef.current ?? dialogRef.current)?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, []);
+
+  // Trap Tab within the dialog.
+  const onKeyDownTrap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const confirm = () => {
     const suggestion = makeupSuggestions.find((s) => s.id === chosenId);
@@ -70,17 +127,26 @@ export function MakeupModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={handleBackdrop}
     >
       <div
-        className="surface w-full sm:max-w-2xl bg-white max-h-[92vh] overflow-y-auto"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="makeup-modal-title"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface w-full sm:max-w-2xl bg-white max-h-[92vh] overflow-y-auto outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3">
           <div>
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-amber-600" />
-              <span className="text-lg font-semibold text-ink-900">
+              <span
+                id="makeup-modal-title"
+                className="text-lg font-semibold text-ink-900"
+              >
                 Schedule makeup
               </span>
             </div>
@@ -119,6 +185,7 @@ export function MakeupModal({
                 Reason
               </label>
               <input
+                ref={reasonInputRef}
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

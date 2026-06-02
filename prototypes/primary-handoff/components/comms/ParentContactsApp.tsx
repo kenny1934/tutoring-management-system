@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, Plus } from "lucide-react";
 import type { ContactType, ParentContact } from "@/lib/types";
 import {
   contactStatusFor,
@@ -16,7 +17,18 @@ import { ContactCalendar } from "./ContactCalendar";
 import { ContactDetail } from "./ContactDetail";
 import { RecordContactModal } from "./RecordContactModal";
 
+// useSearchParams (for the ?student=<id> deep link) must sit inside a
+// Suspense boundary in Next 15. The comms page renders <ParentContactsApp />
+// directly, so we provide the boundary here rather than at the page.
 export function ParentContactsApp() {
+  return (
+    <Suspense fallback={null}>
+      <ParentContactsAppInner />
+    </Suspense>
+  );
+}
+
+function ParentContactsAppInner() {
   const { students, contacts, setContacts } = usePrimaryStore();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
     null
@@ -34,10 +46,22 @@ export function ParentContactsApp() {
     new Set(["Progress Update", "Concern", "General"])
   );
 
+  const searchParams = useSearchParams();
+  const studentParam = searchParams.get("student");
+
   const studentById = useMemo(
     () => new Map(students.map((s) => [s.id, s])),
     [students]
   );
+
+  // Deep-link: honour ?student=<id> (e.g. dashboard follow-ups link to
+  // /comms?student=s-002) by selecting that student on load / param change.
+  useEffect(() => {
+    if (studentParam && studentById.has(studentParam)) {
+      setSelectedStudentId(studentParam);
+      setSelectedContactId(null);
+    }
+  }, [studentParam, studentById]);
 
   const student = selectedStudentId
     ? studentById.get(selectedStudentId) ?? null
@@ -114,7 +138,7 @@ export function ParentContactsApp() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this contact record? Demo only.")) return;
+    if (!confirm("Delete this contact record?")) return;
     setContacts((prev) => prev.filter((c) => c.id !== id));
     if (selectedContactId === id) setSelectedContactId(null);
   };
@@ -159,8 +183,8 @@ export function ParentContactsApp() {
         onSelectStudent={handleSelectStudent}
       />
 
-      <div className="grid gap-3 lg:grid-cols-[280px_1fr_360px] h-[640px]">
-        <div className="min-h-0">
+      <div className="grid gap-3 lg:grid-cols-[280px_1fr_360px] lg:h-[640px]">
+        <div className="min-h-[320px] lg:min-h-0">
           <StudentList
             students={students}
             contacts={contacts}
@@ -171,25 +195,37 @@ export function ParentContactsApp() {
             onSearch={setSearch}
           />
         </div>
-        <div className="min-h-0">
+        <div className="min-h-[360px] lg:min-h-0">
           <ContactCalendar
             contacts={contacts}
+            studentById={studentById}
             selectedContactId={selectedContactId}
             onSelectContact={handleSelectContact}
             activeTypes={activeTypes}
             onToggleType={toggleType}
           />
         </div>
-        <div className="min-h-0">
-          <ContactDetail
-            student={student}
-            contacts={studentContacts}
-            selectedContact={selectedContact}
-            onSelectContact={handleSelectContact}
-            onRecord={(id) => handleRecord(id)}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+        <div className="min-h-[320px] lg:min-h-0 flex flex-col gap-2">
+          {student && selectedContact && (
+            <button
+              onClick={() => setSelectedContactId(null)}
+              className="self-start inline-flex items-center gap-1 text-sm text-ink-600 hover:text-ink-900 rounded-md border border-ink-200 bg-white px-2.5 py-1 hover:bg-ink-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to {student.name}&rsquo;s history
+            </button>
+          )}
+          <div className="min-h-0 flex-1">
+            <ContactDetail
+              student={student}
+              contacts={studentContacts}
+              selectedContact={selectedContact}
+              onSelectContact={handleSelectContact}
+              onRecord={(id) => handleRecord(id)}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </div>
         </div>
       </div>
 

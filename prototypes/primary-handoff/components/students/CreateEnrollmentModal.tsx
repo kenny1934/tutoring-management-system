@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   CalendarPlus,
@@ -60,27 +60,93 @@ export function CreateEnrollmentModal({
 }: Props) {
   const { createEnrollment } = usePrimaryStore();
 
-  const [tutorId, setTutorId] = useState(tutors[0].id);
-  const [enrollmentType, setEnrollmentType] = useState<EnrollmentType>("Regular");
-  const [assignedDay, setAssignedDay] = useState<WeekdayNum>(2);
-  const [assignedTime, setAssignedTime] = useState("16:00");
-  const [durationMins, setDurationMins] = useState(60);
-  const [room, setRoom] = useState(rooms[2]);
-  const [firstLessonDate, setFirstLessonDate] = useState(
-    defaultFirstLessonDate ?? "2026-06-02"
+  const defaults = {
+    tutorId: tutors[0].id,
+    enrollmentType: "Regular" as EnrollmentType,
+    assignedDay: 2 as WeekdayNum,
+    assignedTime: "16:00",
+    durationMins: 60,
+    room: rooms[2],
+    firstLessonDate: defaultFirstLessonDate ?? "2026-06-02",
+    lessonsPaid: 8,
+    isNewStudent: false,
+    discount: 0,
+    remark: "",
+  };
+
+  const [tutorId, setTutorId] = useState(defaults.tutorId);
+  const [enrollmentType, setEnrollmentType] = useState<EnrollmentType>(
+    defaults.enrollmentType
   );
-  const [lessonsPaid, setLessonsPaid] = useState(8);
-  const [isNewStudent, setIsNewStudent] = useState(false);
-  const [discount, setDiscount] = useState(0);
-  const [remark, setRemark] = useState("");
+  const [assignedDay, setAssignedDay] = useState<WeekdayNum>(defaults.assignedDay);
+  const [assignedTime, setAssignedTime] = useState(defaults.assignedTime);
+  const [durationMins, setDurationMins] = useState(defaults.durationMins);
+  const [room, setRoom] = useState(defaults.room);
+  const [firstLessonDate, setFirstLessonDate] = useState(
+    defaults.firstLessonDate
+  );
+  const [lessonsPaid, setLessonsPaid] = useState(defaults.lessonsPaid);
+  const [isNewStudent, setIsNewStudent] = useState(defaults.isNewStudent);
+  const [discount, setDiscount] = useState(defaults.discount);
+  const [remark, setRemark] = useState(defaults.remark);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Pristine = nothing changed from the initial values; controls backdrop close.
+  const dirty =
+    tutorId !== defaults.tutorId ||
+    enrollmentType !== defaults.enrollmentType ||
+    assignedDay !== defaults.assignedDay ||
+    assignedTime !== defaults.assignedTime ||
+    durationMins !== defaults.durationMins ||
+    room !== defaults.room ||
+    firstLessonDate !== defaults.firstLessonDate ||
+    lessonsPaid !== defaults.lessonsPaid ||
+    isNewStudent !== defaults.isNewStudent ||
+    discount !== defaults.discount ||
+    remark !== defaults.remark;
+
+  // Restore focus to whatever was focused before the modal opened, and move
+  // focus into the dialog on open.
+  useEffect(() => {
+    const prevFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current
+      ?.querySelector<HTMLElement>(
+        'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
+      )
+      ?.focus();
+    return () => prevFocused?.focus?.();
+  }, []);
 
   useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  const onBackdrop = () => {
+    if (!dirty) onClose();
+  };
 
   const preview = useMemo(
     () =>
@@ -128,9 +194,13 @@ export function CreateEnrollmentModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={onBackdrop}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-enrollment-title"
         className="surface w-full sm:max-w-4xl bg-white max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -138,7 +208,10 @@ export function CreateEnrollmentModal({
           <div>
             <div className="flex items-center gap-2">
               <CalendarPlus className="h-4 w-4 text-mc-red-600" />
-              <span className="text-lg font-semibold text-ink-900">
+              <span
+                id="create-enrollment-title"
+                className="text-lg font-semibold text-ink-900"
+              >
                 New enrollment
               </span>
             </div>

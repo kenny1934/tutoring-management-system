@@ -29,7 +29,7 @@ export function RecordContactModal({
   onSave,
 }: Props) {
   const [studentId, setStudentId] = useState<string>(
-    preselectStudentId ?? students[0].id
+    preselectStudentId ?? students[0]?.id ?? ""
   );
   const [method, setMethod] = useState<ContactMethod>("WhatsApp");
   const [type, setType] = useState<ContactType>("Progress Update");
@@ -51,7 +51,7 @@ export function RecordContactModal({
       setFollowUpNeeded(editing.followUpNeeded);
       setFollowUpDate(editing.followUpDate ?? "");
     } else {
-      setStudentId(preselectStudentId ?? students[0].id);
+      setStudentId(preselectStudentId ?? students[0]?.id ?? "");
       setMethod("WhatsApp");
       setType("Progress Update");
       setContactedDate("2026-05-19");
@@ -112,6 +112,25 @@ export function RecordContactModal({
           </button>
         </header>
 
+        {students.length === 0 ? (
+          <>
+            <div className="p-5">
+              <div className="surface-muted text-sm text-ink-600 text-center p-6">
+                No students available to record a contact for. Add a student
+                first, then try again.
+              </div>
+            </div>
+            <footer className="border-t border-ink-200 px-5 py-3 bg-ink-50 flex items-center justify-end">
+              <button
+                onClick={onClose}
+                className="rounded-md border border-ink-300 text-ink-700 px-3 py-1.5 text-sm hover:bg-white"
+              >
+                Close
+              </button>
+            </footer>
+          </>
+        ) : (
+          <>
         <div className="p-5 space-y-4">
           <Field label="Student">
             <select
@@ -235,6 +254,8 @@ export function RecordContactModal({
             {editing ? "Save changes" : "Record"}
           </button>
         </footer>
+          </>
+        )}
       </div>
     </div>
   );

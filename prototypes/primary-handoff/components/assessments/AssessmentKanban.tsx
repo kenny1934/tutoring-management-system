@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -59,6 +59,14 @@ const NEXT_STAGE: Partial<Record<AssessmentStage, AssessmentStage>> = {
   "follow-up": "enrolled",
 };
 
+const STAGE_LABEL: Record<AssessmentStage, string> = {
+  booked: "Booked",
+  attended: "Attended",
+  "follow-up": "Follow-up",
+  enrolled: "Enrolled",
+  lost: "Lost",
+};
+
 const SOURCES = ["Referral", "Walk-in", "Online"] as const;
 const GRADES = ["P1", "P2", "P3", "P4", "P5", "P6"] as const;
 
@@ -68,10 +76,12 @@ export function AssessmentKanban() {
   const [hoverLane, setHoverLane] = useState<AssessmentStage | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  // Screen-reader announcement for stage changes (drag, arrow, or select).
+  const [announce, setAnnounce] = useState("");
 
   const searchParams = useSearchParams();
   const focusId = searchParams.get("focus");
-  const focusedRef = useRef<HTMLDivElement | null>(null);
+  const focusedRef = useRef<HTMLLIElement | null>(null);
   // Pulse drops off after a couple seconds; the steady ring stays until
   // the user navigates away or removes the focus query.
   const [pulsing, setPulsing] = useState(false);
@@ -101,15 +111,6 @@ export function AssessmentKanban() {
     }
   }, [focusId]);
 
-  // Conversion rate: enrolled / (enrolled + lost)
-  const stats = useMemo(() => {
-    const enrolled = items.filter((a) => a.stage === "enrolled").length;
-    const lost = items.filter((a) => a.stage === "lost").length;
-    const settled = enrolled + lost;
-    const conversion = settled > 0 ? Math.round((enrolled / settled) * 100) : null;
-    return { enrolled, lost, conversion, total: items.length };
-  }, [items]);
-
   const visible = useMemo(() => {
     return items.filter((a) => {
       // Source pill matches by category prefix — seed sources like
@@ -119,6 +120,18 @@ export function AssessmentKanban() {
       return true;
     });
   }, [items, sourceFilter, gradeFilter]);
+
+  const filterActive = sourceFilter !== null || gradeFilter !== null;
+
+  // Conversion rate: enrolled / (enrolled + lost). Computed from the visible
+  // (filtered) set so the headline numbers always match the cards on screen.
+  const stats = useMemo(() => {
+    const enrolled = visible.filter((a) => a.stage === "enrolled").length;
+    const lost = visible.filter((a) => a.stage === "lost").length;
+    const settled = enrolled + lost;
+    const conversion = settled > 0 ? Math.round((enrolled / settled) * 100) : null;
+    return { enrolled, lost, conversion, total: visible.length };
+  }, [visible]);
 
   const grouped = useMemo(() => {
     const map: Record<AssessmentStage, Assessment[]> = {
@@ -139,9 +152,18 @@ export function AssessmentKanban() {
     return map;
   }, [visible]);
 
+  // Single stage-change path shared by drag-drop, the per-card stage select,
+  // and the "move next" arrow. Wraps the store action and announces the move.
+  const changeStage = (id: string, stage: AssessmentStage) => {
+    const a = items.find((x) => x.id === id);
+    if (!a || a.stage === stage) return;
+    setAssessmentStage(id, stage);
+    setAnnounce(`Moved ${a.childName} to ${STAGE_LABEL[stage]}`);
+  };
+
   const handleDrop = (laneId: AssessmentStage) => {
     if (!draggingId) return;
-    setAssessmentStage(draggingId, laneId);
+    changeStage(draggingId, laneId);
     setDraggingId(null);
     setHoverLane(null);
   };
@@ -150,33 +172,36 @@ export function AssessmentKanban() {
     const a = items.find((x) => x.id === id);
     if (!a) return;
     const next = NEXT_STAGE[a.stage];
-    if (next) setAssessmentStage(id, next);
-  };
-
-  const addBooking = () => {
-    alert(
-      "Demo only. Would open a 'new booking' form (child name, grade, guardian contact, preferred slot)."
-    );
+    if (next) changeStage(id, next);
   };
 
   return (
     <div className="space-y-3">
       <Toolbar
         stats={stats}
+        totalAll={items.length}
+        filterActive={filterActive}
         sourceFilter={sourceFilter}
         gradeFilter={gradeFilter}
         onSource={setSourceFilter}
         onGrade={setGradeFilter}
-        onAdd={addBooking}
       />
+
+      {/* Announces stage changes (drag, arrow, or stage select) to AT. */}
+      <div aria-live="polite" className="sr-only">
+        {announce}
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
         {LANES.map((lane) => {
           const cards = grouped[lane.id];
           const isHover = hoverLane === lane.id;
           return (
-            <div
+            <section
               key={lane.id}
+              aria-label={`${lane.label} — ${cards.length} ${
+                cards.length === 1 ? "assessment" : "assessments"
+              }`}
               onDragOver={(e) => {
                 e.preventDefault();
                 setHoverLane(lane.id);
@@ -200,11 +225,11 @@ export function AssessmentKanban() {
                   {cards.length}
                 </span>
               </div>
-              <div className="flex-1 p-2 space-y-2">
+              <ul className="flex-1 p-2 space-y-2 list-none">
                 {cards.length === 0 && (
-                  <div className="text-xs text-ink-400 text-center py-6">
+                  <li className="text-xs text-ink-400 text-center py-6">
                     Empty
-                  </div>
+                  </li>
                 )}
                 {cards.map((a) => {
                   const isFocused = a.id === focusId;
@@ -219,14 +244,15 @@ export function AssessmentKanban() {
                       }}
                       dragging={draggingId === a.id}
                       onMoveNext={() => moveNext(a.id)}
+                      onChangeStage={(stage) => changeStage(a.id, stage)}
                       focused={isFocused}
                       pulsing={isFocused && pulsing}
                       cardRef={isFocused ? focusedRef : undefined}
                     />
                   );
                 })}
-              </div>
-            </div>
+              </ul>
+            </section>
           );
         })}
       </div>
@@ -236,18 +262,20 @@ export function AssessmentKanban() {
 
 function Toolbar({
   stats,
+  totalAll,
+  filterActive,
   sourceFilter,
   gradeFilter,
   onSource,
   onGrade,
-  onAdd,
 }: {
   stats: { total: number; enrolled: number; lost: number; conversion: number | null };
+  totalAll: number;
+  filterActive: boolean;
   sourceFilter: string | null;
   gradeFilter: string | null;
   onSource: (v: string | null) => void;
   onGrade: (v: string | null) => void;
-  onAdd: () => void;
 }) {
   return (
     <div className="surface p-3 flex flex-wrap items-center gap-3 text-sm">
@@ -268,6 +296,11 @@ function Toolbar({
                   : "bad"
           }
         />
+        {filterActive && (
+          <span className="text-xs text-ink-500 rounded-md bg-ink-100 px-2 py-1">
+            Showing {stats.total} of {totalAll}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
@@ -285,13 +318,21 @@ function Toolbar({
         />
       </div>
 
-      <button
-        onClick={onAdd}
-        className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700 flex items-center gap-1 whitespace-nowrap"
-      >
-        <Plus className="h-4 w-4" />
-        New booking
-      </button>
+      <div className="relative inline-flex items-center">
+        <button
+          type="button"
+          disabled
+          aria-disabled="true"
+          title="Demo only. Would open a new booking form (child name, grade, guardian contact, preferred slot)."
+          className="rounded-md bg-mc-red-600/60 text-white px-3 py-1.5 text-sm font-medium flex items-center gap-1 whitespace-nowrap cursor-not-allowed"
+        >
+          <Plus className="h-4 w-4" />
+          New booking
+        </button>
+        <span className="ml-1.5 rounded-full bg-mc-yellow-100 text-mc-yellow-600 border border-mc-yellow-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+          Demo
+        </span>
+      </div>
     </div>
   );
 }
@@ -369,6 +410,7 @@ function Card({
   onDragEnd,
   dragging,
   onMoveNext,
+  onChangeStage,
   focused,
   pulsing,
   cardRef,
@@ -378,10 +420,12 @@ function Card({
   onDragEnd: () => void;
   dragging: boolean;
   onMoveNext: () => void;
+  onChangeStage: (stage: AssessmentStage) => void;
   focused: boolean;
   pulsing: boolean;
-  cardRef?: React.RefObject<HTMLDivElement | null>;
+  cardRef?: React.RefObject<HTMLLIElement | null>;
 }) {
+  const stageSelectId = useId();
   const followUpFlag =
     a.stage === "follow-up" && a.followUpDue
       ? followUpUrgency(a.followUpDue)
@@ -394,7 +438,7 @@ function Card({
     : "";
 
   return (
-    <div
+    <li
       ref={cardRef}
       draggable
       onDragStart={onDragStart}
@@ -460,13 +504,35 @@ function Card({
       {canMoveNext && (
         <button
           onClick={onMoveNext}
-          title={`Move to ${NEXT_STAGE[a.stage]}`}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-md border border-ink-300 bg-white hover:bg-ink-100 p-1"
+          title={`Move to ${STAGE_LABEL[NEXT_STAGE[a.stage]!]}`}
+          aria-label={`Move ${a.childName} to ${STAGE_LABEL[NEXT_STAGE[a.stage]!]}`}
+          className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity rounded-md border border-ink-300 bg-white hover:bg-ink-100 p-1"
         >
           <ArrowRight className="h-3.5 w-3.5 text-ink-600" />
         </button>
       )}
-    </div>
+
+      {/* Per-card stage control: keyboard- and touch-friendly, works in any
+          direction (including correcting a mis-drop out of lost/enrolled). */}
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <label htmlFor={stageSelectId} className="text-[11px] text-ink-500">
+          Stage
+        </label>
+        <select
+          id={stageSelectId}
+          value={a.stage}
+          onChange={(e) => onChangeStage(e.target.value as AssessmentStage)}
+          className="flex-1 text-xs rounded-md border border-ink-300 bg-white px-2 py-1"
+          aria-label={`Stage for ${a.childName}`}
+        >
+          {LANES.map((lane) => (
+            <option key={lane.id} value={lane.id}>
+              {lane.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </li>
   );
 }
 

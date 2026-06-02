@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   ExternalLink,
@@ -8,6 +8,7 @@ import {
   PenTool,
   Home as HomeIcon,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import type { ChecktableItem, ExerciseKind } from "@/lib/types";
 import { parsePageRange } from "@/lib/store/PrimaryStore";
@@ -45,6 +46,20 @@ export function WorksheetModal({
 }: Props) {
   const [pageRange, setPageRange] = useState(initialPageRange ?? "");
   const [note, setNote] = useState(initialNote ?? "");
+  // Tracks the PDF iframe load so we can overlay a placeholder until it paints.
+  const [isLoading, setIsLoading] = useState(true);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const pageRangeInputRef = useRef<HTMLInputElement>(null);
+
+  // Backdrop click would discard typed page range / note edits, so only let it
+  // close when nothing has changed from what we opened with. Close button always closes.
+  const isPristine =
+    pageRange === (initialPageRange ?? "") && note === (initialNote ?? "");
+
+  const handleBackdrop = () => {
+    if (isPristine) onClose();
+  };
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -53,6 +68,33 @@ export function WorksheetModal({
     document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
   }, [onClose]);
+
+  // Focus management: move focus into the dialog on open, restore it on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    (pageRangeInputRef.current ?? dialogRef.current)?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, []);
+
+  // Trap Tab within the dialog.
+  const onKeyDownTrap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   // Forgive common range formats before validating (mirrors RecordExerciseModal).
   const normalizedRange = pageRange
@@ -78,10 +120,16 @@ export function WorksheetModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink-900/50 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={handleBackdrop}
     >
       <div
-        className="surface bg-white w-full sm:max-w-3xl h-[90vh] max-h-[94vh] flex flex-col overflow-hidden"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="worksheet-modal-title"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface bg-white w-full sm:max-w-3xl h-[90vh] max-h-[94vh] flex flex-col overflow-hidden outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-4 border-b border-ink-200 px-4 py-2.5 shrink-0">
@@ -91,7 +139,10 @@ export function WorksheetModal({
             ) : (
               <HomeIcon className="h-4 w-4 text-blue-600 shrink-0" />
             )}
-            <span className="font-mono text-sm font-semibold text-ink-900 truncate">
+            <span
+              id="worksheet-modal-title"
+              className="font-mono text-sm font-semibold text-ink-900 truncate"
+            >
               {item.code}
             </span>
             <span className="text-xs text-ink-400 shrink-0">
@@ -124,12 +175,23 @@ export function WorksheetModal({
           {/* Preview */}
           <div className="sm:flex-1 min-h-[36vh] sm:min-h-0 bg-ink-100 border-b sm:border-b-0 sm:border-r border-ink-200">
             {previewUrl ? (
-              <iframe
-                src={`${previewUrl}#zoom=page-fit`}
-                className="block w-full h-full border-0 bg-white"
-                title={`Preview of ${item.code}`}
-                loading="lazy"
-              />
+              <div className="relative w-full h-full">
+                <iframe
+                  src={`${previewUrl}#zoom=page-fit`}
+                  className="block w-full h-full border-0 bg-white"
+                  title={`Preview of ${item.code}`}
+                  loading="lazy"
+                  onLoad={() => setIsLoading(false)}
+                />
+                {isLoading && (
+                  <div className="absolute inset-0 grid place-items-center bg-ink-100 text-ink-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-ink-300" />
+                      <div className="text-sm">Loading preview…</div>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="grid place-items-center h-full text-ink-400">
                 <div className="text-center px-4">

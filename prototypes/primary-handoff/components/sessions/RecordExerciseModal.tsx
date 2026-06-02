@@ -114,6 +114,45 @@ export function RecordExerciseModal({
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Backdrop click discards in-flight input (page range / note / search). Only
+  // dismiss on backdrop when nothing has been typed; the Done button always closes.
+  const isPristine =
+    pageRange.trim() === "" && note.trim() === "" && search.trim() === "";
+
+  const handleBackdrop = () => {
+    if (isPristine) onClose();
+  };
+
+  // Focus management: move focus into the dialog on open, restore on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    (searchInputRef.current ?? dialogRef.current)?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, []);
+
+  // Trap Tab within the dialog.
+  const onKeyDownTrap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   // Forgive common range formats before validating: strip "p." prefixes,
   // normalize en/em dashes, accept "5 to 10", and collapse whitespace.
   // parsePageRange is strict (^\d+(-\d+)?$); we hand it a clean string.
@@ -262,10 +301,16 @@ export function RecordExerciseModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={handleBackdrop}
     >
       <div
-        className="surface w-full sm:max-w-3xl bg-white max-h-[92vh] overflow-hidden flex flex-col"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="record-exercise-title"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface w-full sm:max-w-3xl bg-white max-h-[92vh] overflow-hidden flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3">
@@ -276,7 +321,10 @@ export function RecordExerciseModal({
               ) : (
                 <HomeIcon className="h-4 w-4 text-blue-600" />
               )}
-              <span className="text-lg font-semibold text-ink-900">
+              <span
+                id="record-exercise-title"
+                className="text-lg font-semibold text-ink-900"
+              >
                 Record {isCW ? "Classwork" : "Homework"}
               </span>
             </div>
@@ -354,6 +402,7 @@ export function RecordExerciseModal({
             <>
               <Search className="h-4 w-4 text-ink-400" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
