@@ -45,6 +45,7 @@ type Props = {
     tutorNote?: string;
     sessionLabel: string;
     sessionId?: string;
+    kind?: ExerciseKind;
   }) => void;
   onMarkDone?: () => void;
   onUnassign?: () => void;
@@ -94,6 +95,8 @@ export function AssignDialog({
   const [sessionId, setSessionId] = useState<string>(
     existingAssignment?.sessionId ?? upcomingSessions[0]?.id ?? UNLINKED
   );
+  // Student-mode CW/HW choice — only matters when a session is linked.
+  const [studentKind, setStudentKind] = useState<ExerciseKind>("HW");
 
   // Courseware-mode multi-select: sessionId -> CW/HW. `defaultKind` is applied
   // to newly-checked rows; each row can be flipped individually.
@@ -139,12 +142,14 @@ export function AssignDialog({
     return formatSessionLabel ? formatSessionLabel(sessionId) : "";
   }, [sessionId, formatSessionLabel]);
 
+  const linked = sessionId !== UNLINKED;
   const submitAssign = () =>
     onAssign?.({
       pageRange,
       tutorNote,
       sessionLabel,
-      sessionId: sessionId === UNLINKED ? undefined : sessionId,
+      sessionId: linked ? sessionId : undefined,
+      kind: linked ? studentKind : undefined,
     });
 
   const togglePick = (t: AssignTarget) =>
@@ -316,6 +321,9 @@ export function AssignDialog({
                 sessionId={sessionId}
                 onSessionId={setSessionId}
                 formatSessionLabel={formatSessionLabel}
+                kind={studentKind}
+                onKind={setStudentKind}
+                showKind={linked && status === null}
                 pageRange={pageRange}
                 onPageRange={setPageRange}
                 tutorNote={tutorNote}
@@ -345,7 +353,7 @@ export function AssignDialog({
                     onClick={submitAssign}
                     className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
                   >
-                    Assign{sessionId !== UNLINKED ? " to session" : ""}
+                    {linked ? `Add ${studentKind} to session` : "Assign"}
                   </button>
                 )}
                 {status === "assigned" && (
@@ -572,6 +580,9 @@ function StudentControls({
   sessionId,
   onSessionId,
   formatSessionLabel,
+  kind,
+  onKind,
+  showKind,
   pageRange,
   onPageRange,
   tutorNote,
@@ -583,6 +594,9 @@ function StudentControls({
   sessionId: string;
   onSessionId: (v: string) => void;
   formatSessionLabel?: (sessionId: string) => string;
+  kind: ExerciseKind;
+  onKind: (k: ExerciseKind) => void;
+  showKind: boolean;
   pageRange: string;
   onPageRange: (v: string) => void;
   tutorNote: string;
@@ -613,10 +627,32 @@ function StudentControls({
             without a session link.
           </div>
         )}
-        <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
-          <CalendarClock className="h-3 w-3" />
-          Picker is restricted to this student&apos;s upcoming sessions.
-        </p>
+        {showKind ? (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-ink-500">Record as</span>
+            <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
+              {(["CW", "HW"] as ExerciseKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => onKind(k)}
+                  className={`px-2.5 py-0.5 rounded-md ${
+                    kind === k
+                      ? "bg-ink-800 text-white"
+                      : "text-ink-600 hover:bg-ink-100"
+                  }`}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
+            <CalendarClock className="h-3 w-3" />
+            Picker is restricted to this student&apos;s upcoming sessions.
+          </p>
+        )}
       </div>
 
       <div>

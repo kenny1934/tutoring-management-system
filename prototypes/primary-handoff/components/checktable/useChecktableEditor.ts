@@ -5,8 +5,9 @@ import type {
   AssignmentStatus,
   ChecktableAssignment,
   ChecktableItem,
+  ExerciseKind,
 } from "@/lib/types";
-import { usePrimaryStore } from "@/lib/store/PrimaryStore";
+import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { newId } from "@/lib/id";
 
@@ -15,6 +16,8 @@ type AssignInput = {
   tutorNote?: string;
   sessionLabel: string;
   sessionId?: string;
+  /** CW/HW, only set when a session is linked. */
+  kind?: ExerciseKind;
 };
 
 /** Shared editing surface for the per-student checktable. Powers both the
@@ -31,6 +34,7 @@ export function useChecktableEditor(
     sessions,
     students,
     setAssignments,
+    recordExercise,
     getPrintBatch,
     togglePrintBatch,
     itemMeta,
@@ -139,6 +143,24 @@ export function useChecktableEditor(
   const handleAssign = useCallback(
     (item: ChecktableItem, input: AssignInput) => {
       const existing = existingAssignmentFor(item);
+      // New assignment linked to a session → record it as a real session
+      // exercise so it shows on the Sessions page too. recordExercise also
+      // writes the matching ChecktableAssignment (CW → done, HW → assigned).
+      if (!existing && input.sessionId && input.kind) {
+        const { page_start, page_end } = parsePageRange(input.pageRange);
+        recordExercise({
+          sessionId: input.sessionId,
+          studentId,
+          kind: input.kind,
+          pdf_name: item.code,
+          item_id: item.id,
+          page_start,
+          page_end,
+          remarks: input.tutorNote || undefined,
+        });
+        setActiveItem(null);
+        return;
+      }
       if (existing) {
         setAssignments((prev) =>
           prev.map((a) =>
@@ -170,7 +192,13 @@ export function useChecktableEditor(
       }
       setActiveItem(null);
     },
-    [existingAssignmentFor, setAssignments, studentId, checktableId]
+    [
+      existingAssignmentFor,
+      setAssignments,
+      recordExercise,
+      studentId,
+      checktableId,
+    ]
   );
 
   const handleMarkDone = useCallback(

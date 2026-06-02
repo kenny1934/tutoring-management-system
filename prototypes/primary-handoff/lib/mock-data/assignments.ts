@@ -1,18 +1,128 @@
-import type { ChecktableAssignment } from "../types";
+import type { ChecktableAssignment, Session } from "../types";
 import { studentPlans } from "./mc-drive-seed-helpers";
+import { sessions } from "./sessions";
+import { seedHomeworkCompletions } from "./homework-completions";
 
-// Seed assignments are built from each student's *grade-matched* MC Drive
-// worksheet plan (see mc-drive-seed-helpers). Every itemId/checktableId
-// therefore resolves to a real scraped worksheet, and a P6 student gets P6
-// worksheets in their history while a P1 student gets P1 worksheets — no
-// hand-maintained ids. Keep the per-student narratives diverse: some done,
-// some still assigned, a few from the secondary (Math 1-6) book.
+// Seed assignments are derived from the session record so the Checktables grid
+// and the Sessions page always agree: every worksheet recorded in a session
+// (CW or HW) becomes a grid assignment, exactly the way the live store's
+// recordExercise() does it (CW -> done, HW -> assigned, then a submitted
+// homework-completion flips the HW to done). Earlier-chapter "history" items
+// are layered underneath so a student's grid shows prior coverage too. Because
+// everything resolves through studentPlans, ids stay grade-matched and real.
 
-// Deterministic dates anchored to the demo "today" (no Date.now() so seeds
-// stay stable across reloads).
+// --- helpers ---------------------------------------------------------------
+
+function formatPageRange(start?: number, end?: number): string | undefined {
+  if (start === undefined) return undefined;
+  if (end === undefined || end === start) return String(start);
+  return `${start}-${end}`;
+}
+
+/** Mirror PrimaryStore.formatSessionLabel so labels match the live store. */
+function labelFor(session: Session): string {
+  const d = new Date(`${session.session_date}T${session.start_time}:00+08:00`);
+  const weekday = d.toLocaleDateString("en-HK", { weekday: "short" });
+  const time = d.toLocaleTimeString("en-HK", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${session.session_date} ${weekday} ${time}`;
+}
+
+function sessionIso(session: Session): string {
+  return new Date(
+    `${session.session_date}T${session.start_time}:00+08:00`
+  ).toISOString();
+}
+
+// item id -> owning checktable id, across every student's primary + secondary
+// book (covers every item the sessions can reference).
+const checktableIdByItem = new Map<string, string>();
+for (const plan of Object.values(studentPlans)) {
+  for (const pi of [...plan.primary, ...plan.secondary]) {
+    checktableIdByItem.set(pi.item.id, pi.checktableId);
+  }
+}
+
+const completionByExerciseId = new Map(
+  seedHomeworkCompletions.map((c) => [c.session_exercise_id, c])
+);
+
+// --- 1. replay the session record into assignments -------------------------
+
+const out: ChecktableAssignment[] = [];
+const indexByKey = new Map<string, number>(); // `${studentId}|${itemId}` -> out index
+
+function upsert(a: ChecktableAssignment) {
+  const key = `${a.studentId}|${a.itemId}`;
+  const idx = indexByKey.get(key);
+  if (idx === undefined) {
+    indexByKey.set(key, out.length);
+    out.push(a);
+    return;
+  }
+  // Already seen this worksheet for this student: keep "done" over "assigned"
+  // and otherwise let the newer record win.
+  const cur = out[idx];
+  if (cur.status === "done" && a.status !== "done") return;
+  out[idx] = a;
+}
+
+// Oldest sessions first so later sessions override earlier state.
+const orderedSessions = [...sessions].sort((x, y) => {
+  if (x.session_date !== y.session_date)
+    return x.session_date.localeCompare(y.session_date);
+  return x.start_time.localeCompare(y.start_time);
+});
+
+for (const session of orderedSessions) {
+  const iso = sessionIso(session);
+  const label = labelFor(session);
+  const rows: { kind: "CW" | "HW"; ex: Session["cw"][number] }[] = [
+    ...session.cw.map((ex) => ({ kind: "CW" as const, ex })),
+    ...session.hw.map((ex) => ({ kind: "HW" as const, ex })),
+  ];
+  for (const { kind, ex } of rows) {
+    if (!ex.item_id) continue;
+    const checktableId = checktableIdByItem.get(ex.item_id);
+    if (!checktableId) continue;
+    const completion =
+      kind === "HW" ? completionByExerciseId.get(ex.id) : undefined;
+    const done = kind === "CW" || completion?.submitted === true;
+    upsert({
+      id: `a-${ex.id}`,
+      studentId: session.student_id,
+      checktableId,
+      itemId: ex.item_id,
+      status: done ? "done" : "assigned",
+      assignedAt: iso,
+      doneAt: done ? completion?.checked_at ?? iso : undefined,
+      pageRange: formatPageRange(ex.page_start, ex.page_end),
+      tutorNote: ex.remarks,
+      sessionLabel: label,
+      sessionId: session.id,
+      sourceRecordedExerciseId: ex.id,
+    });
+  }
+}
+
+// --- 2. layer earlier-chapter history beneath the session record -----------
+
+// Worksheets the student finished before the visible session window, so the
+// grid shows real prior coverage. Indexed from chapter 1 of each book; items
+// already recorded in a session are skipped.
+type History = { primaryDone: number; secondaryDone: number };
+const HISTORY: Record<string, History> = {
+  "s-001": { primaryDone: 4, secondaryDone: 2 }, // P6 — mid-semester
+  "s-002": { primaryDone: 12, secondaryDone: 2 }, // P4 — heavy load, well ahead
+  "s-003": { primaryDone: 0, secondaryDone: 0 }, // P2 — just started
+  "s-004": { primaryDone: 2, secondaryDone: 1 }, // P1 — newer student
+};
+
+// Deterministic history dates anchored to the demo "today".
 const ANCHOR = new Date("2026-05-19T09:00:00Z");
-
-function dateInfo(daysAgo: number): { iso: string; label: string } {
+function histDate(daysAgo: number): { iso: string; label: string } {
   const d = new Date(ANCHOR);
   d.setUTCDate(d.getUTCDate() - daysAgo);
   const ymd = d.toISOString().slice(0, 10);
@@ -20,107 +130,41 @@ function dateInfo(daysAgo: number): { iso: string; label: string } {
     weekday: "short",
     timeZone: "UTC",
   });
-  return { iso: d.toISOString(), label: `${ymd} ${weekday} 4:00pm` };
+  return { iso: d.toISOString(), label: `${ymd} ${weekday} 4:00 pm` };
 }
 
-type Spec = {
-  studentId: string;
-  /** Primary-book worksheets completed (from chapter 1 onward). */
-  done: number;
-  /** Primary-book worksheets currently assigned (after the done run). */
-  assigned: number;
-  /** Secondary-book worksheets completed. */
-  secondaryDone?: number;
-  /** Tutor notes keyed by assignment offset, for flavour. */
-  notes?: Record<number, string>;
-};
-
-const SPECS: Spec[] = [
-  // Chan Ho Yin (P6) — mid-semester, through chapter ~6, a couple ahead.
-  {
-    studentId: "s-001",
-    done: 6,
-    assigned: 3,
-    secondaryDone: 2,
-    notes: { 7: "Skip word problems, focus on conversion drills" },
-  },
-  // Wong Mei Ling (P4) — heavy load, well ahead.
-  {
-    studentId: "s-002",
-    done: 11,
-    assigned: 2,
-    secondaryDone: 2,
-    notes: { 12: "Whole consolidated review for half-term check" },
-  },
-  // Lee Tsz Kit (P2) — light load, just getting going.
-  { studentId: "s-003", done: 1, assigned: 1 },
-  // Ng Wing Yan (P1) — newer student, a little early work done.
-  { studentId: "s-004", done: 2, assigned: 2 },
-];
-
-function buildAssignments(spec: Spec): ChecktableAssignment[] {
-  const plan = studentPlans[spec.studentId];
-  if (!plan) return [];
-  const out: ChecktableAssignment[] = [];
-  let n = 0;
-  const note = (offset: number) => spec.notes?.[offset];
-
-  // Completed primary worksheets, weekly cadence working backwards.
-  for (let i = 0; i < spec.done && i < plan.primary.length; i++) {
-    const pi = plan.primary[i];
-    const di = dateInfo((spec.done - i) * 7 + 7);
-    out.push({
-      id: `a-${spec.studentId}-${n++}`,
-      studentId: spec.studentId,
-      checktableId: pi.checktableId,
-      itemId: pi.item.id,
-      status: "done",
-      assignedAt: di.iso,
-      doneAt: di.iso,
-      sessionLabel: di.label,
-      tutorNote: note(i),
-    });
+function addHistory(studentId: string, hist: History) {
+  const plan = studentPlans[studentId];
+  if (!plan) return;
+  const banks: [typeof plan.primary, number, string][] = [
+    [plan.primary, hist.primaryDone, "p"],
+    [plan.secondary, hist.secondaryDone, "s"],
+  ];
+  for (const [items, count, tag] of banks) {
+    let placed = 0;
+    for (let i = 0; i < items.length && placed < count; i++) {
+      const pi = items[i];
+      const key = `${studentId}|${pi.item.id}`;
+      if (indexByKey.has(key)) continue; // already covered by a session
+      // Space history out weekly, oldest first.
+      const di = histDate((count - placed) * 7 + 21);
+      upsert({
+        id: `a-${studentId}-hist-${tag}-${i}`,
+        studentId,
+        checktableId: pi.checktableId,
+        itemId: pi.item.id,
+        status: "done",
+        assignedAt: di.iso,
+        doneAt: di.iso,
+        sessionLabel: di.label,
+      });
+      placed++;
+    }
   }
-
-  // Currently-assigned primary worksheets (last week / this week).
-  for (let i = 0; i < spec.assigned; i++) {
-    const idx = spec.done + i;
-    if (idx >= plan.primary.length) break;
-    const pi = plan.primary[idx];
-    const di = dateInfo(i === 0 ? 7 : 0);
-    out.push({
-      id: `a-${spec.studentId}-${n++}`,
-      studentId: spec.studentId,
-      checktableId: pi.checktableId,
-      itemId: pi.item.id,
-      status: "assigned",
-      assignedAt: di.iso,
-      sessionLabel: di.label,
-      tutorNote: note(idx),
-    });
-  }
-
-  // A few completed worksheets from the secondary (Math 1-6) book, so the
-  // history spans more than one checktable.
-  const secDone = spec.secondaryDone ?? 0;
-  for (let i = 0; i < secDone && i < plan.secondary.length; i++) {
-    const pi = plan.secondary[i];
-    const di = dateInfo((secDone - i) * 7 + 3);
-    out.push({
-      id: `a-${spec.studentId}-sec-${i}`,
-      studentId: spec.studentId,
-      checktableId: pi.checktableId,
-      itemId: pi.item.id,
-      status: "done",
-      assignedAt: di.iso,
-      doneAt: di.iso,
-      sessionLabel: di.label,
-    });
-  }
-
-  return out;
 }
 
-export const seedAssignments: ChecktableAssignment[] = SPECS.flatMap(
-  buildAssignments
-);
+for (const [studentId, hist] of Object.entries(HISTORY)) {
+  addHistory(studentId, hist);
+}
+
+export const seedAssignments: ChecktableAssignment[] = out;
