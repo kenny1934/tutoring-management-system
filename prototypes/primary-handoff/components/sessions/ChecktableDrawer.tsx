@@ -93,7 +93,7 @@ export function ChecktableDrawer({ student, focusItemId, onClose }: Props) {
               className="rounded-md border border-mc-line px-2 py-1 text-xs bg-white max-w-[200px]"
               aria-label="Switch checktable"
             >
-              {editor.checktables.map((c) => (
+              {editor.bookOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.textbook} · {c.grade} · {c.version}
                 </option>

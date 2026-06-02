@@ -8,25 +8,21 @@ import {
   Printer,
   CalendarClock,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import type {
+  AssignTarget,
   AssignmentStatus,
   ChecktableAssignment,
   ChecktableItem,
   Session,
   Student,
 } from "@/lib/types";
+import { mcDriveViewerUrl } from "@/lib/mc-drive";
 
 type Props = {
   item: ChecktableItem;
-  student: Student;
   basePath: string;
-  existingAssignment?: ChecktableAssignment;
-  upcomingSessions: Session[];
-  /** How many assigned-not-done items the student currently has across all
-   *  checktables — used for the low-HW-load warning. */
-  openAssignmentCount: number;
-  formatSessionLabel: (sessionId: string) => string;
   onClose: () => void;
   onAssign: (input: {
     pageRange?: string;
@@ -34,10 +30,24 @@ type Props = {
     sessionLabel: string;
     sessionId?: string;
   }) => void;
-  onMarkDone: () => void;
-  onUnassign: () => void;
-  onAddToPrintBatch: () => void;
-  isInPrintBatch: boolean;
+
+  // --- Student flow (per-student checktable). Omit `student` for the
+  //     Courseware page's student-less assign flow. ---
+  student?: Student;
+  existingAssignment?: ChecktableAssignment;
+  upcomingSessions?: Session[];
+  /** How many assigned-not-done items the student currently has across all
+   *  checktables — used for the low-HW-load warning. */
+  openAssignmentCount?: number;
+  formatSessionLabel?: (sessionId: string) => string;
+  onMarkDone?: () => void;
+  onUnassign?: () => void;
+  onAddToPrintBatch?: () => void;
+  isInPrintBatch?: boolean;
+
+  // --- Courseware flow: pick which session (and therefore which student) to
+  //     assign to. Active when `student` is not provided. ---
+  assignTargets?: AssignTarget[];
 };
 
 const UNLINKED = "__none__";
@@ -47,8 +57,8 @@ export function AssignDialog({
   student,
   basePath,
   existingAssignment,
-  upcomingSessions,
-  openAssignmentCount,
+  upcomingSessions = [],
+  openAssignmentCount = 0,
   formatSessionLabel,
   onClose,
   onAssign,
@@ -56,7 +66,11 @@ export function AssignDialog({
   onUnassign,
   onAddToPrintBatch,
   isInPrintBatch,
+  assignTargets,
 }: Props) {
+  // Courseware mode = no fixed student; the session picker chooses one.
+  const courseware = !student;
+
   const [pageRange, setPageRange] = useState(
     existingAssignment?.pageRange ?? ""
   );
@@ -65,14 +79,21 @@ export function AssignDialog({
   );
   const [sessionId, setSessionId] = useState<string>(
     existingAssignment?.sessionId ??
-      upcomingSessions[0]?.id ??
-      UNLINKED
+      (courseware
+        ? assignTargets?.[0]?.sessionId ?? UNLINKED
+        : upcomingSessions[0]?.id ?? UNLINKED)
+  );
+
+  const pickedTarget = useMemo(
+    () => assignTargets?.find((t) => t.sessionId === sessionId),
+    [assignTargets, sessionId]
   );
 
   const sessionLabel = useMemo(() => {
     if (sessionId === UNLINKED) return "";
-    return formatSessionLabel(sessionId);
-  }, [sessionId, formatSessionLabel]);
+    if (courseware) return pickedTarget?.label ?? "";
+    return formatSessionLabel ? formatSessionLabel(sessionId) : "";
+  }, [sessionId, courseware, pickedTarget, formatSessionLabel]);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -88,15 +109,33 @@ export function AssignDialog({
   // already-assigned item keeps it where it is.
   const projectedOpen = openAssignmentCount + (status === null ? 1 : 0);
   const showLowLoadWarning =
-    student.hwLoad === "Little" && status !== "done" && projectedOpen >= 3;
+    !!student &&
+    student.hwLoad === "Little" &&
+    status !== "done" &&
+    projectedOpen >= 3;
 
-  const submitAssign = () =>
+  // In courseware mode a session must be chosen (it identifies the student).
+  const canAssign = !courseware || sessionId !== UNLINKED;
+
+  const submitAssign = () => {
+    if (!canAssign) return;
     onAssign({
       pageRange,
       tutorNote,
       sessionLabel,
       sessionId: sessionId === UNLINKED ? undefined : sessionId,
     });
+  };
+
+  const previewUrl = item.mcDriveS3Path
+    ? mcDriveViewerUrl(item.mcDriveS3Path)
+    : null;
+
+  const subtitle = courseware
+    ? pickedTarget
+      ? `Assigning to ${pickedTarget.studentName}`
+      : "Pick a session to assign this worksheet"
+    : `${student!.name} · ${student!.code} · ${student!.hwLoad} HW`;
 
   return (
     <div
@@ -125,10 +164,12 @@ export function AssignDialog({
               )}
             </div>
             <div className="text-xs text-ink-500 mt-0.5 truncate">
-              {student.name} · {student.code} · {student.hwLoad} HW
-              <span className="ml-2 text-ink-400">
-                {openAssignmentCount} open
-              </span>
+              {subtitle}
+              {!courseware && (
+                <span className="ml-2 text-ink-400">
+                  {openAssignmentCount} open
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -144,7 +185,7 @@ export function AssignDialog({
           <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
             <div>
-              <span className="font-medium">Heads up:</span> {student.name}{" "}
+              <span className="font-medium">Heads up:</span> {student!.name}{" "}
               prefers a light homework load.{" "}
               {status === null
                 ? `Assigning this would bring them to ${projectedOpen} open items.`
@@ -155,24 +196,66 @@ export function AssignDialog({
 
         <div className="grid sm:grid-cols-5 gap-0">
           <div className="sm:col-span-3 border-r border-ink-100 p-5">
-            <div className="text-xs text-ink-500 mb-2">Preview</div>
-            <div className="aspect-[3/4] surface-muted grid place-items-center text-ink-400">
-              <div className="text-center px-4">
-                <FileText className="h-10 w-10 mx-auto mb-2 text-ink-300" />
-                <div className="text-sm">PDF preview would render here</div>
-                <div className="text-xs mt-1 break-all font-mono text-ink-500">
-                  {item.pdfPath ?? `${basePath}\\${item.code}.pdf`}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-ink-500">Preview</div>
+              {previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-ink-500 hover:text-ink-800"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Open in new tab
+                </a>
+              )}
+            </div>
+            <div className="aspect-[3/4] surface-muted overflow-hidden">
+              {previewUrl ? (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full border-0 bg-white"
+                  title={`Preview of ${item.code}`}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="grid place-items-center h-full text-ink-400">
+                  <div className="text-center px-4">
+                    <FileText className="h-10 w-10 mx-auto mb-2 text-ink-300" />
+                    <div className="text-sm">PDF preview would render here</div>
+                    <div className="text-xs mt-1 break-all font-mono text-ink-500">
+                      {item.pdfPath ?? `${basePath}\\${item.code}.pdf`}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
           <div className="sm:col-span-2 p-5 space-y-4">
             <div>
               <label className="block text-xs text-ink-500 mb-1">
-                Session
+                {courseware ? "Assign to session" : "Session"}
               </label>
-              {upcomingSessions.length > 0 ? (
+              {courseware ? (
+                (assignTargets?.length ?? 0) > 0 ? (
+                  <select
+                    value={sessionId}
+                    onChange={(e) => setSessionId(e.target.value)}
+                    className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-ink-400"
+                  >
+                    {assignTargets!.map((t) => (
+                      <option key={t.sessionId} value={t.sessionId}>
+                        {t.studentName} · {t.label} · {t.tutorName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="rounded-md border border-dashed border-ink-200 px-3 py-2 text-xs text-ink-500 bg-ink-50">
+                    No upcoming sessions to assign to.
+                  </div>
+                )
+              ) : upcomingSessions.length > 0 ? (
                 <select
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
@@ -180,22 +263,23 @@ export function AssignDialog({
                 >
                   {upcomingSessions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {formatSessionLabel(s.id)} · {s.tutor_name}
+                      {formatSessionLabel ? formatSessionLabel(s.id) : s.id} ·{" "}
+                      {s.tutor_name}
                     </option>
                   ))}
-                  <option value={UNLINKED}>
-                    Assign without a session
-                  </option>
+                  <option value={UNLINKED}>Assign without a session</option>
                 </select>
               ) : (
                 <div className="rounded-md border border-dashed border-ink-200 px-3 py-2 text-xs text-ink-500 bg-ink-50">
-                  No upcoming sessions for {student.name}. Assignment will be
+                  No upcoming sessions for {student!.name}. Assignment will be
                   recorded without a session link.
                 </div>
               )}
               <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
                 <CalendarClock className="h-3 w-3" />
-                Picker is restricted to this student's upcoming sessions.
+                {courseware
+                  ? "The chosen session determines the student."
+                  : "Picker is restricted to this student's upcoming sessions."}
               </p>
             </div>
 
@@ -227,7 +311,8 @@ export function AssignDialog({
 
             {existingAssignment?.assignedAt && (
               <div className="text-xs text-ink-500 border-t border-ink-100 pt-3">
-                Assigned {new Date(existingAssignment.assignedAt).toLocaleDateString()}
+                Assigned{" "}
+                {new Date(existingAssignment.assignedAt).toLocaleDateString()}
                 {existingAssignment.doneAt && (
                   <>
                     {" · "}done{" "}
@@ -247,35 +332,40 @@ export function AssignDialog({
             {status === null && (
               <button
                 onClick={submitAssign}
-                className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+                disabled={!canAssign}
+                className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Assign{sessionId !== UNLINKED ? " to session" : ""}
               </button>
             )}
             {status === "assigned" && (
               <>
-                <button
-                  onClick={onMarkDone}
-                  className="rounded-md bg-good text-white px-3 py-1.5 text-sm font-medium hover:opacity-90 flex items-center gap-1"
-                >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                  Mark done
-                </button>
+                {onMarkDone && (
+                  <button
+                    onClick={onMarkDone}
+                    className="rounded-md bg-good text-white px-3 py-1.5 text-sm font-medium hover:opacity-90 flex items-center gap-1"
+                  >
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    Mark done
+                  </button>
+                )}
                 <button
                   onClick={submitAssign}
                   className="rounded-md border border-ink-300 text-ink-700 px-3 py-1.5 text-sm hover:bg-ink-50"
                 >
                   Update
                 </button>
-                <button
-                  onClick={onUnassign}
-                  className="rounded-md text-bad px-3 py-1.5 text-sm hover:bg-ink-50"
-                >
-                  Unassign
-                </button>
+                {onUnassign && (
+                  <button
+                    onClick={onUnassign}
+                    className="rounded-md text-bad px-3 py-1.5 text-sm hover:bg-ink-50"
+                  >
+                    Unassign
+                  </button>
+                )}
               </>
             )}
-            {status === "done" && (
+            {status === "done" && onUnassign && (
               <button
                 onClick={onUnassign}
                 className="rounded-md text-bad px-3 py-1.5 text-sm hover:bg-ink-50"
@@ -284,17 +374,19 @@ export function AssignDialog({
               </button>
             )}
           </div>
-          <button
-            onClick={onAddToPrintBatch}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1 ${
-              isInPrintBatch
-                ? "bg-ink-800 text-white"
-                : "border border-ink-300 text-ink-700 hover:bg-ink-50"
-            }`}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            {isInPrintBatch ? "In print batch" : "Add to print batch"}
-          </button>
+          {onAddToPrintBatch && (
+            <button
+              onClick={onAddToPrintBatch}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1 ${
+                isInPrintBatch
+                  ? "bg-ink-800 text-white"
+                  : "border border-ink-300 text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              {isInPrintBatch ? "In print batch" : "Add to print batch"}
+            </button>
+          )}
         </footer>
       </div>
     </div>

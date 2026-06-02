@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import type {
   Assessment,
   AssessmentStage,
+  AssignTarget,
   Checktable,
   ChecktableAssignment,
   ChecktableChapter,
@@ -31,8 +32,10 @@ import { SessionStatus } from "@/lib/types";
 import { generateSessions } from "@/lib/enrollment-utils";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { checktables as seedChecktables } from "@/lib/mock-data/checktables";
+import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
 import { seedAssignments } from "@/lib/mock-data/assignments";
 import {
+  DEMO_DAY,
   enrollments as seedEnrollments,
   sessions as seedSessions,
 } from "@/lib/mock-data/sessions";
@@ -221,6 +224,10 @@ type Store = {
   ) => NextSuggestion | null;
 
   sessionLabel: (sessionId: string) => string;
+
+  /** All upcoming sessions across every student, as assign targets for the
+   *  Courseware page's student-less assign flow. */
+  assignableSessions: () => AssignTarget[];
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -283,7 +290,13 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   const [students] = useState<Student[]>(seedStudents);
   const [enrollments, setEnrollments] =
     useState<Enrollment[]>(seedEnrollments);
-  const [checktables] = useState<Checktable[]>(seedChecktables);
+  // Mock textbooks plus the real MC Drive worksheet checktables. The MC Drive
+  // ones carry source:"mc-drive" so they show on the Courseware page and only
+  // surface in a student's book dropdown when grade-appropriate.
+  const [checktables] = useState<Checktable[]>(() => [
+    ...seedChecktables,
+    ...mcDriveChecktables,
+  ]);
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);
@@ -681,6 +694,24 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     [sessions, homeworkCompletions]
   );
 
+  const assignableSessions = useCallback((): AssignTarget[] => {
+    const nameById = new Map(students.map((s) => [s.id, s.name]));
+    return sessions
+      .filter((s) => s.session_date >= DEMO_DAY)
+      .sort((a, b) =>
+        a.session_date !== b.session_date
+          ? a.session_date.localeCompare(b.session_date)
+          : a.start_time.localeCompare(b.start_time)
+      )
+      .map((s) => ({
+        sessionId: s.id,
+        label: formatSessionLabel(s),
+        studentId: s.student_id,
+        studentName: nameById.get(s.student_id) ?? s.student_id,
+        tutorName: s.tutor_name,
+      }));
+  }, [sessions, students]);
+
   const primaryChecktableId = useCallback(
     (studentId: string) => {
       const counts = new Map<string, number>();
@@ -776,6 +807,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,
+      assignableSessions,
     }),
     [
       students,
@@ -801,6 +833,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       primaryChecktableId,
       nextSuggestedItem,
       sessionLabel,
+      assignableSessions,
     ]
   );
 

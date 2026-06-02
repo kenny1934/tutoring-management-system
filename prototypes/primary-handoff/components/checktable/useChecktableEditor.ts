@@ -34,20 +34,34 @@ export function useChecktableEditor(
     getPrintBatch,
     togglePrintBatch,
     itemMeta,
+    primaryChecktableId,
   } = usePrimaryStore();
 
   const student = students.find((s) => s.id === studentId);
 
-  const initialChecktableId = useMemo(() => {
-    if (!student) return checktables[0]?.id ?? "";
-    const match = checktables.find((c) => c.grade === student.grade);
-    return (match ?? checktables[0]).id;
-  }, [checktables, student]);
+  // Open on the checktable the student is most active in (their narrative book),
+  // not just the first grade match — otherwise a merged MC Drive table could win.
+  const initialChecktableId = useMemo(
+    () => (student ? primaryChecktableId(studentId) : checktables[0]?.id ?? ""),
+    [student, studentId, primaryChecktableId, checktables]
+  );
 
   const [checktableId, setChecktableId] = useState(initialChecktableId);
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
 
   const table = checktables.find((c) => c.id === checktableId);
+
+  // Books offered in the switch dropdown: only grade-appropriate ones (a P5
+  // student sees Level 5 MC Drive material, not every level). The current
+  // selection is always included so the <select> can render its own value.
+  const bookOptions = useMemo(() => {
+    const opts = checktables.filter((c) => c.grade === student?.grade);
+    if (!opts.some((c) => c.id === checktableId)) {
+      const current = checktables.find((c) => c.id === checktableId);
+      if (current) opts.unshift(current);
+    }
+    return opts;
+  }, [checktables, student, checktableId]);
 
   useEffect(() => {
     if (!focusItemId || !table) return;
@@ -197,6 +211,7 @@ export function useChecktableEditor(
 
   return {
     checktables,
+    bookOptions,
     checktableId,
     setChecktableId,
     table,

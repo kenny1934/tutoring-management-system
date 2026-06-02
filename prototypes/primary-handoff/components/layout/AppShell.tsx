@@ -9,6 +9,7 @@ import {
   Users,
   ClipboardCheck,
   MessageSquare,
+  Library,
   Settings,
   ChevronsLeft,
   ChevronsRight,
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", Icon: Home, dot: "bg-mc-red-600" },
   { href: "/sessions", label: "Sessions", Icon: Calendar, dot: "bg-mc-red-600" },
   { href: "/students", label: "Students", Icon: Users, dot: "bg-ink-700" },
+  { href: "/courseware", label: "Courseware", Icon: Library, dot: "bg-mc-peach-500" },
   { href: "/assessments", label: "Assessments", Icon: ClipboardCheck, dot: "bg-mc-peach-500" },
   { href: "/comms", label: "Parent Comms", Icon: MessageSquare, dot: "bg-ink-700" },
 ];

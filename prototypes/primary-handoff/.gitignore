@@ -5,3 +5,7 @@ out
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# MC Drive scrape — raw build input for scripts/generate-mc-drive-checktables.ts.
+# Only the generated lib/mock-data/mc-drive-checktables.ts is committed.
+scripts/mc-drive-tree.json

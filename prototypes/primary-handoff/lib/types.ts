@@ -22,6 +22,12 @@ export type ChecktableItem = {
   code: string; // "640A", "C_Rev_6F_A01"
   note?: string; // "R", "P", "#" etc.
   pdfPath?: string; // resolved network path placeholder
+  /** S3 key under the MC Drive bucket (e.g.
+   *  "MC_Drive/Answer/01_SG_Letter Size/SG Level 1/SG101A1_..._ANS.pdf").
+   *  When set, the AssignDialog preview renders the real PDF via the MC Drive
+   *  viewer (see lib/mc-drive.ts). The viewer URL is derived at runtime to keep
+   *  the generated checktable data small. */
+  mcDriveS3Path?: string;
 };
 
 export type ChecktableCell = {
@@ -57,6 +63,25 @@ export type Checktable = {
   series: ChecktableSeries[];
   sections: ChecktableSection[];
   supplementary: ChecktableItem[];
+  /** Set to "mc-drive" for checktables generated from the scraped MC Drive
+   *  tree. Used to group them on the Courseware page and keep them out of the
+   *  per-student book dropdown unless grade-appropriate. Mock textbooks leave
+   *  this undefined. */
+  source?: "mc-drive";
+  /** Product-line label for browse grouping, e.g. "SG (Letter Size)". */
+  family?: string;
+  /** Level folder label within the family, e.g. "SG Level 1". */
+  levelLabel?: string;
+};
+
+/** A session a worksheet can be assigned to, used by the Courseware page's
+ *  student-less assign flow (the session determines the student). */
+export type AssignTarget = {
+  sessionId: string;
+  label: string; // formatted session label, e.g. "2026-05-19 Mon 4:00pm"
+  studentId: string;
+  studentName: string;
+  tutorName: string;
 };
 
 export type AssignmentStatus = "assigned" | "done";
