@@ -51,7 +51,7 @@ export function StudentSessionsTab() {
     <div className="flex items-center justify-end">
       <button
         onClick={() => setEnrollOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+        className="inline-flex items-center gap-1.5 rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700"
       >
         <CalendarPlus className="h-4 w-4" />
         New enrollment

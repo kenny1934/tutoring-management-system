@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   X,
   CalendarPlus,
@@ -90,7 +91,6 @@ export function CreateEnrollmentModal({
   const [discount, setDiscount] = useState(defaults.discount);
   const [remark, setRemark] = useState(defaults.remark);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   // Pristine = nothing changed from the initial values; controls backdrop close.
   const dirty =
     tutorId !== defaults.tutorId ||
@@ -105,48 +105,10 @@ export function CreateEnrollmentModal({
     discount !== defaults.discount ||
     remark !== defaults.remark;
 
-  // Restore focus to whatever was focused before the modal opened, and move
-  // focus into the dialog on open.
-  useEffect(() => {
-    const prevFocused = document.activeElement as HTMLElement | null;
-    dialogRef.current
-      ?.querySelector<HTMLElement>(
-        'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
-      )
-      ?.focus();
-    return () => prevFocused?.focus?.();
-  }, []);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const root = dialogRef.current;
-      if (!root) return;
-      const focusable = root.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  const onBackdrop = () => {
-    if (!dirty) onClose();
-  };
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine: !dirty,
+  });
 
   const preview = useMemo(
     () =>
@@ -194,14 +156,16 @@ export function CreateEnrollmentModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onBackdrop}
+      onClick={onBackdropClick}
     >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-enrollment-title"
-        className="surface w-full sm:max-w-4xl bg-white max-h-[92vh] overflow-y-auto"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface w-full sm:max-w-4xl bg-white max-h-[92vh] overflow-y-auto outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3 sticky top-0 bg-white z-10">
@@ -481,7 +445,7 @@ export function CreateEnrollmentModal({
           </button>
           <button
             onClick={submit}
-            className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+            className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700"
           >
             Create {sessionCount}{" "}
             {sessionCount === 1 ? "session" : "sessions"}

@@ -92,7 +92,7 @@ export function PrintTray({
         </div>
         <button
           onClick={onPrint}
-          className="rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1 whitespace-nowrap bg-ink-800 text-white hover:bg-ink-900"
+          className="rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1 whitespace-nowrap bg-mc-red-600 text-white hover:bg-mc-red-700"
         >
           <Printer className="h-3.5 w-3.5" />
           {prepMode ? `Print & record ${items.length}` : `Print ${items.length} PDFs`}

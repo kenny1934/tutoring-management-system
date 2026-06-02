@@ -173,8 +173,8 @@ Findings from a full-surface UX audit, grouped into the five parallel work-packa
 - [ ] Courseware grid never reflects already-assigned worksheets — feed real status from the store.
 - [ ] Assign toast not announced — wrap in `aria-live`, add manual dismiss.
 
-### Out of scope — needs a product/design decision (not auto-fixed)
-- Logging CW/HW has 3–4 overlapping entry points (inline suggestion, RecordExerciseModal, WorksheetModal, AssignDialog) — rationalise into a clear "two ways" model.
-- Sessions suggestion-chip (lightbulb / code / eye on one chip) is dense/cryptic — needs a redesign pass, not a mechanical tweak.
-- Primary-CTA colour split (red page-level vs ink-800 in-modal) — confirm the intended convention before sweeping changes.
-- Consolidating the per-modal hand-rolled ESC/focus logic into a shared `useModalA11y` hook (do after the parallel fixes land, to avoid races).
+### Design decisions — resolved 2026-06-03
+- **Modal a11y consolidation — DONE.** `lib/useModalA11y.ts` now owns Escape-close, focus-on-open + focus-restore, the Tab trap, and the pristine-backdrop guard. All seven modals use it (Makeup, RecordExercise, Worksheet, StudentForm, CreateEnrollment, AssignDialog, RecordContact); RecordContact was restructured to mount-when-open.
+- **3a Logging entry points → two-way by intent — DONE (model affirmed).** The structure already conforms: in-session = one-tap **suggestion** + the **RecordExerciseModal** browse/picker; plan-ahead = **AssignDialog** from the checktable; **WorksheetModal** is only ever a preview/page-range *step*, never a standalone door. Clarified the picker affordance ("+ browse / Browse all worksheets") so the two in-session doors read as distinct. Optional follow-up: add a per-row preview affordance inside RecordExerciseModal so "preview" is literally a step in the picker too.
+- **3b Suggestion chip → labeled split-button — DONE.** Replaced the dense 3-zone ghost chip with `💡 Suggested: CODE  [Log] [Preview]`; the code is no longer a hidden tap-to-log target. Collapses to a lone lightbulb once the row has work.
+- **3c Primary-CTA colour → red everywhere — DONE.** Swept in-modal/in-row confirm CTAs from `ink-800` to `mc-red-600` (Worksheet, RecordExercise, AssignDialog, Makeup, CreateEnrollment, PrintTray, Sessions "Schedule make-up", StudentSessionsTab "New enrollment", StudentParentCommsTab "Record contact"). Left `ink-800` where it signals *selected state* (filter tabs, view toggles, method/type pickers) — those are not primary actions.

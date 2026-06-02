@@ -925,7 +925,7 @@ function ActionButtonsRow({
       {showMakeupAction && (
         <button
           onClick={onScheduleMakeup}
-          className="text-[11px] rounded-md px-2 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-ink-800 text-white hover:bg-ink-900"
+          className="text-[11px] rounded-md px-2 py-0.5 font-medium transition-colors inline-flex items-center gap-1 bg-mc-red-600 text-white hover:bg-mc-red-700"
         >
           <CalendarPlus className="h-3 w-3" />
           Schedule make-up
@@ -1293,44 +1293,49 @@ function ExerciseRow({
           );
         })}
 
-        {/* Manual add — opens the full record modal (page range, notes…). */}
+        {/* The browse-everything door: opens the searchable picker (any
+         *  worksheet, page range, notes) — distinct from the one-tap
+         *  suggestion. Plan-ahead assigning lives in the checktable. */}
         <button
           onClick={onOpen}
           className="text-[11px] text-ink-400 hover:text-ink-700 inline-flex items-center gap-1 px-1"
-          aria-label={`Add ${kind} item`}
-          title={`Add ${kind} item`}
+          aria-label={`Browse worksheets to record ${kind}`}
+          title={`Browse all worksheets to record ${kind}`}
         >
           <Plus className="h-3 w-3" />
-          {empty && <span>add</span>}
+          {empty && <span>browse</span>}
         </button>
 
-        {/* Suggestion. Expanded: a ghosted chip whose lightbulb collapses it
-         *  and whose code logs it. Collapsed: just the lightbulb to re-open.
-         *  The lightbulb is the consistent motif in both states; nothing
-         *  changes width on hover, so there's no flicker. */}
+        {/* Suggestion. Expanded: a labeled split-button — a "Suggested: CODE"
+         *  read-out with explicit Log and Preview actions (no guessing that
+         *  tapping the code logs it). Collapsed: a lone lightbulb to re-open. */}
         {nextSuggestion &&
           (showSuggestion ? (
             <span
-              className="inline-flex items-center rounded-md border border-dashed border-ink-300 bg-ink-50/70 overflow-hidden animate-[chipIn_140ms_ease-out]"
+              className="inline-flex items-center gap-1 rounded-md border border-dashed border-ink-300 bg-ink-50/70 pr-1 py-0.5 animate-[chipIn_140ms_ease-out]"
               title={`Suggested ${kind} · Ch.${nextSuggestion.chapter.number} ${nextSuggestion.chapter.title}`}
             >
               <button
                 onClick={() => setRevealed(false)}
-                className="inline-flex items-center px-1.5 py-1 text-mc-yellow-600 hover:bg-ink-100"
+                className="inline-flex items-center px-1.5 py-1 text-mc-yellow-600 hover:bg-ink-100 rounded-l-md"
                 aria-label="Hide suggestion"
                 title="Hide suggestion"
               >
                 <Lightbulb className="h-3 w-3" />
               </button>
+              <span className="text-[9px] uppercase tracking-wide font-semibold text-ink-400">
+                Suggested
+              </span>
+              <span className="font-mono text-[11px] text-ink-700">
+                {nextSuggestion.item.code}
+              </span>
               <button
                 onClick={() => onAcceptSuggestion?.(nextSuggestion.item)}
-                className="inline-flex items-center gap-1 text-[11px] py-0.5 text-ink-600 transition-colors active:scale-95 hover:bg-white hover:text-good"
-                title="Click to log this worksheet"
+                className="inline-flex items-center rounded border border-ink-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-good transition-colors active:scale-95 hover:bg-good hover:text-white hover:border-transparent"
+                aria-label={`Log ${nextSuggestion.item.code} as ${kind} now`}
+                title="Log this worksheet now"
               >
-                <span className="font-mono">{nextSuggestion.item.code}</span>
-                <span className="text-[8px] uppercase tracking-wide font-semibold text-ink-400">
-                  suggested
-                </span>
+                Log
               </button>
               <button
                 onClick={() =>
@@ -1340,11 +1345,12 @@ function ExerciseRow({
                     item: nextSuggestion.item,
                   })
                 }
-                className="inline-flex items-center px-1.5 py-1 text-ink-400 hover:bg-white hover:text-ink-700"
+                className="inline-flex items-center gap-1 rounded border border-ink-200 bg-white px-1.5 py-0.5 text-[11px] text-ink-600 hover:bg-ink-100"
                 aria-label={`Preview ${nextSuggestion.item.code} and set pages`}
-                title="Preview & set pages"
+                title="Preview and set pages"
               >
                 <Eye className="h-3 w-3" />
+                Preview
               </button>
             </span>
           ) : (

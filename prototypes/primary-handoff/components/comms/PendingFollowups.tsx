@@ -88,7 +88,7 @@ export function PendingFollowups({
               <div className="flex gap-1.5">
                 <button
                   onClick={() => onRecord(c.studentId)}
-                  className="text-xs rounded-md border border-ink-300 hover:bg-ink-100 px-2 py-1 text-ink-700 flex items-center gap-1"
+                  className="text-xs rounded-md border border-mc-red-200 hover:bg-mc-red-50 px-2 py-1 text-mc-red-700 flex items-center gap-1"
                 >
                   Record contact
                   <ArrowRight className="h-3 w-3" />

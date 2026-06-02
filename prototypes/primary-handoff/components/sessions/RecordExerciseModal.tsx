@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   X,
   PenTool,
@@ -114,7 +115,6 @@ export function RecordExerciseModal({
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Backdrop click discards in-flight input (page range / note / search). Only
@@ -122,36 +122,11 @@ export function RecordExerciseModal({
   const isPristine =
     pageRange.trim() === "" && note.trim() === "" && search.trim() === "";
 
-  const handleBackdrop = () => {
-    if (isPristine) onClose();
-  };
-
-  // Focus management: move focus into the dialog on open, restore on close.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    (searchInputRef.current ?? dialogRef.current)?.focus();
-    return () => previouslyFocused?.focus?.();
-  }, []);
-
-  // Trap Tab within the dialog.
-  const onKeyDownTrap = (e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const root = dialogRef.current;
-    if (!root) return;
-    const focusable = root.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine,
+    initialFocusRef: searchInputRef,
+  });
 
   // Forgive common range formats before validating: strip "p." prefixes,
   // normalize en/em dashes, accept "5 to 10", and collapse whitespace.
@@ -166,14 +141,6 @@ export function RecordExerciseModal({
   const pageRangeIsInvalid =
     pageRange.trim().length > 0 &&
     !/^\d+-\d+$|^\d+$/.test(normalizedRange);
-
-  useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [onClose]);
 
   useEffect(() => {
     return () => {
@@ -301,7 +268,7 @@ export function RecordExerciseModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={handleBackdrop}
+      onClick={onBackdropClick}
     >
       <div
         ref={dialogRef}
@@ -650,7 +617,7 @@ export function RecordExerciseModal({
         <footer className="border-t border-ink-200 px-5 py-3 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+            className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700"
           >
             Done
           </button>

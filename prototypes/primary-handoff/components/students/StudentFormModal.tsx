@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { X, UserPlus, Pencil } from "lucide-react";
 import { usePrimaryStore, type StudentInput } from "@/lib/store/PrimaryStore";
 import type { HWLoad, Student } from "@/lib/types";
@@ -27,7 +28,7 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   const [school, setSchool] = useState(student?.school ?? "");
   const [hwLoad, setHwLoad] = useState<HWLoad>(student?.hwLoad ?? "Normal");
 
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   // Pristine = nothing changed from the initial values; controls backdrop close.
   const dirty =
     name !== (student?.name ?? "") ||
@@ -36,42 +37,11 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
     school !== (student?.school ?? "") ||
     hwLoad !== (student?.hwLoad ?? "Normal");
 
-  // Restore focus to whatever was focused before the modal opened.
-  useEffect(() => {
-    const prevFocused = document.activeElement as HTMLElement | null;
-    return () => prevFocused?.focus?.();
-  }, []);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const root = dialogRef.current;
-      if (!root) return;
-      const focusable = root.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  const onBackdrop = () => {
-    if (!dirty) onClose();
-  };
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine: !dirty,
+    initialFocusRef: nameRef,
+  });
 
   const canSave = name.trim() !== "" && code.trim() !== "";
 
@@ -97,14 +67,16 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onBackdrop}
+      onClick={onBackdropClick}
     >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="student-form-title"
-        className="surface w-full sm:max-w-md bg-white max-h-[92vh] overflow-y-auto"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface w-full sm:max-w-md bg-white max-h-[92vh] overflow-y-auto outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3">
@@ -133,11 +105,11 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
         <div className="p-5 space-y-3">
           <Field label="Name">
             <input
+              ref={nameRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Chan Ho Yin"
-              autoFocus
               className="w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:border-ink-400"
             />
           </Field>

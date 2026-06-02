@@ -76,7 +76,7 @@ export function ContactDetail({
         <div className="mt-2">
           <button
             onClick={() => onRecord(student.id)}
-            className="text-sm rounded-md bg-ink-800 text-white px-3 py-1.5 hover:bg-ink-900 flex items-center gap-1 font-medium"
+            className="text-sm rounded-md bg-mc-red-600 text-white px-3 py-1.5 hover:bg-mc-red-700 flex items-center gap-1 font-medium"
           >
             <Plus className="h-4 w-4" />
             Record contact

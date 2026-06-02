@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { X, Bell } from "lucide-react";
 import type {
   ContactMethod,
@@ -10,6 +10,7 @@ import type {
 } from "@/lib/types";
 import { CONTACT_METHODS, CONTACT_TYPES, MethodIcon } from "./contact-utils";
 import { hktDateFromIso, hktTimeFromIso } from "@/lib/datetime";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 type Props = {
   open: boolean;
@@ -20,57 +21,64 @@ type Props = {
   onSave: (input: Omit<ParentContact, "id"> & { id?: string }) => void;
 };
 
-export function RecordContactModal({
-  open,
+// Gate: mount the modal (and its focus/escape handling) only while open, and
+// remount when the target contact/student changes so the form re-seeds.
+export function RecordContactModal({ open, ...rest }: Props) {
+  if (!open) return null;
+  return (
+    <RecordContactModalInner
+      key={rest.editing?.id ?? rest.preselectStudentId ?? "new"}
+      {...rest}
+    />
+  );
+}
+
+function RecordContactModalInner({
   students,
   preselectStudentId,
   editing,
   onClose,
   onSave,
-}: Props) {
-  const [studentId, setStudentId] = useState<string>(
-    preselectStudentId ?? students[0]?.id ?? ""
-  );
-  const [method, setMethod] = useState<ContactMethod>("WhatsApp");
-  const [type, setType] = useState<ContactType>("Progress Update");
-  const [contactedDate, setContactedDate] = useState("2026-05-19");
-  const [contactedTime, setContactedTime] = useState("09:00");
-  const [briefNotes, setBriefNotes] = useState("");
-  const [followUpNeeded, setFollowUpNeeded] = useState(false);
-  const [followUpDate, setFollowUpDate] = useState("");
+}: Omit<Props, "open">) {
+  const defaults = {
+    studentId: editing?.studentId ?? preselectStudentId ?? students[0]?.id ?? "",
+    method: editing?.method ?? ("WhatsApp" as ContactMethod),
+    type: editing?.type ?? ("Progress Update" as ContactType),
+    contactedDate: editing ? hktDateFromIso(editing.contactedAt) : "2026-05-19",
+    contactedTime: editing ? hktTimeFromIso(editing.contactedAt) : "09:00",
+    briefNotes: editing?.briefNotes ?? "",
+    followUpNeeded: editing?.followUpNeeded ?? false,
+    followUpDate: editing?.followUpDate ?? "",
+  };
 
-  useEffect(() => {
-    if (!open) return;
-    if (editing) {
-      setStudentId(editing.studentId);
-      setMethod(editing.method);
-      setType(editing.type);
-      setContactedDate(hktDateFromIso(editing.contactedAt));
-      setContactedTime(hktTimeFromIso(editing.contactedAt));
-      setBriefNotes(editing.briefNotes);
-      setFollowUpNeeded(editing.followUpNeeded);
-      setFollowUpDate(editing.followUpDate ?? "");
-    } else {
-      setStudentId(preselectStudentId ?? students[0]?.id ?? "");
-      setMethod("WhatsApp");
-      setType("Progress Update");
-      setContactedDate("2026-05-19");
-      setContactedTime("09:00");
-      setBriefNotes("");
-      setFollowUpNeeded(false);
-      setFollowUpDate("");
-    }
-  }, [open, editing, preselectStudentId, students]);
+  const [studentId, setStudentId] = useState(defaults.studentId);
+  const [method, setMethod] = useState<ContactMethod>(defaults.method);
+  const [type, setType] = useState<ContactType>(defaults.type);
+  const [contactedDate, setContactedDate] = useState(defaults.contactedDate);
+  const [contactedTime, setContactedTime] = useState(defaults.contactedTime);
+  const [briefNotes, setBriefNotes] = useState(defaults.briefNotes);
+  const [followUpNeeded, setFollowUpNeeded] = useState(defaults.followUpNeeded);
+  const [followUpDate, setFollowUpDate] = useState(defaults.followUpDate);
 
-  useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    if (open) document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [open, onClose]);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
-  if (!open) return null;
+  // Backdrop click only closes when nothing has changed, so in-flight input
+  // isn't discarded; the Cancel/Close button always closes.
+  const isPristine =
+    studentId === defaults.studentId &&
+    method === defaults.method &&
+    type === defaults.type &&
+    contactedDate === defaults.contactedDate &&
+    contactedTime === defaults.contactedTime &&
+    briefNotes === defaults.briefNotes &&
+    followUpNeeded === defaults.followUpNeeded &&
+    followUpDate === defaults.followUpDate;
+
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine,
+    initialFocusRef: notesRef,
+  });
 
   const submit = () => {
     const contactedAt = new Date(
@@ -93,14 +101,20 @@ export function RecordContactModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onClose}
+      onClick={onBackdropClick}
     >
       <div
-        className="surface w-full sm:max-w-xl bg-white max-h-[92vh] overflow-y-auto"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="record-contact-title"
+        tabIndex={-1}
+        onKeyDown={onKeyDownTrap}
+        className="surface w-full sm:max-w-xl bg-white max-h-[92vh] overflow-y-auto outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-ink-200 px-5 py-3">
-          <div className="text-lg font-semibold text-ink-900">
+          <div id="record-contact-title" className="text-lg font-semibold text-ink-900">
             {editing ? "Edit contact" : "Record contact"}
           </div>
           <button
@@ -207,6 +221,7 @@ export function RecordContactModal({
 
           <Field label="Brief notes">
             <textarea
+              ref={notesRef}
               value={briefNotes}
               onChange={(e) => setBriefNotes(e.target.value)}
               rows={4}

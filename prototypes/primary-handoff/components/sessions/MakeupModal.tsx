@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   X,
   CalendarClock,
@@ -57,7 +58,6 @@ export function MakeupModal({
     suggestion: MakeupSuggestion;
   } | null>(null);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   const reasonInputRef = useRef<HTMLInputElement>(null);
 
   // A tutor has invested input once they've typed a reason or changed the
@@ -66,44 +66,11 @@ export function MakeupModal({
     reason === reasonFromStatus(session?.session_status) &&
     chosenId === (makeupSuggestions[0]?.id ?? null);
 
-  const handleBackdrop = () => {
-    if (isPristine) onClose();
-  };
-
-  useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [onClose]);
-
-  // Focus management: move focus into the dialog on open, restore it on close.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    (reasonInputRef.current ?? dialogRef.current)?.focus();
-    return () => previouslyFocused?.focus?.();
-  }, []);
-
-  // Trap Tab within the dialog.
-  const onKeyDownTrap = (e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const root = dialogRef.current;
-    if (!root) return;
-    const focusable = root.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine,
+    initialFocusRef: reasonInputRef,
+  });
 
   const confirm = () => {
     const suggestion = makeupSuggestions.find((s) => s.id === chosenId);
@@ -127,7 +94,7 @@ export function MakeupModal({
   return (
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={handleBackdrop}
+      onClick={onBackdropClick}
     >
       <div
         ref={dialogRef}
@@ -254,7 +221,7 @@ export function MakeupModal({
           {created ? (
             <button
               onClick={onClose}
-              className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900"
+              className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700"
             >
               Done
             </button>
@@ -269,7 +236,7 @@ export function MakeupModal({
               <button
                 onClick={confirm}
                 disabled={!chosenId}
-                className="rounded-md bg-ink-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-ink-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-mc-red-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-mc-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Schedule makeup
               </button>

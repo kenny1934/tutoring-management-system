@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   X,
   ExternalLink,
@@ -49,7 +50,6 @@ export function WorksheetModal({
   // Tracks the PDF iframe load so we can overlay a placeholder until it paints.
   const [isLoading, setIsLoading] = useState(true);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   const pageRangeInputRef = useRef<HTMLInputElement>(null);
 
   // Backdrop click would discard typed page range / note edits, so only let it
@@ -57,44 +57,11 @@ export function WorksheetModal({
   const isPristine =
     pageRange === (initialPageRange ?? "") && note === (initialNote ?? "");
 
-  const handleBackdrop = () => {
-    if (isPristine) onClose();
-  };
-
-  useEffect(() => {
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [onClose]);
-
-  // Focus management: move focus into the dialog on open, restore it on close.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    (pageRangeInputRef.current ?? dialogRef.current)?.focus();
-    return () => previouslyFocused?.focus?.();
-  }, []);
-
-  // Trap Tab within the dialog.
-  const onKeyDownTrap = (e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const root = dialogRef.current;
-    if (!root) return;
-    const focusable = root.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
+    onClose,
+    isPristine,
+    initialFocusRef: pageRangeInputRef,
+  });
 
   // Forgive common range formats before validating (mirrors RecordExerciseModal).
   const normalizedRange = pageRange
@@ -120,7 +87,7 @@ export function WorksheetModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink-900/50 p-0 sm:p-4"
-      onClick={handleBackdrop}
+      onClick={onBackdropClick}
     >
       <div
         ref={dialogRef}
@@ -249,7 +216,7 @@ export function WorksheetModal({
               <button
                 onClick={submit}
                 disabled={pageRangeIsInvalid}
-                className="w-full rounded-md bg-ink-800 text-white px-3 py-2 text-sm font-medium hover:bg-ink-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full rounded-md bg-mc-red-600 text-white px-3 py-2 text-sm font-medium hover:bg-mc-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {mode === "log"
                   ? `Log ${isCW ? "classwork" : "homework"}`
