@@ -133,3 +133,7 @@ quarterly_report_*.csv
 # Summer course private data (Google Sheet exports, Apps Script)
 docs/summer-course/*.xlsx
 docs/summer-course/*.gs
+
+# MC Drive scraper session + output (contains login cookie / private folder data)
+scripts/.mc-drive-session.json
+scripts/mc-drive-tree.json
