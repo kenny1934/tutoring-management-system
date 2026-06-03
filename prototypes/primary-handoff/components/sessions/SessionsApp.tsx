@@ -1252,6 +1252,7 @@ function ExerciseRow({
   onOpenWorksheet?: OpenWorksheet;
 }) {
   const empty = items.length === 0;
+  const isCW = kind === "CW";
   // Suggestion is open by default on an empty row; once work is logged it
   // collapses to a lightbulb. The lightbulb toggles it either way.
   const [revealed, setRevealed] = useState(empty);
@@ -1266,11 +1267,11 @@ function ExerciseRow({
        *  text regardless of how tall the chips (with their buttons) get. */}
       <span
         className={`w-8 shrink-0 inline-flex items-center justify-end gap-0.5 text-[10px] font-semibold tracking-wide pr-1 ${
-          kind === "CW" ? "text-rose-600" : "text-blue-600"
+          isCW ? "text-rose-600" : "text-blue-600"
         }`}
-        title={kind === "CW" ? "Classwork" : "Homework"}
+        title={isCW ? "Classwork" : "Homework"}
       >
-        {kind === "CW" ? (
+        {isCW ? (
           <PenTool className="h-2.5 w-2.5" />
         ) : (
           <HomeIcon className="h-2.5 w-2.5" />

@@ -87,42 +87,19 @@ export function useChecktableEditor(
     if (supp) setActiveItem(supp);
   }, [focusItemId, table]);
 
-  const statusByItemId = useMemo(() => {
-    const map: Record<string, AssignmentStatus | null> = {};
+  // Status / kind / note share the same per-student-per-checktable filter, so
+  // build all three in a single pass over the assignments.
+  const { statusByItemId, kindByItemId, noteByItemId } = useMemo(() => {
+    const status: Record<string, AssignmentStatus | null> = {};
+    const kind: Record<string, ExerciseKind | undefined> = {};
+    const note: Record<string, string | undefined> = {};
     for (const a of assignments) {
-      if (a.studentId === studentId && a.checktableId === checktableId) {
-        map[a.itemId] = a.status;
-      }
+      if (a.studentId !== studentId || a.checktableId !== checktableId) continue;
+      status[a.itemId] = a.status;
+      if (a.kind) kind[a.itemId] = a.kind;
+      if (a.tutorNote) note[a.itemId] = a.tutorNote;
     }
-    return map;
-  }, [assignments, studentId, checktableId]);
-
-  const kindByItemId = useMemo(() => {
-    const map: Record<string, ExerciseKind | undefined> = {};
-    for (const a of assignments) {
-      if (
-        a.studentId === studentId &&
-        a.checktableId === checktableId &&
-        a.kind
-      ) {
-        map[a.itemId] = a.kind;
-      }
-    }
-    return map;
-  }, [assignments, studentId, checktableId]);
-
-  const noteByItemId = useMemo(() => {
-    const map: Record<string, string | undefined> = {};
-    for (const a of assignments) {
-      if (
-        a.studentId === studentId &&
-        a.checktableId === checktableId &&
-        a.tutorNote
-      ) {
-        map[a.itemId] = a.tutorNote;
-      }
-    }
-    return map;
+    return { statusByItemId: status, kindByItemId: kind, noteByItemId: note };
   }, [assignments, studentId, checktableId]);
 
   const openAssignmentCount = useMemo(

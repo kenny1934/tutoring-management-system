@@ -430,6 +430,10 @@ export function AssignDialog({
 
 // --- Courseware session multi-select ---------------------------------------
 
+/** Rose (CW) / blue (HW) fill shared by every CW/HW toggle in this dialog. */
+const kindFill = (kind: ExerciseKind) =>
+  kind === "CW" ? "bg-mc-red-100 text-mc-red-700" : "bg-blue-100 text-blue-700";
+
 function KindBadge({
   kind,
   onToggle,
@@ -446,11 +450,9 @@ function KindBadge({
         onToggle();
       }}
       title="Toggle classwork / homework"
-      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-        kind === "CW"
-          ? "bg-mc-red-100 text-mc-red-700"
-          : "bg-blue-100 text-blue-700"
-      }`}
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${kindFill(
+        kind
+      )}`}
     >
       {kind}
     </button>
@@ -491,11 +493,7 @@ function CoursewarePicker({
               type="button"
               onClick={() => onDefaultKind(k)}
               className={`px-2.5 py-0.5 rounded-md font-semibold ${
-                defaultKind === k
-                  ? k === "CW"
-                    ? "bg-mc-red-100 text-mc-red-700"
-                    : "bg-blue-100 text-blue-700"
-                  : "text-ink-400 hover:bg-ink-100"
+                defaultKind === k ? kindFill(k) : "text-ink-400 hover:bg-ink-100"
               }`}
             >
               {k}
@@ -654,11 +652,7 @@ function StudentControls({
                   type="button"
                   onClick={() => onKind(k)}
                   className={`px-2.5 py-0.5 rounded-md font-semibold ${
-                    kind === k
-                      ? k === "CW"
-                        ? "bg-mc-red-100 text-mc-red-700"
-                        : "bg-blue-100 text-blue-700"
-                      : "text-ink-400 hover:bg-ink-100"
+                    kind === k ? kindFill(k) : "text-ink-400 hover:bg-ink-100"
                   }`}
                 >
                   {k}

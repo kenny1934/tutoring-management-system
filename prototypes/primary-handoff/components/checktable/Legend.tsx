@@ -25,26 +25,23 @@ export function Legend() {
         </span>
         <span>In print batch</span>
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="chip relative overflow-hidden">
-          <span
-            aria-hidden
-            className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"
-          />
-          601A
+      {(
+        [
+          ["bg-rose-500", "Classwork"],
+          ["bg-blue-500", "Homework"],
+        ] as const
+      ).map(([stripe, label]) => (
+        <span key={label} className="flex items-center gap-1.5">
+          <span className="chip relative overflow-hidden">
+            <span
+              aria-hidden
+              className={`absolute left-0 top-0 bottom-0 w-1 ${stripe}`}
+            />
+            601A
+          </span>
+          <span>{label}</span>
         </span>
-        <span>Classwork</span>
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="chip relative overflow-hidden">
-          <span
-            aria-hidden
-            className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"
-          />
-          601A
-        </span>
-        <span>Homework</span>
-      </span>
+      ))}
       <span className="text-ink-400 ml-auto">Click a chip to manage.</span>
     </div>
   );
