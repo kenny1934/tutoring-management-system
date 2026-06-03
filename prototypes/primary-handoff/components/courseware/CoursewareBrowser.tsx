@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
-import { CoursewareSyllabus } from "@/components/courseware/CoursewareSyllabus";
+import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
 import {
   AssignDialog,
   type SessionPick,
@@ -331,7 +331,7 @@ export function CoursewareBrowser() {
               onItemClick={setActiveItem}
             />
           ) : (
-            <CoursewareSyllabus
+            <ChecktableSyllabus
               table={filteredTable ?? table}
               onItemClick={setActiveItem}
             />

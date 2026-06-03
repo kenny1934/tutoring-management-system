@@ -1,14 +1,16 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { BookOpen, Printer } from "lucide-react";
+import { BookOpen, Printer, LayoutGrid, ListTree } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
+import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
 import { Legend } from "@/components/checktable/Legend";
+import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
 import { useEffect, useRef, useState } from "react";
 import type {
   GridSectionFilter,
@@ -26,6 +28,7 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
+  const [view, setView] = useState<"grid" | "syllabus">("grid");
   const [printToast, setPrintToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -49,20 +52,49 @@ export function StudentChecktablesTab() {
             {table.grade} · {table.version}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-ink-500">Switch book</span>
-          <select
-            value={editor.checktableId}
-            onChange={(e) => editor.setChecktableId(e.target.value)}
-            className="rounded-md border border-ink-200 px-2 py-1 text-xs bg-white"
-            aria-label="Switch checktable"
+        <div className="flex items-center gap-3">
+          <div
+            role="group"
+            aria-label="View"
+            className="inline-flex shrink-0 rounded-md border border-ink-200 bg-white p-0.5 text-xs"
           >
-            {editor.bookOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.textbook} · {c.grade} · {c.version}
-              </option>
+            {(
+              [
+                { id: "grid", label: "Grid", Icon: LayoutGrid },
+                { id: "syllabus", label: "Syllabus", Icon: ListTree },
+              ] as const
+            ).map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setView(id)}
+                aria-pressed={view === id}
+                className={`flex items-center gap-1.5 rounded px-2 py-0.5 font-medium transition-colors ${
+                  view === id
+                    ? "bg-ink-800 text-white"
+                    : "text-ink-600 hover:bg-ink-100"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
             ))}
-          </select>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-ink-500">Switch book</span>
+            <select
+              value={editor.checktableId}
+              onChange={(e) => editor.setChecktableId(e.target.value)}
+              className="rounded-md border border-ink-200 px-2 py-1 text-xs bg-white"
+              aria-label="Switch checktable"
+            >
+              {editor.bookOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.textbook} · {c.grade} · {c.version}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -77,16 +109,29 @@ export function StudentChecktablesTab() {
         onSectionChange={setGridSection}
       />
 
-      <ChecktableGrid
-        table={table}
-        statusByItemId={editor.statusByItemId}
-        kindByItemId={editor.kindByItemId}
-        noteByItemId={editor.noteByItemId}
-        selectedItemIds={editor.selectedIds}
-        statusFilter={gridStatus}
-        sectionFilter={gridSection}
-        onItemClick={editor.setActiveItem}
-      />
+      {view === "grid" ? (
+        <ChecktableGrid
+          table={table}
+          statusByItemId={editor.statusByItemId}
+          kindByItemId={editor.kindByItemId}
+          noteByItemId={editor.noteByItemId}
+          selectedItemIds={editor.selectedIds}
+          statusFilter={gridStatus}
+          sectionFilter={gridSection}
+          onItemClick={editor.setActiveItem}
+        />
+      ) : (
+        <ChecktableSyllabus
+          table={table}
+          statusByItemId={editor.statusByItemId}
+          kindByItemId={editor.kindByItemId}
+          noteByItemId={editor.noteByItemId}
+          selectedItemIds={editor.selectedIds}
+          statusFilter={gridStatus}
+          sectionFilter={gridSection}
+          onItemClick={editor.setActiveItem}
+        />
+      )}
 
       <PrintTray
         items={editor.printBatchItems}
@@ -109,6 +154,7 @@ export function StudentChecktablesTab() {
           item={editor.activeItem}
           student={student}
           basePath={table.basePath}
+          objective={objectiveForItemCode(editor.activeItem.code)}
           existingAssignment={editor.existingAssignmentFor(editor.activeItem)}
           upcomingSessions={editor.upcomingSessions}
           openAssignmentCount={editor.openAssignmentCount}
