@@ -51,8 +51,12 @@ export function SessionsToolbar({
   const label = formatDateLabel(selectedDate);
 
   const shiftDate = (deltaDays: number) => {
-    const d = new Date(`${selectedDate}T00:00:00+08:00`);
-    d.setDate(d.getDate() + deltaDays);
+    // Stay entirely in UTC: parse at 00:00Z, step with setUTCDate, format with
+    // toISOString. Mixing a +08:00 parse with a UTC format shifts the result
+    // back a day (midnight HKT = 16:00Z prev day), which left "next" stuck on
+    // the same date and made "prev" skip every other day.
+    const d = new Date(`${selectedDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + deltaDays);
     onDateChange(d.toISOString().slice(0, 10));
   };
 
@@ -198,11 +202,15 @@ function ViewButton({
 }
 
 function formatDateLabel(yyyyMmDd: string): string {
-  const d = new Date(`${yyyyMmDd}T00:00:00+08:00`);
+  // Parse and format in UTC so the label matches the YYYY-MM-DD value exactly,
+  // regardless of the viewer's timezone (a +08:00 parse rendered in a non-+08
+  // zone would read one day off).
+  const d = new Date(`${yyyyMmDd}T00:00:00Z`);
   return d.toLocaleDateString("en-HK", {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
