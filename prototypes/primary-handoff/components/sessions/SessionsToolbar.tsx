@@ -131,7 +131,7 @@ export function SessionsToolbar({
         </SelectChip>
 
         <div className="text-xs text-ink-500 ml-1">
-          {resultCount} {resultCount === 1 ? "meeting" : "meetings"}
+          {resultCount} {resultCount === 1 ? "lesson" : "lessons"}
         </div>
 
         <div className="ml-auto inline-flex rounded-md border border-mc-line bg-white p-0.5 text-sm">

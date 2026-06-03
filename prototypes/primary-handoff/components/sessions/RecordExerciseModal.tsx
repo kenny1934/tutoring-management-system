@@ -7,6 +7,7 @@ import {
   PenTool,
   Home as HomeIcon,
   Plus,
+  Eye,
   Search,
   List as ListIcon,
   LayoutGrid,
@@ -25,7 +26,6 @@ import type {
 } from "@/lib/types";
 import {
   usePrimaryStore,
-  parsePageRange,
   formatPageRange,
 } from "@/lib/store/PrimaryStore";
 import {
@@ -47,6 +47,8 @@ type Props = {
     remarks?: string;
   }) => void;
   onRemove: (id: string) => void;
+  /** Open the worksheet preview (PDF + per-item page range) before logging. */
+  onPreviewItem?: (item: ChecktableItem) => void;
 };
 
 type StatusFilter = "all" | "pending" | "untouched" | "hide-done";
@@ -95,6 +97,7 @@ export function RecordExerciseModal({
   onClose,
   onAdd,
   onRemove,
+  onPreviewItem,
 }: Props) {
   const { assignments } = usePrimaryStore();
   // Auto-pick a checktable that matches the student's grade. Falls back to
@@ -106,7 +109,6 @@ export function RecordExerciseModal({
   }, [checktables, student.grade]);
   const [checktableId, setChecktableId] = useState(initialChecktableId);
   const [search, setSearch] = useState("");
-  const [pageRange, setPageRange] = useState("");
   const [note, setNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -117,30 +119,15 @@ export function RecordExerciseModal({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Backdrop click discards in-flight input (page range / note / search). Only
-  // dismiss on backdrop when nothing has been typed; the Done button always closes.
-  const isPristine =
-    pageRange.trim() === "" && note.trim() === "" && search.trim() === "";
+  // Backdrop click discards in-flight input (note / search). Only dismiss on
+  // backdrop when nothing has been typed; the Done button always closes.
+  const isPristine = note.trim() === "" && search.trim() === "";
 
   const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
     onClose,
     isPristine,
     initialFocusRef: searchInputRef,
   });
-
-  // Forgive common range formats before validating: strip "p." prefixes,
-  // normalize en/em dashes, accept "5 to 10", and collapse whitespace.
-  // parsePageRange is strict (^\d+(-\d+)?$); we hand it a clean string.
-  const normalizedRange = pageRange
-    .trim()
-    .replace(/^p\.?\s*/i, "")
-    .replace(/[–—]/g, "-")
-    .replace(/\s*to\s*/i, "-")
-    .replace(/\s+/g, "");
-
-  const pageRangeIsInvalid =
-    pageRange.trim().length > 0 &&
-    !/^\d+-\d+$|^\d+$/.test(normalizedRange);
 
   useEffect(() => {
     return () => {
@@ -247,13 +234,9 @@ export function RecordExerciseModal({
   );
 
   const submit = (item: ChecktableItem) => {
-    if (pageRangeIsInvalid) return;
-    const { page_start, page_end } = parsePageRange(normalizedRange);
     onAdd({
       pdf_name: item.code,
       item_id: item.id,
-      page_start,
-      page_end,
       remarks: note || undefined,
     });
     setFlashItemId(item.id);
@@ -261,8 +244,8 @@ export function RecordExerciseModal({
     flashTimer.current = setTimeout(() => {
       setFlashItemId((cur) => (cur === item.id ? null : cur));
     }, 900);
-    // Keep pageRange and note so the tutor can record several PDFs from
-    // the same range in one go without retyping.
+    // Keep the note so the tutor can record several PDFs in one go without
+    // retyping it. Per-worksheet page ranges are set via the preview (eye).
   };
 
   return (
@@ -309,7 +292,7 @@ export function RecordExerciseModal({
           </button>
         </header>
 
-        <div className="px-5 py-3 border-b border-ink-100 grid sm:grid-cols-[1fr_140px_1fr] gap-3">
+        <div className="px-5 py-3 border-b border-ink-100 grid sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-ink-500 mb-1">
               Checktable
@@ -325,28 +308,6 @@ export function RecordExerciseModal({
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-500 mb-1">
-              Page range
-            </label>
-            <input
-              type="text"
-              value={pageRange}
-              onChange={(e) => setPageRange(e.target.value)}
-              placeholder="e.g. 5 or 1-3"
-              aria-invalid={pageRangeIsInvalid || undefined}
-              className={`w-full rounded-md border px-2 py-1.5 text-sm ${
-                pageRangeIsInvalid
-                  ? "border-mc-red-500 focus:border-mc-red-600"
-                  : "border-ink-200"
-              }`}
-            />
-            {pageRangeIsInvalid && (
-              <div className="text-[10px] text-mc-red-600 mt-1">
-                Use "5" or "1-3"
-              </div>
-            )}
           </div>
           <div>
             <label className="block text-xs text-ink-500 mb-1">
@@ -388,7 +349,7 @@ export function RecordExerciseModal({
           )}
           {isGrid && (
             <span className="text-xs text-ink-500">
-              Tap any chip to record it. Page range and note apply to each.
+              Tap any chip to record the whole worksheet. The note applies to each.
             </span>
           )}
           <div
@@ -499,17 +460,12 @@ export function RecordExerciseModal({
                     const { Icon: StatusIcon, className: statusCls } =
                       statusIcon(status);
                     return (
-                      <li key={item.id}>
+                      <li key={item.id} className="flex items-stretch gap-1 -mx-2">
                         <button
                           type="button"
                           onClick={() => submit(item)}
-                          disabled={pageRangeIsInvalid}
-                          title={
-                            pageRangeIsInvalid
-                              ? "Fix the page range first"
-                              : "Click to record"
-                          }
-                          className={`group w-full -mx-2 px-2 py-2 rounded-md flex items-center justify-between gap-3 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          title="Click to record the whole worksheet"
+                          className={`group flex-1 min-w-0 px-2 py-2 rounded-md flex items-center justify-between gap-3 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                             isFlashing
                               ? "bg-emerald-100"
                               : "hover:bg-ink-50 focus-visible:bg-ink-50 outline-none"
@@ -570,6 +526,17 @@ export function RecordExerciseModal({
                             )}
                           </span>
                         </button>
+                        {onPreviewItem && (
+                          <button
+                            type="button"
+                            onClick={() => onPreviewItem(item)}
+                            className="shrink-0 px-2 rounded-md text-ink-400 hover:text-ink-700 hover:bg-ink-50 focus-visible:bg-ink-50 outline-none inline-flex items-center"
+                            aria-label={`Preview ${item.code} and set pages`}
+                            title="Preview and set pages"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
                       </li>
                     );
                   })}

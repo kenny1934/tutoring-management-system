@@ -10,6 +10,11 @@ import {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Stack of open modals (innermost last) so that when one modal is opened from
+// within another — e.g. the worksheet preview launched from the record picker —
+// Escape only closes the topmost one, not both at once.
+const modalStack: symbol[] = [];
+
 type Options = {
   /** Close the modal. Fired on Escape, and on a backdrop click when pristine. */
   onClose: () => void;
@@ -42,6 +47,8 @@ export function useModalA11y({
   onCloseRef.current = onClose;
 
   useEffect(() => {
+    const token = Symbol("modal");
+    modalStack.push(token);
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const target =
       initialFocusRef?.current ??
@@ -50,11 +57,16 @@ export function useModalA11y({
     target?.focus();
 
     function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onCloseRef.current();
+      // Only the topmost modal reacts, so a stacked preview closes on its own.
+      if (e.key === "Escape" && modalStack[modalStack.length - 1] === token) {
+        onCloseRef.current();
+      }
     }
     document.addEventListener("keydown", onEsc);
     return () => {
       document.removeEventListener("keydown", onEsc);
+      const i = modalStack.lastIndexOf(token);
+      if (i !== -1) modalStack.splice(i, 1);
       previouslyFocused?.focus?.();
     };
     // Mount-only: refs cover late values; onClose is read via onCloseRef.

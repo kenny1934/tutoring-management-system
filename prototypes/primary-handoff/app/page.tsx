@@ -170,7 +170,7 @@ export default function DashboardPage() {
               <EmptyState
                 Icon={Calendar}
                 title="Nothing on today"
-                hint="Use the Sessions page to plan or look back at recent meetings."
+                hint="Use the Sessions page to plan or look back at recent lessons."
               />
             )}
             {todaySessions.map((s) => {

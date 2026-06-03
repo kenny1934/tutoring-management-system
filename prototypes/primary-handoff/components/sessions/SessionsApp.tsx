@@ -454,6 +454,13 @@ export function SessionsApp() {
               exerciseId
             )
           }
+          onPreviewItem={(item) =>
+            openWorksheet(
+              exerciseEditor.sessionId,
+              exerciseEditor.studentId,
+              { mode: "log", kind: exerciseEditor.kind, item }
+            )
+          }
         />
       )}
 
