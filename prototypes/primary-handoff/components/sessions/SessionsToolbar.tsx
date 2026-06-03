@@ -119,7 +119,7 @@ export function SessionsToolbar({
             onChange={(e) =>
               onStatusChange(e.target.value as StatusFilter)
             }
-            className="bg-transparent text-sm text-ink-800 focus:outline-none pr-1"
+            className="bg-transparent text-sm text-ink-800 focus:outline-none pr-1 max-w-[140px] truncate"
           >
             <option value="all">All</option>
             {statusOptions.map((s) => (
@@ -163,9 +163,9 @@ function SelectChip({
   children: React.ReactNode;
 }) {
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-md border border-mc-line bg-white pl-2 pr-1 py-1">
-      <Icon className="h-3.5 w-3.5 text-ink-400" />
-      <span className="text-xs text-ink-500">{label}</span>
+    <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-mc-line bg-white pl-2 pr-1 py-1">
+      <Icon className="h-3.5 w-3.5 text-ink-400 shrink-0" />
+      <span className="text-xs text-ink-500 shrink-0">{label}</span>
       {children}
     </div>
   );

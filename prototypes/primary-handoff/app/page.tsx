@@ -159,7 +159,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-3 min-w-0">
           <PanelHeader
             title="Today's sessions"
             count={todaySessions.length}
@@ -206,7 +206,9 @@ export default function DashboardPage() {
                       {s.lesson_number > 0 && ` · Lesson ${s.lesson_number}`}
                     </div>
                   </div>
-                  <div className={`text-xs font-medium ${cfg.textClass} shrink-0`}>
+                  <div
+                    className={`text-xs font-medium ${cfg.textClass} shrink-0 max-w-[42%] truncate text-right`}
+                  >
                     {s.session_status}
                   </div>
                   <ArrowRight className="h-4 w-4 text-ink-300 shrink-0" />
@@ -216,7 +218,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0">
           <PanelHeader
             title="Follow-ups due"
             count={followUpsDue.length}

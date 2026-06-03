@@ -39,6 +39,11 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
 
   return (
     <div className="surface-mc overflow-hidden">
+      {/* Horizontal scroll on narrow screens so the 7 day-columns keep a
+       *  usable width instead of crushing to ~50px on phones. Header and
+       *  body share one scroll container so they stay aligned. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[680px]">
       <div className="grid grid-cols-7 border-b border-mc-line bg-ink-50">
         {weekDays.map((day) => {
           const isAnchor = day.iso === anchorDate;
@@ -53,17 +58,19 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
               <div className="text-[10px] uppercase tracking-wide text-ink-500 font-medium">
                 {day.weekday}
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 min-w-0">
                 <span
-                  className={`text-lg font-semibold tabular-nums ${
+                  className={`text-lg font-semibold tabular-nums shrink-0 ${
                     isAnchor ? "text-mc-red-700" : "text-ink-900"
                   }`}
                 >
                   {day.dayNum}
                 </span>
-                <span className="text-[10px] text-ink-400">{day.month}</span>
+                <span className="text-[10px] text-ink-400 truncate">
+                  {day.month}
+                </span>
                 {isToday && (
-                  <span className="ml-auto text-[9px] uppercase font-semibold tracking-wide text-mc-red-600">
+                  <span className="ml-auto shrink-0 text-[9px] uppercase font-semibold tracking-wide text-mc-red-600">
                     Today
                   </span>
                 )}
@@ -100,6 +107,8 @@ export function WeeklyView({ meetings, anchorDate, studentById, onPick }: Props)
             </div>
           );
         })}
+      </div>
+        </div>
       </div>
     </div>
   );
