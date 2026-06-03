@@ -10,6 +10,7 @@ import {
   CalendarRange,
 } from "lucide-react";
 import type { SessionStatusValue } from "@/lib/types";
+import { addDaysIso, isoMondayOf } from "@/lib/datetime";
 
 export type ViewMode = "list" | "weekly";
 
@@ -48,7 +49,14 @@ export function SessionsToolbar({
   onViewChange,
   resultCount,
 }: Props) {
-  const label = formatDateLabel(selectedDate);
+  const isWeekly = view === "weekly";
+  // In weekly mode the stepper pages by whole weeks and the label reads as a
+  // Mon–Sun range, so "prev/next" matches the unit the user is actually
+  // looking at. In list mode it stays a single-day stepper.
+  const label = isWeekly
+    ? formatWeekRangeLabel(selectedDate)
+    : formatDateLabel(selectedDate);
+  const step = isWeekly ? 7 : 1;
 
   const shiftDate = (deltaDays: number) => {
     // Stay entirely in UTC: parse at 00:00Z, step with setUTCDate, format with
@@ -65,15 +73,15 @@ export function SessionsToolbar({
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-center rounded-md border border-mc-line bg-white">
           <button
-            onClick={() => shiftDate(-1)}
+            onClick={() => shiftDate(-step)}
             className="p-1.5 text-ink-600 hover:bg-ink-100 rounded-l-md"
-            aria-label="Previous day"
+            aria-label={isWeekly ? "Previous week" : "Previous day"}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <label className="relative flex items-center px-2 py-1 cursor-pointer">
             <CalendarDays className="h-3.5 w-3.5 text-ink-500 mr-1.5" />
-            <span className="text-sm font-medium text-ink-900 tabular-nums">
+            <span className="text-sm font-medium text-ink-900 tabular-nums whitespace-nowrap">
               {label}
             </span>
             <input
@@ -81,13 +89,13 @@ export function SessionsToolbar({
               value={selectedDate}
               onChange={(e) => onDateChange(e.target.value)}
               className="absolute inset-0 opacity-0 cursor-pointer"
-              aria-label="Pick date"
+              aria-label={isWeekly ? "Pick a week" : "Pick date"}
             />
           </label>
           <button
-            onClick={() => shiftDate(1)}
+            onClick={() => shiftDate(step)}
             className="p-1.5 text-ink-600 hover:bg-ink-100 rounded-r-md"
-            aria-label="Next day"
+            aria-label={isWeekly ? "Next week" : "Next day"}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -96,9 +104,9 @@ export function SessionsToolbar({
         {!isToday && (
           <button
             onClick={onJumpToToday}
-            className="text-xs rounded-md border border-mc-line bg-white text-ink-700 hover:bg-ink-100 px-2 py-1.5 font-medium"
+            className="text-xs rounded-md border border-mc-line bg-white text-ink-700 hover:bg-ink-100 px-2 py-1.5 font-medium whitespace-nowrap"
           >
-            Today
+            {isWeekly ? "This week" : "Today"}
           </button>
         )}
 
@@ -213,4 +221,29 @@ function formatDateLabel(yyyyMmDd: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+/** "18 – 24 May 2026" for the Mon–Sun week containing `yyyyMmDd`. Collapses
+ *  the shared month/year so the common case stays compact; spells both out
+ *  when the week straddles a month or year boundary. */
+function formatWeekRangeLabel(yyyyMmDd: string): string {
+  const monday = isoMondayOf(yyyyMmDd);
+  const sunday = addDaysIso(monday, 6);
+  const a = new Date(`${monday}T00:00:00Z`);
+  const b = new Date(`${sunday}T00:00:00Z`);
+  const day = (d: Date) => d.toLocaleDateString("en-HK", { day: "numeric", timeZone: "UTC" });
+  const monthYear = (d: Date) =>
+    d.toLocaleDateString("en-HK", { month: "short", year: "numeric", timeZone: "UTC" });
+  const dayMonthYear = (d: Date) =>
+    d.toLocaleDateString("en-HK", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+
+  if (a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear()) {
+    return `${day(a)} – ${day(b)} ${monthYear(b)}`;
+  }
+  return `${dayMonthYear(a)} – ${dayMonthYear(b)}`;
 }

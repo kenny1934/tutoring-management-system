@@ -79,6 +79,37 @@ export const enrollments: Enrollment[] = [
     room: "Room 2",
     first_lesson_date: "2026-04-01",
   },
+  // Mr Lawrence Lee's P3 pair — Tuesday 16:30 in Room 1. Deliberately offset
+  // 30 min from Ms Wong's 16:00 class so the two meetings overlap in the
+  // weekly time-grid (different tutors, same afternoon).
+  {
+    id: "enr-005",
+    student_id: "s-005",
+    tutor_id: "t-lee",
+    tutor_name: "Mr Lawrence Lee",
+    lessons_total: 8,
+    started_at: "2026-03-11",
+    enrollment_type: "Regular",
+    assigned_day: 2,
+    assigned_time: "16:30",
+    duration_mins: 90,
+    room: "Room 1",
+    first_lesson_date: "2026-03-11",
+  },
+  {
+    id: "enr-006",
+    student_id: "s-006",
+    tutor_id: "t-lee",
+    tutor_name: "Mr Lawrence Lee",
+    lessons_total: 8,
+    started_at: "2026-03-11",
+    enrollment_type: "Regular",
+    assigned_day: 2,
+    assigned_time: "16:30",
+    duration_mins: 90,
+    room: "Room 1",
+    first_lesson_date: "2026-03-11",
+  },
 ];
 
 /** Tutors available in the create-enrollment picker. */
@@ -179,6 +210,43 @@ export const sessions: Session[] = [
     room: "Room 2",
     lesson_number: 9,
     session_status: SessionStatus.SCHEDULED,
+    cw: [],
+    hw: [],
+  },
+
+  // === Today (2026-05-19 16:30) — Mr Lawrence Lee P3 meeting, lesson 8 ===
+  // Runs alongside Ms Wong's 16:00 + 17:30 classes, so under the "All tutors"
+  // filter the weekly grid shows these side-by-side. Mixed attendance (one
+  // present, one no-show) also demos the meeting stripe's worst-state colour.
+  {
+    id: "sess-005-s-005",
+    enrollment_id: "enr-005",
+    student_id: "s-005",
+    ...lee,
+    session_date: "2026-05-19",
+    start_time: "16:30",
+    duration_mins: 90,
+    room: "Room 1",
+    lesson_number: 8,
+    session_status: SessionStatus.ATTENDED,
+    performance_rating: 4,
+    class_wide_note: "Fractions recap, then this week's worksheet set.",
+    cw: [],
+    hw: [],
+  },
+  {
+    id: "sess-005-s-006",
+    enrollment_id: "enr-006",
+    student_id: "s-006",
+    ...lee,
+    session_date: "2026-05-19",
+    start_time: "16:30",
+    duration_mins: 90,
+    room: "Room 1",
+    lesson_number: 8,
+    session_status: SessionStatus.NO_SHOW,
+    notes: "No call, no show",
+    class_wide_note: "Fractions recap, then this week's worksheet set.",
     cw: [],
     hw: [],
   },

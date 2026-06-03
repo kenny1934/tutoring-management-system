@@ -44,6 +44,7 @@ import {
   type PendingHomeworkEntry,
 } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
+import { addDaysIso, isoMondayOf } from "@/lib/datetime";
 import { getSessionStatusConfig } from "@/lib/session-status-config";
 import { RecordExerciseModal } from "./RecordExerciseModal";
 import { MakeupModal } from "./MakeupModal";
@@ -279,6 +280,17 @@ export function SessionsApp() {
     [filteredSessions]
   );
 
+  // Meetings inside the Mon–Sun week shown by the weekly view. Used for the
+  // toolbar count so "N lessons" matches what's on screen (allMeetings spans
+  // every date in the dataset, not just the visible week).
+  const weekMeetingCount = useMemo(() => {
+    const monday = isoMondayOf(selectedDate);
+    const sunday = addDaysIso(monday, 6);
+    return allMeetings.filter(
+      (m) => m.session_date >= monday && m.session_date <= sunday
+    ).length;
+  }, [allMeetings, selectedDate]);
+
   const setStatus = (
     sessionId: string,
     next: { session_status: SessionStatusValue; attendance_status?: string }
@@ -332,7 +344,7 @@ export function SessionsApp() {
         view={view}
         onViewChange={setView}
         resultCount={
-          view === "list" ? meetingsForDate.length : allMeetings.length
+          view === "list" ? meetingsForDate.length : weekMeetingCount
         }
       />
 
@@ -356,6 +368,7 @@ export function SessionsApp() {
           meetings={allMeetings}
           anchorDate={selectedDate}
           studentById={studentById}
+          tutorFilter={tutorFilter}
           onPick={(meeting) => {
             setSelectedDate(meeting.session_date);
             setView("list");
